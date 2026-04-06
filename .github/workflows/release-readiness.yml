@@ -24,8 +24,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: release-readiness-${{ github.ref }}
-  cancel-in-progress: false
+  group: release-readiness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   release-readiness:

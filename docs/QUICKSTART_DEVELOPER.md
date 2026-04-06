@@ -263,7 +263,7 @@ aragora serve --api-port 8080 --ws-port 8765
 
 This gives you the REST API (3,000+ operations), WebSocket streaming, and programmatic access to debates, receipts, and analytics.
 
-See [API Reference](./api/API_REFERENCE.md) for endpoint-level details and [Documentation Index](INDEX.md) for architecture navigation.
+Start with the [Curated API Reference](./api/API_REFERENCE_CURATED.md) for the essential endpoints most teams use first, use the [Full API Reference](./api/API_REFERENCE.md) for endpoint-level schemas and details, and see the [Documentation Index](INDEX.md) for architecture navigation.
 
 ---
 
@@ -293,6 +293,9 @@ Approximate cost per review (2 agents, 2 rounds, typical PR):
 
 ## Next Steps
 
-- [API Reference](./api/API_REFERENCE.md) -- REST API documentation
+- [Curated API Reference](./api/API_REFERENCE_CURATED.md) -- essential endpoints for debates, agents, knowledge, and workflows
+- [API Quickstart](./api/API_QUICK_START.md) -- start the server and hit your first endpoint in 5 minutes
+- [SDK Quickstart](./SDK_QUICKSTART.md) -- install-to-first-debate in under 2 minutes
+- [Full API Reference](./api/API_REFERENCE.md) -- complete REST API documentation (3,000+ operations)
 - [Documentation Index](INDEX.md) -- architecture, memory tiers, and reference entry points
 - Example workflows: `examples/github-action/` in the repository

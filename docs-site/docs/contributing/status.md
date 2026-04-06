@@ -48,9 +48,9 @@ The current execution order is now:
 
 Canonical references:
 
-- [docs/status/NEXT_STEPS_CANONICAL.md](status/NEXT_STEPS_CANONICAL.md)
-- [docs/status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md)
-- [docs/plans/PMF_DOGFOOD_EXECUTION_PLAN.md](plans/PMF_DOGFOOD_EXECUTION_PLAN.md)
+- [docs/status/NEXT_STEPS_CANONICAL.md](./next-steps-canonical)
+- [docs/status/ACTIVE_EXECUTION_ISSUES.md](./active-execution-issues)
+- [docs/plans/PMF_DOGFOOD_EXECUTION_PLAN.md](./pmf-dogfood-execution-plan)
 
 ### Wave 2 Surface Productization
 

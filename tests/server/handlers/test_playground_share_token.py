@@ -9,14 +9,20 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.server.handlers.base import json_response
-from aragora.server.handlers.playground import PlaygroundHandler, _reset_rate_limits
+from aragora.server.handlers.playground import (
+    PlaygroundHandler,
+    _reset_oracle_sessions,
+    _reset_rate_limits,
+)
 
 
 @pytest.fixture(autouse=True)
 def _clean_rate_limits():
     _reset_rate_limits()
+    _reset_oracle_sessions()
     yield
     _reset_rate_limits()
+    _reset_oracle_sessions()
 
 
 @pytest.fixture(autouse=True)

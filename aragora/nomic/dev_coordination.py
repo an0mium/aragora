@@ -2769,6 +2769,34 @@ class DevCoordinationStore:
         )
         return True
 
+    def sync_completion_receipt_verification(
+        self,
+        *,
+        receipt_id: str,
+        verification_results: list[dict[str, Any]],
+        replayed_at: str | None = None,
+    ) -> bool:
+        normalized_receipt_id = str(receipt_id or "").strip()
+        if not normalized_receipt_id:
+            return False
+        timestamp = str(replayed_at or _utcnow().isoformat()).strip() or _utcnow().isoformat()
+        normalized_results = [
+            dict(entry) for entry in verification_results if isinstance(entry, dict)
+        ]
+        conn = self._connect()
+        try:
+            updated = self._update_completion_receipt_verification_locked(
+                conn,
+                receipt_id=normalized_receipt_id,
+                verification_results=normalized_results,
+                replayed_at=timestamp,
+            )
+            if updated:
+                conn.commit()
+            return updated
+        finally:
+            conn.close()
+
     def _replay_merge_gate_failures(
         self,
         *,
