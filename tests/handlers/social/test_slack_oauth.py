@@ -987,6 +987,60 @@ class TestCallback:
         assert mock_workspace_cls.call_args.kwargs["scopes"] == ["channels:history", "chat:write"]
 
     @pytest.mark.asyncio
+    async def test_callback_rejects_nonstring_scope_entry(self, handler):
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "team": {"id": "W123", "name": "My Team"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": ["channels:history", {"bad": "chat:write"}],
+            }
+        )
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 500
+        body = _body(result)
+        assert "invalid response from slack" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_callback_rejects_malformed_scope_payload(self, handler):
+        mock_client, _ = _make_httpx_mock(
+            {
+                "ok": True,
+                "access_token": "xoxb-new-token",
+                "team": {"id": "W123", "name": "My Team"},
+                "bot_user_id": "B789",
+                "authed_user": {"id": "U456"},
+                "scope": {"bad": "channels:history"},
+            }
+        )
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await handler.handle(
+                "GET",
+                "/api/integrations/slack/callback",
+                {},
+                {"code": "test-code", "state": "test-state-token-abc123"},
+                {},
+                None,
+            )
+
+        assert _status(result) == 500
+        body = _body(result)
+        assert "invalid response from slack" in body.get("error", "").lower()
+
+    @pytest.mark.asyncio
     async def test_callback_rejects_nonstring_workspace_identity_fields(self, handler):
         mock_client, _ = _make_httpx_mock(
             {
@@ -2046,6 +2100,60 @@ class TestUninstall:
             "event": {
                 "type": "tokens_revoked",
                 "tokens": {"bot": []},
+            },
+        }
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_workspace_store,
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body,
+                {},
+                {},
+                None,
+            )
+        assert _status(result) == 200
+        mock_workspace_store.deactivate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_uninstall_malformed_event_payload_still_acks(
+        self, handler, mock_workspace_store, monkeypatch
+    ):
+        monkeypatch.setenv("ARAGORA_ENV", "test")
+        monkeypatch.setenv("SLACK_SIGNING_SECRET", "")
+        body = {
+            "team_id": "W123",
+            "event": True,
+        }
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_workspace_store,
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body,
+                {},
+                {},
+                None,
+            )
+        assert _status(result) == 200
+        assert _body(result).get("ok") is True
+        mock_workspace_store.deactivate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_tokens_revoked_malformed_bot_tokens_no_deactivation(
+        self, handler, mock_workspace_store, monkeypatch
+    ):
+        monkeypatch.setenv("ARAGORA_ENV", "test")
+        monkeypatch.setenv("SLACK_SIGNING_SECRET", "")
+        body = {
+            "team_id": "W123",
+            "event": {
+                "type": "tokens_revoked",
+                "tokens": {"bot": "xoxb-old"},
             },
         }
         with patch(

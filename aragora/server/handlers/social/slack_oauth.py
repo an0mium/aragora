@@ -229,6 +229,24 @@ def _parse_slack_string_field(raw_value: Any, *, field_name: str, required: bool
     return value
 
 
+def _parse_slack_scopes(raw_value: Any) -> list[str]:
+    """Parse Slack scope payloads while rejecting malformed non-string entries."""
+    if raw_value is None or raw_value == "":
+        return []
+    if isinstance(raw_value, str):
+        return [item.strip() for item in raw_value.split(",") if item.strip()]
+    if isinstance(raw_value, (list, tuple, set)):
+        scopes: list[str] = []
+        for entry in raw_value:
+            if not isinstance(entry, str):
+                raise ValueError("scope entries must be strings")
+            value = entry.strip()
+            if value:
+                scopes.append(value)
+        return scopes
+    raise ValueError("scope must be a string or list of strings")
+
+
 def _get_oauth_audit_logger() -> Any:
     """Get or create Slack audit logger for OAuth (lazy initialization)."""
     global _slack_oauth_audit
@@ -1240,13 +1258,11 @@ class SlackOAuthHandler(SecureHandler):
         team = team_payload if isinstance(team_payload, dict) else {}
         authed_user_payload = data.get("authed_user")
         authed_user = authed_user_payload if isinstance(authed_user_payload, dict) else {}
-        raw_scope = data.get("scope", "")
-        if isinstance(raw_scope, str):
-            scope = raw_scope
-        elif isinstance(raw_scope, (list, tuple, set)):
-            scope = ",".join(str(item).strip() for item in raw_scope if str(item).strip())
-        else:
-            scope = str(raw_scope or "").strip()
+        try:
+            scope_entries = _parse_slack_scopes(data.get("scope", ""))
+        except ValueError:
+            logger.error("[%s] Slack token exchange returned malformed scope payload", request_id)
+            return error_response("Invalid response from Slack", 500)
 
         try:
             expires_in = _parse_expires_in(data.get("expires_in"))
@@ -1365,7 +1381,7 @@ class SlackOAuthHandler(SecureHandler):
                 bot_user_id=bot_user_id,
                 installed_at=time.time(),
                 installed_by=installed_by,
-                scopes=scope.split(",") if scope else [],
+                scopes=scope_entries,
                 tenant_id=requested_tenant_id or existing_tenant_id,
                 is_active=True,
                 refresh_token=refresh_token,
@@ -1395,7 +1411,7 @@ class SlackOAuthHandler(SecureHandler):
                     action="install",
                     success=True,
                     user_id=installed_by or "",
-                    scopes=scope.split(",") if scope else [],
+                    scopes=scope_entries,
                 )
 
         except ImportError as e:
@@ -1543,11 +1559,41 @@ class SlackOAuthHandler(SecureHandler):
                 logger.warning("Invalid Slack signature")
                 return error_response("Invalid signature", 401)
 
-        event = body.get("event", {})
-        event_type = event.get("type")
+        event_payload = body.get("event")
+        event = event_payload if isinstance(event_payload, dict) else {}
+        try:
+            event_type = (
+                _parse_slack_string_field(
+                    event.get("type"),
+                    field_name="event.type",
+                    required=False,
+                )
+                or ""
+            )
+        except ValueError:
+            logger.warning("Ignoring malformed Slack uninstall event type")
+            event_type = ""
 
         if event_type == "app_uninstalled":
-            workspace_id = body.get("team_id") or event.get("team_id")
+            workspace_id = ""
+            for raw_value, field_name in (
+                (body.get("team_id"), "team_id"),
+                (event.get("team_id"), "event.team_id"),
+            ):
+                try:
+                    candidate_workspace_id = _parse_slack_string_field(
+                        raw_value,
+                        field_name=field_name,
+                        required=False,
+                    )
+                except ValueError:
+                    logger.warning(
+                        "Ignoring malformed Slack uninstall workspace id in %s", field_name
+                    )
+                    continue
+                if candidate_workspace_id:
+                    workspace_id = candidate_workspace_id
+                    break
 
             if workspace_id:
                 try:
@@ -1572,9 +1618,26 @@ class SlackOAuthHandler(SecureHandler):
                     logger.warning("Could not deactivate workspace - store unavailable")
 
         elif event_type == "tokens_revoked":
-            workspace_id = body.get("team_id")
-            tokens = event.get("tokens", {})
-            bot_tokens = tokens.get("bot", [])
+            try:
+                workspace_id = (
+                    _parse_slack_string_field(
+                        body.get("team_id"),
+                        field_name="team_id",
+                        required=False,
+                    )
+                    or ""
+                )
+            except ValueError:
+                logger.warning("Ignoring malformed Slack tokens_revoked workspace id")
+                workspace_id = ""
+            tokens_payload = event.get("tokens")
+            tokens = tokens_payload if isinstance(tokens_payload, dict) else {}
+            bot_payload = tokens.get("bot", [])
+            bot_tokens = (
+                [token.strip() for token in bot_payload if isinstance(token, str) and token.strip()]
+                if isinstance(bot_payload, (list, tuple, set))
+                else []
+            )
 
             if workspace_id and bot_tokens:
                 try:

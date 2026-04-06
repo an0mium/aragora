@@ -324,33 +324,26 @@ class TestRunAsyncInEventLoop:
 
     @pytest.mark.asyncio
     async def test_from_async_context(self):
-        """run_async should reject unrelated async contexts."""
+        """run_async should support nested calls from the current event loop."""
 
         async def inner():
             return "from_thread"
 
-        coro = inner()
-        try:
-            with pytest.raises(RuntimeError, match="cannot be called from an async context"):
-                run_async(coro)
-        finally:
-            coro.close()
+        assert run_async(inner()) == "from_thread"
 
     @pytest.mark.asyncio
     async def test_concurrent_run_async(self):
-        """Repeated async-context calls should fail consistently."""
+        """Repeated async-context calls should succeed consistently."""
 
         async def task(n):
             await asyncio.sleep(0.01)
             return n * 2
 
+        results = []
         for i in range(3):
-            coro = task(i)
-            try:
-                with pytest.raises(RuntimeError, match="cannot be called from an async context"):
-                    run_async(coro)
-            finally:
-                coro.close()
+            results.append(run_async(task(i)))
+
+        assert results == [0, 2, 4]
 
 
 class TestQueryParamWhitelistCompleteness:
