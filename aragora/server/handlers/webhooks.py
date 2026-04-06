@@ -298,6 +298,21 @@ class WebhookHandler(SecureHandler):
             return error_response("Webhook not found", 404)
         return cls._forbidden_webhook_access()
 
+    @staticmethod
+    def _parse_events_field(raw_events: Any) -> list[str] | None:
+        """Normalize webhook events while rejecting malformed non-list payloads."""
+        if not isinstance(raw_events, (list, tuple, set)):
+            return None
+        events: list[str] = []
+        for raw_event in raw_events:
+            if not isinstance(raw_event, str):
+                return None
+            event = raw_event.strip()
+            if not event:
+                return None
+            events.append(event)
+        return events
+
     @api_endpoint(
         path="/api/v1/webhooks",
         method="GET",
@@ -687,7 +702,9 @@ The webhook secret is only returned once on creation - save it securely.""",
         if not is_valid:
             return error_response(f"Invalid webhook URL: {error_msg}", 400)
 
-        events = body.get("events", [])
+        events = self._parse_events_field(body.get("events", []))
+        if events is None:
+            return error_response("Events must be a list of strings", 400)
         if not events:
             return error_response("At least one event type is required", 400)
 
@@ -795,8 +812,12 @@ The webhook secret is only returned once on creation - save it securely.""",
                 return error_response(f"Invalid webhook URL: {error_msg}", 400)
 
         # Validate events if provided
-        events = body.get("events")
-        if events:
+        events = None
+        if "events" in body:
+            events = self._parse_events_field(body.get("events"))
+            if events is None:
+                return error_response("Events must be a list of strings", 400)
+        if events is not None:
             invalid_events = [e for e in events if e != "*" and e not in WEBHOOK_EVENTS]
             if invalid_events:
                 return error_response(f"Invalid event types: {', '.join(invalid_events)}", 400)

@@ -512,6 +512,25 @@ class TestWebhookHandlerRegister:
         assert result.status_code == 400
         assert b"Invalid event" in result.body
 
+    @pytest.mark.asyncio
+    async def test_register_webhook_rejects_string_events_payload(self, webhook_handler):
+        """String event payloads must not become wildcard subscriptions."""
+        body = json.dumps(
+            {
+                "url": "https://example.com",
+                "events": "*",
+            }
+        ).encode()
+        handler = MockHandler(
+            headers={"Content-Length": str(len(body)), "Content-Type": "application/json"},
+            body=body,
+        )
+
+        result = await webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
+
+        assert result.status_code == 400
+        assert b"list of strings" in result.body.lower()
+
 
 class TestWebhookHandlerList:
     """Tests for GET /api/webhooks endpoint."""
@@ -825,6 +844,24 @@ class TestWebhookHandlerUpdate:
 
         result = webhook_handler.handle_patch(f"/api/v1/webhooks/{webhook.id}", {}, handler)
         assert result.status_code == 400
+
+    def test_update_webhook_rejects_string_events_payload(self, webhook_handler, server_context):
+        """String event payloads must not bypass PATCH validation."""
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com", events=["debate_start"], user_id="test-user-001"
+        )
+
+        body = json.dumps({"events": "*"}).encode()
+        handler = MockHandler(
+            headers={"Content-Length": str(len(body)), "Content-Type": "application/json"},
+            body=body,
+        )
+
+        result = webhook_handler.handle_patch(f"/api/v1/webhooks/{webhook.id}", {}, handler)
+
+        assert result.status_code == 400
+        assert b"list of strings" in result.body.lower()
 
     def test_update_webhook_hides_workspace_mismatch(self, server_context):
         from aragora.server.handlers.webhooks import WebhookHandler
