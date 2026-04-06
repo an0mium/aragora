@@ -5106,6 +5106,57 @@ async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationSt
 
 
 @pytest.mark.asyncio
+async def test_dispatch_handles_missing_cli_when_sticky_flag_is_malformed(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="missing cli malformed sticky flag test",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "test"},
+        work_orders=[
+            {
+                "work_order_id": "wo-fail",
+                "status": "leased",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "metadata": {
+                    "requested_target_agent": "claude",
+                    "sticky_target_agent": "false",
+                },
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.launch = AsyncMock(side_effect=FileNotFoundError("claude CLI not found"))
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        launcher=mock_launcher,
+    )
+
+    launched = await supervisor.dispatch_workers(run_id)
+    assert len(launched) == 0
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "leased"
+    assert wo["target_agent"] == "codex"
+    assert wo["reviewer_agent"] == "claude"
+    assert wo["metadata"]["requested_target_agent"] == "claude"
+    assert wo["metadata"]["sticky_target_agent"] == "false"
+    assert wo["metadata"]["last_failure_reason"] == "agent_unavailable"
+    assert "fallback_suppressed_reason" not in wo["metadata"]
+
+
+@pytest.mark.asyncio
 async def test_dispatch_workers_keeps_explicit_target_agent_sticky(repo: Path) -> None:
     store = DevCoordinationStore(repo_root=repo)
     mock_launcher = MagicMock(spec=WorkerLauncher)

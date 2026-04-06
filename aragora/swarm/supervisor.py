@@ -3995,7 +3995,7 @@ class SwarmSupervisor:
         current_agent = str(item.get("target_agent", "")).strip().lower()
         metadata = dict(item.get("metadata") or {})
         requested_target_agent = str(metadata.get("requested_target_agent", "")).strip().lower()
-        sticky_target_agent = bool(metadata.get("sticky_target_agent", False))
+        sticky_target_agent = _strict_bool(metadata.get("sticky_target_agent")) is True
         fallback_agent = self._alternate_agent(current_agent)
         if not fallback_agent:
             return False
