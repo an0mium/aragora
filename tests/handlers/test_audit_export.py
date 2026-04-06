@@ -16,6 +16,15 @@ from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
 
 
+@pytest.fixture(autouse=True)
+def _reset_audit_log_singleton():
+    import aragora.server.handlers.audit_export as module
+
+    module._audit_log = None
+    yield
+    module._audit_log = None
+
+
 class TestAuditEventsHandler:
     """Tests for audit events query endpoint."""
 

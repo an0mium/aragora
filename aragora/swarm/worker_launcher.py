@@ -605,15 +605,16 @@ class WorkerLauncher:
         return dict(metadata) if isinstance(metadata, dict) else {}
 
     @staticmethod
-    def _truthy(value: Any) -> bool:
+    def _strict_bool(value: Any) -> bool | None:
         if isinstance(value, bool):
             return value
-        return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+        return None
 
     @classmethod
     def _is_admin_approved(cls, work_order: dict[str, Any], metadata: dict[str, Any]) -> bool:
-        return cls._truthy(work_order.get("admin_approved")) or cls._truthy(
-            metadata.get("admin_approved")
+        return (
+            cls._strict_bool(work_order.get("admin_approved")) is True
+            or cls._strict_bool(metadata.get("admin_approved")) is True
         )
 
     @staticmethod
@@ -1259,9 +1260,19 @@ class WorkerLauncher:
 
     @staticmethod
     def _normalized_pid(raw_pid: Any) -> int | None:
-        try:
-            pid = int(raw_pid)
-        except (TypeError, ValueError):
+        if isinstance(raw_pid, bool):
+            return None
+        if isinstance(raw_pid, int):
+            pid = raw_pid
+        elif isinstance(raw_pid, str):
+            text = raw_pid.strip()
+            if not text or not re.fullmatch(r"[0-9]+", text):
+                return None
+            try:
+                pid = int(text)
+            except ValueError:
+                return None
+        else:
             return None
         return pid if pid > 0 else None
 
@@ -1384,15 +1395,26 @@ class WorkerLauncher:
 
     @staticmethod
     def _terminal_session_result(session_meta: dict[str, Any]) -> tuple[int | None, str | None]:
-        ended_at = str(session_meta.get("ended_at", "")).strip()
+        raw_ended_at = session_meta.get("ended_at")
+        if not isinstance(raw_ended_at, str):
+            return None, None
+        ended_at = raw_ended_at.strip()
         if not ended_at:
             return None, None
         raw_exit_code = session_meta.get("exit_code")
         if isinstance(raw_exit_code, bool):
             return None, ended_at
-        try:
-            exit_code = int(raw_exit_code)
-        except (TypeError, ValueError):
+        if isinstance(raw_exit_code, int):
+            exit_code = raw_exit_code
+        elif isinstance(raw_exit_code, str):
+            text = raw_exit_code.strip()
+            if not text or not re.fullmatch(r"-?[0-9]+", text):
+                return None, ended_at
+            try:
+                exit_code = int(text)
+            except ValueError:
+                return None, ended_at
+        else:
             return None, ended_at
         return exit_code, ended_at
 

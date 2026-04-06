@@ -19,6 +19,7 @@ from aragora.swarm.supervisor import (
     LAUNCHER_CONFIG_METADATA_KEY,
     WORKER_TYPE_CIRCUIT_BREAKERS_KEY,
     WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY,
+    SwarmApprovalPolicy,
     SwarmSupervisor,
 )
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
@@ -242,6 +243,48 @@ def test_apply_launcher_snapshot_preserves_null_optional_fields(repo: Path) -> N
     assert supervisor.launcher.config.codex_model is None
     assert supervisor.launcher.config.claude_profile is None
     assert supervisor.launcher.config.claude_profile_script is None
+
+
+def test_apply_launcher_snapshot_rejects_malformed_boolean_fields(repo: Path) -> None:
+    supervisor = SwarmSupervisor(repo_root=repo)
+    supervisor.launcher.config = LaunchConfig(
+        auto_commit=False,
+        use_managed_session_script=False,
+        detach=False,
+        require_explicit_approval=True,
+        allow_claude_dangerously_skip_permissions=False,
+        allow_codex_full_auto=False,
+    )
+
+    supervisor._apply_launcher_config_snapshot(
+        {
+            "auto_commit": "false",
+            "use_managed_session_script": 1,
+            "detach": "false",
+            "require_explicit_approval": 0,
+            "allow_claude_dangerously_skip_permissions": "false",
+            "allow_codex_full_auto": "false",
+        }
+    )
+
+    assert supervisor.launcher.config.auto_commit is False
+    assert supervisor.launcher.config.use_managed_session_script is False
+    assert supervisor.launcher.config.detach is False
+    assert supervisor.launcher.config.require_explicit_approval is True
+    assert supervisor.launcher.config.allow_claude_dangerously_skip_permissions is False
+    assert supervisor.launcher.config.allow_codex_full_auto is False
+
+
+def test_swarm_approval_policy_from_dict_rejects_malformed_booleans() -> None:
+    policy = SwarmApprovalPolicy.from_dict(
+        {
+            "require_merge_approval": 0,
+            "require_external_action_approval": "false",
+        }
+    )
+
+    assert policy.require_merge_approval is True
+    assert policy.require_external_action_approval is True
 
 
 def test_start_run_discards_duplicate_open_non_deliverable_lane(
@@ -2532,6 +2575,68 @@ def test_refresh_run_releases_managed_conflicts_without_active_session(
     assert orphaned.lease_id not in active_lease_ids
 
 
+def test_refresh_run_releases_managed_conflicts_with_boolean_session_meta_pid(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    stale_path = repo / ".worktrees" / "codex-auto" / "swarm-bool-meta-docs"
+    stale_path.mkdir(parents=True)
+    (stale_path / ".codex_session_meta.json").write_text('{"pid": true}\n', encoding="utf-8")
+    orphaned = store.claim_lease(
+        task_id="old-docs-lane",
+        title="Old docs lane",
+        owner_agent="codex",
+        owner_session_id="swarm-bool-meta-docs",
+        branch="codex/stale-docs",
+        worktree_path=str(stale_path),
+        claimed_paths=["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+    )
+
+    lifecycle = MagicMock()
+    session_path = repo / "wt-docs-fresh-bool-meta"
+    session_path.mkdir()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="fresh-docs",
+        agent="codex",
+        branch="codex/fresh-docs",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="docs-lane",
+                title="Write operator guide",
+                description="Add operator guide.",
+                file_scope=["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+
+    with patch.object(WorkerLauncher, "_is_pid_running", side_effect=lambda pid: pid == 1):
+        run = supervisor.start_run(spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"))
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "leased"
+    assert work_order["lease_id"]
+    active_lease_ids = {lease.lease_id for lease in store.list_active_leases()}
+    assert orphaned.lease_id not in active_lease_ids
+
+
 def test_refresh_run_keeps_conflict_for_live_managed_session(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -2637,6 +2742,15 @@ def test_refresh_run_marks_resource_wait_on_disk_full(
     work_order = run.work_orders[0]
     assert work_order["status"] == "waiting_resource"
     assert "No space left on device" in work_order["resource_error"]
+    assert work_order["failure_reason"] == "waiting_resource"
+    assert work_order["blocking_question"] == (
+        "Which capacity or environment constraint must be resolved before this lane can proceed?"
+    )
+    assert work_order["blocker"] == {
+        "reason": "waiting_resource",
+        "question": work_order["blocking_question"],
+    }
+    assert work_order["blockers"] == ["No space left on device"]
 
 
 def test_start_run_prefers_explicit_spec_work_orders(
@@ -3122,8 +3236,11 @@ def test_refresh_run_invalid_scope_clears_stale_deliverable_state(
                 "pr_url": "https://github.com/synaptent/aragora/pull/9999",
                 "merge_gate": {"checks_passed": True},
                 "verification_missing_reason": "missing_verification_plan",
-                "resource_error": "old resource wait",
-                "conflicts": [{"source": "lease", "lease_id": "old-lease"}],
+                "resource_error": "stale disk full",
+                "conflicts": [{"path": "README.md", "source": "lease"}],
+                "failure_reason": "waiting_resource",
+                "blocking_question": "Old blocker?",
+                "blocker": {"reason": "waiting_resource", "question": "Old blocker?"},
                 "blockers": ["old blocker"],
             }
         ],
@@ -3141,7 +3258,6 @@ def test_refresh_run_invalid_scope_clears_stale_deliverable_state(
         work_order["dispatch_error"]
         == "Declared file scope resolved to no valid in-repo paths; declare scope before dispatch."
     )
-    assert work_order["blockers"] == [work_order["dispatch_error"]]
     for key in (
         "receipt_id",
         "confidence",
@@ -3156,6 +3272,11 @@ def test_refresh_run_invalid_scope_clears_stale_deliverable_state(
         "conflicts",
     ):
         assert key not in work_order
+    assert work_order["blocking_question"] != "Old blocker?"
+    assert work_order["blocker"] != {"reason": "waiting_resource", "question": "Old blocker?"}
+    assert work_order["blockers"] == [
+        "Declared file scope resolved to no valid in-repo paths; declare scope before dispatch."
+    ]
 
 
 def test_start_run_fails_closed_when_validated_scope_resolves_to_empty(
@@ -3650,6 +3771,38 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
     assert wo["stderr_tail"] == "worker stderr\n"
 
 
+def test_verification_results_from_result_rejects_malformed_values() -> None:
+    normalized = SwarmSupervisor._verification_results_from_result(
+        WorkerProcess(
+            work_order_id="wo-malformed-verification",
+            agent="claude",
+            worktree_path="/tmp/wo-malformed-verification",
+            branch="main",
+            verification_results=[
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "exit_code": 0.0,
+                    "passed": "true",
+                    "stdout": {"line": "ok"},
+                    "stderr": ["bad"],
+                    "duration_seconds": True,
+                }
+            ],
+        )
+    )
+
+    assert normalized == [
+        {
+            "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+            "exit_code": -1,
+            "passed": False,
+            "stdout": "{'line': 'ok'}",
+            "stderr": "['bad']",
+            "duration_seconds": 0.0,
+        }
+    ]
+
+
 @pytest.mark.asyncio
 async def test_collect_results_records_passed_merge_gate_checks(
     repo: Path, store: DevCoordinationStore
@@ -3754,6 +3907,94 @@ async def test_collect_results_records_passed_merge_gate_checks(
         "scope_violation",
     ):
         assert cleared_key not in wo
+
+
+@pytest.mark.asyncio
+async def test_collect_results_blocks_merge_gate_on_malformed_verification_metadata(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="merge-malformed-verification",
+        title="Merge malformed verification lane",
+        owner_agent="claude",
+        owner_session_id="merge-malformed-verification-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        expected_tests=["python -m pytest tests/swarm/test_supervisor.py -q"],
+    )
+    run_record = store.create_supervisor_run(
+        goal="merge gate malformed verification metadata",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "merge gate malformed verification metadata"},
+        work_orders=[
+            {
+                "work_order_id": "wo-merge-malformed-verification",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "owner_session_id": "merge-malformed-verification-session",
+                "lease_id": lease.lease_id,
+                "review_status": "pending",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    completed_worker = WorkerProcess(
+        work_order_id="wo-merge-malformed-verification",
+        agent="claude",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="merge-malformed-verification-session",
+        pid=100,
+        exit_code=0,
+        completed_at="2026-03-06T20:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        tests_run=["python -m pytest tests/swarm/test_supervisor.py -q"],
+        verification_results=[
+            {
+                "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                "exit_code": 0.0,
+                "passed": "true",
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": True,
+            }
+        ],
+    )
+    mock_launcher.get_worker = MagicMock(return_value=completed_worker)
+    mock_launcher.wait = AsyncMock(return_value=completed_worker)
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        launcher=mock_launcher,
+    )
+
+    results = await supervisor.collect_results(run_id)
+    assert len(results) == 1
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "needs_human"
+    assert wo["review_status"] == "changes_requested"
+    assert wo["worker_outcome"] == "merge_gate_failed"
+    assert wo["merge_gate"]["checks_passed"] is False
+    assert wo["verification_results"][0]["exit_code"] == -1
+    assert wo["verification_results"][0]["passed"] is False
+    assert wo["verification_results"][0]["duration_seconds"] == 0.0
+    assert "exit -1" in wo["dispatch_error"]
 
 
 @pytest.mark.asyncio
@@ -4085,6 +4326,28 @@ def test_merge_gate_state_normalizes_python_command_equivalence() -> None:
     assert state["blocked_reasons"] == []
 
 
+def test_merge_gate_state_rejects_nonboolean_passed_field() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "passed": "true",
+                    "exit_code": 0,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is False
+    assert state["merge_eligible"] is False
+    assert "verification failed" in state["blocked_reasons"][0]
+
+
 def test_merge_gate_state_rejects_broader_pytest_with_k_selector() -> None:
     """A recorded command with -k selectors must NOT satisfy an expected check
     via path-based equivalence -- the selectors may filter out the required tests."""
@@ -4107,6 +4370,50 @@ def test_merge_gate_state_rejects_broader_pytest_with_k_selector() -> None:
     assert state["checks_passed"] is False
     assert state["merge_eligible"] is False
     assert len(state["blocked_reasons"]) > 0
+
+
+def test_merge_gate_state_rejects_nonboolean_persisted_passed_flag() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "passed": "false",
+                    "exit_code": 0,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is False
+    assert state["merge_eligible"] is False
+    assert any("verification failed" in reason for reason in state["blocked_reasons"])
+
+
+def test_merge_gate_state_rejects_nonzero_exit_even_when_passed_true() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "passed": True,
+                    "exit_code": 1,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is False
+    assert state["merge_eligible"] is False
+    assert any("verification failed" in reason for reason in state["blocked_reasons"])
 
 
 def test_refresh_run_backfills_missing_receipt_for_completed_deliverable(
@@ -4799,6 +5106,57 @@ async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationSt
 
 
 @pytest.mark.asyncio
+async def test_dispatch_handles_missing_cli_when_sticky_flag_is_malformed(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="missing cli malformed sticky flag test",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "test"},
+        work_orders=[
+            {
+                "work_order_id": "wo-fail",
+                "status": "leased",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "metadata": {
+                    "requested_target_agent": "claude",
+                    "sticky_target_agent": "false",
+                },
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.launch = AsyncMock(side_effect=FileNotFoundError("claude CLI not found"))
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        launcher=mock_launcher,
+    )
+
+    launched = await supervisor.dispatch_workers(run_id)
+    assert len(launched) == 0
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "leased"
+    assert wo["target_agent"] == "codex"
+    assert wo["reviewer_agent"] == "claude"
+    assert wo["metadata"]["requested_target_agent"] == "claude"
+    assert wo["metadata"]["sticky_target_agent"] == "false"
+    assert wo["metadata"]["last_failure_reason"] == "agent_unavailable"
+    assert "fallback_suppressed_reason" not in wo["metadata"]
+
+
+@pytest.mark.asyncio
 async def test_dispatch_workers_keeps_explicit_target_agent_sticky(repo: Path) -> None:
     store = DevCoordinationStore(repo_root=repo)
     mock_launcher = MagicMock(spec=WorkerLauncher)
@@ -4986,6 +5344,12 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
                 "pr_url": "https://github.com/synaptent/aragora/pull/9999",
                 "adopted_pr": "https://github.com/synaptent/aragora/pull/9999",
                 "scope_violation": {"violations": []},
+                "resource_error": "stale quota",
+                "conflicts": [{"path": "README.md", "source": "lease"}],
+                "failure_reason": "waiting_conflict",
+                "blocking_question": "Old blocker?",
+                "blocker": {"reason": "waiting_conflict", "question": "Old blocker?"},
+                "blockers": ["old blocker"],
             }
         ],
         status="active",
@@ -5032,6 +5396,8 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
     assert work_order["failure_reason"] == "worker_type_blocked"
     assert "worker type or capacity issue" in work_order["blocking_question"]
     for key in (
+        "lease_id",
+        "owner_session_id",
         "receipt_id",
         "confidence",
         "worker_outcome",
@@ -5045,8 +5411,11 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
         "pr_url",
         "adopted_pr",
         "scope_violation",
+        "resource_error",
+        "conflicts",
     ):
         assert key not in work_order
+    assert work_order["blockers"] == [work_order["dispatch_error"]]
     assert updated["status"] == "needs_human"
     assert updated["metadata"][CAMPAIGN_OUTCOME_METADATA_KEY] == "needs_human"
     assert store.status_summary()["counts"]["active_leases"] == 0
@@ -5094,6 +5463,22 @@ async def test_dispatch_workers_dispatch_failed_clears_stale_deliverable_state(
         ],
         status="active",
     )
+    lease = store.claim_lease(
+        task_id="wo-dispatch-failed-cleanup",
+        title="dispatch failure clears stale deliverable state",
+        owner_agent="codex",
+        owner_session_id="stale-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+    )
+    run_record["work_orders"][0]["lease_id"] = lease.lease_id
+    run_record["work_orders"][0]["owner_session_id"] = lease.owner_session_id
+    store.update_supervisor_run(
+        run_record["run_id"],
+        work_orders=run_record["work_orders"],
+        status="active",
+    )
 
     mock_launcher = MagicMock(spec=WorkerLauncher)
     mock_launcher.launch = AsyncMock(side_effect=FileNotFoundError("fatal: boom"))
@@ -5124,6 +5509,8 @@ async def test_dispatch_workers_dispatch_failed_clears_stale_deliverable_state(
         "pid",
         "initial_head",
         "dispatched_at",
+        "lease_id",
+        "owner_session_id",
         "failure_reason",
         "blocking_question",
         "blocker",
@@ -7134,6 +7521,15 @@ def test_refresh_run_waiting_resource_clears_stale_terminal_state(
     assert work_order["status"] == "waiting_resource"
     assert work_order["review_status"] == "pending"
     assert work_order["resource_error"] == "No space left on device"
+    assert work_order["failure_reason"] == "waiting_resource"
+    assert work_order["blocking_question"] == (
+        "Which capacity or environment constraint must be resolved before this lane can proceed?"
+    )
+    assert work_order["blocker"] == {
+        "reason": "waiting_resource",
+        "question": work_order["blocking_question"],
+    }
+    assert work_order["blockers"] == ["No space left on device"]
     for cleared_key in (
         "lease_id",
         "owner_session_id",
@@ -7148,10 +7544,6 @@ def test_refresh_run_waiting_resource_clears_stale_terminal_state(
         "changed_paths",
         "merge_gate",
         "dispatch_error",
-        "failure_reason",
-        "blocking_question",
-        "blocker",
-        "blockers",
     ):
         assert cleared_key not in work_order
 

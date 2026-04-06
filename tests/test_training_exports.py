@@ -354,11 +354,11 @@ class TestTrainingHandler:
 
     def test_routes_defined(self, handler):
         """Should have routes defined."""
-        assert "/api/training/export/sft" in handler.ROUTES
-        assert "/api/training/export/dpo" in handler.ROUTES
-        assert "/api/training/export/gauntlet" in handler.ROUTES
-        assert "/api/training/stats" in handler.ROUTES
-        assert "/api/training/formats" in handler.ROUTES
+        assert "/api/v1/training/export/sft" in handler.ROUTES
+        assert "/api/v1/training/export/dpo" in handler.ROUTES
+        assert "/api/v1/training/export/gauntlet" in handler.ROUTES
+        assert "/api/v1/training/stats" in handler.ROUTES
+        assert "/api/v1/training/formats" in handler.ROUTES
 
     def test_can_handle_training_paths(self, handler):
         """Should handle training paths."""
