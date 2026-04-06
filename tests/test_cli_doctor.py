@@ -47,8 +47,8 @@ class TestDoctorCommand:
             main()
 
         captured = capsys.readouterr()
-        # Should show optional packages even if not installed
-        assert "tiktoken" in captured.out or "not installed" in captured.out
+        assert "torch (ML)" in captured.out
+        assert "redis (integration)" in captured.out
 
     def test_checks_api_keys(self, capsys):
         """Doctor checks API keys."""
@@ -60,13 +60,13 @@ class TestDoctorCommand:
         assert "ANTHROPIC_API_KEY" in captured.out
 
     def test_shows_api_key_set(self, capsys):
-        """Doctor shows 'set' for configured API keys."""
+        """Doctor shows configured API keys."""
         with patch.dict("sys.modules", {"aiohttp": object(), "pydantic": object()}):
             with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "sk-test"}):
                 main()
 
         captured = capsys.readouterr()
-        assert "ANTHROPIC_API_KEY: set" in captured.out
+        assert "ANTHROPIC_API_KEY: configured" in captured.out
 
     def test_shows_api_key_not_set(self, capsys):
         """Doctor shows 'not set' for missing API keys."""
@@ -119,7 +119,7 @@ class TestDoctorCommand:
 
         captured = capsys.readouterr()
         # Should have at least one positive check
-        assert "[+]" in captured.out or "[o]" in captured.out
+        assert "✓" in captured.out or "○" in captured.out
 
 
 class TestDoctorMain:

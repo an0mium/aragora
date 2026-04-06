@@ -717,7 +717,7 @@ class ApprovalWorkflow:
         ) as e:
             logger.warning("Error finding default approvers: %s", e)
             return []
-        except Exception as e:  # noqa: BLE001 - catch-all for unexpected errors (e.g., database driver errors) to avoid breaking approval flow
+        except Exception as e:  # noqa: BLE001 - avoid breaking approval flow on unexpected checker failures
             logger.warning("Unexpected error finding default approvers: %s", e)
             return []
 

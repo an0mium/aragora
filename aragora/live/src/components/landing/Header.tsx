@@ -7,13 +7,19 @@ import { useTheme } from '@/context/ThemeContext';
 import { Logo } from '@/components/Logo';
 import { ThemeSelector } from './ThemeSelector';
 
+interface NavLinkConfig {
+  href: string;
+  label: string;
+  anchor: boolean;
+}
+
 const NAV_LINKS = [
   { href: '#how-it-works', label: 'How it works', anchor: true },
   { href: '/quickstart', label: 'Quickstart', anchor: false },
   { href: '/docs', label: 'Docs', anchor: false },
   { href: '/pricing', label: 'Pricing', anchor: false },
   { href: '/login', label: 'Log in', anchor: false },
-];
+] satisfies NavLinkConfig[];
 
 export interface HeaderProps {
   /** Optional callback for the "Log in" link. When provided the click triggers
@@ -21,6 +27,108 @@ export interface HeaderProps {
    *  landing page is rendered inline (e.g. HomePage for unauthenticated visitors)
    *  and needs to store a return URL before redirecting to the login route. */
   onLoginClick?: () => void;
+}
+
+function isLoginLink(link: NavLinkConfig): boolean {
+  return link.label === 'Log in';
+}
+
+function DesktopNavItem({
+  link,
+  onLoginClick,
+}: {
+  link: NavLinkConfig;
+  onLoginClick?: () => void;
+}) {
+  const style = { color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' } as const;
+
+  if (link.anchor) {
+    return (
+      <a
+        href={link.href}
+        className="text-sm transition-colors hover:opacity-80"
+        style={style}
+      >
+        {link.label}
+      </a>
+    );
+  }
+
+  if (isLoginLink(link) && onLoginClick) {
+    return (
+      <button
+        type="button"
+        onClick={onLoginClick}
+        className="text-sm transition-colors hover:opacity-80 bg-transparent border-none cursor-pointer p-0"
+        style={style}
+      >
+        {link.label}
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      href={link.href}
+      className="text-sm transition-colors hover:opacity-80"
+      style={style}
+    >
+      {link.label}
+    </Link>
+  );
+}
+
+function MobileNavItem({
+  link,
+  isActive,
+  onClose,
+  onLoginClick,
+}: {
+  link: NavLinkConfig;
+  isActive: boolean;
+  onClose: () => void;
+  onLoginClick?: () => void;
+}) {
+  const linkStyle = {
+    color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+    fontFamily: 'var(--font-landing)',
+    fontSize: '15px',
+    padding: '12px 8px',
+    borderRadius: 'var(--radius-card)',
+    backgroundColor: isActive ? 'var(--surface)' : 'transparent',
+    display: 'block',
+    transition: 'background-color 0.15s, color 0.15s',
+  } as const;
+
+  if (link.anchor) {
+    return (
+      <a href={link.href} onClick={onClose} style={linkStyle}>
+        {link.label}
+      </a>
+    );
+  }
+
+  if (isLoginLink(link) && onLoginClick) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          onClose();
+          onLoginClick();
+        }}
+        className="bg-transparent border-none cursor-pointer text-left w-full"
+        style={linkStyle}
+      >
+        {link.label}
+      </button>
+    );
+  }
+
+  return (
+    <Link href={link.href} onClick={onClose} style={linkStyle}>
+      {link.label}
+    </Link>
+  );
 }
 
 export function Header({ onLoginClick }: HeaderProps = {}) {
@@ -93,45 +201,13 @@ export function Header({ onLoginClick }: HeaderProps = {}) {
           {/* Desktop nav + Theme selector */}
           <div className="flex items-center gap-6">
             <nav className="hidden sm:flex items-center gap-5">
-              {NAV_LINKS.map((link) => {
-                if (link.anchor) {
-                  return (
-                    <a
-                      key={link.href}
-                      href={link.href}
-                      className="text-sm transition-colors hover:opacity-80"
-                      style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
-                    >
-                      {link.label}
-                    </a>
-                  );
-                }
-
-                if (link.label === 'Log in' && onLoginClick) {
-                  return (
-                    <button
-                      key={link.href}
-                      type="button"
-                      onClick={onLoginClick}
-                      className="text-sm transition-colors hover:opacity-80 bg-transparent border-none cursor-pointer p-0"
-                      style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
-                    >
-                      {link.label}
-                    </button>
-                  );
-                }
-
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="text-sm transition-colors hover:opacity-80"
-                    style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
+              {NAV_LINKS.map((link) => (
+                <DesktopNavItem
+                  key={link.href}
+                  link={link}
+                  onLoginClick={onLoginClick}
+                />
+              ))}
             </nav>
             <ThemeSelector />
 
@@ -192,53 +268,14 @@ export function Header({ onLoginClick }: HeaderProps = {}) {
         >
           {NAV_LINKS.map((link) => {
             const isActive = !link.anchor && pathname === link.href;
-            const linkStyle = {
-              color: isActive ? 'var(--accent)' : 'var(--text-muted)',
-              fontFamily: 'var(--font-landing)',
-              fontSize: '15px',
-              padding: '12px 8px',
-              borderRadius: 'var(--radius-card)',
-              backgroundColor: isActive ? 'var(--surface)' : 'transparent',
-              display: 'block',
-              transition: 'background-color 0.15s, color 0.15s',
-            };
-
-            if (link.anchor) {
-              return (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  style={linkStyle}
-                >
-                  {link.label}
-                </a>
-              );
-            }
-
-            if (link.label === 'Log in' && onLoginClick) {
-              return (
-                <button
-                  key={link.href}
-                  type="button"
-                  onClick={() => { setMobileOpen(false); onLoginClick(); }}
-                  className="bg-transparent border-none cursor-pointer text-left w-full"
-                  style={linkStyle}
-                >
-                  {link.label}
-                </button>
-              );
-            }
-
             return (
-              <Link
+              <MobileNavItem
                 key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                style={linkStyle}
-              >
-                {link.label}
-              </Link>
+                link={link}
+                isActive={isActive}
+                onClose={() => setMobileOpen(false)}
+                onLoginClick={onLoginClick}
+              />
             );
           })}
 

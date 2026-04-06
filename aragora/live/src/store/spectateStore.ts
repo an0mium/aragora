@@ -38,24 +38,26 @@ export interface SpectatorEvent {
 export type SpectateConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
 
 // Event styles for UI - maps to EVENT_STYLES in events.py
+// Uses theme-aware Tailwind color classes (see tailwind.config.js) so colors
+// adapt to warm/dark/professional themes via CSS variables.
 export const EVENT_STYLES: Record<SpectatorEventType, { icon: string; color: string; label: string }> = {
-  debate_start: { icon: '🎬', color: 'text-fuchsia-400', label: 'DEBATE START' },
-  debate_end: { icon: '🏁', color: 'text-fuchsia-400', label: 'DEBATE END' },
-  round_start: { icon: '⏱️', color: 'text-cyan-400', label: 'ROUND START' },
-  round_end: { icon: '✓', color: 'text-cyan-400', label: 'ROUND END' },
-  proposal: { icon: '💡', color: 'text-blue-400', label: 'PROPOSAL' },
-  critique: { icon: '🔍', color: 'text-red-400', label: 'CRITIQUE' },
-  refine: { icon: '✨', color: 'text-blue-400', label: 'REFINE' },
-  vote: { icon: '🗳️', color: 'text-yellow-400', label: 'VOTE' },
-  judge: { icon: '⚖️', color: 'text-yellow-400', label: 'JUDGE' },
-  consensus: { icon: '🤝', color: 'text-green-400', label: 'CONSENSUS' },
-  convergence: { icon: '📊', color: 'text-green-400', label: 'CONVERGENCE' },
-  converged: { icon: '🎉', color: 'text-green-400', label: 'CONVERGED' },
-  memory_recall: { icon: '🧠', color: 'text-blue-400', label: 'MEMORY' },
-  breakpoint: { icon: '⚠️', color: 'text-amber-400', label: 'BREAKPOINT' },
-  breakpoint_resolved: { icon: '✅', color: 'text-green-400', label: 'RESOLVED' },
-  system: { icon: '⚙️', color: 'text-gray-400', label: 'SYSTEM' },
-  error: { icon: '❌', color: 'text-red-400', label: 'ERROR' },
+  debate_start: { icon: '🎬', color: 'text-purple', label: 'DEBATE START' },
+  debate_end: { icon: '🏁', color: 'text-purple', label: 'DEBATE END' },
+  round_start: { icon: '⏱️', color: 'text-acid-cyan', label: 'ROUND START' },
+  round_end: { icon: '✓', color: 'text-acid-cyan', label: 'ROUND END' },
+  proposal: { icon: '💡', color: 'text-acid-cyan', label: 'PROPOSAL' },
+  critique: { icon: '🔍', color: 'text-crimson', label: 'CRITIQUE' },
+  refine: { icon: '✨', color: 'text-acid-cyan', label: 'REFINE' },
+  vote: { icon: '🗳️', color: 'text-warning', label: 'VOTE' },
+  judge: { icon: '⚖️', color: 'text-warning', label: 'JUDGE' },
+  consensus: { icon: '🤝', color: 'text-success', label: 'CONSENSUS' },
+  convergence: { icon: '📊', color: 'text-success', label: 'CONVERGENCE' },
+  converged: { icon: '🎉', color: 'text-success', label: 'CONVERGED' },
+  memory_recall: { icon: '🧠', color: 'text-acid-cyan', label: 'MEMORY' },
+  breakpoint: { icon: '⚠️', color: 'text-warning', label: 'BREAKPOINT' },
+  breakpoint_resolved: { icon: '✅', color: 'text-success', label: 'RESOLVED' },
+  system: { icon: '⚙️', color: 'text-text-muted', label: 'SYSTEM' },
+  error: { icon: '❌', color: 'text-crimson', label: 'ERROR' },
 };
 
 // ============================================================================

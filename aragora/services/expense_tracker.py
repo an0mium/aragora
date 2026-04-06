@@ -571,7 +571,14 @@ class ExpenseTracker:
                     for page in reader.pages:
                         extracted_text += page.extract_text() or ""
                     confidence = 0.7 if extracted_text.strip() else 0.2
-                except (ValueError, OSError, ConnectionError, RuntimeError, TypeError) as e:
+                except (
+                    ImportError,
+                    ValueError,
+                    OSError,
+                    ConnectionError,
+                    RuntimeError,
+                    TypeError,
+                ) as e:
                     logger.warning("PDF extraction failed: %s", e)
             except (ValueError, OSError, ConnectionError, RuntimeError, TypeError) as e:
                 logger.warning("pdfplumber extraction failed: %s", e)
@@ -854,7 +861,19 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                     )
                     if response.status_code == 200:
                         data = response.json()
-                        category_text = data["content"][0]["text"].strip().lower()
+                        content = data.get("content") if isinstance(data, dict) else None
+                        if not isinstance(content, list) or not content:
+                            logger.warning("Anthropic API returned unexpected response format")
+                            return None
+                        first_item = content[0]
+                        if not isinstance(first_item, dict):
+                            logger.warning("Anthropic API returned unexpected response format")
+                            return None
+                        category_text = first_item.get("text")
+                        if not isinstance(category_text, str):
+                            logger.warning("Anthropic API returned unexpected response format")
+                            return None
+                        category_text = category_text.strip().lower()
                         # Emit usage event for LLM call
                         usage = data.get("usage", {})
                         await self._emit_usage_event(
@@ -889,7 +908,23 @@ Respond with ONLY the category name (lowercase, with underscores). No explanatio
                     )
                     if response.status_code == 200:
                         data = response.json()
-                        category_text = data["choices"][0]["message"]["content"].strip().lower()
+                        choices = data.get("choices") if isinstance(data, dict) else None
+                        if not isinstance(choices, list) or not choices:
+                            logger.warning("OpenAI API returned unexpected response format")
+                            return None
+                        first_choice = choices[0]
+                        if not isinstance(first_choice, dict):
+                            logger.warning("OpenAI API returned unexpected response format")
+                            return None
+                        message = first_choice.get("message")
+                        if not isinstance(message, dict):
+                            logger.warning("OpenAI API returned unexpected response format")
+                            return None
+                        category_text = message.get("content")
+                        if not isinstance(category_text, str):
+                            logger.warning("OpenAI API returned unexpected response format")
+                            return None
+                        category_text = category_text.strip().lower()
                         # Emit usage event for LLM call
                         usage = data.get("usage", {})
                         await self._emit_usage_event(

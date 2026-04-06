@@ -98,6 +98,10 @@ def _is_concrete_repo_path(path: str) -> bool:
     return "." in name
 
 
+def _strict_bool(value: Any) -> bool | None:
+    return value if isinstance(value, bool) else None
+
+
 def _docs_only_scope_supports_hint(path: str, original_scope: list[str]) -> bool:
     if any(_path_in_scope(path, scope) or _path_in_scope(scope, path) for scope in original_scope):
         return True
@@ -394,9 +398,15 @@ class SwarmApprovalPolicy:
     def from_dict(cls, data: dict[str, Any] | None) -> SwarmApprovalPolicy:
         payload = dict(data or {})
         return cls(
-            require_merge_approval=bool(payload.get("require_merge_approval", True)),
-            require_external_action_approval=bool(
-                payload.get("require_external_action_approval", True)
+            require_merge_approval=(
+                _strict_bool(payload.get("require_merge_approval"))
+                if _strict_bool(payload.get("require_merge_approval")) is not None
+                else True
+            ),
+            require_external_action_approval=(
+                _strict_bool(payload.get("require_external_action_approval"))
+                if _strict_bool(payload.get("require_external_action_approval")) is not None
+                else True
             ),
             protected_patterns=[
                 str(item) for item in payload.get("protected_patterns", []) if str(item).strip()
@@ -545,22 +555,30 @@ class SwarmSupervisor:
             config.claude_profile_script = self._optional_snapshot_text(
                 snapshot["claude_profile_script"]
             )
-        if "auto_commit" in snapshot:
-            config.auto_commit = bool(snapshot["auto_commit"])
-        if "use_managed_session_script" in snapshot:
-            config.use_managed_session_script = bool(snapshot["use_managed_session_script"])
+        auto_commit = _strict_bool(snapshot.get("auto_commit"))
+        if auto_commit is not None:
+            config.auto_commit = auto_commit
+        use_managed_session_script = _strict_bool(snapshot.get("use_managed_session_script"))
+        if use_managed_session_script is not None:
+            config.use_managed_session_script = use_managed_session_script
         if "base_branch" in snapshot:
             config.base_branch = str(snapshot["base_branch"]).strip() or config.base_branch
-        if "detach" in snapshot:
-            config.detach = bool(snapshot["detach"])
-        if "require_explicit_approval" in snapshot:
-            config.require_explicit_approval = bool(snapshot["require_explicit_approval"])
-        if "allow_claude_dangerously_skip_permissions" in snapshot:
-            config.allow_claude_dangerously_skip_permissions = bool(
-                snapshot["allow_claude_dangerously_skip_permissions"]
+        detach = _strict_bool(snapshot.get("detach"))
+        if detach is not None:
+            config.detach = detach
+        require_explicit_approval = _strict_bool(snapshot.get("require_explicit_approval"))
+        if require_explicit_approval is not None:
+            config.require_explicit_approval = require_explicit_approval
+        allow_claude_dangerously_skip_permissions = _strict_bool(
+            snapshot.get("allow_claude_dangerously_skip_permissions")
+        )
+        if allow_claude_dangerously_skip_permissions is not None:
+            config.allow_claude_dangerously_skip_permissions = (
+                allow_claude_dangerously_skip_permissions
             )
-        if "allow_codex_full_auto" in snapshot:
-            config.allow_codex_full_auto = bool(snapshot["allow_codex_full_auto"])
+        allow_codex_full_auto = _strict_bool(snapshot.get("allow_codex_full_auto"))
+        if allow_codex_full_auto is not None:
+            config.allow_codex_full_auto = allow_codex_full_auto
         if "execution_mode" in snapshot:
             try:
                 config.execution_mode = ExecutionMode(str(snapshot["execution_mode"]).strip())
@@ -765,9 +783,7 @@ class SwarmSupervisor:
                     self._mark_waiting_conflict(item, exc.conflicts)
                 except RuntimeError as exc:
                     if self._is_resource_constraint_error(exc):
-                        self._clear_waiting_state(item)
-                        item["status"] = "waiting_resource"
-                        item["resource_error"] = str(exc)
+                        self._mark_waiting_resource(item, str(exc))
                         break
                     else:
                         self._clear_stale_prelaunch_deliverable_state(item)
@@ -3508,6 +3524,9 @@ class SwarmSupervisor:
                     },
                 )
             except FileScopeViolationError as exc:
+                for key in ("resource_error", "conflicts"):
+                    item.pop(key, None)
+                item.pop("blockers", None)
                 self._mark_needs_human(
                     item,
                     "worker completion violated file-scope ownership; narrow or split the lane",
@@ -3611,8 +3630,11 @@ class SwarmSupervisor:
                     "merge_gate",
                     "verification_missing_reason",
                     "scope_violation",
+                    "resource_error",
+                    "conflicts",
                 ):
                     item.pop(key, None)
+                item.pop("blockers", None)
                 item["commit_shas"] = []
                 self._mark_needs_human(
                     item,
@@ -3635,8 +3657,11 @@ class SwarmSupervisor:
                     "merge_gate",
                     "verification_missing_reason",
                     "scope_violation",
+                    "resource_error",
+                    "conflicts",
                 ):
                     item.pop(key, None)
+                item.pop("blockers", None)
                 if not _pre_outcome:
                     item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
                 logger.warning(
@@ -3970,7 +3995,7 @@ class SwarmSupervisor:
         current_agent = str(item.get("target_agent", "")).strip().lower()
         metadata = dict(item.get("metadata") or {})
         requested_target_agent = str(metadata.get("requested_target_agent", "")).strip().lower()
-        sticky_target_agent = bool(metadata.get("sticky_target_agent", False))
+        sticky_target_agent = _strict_bool(metadata.get("sticky_target_agent")) is True
         fallback_agent = self._alternate_agent(current_agent)
         if not fallback_agent:
             return False
@@ -4435,6 +4460,8 @@ class SwarmSupervisor:
             failure_reason="worker_type_blocked",
         )
         self._release_terminal_lease(item)
+        item.pop("lease_id", None)
+        item.pop("owner_session_id", None)
 
     @staticmethod
     def _mark_dispatch_failed(item: dict[str, Any], reason: str) -> None:
@@ -4443,6 +4470,8 @@ class SwarmSupervisor:
         item["review_status"] = "pending"
         item["dispatch_error"] = str(reason)
         for key in (
+            "lease_id",
+            "owner_session_id",
             "resource_error",
             "conflicts",
             "receipt_id",
@@ -4482,8 +4511,14 @@ class SwarmSupervisor:
 
     @staticmethod
     def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
-        """Drop stale completion metadata before persisting a pre-launch blocker."""
+        """Drop stale completion and wait-state metadata before a pre-launch blocker."""
         for key in (
+            "dispatch_error",
+            "resource_error",
+            "failure_reason",
+            "blocking_question",
+            "blocker",
+            "conflicts",
             "receipt_id",
             "confidence",
             "worker_outcome",
@@ -4505,6 +4540,7 @@ class SwarmSupervisor:
             "scope_violation",
         ):
             item.pop(key, None)
+        item.pop("blockers", None)
 
     @staticmethod
     def _clear_stale_runtime_deliverable_state(item: dict[str, Any]) -> None:
@@ -4526,6 +4562,9 @@ class SwarmSupervisor:
             "verification_missing_reason",
             "pr_url",
             "adopted_pr",
+            "resource_error",
+            "conflicts",
+            "blockers",
             "scope_violation",
         ):
             item.pop(key, None)
@@ -4567,12 +4606,10 @@ class SwarmSupervisor:
         if session_meta:
             if str(session_meta.get("ended_at", "")).strip():
                 return "session_ended"
-            raw_pid = session_meta.get("pid")
-            try:
-                pid = int(raw_pid)
-            except (TypeError, ValueError):
-                pid = None
+            pid = WorkerLauncher._normalized_pid(session_meta.get("pid"))
             if pid is None:
+                if self._is_managed_worktree(path):
+                    return "managed_worktree_without_active_session"
                 return None
             if WorkerLauncher._is_pid_running(pid):
                 return None
@@ -4658,19 +4695,32 @@ class SwarmSupervisor:
             command = str(entry.get("command", "")).strip()
             if not command:
                 continue
+            raw_exit_code = entry.get("exit_code", 0)
             try:
-                exit_code = int(entry.get("exit_code", 0))
+                if isinstance(raw_exit_code, (bool, float)):
+                    raise TypeError
+                exit_code = int(raw_exit_code)
             except (TypeError, ValueError):
                 exit_code = -1
+            raw_duration_seconds = entry.get("duration_seconds", 0.0)
             try:
-                duration_seconds = float(entry.get("duration_seconds", 0.0) or 0.0)
+                if isinstance(raw_duration_seconds, bool):
+                    raise TypeError
+                duration_seconds = float(raw_duration_seconds or 0.0)
             except (TypeError, ValueError):
                 duration_seconds = 0.0
+            raw_passed = entry.get("passed")
+            if isinstance(raw_passed, bool):
+                passed = raw_passed and exit_code == 0
+            elif "passed" not in entry:
+                passed = exit_code == 0
+            else:
+                passed = False
             normalized.append(
                 {
                     "command": command,
                     "exit_code": exit_code,
-                    "passed": bool(entry.get("passed", exit_code == 0)),
+                    "passed": passed,
                     "stdout": str(entry.get("stdout", "")),
                     "stderr": str(entry.get("stderr", "")),
                     "duration_seconds": duration_seconds,
@@ -4798,6 +4848,19 @@ class SwarmSupervisor:
                 return False
         return True
 
+    @staticmethod
+    def _merge_gate_entry_passed(entry: dict[str, Any]) -> bool:
+        if entry.get("passed") is not True:
+            return False
+        raw_exit_code = entry.get("exit_code", 0)
+        try:
+            if isinstance(raw_exit_code, (bool, float)):
+                raise TypeError
+            exit_code = int(raw_exit_code)
+        except (TypeError, ValueError):
+            return False
+        return exit_code == 0
+
     @classmethod
     def _merge_gate_state(cls, item: dict[str, Any]) -> dict[str, Any]:
         expected_checks = [
@@ -4823,7 +4886,7 @@ class SwarmSupervisor:
                 cls._verification_command_covers_expected(entry.get("command", ""), command)
                 for command in expected_checks
             )
-            and not bool(entry.get("passed", False))
+            and not cls._merge_gate_entry_passed(entry)
         ]
         deferred_dependency_ids = [
             str(dep).strip()
@@ -5024,6 +5087,9 @@ class SwarmSupervisor:
             "waiting_conflict": (
                 "Which overlapping lane should finish, be discarded, or be split before this task can proceed?"
             ),
+            "waiting_resource": (
+                "Which capacity or environment constraint must be resolved before this lane can proceed?"
+            ),
             "clean_exit_no_deliverable": (
                 "What concrete branch, commit, or PR should this lane produce before rerunning?"
             ),
@@ -5168,6 +5234,21 @@ class SwarmSupervisor:
         if not blockers:
             blockers.append("waiting_conflict")
         item["blockers"] = blockers
+
+    @classmethod
+    def _mark_waiting_resource(cls, item: dict[str, Any], resource_error: str) -> None:
+        """Persist a resource-blocked wait state with explicit blocker metadata."""
+        cls._clear_waiting_state(item)
+        normalized_error = str(resource_error).strip() or "waiting_resource"
+        item["status"] = "waiting_resource"
+        item["resource_error"] = normalized_error
+        item["failure_reason"] = "waiting_resource"
+        item["blocking_question"] = cls._default_blocking_question("waiting_resource")
+        item["blocker"] = {
+            "reason": "waiting_resource",
+            "question": item["blocking_question"],
+        }
+        item["blockers"] = [normalized_error]
 
     @staticmethod
     def _clear_waiting_state(item: dict[str, Any]) -> None:

@@ -312,7 +312,7 @@ class TestBroadcast:
 
     @pytest.mark.asyncio
     async def test_broadcast_sends_to_clients(self, stream_server):
-        """Should send event to connected clients."""
+        """Should send event to subscribed clients."""
         from aragora.server.stream import StreamEvent, StreamEventType
 
         event = StreamEvent(
@@ -324,6 +324,7 @@ class TestBroadcast:
         # Add a mock client
         mock_client = AsyncMock()
         stream_server.clients.add(mock_client)
+        stream_server._client_subscriptions[id(mock_client)] = "loop-123"
 
         await stream_server.broadcast(event)
 
@@ -335,7 +336,7 @@ class TestBroadcast:
 
     @pytest.mark.asyncio
     async def test_broadcast_batch_sends_array(self, stream_server):
-        """Should send multiple events as JSON array."""
+        """Should send multiple events as JSON array to subscribed clients."""
         from aragora.server.stream import StreamEvent, StreamEventType
 
         events = [
@@ -347,6 +348,7 @@ class TestBroadcast:
         # Add a mock client
         mock_client = AsyncMock()
         stream_server.clients.add(mock_client)
+        stream_server._client_subscriptions[id(mock_client)] = "loop-1"
 
         await stream_server.broadcast_batch(events)
 
@@ -359,7 +361,7 @@ class TestBroadcast:
 
     @pytest.mark.asyncio
     async def test_broadcast_handles_disconnected_client(self, stream_server):
-        """Should remove disconnected clients during broadcast."""
+        """Should remove disconnected subscribed clients during broadcast."""
         from aragora.server.stream import StreamEvent, StreamEventType
 
         event = StreamEvent(
@@ -372,6 +374,7 @@ class TestBroadcast:
         mock_client = AsyncMock()
         mock_client.send.side_effect = Exception("Connection closed")
         stream_server.clients.add(mock_client)
+        stream_server._client_subscriptions[id(mock_client)] = "loop-123"
 
         await stream_server.broadcast(event)
 

@@ -184,7 +184,7 @@ export function FirstDebateStep() {
     setReceiptError(null);
 
     const response = await fetch(
-      `${apiBase}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=${format}`
+      `${apiBase}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=${format}&raw=true`
     );
     if (!response.ok) {
       throw new Error(`Export failed (HTTP ${response.status})`);
@@ -392,7 +392,7 @@ export function FirstDebateStep() {
                   </button>
                   {firstReceiptId && (
                     <a
-                      href={`${apiBase}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=html`}
+                      href={`${apiBase}/api/v2/receipts/${encodeURIComponent(firstReceiptId)}/export?format=html&raw=true`}
                       target="_blank"
                       rel="noreferrer"
                       className="px-3 py-1.5 text-xs font-theme-data border border-border text-text-muted hover:border-[var(--accent)]/40 hover:text-text transition-colors"

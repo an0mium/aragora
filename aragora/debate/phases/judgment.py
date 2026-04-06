@@ -125,7 +125,7 @@ class JudgmentPhase:
                     if judge:
                         logger.debug("Selected %s (ELO: %s) as judge", top_agent_name, top_elo)
                         return judge
-        except (RuntimeError, AttributeError, TypeError) as e:  # noqa: BLE001
+        except Exception as e:  # noqa: BLE001
             logger.warning("ELO query failed: %s; falling back to random", e)
 
         return random.choice(self._require_agents())  # noqa: S311 -- non-security random selection
