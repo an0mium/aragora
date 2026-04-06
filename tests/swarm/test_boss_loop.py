@@ -4300,6 +4300,105 @@ class TestPromoteReadyDrafts:
         assert result == []
 
 
+class TestListOpenBossHarvestPrs:
+    """Tests for boss-harvest queue-cap inspection."""
+
+    def test_filters_to_open_boss_harvest_prs(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        pr_list_json = json.dumps(
+            [
+                {
+                    "number": 10,
+                    "headRefName": "aragora/boss-harvest/issue-10-boss-aaa",
+                    "isDraft": True,
+                    "url": "https://github.com/synaptent/aragora/pull/10",
+                },
+                {
+                    "number": 11,
+                    "headRefName": "codex/ordinary-branch",
+                    "isDraft": True,
+                    "url": "https://github.com/synaptent/aragora/pull/11",
+                },
+            ]
+        )
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(returncode=0, stdout=pr_list_json, stderr="")
+            result = loop._list_open_boss_harvest_prs()
+
+        assert result == [
+            {
+                "number": 10,
+                "headRefName": "aragora/boss-harvest/issue-10-boss-aaa",
+                "isDraft": True,
+                "url": "https://github.com/synaptent/aragora/pull/10",
+            }
+        ]
+
+    def test_returns_empty_when_listing_fails(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        with patch("aragora.swarm.boss_loop.subprocess.run") as mock_run:
+            mock_run.return_value = SimpleNamespace(returncode=1, stdout="", stderr="error")
+            result = loop._list_open_boss_harvest_prs()
+        assert result == []
+
+
+class TestMaybePublishDeliverable:
+    """Tests for auto-publish queue capping."""
+
+    def test_defers_when_open_boss_harvest_pr_already_exists(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+                max_open_auto_publish_prs=1,
+            )
+        )
+        issue = _make_issue(number=123)
+        worker_result = {
+            "status": "needs_human",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/issue-123",
+                "commit_shas": ["abc123"],
+            },
+        }
+
+        with (
+            patch.object(
+                loop,
+                "_list_open_boss_harvest_prs",
+                return_value=[
+                    {
+                        "number": 2045,
+                        "headRefName": "aragora/boss-harvest/issue-45-boss-aaa",
+                        "isDraft": True,
+                        "url": "https://github.com/synaptent/aragora/pull/2045",
+                    }
+                ],
+            ),
+            patch.object(loop, "_harvest_worker_commits_for_publish") as mock_harvest,
+            patch("aragora.swarm.tranche_integrate.publish_lane_deliverable") as mock_publish,
+        ):
+            result = loop._maybe_publish_deliverable(issue, worker_result)
+
+        assert result == {
+            "action": "deferred_due_to_open_boss_prs",
+            "reason": "open_boss_harvest_pr_limit",
+            "branch": "codex/issue-123",
+            "max_open_prs": 1,
+            "open_prs": [
+                {
+                    "number": 2045,
+                    "headRefName": "aragora/boss-harvest/issue-45-boss-aaa",
+                    "isDraft": True,
+                    "url": "https://github.com/synaptent/aragora/pull/2045",
+                }
+            ],
+        }
+        mock_harvest.assert_not_called()
+        mock_publish.assert_not_called()
+
+
 class TestPostprocessConvertsToDraft:
     """Verify _postprocess_issue_result calls _convert_pr_to_draft."""
 

@@ -277,6 +277,7 @@ class BossLoopConfig:
     # Autonomous post-processing: publish verified branch deliverables and
     # optionally close already-resolved no-op issues.
     auto_publish_deliverables: bool = False
+    max_open_auto_publish_prs: int = 1
     auto_close_already_done_issues: bool = False
 
     # Reporting
@@ -1518,6 +1519,38 @@ class BossLoop:
         ]
         if not branch or not commit_shas:
             return None
+        max_open_prs = max(int(self.config.max_open_auto_publish_prs or 0), 0)
+        if max_open_prs <= 0:
+            logger.info(
+                "Boss publish deferred for issue #%s branch %s: max_open_auto_publish_prs=%d",
+                issue.number,
+                branch,
+                max_open_prs,
+            )
+            return {
+                "action": "deferred_due_to_open_boss_prs",
+                "reason": "max_open_auto_publish_prs_zero",
+                "branch": branch,
+                "max_open_prs": max_open_prs,
+                "open_prs": [],
+            }
+        open_boss_prs = self._list_open_boss_harvest_prs()
+        if len(open_boss_prs) >= max_open_prs:
+            logger.info(
+                "Boss publish deferred for issue #%s branch %s: %d open boss-harvest PR(s) "
+                "already exist (limit=%d)",
+                issue.number,
+                branch,
+                len(open_boss_prs),
+                max_open_prs,
+            )
+            return {
+                "action": "deferred_due_to_open_boss_prs",
+                "reason": "open_boss_harvest_pr_limit",
+                "branch": branch,
+                "max_open_prs": max_open_prs,
+                "open_prs": open_boss_prs,
+            }
         try:
             from aragora.ralph.github_control import GitHubControl
             from aragora.swarm.pr_registry import PullRequestRegistry
@@ -1581,6 +1614,60 @@ class BossLoop:
             worker_result["pr_url"] = pr_url
             worker_result["pr_number"] = self._pr_number_from_url(pr_url)
         return dict(publish_result)
+
+    def _list_open_boss_harvest_prs(self) -> list[dict[str, Any]]:
+        """List open boss-harvest PRs so auto-publish can avoid queue fan-out."""
+        repo = str(self.config.repo or "").strip()
+        if not repo:
+            return []
+        cmd: list[str] = [
+            "gh",
+            "pr",
+            "list",
+            "--state",
+            "open",
+            "--json",
+            "number,headRefName,isDraft,url",
+            "--limit",
+            "100",
+            "-R",
+            repo,
+        ]
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if proc.returncode != 0:
+                logger.debug(
+                    "Failed to list open boss-harvest PRs: %s",
+                    (proc.stderr or proc.stdout or "").strip(),
+                )
+                return []
+            entries = json.loads(proc.stdout or "[]")
+        except Exception as exc:
+            logger.debug("Exception listing open boss-harvest PRs: %s", exc)
+            return []
+
+        open_boss_prs: list[dict[str, Any]] = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            head_ref = str(entry.get("headRefName", "")).strip()
+            if not head_ref.startswith("aragora/boss-harvest/issue-"):
+                continue
+            open_boss_prs.append(
+                {
+                    "number": entry.get("number"),
+                    "headRefName": head_ref,
+                    "isDraft": bool(entry.get("isDraft")),
+                    "url": str(entry.get("url", "")).strip() or None,
+                }
+            )
+        return open_boss_prs
 
     def _harvest_worker_commits_for_publish(
         self,
