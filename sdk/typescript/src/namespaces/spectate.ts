@@ -22,7 +22,9 @@ export class SpectateAPI {
    * Use the stream URL with an EventSource client for real-time events.
    */
   async connectSSE(debateId: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/spectate/${encodeURIComponent(debateId)}/stream`);
+    return this.client.request('GET', '/api/v1/spectate/stream', {
+      params: { debate_id: debateId },
+    });
   }
 
   async getRecent(options?: { count?: number; debateId?: string }): Promise<Record<string, unknown>> {

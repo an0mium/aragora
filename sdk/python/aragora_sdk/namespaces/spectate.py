@@ -32,7 +32,11 @@ class SpectateAPI:
         Returns connection details including the stream URL.
         Use the stream URL with an SSE client for real-time events.
         """
-        return self._client.request("GET", f"/api/v1/spectate/{debate_id}/stream")
+        return self._client.request(
+            "GET",
+            "/api/v1/spectate/stream",
+            params={"debate_id": debate_id},
+        )
 
     def get_recent(self, *, count: int = 50, debate_id: str | None = None) -> dict[str, Any]:
         """Get recent buffered spectate events."""
@@ -71,7 +75,11 @@ class AsyncSpectateAPI:
 
         Returns connection details including the stream URL.
         """
-        return await self._client.request("GET", f"/api/v1/spectate/{debate_id}/stream")
+        return await self._client.request(
+            "GET",
+            "/api/v1/spectate/stream",
+            params={"debate_id": debate_id},
+        )
 
     async def get_recent(self, *, count: int = 50, debate_id: str | None = None) -> dict[str, Any]:
         """Get recent buffered spectate events."""
