@@ -35,6 +35,14 @@ PIPELINE_CANVAS_ENDPOINTS = {
     "/api/v1/pipeline/{id}/agents/{agent_id}/reject": {"post"},
 }
 
+SPEND_ANALYTICS_ENDPOINTS = {
+    "/api/v1/analytics/spend/summary": {"get"},
+    "/api/v1/analytics/spend/trends": {"get"},
+    "/api/v1/analytics/spend/by-agent": {"get"},
+    "/api/v1/analytics/spend/by-decision": {"get"},
+    "/api/v1/analytics/spend/budget": {"get"},
+}
+
 ABSENT_ADMIN_SECURITY_PLACEHOLDERS = {
     "/api/v1/admin/security/audit",
     "/api/v1/admin/security/compliance",
@@ -75,6 +83,25 @@ def test_pipeline_canvas_endpoint_methods() -> None:
     schema = generate_openapi_schema()
     paths = schema["paths"]
     for path, expected_methods in PIPELINE_CANVAS_ENDPOINTS.items():
+        methods = {m for m in paths[path].keys() if m not in ("parameters", "servers")}
+        assert expected_methods.issubset(methods), (
+            f"{path} missing methods: {expected_methods - methods}"
+        )
+
+
+def test_spend_analytics_endpoints_present() -> None:
+    """Spend analytics endpoints used by the dashboard must exist in the schema."""
+    schema = generate_openapi_schema()
+    paths = schema["paths"]
+    missing = [path for path in SPEND_ANALYTICS_ENDPOINTS if path not in paths]
+    assert not missing, f"Missing spend analytics endpoints: {missing}"
+
+
+def test_spend_analytics_endpoint_methods() -> None:
+    """Spend analytics endpoints must expose the documented GET surface."""
+    schema = generate_openapi_schema()
+    paths = schema["paths"]
+    for path, expected_methods in SPEND_ANALYTICS_ENDPOINTS.items():
         methods = {m for m in paths[path].keys() if m not in ("parameters", "servers")}
         assert expected_methods.issubset(methods), (
             f"{path} missing methods: {expected_methods - methods}"

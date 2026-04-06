@@ -572,6 +572,103 @@ ANALYTICS_SCHEMAS: dict[str, Any] = {
             "generated_at": {"type": "string", "format": "date-time"},
         },
     },
+    "AnalyticsSpendSummary": {
+        "type": "object",
+        "description": "Spend summary for a workspace or organization",
+        "properties": {
+            "total_spend_usd": {"type": "string"},
+            "total_api_calls": {"type": "integer"},
+            "total_tokens": {"type": "integer"},
+            "budget_limit_usd": {"type": "number"},
+            "budget_spent_usd": {"type": "number"},
+            "utilization_pct": {"type": "number"},
+            "trend_direction": {
+                "type": "string",
+                "enum": ["increasing", "decreasing", "stable"],
+            },
+            "avg_cost_per_decision": {"type": "number"},
+        },
+    },
+    "AnalyticsSpendTrendPoint": {
+        "type": "object",
+        "description": "Spend totals for a single time bucket",
+        "properties": {
+            "period": {"type": "string"},
+            "total_spent_usd": {"type": "number"},
+            "transaction_count": {"type": "integer"},
+            "avg_transaction_usd": {"type": "number"},
+        },
+    },
+    "AnalyticsSpendTrends": {
+        "type": "object",
+        "description": "Spend trend series for an organization",
+        "properties": {
+            "org_id": {"type": "string"},
+            "period": {"type": "string"},
+            "days": {"type": "integer"},
+            "data_points": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/AnalyticsSpendTrendPoint"},
+            },
+        },
+    },
+    "AnalyticsSpendAgentEntry": {
+        "type": "object",
+        "description": "Spend grouped by agent",
+        "properties": {
+            "agent_name": {"type": "string"},
+            "cost_usd": {"type": "string"},
+            "percentage": {"type": "number"},
+        },
+    },
+    "AnalyticsSpendByAgent": {
+        "type": "object",
+        "description": "Spend totals grouped by agent",
+        "properties": {
+            "workspace_id": {"type": "string"},
+            "total_usd": {"type": "string"},
+            "agents": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/AnalyticsSpendAgentEntry"},
+            },
+        },
+    },
+    "AnalyticsSpendDecisionEntry": {
+        "type": "object",
+        "description": "Spend grouped by debate or decision",
+        "properties": {
+            "debate_id": {"type": "string"},
+            "cost_usd": {"type": "string"},
+        },
+    },
+    "AnalyticsSpendByDecision": {
+        "type": "object",
+        "description": "Spend totals grouped by debate or decision",
+        "properties": {
+            "workspace_id": {"type": "string"},
+            "decisions": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/AnalyticsSpendDecisionEntry"},
+            },
+            "count": {"type": "integer"},
+        },
+    },
+    "AnalyticsSpendBudget": {
+        "type": "object",
+        "description": "Budget status for spend analytics",
+        "properties": {
+            "org_id": {"type": "string"},
+            "budgets": {
+                "type": "array",
+                "items": {"$ref": "#/components/schemas/Budget"},
+            },
+            "total_budget_usd": {"type": "number"},
+            "total_spent_usd": {"type": "number"},
+            "total_remaining_usd": {"type": "number"},
+            "utilization_pct": {"type": "number"},
+            "forecast_exhaustion_days": {"type": ["number", "null"]},
+        },
+    },
     "AnalyticsActiveUserCounts": {
         "type": "object",
         "description": "Active user counts",

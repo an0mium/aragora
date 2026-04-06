@@ -260,6 +260,78 @@ ANALYTICS_ENDPOINTS = {
             "responses": {"200": _ok_response("Agent trends", "AnalyticsAgentsTrends")},
         },
     },
+    "/api/v1/analytics/spend/summary": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Spend summary",
+            "operationId": "getAnalyticsSpendSummary",
+            "description": "Get total spend, budget utilization, and spend trend direction.",
+            "parameters": [
+                {"name": "workspace_id", "in": "query", "schema": {"type": "string"}},
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Spend summary", "AnalyticsSpendSummary")},
+        },
+    },
+    "/api/v1/analytics/spend/trends": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Spend trends",
+            "operationId": "getAnalyticsSpendTrends",
+            "description": "Get daily, weekly, or monthly spend trend points for an organization.",
+            "parameters": [
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+                {
+                    "name": "period",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["daily", "weekly", "monthly"]},
+                },
+                {"name": "days", "in": "query", "schema": {"type": "integer", "minimum": 1}},
+            ],
+            "responses": {"200": _ok_response("Spend trends", "AnalyticsSpendTrends")},
+        },
+    },
+    "/api/v1/analytics/spend/by-agent": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Spend by agent",
+            "operationId": "getAnalyticsSpendByAgent",
+            "description": "Get spend totals and percentages grouped by agent.",
+            "parameters": [
+                {"name": "workspace_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Spend by agent", "AnalyticsSpendByAgent")},
+        },
+    },
+    "/api/v1/analytics/spend/by-decision": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Spend by decision",
+            "operationId": "getAnalyticsSpendByDecision",
+            "description": "Get spend totals grouped by debate or decision.",
+            "parameters": [
+                {"name": "workspace_id", "in": "query", "schema": {"type": "string"}},
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 100},
+                },
+            ],
+            "responses": {"200": _ok_response("Spend by decision", "AnalyticsSpendByDecision")},
+        },
+    },
+    "/api/v1/analytics/spend/budget": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Spend budget status",
+            "operationId": "getAnalyticsSpendBudget",
+            "description": "Get budget totals, remaining spend, and forecast exhaustion timing.",
+            "parameters": [
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {"200": _ok_response("Spend budget status", "AnalyticsSpendBudget")},
+        },
+    },
     "/api/v1/analytics/usage/tokens": {
         "get": {
             "tags": ["Analytics"],
