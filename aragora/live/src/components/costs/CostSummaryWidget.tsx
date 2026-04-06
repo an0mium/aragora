@@ -36,12 +36,12 @@ export function CostSummaryWidget() {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} COSTS</h3>
-          <Link href="/usage" className="text-[10px] font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors">
+          <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} COSTS</h3>
+          <Link href="/usage" className="text-[10px] font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors">
             VIEW
           </Link>
         </div>
-        <p className="text-xs font-mono text-[var(--text-muted)]">
+        <p className="text-xs font-theme-data text-[var(--text-muted)]">
           Cost data unavailable
         </p>
       </div>
@@ -61,12 +61,12 @@ export function CostSummaryWidget() {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)]">
       <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} COST OVERVIEW
         </h3>
         <Link
           href="/usage"
-          className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
         >
           DETAILS
         </Link>
@@ -76,18 +76,18 @@ export function CostSummaryWidget() {
         {/* Total spend + budget */}
         <div className="flex items-end justify-between">
           <div>
-            <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">
               30-day spend
             </div>
-            <div className="text-xl font-mono text-[var(--text)] font-bold">
+            <div className="text-xl font-theme-data text-[var(--text)] font-bold">
               {formatCurrency(summary.total_cost_usd)}
             </div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] font-mono text-[var(--text-muted)]">
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)]">
               of {formatCurrency(summary.budget_usd)} budget
             </div>
-            <div className={`text-sm font-mono font-bold ${
+            <div className={`text-sm font-theme-data font-bold ${
               budgetPercent > 90 ? 'text-red-400' : budgetPercent > 75 ? 'text-yellow-400' : 'text-[var(--acid-green)]'
             }`}>
               {budgetPercent.toFixed(0)}%
@@ -106,20 +106,20 @@ export function CostSummaryWidget() {
         {/* Quick stats */}
         <div className="grid grid-cols-3 gap-3 pt-2 border-t border-[var(--border)]">
           <div>
-            <div className="text-[10px] font-mono text-[var(--text-muted)]">API Calls</div>
-            <div className="text-sm font-mono text-[var(--text)]">
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)]">API Calls</div>
+            <div className="text-sm font-theme-data text-[var(--text)]">
               {formatNumber(summary.api_calls)}
             </div>
           </div>
           <div>
-            <div className="text-[10px] font-mono text-[var(--text-muted)]">Tokens In</div>
-            <div className="text-sm font-mono text-[var(--text)]">
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Tokens In</div>
+            <div className="text-sm font-theme-data text-[var(--text)]">
               {formatNumber(summary.tokens_in)}
             </div>
           </div>
           <div>
-            <div className="text-[10px] font-mono text-[var(--text-muted)]">Tokens Out</div>
-            <div className="text-sm font-mono text-[var(--text)]">
+            <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Tokens Out</div>
+            <div className="text-sm font-theme-data text-[var(--text)]">
               {formatNumber(summary.tokens_out)}
             </div>
           </div>

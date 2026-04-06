@@ -68,12 +68,12 @@ export default function GalleryPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Hero Section */}
-        <div className="border-b border-acid-green/20 bg-surface/30">
+        <div className="border-b border-[var(--accent)]/20 bg-surface/30">
           <div className="container mx-auto px-4 py-12 text-center">
-            <h1 className="text-3xl md:text-4xl font-mono text-acid-green mb-4">
+            <h1 className="text-3xl md:text-4xl font-theme-data text-[var(--accent)] mb-4">
               {'>'} PUBLIC GALLERY
             </h1>
-            <p className="text-text-muted font-mono max-w-2xl mx-auto">
+            <p className="text-text-muted font-theme-data max-w-2xl mx-auto">
               Notable debates showcasing multi-agent reasoning. Browse featured discussions,
               discover consensus patterns, and learn from AI adversarial analysis.
             </p>
@@ -89,10 +89,10 @@ export default function GalleryPage() {
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-4 py-2 text-xs font-mono border transition-colors ${
+                  className={`px-4 py-2 text-xs font-theme-data border transition-colors ${
                     filter === f
-                      ? 'border-acid-green bg-acid-green/20 text-acid-green'
-                      : 'border-acid-green/30 text-text-muted hover:border-acid-green/60'
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+                      : 'border-[var(--accent)]/30 text-text-muted hover:border-[var(--accent)]/60'
                   }`}
                 >
                   [{f.toUpperCase()}]
@@ -107,8 +107,8 @@ export default function GalleryPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search topics..."
-                className="w-full px-4 py-2 text-sm font-mono bg-surface border border-acid-green/30
-                         text-text placeholder-text-muted/50 focus:border-acid-green focus:outline-none"
+                className="w-full px-4 py-2 text-sm font-theme-data bg-surface border border-[var(--accent)]/30
+                         text-text placeholder-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
               />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted text-xs">
                 [/]
@@ -129,7 +129,7 @@ export default function GalleryPage() {
             </div>
           ) : debates.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-text-muted font-mono">No debates found</p>
+              <p className="text-text-muted font-theme-data">No debates found</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -137,23 +137,23 @@ export default function GalleryPage() {
                 <Link
                   key={debate.id}
                   href={`/debate/${debate.id}`}
-                  className="card p-6 hover:border-acid-green/60 transition-colors group"
+                  className="card p-6 hover:border-[var(--accent)]/60 transition-colors group"
                 >
                   {/* Featured Badge */}
                   {debate.featured && (
-                    <div className="text-xs font-mono text-acid-cyan mb-2">
+                    <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-2">
                       [FEATURED]
                     </div>
                   )}
 
                   {/* Topic */}
-                  <h3 className="font-mono text-acid-green group-hover:text-acid-cyan transition-colors mb-3 line-clamp-2">
+                  <h3 className="font-theme-data text-[var(--accent)] group-hover:text-[var(--acid-cyan)] transition-colors mb-3 line-clamp-2">
                     {debate.title}
                   </h3>
 
                   {/* Summary */}
                   {debate.summary && (
-                    <p className="text-sm text-text-muted font-mono mb-4 line-clamp-3">
+                    <p className="text-sm text-text-muted font-theme-data mb-4 line-clamp-3">
                       {debate.summary}
                     </p>
                   )}
@@ -163,13 +163,13 @@ export default function GalleryPage() {
                     {debate.agents.slice(0, 3).map((agent) => (
                       <span
                         key={agent}
-                        className="px-2 py-1 text-xs font-mono bg-surface border border-acid-green/20 text-text-muted"
+                        className="px-2 py-1 text-xs font-theme-data bg-surface border border-[var(--accent)]/20 text-text-muted"
                       >
                         {agent}
                       </span>
                     ))}
                     {debate.agents.length > 3 && (
-                      <span className="px-2 py-1 text-xs font-mono text-text-muted">
+                      <span className="px-2 py-1 text-xs font-theme-data text-text-muted">
                         +{debate.agents.length - 3}
                       </span>
                     )}
@@ -177,13 +177,13 @@ export default function GalleryPage() {
 
                   {/* Consensus */}
                   {debate.consensus_reached && (
-                    <div className="text-xs font-mono text-acid-green/80 mb-4 p-2 bg-acid-green/5 border-l-2 border-acid-green">
+                    <div className="text-xs font-theme-data text-[var(--accent)]/80 mb-4 p-2 bg-[var(--accent)]/5 border-l-2 border-[var(--accent)]">
                       [CONSENSUS REACHED]
                     </div>
                   )}
 
                   {/* Meta */}
-                  <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+                  <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
                     <span>{formatDate(debate.created_at)}</span>
                     <span>{debate.views || 0} views</span>
                   </div>
@@ -198,8 +198,8 @@ export default function GalleryPage() {
               <button
                 onClick={handleLoadMore}
                 disabled={loading}
-                className="px-6 py-3 text-sm font-mono border border-acid-green/30
-                         text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+                className="px-6 py-3 text-sm font-theme-data border border-[var(--accent)]/30
+                         text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
               >
                 {loading ? '[LOADING...]' : '[LOAD MORE]'}
               </button>

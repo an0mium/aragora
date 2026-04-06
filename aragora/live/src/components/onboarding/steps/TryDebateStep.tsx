@@ -61,10 +61,10 @@ export function TryDebateStep() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-mono text-[var(--acid-green)] mb-2">
+        <h2 className="text-lg font-theme-data text-[var(--acid-green)] mb-2">
           Try a Free Debate
         </h2>
-        <p className="text-sm font-mono text-[var(--text-muted)]">
+        <p className="text-sm font-theme-data text-[var(--text-muted)]">
           See how AI agents stress-test a decision. Pick a topic or use one of ours.
         </p>
       </div>
@@ -76,7 +76,7 @@ export function TryDebateStep() {
           value={topic}
           onChange={(e) => setTopic(e.target.value)}
           placeholder={templates[0]?.exampleTopics[0] || 'Enter a decision to debate...'}
-          className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors"
+          className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-theme-data text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors"
           disabled={loading}
         />
 
@@ -100,7 +100,7 @@ export function TryDebateStep() {
         <button
           onClick={runTrial}
           disabled={loading}
-          className="w-full px-6 py-3 bg-[var(--acid-green)] text-[var(--bg)] font-mono font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-6 py-3 bg-[var(--acid-green)] text-[var(--bg)] font-theme-data font-bold text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Agents are debating...' : 'RUN FREE DEBATE'}
         </button>
@@ -111,7 +111,7 @@ export function TryDebateStep() {
         <div className="flex items-center justify-center py-6">
           <div className="flex items-center gap-3 text-[var(--acid-green)]">
             <div className="w-5 h-5 border-2 border-[var(--acid-green)]/30 border-t-[var(--acid-green)] rounded-full animate-spin" />
-            <span className="text-sm font-mono">MockAgents are debating...</span>
+            <span className="text-sm font-theme-data">MockAgents are debating...</span>
           </div>
         </div>
       )}
@@ -119,10 +119,10 @@ export function TryDebateStep() {
       {/* Error */}
       {error && (
         <div className="border border-[var(--crimson)] bg-[var(--crimson)]/10 p-3">
-          <p className="text-sm font-mono text-[var(--crimson)]">{error}</p>
+          <p className="text-sm font-theme-data text-[var(--crimson)]">{error}</p>
           <button
             onClick={runTrial}
-            className="mt-2 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+            className="mt-2 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
           >
             Try again
           </button>
@@ -133,10 +133,10 @@ export function TryDebateStep() {
       {trialDebateResult && (
         <div className="border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/5 p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <span className="text-[var(--acid-green)] font-mono font-bold text-sm">
+            <span className="text-[var(--acid-green)] font-theme-data font-bold text-sm">
               Debate Complete
             </span>
-            <span className={`text-xs font-mono px-2 py-0.5 border ${
+            <span className={`text-xs font-theme-data px-2 py-0.5 border ${
               (trialDebateResult as Record<string, unknown>).consensus_reached
                 ? 'border-green-500/30 text-green-400 bg-green-500/10'
                 : 'border-yellow-500/30 text-yellow-400 bg-yellow-500/10'
@@ -149,12 +149,12 @@ export function TryDebateStep() {
 
           {/* Verdict summary */}
           {(trialDebateResult as Record<string, unknown>).final_answer ? (
-            <p className="text-xs font-mono text-[var(--text)] leading-relaxed line-clamp-3">
+            <p className="text-xs font-theme-data text-[var(--text)] leading-relaxed line-clamp-3">
               {String((trialDebateResult as Record<string, unknown>).final_answer)}
             </p>
           ) : null}
 
-          <div className="flex items-center gap-4 text-xs font-mono text-[var(--text-muted)]">
+          <div className="flex items-center gap-4 text-xs font-theme-data text-[var(--text-muted)]">
             <span>
               {(Number((trialDebateResult as Record<string, unknown>).confidence) * 100).toFixed(0)}% confidence
             </span>
@@ -166,7 +166,7 @@ export function TryDebateStep() {
             </span>
           </div>
 
-          <p className="text-xs font-mono text-[var(--acid-cyan)]">
+          <p className="text-xs font-theme-data text-[var(--acid-cyan)]">
             Want deeper analysis with real AI models? Continue to create your account.
           </p>
         </div>

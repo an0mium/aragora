@@ -46,7 +46,7 @@ export default function AppLayoutClient({ children }: { children: React.ReactNod
   if (!mounted) {
     return (
       <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
-        <span className="font-mono text-sm text-[var(--text-muted)] animate-pulse">Loading...</span>
+        <span className="font-theme-data text-sm text-[var(--text-muted)] animate-pulse">Loading...</span>
       </div>
     );
   }
@@ -63,7 +63,7 @@ export default function AppLayoutClient({ children }: { children: React.ReactNod
 
   const loadingFallback = (
     <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
-      <span className="font-mono text-sm text-[var(--text-muted)] animate-pulse">Loading...</span>
+      <span className="font-theme-data text-sm text-[var(--text-muted)] animate-pulse">Loading...</span>
     </div>
   );
 

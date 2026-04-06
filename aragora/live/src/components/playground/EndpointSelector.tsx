@@ -151,13 +151,13 @@ export function EndpointSelector({ selected, onSelect }: EndpointSelectorProps) 
           placeholder="Search endpoints..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full px-2 py-1.5 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]"
+          className="w-full px-2 py-1.5 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]"
         />
       </div>
       <div className="flex-1 overflow-y-auto">
         {Array.from(groups.entries()).map(([group, endpoints]) => (
           <div key={group}>
-            <div className="px-3 py-2 text-[10px] font-mono font-bold text-[var(--text-muted)] uppercase tracking-wider bg-[var(--surface)]/50">
+            <div className="px-3 py-2 text-[10px] font-theme-data font-bold text-[var(--text-muted)] uppercase tracking-wider bg-[var(--surface)]/50">
               {group}
             </div>
             {endpoints.map((ep) => {
@@ -174,15 +174,15 @@ export function EndpointSelector({ selected, onSelect }: EndpointSelectorProps) 
                 >
                   <div className="flex items-center gap-2">
                     <span
-                      className={`text-[10px] font-mono font-bold ${METHOD_COLORS[ep.method] || 'text-gray-400'}`}
+                      className={`text-[10px] font-theme-data font-bold ${METHOD_COLORS[ep.method] || 'text-gray-400'}`}
                     >
                       {ep.method}
                     </span>
-                    <span className="text-xs font-mono text-[var(--text)] truncate">
+                    <span className="text-xs font-theme-data text-[var(--text)] truncate">
                       {ep.path.replace('/api/v2', '')}
                     </span>
                   </div>
-                  <p className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5 truncate">
+                  <p className="text-[10px] font-theme-data text-[var(--text-muted)] mt-0.5 truncate">
                     {ep.description}
                   </p>
                 </button>

@@ -49,6 +49,7 @@ class ExportFormat(str, Enum):
     html = "html"
     markdown = "markdown"
     md = "md"
+    pdf = "pdf"
     sarif = "sarif"
 
 
@@ -339,6 +340,24 @@ async def _call_store_method(store: Any, method_name: str, *args: Any, **kwargs:
     return result
 
 
+def _store_accepts_keyword_argument(store: Any, method_name: str, keyword: str) -> bool:
+    """Return whether a store method accepts a named keyword or arbitrary kwargs."""
+
+    method = getattr(store, method_name, None)
+    if method is None:
+        return False
+
+    try:
+        parameters = inspect.signature(method).parameters.values()
+    except (TypeError, ValueError):
+        return True
+
+    return any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD or parameter.name == keyword
+        for parameter in parameters
+    )
+
+
 async def _consume_share_access(share_store: Any, token: str) -> tuple[str, dict[str, Any] | None]:
     """Consume one receipt-share access, preferring atomic store support."""
     consume_result = None
@@ -554,6 +573,7 @@ async def list_receipts(
     limit: int = Query(50, ge=1, le=100, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     verdict: str | None = Query(None, description="Filter by verdict"),
+    debate_id: str | None = Query(None, description="Filter by debate ID"),
     store=Depends(get_receipt_store),
 ) -> ReceiptListResponse:
     """List all receipts with pagination."""
@@ -561,15 +581,29 @@ async def list_receipts(
         filter_kwargs: dict[str, Any] = {}
         if verdict:
             filter_kwargs["verdict"] = verdict
+        if debate_id:
+            filter_kwargs["debate_id"] = debate_id
 
         if hasattr(store, "list_recent"):
+            list_recent_kwargs: dict[str, Any] = {
+                "limit": limit,
+                "offset": offset,
+                "verdict": verdict,
+            }
+            if debate_id and _store_accepts_keyword_argument(store, "list_recent", "debate_id"):
+                list_recent_kwargs["debate_id"] = debate_id
+
             results = await _call_store_method(
                 store,
                 "list_recent",
-                limit=limit,
-                offset=offset,
-                verdict=verdict,
+                **list_recent_kwargs,
             )
+            if debate_id and "debate_id" not in list_recent_kwargs:
+                results = [
+                    receipt
+                    for receipt in results
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                ]
         elif hasattr(store, "list"):
             results = await _call_store_method(
                 store, "list", limit=limit, offset=offset, **filter_kwargs
@@ -583,12 +617,29 @@ async def list_receipts(
                     if (r.get("verdict") if isinstance(r, dict) else getattr(r, "verdict", ""))
                     == verdict
                 ]
+            if debate_id:
+                all_receipts = [
+                    receipt
+                    for receipt in all_receipts
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                ]
             results = all_receipts[offset : offset + limit]
         else:
             results = []
 
         if hasattr(store, "count"):
-            total = await _call_store_method(store, "count", verdict=verdict)
+            count_kwargs: dict[str, Any] = {"verdict": verdict}
+            if debate_id and _store_accepts_keyword_argument(store, "count", "debate_id"):
+                count_kwargs["debate_id"] = debate_id
+            total = await _call_store_method(store, "count", **count_kwargs)
+            if debate_id and "debate_id" not in count_kwargs and hasattr(store, "list_all"):
+                all_receipts = await _call_store_method(store, "list_all")
+                total = sum(
+                    1
+                    for receipt in all_receipts
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                    and (not verdict or _extract_receipt_payload(receipt).get("verdict") == verdict)
+                )
         else:
             total = len(results)
 
@@ -1260,9 +1311,13 @@ async def verify_receipt(
 async def export_receipt(
     receipt_id: str,
     format: ExportFormat = Query(ExportFormat.json, description="Export format"),
+    raw: bool = Query(
+        False,
+        description="Return the exported bytes directly instead of a JSON wrapper.",
+    ),
     store=Depends(get_receipt_store),
-) -> ExportResponse:
-    """Export receipt in the specified format (json, html, markdown, sarif)."""
+) -> ExportResponse | Response:
+    """Export receipt in the specified format."""
     try:
         receipt_data = None
 
@@ -1283,18 +1338,61 @@ async def export_receipt(
             else:
                 raise ValueError("Cannot reconstruct receipt for export")
 
+            if format == ExportFormat.pdf:
+                try:
+                    return Response(
+                        content=receipt.to_pdf(),
+                        media_type="application/pdf",
+                    )
+                except ImportError:
+                    logger.info("PDF export unavailable, falling back to printable HTML")
+                    printable_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Receipt {receipt_id}</title>
+    <style>
+        @media print {{
+            body {{ font-size: 12pt; }}
+            .no-print {{ display: none; }}
+        }}
+        body {{ font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+        .print-notice {{ background: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-bottom: 20px; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class="print-notice no-print">
+        <strong>Note:</strong> PDF export is unavailable. Use your browser's Print function (Ctrl+P / Cmd+P) to save as PDF.
+    </div>
+    {receipt.to_html()}
+</body>
+</html>"""
+                    return Response(
+                        content=printable_html.encode("utf-8"),
+                        media_type="text/html",
+                        headers={"X-PDF-Fallback": "true"},
+                    )
+
             if format in (ExportFormat.markdown, ExportFormat.md):
                 content = receipt.to_markdown()
                 response_format = "markdown"
+                media_type = "text/markdown"
             elif format == ExportFormat.html:
                 content = receipt.to_html()
                 response_format = "html"
+                media_type = "text/html"
             elif format == ExportFormat.sarif:
                 content = receipt.to_sarif_json()
                 response_format = "sarif"
+                media_type = "application/sarif+json"
             else:
                 content = receipt.to_json()
                 response_format = "json"
+                media_type = "application/json"
+
+            if raw:
+                body = content if isinstance(content, bytes) else content.encode("utf-8")
+                return Response(content=body, media_type=media_type)
 
             return ExportResponse(
                 receipt_id=receipt_id,

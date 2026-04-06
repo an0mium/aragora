@@ -187,7 +187,7 @@ export function AgentProfileWrapper() {
             >
               ← Back
             </button>
-            <h1 className="text-2xl font-bold text-text font-mono">{agentName}</h1>
+            <h1 className="text-2xl font-bold text-text font-theme-data">{agentName}</h1>
             {profile?.calibration && (
               <TrustBadge
                 calibration={{
@@ -218,7 +218,7 @@ export function AgentProfileWrapper() {
           {/* ELO */}
           <div className="bg-surface border border-border rounded-lg p-4">
             <div className="text-xs text-text-muted mb-1">ELO Rating</div>
-            <div className={`text-2xl font-bold font-mono ${getEloColor(profile?.ranking?.rating?.elo || 1500)}`}>
+            <div className={`text-2xl font-bold font-theme-data ${getEloColor(profile?.ranking?.rating?.elo || 1500)}`}>
               {profile?.ranking?.rating?.elo || 1500}
             </div>
           </div>
@@ -226,7 +226,7 @@ export function AgentProfileWrapper() {
           {/* Win Rate */}
           <div className="bg-surface border border-border rounded-lg p-4">
             <div className="text-xs text-text-muted mb-1">Win Rate</div>
-            <div className="text-2xl font-bold font-mono text-text">
+            <div className="text-2xl font-bold font-theme-data text-text">
               {profile?.ranking?.rating?.games_played
                 ? `${((profile.ranking.rating.wins / profile.ranking.rating.games_played) * 100).toFixed(0)}%`
                 : 'N/A'}
@@ -239,7 +239,7 @@ export function AgentProfileWrapper() {
           {/* Consistency */}
           <div className="bg-surface border border-border rounded-lg p-4">
             <div className="text-xs text-text-muted mb-1">Consistency</div>
-            <div className={`text-2xl font-bold font-mono ${getConsistencyColor(profile?.consistency?.score || 0)}`}>
+            <div className={`text-2xl font-bold font-theme-data ${getConsistencyColor(profile?.consistency?.score || 0)}`}>
               {profile?.consistency?.score ? `${(profile.consistency.score * 100).toFixed(0)}%` : 'N/A'}
             </div>
             {profile?.consistency?.recent_flips !== undefined && (
@@ -252,7 +252,7 @@ export function AgentProfileWrapper() {
           {/* Calibration */}
           <div className="bg-surface border border-border rounded-lg p-4">
             <div className="text-xs text-text-muted mb-1">Calibration</div>
-            <div className="text-2xl font-bold font-mono text-text">
+            <div className="text-2xl font-bold font-theme-data text-text">
               {profile?.calibration?.brier_score !== undefined
                 ? profile.calibration.brier_score.toFixed(3)
                 : 'N/A'}
@@ -612,19 +612,19 @@ export function AgentProfileWrapper() {
                   {/* Key Metrics */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="bg-bg border border-border rounded-lg p-4 text-center">
-                      <div className="text-2xl font-bold text-text font-mono">
+                      <div className="text-2xl font-bold text-text font-theme-data">
                         {(performance.win_rate * 100).toFixed(1)}%
                       </div>
                       <div className="text-xs text-text-muted">Win Rate</div>
                     </div>
                     <div className="bg-bg border border-border rounded-lg p-4 text-center">
-                      <div className="text-2xl font-bold text-accent font-mono">
+                      <div className="text-2xl font-bold text-accent font-theme-data">
                         {(performance.recent_win_rate * 100).toFixed(1)}%
                       </div>
                       <div className="text-xs text-text-muted">Recent (Last 10)</div>
                     </div>
                     <div className="bg-bg border border-border rounded-lg p-4 text-center">
-                      <div className={`text-2xl font-bold font-mono ${
+                      <div className={`text-2xl font-bold font-theme-data ${
                         performance.elo_trend > 0 ? 'text-green-400' :
                         performance.elo_trend < 0 ? 'text-red-400' : 'text-text-muted'
                       }`}>
@@ -633,7 +633,7 @@ export function AgentProfileWrapper() {
                       <div className="text-xs text-text-muted">ELO Trend</div>
                     </div>
                     <div className="bg-bg border border-border rounded-lg p-4 text-center">
-                      <div className="text-2xl font-bold text-text font-mono">
+                      <div className="text-2xl font-bold text-text font-theme-data">
                         {performance.total_games}
                       </div>
                       <div className="text-xs text-text-muted">Total Games</div>
@@ -679,7 +679,7 @@ export function AgentProfileWrapper() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="text-xs text-text-muted mb-1">Acceptance Rate</div>
-                        <div className="text-lg font-mono text-text">
+                        <div className="text-lg font-theme-data text-text">
                           {(performance.critique_acceptance_rate * 100).toFixed(1)}%
                         </div>
                         <div className="text-xs text-text-muted">
@@ -688,7 +688,7 @@ export function AgentProfileWrapper() {
                       </div>
                       <div>
                         <div className="text-xs text-text-muted mb-1">Calibration Accuracy</div>
-                        <div className="text-lg font-mono text-text">
+                        <div className="text-lg font-theme-data text-text">
                           {(performance.calibration.accuracy * 100).toFixed(1)}%
                         </div>
                         <div className="text-xs text-text-muted">
@@ -714,7 +714,7 @@ export function AgentProfileWrapper() {
               {domains && domains.domains.length > 0 ? (
                 <>
                   <div className="text-sm text-text-muted mb-4">
-                    Overall ELO: <span className="font-mono text-text">{domains.overall_elo}</span>
+                    Overall ELO: <span className="font-theme-data text-text">{domains.overall_elo}</span>
                     {' '}&middot;{' '}
                     {domains.domain_count} domain{domains.domain_count !== 1 ? 's' : ''}
                   </div>
@@ -730,8 +730,8 @@ export function AgentProfileWrapper() {
                             {domain.domain.replace(/_/g, ' ')}
                           </span>
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-text">{Math.round(domain.elo)}</span>
-                            <span className={`text-xs font-mono ${
+                            <span className="font-theme-data text-text">{Math.round(domain.elo)}</span>
+                            <span className={`text-xs font-theme-data ${
                               domain.relative > 0 ? 'text-green-400' :
                               domain.relative < 0 ? 'text-red-400' : 'text-text-muted'
                             }`}>
@@ -805,7 +805,7 @@ export function AgentProfileWrapper() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className={`text-sm font-mono ${
+                          <div className={`text-sm font-theme-data ${
                             entry.elo_change > 0 ? 'text-green-400' :
                             entry.elo_change < 0 ? 'text-red-400' : 'text-text-muted'
                           }`}>

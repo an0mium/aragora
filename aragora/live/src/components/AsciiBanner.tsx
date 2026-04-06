@@ -54,11 +54,11 @@ export function AsciiBanner({ subtitle = 'live', showStatus = true, connected = 
   return (
     <div className="relative">
       {/* ASCII Logo */}
-      <pre className="font-mono text-[10px] sm:text-xs md:text-sm leading-tight text-center select-none">
+      <pre className="font-theme-data text-[10px] sm:text-xs md:text-sm leading-tight text-center select-none">
         {lines.map((line, i) => (
           <div
             key={i}
-            className="glow-text-subtle text-acid-green"
+            className="glow-text-subtle text-[var(--accent)]"
             style={{
               animationDelay: `${i * 0.1}s`,
               opacity: mounted ? 1 : 0,
@@ -72,7 +72,7 @@ export function AsciiBanner({ subtitle = 'live', showStatus = true, connected = 
 
       {/* Subtitle */}
       <div className="text-center mt-2 space-y-1">
-        <span className="text-acid-cyan text-xs tracking-[0.5em] uppercase font-bold">
+        <span className="text-[var(--acid-cyan)] text-xs tracking-[0.5em] uppercase font-bold">
           {subtitle}
         </span>
 
@@ -81,10 +81,10 @@ export function AsciiBanner({ subtitle = 'live', showStatus = true, connected = 
           <div className="flex items-center justify-center gap-2 text-xs">
             <span
               className={`inline-block w-2 h-2 rounded-full ${
-                connected ? 'bg-acid-green pulse-glow' : 'bg-crimson'
+                connected ? 'bg-[var(--accent)] pulse-glow' : 'bg-[var(--crimson)]'
               }`}
             />
-            <span className={connected ? 'text-acid-green' : 'text-crimson'}>
+            <span className={connected ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'}>
               {connected ? 'CONNECTED' : 'OFFLINE'}
             </span>
           </div>
@@ -92,7 +92,7 @@ export function AsciiBanner({ subtitle = 'live', showStatus = true, connected = 
       </div>
 
       {/* Decorative border */}
-      <div className="mt-4 text-center text-acid-green/50 text-xs font-mono select-none">
+      <div className="mt-4 text-center text-[var(--accent)]/50 text-xs font-theme-data select-none">
         {'='.repeat(60)}
       </div>
     </div>
@@ -119,7 +119,7 @@ export function AsciiBannerCompact({
         <Logo size="sm" onClick={onLogoClick} />
       )}
       {showAsciiArt && (
-        <pre className="font-mono text-[8px] leading-none text-acid-green glow-text-subtle hidden sm:block">
+        <pre className="font-theme-data text-[8px] leading-none text-[var(--accent)] glow-text-subtle hidden sm:block">
 {`    _    ____
    / \\  |  _ \\
   / _ \\ | |_) |
@@ -127,13 +127,13 @@ export function AsciiBannerCompact({
 /_/   \\_\\_| \\_\\`}
         </pre>
       )}
-      <span className="text-acid-green font-mono font-bold">
+      <span className="text-[var(--accent)] font-theme-data font-bold">
         [ARAGORA]
       </span>
       {showStatus && (
         <span
           className={`w-2 h-2 rounded-full ${
-            connected ? 'bg-acid-green animate-pulse' : 'bg-crimson'
+            connected ? 'bg-[var(--accent)] animate-pulse' : 'bg-[var(--crimson)]'
           }`}
         />
       )}

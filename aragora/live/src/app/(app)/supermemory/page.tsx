@@ -80,16 +80,16 @@ export default function SupermemoryPage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-3">
-              <Link href="/memory" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/memory" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [MEMORY]
               </Link>
-              <Link href="/memory-gateway" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/memory-gateway" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [GATEWAY]
               </Link>
               <BackendSelector compact />
@@ -100,35 +100,35 @@ export default function SupermemoryPage() {
 
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} SUPERMEMORY EXPLORER
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Cross-session external memory. Browse, search, and inspect long-term memories
-              persisted across debate sessions via <code className="text-acid-green">enable_supermemory</code>.
+              persisted across debate sessions via <code className="text-[var(--accent)]">enable_supermemory</code>.
             </p>
           </div>
 
           <PanelErrorBoundary panelName="Supermemory">
             {/* Stats */}
             {isLoading ? (
-              <div className="text-acid-green font-mono animate-pulse text-center py-6">Loading...</div>
+              <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-6">Loading...</div>
             ) : stats ? (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                  <div className="text-3xl font-mono font-bold text-acid-green">{stats.total_memories}</div>
+                  <div className="text-3xl font-theme-data font-bold text-[var(--accent)]">{stats.total_memories}</div>
                   <div className="text-xs text-text-muted uppercase">Total Memories</div>
                 </div>
                 <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                  <div className="text-3xl font-mono font-bold text-blue-400">{stats.sessions}</div>
+                  <div className="text-3xl font-theme-data font-bold text-blue-400">{stats.sessions}</div>
                   <div className="text-xs text-text-muted uppercase">Sessions</div>
                 </div>
                 <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                  <div className="text-3xl font-mono font-bold text-purple-400">{stats.avg_surprise.toFixed(2)}</div>
+                  <div className="text-3xl font-theme-data font-bold text-purple-400">{stats.avg_surprise.toFixed(2)}</div>
                   <div className="text-xs text-text-muted uppercase">Avg Surprise</div>
                 </div>
                 <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                  <div className="text-3xl font-mono font-bold text-gold">
+                  <div className="text-3xl font-theme-data font-bold text-gold">
                     {(stats.retention_rate * 100).toFixed(0)}%
                   </div>
                   <div className="text-xs text-text-muted uppercase">Retention Rate</div>
@@ -136,8 +136,8 @@ export default function SupermemoryPage() {
               </div>
             ) : (
               <div className="p-4 bg-surface border border-border rounded-lg text-center mb-6">
-                <p className="text-text-muted font-mono text-sm">
-                  No supermemory data. Enable <code className="text-acid-green">enable_supermemory</code> in ArenaConfig.
+                <p className="text-text-muted font-theme-data text-sm">
+                  No supermemory data. Enable <code className="text-[var(--accent)]">enable_supermemory</code> in ArenaConfig.
                 </p>
               </div>
             )}
@@ -151,12 +151,12 @@ export default function SupermemoryPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   placeholder="Search supermemory..."
-                  className="flex-1 px-4 py-2 bg-surface border border-border rounded font-mono text-sm text-text placeholder-text-muted focus:border-acid-green focus:outline-none"
+                  className="flex-1 px-4 py-2 bg-surface border border-border rounded font-theme-data text-sm text-text placeholder-text-muted focus:border-[var(--accent)] focus:outline-none"
                 />
                 <button
                   onClick={handleSearch}
                   disabled={searching || !searchQuery.trim()}
-                  className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 disabled:opacity-50"
+                  className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 disabled:opacity-50"
                 >
                   {searching ? 'Searching...' : 'Search'}
                 </button>
@@ -166,17 +166,17 @@ export default function SupermemoryPage() {
             {/* Search Results */}
             {searchResults.length > 0 && (
               <div className="mb-6 p-4 bg-surface border border-border rounded-lg">
-                <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                   Search Results ({searchResults.length})
                 </h3>
                 <div className="space-y-2 max-h-[400px] overflow-y-auto">
                   {searchResults.map((result) => (
                     <div key={result.id} className="p-3 bg-bg rounded">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-mono text-text-muted">
+                        <span className="text-xs font-theme-data text-text-muted">
                           {result.id.substring(0, 12)}
                         </span>
-                        <span className="px-1.5 py-0.5 text-xs bg-acid-green/20 text-acid-green rounded font-mono">
+                        <span className="px-1.5 py-0.5 text-xs bg-[var(--accent)]/20 text-[var(--accent)] rounded font-theme-data">
                           {(result.score * 100).toFixed(0)}% match
                         </span>
                         <span className="text-xs text-text-muted">
@@ -192,7 +192,7 @@ export default function SupermemoryPage() {
 
             {/* Recent Memories */}
             <div className="p-4 bg-surface border border-border rounded-lg">
-              <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+              <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                 Recent Memories
               </h3>
               {recent.length === 0 ? (
@@ -202,13 +202,13 @@ export default function SupermemoryPage() {
                   {recent.map((entry) => (
                     <div key={entry.id} className="p-3 bg-bg rounded">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-mono text-text-muted">
+                        <span className="text-xs font-theme-data text-text-muted">
                           {entry.id.substring(0, 10)}
                         </span>
                         <span className="text-xs text-text-muted">
                           session: {entry.session_id.substring(0, 8)}
                         </span>
-                        <span className={`text-xs font-mono ${
+                        <span className={`text-xs font-theme-data ${
                           entry.surprise_score > 0.5 ? 'text-yellow-400' : 'text-text-muted'
                         }`}>
                           surprise: {entry.surprise_score.toFixed(2)}
@@ -235,8 +235,8 @@ export default function SupermemoryPage() {
           </PanelErrorBoundary>
         </div>
 
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // SUPERMEMORY EXPLORER</p>
         </footer>
       </main>

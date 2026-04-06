@@ -127,13 +127,13 @@ function LiveEloRankingsPanelComponent({
     <div className="card p-4">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
-          <h4 className="font-mono text-xs text-acid-green">Live Agent Rankings</h4>
-          <p className="font-mono text-[11px] text-text-muted">
+          <h4 className="font-theme-data text-xs text-[var(--accent)]">Live Agent Rankings</h4>
+          <p className="font-theme-data text-[11px] text-text-muted">
             Source: <span className="text-text">/api/v1/agents/rankings</span>
           </p>
         </div>
         {!loading && rankings.length > 0 && (
-          <span className="font-mono text-[11px] text-text-muted">
+          <span className="font-theme-data text-[11px] text-text-muted">
             {rankings.length} agents
           </span>
         )}
@@ -149,19 +149,19 @@ function LiveEloRankingsPanelComponent({
 
       {error && !loading && (
         <div className="rounded border border-red-500/40 bg-red-900/20 p-3">
-          <p className="font-mono text-xs text-red-300">{error}</p>
+          <p className="font-theme-data text-xs text-red-300">{error}</p>
         </div>
       )}
 
       {!loading && !error && rankings.length === 0 && (
-        <p className="py-4 text-center font-mono text-xs text-text-muted">
+        <p className="py-4 text-center font-theme-data text-xs text-text-muted">
           No live rankings are available yet.
         </p>
       )}
 
       {!loading && !error && rankings.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full text-xs font-mono">
+          <table className="w-full text-xs font-theme-data">
             <thead>
               <tr className="border-b border-border text-text-muted">
                 <th className="w-8 py-1.5 px-1 text-left">#</th>

@@ -28,6 +28,7 @@ from aragora.server.handlers.playground import (
     PlaygroundHandler,
     _check_rate_limit,
     _check_live_rate_limit,
+    _reset_oracle_sessions,
     _reset_rate_limits,
     _run_inline_mock_debate,
     _build_mock_proposals,
@@ -48,6 +49,8 @@ from aragora.server.handlers.playground import (
     _LIVE_RATE_LIMIT,
     _LIVE_RATE_WINDOW,
 )
+from aragora.storage import debate_store as debate_store_module
+from aragora.storage.debate_store import DebateResultStore
 from aragora.storage.landing_review_store import (
     get_landing_review_store,
     reset_landing_review_store,
@@ -109,16 +112,24 @@ def handler():
 
 @pytest.fixture(autouse=True)
 def _clear_rate_limits(tmp_path, monkeypatch):
-    """Reset rate limit and landing review state before each test."""
+    """Reset public demo state before each test."""
     monkeypatch.setenv(
         "ARAGORA_LANDING_REVIEW_DB_PATH",
         str(tmp_path / "landing_review.sqlite3"),
     )
+    monkeypatch.setattr(
+        debate_store_module,
+        "_store",
+        DebateResultStore(str(tmp_path / "debate_results.sqlite3")),
+    )
     reset_landing_review_store()
     _reset_rate_limits()
+    _reset_oracle_sessions()
     yield
     _reset_rate_limits()
+    _reset_oracle_sessions()
     reset_landing_review_store()
+    debate_store_module._store = None
 
 
 # ============================================================================
@@ -140,9 +151,6 @@ class TestCanHandle:
 
     def test_cost_estimate_path(self, handler):
         assert handler.can_handle("/api/v1/playground/debate/live/cost-estimate")
-
-    def test_assess_path(self, handler):
-        assert handler.can_handle("/api/v1/playground/assess")
 
     def test_status_path(self, handler):
         assert handler.can_handle("/api/v1/playground/status")
@@ -1734,6 +1742,37 @@ class TestRunLiveDebate:
             assert "upgrade_cta" in body
             assert body["topic"] == "test topic"
 
+    def test_successful_live_debate_passes_generated_debate_id(self, handler):
+        mock_result = {
+            "status": "completed",
+            "rounds_used": 2,
+            "consensus_reached": True,
+            "confidence": 0.8,
+            "verdict": "approved",
+            "duration_seconds": 5.0,
+            "participants": ["anthropic", "openai"],
+            "proposals": {"anthropic": "A says...", "openai": "B says..."},
+            "critiques": [],
+            "votes": [],
+            "dissenting_views": [],
+            "final_answer": "Conclusion",
+        }
+        fake_uuid = MagicMock(hex="0123456789abcdef")
+        with (
+            patch("importlib.util.find_spec", return_value=True),
+            patch("aragora.server.handlers.playground.uuid.uuid4", return_value=fake_uuid),
+            patch(
+                "aragora.server.handlers.playground.start_playground_debate",
+                return_value=mock_result,
+            ) as mock_start,
+        ):
+            result = handler._run_live_debate("test topic", 2, 3)
+
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["id"] == "playground_01234567"
+        assert mock_start.call_args.kwargs["debate_id"] == "playground_01234567"
+
 
 # ============================================================================
 # POST dispatch routing
@@ -1751,6 +1790,27 @@ class TestPostDispatch:
             mock_h = _MockHTTPHandler("POST", body={})
             result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
             assert _status(result) == 200
+
+    def test_invalid_client_debate_id_is_dropped(self, handler):
+        from aragora.server.handlers.utils.responses import HandlerResult
+
+        invalid_id = "naïve-debate-id"
+        with patch.object(
+            handler,
+            "_run_debate",
+            return_value=HandlerResult(
+                status_code=200,
+                content_type="application/json",
+                body=json.dumps({"ok": True}).encode(),
+            ),
+        ) as mock_run:
+            mock_h = _MockHTTPHandler(
+                "POST",
+                body={"topic": "AI Safety", "debate_id": invalid_id},
+            )
+            handler.handle_post("/api/v1/playground/debate", {}, mock_h)
+
+        assert mock_run.call_args.kwargs["client_debate_id"] is None
 
     def test_cost_estimate_path_dispatches(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})

@@ -332,7 +332,7 @@ export function InfluenceGraph({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96 bg-surface border border-border rounded-lg">
-        <div className="text-acid-green font-mono animate-pulse">
+        <div className="text-[var(--accent)] font-theme-data animate-pulse">
           Loading belief network...
         </div>
       </div>
@@ -343,12 +343,12 @@ export function InfluenceGraph({
   if (error) {
     return (
       <div className="p-4 bg-acid-red/10 border border-acid-red/30 rounded-lg">
-        <div className="text-acid-red font-mono text-sm mb-2">
+        <div className="text-acid-red font-theme-data text-sm mb-2">
           Failed to load network: {error}
         </div>
         <button
           onClick={fetchNetworkData}
-          className="px-3 py-1 text-xs font-mono bg-surface border border-acid-red/30 rounded hover:border-acid-red/50"
+          className="px-3 py-1 text-xs font-theme-data bg-surface border border-acid-red/30 rounded hover:border-acid-red/50"
         >
           [RETRY]
         </button>
@@ -360,7 +360,7 @@ export function InfluenceGraph({
   if (!data || data.nodes.length === 0) {
     return (
       <div className="flex items-center justify-center h-96 bg-surface border border-border rounded-lg">
-        <div className="text-text-muted font-mono text-sm">
+        <div className="text-text-muted font-theme-data text-sm">
           No belief network data available
         </div>
       </div>
@@ -373,9 +373,9 @@ export function InfluenceGraph({
       <div className="absolute top-2 left-2 z-10 flex gap-2">
         <button
           onClick={() => setShowLabels(!showLabels)}
-          className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
+          className={`px-2 py-1 text-xs font-theme-data rounded transition-colors ${
             showLabels
-              ? 'bg-acid-green/20 text-acid-green border border-acid-green/30'
+              ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30'
               : 'bg-surface text-text-muted border border-border'
           }`}
         >
@@ -384,7 +384,7 @@ export function InfluenceGraph({
         {debateId && (
           <button
             onClick={fetchNetworkData}
-            className="px-2 py-1 text-xs font-mono bg-surface border border-border rounded hover:border-acid-green/50"
+            className="px-2 py-1 text-xs font-theme-data bg-surface border border-border rounded hover:border-[var(--accent)]/50"
           >
             [REFRESH]
           </button>
@@ -392,7 +392,7 @@ export function InfluenceGraph({
       </div>
 
       {/* Legend */}
-      <div className="absolute top-2 right-2 z-10 p-2 bg-surface/90 border border-border rounded text-xs font-mono">
+      <div className="absolute top-2 right-2 z-10 p-2 bg-surface/90 border border-border rounded text-xs font-theme-data">
         <div className="text-text-muted mb-1">LEGEND</div>
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -410,7 +410,7 @@ export function InfluenceGraph({
           {highlightCruxes && (
             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border">
               <div className="w-3 h-3 rounded-full bg-[#ffff00] border-2 border-yellow-400" />
-              <span className="text-acid-yellow">Crux claim</span>
+              <span className="text-[var(--acid-yellow)]">Crux claim</span>
             </div>
           )}
         </div>
@@ -421,23 +421,23 @@ export function InfluenceGraph({
         ref={svgRef}
         width={width}
         height={height}
-        className="bg-bg/50 rounded border border-acid-green/20"
+        className="bg-bg/50 rounded border border-[var(--accent)]/20"
       />
 
       {/* Selected Node Panel */}
       {selectedNode && (
-        <div className="absolute bottom-2 left-2 right-2 p-4 bg-surface border border-acid-cyan/30 rounded-lg shadow-lg max-w-md">
+        <div className="absolute bottom-2 left-2 right-2 p-4 bg-surface border border-[var(--acid-cyan)]/30 rounded-lg shadow-lg max-w-md">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <div
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: getAgentColor(selectedNode.author) }}
               />
-              <span className="font-mono text-sm text-acid-cyan">
+              <span className="font-theme-data text-sm text-[var(--acid-cyan)]">
                 {selectedNode.author}
               </span>
               {selectedNode.is_crux && (
-                <span className="px-1.5 py-0.5 text-xs font-mono bg-acid-yellow/20 text-acid-yellow rounded">
+                <span className="px-1.5 py-0.5 text-xs font-theme-data bg-acid-yellow/20 text-[var(--acid-yellow)] rounded">
                   CRUX
                 </span>
               )}
@@ -447,27 +447,27 @@ export function InfluenceGraph({
                 setSelectedNode(null);
                 onNodeSelect?.(null);
               }}
-              className="text-text-muted hover:text-text text-xs font-mono"
+              className="text-text-muted hover:text-text text-xs font-theme-data"
             >
               [X]
             </button>
           </div>
 
-          <p className="font-mono text-sm text-text mb-3 line-clamp-3">
+          <p className="font-theme-data text-sm text-text mb-3 line-clamp-3">
             {selectedNode.statement}
           </p>
 
-          <div className="flex flex-wrap gap-3 text-xs font-mono">
+          <div className="flex flex-wrap gap-3 text-xs font-theme-data">
             <span className="text-text-muted">
               Centrality:{' '}
-              <span className="text-acid-green">
+              <span className="text-[var(--accent)]">
                 {(selectedNode.centrality * 100).toFixed(1)}%
               </span>
             </span>
             {selectedNode.crux_score !== undefined && (
               <span className="text-text-muted">
                 Crux Score:{' '}
-                <span className="text-acid-yellow">
+                <span className="text-[var(--acid-yellow)]">
                   {selectedNode.crux_score.toFixed(3)}
                 </span>
               </span>
@@ -477,8 +477,8 @@ export function InfluenceGraph({
                 Entropy:{' '}
                 <span className={
                   selectedNode.entropy >= 0.8 ? 'text-acid-red' :
-                  selectedNode.entropy >= 0.5 ? 'text-acid-yellow' :
-                  'text-acid-green'
+                  selectedNode.entropy >= 0.5 ? 'text-[var(--acid-yellow)]' :
+                  'text-[var(--accent)]'
                 }>
                   {selectedNode.entropy.toFixed(2)}
                 </span>
@@ -504,7 +504,7 @@ export function InfluenceGraph({
 
       {/* Stats footer */}
       {data.metadata && (
-        <div className="absolute bottom-2 right-2 px-2 py-1 bg-surface/80 rounded text-xs font-mono text-text-muted">
+        <div className="absolute bottom-2 right-2 px-2 py-1 bg-surface/80 rounded text-xs font-theme-data text-text-muted">
           {data.metadata.total_claims} claims | {data.metadata.crux_count} cruxes
         </div>
       )}

@@ -117,20 +117,20 @@ function SystemStatusPanel({ refreshInterval = 30000 }: { refreshInterval?: numb
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)]">
       <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} SYSTEM STATUS
         </h3>
         <div className="flex items-center gap-2">
           {overallUp ? (
-            <span className="px-2 py-0.5 text-[10px] font-mono bg-green-500/20 text-green-400 border border-green-500/30">LIVE</span>
+            <span className="px-2 py-0.5 text-[10px] font-theme-data bg-green-500/20 text-green-400 border border-green-500/30">LIVE</span>
           ) : healthError ? (
-            <span className="px-2 py-0.5 text-[10px] font-mono bg-red-500/20 text-red-400 border border-red-500/30">OFFLINE</span>
+            <span className="px-2 py-0.5 text-[10px] font-theme-data bg-red-500/20 text-red-400 border border-red-500/30">OFFLINE</span>
           ) : (
-            <span className="px-2 py-0.5 text-[10px] font-mono bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 animate-pulse">CHECKING</span>
+            <span className="px-2 py-0.5 text-[10px] font-theme-data bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 animate-pulse">CHECKING</span>
           )}
           <Link
             href="/admin"
-            className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+            className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
           >
             ADMIN
           </Link>
@@ -144,10 +144,10 @@ function SystemStatusPanel({ refreshInterval = 30000 }: { refreshInterval?: numb
             <div key={item.name} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-sm">{item.icon}</span>
-                <span className="text-xs font-mono text-[var(--text)]">{item.name}</span>
+                <span className="text-xs font-theme-data text-[var(--text)]">{item.name}</span>
               </div>
               <span
-                className={`px-2 py-0.5 text-[10px] font-mono uppercase ${
+                className={`px-2 py-0.5 text-[10px] font-theme-data uppercase ${
                   status === 'operational'
                     ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                     : status === 'degraded'
@@ -164,7 +164,7 @@ function SystemStatusPanel({ refreshInterval = 30000 }: { refreshInterval?: numb
         })}
 
         <div className="pt-3 mt-3 border-t border-[var(--border)]">
-          <div className="flex items-center justify-between text-xs font-mono">
+          <div className="flex items-center justify-between text-xs font-theme-data">
             <span className="text-[var(--text-muted)]">30-day uptime</span>
             <span className={uptimePercent !== null ? 'text-green-400' : 'text-[var(--text-muted)]'}>
               {uptimePercent !== null ? `${uptimePercent.toFixed(2)}%` : '--'}
@@ -191,7 +191,7 @@ function LiveDebatesPanel() {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)]">
       <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] flex items-center gap-2">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] flex items-center gap-2">
           {'>'} LIVE DEBATES
           {debates.length > 0 && (
             <span className="relative flex h-2 w-2">
@@ -201,18 +201,18 @@ function LiveDebatesPanel() {
           )}
         </h3>
         {debates.length > 0 && (
-          <span className="px-2 py-0.5 text-[10px] font-mono bg-green-500/20 text-green-400 border border-green-500/30">
+          <span className="px-2 py-0.5 text-[10px] font-theme-data bg-green-500/20 text-green-400 border border-green-500/30">
             {debates.length} ACTIVE
           </span>
         )}
       </div>
 
       {isLoading ? (
-        <div className="p-4 text-center text-[var(--text-muted)] font-mono text-sm animate-pulse">
+        <div className="p-4 text-center text-[var(--text-muted)] font-theme-data text-sm animate-pulse">
           Checking...
         </div>
       ) : debates.length === 0 ? (
-        <div className="p-4 text-center text-[var(--text-muted)] font-mono text-sm">
+        <div className="p-4 text-center text-[var(--text-muted)] font-theme-data text-sm">
           No debates running.{' '}
           <Link href="/arena" className="text-[var(--acid-green)] hover:underline">
             Start one
@@ -228,14 +228,14 @@ function LiveDebatesPanel() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-mono text-[var(--text)] truncate">
+                  <p className="text-sm font-theme-data text-[var(--text)] truncate">
                     {debate.topic || 'Untitled debate'}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                    <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                       {debate.agents.length} agents
                     </span>
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                    <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                       Round {debate.round}/{debate.total_rounds}
                     </span>
                   </div>
@@ -246,11 +246,11 @@ function LiveDebatesPanel() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500" />
                     </span>
-                    <span className="text-[10px] font-mono text-green-400 uppercase">
+                    <span className="text-[10px] font-theme-data text-green-400 uppercase">
                       {debate.status}
                     </span>
                   </div>
-                  <div className="text-[10px] text-[var(--text-muted)] font-mono mt-1">
+                  <div className="text-[10px] text-[var(--text-muted)] font-theme-data mt-1">
                     {formatElapsed(debate.elapsed_seconds)}
                   </div>
                 </div>
@@ -330,12 +330,12 @@ function DashboardContent() {
       subtitle: 'Real-time KPIs',
       statsContent: (
         <div className="space-y-3">
-          <div className="text-xs text-[var(--text-muted)] font-mono">
+          <div className="text-xs text-[var(--text-muted)] font-theme-data">
             Overview of AI-debated decisions across your organization.
           </div>
           <div className="border-t border-[var(--border)] pt-3">
-            <div className="text-xs text-[var(--acid-green)] font-mono mb-1">WHAT IS ARAGORA?</div>
-            <div className="text-xs text-[var(--text)] font-mono leading-relaxed">
+            <div className="text-xs text-[var(--acid-green)] font-theme-data mb-1">WHAT IS ARAGORA?</div>
+            <div className="text-xs text-[var(--text)] font-theme-data leading-relaxed">
               Multiple AI models debate your decisions and deliver verdicts with confidence scores and audit trails.
             </div>
           </div>
@@ -345,19 +345,19 @@ function DashboardContent() {
         <div className="space-y-2">
           <Link
             href="/arena"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
           >
             + NEW DEBATE
           </Link>
           <Link
             href="/control-plane"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             OPERATIONS
           </Link>
           <Link
             href="/admin"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             ADMIN
           </Link>
@@ -391,15 +391,15 @@ function DashboardContent() {
           <div className="mb-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <h1 className="text-xl font-mono text-[var(--acid-green)] mb-2">
+                <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-2">
                   {'>'} EXECUTIVE DASHBOARD
                 </h1>
-                <p className="text-xs text-[var(--text-muted)] font-mono">
+                <p className="text-xs text-[var(--text-muted)] font-theme-data">
                   AI models that debate your decisions — with confidence scores and full audit trails
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`px-2 py-1 text-xs font-mono border ${
+                <span className={`px-2 py-1 text-xs font-theme-data border ${
                   wsConnected
                     ? 'bg-green-500/20 text-green-400 border-green-500/30'
                     : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
@@ -442,23 +442,23 @@ function DashboardContent() {
             <PanelErrorBoundary panelName="Recent Debates">
               <div className="bg-[var(--surface)] border border-[var(--border)]">
                 <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
-                  <h3 className="text-sm font-mono text-[var(--acid-green)]">
+                  <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
                     {'>'} RECENT DEBATES
                   </h3>
                   <Link
                     href="/debates"
-                    className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                    className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
                   >
                     VIEW ALL
                   </Link>
                 </div>
 
                 {loadingDebates ? (
-                  <div className="p-4 text-center text-[var(--text-muted)] font-mono text-sm animate-pulse">
+                  <div className="p-4 text-center text-[var(--text-muted)] font-theme-data text-sm animate-pulse">
                     Loading...
                   </div>
                 ) : recentDebates.length === 0 ? (
-                  <div className="p-4 text-center text-[var(--text-muted)] font-mono text-sm">
+                  <div className="p-4 text-center text-[var(--text-muted)] font-theme-data text-sm">
                     No recent debates. <Link href="/arena" className="text-[var(--acid-green)] hover:underline">Start one</Link>
                   </div>
                 ) : (
@@ -471,7 +471,7 @@ function DashboardContent() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-mono text-[var(--text)] truncate">
+                            <p className="text-sm font-theme-data text-[var(--text)] truncate">
                               {debate.task}
                             </p>
                             <div className="flex items-center gap-2 mt-1">
@@ -481,14 +481,14 @@ function DashboardContent() {
                                   return (
                                     <span
                                       key={i}
-                                      className={`px-1 py-0.5 text-[10px] ${colors.bg} ${colors.text} font-mono`}
+                                      className={`px-1 py-0.5 text-[10px] ${colors.bg} ${colors.text} font-theme-data`}
                                     >
                                       {agent.split('-')[0][0].toUpperCase()}
                                     </span>
                                   );
                                 })}
                                 {debate.agents.length > 3 && (
-                                  <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                                  <span className="text-[10px] text-[var(--text-muted)] font-theme-data">
                                     +{debate.agents.length - 3}
                                   </span>
                                 )}
@@ -496,13 +496,13 @@ function DashboardContent() {
                             </div>
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <div className={`text-xs font-mono ${
+                            <div className={`text-xs font-theme-data ${
                               debate.consensus_reached ? 'text-green-400' : 'text-yellow-400'
                             }`}>
                               {debate.consensus_reached ? '' : ''}{' '}
                               {Math.round(debate.confidence * 100)}%
                             </div>
-                            <div className="text-[10px] text-[var(--text-muted)] font-mono mt-1">
+                            <div className="text-[10px] text-[var(--text-muted)] font-theme-data mt-1">
                               {formatTimeAgo(debate.created_at)}
                             </div>
                           </div>
@@ -534,7 +534,7 @@ function DashboardContent() {
 
           {/* Feature Grid */}
           <div className="mt-8">
-            <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+            <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
               {'>'} QUICK ACCESS
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -552,10 +552,10 @@ function DashboardContent() {
                   className="bg-[var(--surface)] border border-[var(--border)] p-3 hover:border-[var(--acid-green)]/50 transition-colors group"
                 >
                   <div className="text-xl mb-1">{item.icon}</div>
-                  <div className="text-xs font-mono text-[var(--text)] group-hover:text-[var(--acid-green)] transition-colors">
+                  <div className="text-xs font-theme-data text-[var(--text)] group-hover:text-[var(--acid-green)] transition-colors">
                     {item.label}
                   </div>
-                  <div className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <div className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     {item.desc}
                   </div>
                 </Link>
@@ -565,7 +565,7 @@ function DashboardContent() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-6 border-t border-[var(--border)] mt-8">
+        <footer className="text-center text-xs font-theme-data py-6 border-t border-[var(--border)] mt-8">
           <p className="text-[var(--text-muted)]">
             42 AI agents debating your decisions
           </p>

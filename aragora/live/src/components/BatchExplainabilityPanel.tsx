@@ -267,25 +267,25 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
     <div className="card p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h3 className="font-mono text-acid-green text-lg">
+        <h3 className="font-theme-data text-[var(--accent)] text-lg">
           {'>'} BATCH EXPLAINABILITY
         </h3>
-        <div className="text-xs font-mono text-text-muted">
+        <div className="text-xs font-theme-data text-text-muted">
           {selectedDebates.size} selected
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b border-acid-green/20 pb-2">
+      <div className="flex gap-2 mb-6 border-b border-[var(--accent)]/20 pb-2">
         {(['select', 'progress', 'results', 'compare'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             disabled={(tab === 'progress' && !activeBatch) || (tab === 'results' && !batchResults) || (tab === 'compare' && !comparison)}
-            className={`px-3 py-1 text-xs font-mono transition-colors ${
+            className={`px-3 py-1 text-xs font-theme-data transition-colors ${
               activeTab === tab
-                ? 'border border-acid-green bg-acid-green/20 text-acid-green'
-                : 'border border-transparent text-text-muted hover:text-acid-green disabled:opacity-30 disabled:cursor-not-allowed'
+                ? 'border border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+                : 'border border-transparent text-text-muted hover:text-[var(--accent)] disabled:opacity-30 disabled:cursor-not-allowed'
             }`}
           >
             [{tab.toUpperCase()}]
@@ -295,7 +295,7 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
 
       {/* Error */}
       {error && (
-        <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-red-400 text-sm font-mono">
+        <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-red-400 text-sm font-theme-data">
           {error}
           <button onClick={() => setError(null)} className="ml-4 underline">[DISMISS]</button>
         </div>
@@ -305,9 +305,9 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
       {activeTab === 'select' && (
         <div className="space-y-4">
           {/* Options */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-bg border border-acid-green/20">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-bg border border-[var(--accent)]/20">
             <div>
-              <label className="flex items-center gap-2 font-mono text-xs text-text-muted cursor-pointer">
+              <label className="flex items-center gap-2 font-theme-data text-xs text-text-muted cursor-pointer">
                 <input
                   type="checkbox"
                   checked={includeEvidence}
@@ -318,7 +318,7 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
               </label>
             </div>
             <div>
-              <label className="flex items-center gap-2 font-mono text-xs text-text-muted cursor-pointer">
+              <label className="flex items-center gap-2 font-theme-data text-xs text-text-muted cursor-pointer">
                 <input
                   type="checkbox"
                   checked={includeCounterfactuals}
@@ -329,11 +329,11 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
               </label>
             </div>
             <div>
-              <label className="block font-mono text-xs text-text-muted mb-1">Format</label>
+              <label className="block font-theme-data text-xs text-text-muted mb-1">Format</label>
               <select
                 value={format}
                 onChange={(e) => setFormat(e.target.value as 'full' | 'summary' | 'minimal')}
-                className="w-full bg-surface border border-acid-green/30 rounded px-2 py-1 font-mono text-xs focus:outline-none focus:border-acid-green"
+                className="w-full bg-surface border border-[var(--accent)]/30 rounded px-2 py-1 font-theme-data text-xs focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="full">Full</option>
                 <option value="summary">Summary</option>
@@ -346,17 +346,17 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
           <div className="flex items-center justify-between mb-2">
             <button
               onClick={toggleSelectAll}
-              className="text-xs font-mono text-acid-cyan hover:underline"
+              className="text-xs font-theme-data text-[var(--acid-cyan)] hover:underline"
             >
               {selectedDebates.size === debates.length ? '[DESELECT ALL]' : '[SELECT ALL]'}
             </button>
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               {debates.length} debates available
             </span>
           </div>
 
           {debatesLoading ? (
-            <div className="text-center text-text-muted font-mono py-8 animate-pulse">
+            <div className="text-center text-text-muted font-theme-data py-8 animate-pulse">
               Loading debates...
             </div>
           ) : (
@@ -366,8 +366,8 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
                   key={debate.id}
                   className={`flex items-center gap-3 p-3 border cursor-pointer transition-colors ${
                     selectedDebates.has(debate.id)
-                      ? 'border-acid-green bg-acid-green/10'
-                      : 'border-acid-green/20 hover:border-acid-green/40'
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                      : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/40'
                   }`}
                 >
                   <input
@@ -377,11 +377,11 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
                     className="w-4 h-4 accent-acid-green"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="font-mono text-sm text-text truncate">{debate.question}</p>
+                    <p className="font-theme-data text-sm text-text truncate">{debate.question}</p>
                     <div className="flex gap-3 mt-1">
-                      <span className="font-mono text-xs text-text-muted">{debate.id}</span>
+                      <span className="font-theme-data text-xs text-text-muted">{debate.id}</span>
                       {debate.verdict && (
-                        <span className={`font-mono text-xs ${
+                        <span className={`font-theme-data text-xs ${
                           debate.verdict === 'pass' ? 'text-green-400' :
                           debate.verdict === 'fail' ? 'text-red-400' : 'text-yellow-400'
                         }`}>
@@ -396,18 +396,18 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-acid-green/20">
+          <div className="flex gap-3 pt-4 border-t border-[var(--accent)]/20">
             <button
               onClick={startBatchJob}
               disabled={loading || selectedDebates.size === 0}
-              className="flex-1 px-4 py-2 font-mono text-sm bg-acid-green text-bg hover:bg-acid-green/80 transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 font-theme-data text-sm bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50"
             >
               {loading ? '[STARTING...]' : `[START BATCH] (${selectedDebates.size})`}
             </button>
             <button
               onClick={compareExplanations}
               disabled={loading || selectedDebates.size < 2 || selectedDebates.size > 10}
-              className="px-4 py-2 font-mono text-sm border border-acid-cyan text-acid-cyan hover:bg-acid-cyan/10 transition-colors disabled:opacity-50"
+              className="px-4 py-2 font-theme-data text-sm border border-[var(--acid-cyan)] text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors disabled:opacity-50"
             >
               [COMPARE]
             </button>
@@ -419,10 +419,10 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
       {activeTab === 'progress' && activeBatch && (
         <div className="space-y-6">
           <div className="text-center">
-            <div className="text-4xl font-mono text-acid-green mb-2">
+            <div className="text-4xl font-theme-data text-[var(--accent)] mb-2">
               {activeBatch.progress_pct.toFixed(0)}%
             </div>
-            <div className="text-sm font-mono text-text-muted">
+            <div className="text-sm font-theme-data text-text-muted">
               {activeBatch.processed_count} / {activeBatch.total_debates} debates processed
             </div>
           </div>
@@ -432,38 +432,38 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
             <div
               className={`h-full transition-all duration-300 ${
                 activeBatch.status === 'failed' ? 'bg-red-500' :
-                activeBatch.status === 'completed' ? 'bg-acid-green' : 'bg-acid-cyan'
+                activeBatch.status === 'completed' ? 'bg-[var(--accent)]' : 'bg-[var(--acid-cyan)]'
               }`}
               style={{ width: `${activeBatch.progress_pct}%` }}
             />
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 p-4 bg-bg border border-acid-green/20">
+          <div className="grid grid-cols-3 gap-4 p-4 bg-bg border border-[var(--accent)]/20">
             <div className="text-center">
-              <div className="text-xl font-mono text-green-400">{activeBatch.success_count}</div>
-              <div className="text-xs font-mono text-text-muted">Success</div>
+              <div className="text-xl font-theme-data text-green-400">{activeBatch.success_count}</div>
+              <div className="text-xs font-theme-data text-text-muted">Success</div>
             </div>
             <div className="text-center">
-              <div className="text-xl font-mono text-red-400">{activeBatch.error_count}</div>
-              <div className="text-xs font-mono text-text-muted">Errors</div>
+              <div className="text-xl font-theme-data text-red-400">{activeBatch.error_count}</div>
+              <div className="text-xs font-theme-data text-text-muted">Errors</div>
             </div>
             <div className="text-center">
-              <div className={`text-xl font-mono ${
-                activeBatch.status === 'processing' ? 'text-acid-cyan animate-pulse' :
+              <div className={`text-xl font-theme-data ${
+                activeBatch.status === 'processing' ? 'text-[var(--acid-cyan)] animate-pulse' :
                 activeBatch.status === 'completed' ? 'text-green-400' :
                 activeBatch.status === 'failed' ? 'text-red-400' : 'text-text-muted'
               }`}>
                 {activeBatch.status.toUpperCase()}
               </div>
-              <div className="text-xs font-mono text-text-muted">Status</div>
+              <div className="text-xs font-theme-data text-text-muted">Status</div>
             </div>
           </div>
 
           {(activeBatch.status === 'completed' || activeBatch.status === 'partial') && (
             <button
               onClick={() => fetchBatchResults(activeBatch.batch_id)}
-              className="w-full px-4 py-2 font-mono text-sm bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+              className="w-full px-4 py-2 font-theme-data text-sm bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors"
             >
               [VIEW RESULTS]
             </button>
@@ -474,7 +474,7 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
       {/* Results Tab */}
       {activeTab === 'results' && batchResults && (
         <div className="space-y-4">
-          <div className="text-xs font-mono text-text-muted mb-4">
+          <div className="text-xs font-theme-data text-text-muted mb-4">
             Showing {batchResults.results.length} of {batchResults.pagination.total} results
           </div>
 
@@ -487,8 +487,8 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono text-sm text-acid-cyan">{result.debate_id}</span>
-                  <span className={`font-mono text-xs ${
+                  <span className="font-theme-data text-sm text-[var(--acid-cyan)]">{result.debate_id}</span>
+                  <span className={`font-theme-data text-xs ${
                     result.status === 'success' ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {result.status.toUpperCase()}
@@ -497,17 +497,17 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
 
                 {result.explanation && (
                   <div className="space-y-2">
-                    <p className="font-mono text-xs text-text-muted line-clamp-2">
+                    <p className="font-theme-data text-xs text-text-muted line-clamp-2">
                       {result.explanation.narrative}
                     </p>
                     <div className="flex items-center gap-4">
-                      <span className="font-mono text-xs text-text-muted">
+                      <span className="font-theme-data text-xs text-text-muted">
                         Confidence: {(result.explanation.confidence * 100).toFixed(0)}%
                       </span>
-                      <span className="font-mono text-xs text-text-muted">
+                      <span className="font-theme-data text-xs text-text-muted">
                         {result.explanation.factors.length} factors
                       </span>
-                      <span className="font-mono text-xs text-text-muted">
+                      <span className="font-theme-data text-xs text-text-muted">
                         {result.processing_time_ms.toFixed(0)}ms
                       </span>
                     </div>
@@ -515,14 +515,14 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
                 )}
 
                 {result.error && (
-                  <p className="font-mono text-xs text-red-400">{result.error}</p>
+                  <p className="font-theme-data text-xs text-red-400">{result.error}</p>
                 )}
               </div>
             ))}
           </div>
 
           {batchResults.pagination.has_more && (
-            <button className="w-full px-4 py-2 font-mono text-sm border border-acid-green/30 text-acid-green hover:bg-acid-green/10">
+            <button className="w-full px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10">
               [LOAD MORE]
             </button>
           )}
@@ -533,25 +533,25 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
       {activeTab === 'compare' && comparison && (
         <div className="space-y-6">
           {/* Overall Similarity */}
-          <div className="text-center p-4 bg-bg border border-acid-green/20">
-            <div className="text-3xl font-mono text-acid-cyan mb-1">
+          <div className="text-center p-4 bg-bg border border-[var(--accent)]/20">
+            <div className="text-3xl font-theme-data text-[var(--acid-cyan)] mb-1">
               {(comparison.overall_similarity * 100).toFixed(0)}%
             </div>
-            <div className="text-xs font-mono text-text-muted">Overall Similarity</div>
+            <div className="text-xs font-theme-data text-text-muted">Overall Similarity</div>
           </div>
 
           {/* Common Factors */}
           <div>
-            <h4 className="font-mono text-sm text-acid-green mb-3">Common Factors</h4>
+            <h4 className="font-theme-data text-sm text-[var(--accent)] mb-3">Common Factors</h4>
             <div className="space-y-2">
               {comparison.common_factors.map((factor, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 bg-surface border border-acid-green/20">
-                  <span className="font-mono text-xs text-text">{factor.name}</span>
+                <div key={idx} className="flex items-center justify-between p-2 bg-surface border border-[var(--accent)]/20">
+                  <span className="font-theme-data text-xs text-text">{factor.name}</span>
                   <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs text-acid-cyan">
+                    <span className="font-theme-data text-xs text-[var(--acid-cyan)]">
                       avg: {(factor.avg_contribution * 100).toFixed(0)}%
                     </span>
-                    <span className="font-mono text-xs text-text-muted">
+                    <span className="font-theme-data text-xs text-text-muted">
                       var: {factor.variance.toFixed(2)}
                     </span>
                   </div>
@@ -563,18 +563,18 @@ export function BatchExplainabilityPanel({ apiBase = API_BASE_URL }: BatchExplai
           {/* Divergent Factors */}
           {comparison.divergent_factors.length > 0 && (
             <div>
-              <h4 className="font-mono text-sm text-acid-yellow mb-3">Divergent Factors</h4>
+              <h4 className="font-theme-data text-sm text-[var(--acid-yellow)] mb-3">Divergent Factors</h4>
               <div className="space-y-2">
                 {comparison.divergent_factors.map((factor, idx) => (
                   <div key={idx} className="p-2 bg-surface border border-acid-yellow/20">
-                    <div className="font-mono text-xs text-text mb-2">{factor.name}</div>
+                    <div className="font-theme-data text-xs text-text mb-2">{factor.name}</div>
                     <div className="grid grid-cols-2 gap-1">
                       {Object.entries(factor.contributions).map(([debateId, contribution]) => (
                         <div key={debateId} className="flex items-center justify-between">
-                          <span className="font-mono text-[10px] text-text-muted truncate">
+                          <span className="font-theme-data text-[10px] text-text-muted truncate">
                             {debateId}
                           </span>
-                          <span className={`font-mono text-[10px] ${
+                          <span className={`font-theme-data text-[10px] ${
                             contribution > 0 ? 'text-green-400' : 'text-red-400'
                           }`}>
                             {(contribution * 100).toFixed(0)}%

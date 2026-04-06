@@ -292,13 +292,13 @@ function InsightsPanelComponent({ wsMessages = [], apiBase = DEFAULT_API_BASE }:
       {/* Key Disagreements (crux detection) */}
       {wsMessages.filter((e): e is GenericStreamEvent => e.type === 'crux_detected').length > 0 && (
         <div className="mb-4">
-          <h3 className="text-sm font-mono text-acid-cyan mb-2">KEY DISAGREEMENTS</h3>
+          <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-2">KEY DISAGREEMENTS</h3>
           <div className="space-y-2">
             {wsMessages
               .filter((e): e is GenericStreamEvent => e.type === 'crux_detected')
               .map((e, i) => (
-                <div key={i} className="p-2 border border-acid-cyan/30 bg-acid-cyan/5 rounded">
-                  <span className="text-xs font-mono text-acid-cyan">
+                <div key={i} className="p-2 border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 rounded">
+                  <span className="text-xs font-theme-data text-[var(--acid-cyan)]">
                     {typeof e.data === 'object' && e.data !== null && 'description' in e.data
                       ? String(e.data.description)
                       : 'Critical disagreement point detected'}
@@ -338,7 +338,7 @@ function InsightsPanelComponent({ wsMessages = [], apiBase = DEFAULT_API_BASE }:
                   {insight.type}
                 </span>
                 <span
-                  className={`text-xs font-mono ${getConfidenceColor(insight.confidence)}`}
+                  className={`text-xs font-theme-data ${getConfidenceColor(insight.confidence)}`}
                 >
                   {(insight.confidence * 100).toFixed(0)}%
                 </span>
@@ -398,7 +398,7 @@ function InsightsPanelComponent({ wsMessages = [], apiBase = DEFAULT_API_BASE }:
                 {recall.hits?.map((hit, i) => (
                   <div key={i} className="flex justify-between text-xs">
                     <span className="text-text flex-1 mr-2">{hit.topic}</span>
-                    <span className="text-text-muted font-mono">
+                    <span className="text-text-muted font-theme-data">
                       {(hit.similarity * 100).toFixed(0)}%
                     </span>
                   </div>
@@ -470,7 +470,7 @@ function InsightsPanelComponent({ wsMessages = [], apiBase = DEFAULT_API_BASE }:
                   >
                     {flip.type_emoji} {flip.type}
                   </span>
-                  <span className="text-xs text-text-muted font-mono">
+                  <span className="text-xs text-text-muted font-theme-data">
                     {flip.agent}
                   </span>
                 </div>

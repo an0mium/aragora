@@ -101,7 +101,7 @@ export function ExecutiveSummary({
 
   if (error) {
     return (
-      <div className="bg-red-500/10 border border-red-500/30 p-4 text-red-400 font-mono text-sm">
+      <div className="bg-red-500/10 border border-red-500/30 p-4 text-red-400 font-theme-data text-sm">
         Error loading dashboard: {error.message}
       </div>
     );
@@ -111,7 +111,7 @@ export function ExecutiveSummary({
     <div className="space-y-6">
       {/* Header with Time Range Selector */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-mono text-[var(--acid-green)]">
+        <h2 className="text-lg font-theme-data text-[var(--acid-green)]">
           {'>'} EXECUTIVE SUMMARY
         </h2>
         <div className="flex items-center gap-4">
@@ -121,7 +121,7 @@ export function ExecutiveSummary({
               <button
                 key={range}
                 onClick={() => setTimeRange(range)}
-                className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                className={`px-3 py-1 text-xs font-theme-data border transition-colors ${
                   timeRange === range
                     ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/50'
                     : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/30'
@@ -132,7 +132,7 @@ export function ExecutiveSummary({
             ))}
           </div>
           {summary?.period?.end && (
-            <span className="text-xs font-mono text-[var(--text-muted)]">
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">
               Updated: {formatTime(new Date(summary.period.end))}
             </span>
           )}
@@ -191,7 +191,7 @@ export function ExecutiveSummary({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Agent Health */}
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-          <h3 className="text-sm font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
             <span></span> AGENT HEALTH
           </h3>
           <div className="space-y-1">
@@ -215,7 +215,7 @@ export function ExecutiveSummary({
 
         {/* ROI Summary */}
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-          <h3 className="text-sm font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
             <span>$</span> ROI SUMMARY
           </h3>
           <div className="space-y-1">
@@ -245,7 +245,7 @@ export function ExecutiveSummary({
             ? 'border-yellow-500/50'
             : 'border-[var(--border)]'
         }`}>
-          <h3 className="text-sm font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
             <span></span> BUDGET STATUS
             {budget?.alert_level && budget.alert_level !== 'normal' && (
               <span className={`ml-auto px-2 py-0.5 text-xs uppercase ${
@@ -285,10 +285,10 @@ export function ExecutiveSummary({
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h3 className="text-sm font-mono text-[var(--acid-cyan)]">
+              <h3 className="text-sm font-theme-data text-[var(--acid-cyan)]">
                 MONTHLY FORECAST
               </h3>
-              <span className={`text-xs font-mono px-2 py-0.5 ${
+              <span className={`text-xs font-theme-data px-2 py-0.5 ${
                 forecast.trend === 'increasing'
                   ? 'bg-yellow-500/20 text-yellow-400'
                   : forecast.trend === 'decreasing'
@@ -298,7 +298,7 @@ export function ExecutiveSummary({
                 {forecast.trend.toUpperCase()}
               </span>
             </div>
-            <div className="flex items-center gap-6 text-sm font-mono">
+            <div className="flex items-center gap-6 text-sm font-theme-data">
               <div>
                 <span className="text-[var(--text-muted)]">Debates: </span>
                 <span className="text-[var(--acid-green)]">{formatNumber(forecast.projected_monthly_debates)}</span>
@@ -324,28 +324,28 @@ export function ExecutiveSummary({
 
       {/* Quick Actions */}
       <div className="flex items-center gap-2 pt-2">
-        <span className="text-xs font-mono text-[var(--text-muted)]">Quick actions:</span>
+        <span className="text-xs font-theme-data text-[var(--text-muted)]">Quick actions:</span>
         <a
           href="/arena"
-          className="px-3 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+          className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
         >
           NEW DEBATE
         </a>
         <a
           href="/debates/provenance"
-          className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+          className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
         >
           AUDIT TRAIL
         </a>
         <a
           href="/control-plane"
-          className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+          className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
         >
           DASHBOARD
         </a>
         <a
           href="/usage"
-          className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+          className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
         >
           DETAILED USAGE
         </a>

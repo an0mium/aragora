@@ -76,7 +76,7 @@ export function StalenessIndicator({
         <div className="p-3 bg-surface rounded-lg border border-border">
           <div className="text-xs text-text-muted mb-1">Freshness Score</div>
           <div
-            className={`text-2xl font-mono font-bold ${
+            className={`text-2xl font-theme-data font-bold ${
               freshnessScore >= 70
                 ? 'text-green-400'
                 : freshnessScore >= 40
@@ -89,14 +89,14 @@ export function StalenessIndicator({
         </div>
         <div className="p-3 bg-surface rounded-lg border border-border">
           <div className="text-xs text-text-muted mb-1">Avg Age</div>
-          <div className="text-2xl font-mono font-bold text-acid-cyan">
+          <div className="text-2xl font-theme-data font-bold text-[var(--acid-cyan)]">
             {avgAgeDays < 1 ? '<1' : avgAgeDays}
             <span className="text-sm text-text-muted ml-1">days</span>
           </div>
         </div>
         <div className="p-3 bg-surface rounded-lg border border-border">
           <div className="text-xs text-text-muted mb-1">Last 24h</div>
-          <div className="text-2xl font-mono font-bold text-acid-green">
+          <div className="text-2xl font-theme-data font-bold text-[var(--accent)]">
             +{recentUpdates}
             <span className="text-sm text-text-muted ml-1">updated</span>
           </div>
@@ -123,7 +123,7 @@ export function StalenessIndicator({
                 />
               </div>
               <div className="w-16 text-right">
-                <span className="text-sm font-mono">{bucket.count.toLocaleString()}</span>
+                <span className="text-sm font-theme-data">{bucket.count.toLocaleString()}</span>
                 <span className="text-xs text-text-muted ml-1">
                   ({Math.round((bucket.count / totalNodes) * 100)}%)
                 </span>

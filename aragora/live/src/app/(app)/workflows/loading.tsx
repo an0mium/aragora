@@ -14,12 +14,12 @@ export default function WorkflowsLoading() {
         {Array.from({ length: 6 }).map((_, i) => (
           <div
             key={i}
-            className="border border-acid-green/20 rounded-lg p-4 bg-surface"
+            className="border border-[var(--accent)]/20 rounded-lg p-4 bg-surface"
           >
             {/* Card header */}
             <div className="flex items-center justify-between mb-3">
-              <div className="h-5 w-32 bg-acid-green/20 animate-pulse rounded" />
-              <div className="h-4 w-16 bg-acid-green/10 animate-pulse rounded" />
+              <div className="h-5 w-32 bg-[var(--accent)]/20 animate-pulse rounded" />
+              <div className="h-4 w-16 bg-[var(--accent)]/10 animate-pulse rounded" />
             </div>
 
             {/* Card content */}
@@ -33,17 +33,17 @@ export default function WorkflowsLoading() {
               {Array.from({ length: 4 }).map((_, j) => (
                 <div
                   key={j}
-                  className="w-8 h-8 rounded-full bg-acid-green/10 animate-pulse"
+                  className="w-8 h-8 rounded-full bg-[var(--accent)]/10 animate-pulse"
                 />
               ))}
-              <div className="flex-1 h-0.5 bg-acid-green/10 animate-pulse" />
+              <div className="flex-1 h-0.5 bg-[var(--accent)]/10 animate-pulse" />
             </div>
 
             {/* Card footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-acid-green/10">
+            <div className="flex items-center justify-between pt-3 border-t border-[var(--accent)]/10">
               <div className="h-4 w-20 bg-surface/80 animate-pulse rounded" />
               <div className="flex gap-2">
-                <div className="h-6 w-16 bg-acid-green/20 animate-pulse rounded" />
+                <div className="h-6 w-16 bg-[var(--accent)]/20 animate-pulse rounded" />
                 <div className="h-6 w-16 bg-surface/80 animate-pulse rounded" />
               </div>
             </div>

@@ -171,10 +171,10 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
       />
 
       {/* Dialog */}
-      <div className="relative bg-surface border border-acid-green/30 rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-auto">
+      <div className="relative bg-surface border border-[var(--accent)]/30 rounded-lg shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-acid-green/20">
-          <h2 className="text-lg font-mono text-acid-green">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--accent)]/20">
+          <h2 className="text-lg font-theme-data text-[var(--accent)]">
             {isEditing ? 'Edit Region' : 'Add Federated Region'}
           </h2>
           <button
@@ -191,7 +191,7 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Name */}
           <div>
-            <label className="block font-mono text-xs text-text-muted mb-1">
+            <label className="block font-theme-data text-xs text-text-muted mb-1">
               Display Name
             </label>
             <input
@@ -199,8 +199,8 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="e.g., US West 2"
-              className={`w-full p-3 bg-bg border rounded font-mono text-sm text-text focus:outline-none focus:border-acid-green ${
-                errors.name ? 'border-acid-red' : 'border-acid-green/30'
+              className={`w-full p-3 bg-bg border rounded font-theme-data text-sm text-text focus:outline-none focus:border-[var(--accent)] ${
+                errors.name ? 'border-acid-red' : 'border-[var(--accent)]/30'
               }`}
             />
             {errors.name && (
@@ -210,7 +210,7 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
 
           {/* Region ID */}
           <div>
-            <label className="block font-mono text-xs text-text-muted mb-1">
+            <label className="block font-theme-data text-xs text-text-muted mb-1">
               Region ID
             </label>
             <input
@@ -219,8 +219,8 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
               onChange={(e) => handleChange('regionId', e.target.value.toLowerCase())}
               placeholder="e.g., us-west-2"
               disabled={isEditing}
-              className={`w-full p-3 bg-bg border rounded font-mono text-sm text-text focus:outline-none focus:border-acid-green ${
-                errors.regionId ? 'border-acid-red' : 'border-acid-green/30'
+              className={`w-full p-3 bg-bg border rounded font-theme-data text-sm text-text focus:outline-none focus:border-[var(--accent)] ${
+                errors.regionId ? 'border-acid-red' : 'border-[var(--accent)]/30'
               } ${isEditing ? 'opacity-50 cursor-not-allowed' : ''}`}
             />
             {errors.regionId && (
@@ -233,7 +233,7 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
 
           {/* Endpoint URL */}
           <div>
-            <label className="block font-mono text-xs text-text-muted mb-1">
+            <label className="block font-theme-data text-xs text-text-muted mb-1">
               Endpoint URL
             </label>
             <input
@@ -241,8 +241,8 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
               value={formData.endpointUrl}
               onChange={(e) => handleChange('endpointUrl', e.target.value)}
               placeholder="https://us-west-2.aragora.example.com/api"
-              className={`w-full p-3 bg-bg border rounded font-mono text-sm text-text focus:outline-none focus:border-acid-green ${
-                errors.endpointUrl ? 'border-acid-red' : 'border-acid-green/30'
+              className={`w-full p-3 bg-bg border rounded font-theme-data text-sm text-text focus:outline-none focus:border-[var(--accent)] ${
+                errors.endpointUrl ? 'border-acid-red' : 'border-[var(--accent)]/30'
               }`}
             />
             {errors.endpointUrl && (
@@ -252,7 +252,7 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
 
           {/* API Key */}
           <div>
-            <label className="block font-mono text-xs text-text-muted mb-1">
+            <label className="block font-theme-data text-xs text-text-muted mb-1">
               API Key {isEditing && '(leave blank to keep existing)'}
             </label>
             <div className="relative">
@@ -261,8 +261,8 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
                 value={formData.apiKey}
                 onChange={(e) => handleChange('apiKey', e.target.value)}
                 placeholder={isEditing ? '********' : 'Enter API key'}
-                className={`w-full p-3 pr-10 bg-bg border rounded font-mono text-sm text-text focus:outline-none focus:border-acid-green ${
-                  errors.apiKey ? 'border-acid-red' : 'border-acid-green/30'
+                className={`w-full p-3 pr-10 bg-bg border rounded font-theme-data text-sm text-text focus:outline-none focus:border-[var(--accent)] ${
+                  errors.apiKey ? 'border-acid-red' : 'border-[var(--accent)]/30'
                 }`}
               />
               <button
@@ -289,7 +289,7 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
 
           {/* Sync Mode */}
           <div>
-            <label className="block font-mono text-xs text-text-muted mb-2">
+            <label className="block font-theme-data text-xs text-text-muted mb-2">
               Sync Mode
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -300,12 +300,12 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
                   onClick={() => handleChange('mode', option.value)}
                   className={`p-3 text-left border rounded transition-colors ${
                     formData.mode === option.value
-                      ? 'border-acid-green bg-acid-green/10'
-                      : 'border-acid-green/20 hover:border-acid-green/40'
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                      : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/40'
                   }`}
                 >
-                  <div className="font-mono text-sm text-text">{option.label}</div>
-                  <div className="font-mono text-xs text-text-muted">{option.description}</div>
+                  <div className="font-theme-data text-sm text-text">{option.label}</div>
+                  <div className="font-theme-data text-xs text-text-muted">{option.description}</div>
                 </button>
               ))}
             </div>
@@ -313,7 +313,7 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
 
           {/* Sync Scope */}
           <div>
-            <label className="block font-mono text-xs text-text-muted mb-2">
+            <label className="block font-theme-data text-xs text-text-muted mb-2">
               Sync Scope
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -324,11 +324,11 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
                   onClick={() => handleChange('scope', option.value)}
                   className={`p-2 text-left border rounded transition-colors ${
                     formData.scope === option.value
-                      ? 'border-acid-cyan bg-acid-cyan/10'
-                      : 'border-acid-green/20 hover:border-acid-green/40'
+                      ? 'border-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10'
+                      : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/40'
                   }`}
                 >
-                  <div className="font-mono text-xs text-text">{option.label}</div>
+                  <div className="font-theme-data text-xs text-text">{option.label}</div>
                 </button>
               ))}
             </div>
@@ -338,10 +338,10 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
           </div>
 
           {/* Enabled Toggle */}
-          <div className="flex items-center justify-between p-3 bg-bg border border-acid-green/20 rounded">
+          <div className="flex items-center justify-between p-3 bg-bg border border-[var(--accent)]/20 rounded">
             <div>
-              <div className="font-mono text-sm text-text">Enable Region</div>
-              <div className="font-mono text-xs text-text-muted">
+              <div className="font-theme-data text-sm text-text">Enable Region</div>
+              <div className="font-theme-data text-xs text-text-muted">
                 Start syncing immediately after save
               </div>
             </div>
@@ -349,7 +349,7 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
               type="button"
               onClick={() => handleChange('enabled', !formData.enabled)}
               className={`relative w-12 h-6 rounded-full transition-colors ${
-                formData.enabled ? 'bg-acid-green' : 'bg-text-muted/30'
+                formData.enabled ? 'bg-[var(--accent)]' : 'bg-text-muted/30'
               }`}
             >
               <span
@@ -363,7 +363,7 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
           {/* Delete confirmation */}
           {isEditing && showDeleteConfirm && (
             <div className="p-4 bg-acid-red/10 border border-acid-red/30 rounded">
-              <p className="font-mono text-sm text-acid-red mb-3">
+              <p className="font-theme-data text-sm text-acid-red mb-3">
                 Are you sure you want to delete this region? This cannot be undone.
               </p>
               <div className="flex gap-2">
@@ -371,14 +371,14 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
                   type="button"
                   onClick={handleDelete}
                   disabled={isSaving}
-                  className="px-4 py-2 bg-acid-red text-white font-mono text-sm rounded hover:bg-acid-red/80 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-acid-red text-white font-theme-data text-sm rounded hover:bg-acid-red/80 transition-colors disabled:opacity-50"
                 >
                   Delete Region
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="px-4 py-2 border border-acid-green/30 text-text font-mono text-sm rounded hover:bg-surface transition-colors"
+                  className="px-4 py-2 border border-[var(--accent)]/30 text-text font-theme-data text-sm rounded hover:bg-surface transition-colors"
                 >
                   Cancel
                 </button>
@@ -387,12 +387,12 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-4 border-t border-acid-green/20">
+          <div className="flex items-center justify-between pt-4 border-t border-[var(--accent)]/20">
             {isEditing && onDelete && !showDeleteConfirm ? (
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="px-4 py-2 text-acid-red font-mono text-sm hover:bg-acid-red/10 rounded transition-colors"
+                className="px-4 py-2 text-acid-red font-theme-data text-sm hover:bg-acid-red/10 rounded transition-colors"
               >
                 Delete Region
               </button>
@@ -403,14 +403,14 @@ export const RegionDialog: React.FC<RegionDialogProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 border border-acid-green/30 text-text font-mono text-sm rounded hover:bg-surface transition-colors"
+                className="px-4 py-2 border border-[var(--accent)]/30 text-text font-theme-data text-sm rounded hover:bg-surface transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-4 py-2 bg-acid-green text-bg font-mono text-sm rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm rounded hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50"
               >
                 {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Region'}
               </button>

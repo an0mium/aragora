@@ -166,22 +166,22 @@ export function TopNavigation() {
   );
 
   return (
-    <nav className="sticky top-0 z-30 bg-bg/95 backdrop-blur border-b border-acid-green/30">
+    <nav className="sticky top-0 z-30 bg-bg/95 backdrop-blur border-b border-[var(--accent)]/30">
       {/* Primary navigation row */}
       <div className="flex items-center justify-between px-4">
         {/* Left: Menu button + Logo */}
         <div className="flex items-center gap-4">
           <button
             onClick={toggle}
-            className="p-2 text-acid-green hover:bg-acid-green/10 transition-colors rounded"
+            className="p-2 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors rounded"
             aria-label="Open navigation menu"
           >
-            <span className="font-mono text-lg">[=]</span>
+            <span className="font-theme-data text-lg">[=]</span>
           </button>
 
           <Link
             href="/"
-            className="text-acid-green font-mono font-bold text-lg hover:text-acid-cyan transition-colors"
+            className="text-[var(--accent)] font-theme-data font-bold text-lg hover:text-[var(--acid-cyan)] transition-colors"
           >
             ARAGORA
           </Link>
@@ -206,7 +206,7 @@ export function TopNavigation() {
           {/* Quick action */}
           <Link
             href="/hub"
-            className="px-3 py-1.5 bg-acid-green/10 border border-acid-green/40 text-acid-green font-mono text-sm hover:bg-acid-green/20 transition-colors rounded"
+            className="px-3 py-1.5 bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/20 transition-colors rounded"
           >
             [+] New
           </Link>
@@ -230,17 +230,17 @@ function NavTabButton({ tab, isActive }: { tab: NavTab; isActive: boolean }) {
       href={tab.href}
       className={`
         flex items-center gap-1.5 px-3 py-2
-        font-mono text-sm
+        font-theme-data text-sm
         transition-colors
         border-b-2
         ${isActive
-          ? 'border-acid-green text-acid-green'
-          : 'border-transparent text-text-muted hover:text-text hover:border-acid-green/30'
+          ? 'border-[var(--accent)] text-[var(--accent)]'
+          : 'border-transparent text-text-muted hover:text-text hover:border-[var(--accent)]/30'
         }
       `}
       title={tab.description}
     >
-      <span className="text-acid-green/70">{tab.icon}</span>
+      <span className="text-[var(--accent)]/70">{tab.icon}</span>
       <span>{tab.label}</span>
     </Link>
   );
@@ -263,7 +263,7 @@ function TabSubNavigation({
   );
 
   return (
-    <div className="flex items-center gap-1 px-4 py-1 border-t border-acid-green/10 bg-surface/50 overflow-x-auto">
+    <div className="flex items-center gap-1 px-4 py-1 border-t border-[var(--accent)]/10 bg-surface/50 overflow-x-auto">
       {visibleItems.map(item => {
         const isActive = currentPath === item.href ||
           (item.href !== tab.href && currentPath.startsWith(item.href));
@@ -274,13 +274,13 @@ function TabSubNavigation({
             href={item.href}
             className={`
               flex items-center gap-1 px-2 py-1
-              font-mono text-xs
+              font-theme-data text-xs
               rounded
               transition-colors
               whitespace-nowrap
               ${isActive
-                ? 'bg-acid-green/20 text-acid-green'
-                : 'text-text-muted hover:text-text hover:bg-acid-green/5'
+                ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
+                : 'text-text-muted hover:text-text hover:bg-[var(--accent)]/5'
               }
             `}
             title={item.description}
@@ -364,21 +364,21 @@ export function MobileNavTabs() {
         );
 
         return (
-          <div key={tab.id} className="border border-acid-green/20 rounded">
+          <div key={tab.id} className="border border-[var(--accent)]/20 rounded">
             <Link
               href={tab.href}
               className={`
                 flex items-center gap-2 px-3 py-2
-                font-mono
-                ${isActive ? 'bg-acid-green/10 text-acid-green' : 'text-text'}
+                font-theme-data
+                ${isActive ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'text-text'}
               `}
             >
-              <span className="text-acid-green/70">{tab.icon}</span>
+              <span className="text-[var(--accent)]/70">{tab.icon}</span>
               <span className="font-bold">{tab.label}</span>
             </Link>
 
             {isActive && visibleItems.length > 0 && (
-              <div className="border-t border-acid-green/10 px-2 py-1">
+              <div className="border-t border-[var(--accent)]/10 px-2 py-1">
                 {visibleItems.map(item => (
                   <Link
                     key={item.href}
@@ -386,7 +386,7 @@ export function MobileNavTabs() {
                     className={`
                       block px-3 py-1.5 text-sm
                       ${pathname === item.href
-                        ? 'text-acid-green'
+                        ? 'text-[var(--accent)]'
                         : 'text-text-muted hover:text-text'
                       }
                     `}

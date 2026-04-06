@@ -66,7 +66,7 @@ export const PipelineToolbar = memo(function PipelineToolbar({
       {/* Save */}
       <button
         onClick={onSave}
-        className="px-4 py-2 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/80 transition-colors rounded"
+        className="px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm font-bold hover:bg-[var(--accent)]/80 transition-colors rounded"
       >
         SAVE
       </button>
@@ -76,7 +76,7 @@ export const PipelineToolbar = memo(function PipelineToolbar({
         <button
           onClick={onAIGenerate}
           disabled={loading}
-          className="px-4 py-2 bg-indigo-600 text-white font-mono text-sm font-bold hover:bg-indigo-500 transition-colors rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 bg-indigo-600 text-white font-theme-data text-sm font-bold hover:bg-indigo-500 transition-colors rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg
             className="w-4 h-4"
@@ -97,7 +97,7 @@ export const PipelineToolbar = memo(function PipelineToolbar({
       {/* Clear Stage */}
       <button
         onClick={onClear}
-        className="px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-text transition-colors rounded"
+        className="px-4 py-2 bg-surface border border-border text-text font-theme-data text-sm hover:border-text transition-colors rounded"
       >
         CLEAR STAGE
       </button>
@@ -107,7 +107,7 @@ export const PipelineToolbar = memo(function PipelineToolbar({
         <button
           onClick={onExecute}
           disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white font-mono text-sm font-bold hover:bg-blue-500 transition-colors rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 bg-blue-600 text-white font-theme-data text-sm font-bold hover:bg-blue-500 transition-colors rounded flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg
             className="w-4 h-4"
@@ -128,7 +128,7 @@ export const PipelineToolbar = memo(function PipelineToolbar({
       {canAdvance && onAdvance && (
         <button
           onClick={onAdvance}
-          className="px-4 py-2 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/80 transition-colors rounded"
+          className="px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm font-bold hover:bg-[var(--accent)]/80 transition-colors rounded"
         >
           {getAdvanceLabel(stage)}
         </button>
@@ -138,7 +138,7 @@ export const PipelineToolbar = memo(function PipelineToolbar({
       {onExportReceipt && pipelineId && (
         <button
           onClick={onExportReceipt}
-          className="px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-text transition-colors rounded flex items-center gap-2"
+          className="px-4 py-2 bg-surface border border-border text-text font-theme-data text-sm hover:border-text transition-colors rounded flex items-center gap-2"
           data-testid="export-receipt-btn"
         >
           <svg
@@ -159,7 +159,7 @@ export const PipelineToolbar = memo(function PipelineToolbar({
       )}
 
       {/* Node/Edge count */}
-      <span className="ml-2 text-xs font-mono text-text-muted">
+      <span className="ml-2 text-xs font-theme-data text-text-muted">
         {nodeCount} nodes | {edgeCount} edges
       </span>
     </div>

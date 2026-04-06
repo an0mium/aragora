@@ -109,7 +109,7 @@ function StatusBadge({ status }: { status: string }) {
   const style = colors[status.toLowerCase()] || colors.pending;
 
   return (
-    <span className={`px-2 py-0.5 text-[10px] font-mono uppercase rounded border ${style}`}>
+    <span className={`px-2 py-0.5 text-[10px] font-theme-data uppercase rounded border ${style}`}>
       {status}
     </span>
   );
@@ -141,10 +141,10 @@ function ReadinessGauge({ score }: { score: number }) {
           style={{ transition: 'stroke-dasharray 0.5s ease' }}
         />
         {/* Score text */}
-        <text x={60} y={55} textAnchor="middle" className="font-mono text-2xl" fill={color} fontSize={28}>
+        <text x={60} y={55} textAnchor="middle" className="font-theme-data text-2xl" fill={color} fontSize={28}>
           {score}
         </text>
-        <text x={60} y={75} textAnchor="middle" className="font-mono text-xs" fill="var(--text-muted)" fontSize={10}>
+        <text x={60} y={75} textAnchor="middle" className="font-theme-data text-xs" fill="var(--text-muted)" fontSize={10}>
           {status}
         </text>
       </svg>
@@ -269,17 +269,17 @@ export default function BackupDRPage() {
             <div className="flex items-center gap-2 mb-2">
               <Link
                 href="/admin"
-                className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
               >
                 Admin
               </Link>
               <span className="text-[var(--text-muted)]">/</span>
-              <span className="text-xs font-mono text-[var(--acid-green)]">Backup & DR</span>
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">Backup & DR</span>
             </div>
-            <h1 className="text-xl font-mono text-[var(--acid-green)]">
+            <h1 className="text-xl font-theme-data text-[var(--acid-green)]">
               {'>'} BACKUP & DISASTER RECOVERY
             </h1>
-            <p className="text-xs text-[var(--text-muted)] font-mono mt-1">
+            <p className="text-xs text-[var(--text-muted)] font-theme-data mt-1">
               Manage backups, verify integrity, run DR drills, and monitor RPO/RTO compliance.
             </p>
           </div>
@@ -294,7 +294,7 @@ export default function BackupDRPage() {
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`px-4 py-2 font-mono text-sm border transition-colors ${
+                className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                   activeTab === key
                     ? 'border-[var(--acid-green)] bg-[var(--acid-green)]/10 text-[var(--acid-green)]'
                     : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -312,61 +312,61 @@ export default function BackupDRPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Readiness Gauge */}
                   <div className="p-6 bg-[var(--surface)] border border-[var(--border)] flex flex-col items-center">
-                    <h2 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-4">DR Readiness</h2>
+                    <h2 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-4">DR Readiness</h2>
                     {drLoading ? (
-                      <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-mono animate-pulse">
+                      <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-theme-data animate-pulse">
                         Loading...
                       </div>
                     ) : drStatus ? (
                       <ReadinessGauge score={drStatus.readiness_score} />
                     ) : (
-                      <p className="text-xs font-mono text-[var(--text-muted)]">Unavailable</p>
+                      <p className="text-xs font-theme-data text-[var(--text-muted)]">Unavailable</p>
                     )}
                   </div>
 
                   {/* Stats Cards */}
                   <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                      <div className="text-2xl font-mono text-[var(--acid-green)]">
+                      <div className="text-2xl font-theme-data text-[var(--acid-green)]">
                         {statsLoading ? '-' : stats?.total_backups ?? 0}
                       </div>
-                      <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Total Backups</div>
+                      <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Total Backups</div>
                     </div>
                     <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                      <div className="text-2xl font-mono text-[var(--acid-cyan)]">
+                      <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
                         {statsLoading ? '-' : stats?.verified_backups ?? 0}
                       </div>
-                      <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Verified</div>
+                      <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Verified</div>
                     </div>
                     <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                      <div className={`text-2xl font-mono ${(stats?.failed_backups ?? 0) > 0 ? 'text-red-400' : 'text-[var(--acid-green)]'}`}>
+                      <div className={`text-2xl font-theme-data ${(stats?.failed_backups ?? 0) > 0 ? 'text-red-400' : 'text-[var(--acid-green)]'}`}>
                         {statsLoading ? '-' : stats?.failed_backups ?? 0}
                       </div>
-                      <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Failed</div>
+                      <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Failed</div>
                     </div>
                     <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                      <div className="text-2xl font-mono text-purple-400">
+                      <div className="text-2xl font-theme-data text-purple-400">
                         {statsLoading ? '-' : stats ? formatBytes(stats.total_size_bytes) : '0 B'}
                       </div>
-                      <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Total Size</div>
+                      <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Total Size</div>
                     </div>
                     <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                      <div className={`text-2xl font-mono ${drStatus?.rpo_status?.compliant ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+                      <div className={`text-2xl font-theme-data ${drStatus?.rpo_status?.compliant ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
                         {drStatus?.rpo_status?.current_hours != null
                           ? `${drStatus.rpo_status.current_hours}h`
                           : '--'}
                       </div>
-                      <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+                      <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">
                         RPO ({drStatus?.rpo_status?.target_hours ?? 24}h target)
                       </div>
                     </div>
                     <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                      <div className="text-2xl font-mono text-yellow-400">
+                      <div className="text-2xl font-theme-data text-yellow-400">
                         {stats?.retention_policy
                           ? `${stats.retention_policy.keep_daily}d/${stats.retention_policy.keep_weekly}w/${stats.retention_policy.keep_monthly}m`
                           : '--'}
                       </div>
-                      <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Retention</div>
+                      <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Retention</div>
                     </div>
                   </div>
                 </div>
@@ -376,10 +376,10 @@ export default function BackupDRPage() {
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                     {drStatus.issues.length > 0 && (
                       <div className="p-4 bg-red-500/5 border border-red-500/30">
-                        <h3 className="text-sm font-mono text-red-400 uppercase mb-3">Issues</h3>
+                        <h3 className="text-sm font-theme-data text-red-400 uppercase mb-3">Issues</h3>
                         <ul className="space-y-2">
                           {drStatus.issues.map((issue, i) => (
-                            <li key={i} className="text-xs font-mono text-red-400 flex items-start gap-2">
+                            <li key={i} className="text-xs font-theme-data text-red-400 flex items-start gap-2">
                               <span className="text-red-500 shrink-0">!</span>
                               {issue}
                             </li>
@@ -389,10 +389,10 @@ export default function BackupDRPage() {
                     )}
                     {drStatus.recommendations.length > 0 && (
                       <div className="p-4 bg-[var(--acid-cyan)]/5 border border-[var(--acid-cyan)]/30">
-                        <h3 className="text-sm font-mono text-[var(--acid-cyan)] uppercase mb-3">Recommendations</h3>
+                        <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] uppercase mb-3">Recommendations</h3>
                         <ul className="space-y-2">
                           {drStatus.recommendations.map((rec, i) => (
-                            <li key={i} className="text-xs font-mono text-[var(--acid-cyan)] flex items-start gap-2">
+                            <li key={i} className="text-xs font-theme-data text-[var(--acid-cyan)] flex items-start gap-2">
                               <span className="shrink-0">-</span>
                               {rec}
                             </li>
@@ -412,11 +412,11 @@ export default function BackupDRPage() {
                   <button
                     onClick={handleCreateBackup}
                     disabled={creatingBackup}
-                    className="px-4 py-2 text-xs font-mono text-[var(--acid-green)] border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/10 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 text-xs font-theme-data text-[var(--acid-green)] border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/10 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50"
                   >
                     {creatingBackup ? 'CREATING...' : '+ CREATE BACKUP'}
                   </button>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     {backupsTotal} backup{backupsTotal !== 1 ? 's' : ''}
                   </span>
                 </div>
@@ -425,7 +425,7 @@ export default function BackupDRPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-[10px] font-mono text-[var(--text-muted)] uppercase border-b border-[var(--border)]">
+                        <tr className="text-left text-[10px] font-theme-data text-[var(--text-muted)] uppercase border-b border-[var(--border)]">
                           <th className="px-4 py-3">ID</th>
                           <th className="px-4 py-3">Created</th>
                           <th className="px-4 py-3">Type</th>
@@ -438,13 +438,13 @@ export default function BackupDRPage() {
                       <tbody>
                         {backupsLoading ? (
                           <tr>
-                            <td colSpan={7} className="px-4 py-12 text-center text-[var(--text-muted)] font-mono animate-pulse">
+                            <td colSpan={7} className="px-4 py-12 text-center text-[var(--text-muted)] font-theme-data animate-pulse">
                               Loading backups...
                             </td>
                           </tr>
                         ) : backups.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="px-4 py-12 text-center text-[var(--text-muted)] font-mono">
+                            <td colSpan={7} className="px-4 py-12 text-center text-[var(--text-muted)] font-theme-data">
                               No backups found. Create one to get started.
                             </td>
                           </tr>
@@ -455,36 +455,36 @@ export default function BackupDRPage() {
                               className="border-b border-[var(--border)]/50 hover:bg-[var(--acid-green)]/5 transition-colors"
                             >
                               <td className="px-4 py-3">
-                                <span className="font-mono text-xs text-[var(--acid-cyan)]">
+                                <span className="font-theme-data text-xs text-[var(--acid-cyan)]">
                                   {backup.id.substring(0, 16)}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-xs font-mono text-[var(--text-muted)]">
+                              <td className="px-4 py-3 text-xs font-theme-data text-[var(--text-muted)]">
                                 {formatTimestamp(backup.created_at)}
                               </td>
                               <td className="px-4 py-3">
-                                <span className="text-xs font-mono text-purple-400 uppercase">
+                                <span className="text-xs font-theme-data text-purple-400 uppercase">
                                   {backup.backup_type}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
                                 <StatusBadge status={backup.status} />
                               </td>
-                              <td className="px-4 py-3 text-xs font-mono text-[var(--text)]">
+                              <td className="px-4 py-3 text-xs font-theme-data text-[var(--text)]">
                                 {formatBytes(backup.compressed_size_bytes)}
                               </td>
                               <td className="px-4 py-3">
-                                <span className={`text-xs font-mono ${backup.verified ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
+                                <span className={`text-xs font-theme-data ${backup.verified ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
                                   {backup.verified ? 'YES' : 'NO'}
                                 </span>
                               </td>
                               <td className="px-4 py-3">
                                 {backup.checksum ? (
-                                  <span className="text-[10px] font-mono text-purple-400" title={backup.checksum}>
+                                  <span className="text-[10px] font-theme-data text-purple-400" title={backup.checksum}>
                                     {backup.checksum.substring(0, 12)}...
                                   </span>
                                 ) : (
-                                  <span className="text-[var(--text-muted)] text-xs font-mono">--</span>
+                                  <span className="text-[var(--text-muted)] text-xs font-theme-data">--</span>
                                 )}
                               </td>
                             </tr>
@@ -501,17 +501,17 @@ export default function BackupDRPage() {
                     <button
                       onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
                       disabled={offset === 0}
-                      className="px-3 py-1.5 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
+                      className="px-3 py-1.5 text-xs font-theme-data text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
                     >
                       PREV
                     </button>
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                    <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                       {offset + 1}-{Math.min(offset + PAGE_SIZE, backupsTotal)} of {backupsTotal}
                     </span>
                     <button
                       onClick={() => setOffset(offset + PAGE_SIZE)}
                       disabled={offset + PAGE_SIZE >= backupsTotal}
-                      className="px-3 py-1.5 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
+                      className="px-3 py-1.5 text-xs font-theme-data text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
                     >
                       NEXT
                     </button>
@@ -528,31 +528,31 @@ export default function BackupDRPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* RPO */}
                     <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-                      <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-4">
+                      <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-4">
                         Recovery Point Objective (RPO)
                       </h3>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Target</div>
-                          <div className="text-xl font-mono text-[var(--text)]">{drObjectives.rpo.target_hours}h</div>
+                          <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Target</div>
+                          <div className="text-xl font-theme-data text-[var(--text)]">{drObjectives.rpo.target_hours}h</div>
                         </div>
                         <div>
-                          <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Current</div>
-                          <div className={`text-xl font-mono ${drObjectives.rpo.compliant ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+                          <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Current</div>
+                          <div className={`text-xl font-theme-data ${drObjectives.rpo.compliant ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
                             {drObjectives.rpo.current_hours != null
                               ? `${drObjectives.rpo.current_hours}h`
                               : '--'}
                           </div>
                         </div>
                         <div>
-                          <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Status</div>
-                          <div className={`text-sm font-mono ${drObjectives.rpo.compliant ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+                          <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Status</div>
+                          <div className={`text-sm font-theme-data ${drObjectives.rpo.compliant ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
                             {drObjectives.rpo.compliant ? 'COMPLIANT' : 'VIOLATION'}
                           </div>
                         </div>
                         <div>
-                          <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Violations (7d)</div>
-                          <div className={`text-sm font-mono ${drObjectives.rpo.violations_last_7_days > 0 ? 'text-red-400' : 'text-[var(--acid-green)]'}`}>
+                          <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Violations (7d)</div>
+                          <div className={`text-sm font-theme-data ${drObjectives.rpo.violations_last_7_days > 0 ? 'text-red-400' : 'text-[var(--acid-green)]'}`}>
                             {drObjectives.rpo.violations_last_7_days}
                           </div>
                         </div>
@@ -561,25 +561,25 @@ export default function BackupDRPage() {
 
                     {/* RTO */}
                     <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-                      <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-4">
+                      <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-4">
                         Recovery Time Objective (RTO)
                       </h3>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Target</div>
-                          <div className="text-xl font-mono text-[var(--text)]">{drObjectives.rto.target_minutes}m</div>
+                          <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Target</div>
+                          <div className="text-xl font-theme-data text-[var(--text)]">{drObjectives.rto.target_minutes}m</div>
                         </div>
                         <div>
-                          <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Estimated</div>
-                          <div className={`text-xl font-mono ${drObjectives.rto.compliant ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+                          <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Estimated</div>
+                          <div className={`text-xl font-theme-data ${drObjectives.rto.compliant ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
                             {drObjectives.rto.estimated_minutes != null
                               ? `${drObjectives.rto.estimated_minutes}m`
                               : '--'}
                           </div>
                         </div>
                         <div className="col-span-2">
-                          <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Status</div>
-                          <div className={`text-sm font-mono ${drObjectives.rto.compliant ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+                          <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Status</div>
+                          <div className={`text-sm font-theme-data ${drObjectives.rto.compliant ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
                             {drObjectives.rto.compliant ? 'WITHIN TARGET' : 'EXCEEDS TARGET'}
                           </div>
                         </div>
@@ -590,8 +590,8 @@ export default function BackupDRPage() {
 
                 {/* DR Drills */}
                 <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-                  <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-4">DR Drills</h3>
-                  <p className="text-xs font-mono text-[var(--text-muted)] mb-4">
+                  <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-4">DR Drills</h3>
+                  <p className="text-xs font-theme-data text-[var(--text-muted)] mb-4">
                     Run simulated recovery operations to validate DR readiness.
                     These are dry-run operations and will not affect production data.
                   </p>
@@ -599,21 +599,21 @@ export default function BackupDRPage() {
                     <button
                       onClick={() => handleRunDrill('restore_test')}
                       disabled={runningDrill}
-                      className="px-4 py-2 text-xs font-mono text-[var(--acid-green)] border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/10 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 text-xs font-theme-data text-[var(--acid-green)] border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/10 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50"
                     >
                       {runningDrill ? 'RUNNING...' : 'RESTORE TEST'}
                     </button>
                     <button
                       onClick={() => handleRunDrill('full_recovery_sim')}
                       disabled={runningDrill}
-                      className="px-4 py-2 text-xs font-mono text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10 hover:bg-[var(--acid-cyan)]/20 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 text-xs font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10 hover:bg-[var(--acid-cyan)]/20 transition-colors disabled:opacity-50"
                     >
                       {runningDrill ? 'RUNNING...' : 'FULL RECOVERY SIM'}
                     </button>
                     <button
                       onClick={() => handleRunDrill('failover_test')}
                       disabled={runningDrill}
-                      className="px-4 py-2 text-xs font-mono text-purple-400 border border-purple-400/30 bg-purple-400/10 hover:bg-purple-400/20 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 text-xs font-theme-data text-purple-400 border border-purple-400/30 bg-purple-400/10 hover:bg-purple-400/20 transition-colors disabled:opacity-50"
                     >
                       {runningDrill ? 'RUNNING...' : 'FAILOVER TEST'}
                     </button>
@@ -622,13 +622,13 @@ export default function BackupDRPage() {
 
                 {/* Drill Result */}
                 {drillResult && (
-                  <div className={`p-4 border font-mono text-sm ${
+                  <div className={`p-4 border font-theme-data text-sm ${
                     (drillResult as { success?: boolean }).success
                       ? 'bg-[var(--acid-green)]/5 border-[var(--acid-green)]/30'
                       : 'bg-red-500/5 border-red-500/30'
                   }`}>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className={`text-sm font-mono uppercase ${
+                      <h4 className={`text-sm font-theme-data uppercase ${
                         (drillResult as { success?: boolean }).success ? 'text-[var(--acid-green)]' : 'text-red-400'
                       }`}>
                         Drill Result: {(drillResult as { success?: boolean }).success ? 'PASSED' : 'FAILED'}
@@ -667,19 +667,19 @@ export default function BackupDRPage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/admin"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Admin Panel
             </Link>
             <Link
               href="/audit-trail"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Audit Trail
             </Link>
             <Link
               href="/system-status"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               System Status
             </Link>
@@ -687,7 +687,7 @@ export default function BackupDRPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
           <div className="text-[var(--acid-green)]/50 mb-2" aria-hidden="true">
             {'='.repeat(40)}
           </div>

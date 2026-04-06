@@ -163,26 +163,49 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     }
     setTimeout(focus, 0);
   }, []);
+  const handleWrongAnswer = useCallback((currentResult: DebateResponse) => {
+    const sourceQuestion =
+      currentResult.original_question
+      || question
+      || lastTopic
+      || currentResult.topic;
+
+    setQuestion(sourceQuestion);
+    setResult(null);
+    setError(null);
+    setLastTopic(sourceQuestion);
+    setLastPreparedOption(null);
+    setPendingPreflight(null);
+    setEditorNotice('Edit the wording below and rerun the debate with one more specific detail.');
+
+    trackEvent('wrong_answer_clicked', {
+      result_mode: currentResult.result_mode || 'full',
+      rewritten:
+        Boolean(currentResult.interpreted_question)
+        && currentResult.interpreted_question !== (currentResult.original_question || currentResult.topic),
+    });
+    focusComposer();
+  }, [focusComposer, lastTopic, question, trackEvent]);
 
   // Dashboard mode — preserves original behavior from old HeroSection
   if (isDashboardMode) {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-12 sm:py-16">
-        <pre className="text-acid-green text-[6px] sm:text-[7px] font-mono text-center mb-6 hidden sm:block leading-tight">
+        <pre className="text-[var(--accent)] text-[6px] sm:text-[7px] font-theme-data text-center mb-6 hidden sm:block leading-tight">
           {ASCII_BANNER}
         </pre>
 
-        <h1 className="text-base sm:text-2xl font-mono text-center mb-4 text-text">
+        <h1 className="text-base sm:text-2xl font-theme-data text-center mb-4 text-text">
           What decision should AI debate for you?
         </h1>
 
-        <p className="text-acid-cyan font-mono text-xs sm:text-sm text-center mb-10 max-w-xl">
+        <p className="text-[var(--acid-cyan)] font-theme-data text-xs sm:text-sm text-center mb-10 max-w-xl">
           Ask any question. Multiple AI models will argue every angle and deliver a verdict with confidence scores.
         </p>
 
         {props.error && (
           <div className="w-full max-w-3xl mb-6 bg-warning/10 border border-warning/30 p-4 flex items-center justify-between">
-            <span className="text-warning font-mono text-sm">
+            <span className="text-warning font-theme-data text-sm">
               {(props.error as string).toLowerCase().includes('authentication') || (props.error as string).toLowerCase().includes('unauthorized') ? (
                 <>
                   Please{' '}
@@ -206,13 +229,13 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         )}
 
         {props.activeDebateId && (
-          <div className="w-full max-w-3xl mb-6 bg-acid-green/10 border border-acid-green/30 p-4">
+          <div className="w-full max-w-3xl mb-6 bg-[var(--accent)]/10 border border-[var(--accent)]/30 p-4">
             <div className="flex items-center gap-2 mb-2">
-              <span className="w-2 h-2 bg-acid-green rounded-full animate-pulse"></span>
-              <span className="text-acid-green font-mono text-sm font-bold">DECISION IN PROGRESS</span>
+              <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse"></span>
+              <span className="text-[var(--accent)] font-theme-data text-sm font-bold">DECISION IN PROGRESS</span>
             </div>
-            <p className="text-text font-mono text-sm truncate">{props.activeQuestion as string}</p>
-            <p className="text-text-muted font-mono text-xs mt-2">
+            <p className="text-text font-theme-data text-sm truncate">{props.activeQuestion as string}</p>
+            <p className="text-text-muted font-theme-data text-xs mt-2">
               ID: {props.activeDebateId as string} | Events streaming via WebSocket
             </p>
           </div>
@@ -456,33 +479,6 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     }
   }
 
-  const handleWrongAnswer = useCallback((currentResult: DebateResponse) => {
-    const sourceQuestion =
-      currentResult.original_question
-      || question
-      || lastTopic
-      || currentResult.topic;
-
-    setQuestion(sourceQuestion);
-    setResult(null);
-    setError(null);
-    setLastTopic(sourceQuestion);
-    setLastPreparedOption(null);
-    setPendingPreflight(null);
-    setEditorNotice('Edit the wording below and rerun the debate with one more specific detail.');
-
-    trackEvent('wrong_answer_clicked', {
-      result_mode: currentResult.result_mode || 'full',
-      rewritten:
-        Boolean(currentResult.interpreted_question)
-        && currentResult.interpreted_question !== (currentResult.original_question || currentResult.topic),
-    });
-    focusComposer();
-  }, [focusComposer, lastTopic, question, trackEvent]);
-
-  // Keep the saveDebateBeforeLogin available for external use (not currently wired but preserving)
-  void saveDebateBeforeLogin;
-
   return (
     <section
       className="relative px-4 flex flex-col items-center justify-center"
@@ -505,7 +501,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       <div className="max-w-xl mx-auto text-center w-full">
         {/* Mobile-only brand text (ASCII banner is hidden on small screens) */}
         <div className="block sm:hidden text-center mb-4">
-          <span className="text-[var(--acid-green)] font-mono font-bold text-2xl tracking-[0.3em]">ARAGORA</span>
+          <span className="text-[var(--acid-green)] font-theme-data font-bold text-2xl tracking-[0.3em]">ARAGORA</span>
         </div>
 
         {/* ASCII banner — dark theme only, desktop */}
@@ -875,9 +871,66 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         {/* Post-debate CTAs */}
         {result && (
           <div className="mt-6 max-w-xl mx-auto space-y-3">
+            <div
+              className="rounded-2xl p-4 space-y-3"
+              style={{
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface)',
+              }}
+            >
+              <div className="space-y-1">
+                <p
+                  className="text-xs uppercase tracking-[0.18em] font-bold"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  Save this result
+                </p>
+                <p
+                  className="text-sm leading-relaxed"
+                  style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
+                >
+                  Keep this debate and continue from the full transcript after you sign in.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveDebateBeforeLogin();
+                    router.push('/login');
+                  }}
+                  className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: 'var(--accent)',
+                    border: '1px solid var(--accent)',
+                    borderRadius: 'var(--radius-button)',
+                  }}
+                >
+                  {isDark ? '> Log In To Save' : 'Log In To Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveDebateBeforeLogin();
+                    router.push('/signup');
+                  }}
+                  className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--accent)',
+                    color: 'var(--bg)',
+                    borderRadius: 'var(--radius-button)',
+                    boxShadow: isDark ? '0 0 20px var(--accent-glow)' : '0 2px 8px var(--accent-glow)',
+                  }}
+                >
+                  {isDark ? '> Sign Up Free' : 'Sign Up Free'}
+                </button>
+              </div>
+            </div>
             {/* Primary: View full debate page */}
             {result.id && (
               <button
+                type="button"
                 onClick={() => {
                   trackEvent('open_full_debate_clicked', {
                     result_mode: result.result_mode || 'full',
@@ -885,7 +938,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                   });
                   router.push(`/debate/${result.id}`);
                 }}
-                className="w-full text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
+                className="w-full text-sm font-bold font-theme-data py-3 transition-all hover:opacity-90 cursor-pointer"
                 style={{
                   backgroundColor: 'var(--accent)',
                   color: 'var(--bg)',
@@ -899,6 +952,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             {/* Secondary row: Try Another + Share */}
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => {
                   setResult(null);
                   setQuestion('');
@@ -908,7 +962,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                   setLastPreparedOption(null);
                   setLastTopic('');
                 }}
-                className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
+                className="flex-1 text-sm font-bold font-theme-data py-3 transition-all hover:opacity-90 cursor-pointer"
                 style={{
                   backgroundColor: result.id ? 'transparent' : 'var(--accent)',
                   color: result.id ? 'var(--accent)' : 'var(--bg)',
@@ -919,6 +973,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                 Try Another
               </button>
               <button
+                type="button"
                 onClick={async () => {
                   const shareUrl = result.id
                     ? `${window.location.origin}/debate/${result.id}`
@@ -941,7 +996,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                     result_mode: result.result_mode || 'full',
                   });
                 }}
-                className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-80 cursor-pointer"
+                className="flex-1 text-sm font-bold font-theme-data py-3 transition-all hover:opacity-80 cursor-pointer"
                 style={{
                   backgroundColor: 'transparent',
                   color: 'var(--accent)',

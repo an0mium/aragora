@@ -47,6 +47,9 @@ class TestSecretsConfig:
         assert config.secret_name == "aragora/production"
         assert config.use_aws is False
         assert config.cache_ttl_seconds == 300
+        assert config.aws_connect_timeout_seconds == 2.0
+        assert config.aws_read_timeout_seconds == 2.0
+        assert config.aws_max_attempts == 1
 
     def test_from_env_defaults(self):
         """Config defaults to use_aws=True (graceful fallback to env vars)."""
@@ -62,12 +65,18 @@ class TestSecretsConfig:
             "AWS_REGION": "eu-west-1",
             "ARAGORA_SECRET_NAME": "aragora/staging",
             "ARAGORA_USE_SECRETS_MANAGER": "true",
+            "ARAGORA_AWS_SECRET_CONNECT_TIMEOUT_SECONDS": "0.5",
+            "ARAGORA_AWS_SECRET_READ_TIMEOUT_SECONDS": "1.5",
+            "ARAGORA_AWS_SECRET_MAX_ATTEMPTS": "3",
         }
         with patch.dict(os.environ, env, clear=True):
             config = SecretsConfig.from_env()
             assert config.aws_region == "eu-west-1"
             assert config.secret_name == "aragora/staging"
             assert config.use_aws is True
+            assert config.aws_connect_timeout_seconds == 0.5
+            assert config.aws_read_timeout_seconds == 1.5
+            assert config.aws_max_attempts == 3
 
     @pytest.mark.parametrize("value", ["true", "1", "yes", "TRUE", "Yes"])
     def test_use_aws_truthy_values(self, value):
@@ -254,9 +263,13 @@ class TestSecretManagerAWS:
             mock_boto.return_value = MagicMock()
             client = manager._get_aws_client(manager.config.aws_region)
             assert client is not None
-            mock_boto.assert_called_once_with(
-                "secretsmanager", region_name=manager.config.aws_region
-            )
+            mock_boto.assert_called_once()
+            args, kwargs = mock_boto.call_args
+            assert args == ("secretsmanager",)
+            assert kwargs["region_name"] == manager.config.aws_region
+            assert kwargs["config"].connect_timeout == manager.config.aws_connect_timeout_seconds
+            assert kwargs["config"].read_timeout == manager.config.aws_read_timeout_seconds
+            assert kwargs["config"].retries["max_attempts"] == manager.config.aws_max_attempts
 
     def test_aws_client_handles_missing_boto3(self):
         """Gracefully handles missing boto3 library."""

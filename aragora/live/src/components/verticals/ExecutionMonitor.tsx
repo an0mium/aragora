@@ -122,7 +122,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   pending: 'bg-gray-500',
   ready: 'bg-yellow-500',
   running: 'bg-cyan-500',
-  completed: 'bg-acid-green',
+  completed: 'bg-[var(--accent)]',
   failed: 'bg-red-500',
   cancelled: 'bg-gray-400',
 };
@@ -131,7 +131,7 @@ const STATUS_TEXT_COLORS: Record<TaskStatus, string> = {
   pending: 'text-gray-400',
   ready: 'text-yellow-400',
   running: 'text-cyan-400',
-  completed: 'text-acid-green',
+  completed: 'text-[var(--accent)]',
   failed: 'text-red-400',
   cancelled: 'text-gray-400',
 };
@@ -176,7 +176,7 @@ export function ExecutionMonitor({
     <div className="bg-surface border border-border rounded-lg overflow-hidden h-full flex flex-col">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-bg flex-shrink-0">
-        <h3 className="text-sm font-mono font-bold text-acid-green">
+        <h3 className="text-sm font-theme-data font-bold text-[var(--accent)]">
           EXECUTION MONITOR
         </h3>
         <p className="text-xs text-text-muted mt-1">
@@ -191,7 +191,7 @@ export function ExecutionMonitor({
           <div className="text-xs text-text-muted">Running</div>
         </div>
         <div className="text-center">
-          <div className="text-xl font-bold text-acid-green">{stats.completed}</div>
+          <div className="text-xl font-bold text-[var(--accent)]">{stats.completed}</div>
           <div className="text-xs text-text-muted">Completed</div>
         </div>
         <div className="text-center">
@@ -240,7 +240,7 @@ export function ExecutionMonitor({
                       w-3 h-3 rounded-full
                       ${workflow.status === 'running' ? 'animate-pulse' : ''}
                       ${workflow.status === 'running' ? 'bg-cyan-400' : ''}
-                      ${workflow.status === 'completed' ? 'bg-acid-green' : ''}
+                      ${workflow.status === 'completed' ? 'bg-[var(--accent)]' : ''}
                       ${workflow.status === 'failed' ? 'bg-red-500' : ''}
                       ${workflow.status === 'cancelled' ? 'bg-gray-400' : ''}
                     `}
@@ -248,7 +248,7 @@ export function ExecutionMonitor({
 
                   {/* Workflow Info */}
                   <div className="flex-1 text-left">
-                    <div className="font-mono font-bold text-text">{workflow.name}</div>
+                    <div className="font-theme-data font-bold text-text">{workflow.name}</div>
                     <div className="text-xs text-text-muted">
                       {workflow.tasks.length} tasks • {formatDuration(workflow.startedAt, workflow.completedAt)}
                     </div>
@@ -260,7 +260,7 @@ export function ExecutionMonitor({
                       <div
                         className={`h-full transition-all duration-500 ${
                           workflow.status === 'completed'
-                            ? 'bg-acid-green'
+                            ? 'bg-[var(--accent)]'
                             : workflow.status === 'failed'
                             ? 'bg-red-500'
                             : 'bg-cyan-400'
@@ -302,7 +302,7 @@ export function ExecutionMonitor({
 
                           {/* Task Info */}
                           <div className="flex-1">
-                            <div className="font-mono text-sm text-text">{task.stepId}</div>
+                            <div className="font-theme-data text-sm text-text">{task.stepId}</div>
                             <div className="text-xs text-text-muted">
                               {task.executorId && `${task.executorId} • `}
                               {task.startedAt && formatDuration(task.startedAt, task.completedAt)}
@@ -312,7 +312,7 @@ export function ExecutionMonitor({
                           {/* Task Status Badge */}
                           <span
                             className={`
-                              px-2 py-0.5 text-xs font-mono uppercase rounded
+                              px-2 py-0.5 text-xs font-theme-data uppercase rounded
                               ${STATUS_TEXT_COLORS[task.status]}
                             `}
                           >
@@ -341,7 +341,7 @@ export function ExecutionMonitor({
 
       {/* Footer */}
       <div className="px-4 py-2 border-t border-border bg-bg flex-shrink-0">
-        <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+        <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
           <span>{workflows.length} workflows</span>
           <span className="text-cyan-400">
             {stats.running > 0 && `● ${stats.running} running`}

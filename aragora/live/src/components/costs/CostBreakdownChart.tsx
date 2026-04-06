@@ -17,7 +17,7 @@ export function CostBreakdownChart({ title, data, colors }: CostBreakdownChartPr
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-      <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+      <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
         {'>'} {title.toUpperCase()}
       </h3>
 
@@ -28,7 +28,7 @@ export function CostBreakdownChart({ title, data, colors }: CostBreakdownChartPr
           <DonutChart data={data} colors={colors} />
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
-              <div className="text-lg font-mono text-[var(--text)]">
+              <div className="text-lg font-theme-data text-[var(--text)]">
                 ${data.reduce((sum, d) => sum + d.cost, 0).toFixed(0)}
               </div>
               <div className="text-xs text-[var(--text-muted)]">Total</div>
@@ -47,7 +47,7 @@ export function CostBreakdownChart({ title, data, colors }: CostBreakdownChartPr
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[var(--text)] truncate">{item.name}</span>
-                  <span className="text-sm font-mono text-[var(--text-muted)]">
+                  <span className="text-sm font-theme-data text-[var(--text-muted)]">
                     ${item.cost.toFixed(2)}
                   </span>
                 </div>
@@ -67,7 +67,7 @@ export function CostBreakdownChart({ title, data, colors }: CostBreakdownChartPr
             <div key={item.name}>
               <div className="flex items-center justify-between text-xs mb-1">
                 <span className="text-[var(--text-muted)]">{item.name}</span>
-                <span className="font-mono" style={{ color: colors[index % colors.length] }}>
+                <span className="font-theme-data" style={{ color: colors[index % colors.length] }}>
                   {item.percentage.toFixed(1)}%
                 </span>
               </div>

@@ -20,8 +20,8 @@ const sourceLabels: Record<string, string> = {
 };
 
 const sourceColors: Record<string, string> = {
-  continuum: 'text-acid-green border-acid-green/30 bg-acid-green/10',
-  km: 'text-acid-cyan border-acid-cyan/30 bg-acid-cyan/10',
+  continuum: 'text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10',
+  km: 'text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10',
   supermemory: 'text-acid-purple border-purple-400/30 bg-purple-900/10',
   claude_mem: 'text-yellow-400 border-yellow-400/30 bg-yellow-900/10',
 };
@@ -96,7 +96,7 @@ export function CrossDebateLearning() {
               }`}
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-mono uppercase tracking-wider">
+                <span className="text-xs font-theme-data uppercase tracking-wider">
                   {sourceLabels[system]}
                 </span>
                 <span
@@ -105,7 +105,7 @@ export function CrossDebateLearning() {
                   }`}
                 />
               </div>
-              <div className="text-lg font-mono">
+              <div className="text-lg font-theme-data">
                 {sourcesLoading ? '...' : src?.entry_count?.toLocaleString() ?? '0'}
               </div>
               <div className="text-xs text-text-muted">
@@ -119,8 +119,8 @@ export function CrossDebateLearning() {
       </div>
 
       {/* Search Across All Memory Systems */}
-      <div className="p-4 border border-acid-green/30 rounded bg-surface/50">
-        <h3 className="text-sm font-mono text-acid-green mb-3">
+      <div className="p-4 border border-[var(--accent)]/30 rounded bg-surface/50">
+        <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">
           Cross-System Knowledge Search
         </h3>
         <form onSubmit={handleSearch} className="flex gap-2 mb-3">
@@ -129,12 +129,12 @@ export function CrossDebateLearning() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search institutional knowledge across all memory systems..."
-            className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm text-text placeholder-text-muted font-mono focus:border-acid-green focus:outline-none"
+            className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm text-text placeholder-text-muted font-theme-data focus:border-[var(--accent)] focus:outline-none"
           />
           <button
             type="submit"
             disabled={searchLoading || !searchQuery.trim()}
-            className="px-4 py-2 text-sm font-mono bg-acid-green/10 text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/20 disabled:opacity-50 transition-colors"
+            className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/20 disabled:opacity-50 transition-colors"
           >
             {searchLoading ? 'Searching...' : 'Search'}
           </button>
@@ -152,7 +152,7 @@ export function CrossDebateLearning() {
             <button
               key={q}
               onClick={() => handleQuickQuery(q)}
-              className="px-2 py-1 text-xs font-mono text-text-muted border border-border rounded hover:border-acid-green/30 hover:text-acid-green transition-colors"
+              className="px-2 py-1 text-xs font-theme-data text-text-muted border border-border rounded hover:border-[var(--accent)]/30 hover:text-[var(--accent)] transition-colors"
             >
               {q}
             </button>
@@ -164,10 +164,10 @@ export function CrossDebateLearning() {
       {results.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-mono text-text-muted">
+            <h3 className="text-sm font-theme-data text-text-muted">
               {results.length} results across {activeSources.length} systems
             </h3>
-            <div className="flex gap-3 text-xs font-mono">
+            <div className="flex gap-3 text-xs font-theme-data">
               {Object.entries(perSystem).map(([sys, count]) =>
                 count > 0 ? (
                   <span key={sys} className={sourceColors[sys]?.split(' ')[0] || 'text-text-muted'}>
@@ -181,23 +181,23 @@ export function CrossDebateLearning() {
           {results.map((result: LearningInsight, idx: number) => (
             <div
               key={idx}
-              className="p-3 border border-border rounded hover:border-acid-green/30 transition-colors"
+              className="p-3 border border-border rounded hover:border-[var(--accent)]/30 transition-colors"
             >
               <div className="flex items-center justify-between mb-2">
                 <span
-                  className={`text-xs font-mono px-2 py-0.5 rounded border ${
+                  className={`text-xs font-theme-data px-2 py-0.5 rounded border ${
                     sourceColors[result.source] || 'text-text-muted border-border'
                   }`}
                 >
                   {sourceLabels[result.source] || result.source}
                 </span>
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   relevance: {(result.relevance * 100).toFixed(0)}%
                 </span>
               </div>
               <p className="text-sm text-text line-clamp-3">{result.content}</p>
               {result.metadata?.debate_id != null ? (
-                <div className="mt-2 text-xs font-mono text-text-muted">
+                <div className="mt-2 text-xs font-theme-data text-text-muted">
                   debate: {String(result.metadata.debate_id).slice(0, 12)}
                 </div>
               ) : null}
@@ -208,24 +208,24 @@ export function CrossDebateLearning() {
 
       {/* Recent Debate Outcomes */}
       <div>
-        <h3 className="text-sm font-mono text-acid-cyan mb-3">
+        <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3">
           Recent Debate Outcomes (Knowledge Mound)
         </h3>
         {outcomesLoading ? (
-          <div className="text-xs text-text-muted font-mono">Loading outcomes...</div>
+          <div className="text-xs text-text-muted font-theme-data">Loading outcomes...</div>
         ) : outcomes.length > 0 ? (
           <div className="space-y-2">
             {outcomes.map((outcome) => (
               <div
                 key={outcome.debate_id}
-                className="p-3 border border-acid-cyan/20 rounded bg-acid-cyan/5"
+                className="p-3 border border-[var(--acid-cyan)]/20 rounded bg-[var(--acid-cyan)]/5"
               >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-mono text-text truncate mr-4">
+                  <span className="text-sm font-theme-data text-text truncate mr-4">
                     {outcome.task}
                   </span>
                   <span
-                    className={`text-xs font-mono px-2 py-0.5 rounded ${
+                    className={`text-xs font-theme-data px-2 py-0.5 rounded ${
                       outcome.consensus_score > 0.7
                         ? 'bg-green-900/20 text-green-400'
                         : outcome.consensus_score > 0.4
@@ -242,7 +242,7 @@ export function CrossDebateLearning() {
                     {outcome.insights.slice(0, 3).map((insight, i) => (
                       <span
                         key={i}
-                        className="text-xs font-mono px-1.5 py-0.5 bg-acid-cyan/10 text-acid-cyan rounded"
+                        className="text-xs font-theme-data px-1.5 py-0.5 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] rounded"
                       >
                         {insight}
                       </span>
@@ -253,7 +253,7 @@ export function CrossDebateLearning() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-text-muted text-sm font-mono">
+          <div className="text-center py-8 text-text-muted text-sm font-theme-data">
             No debate outcomes recorded yet. Run debates to build institutional knowledge.
           </div>
         )}

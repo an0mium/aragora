@@ -88,7 +88,7 @@ type SeverityFilter = 'all' | 'critical' | 'high' | 'medium' | 'low';
 function SeverityBadge({ severity }: { severity: string }) {
   const style = SEVERITY_STYLES[severity] ?? SEVERITY_STYLES.low;
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${style.bg} ${style.text} ${style.border}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${style.bg} ${style.text} ${style.border}`}>
       {severity.toUpperCase()}
     </span>
   );
@@ -100,7 +100,7 @@ function ConflictScoreBar({ score, label }: { score: number; label: string }) {
 
   return (
     <div className="flex-1">
-      <div className="flex justify-between text-[10px] font-mono mb-0.5">
+      <div className="flex justify-between text-[10px] font-theme-data mb-0.5">
         <span className="text-text-muted">{label}</span>
         <span className="text-text">{pct}%</span>
       </div>
@@ -114,7 +114,7 @@ function ConflictScoreBar({ score, label }: { score: number; label: string }) {
 function ResolutionStatusBadge({ resolved, resolution }: { resolved: boolean; resolution: string | null }) {
   if (!resolved) {
     return (
-      <span className="px-2 py-0.5 text-[10px] font-mono rounded border bg-amber-900/20 text-amber-400 border-amber-500/30">
+      <span className="px-2 py-0.5 text-[10px] font-theme-data rounded border bg-amber-900/20 text-amber-400 border-amber-500/30">
         UNRESOLVED
       </span>
     );
@@ -122,7 +122,7 @@ function ResolutionStatusBadge({ resolved, resolution }: { resolved: boolean; re
 
   const label = resolution ? resolution.replace(/_/g, ' ').toUpperCase() : 'RESOLVED';
   return (
-    <span className="px-2 py-0.5 text-[10px] font-mono rounded border bg-green-900/20 text-green-400 border-green-500/30">
+    <span className="px-2 py-0.5 text-[10px] font-theme-data rounded border bg-green-900/20 text-green-400 border-green-500/30">
       {label}
     </span>
   );
@@ -134,19 +134,19 @@ function StatsBar({ stats }: { stats: ContradictionStatsResponse | null }) {
   return (
     <div className="grid grid-cols-4 gap-3 mb-4">
       <div className="p-3 bg-surface border border-border rounded-lg text-center">
-        <div className="text-xl font-mono text-acid-green">{stats.total}</div>
+        <div className="text-xl font-theme-data text-[var(--accent)]">{stats.total}</div>
         <div className="text-[10px] text-text-muted">Total</div>
       </div>
       <div className="p-3 bg-surface border border-border rounded-lg text-center">
-        <div className="text-xl font-mono text-amber-400">{stats.unresolved}</div>
+        <div className="text-xl font-theme-data text-amber-400">{stats.unresolved}</div>
         <div className="text-[10px] text-text-muted">Unresolved</div>
       </div>
       <div className="p-3 bg-surface border border-border rounded-lg text-center">
-        <div className="text-xl font-mono text-green-400">{stats.resolved}</div>
+        <div className="text-xl font-theme-data text-green-400">{stats.resolved}</div>
         <div className="text-[10px] text-text-muted">Resolved</div>
       </div>
       <div className="p-3 bg-surface border border-border rounded-lg text-center">
-        <div className="text-xl font-mono text-red-400">
+        <div className="text-xl font-theme-data text-red-400">
           {(stats.by_severity?.critical ?? 0) + (stats.by_severity?.high ?? 0)}
         </div>
         <div className="text-[10px] text-text-muted">Critical+High</div>
@@ -266,7 +266,7 @@ export function ContradictionsBrowser() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-mono text-red-400 uppercase tracking-wider">
+          <h3 className="text-sm font-theme-data text-red-400 uppercase tracking-wider">
             Knowledge Contradictions
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
@@ -276,7 +276,7 @@ export function ContradictionsBrowser() {
         <button
           onClick={handleScan}
           disabled={scanning}
-          className="px-3 py-1.5 text-xs font-mono bg-red-500/20 border border-red-500/40 text-red-400 rounded hover:bg-red-500/30 transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 text-xs font-theme-data bg-red-500/20 border border-red-500/40 text-red-400 rounded hover:bg-red-500/30 transition-colors disabled:opacity-50"
         >
           {scanning ? 'Scanning...' : 'Run Scan'}
         </button>
@@ -291,9 +291,9 @@ export function ContradictionsBrowser() {
           <button
             key={sev}
             onClick={() => setSeverityFilter(sev)}
-            className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+            className={`px-3 py-1.5 text-xs font-theme-data rounded transition-colors ${
               severityFilter === sev
-                ? 'bg-acid-green text-bg'
+                ? 'bg-[var(--accent)] text-bg'
                 : 'bg-surface text-text-muted hover:text-text border border-border'
             }`}
           >
@@ -304,7 +304,7 @@ export function ContradictionsBrowser() {
 
       {/* Loading State */}
       {contradictionsLoading && (
-        <div className="text-center py-8 text-text-muted font-mono animate-pulse">
+        <div className="text-center py-8 text-text-muted font-theme-data animate-pulse">
           Loading contradictions...
         </div>
       )}
@@ -312,12 +312,12 @@ export function ContradictionsBrowser() {
       {/* Error State */}
       {contradictionsError && !contradictionsLoading && (
         <div className="p-4 bg-surface border border-border rounded-lg text-center">
-          <p className="text-text-muted font-mono text-sm">
+          <p className="text-text-muted font-theme-data text-sm">
             Unable to load contradictions. The backend may not be running.
           </p>
           <button
             onClick={() => refreshContradictions()}
-            className="mt-2 px-3 py-1 text-xs font-mono text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/10"
+            className="mt-2 px-3 py-1 text-xs font-theme-data text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/10"
           >
             Retry
           </button>
@@ -328,8 +328,8 @@ export function ContradictionsBrowser() {
       {!contradictionsLoading && !contradictionsError && contradictions.length === 0 && (
         <div className="p-8 bg-surface border border-border rounded-lg text-center">
           <div className="text-3xl mb-2">--</div>
-          <p className="text-text-muted font-mono text-sm">No contradictions detected</p>
-          <p className="text-text-muted/60 font-mono text-xs mt-1">
+          <p className="text-text-muted font-theme-data text-sm">No contradictions detected</p>
+          <p className="text-text-muted/60 font-theme-data text-xs mt-1">
             Run a contradiction scan or add more knowledge to detect conflicts
           </p>
         </div>
@@ -356,11 +356,11 @@ export function ContradictionsBrowser() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <SeverityBadge severity={c.severity} />
-                    <span className="text-xs font-mono text-text-muted">{typeLabel}</span>
+                    <span className="text-xs font-theme-data text-text-muted">{typeLabel}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <ResolutionStatusBadge resolved={c.resolved} resolution={c.resolution} />
-                    <span className="text-[10px] font-mono text-text-muted">
+                    <span className="text-[10px] font-theme-data text-text-muted">
                       {formatDate(c.detected_at)}
                     </span>
                   </div>
@@ -369,14 +369,14 @@ export function ContradictionsBrowser() {
                 {/* Conflicting Items (side by side) */}
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="p-2 bg-bg rounded border border-red-500/10">
-                    <div className="text-[10px] font-mono text-red-400/70 mb-1">Item A</div>
-                    <div className="text-xs font-mono text-acid-cyan break-all">
+                    <div className="text-[10px] font-theme-data text-red-400/70 mb-1">Item A</div>
+                    <div className="text-xs font-theme-data text-[var(--acid-cyan)] break-all">
                       {c.item_a_id}
                     </div>
                   </div>
                   <div className="p-2 bg-bg rounded border border-red-500/10">
-                    <div className="text-[10px] font-mono text-red-400/70 mb-1">Item B</div>
-                    <div className="text-xs font-mono text-acid-cyan break-all">
+                    <div className="text-[10px] font-theme-data text-red-400/70 mb-1">Item B</div>
+                    <div className="text-xs font-theme-data text-[var(--acid-cyan)] break-all">
                       {c.item_b_id}
                     </div>
                   </div>
@@ -390,8 +390,8 @@ export function ContradictionsBrowser() {
 
                 {/* Validation info */}
                 {c.validation_consensus && (
-                  <div className="text-[10px] font-mono text-text-muted mb-2">
-                    Validation consensus: <span className="text-acid-cyan">{c.validation_consensus}</span>
+                  <div className="text-[10px] font-theme-data text-text-muted mb-2">
+                    Validation consensus: <span className="text-[var(--acid-cyan)]">{c.validation_consensus}</span>
                     {c.validator_votes.length > 0 && (
                       <span className="ml-2">({c.validator_votes.length} votes)</span>
                     )}
@@ -407,7 +407,7 @@ export function ContradictionsBrowser() {
 
                 {/* Resolution info for resolved items */}
                 {c.resolved && c.resolved_at && (
-                  <div className="text-[10px] font-mono text-green-400/70 mb-2">
+                  <div className="text-[10px] font-theme-data text-green-400/70 mb-2">
                     Resolved {formatDate(c.resolved_at)}
                     {c.resolved_by && <span> by {c.resolved_by}</span>}
                   </div>
@@ -419,7 +419,7 @@ export function ContradictionsBrowser() {
                     {!showResolve ? (
                       <button
                         onClick={() => setShowResolveFor(c.id)}
-                        className="px-3 py-1.5 text-xs font-mono bg-acid-green/20 border border-acid-green/40 text-acid-green rounded hover:bg-acid-green/30 transition-colors"
+                        className="px-3 py-1.5 text-xs font-theme-data bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] rounded hover:bg-[var(--accent)]/30 transition-colors"
                       >
                         Resolve
                       </button>
@@ -432,10 +432,10 @@ export function ContradictionsBrowser() {
                               key={opt.value}
                               onClick={() => setSelectedStrategy(opt.value)}
                               title={opt.description}
-                              className={`px-2 py-1.5 text-[10px] font-mono rounded transition-colors ${
+                              className={`px-2 py-1.5 text-[10px] font-theme-data rounded transition-colors ${
                                 selectedStrategy === opt.value
-                                  ? 'bg-acid-green text-bg'
-                                  : 'bg-bg text-text-muted border border-border hover:border-acid-green/30'
+                                  ? 'bg-[var(--accent)] text-bg'
+                                  : 'bg-bg text-text-muted border border-border hover:border-[var(--accent)]/30'
                               }`}
                             >
                               {opt.label}
@@ -449,12 +449,12 @@ export function ContradictionsBrowser() {
                           value={resolutionNotes}
                           onChange={(e) => setResolutionNotes(e.target.value)}
                           placeholder="Optional resolution notes..."
-                          className="w-full px-2 py-1.5 text-xs font-mono bg-bg border border-border rounded text-text focus:border-acid-green focus:outline-none"
+                          className="w-full px-2 py-1.5 text-xs font-theme-data bg-bg border border-border rounded text-text focus:border-[var(--accent)] focus:outline-none"
                         />
 
                         {/* Error message */}
                         {resolveError && (
-                          <div className="text-[10px] font-mono text-red-400">
+                          <div className="text-[10px] font-theme-data text-red-400">
                             {resolveError}
                           </div>
                         )}
@@ -464,7 +464,7 @@ export function ContradictionsBrowser() {
                           <button
                             onClick={() => handleResolve(c.id)}
                             disabled={isResolving}
-                            className="px-3 py-1.5 text-xs font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 disabled:opacity-50 transition-colors"
+                            className="px-3 py-1.5 text-xs font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 disabled:opacity-50 transition-colors"
                           >
                             {isResolving ? 'Resolving...' : 'Confirm'}
                           </button>
@@ -473,7 +473,7 @@ export function ContradictionsBrowser() {
                               setShowResolveFor(null);
                               setResolveError(null);
                             }}
-                            className="px-3 py-1.5 text-xs font-mono border border-border text-text-muted rounded hover:border-text-muted transition-colors"
+                            className="px-3 py-1.5 text-xs font-theme-data border border-border text-text-muted rounded hover:border-text-muted transition-colors"
                           >
                             Cancel
                           </button>

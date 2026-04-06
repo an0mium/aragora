@@ -152,7 +152,7 @@ function computeAncestryDepth(
 
 function SectionHeader({ title, count }: { title: string; count?: number }) {
   return (
-    <label className="block text-xs text-text-muted mb-2 uppercase font-bold font-mono">
+    <label className="block text-xs text-text-muted mb-2 uppercase font-bold font-theme-data">
       {title}
       {count !== undefined && (
         <span className="ml-1 text-text opacity-60">({count})</span>
@@ -184,7 +184,7 @@ function ConnectionCard({
   return (
     <button
       onClick={() => onNavigate?.(nodeId, stage)}
-      className="w-full text-left p-2 bg-bg rounded border border-border hover:border-acid-green/50 transition-colors group"
+      className="w-full text-left p-2 bg-bg rounded border border-border hover:border-[var(--accent)]/50 transition-colors group"
       data-testid={`connection-${direction}-${nodeId}`}
     >
       <div className="flex items-center gap-2 mb-1">
@@ -192,14 +192,14 @@ function ConnectionCard({
           className="w-2 h-2 rounded-full flex-shrink-0"
           style={{ backgroundColor: config.primary }}
         />
-        <span className={`text-xs font-mono truncate ${colors.text}`}>
+        <span className={`text-xs font-theme-data truncate ${colors.text}`}>
           {label}
         </span>
-        <span className="text-xs text-text-muted font-mono ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-xs text-text-muted font-theme-data ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
           Go
         </span>
       </div>
-      <div className="flex items-center gap-2 text-xs text-text-muted font-mono">
+      <div className="flex items-center gap-2 text-xs text-text-muted font-theme-data">
         <span className={`px-1 py-0.5 rounded ${colors.bg} ${colors.text}`}>
           {stage}
         </span>
@@ -365,7 +365,7 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
                   </span>
                 )}
                 <h3
-                  className="text-sm font-mono font-bold text-text truncate max-w-[180px]"
+                  className="text-sm font-theme-data font-bold text-text truncate max-w-[180px]"
                   title={nodeLabel}
                 >
                   {nodeLabel}
@@ -373,17 +373,17 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
               </div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span
-                  className={`px-1.5 py-0.5 text-xs rounded font-mono ${stageColors.bg} ${stageColors.text}`}
+                  className={`px-1.5 py-0.5 text-xs rounded font-theme-data ${stageColors.bg} ${stageColors.text}`}
                 >
                   {stageConfig.label}
                 </span>
                 {typeInfo && (
-                  <span className="text-xs text-text-muted font-mono">
+                  <span className="text-xs text-text-muted font-theme-data">
                     {typeInfo.label}
                   </span>
                 )}
                 {status && (
-                  <span className="text-xs text-text-muted font-mono">
+                  <span className="text-xs text-text-muted font-theme-data">
                     {status}
                   </span>
                 )}
@@ -400,7 +400,7 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
         </div>
 
         {/* Quick stats */}
-        <div className="flex items-center gap-3 text-xs text-text-muted font-mono mt-1">
+        <div className="flex items-center gap-3 text-xs text-text-muted font-theme-data mt-1">
           <span>
             depth: <span className="text-text">{ancestryDepth}</span>
           </span>
@@ -427,7 +427,7 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
         {description && (
           <div>
             <SectionHeader title="Content" />
-            <p className="text-sm text-text font-mono bg-bg border border-border rounded p-2 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
+            <p className="text-sm text-text font-theme-data bg-bg border border-border rounded p-2 whitespace-pre-wrap break-words max-h-32 overflow-y-auto">
               {description}
             </p>
           </div>
@@ -436,8 +436,8 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
         {/* Agent / Assignee */}
         {agent && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-text-muted font-mono">Agent:</span>
-            <span className="text-xs text-text font-mono px-1.5 py-0.5 bg-bg rounded border border-border">
+            <span className="text-xs text-text-muted font-theme-data">Agent:</span>
+            <span className="text-xs text-text font-theme-data px-1.5 py-0.5 bg-bg rounded border border-border">
               {agent}
             </span>
           </div>
@@ -463,7 +463,7 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
             <div className="p-3 bg-bg rounded border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <span
-                  className={`px-1 py-0.5 text-xs rounded font-mono ${STAGE_COLOR_CLASSES[relevantTransition.from_stage]?.bg} ${STAGE_COLOR_CLASSES[relevantTransition.from_stage]?.text}`}
+                  className={`px-1 py-0.5 text-xs rounded font-theme-data ${STAGE_COLOR_CLASSES[relevantTransition.from_stage]?.bg} ${STAGE_COLOR_CLASSES[relevantTransition.from_stage]?.text}`}
                 >
                   {relevantTransition.from_stage}
                 </span>
@@ -477,19 +477,19 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
                 <span
-                  className={`px-1 py-0.5 text-xs rounded font-mono ${STAGE_COLOR_CLASSES[relevantTransition.to_stage]?.bg} ${STAGE_COLOR_CLASSES[relevantTransition.to_stage]?.text}`}
+                  className={`px-1 py-0.5 text-xs rounded font-theme-data ${STAGE_COLOR_CLASSES[relevantTransition.to_stage]?.bg} ${STAGE_COLOR_CLASSES[relevantTransition.to_stage]?.text}`}
                 >
                   {relevantTransition.to_stage}
                 </span>
-                <span className="text-xs text-text-muted font-mono ml-auto">
+                <span className="text-xs text-text-muted font-theme-data ml-auto">
                   {(relevantTransition.confidence * 100).toFixed(0)}%
                 </span>
               </div>
-              <p className="text-xs text-text font-mono leading-relaxed">
+              <p className="text-xs text-text font-theme-data leading-relaxed">
                 {relevantTransition.ai_rationale}
               </p>
               {relevantTransition.human_notes && (
-                <p className="text-xs text-text-muted font-mono mt-2 pt-2 border-t border-border italic">
+                <p className="text-xs text-text-muted font-theme-data mt-2 pt-2 border-t border-border italic">
                   Note: {relevantTransition.human_notes}
                 </p>
               )}
@@ -537,29 +537,29 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
           <div className="p-3 bg-bg rounded border border-border space-y-2">
             {contentHash ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-text-muted font-mono">
+                <span className="text-xs text-text-muted font-theme-data">
                   SHA-256:
                 </span>
                 <span
-                  className="text-xs text-emerald-400 font-mono truncate flex-1"
+                  className="text-xs text-emerald-400 font-theme-data truncate flex-1"
                   title={contentHash}
                 >
                   {contentHash}
                 </span>
                 <button
                   onClick={handleCopyHash}
-                  className="text-xs text-text-muted hover:text-text font-mono px-1.5 py-0.5 rounded border border-border hover:border-acid-green/50 transition-colors"
+                  className="text-xs text-text-muted hover:text-text font-theme-data px-1.5 py-0.5 rounded border border-border hover:border-[var(--accent)]/50 transition-colors"
                   title="Copy full hash"
                 >
                   {copiedHash ? 'Copied' : 'Copy'}
                 </button>
               </div>
             ) : (
-              <p className="text-xs text-text-muted font-mono">
+              <p className="text-xs text-text-muted font-theme-data">
                 No content hash available
               </p>
             )}
-            <div className="text-xs text-text-muted font-mono">
+            <div className="text-xs text-text-muted font-theme-data">
               Node ID:{' '}
               <span className="text-text break-all">{nodeId}</span>
             </div>
@@ -570,7 +570,7 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
         <div className="space-y-2 pt-2 border-t border-border">
           <button
             onClick={handleExportAncestry}
-            className="w-full px-3 py-2 bg-bg border border-border text-text font-mono text-xs hover:bg-surface hover:border-acid-green/50 transition-colors rounded flex items-center justify-center gap-2"
+            className="w-full px-3 py-2 bg-bg border border-border text-text font-theme-data text-xs hover:bg-surface hover:border-[var(--accent)]/50 transition-colors rounded flex items-center justify-center gap-2"
             data-testid="export-ancestry-btn"
           >
             <svg
@@ -592,7 +592,7 @@ export const ProvenanceNodeDetailPanel = memo(function ProvenanceNodeDetailPanel
           {isEditable && onBackToEditor && (
             <button
               onClick={onBackToEditor}
-              className="w-full px-3 py-2 bg-surface border border-border text-text font-mono text-xs hover:bg-bg transition-colors rounded"
+              className="w-full px-3 py-2 bg-surface border border-border text-text font-theme-data text-xs hover:bg-bg transition-colors rounded"
             >
               Back to Editor
             </button>

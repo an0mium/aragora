@@ -130,7 +130,7 @@ function NewAuditContent() {
             <Link href="/" className="hover:text-accent">
               <AsciiBannerCompact />
             </Link>
-            <span className="text-muted font-mono text-sm">{'//'} NEW AUDIT</span>
+            <span className="text-muted font-theme-data text-sm">{'//'} NEW AUDIT</span>
           </div>
           <div className="flex items-center gap-3">
             <BackendSelector />
@@ -141,7 +141,7 @@ function NewAuditContent() {
 
       <main className="container mx-auto px-4 py-6 max-w-4xl">
         <div className="mb-6">
-          <h1 className="text-2xl font-mono mb-2">CREATE AUDIT SESSION</h1>
+          <h1 className="text-2xl font-theme-data mb-2">CREATE AUDIT SESSION</h1>
           <p className="text-muted">Configure and start a new document audit</p>
         </div>
 
@@ -149,7 +149,7 @@ function NewAuditContent() {
           <div className="card p-4 mb-6 border-acid-red bg-acid-red/10">
             <div className="flex items-center gap-2 text-acid-red">
               <span>⚠️</span>
-              <span className="font-mono text-sm">{error}</span>
+              <span className="font-theme-data text-sm">{error}</span>
               <button onClick={() => setError(null)} className="ml-auto">✕</button>
             </div>
           </div>
@@ -157,7 +157,7 @@ function NewAuditContent() {
 
         {/* Session Name */}
         <div className="card p-4 mb-4">
-          <label className="block text-sm font-mono text-muted mb-2">SESSION NAME (optional)</label>
+          <label className="block text-sm font-theme-data text-muted mb-2">SESSION NAME (optional)</label>
           <input
             type="text"
             value={sessionName}
@@ -169,7 +169,7 @@ function NewAuditContent() {
 
         {/* Document Selection */}
         <div className="card p-4 mb-4">
-          <label className="block text-sm font-mono text-muted mb-2">
+          <label className="block text-sm font-theme-data text-muted mb-2">
             SELECT DOCUMENTS ({selectedDocs.size} selected, {totalChunks.toLocaleString()} chunks)
           </label>
           {loading ? (
@@ -198,7 +198,7 @@ function NewAuditContent() {
                     className="rounded"
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="font-mono text-sm truncate">{doc.filename}</div>
+                    <div className="font-theme-data text-sm truncate">{doc.filename}</div>
                     <div className="text-xs text-muted">{doc.chunk_count} chunks</div>
                   </div>
                 </label>
@@ -209,7 +209,7 @@ function NewAuditContent() {
 
         {/* Audit Types */}
         <div className="card p-4 mb-4">
-          <label className="block text-sm font-mono text-muted mb-2">AUDIT TYPES</label>
+          <label className="block text-sm font-theme-data text-muted mb-2">AUDIT TYPES</label>
           <div className="grid grid-cols-2 gap-3">
             {AUDIT_TYPES.map((type) => (
               <label key={type.id} className={`flex items-start gap-3 p-3 rounded border cursor-pointer transition-colors ${selectedTypes.has(type.id) ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50'}`}>
@@ -228,7 +228,7 @@ function NewAuditContent() {
                   className="mt-1 rounded"
                 />
                 <div>
-                  <div className="font-mono text-sm">{type.name}</div>
+                  <div className="font-theme-data text-sm">{type.name}</div>
                   <div className="text-xs text-muted">{type.description}</div>
                 </div>
               </label>
@@ -238,7 +238,7 @@ function NewAuditContent() {
 
         {/* Model Selection */}
         <div className="card p-4 mb-6">
-          <label className="block text-sm font-mono text-muted mb-2">PRIMARY MODEL</label>
+          <label className="block text-sm font-theme-data text-muted mb-2">PRIMARY MODEL</label>
           <div className="space-y-2">
             {MODELS.map((model) => (
               <label key={model.id} className={`flex items-start gap-3 p-3 rounded border cursor-pointer transition-colors ${selectedModel === model.id ? 'border-accent bg-accent/10' : 'border-border hover:border-accent/50'}`}>
@@ -251,7 +251,7 @@ function NewAuditContent() {
                   className="mt-1"
                 />
                 <div>
-                  <div className="font-mono text-sm">{model.name}</div>
+                  <div className="font-theme-data text-sm">{model.name}</div>
                   <div className="text-xs text-muted">{model.description}</div>
                 </div>
               </label>

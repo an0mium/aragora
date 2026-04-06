@@ -49,7 +49,7 @@ function CanvasLoadingState() {
   return (
     <div className="flex-1 flex items-center justify-center bg-bg">
       <div className="text-center">
-        <div className="animate-pulse text-acid-green text-xl font-mono mb-2">
+        <div className="animate-pulse text-[var(--accent)] text-xl font-theme-data mb-2">
           Loading Pipeline Canvas...
         </div>
         <p className="text-text-muted text-sm">Initializing Xyflow</p>
@@ -648,10 +648,10 @@ function PipelinePageContent() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface">
         <div>
-          <h1 className="text-xl font-mono font-bold text-text">
+          <h1 className="text-xl font-theme-data font-bold text-text">
             Idea-to-Execution Pipeline
           </h1>
-          <p className="text-sm text-text-muted font-mono">
+          <p className="text-sm text-text-muted font-theme-data">
             Ideas &rarr; Goals &rarr; Actions &rarr; Orchestration
           </p>
         </div>
@@ -668,7 +668,7 @@ function PipelinePageContent() {
 
           <button
             onClick={handleNew}
-            className="px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-text transition-colors rounded"
+            className="px-4 py-2 bg-surface border border-border text-text font-theme-data text-sm hover:border-text transition-colors rounded"
           >
             New Pipeline
           </button>
@@ -678,7 +678,7 @@ function PipelinePageContent() {
             <div className="flex items-center gap-1.5">
               {(['ideas', 'goals', 'actions', 'orchestration'] as const).map((stage) => (
                 <div key={stage} className="flex items-center gap-1">
-                  <span className="text-[10px] font-mono text-text-muted uppercase">{stage.slice(0, 4)}</span>
+                  <span className="text-[10px] font-theme-data text-text-muted uppercase">{stage.slice(0, 4)}</span>
                   <StatusBadge status={mapStageStatus(pipelineData.stage_status[stage])} size="sm" />
                 </div>
               ))}
@@ -692,7 +692,7 @@ function PipelinePageContent() {
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
-                    className={`px-3 py-2 text-sm font-mono transition-colors ${
+                    className={`px-3 py-2 text-sm font-theme-data transition-colors ${
                       viewMode === mode
                         ? 'bg-indigo-600 text-white'
                         : 'text-text-muted hover:text-text'
@@ -706,7 +706,7 @@ function PipelinePageContent() {
               <button
                 onClick={() => { setShowIdeaInput(!showIdeaInput); setShowDebateInput(false); }}
                 disabled={loading}
-                className="px-4 py-2 bg-indigo-600 text-white font-mono text-sm hover:bg-indigo-500 transition-colors rounded"
+                className="px-4 py-2 bg-indigo-600 text-white font-theme-data text-sm hover:bg-indigo-500 transition-colors rounded"
               >
                 From Ideas
               </button>
@@ -714,7 +714,7 @@ function PipelinePageContent() {
               <button
                 onClick={() => { setShowDebateInput(!showDebateInput); setShowIdeaInput(false); }}
                 disabled={loading}
-                className="px-4 py-2 bg-violet-600 text-white font-mono text-sm hover:bg-violet-500 transition-colors rounded"
+                className="px-4 py-2 bg-violet-600 text-white font-theme-data text-sm hover:bg-violet-500 transition-colors rounded"
               >
                 From Debate
               </button>
@@ -724,7 +724,7 @@ function PipelinePageContent() {
           <button
             onClick={handleDemo}
             disabled={loading}
-            className="px-4 py-2 bg-emerald-600 text-white font-mono text-sm hover:bg-emerald-500 transition-colors rounded"
+            className="px-4 py-2 bg-emerald-600 text-white font-theme-data text-sm hover:bg-emerald-500 transition-colors rounded"
           >
             {loading ? 'Loading...' : 'Try Demo'}
           </button>
@@ -734,7 +734,7 @@ function PipelinePageContent() {
               <button
                 onClick={handleExecute}
                 disabled={executing}
-                className={`px-4 py-2 font-mono text-sm text-white disabled:opacity-50 transition-colors rounded ${
+                className={`px-4 py-2 font-theme-data text-sm text-white disabled:opacity-50 transition-colors rounded ${
                   executeStatus === 'success'
                     ? 'bg-emerald-600 hover:bg-emerald-500'
                     : executeStatus === 'failed'
@@ -752,7 +752,7 @@ function PipelinePageContent() {
               </button>
               <button
                 onClick={() => setShowSelfImproveConfig(!showSelfImproveConfig)}
-                className="px-3 py-2 text-xs font-mono border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/10 transition-colors"
+                className="px-3 py-2 text-xs font-theme-data border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/10 transition-colors"
               >
                 Execute with Aragora
               </button>
@@ -764,15 +764,15 @@ function PipelinePageContent() {
       {/* Self-improve config panel */}
       {showSelfImproveConfig && pipelineData && orchestrationReady && (
         <div className="px-6 py-4 border-b border-border bg-surface/50">
-          <h3 className="text-sm font-mono text-[var(--acid-green)] mb-3">Self-Improvement Configuration</h3>
+          <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-3">Self-Improvement Configuration</h3>
           <div className="max-w-lg space-y-3">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-mono text-text-muted">Budget limit ($)</label>
+              <label className="text-xs font-theme-data text-text-muted">Budget limit ($)</label>
               <input
                 type="number"
                 value={siBudget}
                 onChange={(e) => setSiBudget(Number(e.target.value))}
-                className="w-20 bg-bg border border-text-muted/30 rounded px-2 py-1 text-xs font-mono text-text"
+                className="w-20 bg-bg border border-text-muted/30 rounded px-2 py-1 text-xs font-theme-data text-text"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -782,7 +782,7 @@ function PipelinePageContent() {
                 onChange={(e) => setSiDryRun(e.target.checked)}
                 className="accent-[var(--acid-green)]"
               />
-              <label className="text-xs font-mono text-text-muted">Dry run</label>
+              <label className="text-xs font-theme-data text-text-muted">Dry run</label>
             </div>
             <button
               onClick={async () => {
@@ -793,7 +793,7 @@ function PipelinePageContent() {
                   }
                 }
               }}
-              className="w-full px-3 py-1.5 text-xs font-mono bg-[var(--acid-green)]/20 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/30 transition-colors"
+              className="w-full px-3 py-1.5 text-xs font-theme-data bg-[var(--acid-green)]/20 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/30 transition-colors"
             >
               Launch Self-Improvement
             </button>
@@ -804,27 +804,27 @@ function PipelinePageContent() {
       {/* Idea input dropdown */}
       {showIdeaInput && (
         <div className="px-6 py-4 border-b border-border bg-surface/50">
-          <label className="block text-sm font-mono text-text-muted mb-2">
+          <label className="block text-sm font-theme-data text-text-muted mb-2">
             Enter ideas (one per line):
           </label>
           <textarea
             value={ideaText}
             onChange={(e) => setIdeaText(e.target.value)}
             rows={4}
-            className="w-full max-w-lg bg-bg border border-border rounded p-3 text-sm text-text font-mono resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full max-w-lg bg-bg border border-border rounded p-3 text-sm text-text font-theme-data resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
             placeholder={"Build a rate limiter\nAdd caching layer\nImprove API docs\nSet up monitoring"}
           />
           <div className="flex gap-2 mt-2">
             <button
               onClick={handleFromIdeas}
               disabled={!ideaText.trim() || loading}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm font-mono rounded hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-indigo-600 text-white text-sm font-theme-data rounded hover:bg-indigo-500 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Generating...' : 'Generate Pipeline'}
             </button>
             <button
               onClick={() => setShowIdeaInput(false)}
-              className="px-4 py-2 text-sm font-mono text-text-muted hover:text-text"
+              className="px-4 py-2 text-sm font-theme-data text-text-muted hover:text-text"
             >
               Cancel
             </button>
@@ -835,30 +835,30 @@ function PipelinePageContent() {
       {/* Debate JSON input dropdown */}
       {showDebateInput && (
         <div className="px-6 py-4 border-b border-border bg-surface/50">
-          <label className="block text-sm font-mono text-text-muted mb-2">
+          <label className="block text-sm font-theme-data text-text-muted mb-2">
             Paste ArgumentCartographer JSON export:
           </label>
           <textarea
             value={debateJson}
             onChange={(e) => { setDebateJson(e.target.value); setDebateError(''); }}
             rows={6}
-            className="w-full max-w-lg bg-bg border border-border rounded p-3 text-sm text-text font-mono resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="w-full max-w-lg bg-bg border border-border rounded p-3 text-sm text-text font-theme-data resize-none focus:outline-none focus:ring-2 focus:ring-violet-500"
             placeholder={'{\n  "nodes": [\n    {"id": "n1", "type": "proposal", "summary": "...", "content": "..."}\n  ],\n  "edges": [\n    {"source_id": "n2", "target_id": "n1", "relation": "supports"}\n  ]\n}'}
           />
           {debateError && (
-            <p className="text-xs text-red-400 font-mono mt-1">{debateError}</p>
+            <p className="text-xs text-red-400 font-theme-data mt-1">{debateError}</p>
           )}
           <div className="flex gap-2 mt-2">
             <button
               onClick={handleFromDebate}
               disabled={!debateJson.trim() || loading}
-              className="px-4 py-2 bg-violet-600 text-white text-sm font-mono rounded hover:bg-violet-500 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 bg-violet-600 text-white text-sm font-theme-data rounded hover:bg-violet-500 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Generating...' : 'Import Debate'}
             </button>
             <button
               onClick={() => { setShowDebateInput(false); setDebateError(''); }}
-              className="px-4 py-2 text-sm font-mono text-text-muted hover:text-text"
+              className="px-4 py-2 text-sm font-theme-data text-text-muted hover:text-text"
             >
               Cancel
             </button>
@@ -869,14 +869,14 @@ function PipelinePageContent() {
       {/* Debate import status */}
       {debateImportStatus && (
         <div className="px-6 py-2 bg-violet-500/10 border-b border-violet-500/30">
-          <p className="text-sm text-violet-400 font-mono">{debateImportStatus}</p>
+          <p className="text-sm text-violet-400 font-theme-data">{debateImportStatus}</p>
         </div>
       )}
 
       {/* Error display */}
       {error && (
         <div className="px-6 py-2 bg-red-500/10 border-b border-red-500/30">
-          <p className="text-sm text-red-400 font-mono">{error}</p>
+          <p className="text-sm text-red-400 font-theme-data">{error}</p>
         </div>
       )}
 
@@ -949,12 +949,12 @@ function PipelinePageContent() {
                   <div className="p-4 space-y-4">
                     {/* Sidebar header */}
                     <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-mono font-bold text-text uppercase tracking-wide">
+                      <h3 className="text-sm font-theme-data font-bold text-text uppercase tracking-wide">
                         Pipeline Status
                       </h3>
                       <button
                         onClick={() => setSidebarOpen(false)}
-                        className="text-text-muted hover:text-text text-xs font-mono"
+                        className="text-text-muted hover:text-text text-xs font-theme-data"
                         title="Close sidebar"
                       >
                         {'\u00D7'}
@@ -963,7 +963,7 @@ function PipelinePageContent() {
 
                     {/* Stage status overview */}
                     <div className="space-y-2">
-                      <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                      <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
                         Stage Progress
                       </h4>
                       {(['ideas', 'goals', 'actions', 'orchestration'] as const).map((stage) => (
@@ -971,7 +971,7 @@ function PipelinePageContent() {
                           key={stage}
                           className="flex items-center justify-between px-2 py-1.5 rounded bg-bg/50"
                         >
-                          <span className="text-xs font-mono text-text capitalize">{stage}</span>
+                          <span className="text-xs font-theme-data text-text capitalize">{stage}</span>
                           <StatusBadge
                             status={mapStageStatus(pipelineData.stage_status[stage])}
                             size="sm"
@@ -983,7 +983,7 @@ function PipelinePageContent() {
                     {/* Transition suggestions */}
                     {transitionSuggestions.length > 0 && (
                       <div className="space-y-2">
-                        <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                        <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
                           Suggested Transitions
                         </h4>
                         <AutoTransitionSuggestion
@@ -996,21 +996,21 @@ function PipelinePageContent() {
 
                     {/* Pipeline metadata */}
                     <div className="space-y-1.5 pt-2 border-t border-border">
-                      <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                      <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
                         Pipeline Info
                       </h4>
-                      <div className="text-xs font-mono text-text-muted">
+                      <div className="text-xs font-theme-data text-text-muted">
                         <span className="text-text-muted">ID: </span>
                         <span className="text-text">{pipelineData.pipeline_id.slice(0, 16)}</span>
                       </div>
                       {pipelineData.provenance_count > 0 && (
-                        <div className="text-xs font-mono text-text-muted">
+                        <div className="text-xs font-theme-data text-text-muted">
                           <span className="text-text-muted">Provenance links: </span>
                           <span className="text-text">{pipelineData.provenance_count}</span>
                         </div>
                       )}
                       {pipelineData.integrity_hash && (
-                        <div className="text-xs font-mono text-text-muted">
+                        <div className="text-xs font-theme-data text-text-muted">
                           <span className="text-text-muted">Integrity: </span>
                           <span className="text-text">{pipelineData.integrity_hash.slice(0, 12)}</span>
                         </div>
@@ -1024,7 +1024,7 @@ function PipelinePageContent() {
               {!sidebarOpen && (
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-3 bg-surface border border-border rounded-l text-text-muted hover:text-text text-xs font-mono z-10"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-1.5 py-3 bg-surface border border-border rounded-l text-text-muted hover:text-text text-xs font-theme-data z-10"
                   title="Open sidebar"
                 >
                   {'\u00AB'}
@@ -1046,20 +1046,20 @@ function PipelinePageContent() {
             <div className="w-full max-w-2xl px-6">
               <div className="space-y-5">
                 <div className="text-center">
-                  <h2 className="text-2xl font-mono font-bold text-text mb-2">
+                  <h2 className="text-2xl font-theme-data font-bold text-text mb-2">
                     Prompt to Execution
                   </h2>
-                  <p className="text-text-muted font-mono text-sm">
+                  <p className="text-text-muted font-theme-data text-sm">
                     Start with one prompt. Aragora maps ideas, goals, actions, and orchestration.
                   </p>
                 </div>
 
                 <div className="bg-surface border border-border rounded-xl p-4 md:p-5 space-y-4">
-                  <label className="block text-xs font-mono uppercase tracking-wide text-text-muted">
+                  <label className="block text-xs font-theme-data uppercase tracking-wide text-text-muted">
                     1. Describe what you want to achieve
                   </label>
                   <textarea
-                    className="w-full min-h-[200px] bg-bg border border-border rounded-lg p-4 text-sm text-text font-mono resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full min-h-[200px] bg-bg border border-border rounded-lg p-4 text-sm text-text font-theme-data resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder={"Build me an execution plan for...\n\nContext:\n- Current constraints\n- Success criteria\n- Risks to avoid"}
                     value={brainDumpText}
                     onChange={(e) => setBrainDumpText(e.target.value)}
@@ -1074,26 +1074,26 @@ function PipelinePageContent() {
                     />
                   )}
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <span className="text-sm text-text-muted font-mono">
+                    <span className="text-sm text-text-muted font-theme-data">
                       ~{estimatedIdeaCount} idea{estimatedIdeaCount !== 1 ? 's' : ''} detected
                     </span>
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={handleBrainDump}
                         disabled={!brainDumpText.trim() || loading}
-                        className="px-5 py-2.5 bg-indigo-600 text-white font-mono text-sm rounded-lg hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+                        className="px-5 py-2.5 bg-indigo-600 text-white font-theme-data text-sm rounded-lg hover:bg-indigo-500 disabled:opacity-50 transition-colors"
                       >
                         {loading ? 'Organizing...' : 'Generate Pipeline'}
                       </button>
                       <button
                         onClick={() => setShowWizard(true)}
-                        className="px-5 py-2.5 bg-amber-600 text-white font-mono text-sm rounded-lg hover:bg-amber-500 transition-colors"
+                        className="px-5 py-2.5 bg-amber-600 text-white font-theme-data text-sm rounded-lg hover:bg-amber-500 transition-colors"
                       >
                         Use Template
                       </button>
                       <button
                         onClick={handleDemo}
-                        className="px-5 py-2.5 bg-emerald-600 text-white font-mono text-sm rounded-lg hover:bg-emerald-500 transition-colors"
+                        className="px-5 py-2.5 bg-emerald-600 text-white font-theme-data text-sm rounded-lg hover:bg-emerald-500 transition-colors"
                       >
                         Try Demo
                       </button>
@@ -1106,10 +1106,10 @@ function PipelinePageContent() {
                     onClick={() => setShowAdvancedStart((v) => !v)}
                     className="w-full flex items-center justify-between text-left"
                   >
-                    <span className="text-sm font-mono text-text">
+                    <span className="text-sm font-theme-data text-text">
                       Advanced Input Options
                     </span>
-                    <span className="text-xs font-mono text-text-muted">
+                    <span className="text-xs font-theme-data text-text-muted">
                       {showAdvancedStart ? 'Hide' : 'Show'}
                     </span>
                   </button>
@@ -1118,19 +1118,19 @@ function PipelinePageContent() {
                     <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
                       <button
                         onClick={() => { setShowIdeaInput(true); setShowDebateInput(false); }}
-                        className="px-3 py-2 bg-surface border border-border text-text font-mono text-xs rounded hover:border-text transition-colors"
+                        className="px-3 py-2 bg-surface border border-border text-text font-theme-data text-xs rounded hover:border-text transition-colors"
                       >
                         Structured Ideas
                       </button>
                       <button
                         onClick={() => { setShowDebateInput(true); setShowIdeaInput(false); }}
-                        className="px-3 py-2 bg-violet-600/90 text-white font-mono text-xs rounded hover:bg-violet-500 transition-colors"
+                        className="px-3 py-2 bg-violet-600/90 text-white font-theme-data text-xs rounded hover:bg-violet-500 transition-colors"
                       >
                         Import Debate JSON
                       </button>
                       <button
                         onClick={() => setShowWizard(true)}
-                        className="px-3 py-2 bg-amber-600/90 text-white font-mono text-xs rounded hover:bg-amber-500 transition-colors"
+                        className="px-3 py-2 bg-amber-600/90 text-white font-theme-data text-xs rounded hover:bg-amber-500 transition-colors"
                       >
                         Wizard Templates
                       </button>
@@ -1160,7 +1160,7 @@ function PipelinePageContent() {
         <div className="border-t border-border bg-surface/50 px-6 py-2">
           <button
             onClick={() => setShowLearningPanel(!showLearningPanel)}
-            className="flex items-center gap-2 text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors py-1"
+            className="flex items-center gap-2 text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors py-1"
           >
             <span>{showLearningPanel ? '[-]' : '[+]'}</span>
             <span className="uppercase tracking-wider">Learning & Feedback</span>

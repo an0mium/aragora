@@ -201,19 +201,19 @@ export function RLMStreamingPanel({ debateId, onContextReady }: RLMStreamingPane
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-bg-primary rounded p-2">
                 <div className="text-xs text-text-muted">Before</div>
-                <div className="text-sm text-text-primary font-mono">
+                <div className="text-sm text-text-primary font-theme-data">
                   {compressionStats.tokensBefore.toLocaleString()}
                 </div>
               </div>
               <div className="bg-bg-primary rounded p-2">
                 <div className="text-xs text-text-muted">After</div>
-                <div className="text-sm text-green-400 font-mono">
+                <div className="text-sm text-green-400 font-theme-data">
                   {compressionStats.tokensAfter.toLocaleString()}
                 </div>
               </div>
               <div className="bg-bg-primary rounded p-2">
                 <div className="text-xs text-text-muted">Saved</div>
-                <div className="text-sm text-cyan-400 font-mono">
+                <div className="text-sm text-cyan-400 font-theme-data">
                   {((1 - compressionStats.ratio) * 100).toFixed(0)}%
                 </div>
               </div>
@@ -282,7 +282,7 @@ export function RLMStreamingPanel({ debateId, onContextReady }: RLMStreamingPane
               <summary className="text-text-muted cursor-pointer hover:text-text-secondary">
                 Event Log ({events.length})
               </summary>
-              <div className="mt-2 max-h-32 overflow-y-auto space-y-1 font-mono">
+              <div className="mt-2 max-h-32 overflow-y-auto space-y-1 font-theme-data">
                 {events.slice(-10).map((event, i) => (
                   <div key={i} className="text-text-muted">
                     <span className="text-purple-400">{event.type}</span>

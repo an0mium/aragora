@@ -172,7 +172,7 @@ All items below are **PASSED** as of March 24, 2026:
 
 When the founder loop does not complete successfully, label the run with one
 primary canonical state from
-[`docs/strategy/FOUNDER_RUN_FAILURE_TAXONOMY.md`](../strategy/FOUNDER_RUN_FAILURE_TAXONOMY.md):
+[`docs/strategy/PRECISION_AND_TERMS.md`](../strategy/PRECISION_AND_TERMS.md#part-2-founder-run-failure-taxonomy):
 
 - `auth_failure`
 - `no_evidence`

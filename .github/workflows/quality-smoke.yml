@@ -4,21 +4,30 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+    paths:
+      - 'aragora/debate/output_quality.py'
+      - 'aragora/debate/repo_grounding.py'
+      - 'aragora/cli/commands/debate.py'
+      - 'tests/debate/test_output_quality.py'
+      - 'tests/debate/test_repo_grounding.py'
+      - 'tests/cli/test_offline_golden_path.py'
+      - '.github/workflows/quality-smoke.yml'
+      - '.github/actions/pr-scope-classifier/**'
   schedule:
     # Nightly at 1:30 UTC
     - cron: '30 1 * * *'
   workflow_dispatch:
 
 concurrency:
-  group: quality-smoke-${{ github.ref }}
-  cancel-in-progress: false
+  group: quality-smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
-      quality: ${{ steps.filter.outputs.quality }}
+      quality: ${{ steps.decision.outputs.quality }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,18 +53,18 @@ jobs:
             exit 1
           fi
 
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            quality:
-              - 'aragora/debate/output_quality.py'
-              - 'aragora/debate/repo_grounding.py'
-              - 'aragora/cli/commands/debate.py'
-              - 'tests/debate/test_output_quality.py'
-              - 'tests/debate/test_repo_grounding.py'
-              - 'tests/cli/test_offline_golden_path.py'
-              - '.github/workflows/quality-smoke.yml'
+      - uses: ./.github/actions/pr-scope-classifier
+        id: scope
+
+      - name: Decide quality scope
+        id: decision
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "quality=${{ steps.scope.outputs.quality }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "quality=true" >> "$GITHUB_OUTPUT"
+          fi
 
   quality-smoke-run:
     needs: changes

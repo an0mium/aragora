@@ -103,19 +103,19 @@ export function ContradictionsTab() {
         <div className="flex items-center justify-between">
           <div className="flex gap-6 text-sm">
             <span className="text-red-400">
-              Unresolved: <span className="font-mono">{stats.unresolved}</span>
+              Unresolved: <span className="font-theme-data">{stats.unresolved}</span>
             </span>
             <span className="text-green-400">
-              Resolved: <span className="font-mono">{stats.resolved}</span>
+              Resolved: <span className="font-theme-data">{stats.resolved}</span>
             </span>
             <span className="text-text-muted">
-              Dismissed: <span className="font-mono">{stats.dismissed}</span>
+              Dismissed: <span className="font-theme-data">{stats.dismissed}</span>
             </span>
           </div>
           <button
             onClick={handleScan}
             disabled={scanning}
-            className="px-3 py-1 text-xs bg-acid-green/10 text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/20 disabled:opacity-50 transition-colors"
+            className="px-3 py-1 text-xs bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/20 disabled:opacity-50 transition-colors"
           >
             {scanning ? 'Scanning...' : 'Run Detection Scan'}
           </button>
@@ -130,7 +130,7 @@ export function ContradictionsTab() {
             className={`p-4 rounded-lg border ${severityColors[c.severity] || 'border-border'}`}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-mono uppercase tracking-wider">
+              <span className="text-xs font-theme-data uppercase tracking-wider">
                 {c.severity}
               </span>
               <span className="text-xs text-text-muted">
@@ -140,11 +140,11 @@ export function ContradictionsTab() {
 
             <div className="grid grid-cols-2 gap-4 mb-3">
               <div className="p-2 bg-black/20 rounded text-xs">
-                <div className="text-text-muted mb-1 font-mono">Node A</div>
+                <div className="text-text-muted mb-1 font-theme-data">Node A</div>
                 <div className="text-text line-clamp-3">{c.node_a_content}</div>
               </div>
               <div className="p-2 bg-black/20 rounded text-xs">
-                <div className="text-text-muted mb-1 font-mono">Node B</div>
+                <div className="text-text-muted mb-1 font-theme-data">Node B</div>
                 <div className="text-text line-clamp-3">{c.node_b_content}</div>
               </div>
             </div>
@@ -192,7 +192,7 @@ export function ContradictionsTab() {
           <button
             onClick={handleScan}
             disabled={scanning}
-            className="text-xs text-acid-green hover:underline disabled:opacity-50"
+            className="text-xs text-[var(--accent)] hover:underline disabled:opacity-50"
           >
             {scanning ? 'Scanning...' : 'Run a detection scan'}
           </button>

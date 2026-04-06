@@ -50,29 +50,29 @@ export function IntegrationsTab({
   return (
     <div className="space-y-6" role="tabpanel" id="panel-integrations" aria-labelledby="tab-integrations">
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Slack Integration</h3>
-        <p className="font-mono text-xs text-text-muted mb-4">
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Slack Integration</h3>
+        <p className="font-theme-data text-xs text-text-muted mb-4">
           Receive debate notifications in your Slack workspace.
         </p>
         <div className="space-y-4">
           <div>
-            <label className="font-mono text-xs text-text-muted block mb-2">Webhook URL</label>
+            <label className="font-theme-data text-xs text-text-muted block mb-2">Webhook URL</label>
             <div className="flex gap-2">
               <input
                 type="url"
                 value={slackWebhook}
                 onChange={(e) => onSlackWebhookChange(e.target.value)}
                 placeholder="https://hooks.slack.com/services/..."
-                className="flex-1 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="flex-1 bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 aria-label="Slack webhook URL"
               />
               <button
                 onClick={handleSlackTest}
                 disabled={!slackWebhook || slackTestStatus === 'testing'}
-                className={`px-4 py-2 font-mono text-sm rounded transition-colors disabled:opacity-50 ${
-                  slackTestStatus === 'success' ? 'bg-acid-green/20 border border-acid-green/40 text-acid-green' :
+                className={`px-4 py-2 font-theme-data text-sm rounded transition-colors disabled:opacity-50 ${
+                  slackTestStatus === 'success' ? 'bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)]' :
                   slackTestStatus === 'error' ? 'bg-acid-red/20 border border-acid-red/40 text-acid-red' :
-                  'bg-surface border border-acid-green/30 text-text hover:border-acid-green/50'
+                  'bg-surface border border-[var(--accent)]/30 text-text hover:border-[var(--accent)]/50'
                 }`}
               >
                 {slackTestStatus === 'testing' ? '...' :
@@ -83,8 +83,8 @@ export function IntegrationsTab({
           </div>
 
           {slackWebhook && (
-            <div className="pt-4 border-t border-acid-green/20">
-              <h4 className="font-mono text-xs text-acid-cyan mb-3">NOTIFICATION SETTINGS</h4>
+            <div className="pt-4 border-t border-[var(--accent)]/20">
+              <h4 className="font-theme-data text-xs text-[var(--acid-cyan)] mb-3">NOTIFICATION SETTINGS</h4>
               <div className="space-y-3">
                 <ToggleSwitch
                   label="Consensus Reached"
@@ -117,8 +117,8 @@ export function IntegrationsTab({
       </div>
 
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Discord Integration</h3>
-        <p className="font-mono text-xs text-text-muted mb-4">
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Discord Integration</h3>
+        <p className="font-theme-data text-xs text-text-muted mb-4">
           Post debate results to your Discord server.
         </p>
         <input
@@ -126,7 +126,7 @@ export function IntegrationsTab({
           value={discordWebhook}
           onChange={(e) => onDiscordWebhookChange(e.target.value)}
           placeholder="https://discord.com/api/webhooks/..."
-          className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+          className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
           aria-label="Discord webhook URL"
         />
       </div>
@@ -134,7 +134,7 @@ export function IntegrationsTab({
       <button
         onClick={onSave}
         disabled={saveStatus === 'saving'}
-        className="px-6 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+        className="px-6 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
       >
         {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : 'Save Integrations'}
       </button>

@@ -440,22 +440,22 @@ export default function ControlPlanePage() {
           <div className="bg-yellow-900/20 border-b border-yellow-600/30 py-2">
             <div className="container mx-auto px-4 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-              <span className="font-mono text-xs text-yellow-400">DEMO MODE</span>
+              <span className="font-theme-data text-xs text-yellow-400">DEMO MODE</span>
             </div>
           </div>
         )}
 
         {/* Sub Navigation */}
-        <div className="border-b border-acid-green/20 bg-surface/40">
+        <div className="border-b border-[var(--accent)]/20 bg-surface/40">
           <div className="container mx-auto px-4">
             <div className="flex gap-4 overflow-x-auto">
               {tabs.map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 font-mono text-sm transition-colors flex items-center gap-2 ${
+                  className={`px-4 py-2 font-theme-data text-sm transition-colors flex items-center gap-2 ${
                     activeTab === tab.id
-                      ? 'text-acid-green border-b-2 border-acid-green'
+                      ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                       : 'text-text-muted hover:text-text'
                   }`}
                 >
@@ -476,17 +476,17 @@ export default function ControlPlanePage() {
           <PanelErrorBoundary panelName="ControlPlane">
             {/* Page Header */}
             <div className="mb-6">
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                 Dashboard
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Monitor and orchestrate multi-agent document processing and auditing.
               </p>
             </div>
 
             {loading ? (
               <div className="card p-8 text-center">
-                <div className="animate-pulse font-mono text-text-muted">Loading dashboard...</div>
+                <div className="animate-pulse font-theme-data text-text-muted">Loading dashboard...</div>
               </div>
             ) : (
               <>
@@ -532,20 +532,20 @@ export default function ControlPlanePage() {
                     {/* Metrics Grid */}
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="card p-4">
-                        <div className="text-xs font-mono text-text-muted mb-1">ACTIVE JOBS</div>
-                        <div className="text-2xl font-mono text-acid-cyan">{displayMetrics.active_jobs}</div>
+                        <div className="text-xs font-theme-data text-text-muted mb-1">ACTIVE JOBS</div>
+                        <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">{displayMetrics.active_jobs}</div>
                       </div>
                       <div className="card p-4">
-                        <div className="text-xs font-mono text-text-muted mb-1">QUEUED</div>
-                        <div className="text-2xl font-mono text-acid-yellow">{displayMetrics.queued_jobs}</div>
+                        <div className="text-xs font-theme-data text-text-muted mb-1">QUEUED</div>
+                        <div className="text-2xl font-theme-data text-[var(--acid-yellow)]">{displayMetrics.queued_jobs}</div>
                       </div>
                       <div className="card p-4">
-                        <div className="text-xs font-mono text-text-muted mb-1">AGENTS AVAILABLE</div>
-                        <div className="text-2xl font-mono text-success">{displayMetrics.agents_available}/{displayMetrics.agents_available + displayMetrics.agents_busy}</div>
+                        <div className="text-xs font-theme-data text-text-muted mb-1">AGENTS AVAILABLE</div>
+                        <div className="text-2xl font-theme-data text-success">{displayMetrics.agents_available}/{displayMetrics.agents_available + displayMetrics.agents_busy}</div>
                       </div>
                       <div className="card p-4">
-                        <div className="text-xs font-mono text-text-muted mb-1">TOKENS TODAY</div>
-                        <div className="text-2xl font-mono">{formatTokens(displayMetrics.tokens_used_today)}</div>
+                        <div className="text-xs font-theme-data text-text-muted mb-1">TOKENS TODAY</div>
+                        <div className="text-2xl font-theme-data">{formatTokens(displayMetrics.tokens_used_today)}</div>
                       </div>
                     </div>
 
@@ -583,29 +583,29 @@ export default function ControlPlanePage() {
                     {/* Active Jobs */}
                     <div className="card">
                       <div className="p-4 border-b border-border">
-                        <h2 className="font-mono text-sm text-acid-green">Active Jobs</h2>
+                        <h2 className="font-theme-data text-sm text-[var(--accent)]">Active Jobs</h2>
                       </div>
                       <div className="p-4 space-y-3">
                         {displayJobs.filter(j => j.status === 'running').length === 0 ? (
-                          <div className="text-center text-text-muted font-mono text-sm py-4">
+                          <div className="text-center text-text-muted font-theme-data text-sm py-4">
                             No active jobs
                           </div>
                         ) : (
                           displayJobs.filter(j => j.status === 'running').map(job => (
                             <div key={job.id} className="bg-surface p-3 rounded border border-border">
                               <div className="flex items-center justify-between mb-2">
-                                <span className="font-mono text-sm">{job.name}</span>
-                                <span className={`text-xs font-mono uppercase ${getStatusColor(job.status)}`}>
+                                <span className="font-theme-data text-sm">{job.name}</span>
+                                <span className={`text-xs font-theme-data uppercase ${getStatusColor(job.status)}`}>
                                   {job.status}
                                 </span>
                               </div>
                               <div className="h-1.5 bg-bg rounded overflow-hidden mb-2">
                                 <div
-                                  className="h-full bg-acid-cyan transition-all"
+                                  className="h-full bg-[var(--acid-cyan)] transition-all"
                                   style={{ width: `${job.progress * 100}%` }}
                                 />
                               </div>
-                              <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+                              <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
                                 <span>{Math.round(job.progress * 100)}% - {job.document_count} documents</span>
                                 <span>Agents: {job.agents_assigned.join(', ')}</span>
                               </div>
@@ -618,20 +618,20 @@ export default function ControlPlanePage() {
                     {/* Agent Status */}
                     <div className="card">
                       <div className="p-4 border-b border-border">
-                        <h2 className="font-mono text-sm text-acid-green">Agent Status</h2>
+                        <h2 className="font-theme-data text-sm text-[var(--accent)]">Agent Status</h2>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
                         {displayAgents.map(agent => (
                           <div key={agent.id} className="bg-surface p-3 rounded border border-border">
                             <div className="flex items-center gap-2 mb-2">
                               <span className={`w-2 h-2 rounded-full ${
-                                agent.status === 'working' ? 'bg-acid-cyan animate-pulse' :
+                                agent.status === 'working' ? 'bg-[var(--acid-cyan)] animate-pulse' :
                                 agent.status === 'idle' ? 'bg-success' :
-                                'bg-crimson'
+                                'bg-[var(--crimson)]'
                               }`} />
-                              <span className="font-mono text-sm">{agent.name}</span>
+                              <span className="font-theme-data text-sm">{agent.name}</span>
                             </div>
-                            <div className="text-xs font-mono text-text-muted">
+                            <div className="text-xs font-theme-data text-text-muted">
                               {agent.current_task || agent.model}
                             </div>
                           </div>
@@ -642,20 +642,20 @@ export default function ControlPlanePage() {
                     {/* Decision Console */}
                     <div className="card">
                       <div className="p-4 border-b border-border">
-                        <h2 className="font-mono text-sm text-acid-green">Decision Console</h2>
-                        <p className="text-text-muted text-xs font-mono mt-1">
+                        <h2 className="font-theme-data text-sm text-[var(--accent)]">Decision Console</h2>
+                        <p className="text-text-muted text-xs font-theme-data mt-1">
                           Submit decisions for AI debate and capture decision receipts.
                         </p>
                       </div>
                       <div className="p-4 space-y-4">
                         <textarea
-                          className="w-full min-h-[120px] bg-surface border border-border rounded p-3 text-sm font-mono text-text"
+                          className="w-full min-h-[120px] bg-surface border border-border rounded p-3 text-sm font-theme-data text-text"
                           placeholder="Describe the decision to debate..."
                           value={deliberationInput}
                           onChange={(event) => setDeliberationInput(event.target.value)}
                         />
                         <div className="flex flex-wrap items-center gap-4">
-                          <label className="text-xs font-mono text-text-muted">
+                          <label className="text-xs font-theme-data text-text-muted">
                             Decision Type
                             <select
                               className="ml-2 bg-surface border border-border rounded px-2 py-1 text-xs text-text"
@@ -669,7 +669,7 @@ export default function ControlPlanePage() {
                               <option value="quick">QUICK</option>
                             </select>
                           </label>
-                          <label className="flex items-center gap-2 text-xs font-mono text-text-muted">
+                          <label className="flex items-center gap-2 text-xs font-theme-data text-text-muted">
                             <input
                               type="checkbox"
                               className="accent-acid-green"
@@ -679,7 +679,7 @@ export default function ControlPlanePage() {
                             ASYNC
                           </label>
                           <button
-                            className="ml-auto px-3 py-1.5 rounded border border-acid-green text-acid-green text-xs font-mono hover:bg-acid-green/10 disabled:opacity-50"
+                            className="ml-auto px-3 py-1.5 rounded border border-[var(--accent)] text-[var(--accent)] text-xs font-theme-data hover:bg-[var(--accent)]/10 disabled:opacity-50"
                             onClick={submitDeliberation}
                             disabled={deliberationLoading || !deliberationInput.trim()}
                           >
@@ -687,10 +687,10 @@ export default function ControlPlanePage() {
                           </button>
                         </div>
                         {deliberationError && (
-                          <div className="text-crimson text-xs font-mono">{deliberationError}</div>
+                          <div className="text-[var(--crimson)] text-xs font-theme-data">{deliberationError}</div>
                         )}
                         {deliberationResult && (
-                          <div className="bg-surface border border-border rounded p-3 text-xs font-mono text-text-muted space-y-2">
+                          <div className="bg-surface border border-border rounded p-3 text-xs font-theme-data text-text-muted space-y-2">
                             <div className="text-text">
                               Status: {String(deliberationResult.status || 'unknown')}
                             </div>
@@ -721,7 +721,7 @@ export default function ControlPlanePage() {
                           </div>
                         )}
                         {deliberationStatus && (
-                          <div className="text-xs font-mono text-text-muted">
+                          <div className="text-xs font-theme-data text-text-muted">
                             Status Update: {String(deliberationStatus.status || 'unknown')}
                           </div>
                         )}
@@ -788,11 +788,11 @@ export default function ControlPlanePage() {
                   <div className="space-y-4">
                     {/* Real-time indicator */}
                     {wsConnected && (
-                      <div className="flex items-center gap-2 text-xs font-mono text-acid-green mb-2">
-                        <span className="w-2 h-2 rounded-full bg-acid-green animate-pulse" />
+                      <div className="flex items-center gap-2 text-xs font-theme-data text-[var(--accent)] mb-2">
+                        <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
                         Real-time updates via WebSocket
                         {recentFindings.length > 0 && (
-                          <span className="ml-2 px-2 py-0.5 bg-acid-green/20 rounded">
+                          <span className="ml-2 px-2 py-0.5 bg-[var(--accent)]/20 rounded">
                             {recentFindings.length} recent findings
                           </span>
                         )}
@@ -800,20 +800,20 @@ export default function ControlPlanePage() {
                     )}
                     {displayJobs.length === 0 ? (
                       <div className="card p-8 text-center">
-                        <div className="font-mono text-text-muted">No jobs in queue</div>
+                        <div className="font-theme-data text-text-muted">No jobs in queue</div>
                       </div>
                     ) : (
                       displayJobs.map(job => (
                         <div key={job.id} className="card p-4">
                           <div className="flex items-start justify-between mb-3">
                             <div>
-                              <div className="font-mono font-medium">{job.name}</div>
-                              <div className="text-xs text-text-muted font-mono mt-1">
+                              <div className="font-theme-data font-medium">{job.name}</div>
+                              <div className="text-xs text-text-muted font-theme-data mt-1">
                                 {job.type.replace('_', ' ').toUpperCase()} | {job.document_count} documents
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className={`text-xs font-mono uppercase ${getStatusColor(job.status)}`}>
+                              <span className={`text-xs font-theme-data uppercase ${getStatusColor(job.status)}`}>
                                 {job.status}
                               </span>
                             </div>
@@ -823,18 +823,18 @@ export default function ControlPlanePage() {
                             <div className="mb-3">
                               <div className="h-1.5 bg-surface rounded overflow-hidden">
                                 <div
-                                  className={`h-full transition-all ${job.status === 'paused' ? 'bg-acid-yellow' : 'bg-acid-cyan'}`}
+                                  className={`h-full transition-all ${job.status === 'paused' ? 'bg-acid-yellow' : 'bg-[var(--acid-cyan)]'}`}
                                   style={{ width: `${job.progress * 100}%` }}
                                 />
                               </div>
-                              <div className="text-xs text-text-muted font-mono mt-1 text-right">
+                              <div className="text-xs text-text-muted font-theme-data mt-1 text-right">
                                 {Math.round(job.progress * 100)}%
                               </div>
                             </div>
                           )}
 
                           <div className="flex items-center justify-between">
-                            <div className="text-xs font-mono text-text-muted">
+                            <div className="text-xs font-theme-data text-text-muted">
                               {job.agents_assigned.length > 0 && (
                                 <span>Agents: {job.agents_assigned.join(', ')}</span>
                               )}
@@ -848,7 +848,7 @@ export default function ControlPlanePage() {
                                 {job.status === 'running' && (
                                   <button
                                     onClick={() => pauseJob(job.id)}
-                                    className="px-2 py-1 text-xs font-mono border border-border rounded hover:border-acid-yellow transition-colors"
+                                    className="px-2 py-1 text-xs font-theme-data border border-border rounded hover:border-acid-yellow transition-colors"
                                   >
                                     Pause
                                   </button>
@@ -856,14 +856,14 @@ export default function ControlPlanePage() {
                                 {job.status === 'paused' && (
                                   <button
                                     onClick={() => resumeJob(job.id)}
-                                    className="px-2 py-1 text-xs font-mono border border-border rounded hover:border-acid-green transition-colors"
+                                    className="px-2 py-1 text-xs font-theme-data border border-border rounded hover:border-[var(--accent)] transition-colors"
                                   >
                                     Resume
                                   </button>
                                 )}
                                 <button
                                   onClick={() => cancelJob(job.id)}
-                                  className="px-2 py-1 text-xs font-mono border border-crimson/30 text-crimson rounded hover:bg-crimson/10 transition-colors"
+                                  className="px-2 py-1 text-xs font-theme-data border border-[var(--crimson)]/30 text-[var(--crimson)] rounded hover:bg-[var(--crimson)]/10 transition-colors"
                                 >
                                   Cancel
                                 </button>
@@ -885,7 +885,7 @@ export default function ControlPlanePage() {
                       onVerticalChange={setSelectedVertical}
                       compact
                     />
-                    <div className="card p-3 flex flex-col gap-2 text-xs font-mono text-text-muted lg:flex-row lg:items-center lg:justify-between">
+                    <div className="card p-3 flex flex-col gap-2 text-xs font-theme-data text-text-muted lg:flex-row lg:items-center lg:justify-between">
                       <span>
                         {verticalsData.length > 0
                           ? `${verticalsData.length} live vertical profiles available from /api/verticals`
@@ -893,7 +893,7 @@ export default function ControlPlanePage() {
                       </span>
                       <span>
                         Focus:{' '}
-                        <span className="text-acid-green">
+                        <span className="text-[var(--accent)]">
                           {(selectedVertical || 'general').toUpperCase()}
                         </span>
                       </span>
@@ -947,14 +947,14 @@ export default function ControlPlanePage() {
                 {activeTab === 'settings' && (
                   <div className="max-w-2xl space-y-6">
                     <div className="card p-4">
-                      <h3 className="font-mono text-sm text-acid-green mb-4">Processing Settings</h3>
+                      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">Processing Settings</h3>
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-mono text-sm">Max Concurrent Documents</div>
+                            <div className="font-theme-data text-sm">Max Concurrent Documents</div>
                             <div className="text-xs text-text-muted">Limit parallel document processing</div>
                           </div>
-                          <select className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono">
+                          <select className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data">
                             <option>5</option>
                             <option>10</option>
                             <option>20</option>
@@ -963,10 +963,10 @@ export default function ControlPlanePage() {
                         </div>
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-mono text-sm">Max Concurrent Chunks</div>
+                            <div className="font-theme-data text-sm">Max Concurrent Chunks</div>
                             <div className="text-xs text-text-muted">Chunks processed in parallel per job</div>
                           </div>
-                          <select className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono">
+                          <select className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data">
                             <option>10</option>
                             <option>20</option>
                             <option>50</option>
@@ -976,14 +976,14 @@ export default function ControlPlanePage() {
                     </div>
 
                     <div className="card p-4">
-                      <h3 className="font-mono text-sm text-acid-green mb-4">Audit Settings</h3>
+                      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">Audit Settings</h3>
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-mono text-sm">Primary Scan Model</div>
+                            <div className="font-theme-data text-sm">Primary Scan Model</div>
                             <div className="text-xs text-text-muted">Model for initial document scanning</div>
                           </div>
-                          <select className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono">
+                          <select className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data">
                             <option>gemini-3-pro</option>
                             <option>claude-3.5-sonnet</option>
                             <option>gpt-4-turbo</option>
@@ -991,22 +991,22 @@ export default function ControlPlanePage() {
                         </div>
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-mono text-sm">Verification Model</div>
+                            <div className="font-theme-data text-sm">Verification Model</div>
                             <div className="text-xs text-text-muted">Model for finding verification</div>
                           </div>
-                          <select className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-mono">
+                          <select className="bg-surface border border-border rounded px-3 py-1.5 text-sm font-theme-data">
                             <option>claude-3.5-sonnet</option>
                             <option>gpt-4-turbo</option>
                           </select>
                         </div>
                         <div className="flex items-center justify-between">
                           <div>
-                            <div className="font-mono text-sm">Require Multi-Agent Confirmation</div>
+                            <div className="font-theme-data text-sm">Require Multi-Agent Confirmation</div>
                             <div className="text-xs text-text-muted">Findings must be verified by multiple agents</div>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" defaultChecked className="sr-only peer" />
-                            <div className="w-11 h-6 bg-surface peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-muted after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-acid-green/30 peer-checked:after:bg-acid-green"></div>
+                            <div className="w-11 h-6 bg-surface peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-muted after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent)]/30 peer-checked:after:bg-[var(--accent)]"></div>
                           </label>
                         </div>
                       </div>
@@ -1019,8 +1019,8 @@ export default function ControlPlanePage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

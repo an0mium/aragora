@@ -135,17 +135,17 @@ export function RequestBuilder({ endpoint, onResponse }: RequestBuilderProps) {
       {/* Method + URL */}
       <div className="flex items-center gap-2">
         <span
-          className={`text-xs font-mono font-bold px-2 py-1 bg-[var(--surface)] ${METHOD_COLORS[endpoint.method] || ''}`}
+          className={`text-xs font-theme-data font-bold px-2 py-1 bg-[var(--surface)] ${METHOD_COLORS[endpoint.method] || ''}`}
         >
           {endpoint.method}
         </span>
-        <code className="flex-1 text-xs font-mono text-[var(--text-muted)] truncate">
+        <code className="flex-1 text-xs font-theme-data text-[var(--text-muted)] truncate">
           {buildUrl()}
         </code>
         <button
           onClick={sendRequest}
           disabled={loading || remaining <= 0}
-          className="px-4 py-1.5 text-xs font-mono font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 disabled:opacity-40 transition-colors"
+          className="px-4 py-1.5 text-xs font-theme-data font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 disabled:opacity-40 transition-colors"
         >
           {loading ? 'SENDING...' : 'SEND'}
         </button>
@@ -159,14 +159,14 @@ export function RequestBuilder({ endpoint, onResponse }: RequestBuilderProps) {
             style={{ width: `${(remaining / RATE_LIMIT_MAX) * 100}%` }}
           />
         </div>
-        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+        <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
           {remaining}/{RATE_LIMIT_MAX} req/min
         </span>
       </div>
 
       {/* API Key */}
       <div>
-        <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider">
+        <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase tracking-wider">
           API Key (optional)
         </label>
         <input
@@ -174,19 +174,19 @@ export function RequestBuilder({ endpoint, onResponse }: RequestBuilderProps) {
           value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           placeholder="Bearer token..."
-          className="w-full mt-1 px-2 py-1.5 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]"
+          className="w-full mt-1 px-2 py-1.5 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]"
         />
       </div>
 
       {/* Path parameters */}
       {pathParams.length > 0 && (
         <div className="space-y-2">
-          <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider">
+          <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase tracking-wider">
             Path Parameters
           </label>
           {pathParams.map((p) => (
             <div key={p.name} className="flex items-center gap-2">
-              <span className="text-xs font-mono text-[var(--acid-green)] w-24 shrink-0">
+              <span className="text-xs font-theme-data text-[var(--acid-green)] w-24 shrink-0">
                 {p.name}
               </span>
               <input
@@ -194,7 +194,7 @@ export function RequestBuilder({ endpoint, onResponse }: RequestBuilderProps) {
                 value={params[p.name] || ''}
                 onChange={(e) => setParams({ ...params, [p.name]: e.target.value })}
                 placeholder={p.description || p.name}
-                className="flex-1 px-2 py-1 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]"
+                className="flex-1 px-2 py-1 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]"
               />
             </div>
           ))}
@@ -204,12 +204,12 @@ export function RequestBuilder({ endpoint, onResponse }: RequestBuilderProps) {
       {/* Query parameters */}
       {queryParams.length > 0 && (
         <div className="space-y-2">
-          <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider">
+          <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase tracking-wider">
             Query Parameters
           </label>
           {queryParams.map((p) => (
             <div key={p.name} className="flex items-center gap-2">
-              <span className="text-xs font-mono text-[var(--text-muted)] w-24 shrink-0">
+              <span className="text-xs font-theme-data text-[var(--text-muted)] w-24 shrink-0">
                 {p.name}
               </span>
               <input
@@ -217,7 +217,7 @@ export function RequestBuilder({ endpoint, onResponse }: RequestBuilderProps) {
                 value={params[p.name] || ''}
                 onChange={(e) => setParams({ ...params, [p.name]: e.target.value })}
                 placeholder={p.default || p.name}
-                className="flex-1 px-2 py-1 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]"
+                className="flex-1 px-2 py-1 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]"
               />
             </div>
           ))}
@@ -227,14 +227,14 @@ export function RequestBuilder({ endpoint, onResponse }: RequestBuilderProps) {
       {/* Request body */}
       {hasBody && (
         <div>
-          <label className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider">
+          <label className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase tracking-wider">
             Request Body (JSON)
           </label>
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             rows={6}
-            className="w-full mt-1 px-2 py-1.5 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] resize-y"
+            className="w-full mt-1 px-2 py-1.5 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] resize-y"
           />
         </div>
       )}

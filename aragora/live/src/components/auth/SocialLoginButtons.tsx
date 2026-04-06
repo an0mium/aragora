@@ -130,10 +130,10 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
       {/* Divider */}
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-acid-green/20"></div>
+          <div className="w-full border-t border-[var(--border)]"></div>
         </div>
         <div className="relative flex justify-center">
-          <span className="px-4 bg-surface text-xs font-mono text-text-muted uppercase">
+          <span className="px-4 bg-[var(--surface)] text-xs text-[var(--text-muted)] uppercase">
             Or continue with
           </span>
         </div>
@@ -146,7 +146,8 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
             key={provider.id}
             type="button"
             onClick={() => handleOAuthClick(provider)}
-            className="w-full py-3 px-4 border border-acid-green/30 bg-bg text-text font-mono text-sm hover:border-acid-green hover:bg-acid-green/5 transition-colors flex items-center justify-center gap-3"
+            className="w-full py-3 px-4 border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] text-sm hover:border-[var(--accent)] hover:bg-[var(--accent)]/5 transition-colors flex items-center justify-center gap-3"
+            style={{ borderRadius: 'var(--radius-button, 6px)' }}
           >
             {provider.id === 'google' && <GoogleIcon />}
             {provider.id === 'github' && <GitHubIcon />}
@@ -161,7 +162,7 @@ export function SocialLoginButtons({ mode }: SocialLoginButtonsProps) {
       </div>
 
       {error && (
-        <p className="text-xs font-mono text-warning text-center">{error}</p>
+        <p className="text-xs font-theme-data text-warning text-center">{error}</p>
       )}
     </div>
   );

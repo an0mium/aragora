@@ -240,7 +240,7 @@ export default function WorkflowsPage() {
         <div className="max-w-7xl mx-auto px-6 py-12">
           <div className="flex items-start justify-between">
             <div className="max-w-2xl">
-              <h1 className="text-4xl font-mono font-bold text-text mb-4">
+              <h1 className="text-4xl font-theme-data font-bold text-text mb-4">
                 Workflow Templates
               </h1>
               <p className="text-lg text-text-muted mb-6">
@@ -250,7 +250,7 @@ export default function WorkflowsPage() {
               <div className="flex gap-3">
                 <Link
                   href="/workflows/builder"
-                  className="px-6 py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded flex items-center gap-2"
+                  className="px-6 py-3 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors rounded flex items-center gap-2"
                 >
                   <span>+</span>
                   <span>Create Custom</span>
@@ -258,7 +258,7 @@ export default function WorkflowsPage() {
                 {isFeatureVisible('advanced') && (
                   <Link
                     href="/workflows/runtime"
-                    className="px-6 py-3 bg-surface border border-border text-text font-mono hover:border-acid-green transition-colors rounded flex items-center gap-2"
+                    className="px-6 py-3 bg-surface border border-border text-text font-theme-data hover:border-[var(--accent)] transition-colors rounded flex items-center gap-2"
                   >
                     <span>📊</span>
                     <span>View Runtime</span>
@@ -270,12 +270,12 @@ export default function WorkflowsPage() {
             {/* Quick Stats */}
             <div className="hidden lg:grid grid-cols-2 gap-4">
               <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                <div className="text-3xl font-mono font-bold text-acid-green">{templates.length}</div>
-                <div className="text-xs text-text-muted font-mono">Templates</div>
+                <div className="text-3xl font-theme-data font-bold text-[var(--accent)]">{templates.length}</div>
+                <div className="text-xs text-text-muted font-theme-data">Templates</div>
               </div>
               <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                <div className="text-3xl font-mono font-bold text-acid-cyan">{Object.keys(categoryStats).length - 1}</div>
-                <div className="text-xs text-text-muted font-mono">Verticals</div>
+                <div className="text-3xl font-theme-data font-bold text-[var(--acid-cyan)]">{Object.keys(categoryStats).length - 1}</div>
+                <div className="text-xs text-text-muted font-theme-data">Verticals</div>
               </div>
             </div>
           </div>
@@ -288,9 +288,9 @@ export default function WorkflowsPage() {
           <div className="flex gap-6">
             <button
               onClick={() => setActiveTab('gallery')}
-              className={`py-4 font-mono text-sm border-b-2 transition-colors ${
+              className={`py-4 font-theme-data text-sm border-b-2 transition-colors ${
                 activeTab === 'gallery'
-                  ? 'border-acid-green text-acid-green'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
                   : 'border-transparent text-text-muted hover:text-text'
               }`}
             >
@@ -298,9 +298,9 @@ export default function WorkflowsPage() {
             </button>
             <button
               onClick={() => setActiveTab('my-workflows')}
-              className={`py-4 font-mono text-sm border-b-2 transition-colors ${
+              className={`py-4 font-theme-data text-sm border-b-2 transition-colors ${
                 activeTab === 'my-workflows'
-                  ? 'border-acid-green text-acid-green'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
                   : 'border-transparent text-text-muted hover:text-text'
               }`}
             >
@@ -308,9 +308,9 @@ export default function WorkflowsPage() {
             </button>
             <button
               onClick={() => setActiveTab('marketplace')}
-              className={`py-4 font-mono text-sm border-b-2 transition-colors ${
+              className={`py-4 font-theme-data text-sm border-b-2 transition-colors ${
                 activeTab === 'marketplace'
-                  ? 'border-acid-green text-acid-green'
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
                   : 'border-transparent text-text-muted hover:text-text'
               }`}
             >
@@ -326,7 +326,7 @@ export default function WorkflowsPage() {
             {/* Sidebar - Categories */}
             <div className="hidden md:block w-64 shrink-0">
               <div className="sticky top-24">
-                <h3 className="text-xs font-mono text-text-muted mb-3 uppercase tracking-wider">
+                <h3 className="text-xs font-theme-data text-text-muted mb-3 uppercase tracking-wider">
                   Categories
                 </h3>
                 <div className="space-y-1">
@@ -337,12 +337,12 @@ export default function WorkflowsPage() {
                         onClick={() => setActiveCategory(key)}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
                           activeCategory === key
-                            ? 'bg-acid-green/10 text-acid-green border border-acid-green/30'
+                            ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30'
                             : 'text-text-muted hover:text-text hover:bg-surface'
                         }`}
                       >
                         <span>{cat.icon}</span>
-                        <span className="flex-1 text-sm font-mono">{cat.label}</span>
+                        <span className="flex-1 text-sm font-theme-data">{cat.label}</span>
                         <span className="text-xs opacity-60">
                           {categoryStats[key] || 0}
                         </span>
@@ -353,7 +353,7 @@ export default function WorkflowsPage() {
 
                 {/* Search */}
                 <div className="mt-6">
-                  <h3 className="text-xs font-mono text-text-muted mb-3 uppercase tracking-wider">
+                  <h3 className="text-xs font-theme-data text-text-muted mb-3 uppercase tracking-wider">
                     Search
                   </h3>
                   <input
@@ -361,13 +361,13 @@ export default function WorkflowsPage() {
                     placeholder="Search templates..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full px-3 py-2 bg-surface border border-border rounded text-sm font-mono text-text placeholder-text-muted focus:border-acid-green focus:outline-none"
+                    className="w-full px-3 py-2 bg-surface border border-border rounded text-sm font-theme-data text-text placeholder-text-muted focus:border-[var(--accent)] focus:outline-none"
                   />
                 </div>
 
                 {/* Legend */}
                 <div className="mt-6 p-4 bg-surface border border-border rounded-lg">
-                  <h3 className="text-xs font-mono text-text-muted mb-3 uppercase tracking-wider">
+                  <h3 className="text-xs font-theme-data text-text-muted mb-3 uppercase tracking-wider">
                     Step Types
                   </h3>
                   <div className="space-y-2 text-xs">
@@ -389,7 +389,7 @@ export default function WorkflowsPage() {
                 <select
                   value={activeCategory}
                   onChange={(e) => setActiveCategory(e.target.value as CategoryKey)}
-                  className="w-full px-3 py-2 bg-surface border border-border rounded text-sm font-mono text-text"
+                  className="w-full px-3 py-2 bg-surface border border-border rounded text-sm font-theme-data text-text"
                 >
                   {(Object.entries(CATEGORIES) as [CategoryKey, typeof CATEGORIES[CategoryKey]][]).map(
                     ([key, cat]) => (
@@ -403,7 +403,7 @@ export default function WorkflowsPage() {
 
               {loading && (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-pulse text-text-muted font-mono">
+                  <div className="animate-pulse text-text-muted font-theme-data">
                     Loading templates...
                   </div>
                 </div>
@@ -421,7 +421,7 @@ export default function WorkflowsPage() {
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">{CATEGORIES[activeCategory].icon}</span>
                     <div>
-                      <h2 className="text-xl font-mono font-bold text-text">
+                      <h2 className="text-xl font-theme-data font-bold text-text">
                         {CATEGORIES[activeCategory].label} Workflows
                       </h2>
                       <p className="text-sm text-text-muted">
@@ -436,7 +436,7 @@ export default function WorkflowsPage() {
               {!loading && filteredTemplates.length === 0 ? (
                 <div className="text-center py-12 bg-surface border border-border rounded-lg">
                   <div className="text-4xl mb-4">🔍</div>
-                  <h3 className="text-lg font-mono font-bold text-text mb-2">
+                  <h3 className="text-lg font-theme-data font-bold text-text mb-2">
                     No templates found
                   </h3>
                   <p className="text-text-muted mb-4">
@@ -444,7 +444,7 @@ export default function WorkflowsPage() {
                   </p>
                   <button
                     onClick={() => { setActiveCategory('all'); setSearchQuery(''); }}
-                    className="text-acid-green font-mono text-sm hover:underline"
+                    className="text-[var(--accent)] font-theme-data text-sm hover:underline"
                   >
                     Clear filters
                   </button>
@@ -455,7 +455,7 @@ export default function WorkflowsPage() {
                     // Group by category when showing all
                     Object.entries(templatesByCategory).map(([category, categoryTemplates]) => (
                       <div key={category}>
-                        <h3 className="text-lg font-mono font-bold text-text mb-4 flex items-center gap-2">
+                        <h3 className="text-lg font-theme-data font-bold text-text mb-4 flex items-center gap-2">
                           <span>{CATEGORIES[category as CategoryKey]?.icon || '📁'}</span>
                           {CATEGORIES[category as CategoryKey]?.label || category}
                         </h3>
@@ -493,7 +493,7 @@ export default function WorkflowsPage() {
           {userWorkflows.length === 0 ? (
             <div className="text-center py-12 bg-surface border border-border rounded-lg">
               <div className="text-4xl mb-4">📁</div>
-              <h3 className="text-lg font-mono font-bold text-text mb-2">
+              <h3 className="text-lg font-theme-data font-bold text-text mb-2">
                 No custom workflows yet
               </h3>
               <p className="text-text-muted mb-4">
@@ -501,7 +501,7 @@ export default function WorkflowsPage() {
               </p>
               <Link
                 href="/workflows/builder"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors rounded"
               >
                 Create Workflow
               </Link>
@@ -534,7 +534,7 @@ export default function WorkflowsPage() {
                           deleteWorkflow(wf.id);
                         }
                       }}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-mono bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-all"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-theme-data bg-red-500/20 text-red-400 border border-red-500/30 rounded hover:bg-red-500/30 transition-all"
                     >
                       DELETE
                     </button>
@@ -567,42 +567,42 @@ export default function WorkflowsPage() {
       {/* Quick Start Guide */}
       <div className="bg-surface border-t border-border mt-12">
         <div className="max-w-7xl mx-auto px-6 py-12">
-          <h3 className="text-xl font-mono font-bold text-text mb-8 text-center">
+          <h3 className="text-xl font-theme-data font-bold text-text mb-8 text-center">
             How It Works
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-acid-green/10 border border-acid-green/30 flex items-center justify-center mx-auto mb-4">
+              <div className="w-12 h-12 rounded-full bg-[var(--accent)]/10 border border-[var(--accent)]/30 flex items-center justify-center mx-auto mb-4">
                 <span className="text-xl">1</span>
               </div>
-              <h4 className="font-mono font-bold text-text mb-2">Choose Template</h4>
+              <h4 className="font-theme-data font-bold text-text mb-2">Choose Template</h4>
               <p className="text-sm text-text-muted">
                 Select an industry template or start from scratch
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-acid-green/10 border border-acid-green/30 flex items-center justify-center mx-auto mb-4">
+              <div className="w-12 h-12 rounded-full bg-[var(--accent)]/10 border border-[var(--accent)]/30 flex items-center justify-center mx-auto mb-4">
                 <span className="text-xl">2</span>
               </div>
-              <h4 className="font-mono font-bold text-text mb-2">Customize Steps</h4>
+              <h4 className="font-theme-data font-bold text-text mb-2">Customize Steps</h4>
               <p className="text-sm text-text-muted">
                 Configure agents, add checkpoints, adjust routing
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-acid-green/10 border border-acid-green/30 flex items-center justify-center mx-auto mb-4">
+              <div className="w-12 h-12 rounded-full bg-[var(--accent)]/10 border border-[var(--accent)]/30 flex items-center justify-center mx-auto mb-4">
                 <span className="text-xl">3</span>
               </div>
-              <h4 className="font-mono font-bold text-text mb-2">Execute Workflow</h4>
+              <h4 className="font-theme-data font-bold text-text mb-2">Execute Workflow</h4>
               <p className="text-sm text-text-muted">
                 Run with your inputs and monitor progress
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-acid-green/10 border border-acid-green/30 flex items-center justify-center mx-auto mb-4">
+              <div className="w-12 h-12 rounded-full bg-[var(--accent)]/10 border border-[var(--accent)]/30 flex items-center justify-center mx-auto mb-4">
                 <span className="text-xl">4</span>
               </div>
-              <h4 className="font-mono font-bold text-text mb-2">Review Results</h4>
+              <h4 className="font-theme-data font-bold text-text mb-2">Review Results</h4>
               <p className="text-sm text-text-muted">
                 Get synthesized outputs with full audit trail
               </p>
@@ -638,8 +638,8 @@ function TemplateCard({
         <div className="flex items-center gap-3">
           <span className="text-2xl">{category.icon}</span>
           <div>
-            <h3 className="font-mono font-bold text-text">{template.name}</h3>
-            <span className="text-xs text-text-muted font-mono capitalize">
+            <h3 className="font-theme-data font-bold text-text">{template.name}</h3>
+            <span className="text-xs text-text-muted font-theme-data capitalize">
               {template.category} • v{template.version}
             </span>
           </div>
@@ -647,7 +647,7 @@ function TemplateCard({
         <Link
           href={`/workflows/builder?template=${template.id}`}
           onClick={(e) => e.stopPropagation()}
-          className="px-3 py-1 text-xs font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+          className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors"
         >
           Use
         </Link>
@@ -681,7 +681,7 @@ function TemplateCard({
         {template.tags.slice(0, 4).map((tag) => (
           <span
             key={tag}
-            className="px-2 py-0.5 text-xs bg-bg rounded font-mono text-text-muted"
+            className="px-2 py-0.5 text-xs bg-bg rounded font-theme-data text-text-muted"
           >
             {tag}
           </span>
@@ -691,13 +691,13 @@ function TemplateCard({
       {/* Use Case Preview */}
       {useCase && (
         <div className="text-xs text-text-muted border-t border-border pt-3 mt-3">
-          <span className="text-acid-green">✓</span> {useCase.benefits[0]}
+          <span className="text-[var(--accent)]">✓</span> {useCase.benefits[0]}
         </div>
       )}
 
-      <div className="flex items-center justify-between text-xs font-mono text-text-muted mt-2">
+      <div className="flex items-center justify-between text-xs font-theme-data text-text-muted mt-2">
         <span>{template.stepCount} steps</span>
-        <span className="text-acid-green hover:underline">View details →</span>
+        <span className="text-[var(--accent)] hover:underline">View details →</span>
       </div>
     </div>
   );
@@ -729,15 +729,15 @@ function TemplateDetailModal({
             <div className="flex items-center gap-4">
               <span className="text-4xl">{category.icon}</span>
               <div>
-                <h2 className="text-2xl font-mono font-bold text-text">{template.name}</h2>
+                <h2 className="text-2xl font-theme-data font-bold text-text">{template.name}</h2>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs font-mono text-text-muted capitalize px-2 py-0.5 bg-bg rounded">
+                  <span className="text-xs font-theme-data text-text-muted capitalize px-2 py-0.5 bg-bg rounded">
                     {template.category}
                   </span>
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     v{template.version}
                   </span>
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     {template.stepCount} steps
                   </span>
                 </div>
@@ -756,7 +756,7 @@ function TemplateDetailModal({
         <div className="p-6 space-y-6">
           {/* Description */}
           <div>
-            <h3 className="text-sm font-mono font-bold text-text mb-2">Description</h3>
+            <h3 className="text-sm font-theme-data font-bold text-text mb-2">Description</h3>
             <p className="text-text-muted">{template.description}</p>
           </div>
 
@@ -764,19 +764,19 @@ function TemplateDetailModal({
           {useCase && (
             <div className="space-y-4">
               <div>
-                <h3 className="text-sm font-mono font-bold text-text mb-2">Problem</h3>
+                <h3 className="text-sm font-theme-data font-bold text-text mb-2">Problem</h3>
                 <p className="text-text-muted text-sm">{useCase.problem}</p>
               </div>
               <div>
-                <h3 className="text-sm font-mono font-bold text-text mb-2">Solution</h3>
+                <h3 className="text-sm font-theme-data font-bold text-text mb-2">Solution</h3>
                 <p className="text-text-muted text-sm">{useCase.solution}</p>
               </div>
               <div>
-                <h3 className="text-sm font-mono font-bold text-text mb-2">Benefits</h3>
+                <h3 className="text-sm font-theme-data font-bold text-text mb-2">Benefits</h3>
                 <ul className="space-y-1">
                   {useCase.benefits.map((benefit, i) => (
                     <li key={i} className="text-sm text-text-muted flex items-center gap-2">
-                      <span className="text-acid-green">✓</span> {benefit}
+                      <span className="text-[var(--accent)]">✓</span> {benefit}
                     </li>
                   ))}
                 </ul>
@@ -786,19 +786,19 @@ function TemplateDetailModal({
 
           {/* Workflow Steps */}
           <div>
-            <h3 className="text-sm font-mono font-bold text-text mb-3">Workflow Steps</h3>
+            <h3 className="text-sm font-theme-data font-bold text-text mb-3">Workflow Steps</h3>
             <div className="space-y-2">
               {template.steps.map((step, i) => (
                 <div
                   key={step.id}
                   className="flex items-center gap-3 p-2 bg-bg rounded text-sm"
                 >
-                  <span className="w-6 h-6 flex items-center justify-center bg-surface rounded text-xs font-mono text-text-muted">
+                  <span className="w-6 h-6 flex items-center justify-center bg-surface rounded text-xs font-theme-data text-text-muted">
                     {i + 1}
                   </span>
                   <span className="text-lg">{stepTypeIcons[step.type] || '⚙️'}</span>
                   <div className="flex-1">
-                    <span className="font-mono text-text">{step.name}</span>
+                    <span className="font-theme-data text-text">{step.name}</span>
                     <span className="text-xs text-text-muted ml-2 capitalize">
                       ({step.type.replace('_', ' ')})
                     </span>
@@ -810,12 +810,12 @@ function TemplateDetailModal({
 
           {/* Tags */}
           <div>
-            <h3 className="text-sm font-mono font-bold text-text mb-2">Tags</h3>
+            <h3 className="text-sm font-theme-data font-bold text-text mb-2">Tags</h3>
             <div className="flex flex-wrap gap-2">
               {template.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="px-2 py-1 text-xs bg-bg rounded font-mono text-text-muted"
+                  className="px-2 py-1 text-xs bg-bg rounded font-theme-data text-text-muted"
                 >
                   {tag}
                 </span>
@@ -828,13 +828,13 @@ function TemplateDetailModal({
         <div className="p-6 border-t border-border flex gap-3">
           <Link
             href={`/workflows/builder?template=${template.id}`}
-            className="flex-1 px-4 py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded text-center"
+            className="flex-1 px-4 py-3 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors rounded text-center"
           >
             Use This Template
           </Link>
           <button
             onClick={onClose}
-            className="px-4 py-3 bg-surface border border-border text-text font-mono hover:border-text-muted transition-colors rounded"
+            className="px-4 py-3 bg-surface border border-border text-text font-theme-data hover:border-text-muted transition-colors rounded"
           >
             Close
           </button>

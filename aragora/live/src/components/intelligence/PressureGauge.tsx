@@ -24,7 +24,7 @@ export function PressureGauge({ pressure, byTier, recommendation, loading = fals
   if (loading) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-4">{'>'} MEMORY PRESSURE</h3>
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">{'>'} MEMORY PRESSURE</h3>
         <div className="animate-pulse flex flex-col items-center">
           <div className="w-32 h-32 rounded-full bg-surface" />
           <div className="h-4 bg-surface rounded w-1/2 mt-4" />
@@ -51,7 +51,7 @@ export function PressureGauge({ pressure, byTier, recommendation, loading = fals
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-green mb-4">{'>'} MEMORY PRESSURE</h3>
+      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">{'>'} MEMORY PRESSURE</h3>
 
       <div className="flex flex-col items-center">
         {/* SVG Gauge */}
@@ -91,7 +91,7 @@ export function PressureGauge({ pressure, byTier, recommendation, loading = fals
             textAnchor="middle"
             dominantBaseline="central"
             fill={color}
-            className="font-mono"
+            className="font-theme-data"
             fontSize="28"
             fontWeight="bold"
           >
@@ -103,7 +103,7 @@ export function PressureGauge({ pressure, byTier, recommendation, loading = fals
             textAnchor="middle"
             dominantBaseline="central"
             fill={color}
-            className="font-mono"
+            className="font-theme-data"
             fontSize="10"
             opacity={0.8}
           >
@@ -115,7 +115,7 @@ export function PressureGauge({ pressure, byTier, recommendation, loading = fals
         {byTier && Object.keys(byTier).length > 0 && (
           <div className="w-full grid grid-cols-2 gap-2 mb-3">
             {Object.entries(byTier).map(([tier, value]) => (
-              <div key={tier} className="flex justify-between text-xs font-mono px-2">
+              <div key={tier} className="flex justify-between text-xs font-theme-data px-2">
                 <span className="text-text-muted uppercase">{tier}</span>
                 <span className="text-text">{Math.round(value * 100)}%</span>
               </div>
@@ -125,8 +125,8 @@ export function PressureGauge({ pressure, byTier, recommendation, loading = fals
 
         {/* Recommendation */}
         {recommendation && (
-          <div className="w-full border-t border-acid-green/10 pt-3 mt-1">
-            <p className="text-text-muted text-xs font-mono text-center">{recommendation}</p>
+          <div className="w-full border-t border-[var(--accent)]/10 pt-3 mt-1">
+            <p className="text-text-muted text-xs font-theme-data text-center">{recommendation}</p>
           </div>
         )}
       </div>

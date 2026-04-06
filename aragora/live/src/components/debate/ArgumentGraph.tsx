@@ -171,7 +171,7 @@ export function ArgumentGraph({ events, className }: ArgumentGraphProps) {
     <div className={`${className || 'h-[500px]'} w-full rounded border border-[var(--border)] bg-[var(--bg)]`}>
       {!hasNodes ? (
         <div className="flex items-center justify-center h-full">
-          <p className="font-mono text-sm text-[var(--text-muted)]">
+          <p className="font-theme-data text-sm text-[var(--text-muted)]">
             Start a debate to see the argument graph
           </p>
         </div>

@@ -57,10 +57,10 @@ export function ChooseTemplateStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-mono text-[var(--acid-green)] mb-2">
+        <h2 className="text-lg font-theme-data text-[var(--acid-green)] mb-2">
           Choose a Template
         </h2>
-        <p className="text-sm font-mono text-[var(--text-muted)]">
+        <p className="text-sm font-theme-data text-[var(--text-muted)]">
           Pick a debate template to see how Aragora handles real decisions.
         </p>
       </div>
@@ -80,7 +80,7 @@ export function ChooseTemplateStep() {
             >
               <div className="flex items-start gap-3">
                 <span
-                  className={`w-8 h-8 flex items-center justify-center text-xs font-mono font-bold shrink-0 ${
+                  className={`w-8 h-8 flex items-center justify-center text-xs font-theme-data font-bold shrink-0 ${
                     isSelected
                       ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)]'
                       : 'bg-[var(--border)] text-[var(--text-muted)]'
@@ -90,16 +90,16 @@ export function ChooseTemplateStep() {
                 </span>
                 <div className="flex-1 min-w-0">
                   <div
-                    className={`text-sm font-mono font-bold mb-1 ${
+                    className={`text-sm font-theme-data font-bold mb-1 ${
                       isSelected ? 'text-[var(--acid-green)]' : 'text-[var(--text)]'
                     }`}
                   >
                     {template.name}
                   </div>
-                  <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+                  <p className="text-xs font-theme-data text-[var(--text-muted)] leading-relaxed">
                     {template.description}
                   </p>
-                  <div className="flex items-center gap-4 mt-2 text-[10px] font-mono text-[var(--text-muted)]">
+                  <div className="flex items-center gap-4 mt-2 text-[10px] font-theme-data text-[var(--text-muted)]">
                     <span>{template.agents} agents</span>
                     <span>{template.rounds} rounds</span>
                   </div>

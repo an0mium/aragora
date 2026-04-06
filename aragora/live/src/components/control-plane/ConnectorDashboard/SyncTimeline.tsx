@@ -114,19 +114,19 @@ export function SyncTimeline({
       {/* Summary */}
       <div className="grid grid-cols-4 gap-3">
         <div className="p-3 bg-surface rounded-lg border border-border text-center">
-          <div className="text-2xl font-mono font-bold text-green-400">{stats.completed}</div>
+          <div className="text-2xl font-theme-data font-bold text-green-400">{stats.completed}</div>
           <div className="text-xs text-text-muted">Completed</div>
         </div>
         <div className="p-3 bg-surface rounded-lg border border-border text-center">
-          <div className="text-2xl font-mono font-bold text-blue-400">{stats.running}</div>
+          <div className="text-2xl font-theme-data font-bold text-blue-400">{stats.running}</div>
           <div className="text-xs text-text-muted">Running</div>
         </div>
         <div className="p-3 bg-surface rounded-lg border border-border text-center">
-          <div className="text-2xl font-mono font-bold text-red-400">{stats.failed}</div>
+          <div className="text-2xl font-theme-data font-bold text-red-400">{stats.failed}</div>
           <div className="text-xs text-text-muted">Failed</div>
         </div>
         <div className="p-3 bg-surface rounded-lg border border-border text-center">
-          <div className="text-2xl font-mono font-bold text-acid-cyan">
+          <div className="text-2xl font-theme-data font-bold text-[var(--acid-cyan)]">
             {stats.totalItems.toLocaleString()}
           </div>
           <div className="text-xs text-text-muted">Items Synced</div>

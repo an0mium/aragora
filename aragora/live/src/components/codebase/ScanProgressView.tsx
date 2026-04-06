@@ -87,7 +87,7 @@ export function ScanProgressView({ scanType }: ScanProgressViewProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-mono text-[var(--acid-green)]">
+          <h3 className="text-lg font-theme-data text-[var(--acid-green)]">
             Scanning in Progress...
           </h3>
           <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -95,7 +95,7 @@ export function ScanProgressView({ scanType }: ScanProgressViewProps) {
           </p>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-mono text-[var(--acid-green)]">
+          <div className="text-2xl font-theme-data text-[var(--acid-green)]">
             {Math.round(overallProgress)}%
           </div>
           <div className="text-xs text-[var(--text-muted)]">Complete</div>
@@ -132,7 +132,7 @@ export function ScanProgressView({ scanType }: ScanProgressViewProps) {
               }`}
             >
               <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono ${
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-theme-data ${
                   isComplete ? 'bg-green-500 text-white' :
                   isCurrent ? 'bg-[var(--acid-green)] text-[var(--bg)] animate-pulse' :
                   'bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)]'
@@ -141,7 +141,7 @@ export function ScanProgressView({ scanType }: ScanProgressViewProps) {
                 {isComplete ? '✓' : index + 1}
               </div>
               <div className="flex-1">
-                <div className={`text-sm font-mono ${
+                <div className={`text-sm font-theme-data ${
                   isCurrent ? 'text-[var(--acid-green)]' :
                   isComplete ? 'text-green-400' : 'text-[var(--text-muted)]'
                 }`}>
@@ -167,11 +167,11 @@ export function ScanProgressView({ scanType }: ScanProgressViewProps) {
       {/* Live Stats */}
       <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[var(--border)]">
         <div className="text-center">
-          <div className="text-2xl font-mono text-[var(--acid-cyan)]">{filesScanned}</div>
+          <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">{filesScanned}</div>
           <div className="text-xs text-[var(--text-muted)]">Files Scanned</div>
         </div>
         <div className="text-center">
-          <div className="text-2xl font-mono text-yellow-400">{findingsCount}</div>
+          <div className="text-2xl font-theme-data text-yellow-400">{findingsCount}</div>
           <div className="text-xs text-[var(--text-muted)]">Potential Findings</div>
         </div>
       </div>
@@ -179,7 +179,7 @@ export function ScanProgressView({ scanType }: ScanProgressViewProps) {
       {/* Animated Scanner */}
       <div className="relative h-8 bg-[var(--bg)] rounded overflow-hidden">
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xs font-mono text-[var(--text-muted)]">
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">
             {scanType === 'quick' ? 'Pattern matching...' :
              scanType === 'full' ? 'Deep analysis...' :
              'Scanning for secrets...'}

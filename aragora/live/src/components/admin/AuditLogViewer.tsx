@@ -34,16 +34,16 @@ type OutcomeFilter = 'all' | 'success' | 'failure' | 'error';
 type CategoryFilter = 'all' | 'auth' | 'data' | 'admin' | 'system' | 'billing';
 
 const CATEGORY_COLORS: Record<string, string> = {
-  auth: 'text-acid-cyan border-acid-cyan/30 bg-acid-cyan/10',
+  auth: 'text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10',
   data: 'text-purple border-purple/30 bg-purple/10',
-  admin: 'text-crimson border-crimson/30 bg-crimson/10',
+  admin: 'text-[var(--crimson)] border-[var(--crimson)]/30 bg-[var(--crimson)]/10',
   system: 'text-gold border-gold/30 bg-gold/10',
-  billing: 'text-acid-green border-acid-green/30 bg-acid-green/10',
+  billing: 'text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10',
 };
 
 const OUTCOME_COLORS: Record<string, string> = {
-  success: 'text-acid-green',
-  failure: 'text-crimson',
+  success: 'text-[var(--accent)]',
+  failure: 'text-[var(--crimson)]',
   error: 'text-orange-400',
   pending: 'text-gold',
 };
@@ -191,15 +191,15 @@ export function AuditLogViewer({ apiBase = '/api' }: AuditLogViewerProps) {
   };
 
   return (
-    <div className="bg-surface border border-acid-green/30">
+    <div className="bg-surface border border-[var(--accent)]/30">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+          <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
             {'>'} AUDIT LOG VIEWER
           </span>
           {stats && (
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               {stats.total_events.toLocaleString()} total events
             </span>
           )}
@@ -207,30 +207,30 @@ export function AuditLogViewer({ apiBase = '/api' }: AuditLogViewerProps) {
         <div className="flex items-center gap-2">
           <button
             onClick={handleVerifyIntegrity}
-            className="px-2 py-1 text-xs font-mono text-acid-cyan border border-acid-cyan/40 hover:bg-acid-cyan/10 transition-colors"
+            className="px-2 py-1 text-xs font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40 hover:bg-[var(--acid-cyan)]/10 transition-colors"
           >
             VERIFY
           </button>
           <div className="relative group">
-            <button className="px-2 py-1 text-xs font-mono text-acid-green border border-acid-green/40 hover:bg-acid-green/10 transition-colors">
+            <button className="px-2 py-1 text-xs font-theme-data text-[var(--accent)] border border-[var(--accent)]/40 hover:bg-[var(--accent)]/10 transition-colors">
               EXPORT
             </button>
-            <div className="absolute right-0 top-full mt-1 bg-surface border border-acid-green/30 hidden group-hover:block z-10">
+            <div className="absolute right-0 top-full mt-1 bg-surface border border-[var(--accent)]/30 hidden group-hover:block z-10">
               <button
                 onClick={() => handleExport('json')}
-                className="block w-full px-3 py-2 text-xs font-mono text-left hover:bg-acid-green/10"
+                className="block w-full px-3 py-2 text-xs font-theme-data text-left hover:bg-[var(--accent)]/10"
               >
                 JSON
               </button>
               <button
                 onClick={() => handleExport('csv')}
-                className="block w-full px-3 py-2 text-xs font-mono text-left hover:bg-acid-green/10"
+                className="block w-full px-3 py-2 text-xs font-theme-data text-left hover:bg-[var(--accent)]/10"
               >
                 CSV
               </button>
               <button
                 onClick={() => handleExport('soc2')}
-                className="block w-full px-3 py-2 text-xs font-mono text-left hover:bg-acid-green/10"
+                className="block w-full px-3 py-2 text-xs font-theme-data text-left hover:bg-[var(--accent)]/10"
               >
                 SOC2
               </button>
@@ -241,23 +241,23 @@ export function AuditLogViewer({ apiBase = '/api' }: AuditLogViewerProps) {
 
       {/* Stats Summary */}
       {stats && (
-        <div className="px-4 py-3 border-b border-acid-green/10 bg-bg/30">
+        <div className="px-4 py-3 border-b border-[var(--accent)]/10 bg-bg/30">
           <div className="flex items-center gap-6 flex-wrap">
             <div>
-              <span className="text-xs font-mono text-text-muted">24H: </span>
-              <span className="text-xs font-mono text-acid-green">{stats.recent_events_24h}</span>
+              <span className="text-xs font-theme-data text-text-muted">24H: </span>
+              <span className="text-xs font-theme-data text-[var(--accent)]">{stats.recent_events_24h}</span>
             </div>
             {Object.entries(stats.events_by_category || {}).slice(0, 4).map(([cat, count]) => (
               <div key={cat}>
-                <span className="text-xs font-mono text-text-muted">{cat.toUpperCase()}: </span>
-                <span className={`text-xs font-mono ${CATEGORY_COLORS[cat]?.split(' ')[0] || 'text-text-primary'}`}>
+                <span className="text-xs font-theme-data text-text-muted">{cat.toUpperCase()}: </span>
+                <span className={`text-xs font-theme-data ${CATEGORY_COLORS[cat]?.split(' ')[0] || 'text-text-primary'}`}>
                   {count}
                 </span>
               </div>
             ))}
             <div>
-              <span className="text-xs font-mono text-text-muted">INTEGRITY: </span>
-              <span className={`text-xs font-mono ${stats.integrity_verified ? 'text-acid-green' : 'text-crimson'}`}>
+              <span className="text-xs font-theme-data text-text-muted">INTEGRITY: </span>
+              <span className={`text-xs font-theme-data ${stats.integrity_verified ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'}`}>
                 {stats.integrity_verified ? 'OK' : 'CHECK'}
               </span>
             </div>
@@ -266,7 +266,7 @@ export function AuditLogViewer({ apiBase = '/api' }: AuditLogViewerProps) {
       )}
 
       {/* Filters */}
-      <div className="px-4 py-3 border-b border-acid-green/10 space-y-3">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/10 space-y-3">
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex-1 min-w-[200px]">
             <input
@@ -277,12 +277,12 @@ export function AuditLogViewer({ apiBase = '/api' }: AuditLogViewerProps) {
                 setSearchQuery(e.target.value);
                 setOffset(0);
               }}
-              className="w-full bg-bg border border-border px-3 py-2 text-xs font-mono text-text-primary placeholder-text-muted focus:border-acid-green/50 focus:outline-none"
+              className="w-full bg-bg border border-border px-3 py-2 text-xs font-theme-data text-text-primary placeholder-text-muted focus:border-[var(--accent)]/50 focus:outline-none"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-xs font-mono text-text-muted">FROM:</label>
+            <label className="text-xs font-theme-data text-text-muted">FROM:</label>
             <input
               type="date"
               value={dateRange.start}
@@ -290,12 +290,12 @@ export function AuditLogViewer({ apiBase = '/api' }: AuditLogViewerProps) {
                 setDateRange((prev) => ({ ...prev, start: e.target.value }));
                 setOffset(0);
               }}
-              className="bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+              className="bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
             />
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-xs font-mono text-text-muted">TO:</label>
+            <label className="text-xs font-theme-data text-text-muted">TO:</label>
             <input
               type="date"
               value={dateRange.end}
@@ -303,21 +303,21 @@ export function AuditLogViewer({ apiBase = '/api' }: AuditLogViewerProps) {
                 setDateRange((prev) => ({ ...prev, end: e.target.value }));
                 setOffset(0);
               }}
-              className="bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+              className="bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
             />
           </div>
         </div>
 
         <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
-            <label className="text-xs font-mono text-text-muted">CATEGORY:</label>
+            <label className="text-xs font-theme-data text-text-muted">CATEGORY:</label>
             <select
               value={categoryFilter}
               onChange={(e) => {
                 setCategoryFilter(e.target.value as CategoryFilter);
                 setOffset(0);
               }}
-              className="bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+              className="bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
             >
               <option value="all">ALL</option>
               <option value="auth">AUTH</option>
@@ -329,14 +329,14 @@ export function AuditLogViewer({ apiBase = '/api' }: AuditLogViewerProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <label className="text-xs font-mono text-text-muted">OUTCOME:</label>
+            <label className="text-xs font-theme-data text-text-muted">OUTCOME:</label>
             <select
               value={outcomeFilter}
               onChange={(e) => {
                 setOutcomeFilter(e.target.value as OutcomeFilter);
                 setOffset(0);
               }}
-              className="bg-bg border border-border px-2 py-1.5 text-xs font-mono text-text-primary focus:border-acid-green/50 focus:outline-none"
+              className="bg-bg border border-border px-2 py-1.5 text-xs font-theme-data text-text-primary focus:border-[var(--accent)]/50 focus:outline-none"
             >
               <option value="all">ALL</option>
               <option value="success">SUCCESS</option>
@@ -351,26 +351,26 @@ export function AuditLogViewer({ apiBase = '/api' }: AuditLogViewerProps) {
       {loading ? (
         <div className="p-8">
           <div className="flex items-center justify-center gap-2">
-            <div className="w-2 h-2 bg-acid-green rounded-full animate-pulse" />
-            <span className="text-xs font-mono text-acid-green">LOADING EVENTS...</span>
+            <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" />
+            <span className="text-xs font-theme-data text-[var(--accent)]">LOADING EVENTS...</span>
           </div>
         </div>
       ) : error ? (
         <div className="p-4">
           <div className="flex items-center gap-2">
-            <span className="text-crimson text-xs font-mono">ERROR:</span>
-            <span className="text-text-primary text-xs font-mono">{error}</span>
+            <span className="text-[var(--crimson)] text-xs font-theme-data">ERROR:</span>
+            <span className="text-text-primary text-xs font-theme-data">{error}</span>
           </div>
           <button
             onClick={fetchEvents}
-            className="mt-3 px-3 py-1.5 text-xs font-mono bg-crimson/20 text-crimson border border-crimson/40 hover:bg-crimson/30 transition-colors"
+            className="mt-3 px-3 py-1.5 text-xs font-theme-data bg-[var(--crimson)]/20 text-[var(--crimson)] border border-[var(--crimson)]/40 hover:bg-[var(--crimson)]/30 transition-colors"
           >
             RETRY
           </button>
         </div>
       ) : events.length === 0 ? (
         <div className="text-center py-8">
-          <span className="text-xs font-mono text-text-muted">No audit events found</span>
+          <span className="text-xs font-theme-data text-text-muted">No audit events found</span>
         </div>
       ) : (
         <>
@@ -389,28 +389,28 @@ export function AuditLogViewer({ apiBase = '/api' }: AuditLogViewerProps) {
           </div>
 
           {/* Pagination */}
-          <div className="px-4 py-3 border-t border-acid-green/20 flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-[var(--accent)]/20 flex items-center justify-between">
             <button
               onClick={() => setOffset(Math.max(0, offset - limit))}
               disabled={offset === 0}
-              className={`px-3 py-1.5 text-xs font-mono border ${
+              className={`px-3 py-1.5 text-xs font-theme-data border ${
                 offset === 0
                   ? 'text-text-muted border-border cursor-not-allowed'
-                  : 'text-acid-green border-acid-green/40 hover:bg-acid-green/10'
+                  : 'text-[var(--accent)] border-[var(--accent)]/40 hover:bg-[var(--accent)]/10'
               }`}
             >
               PREV
             </button>
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               Showing {offset + 1}-{offset + events.length}
             </span>
             <button
               onClick={() => setOffset(offset + limit)}
               disabled={!hasMore}
-              className={`px-3 py-1.5 text-xs font-mono border ${
+              className={`px-3 py-1.5 text-xs font-theme-data border ${
                 !hasMore
                   ? 'text-text-muted border-border cursor-not-allowed'
-                  : 'text-acid-green border-acid-green/40 hover:bg-acid-green/10'
+                  : 'text-[var(--accent)] border-[var(--accent)]/40 hover:bg-[var(--accent)]/10'
               }`}
             >
               NEXT
@@ -443,16 +443,16 @@ function AuditEventRow({ event, isSelected, onClick, formatTimestamp }: AuditEve
     <div
       onClick={onClick}
       className={`px-4 py-3 cursor-pointer transition-colors flex items-center gap-4 ${
-        isSelected ? 'bg-acid-green/10' : 'hover:bg-bg/50'
+        isSelected ? 'bg-[var(--accent)]/10' : 'hover:bg-bg/50'
       }`}
     >
       <div className="flex-shrink-0 w-32">
-        <span className="text-xs font-mono text-text-muted">{formatTimestamp(event.timestamp)}</span>
+        <span className="text-xs font-theme-data text-text-muted">{formatTimestamp(event.timestamp)}</span>
       </div>
 
       <div className="flex-shrink-0">
         <span
-          className={`px-1.5 py-0.5 text-xs font-mono border ${
+          className={`px-1.5 py-0.5 text-xs font-theme-data border ${
             CATEGORY_COLORS[event.category] || 'text-text-primary border-border bg-bg/30'
           }`}
         >
@@ -461,17 +461,17 @@ function AuditEventRow({ event, isSelected, onClick, formatTimestamp }: AuditEve
       </div>
 
       <div className="flex-1 min-w-0">
-        <span className="text-xs font-mono text-text-primary truncate block">{event.action}</span>
+        <span className="text-xs font-theme-data text-text-primary truncate block">{event.action}</span>
       </div>
 
       <div className="flex-shrink-0 w-24">
-        <span className="text-xs font-mono text-acid-cyan truncate block">
+        <span className="text-xs font-theme-data text-[var(--acid-cyan)] truncate block">
           {event.actor_id?.slice(0, 12) || 'system'}
         </span>
       </div>
 
       <div className="flex-shrink-0">
-        <span className={`text-xs font-mono ${OUTCOME_COLORS[event.outcome] || 'text-text-primary'}`}>
+        <span className={`text-xs font-theme-data ${OUTCOME_COLORS[event.outcome] || 'text-text-primary'}`}>
           {event.outcome.toUpperCase()}
         </span>
       </div>
@@ -487,14 +487,14 @@ interface AuditEventDetailPanelProps {
 
 function AuditEventDetailPanel({ event, onClose, formatTimestamp }: AuditEventDetailPanelProps) {
   return (
-    <div className="border-t border-acid-green/20 bg-bg/50 p-4">
+    <div className="border-t border-[var(--accent)]/20 bg-bg/50 p-4">
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+        <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
           EVENT DETAILS
         </span>
         <button
           onClick={onClose}
-          className="px-2 py-1 text-xs font-mono text-text-muted hover:text-crimson border border-border hover:border-crimson/40 transition-colors"
+          className="px-2 py-1 text-xs font-theme-data text-text-muted hover:text-[var(--crimson)] border border-border hover:border-[var(--crimson)]/40 transition-colors"
         >
           CLOSE
         </button>
@@ -529,8 +529,8 @@ function AuditEventDetailPanel({ event, onClose, formatTimestamp }: AuditEventDe
 
       {Object.keys(event.details || {}).length > 0 && (
         <div className="mt-4 pt-4 border-t border-border">
-          <h4 className="text-xs font-mono text-text-muted mb-2">DETAILS</h4>
-          <pre className="text-xs font-mono text-text-primary bg-surface p-3 border border-border overflow-x-auto max-h-48">
+          <h4 className="text-xs font-theme-data text-text-muted mb-2">DETAILS</h4>
+          <pre className="text-xs font-theme-data text-text-primary bg-surface p-3 border border-border overflow-x-auto max-h-48">
             {JSON.stringify(event.details, null, 2)}
           </pre>
         </div>
@@ -548,8 +548,8 @@ interface DetailFieldProps {
 function DetailField({ label, value, mono }: DetailFieldProps) {
   return (
     <div>
-      <span className="text-xs font-mono text-text-muted block">{label}</span>
-      <span className={`text-xs font-mono text-text-primary ${mono ? 'font-mono' : ''}`}>
+      <span className="text-xs font-theme-data text-text-muted block">{label}</span>
+      <span className={`text-xs font-theme-data text-text-primary ${mono ? 'font-theme-data' : ''}`}>
         {value}
       </span>
     </div>

@@ -185,7 +185,7 @@ export function Breadcrumbs({ items, hideHome = false, className = '' }: Breadcr
   return (
     <nav
       aria-label="Breadcrumb"
-      className={`flex items-center gap-1 text-xs font-mono text-text-muted ${className}`}
+      className={`flex items-center gap-1 text-xs font-theme-data text-text-muted ${className}`}
     >
       <ol className="flex items-center gap-1" role="list">
         {breadcrumbItems.map((item, index) => {
@@ -194,7 +194,7 @@ export function Breadcrumbs({ items, hideHome = false, className = '' }: Breadcr
           return (
             <li key={index} className="flex items-center gap-1">
               {index > 0 && (
-                <span className="text-acid-green/30" aria-hidden="true">
+                <span className="text-[var(--accent)]/30" aria-hidden="true">
                   /
                 </span>
               )}
@@ -202,14 +202,14 @@ export function Breadcrumbs({ items, hideHome = false, className = '' }: Breadcr
               {item.href && !isLast ? (
                 <Link
                   href={item.href}
-                  className="hover:text-acid-green transition-colors"
+                  className="hover:text-[var(--accent)] transition-colors"
                   aria-current={undefined}
                 >
                   {item.label}
                 </Link>
               ) : (
                 <span
-                  className={isLast ? 'text-acid-green' : ''}
+                  className={isLast ? 'text-[var(--accent)]' : ''}
                   aria-current={isLast ? 'page' : undefined}
                 >
                   {item.label}

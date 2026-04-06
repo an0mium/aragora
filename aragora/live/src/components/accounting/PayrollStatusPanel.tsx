@@ -147,7 +147,7 @@ export function PayrollStatusPanel() {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-6 text-center">
         <div className="text-3xl mb-3">💰</div>
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-2">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-2">
           Connect Gusto Payroll
         </h3>
         <p className="text-xs text-[var(--text-muted)] mb-4 max-w-sm mx-auto">
@@ -155,7 +155,7 @@ export function PayrollStatusPanel() {
         </p>
         <button
           onClick={handleConnect}
-          className="px-4 py-2 text-sm font-mono bg-[#F45D48]/10 border border-[#F45D48]/40 text-[#F45D48] rounded hover:bg-[#F45D48]/20 transition-colors"
+          className="px-4 py-2 text-sm font-theme-data bg-[#F45D48]/10 border border-[#F45D48]/40 text-[#F45D48] rounded hover:bg-[#F45D48]/20 transition-colors"
         >
           Connect to Gusto
         </button>
@@ -170,7 +170,7 @@ export function PayrollStatusPanel() {
         <div className="flex items-center gap-3">
           <span className="text-xl">💰</span>
           <div>
-            <h3 className="text-sm font-mono text-[var(--acid-green)]">Payroll (Gusto)</h3>
+            <h3 className="text-sm font-theme-data text-[var(--acid-green)]">Payroll (Gusto)</h3>
             <p className="text-xs text-[var(--text-muted)]">
               Connected to {status.companyName}
             </p>
@@ -194,13 +194,13 @@ export function PayrollStatusPanel() {
       <div className="grid grid-cols-2 gap-4 p-4 border-b border-[var(--border)]">
         <div>
           <div className="text-xs text-[var(--text-muted)]">YTD Gross Wages</div>
-          <div className="text-xl font-mono text-[var(--acid-green)]">
+          <div className="text-xl font-theme-data text-[var(--acid-green)]">
             ${status.ytdGross.toLocaleString()}
           </div>
         </div>
         <div>
           <div className="text-xs text-[var(--text-muted)]">YTD Taxes</div>
-          <div className="text-xl font-mono text-red-400">
+          <div className="text-xl font-theme-data text-red-400">
             ${status.ytdTaxes.toLocaleString()}
           </div>
         </div>
@@ -217,7 +217,7 @@ export function PayrollStatusPanel() {
             >
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <div className="text-sm font-mono">
+                  <div className="text-sm font-theme-data">
                     Pay Period: {run.payPeriodStart} - {run.payPeriodEnd}
                   </div>
                   <div className="text-xs text-[var(--text-muted)]">
@@ -226,7 +226,7 @@ export function PayrollStatusPanel() {
                 </div>
                 <div className="flex items-center gap-2">
                   {run.status === 'synced' && (
-                    <span className="px-2 py-1 text-xs font-mono bg-green-500/10 border border-green-500/30 rounded text-green-400">
+                    <span className="px-2 py-1 text-xs font-theme-data bg-green-500/10 border border-green-500/30 rounded text-green-400">
                       QBO Synced
                     </span>
                   )}
@@ -234,18 +234,18 @@ export function PayrollStatusPanel() {
                     <button
                       onClick={() => handleSyncToQBO(run.id)}
                       disabled={syncing === run.id}
-                      className="px-3 py-1 text-xs font-mono bg-[var(--acid-green)]/10 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50"
+                      className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50"
                     >
                       {syncing === run.id ? 'Syncing...' : 'Sync to QBO'}
                     </button>
                   )}
                   {run.status === 'pending' && (
-                    <span className="px-2 py-1 text-xs font-mono bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400">
+                    <span className="px-2 py-1 text-xs font-theme-data bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400">
                       Pending
                     </span>
                   )}
                   {run.status === 'failed' && (
-                    <span className="px-2 py-1 text-xs font-mono bg-red-500/10 border border-red-500/30 rounded text-red-400">
+                    <span className="px-2 py-1 text-xs font-theme-data bg-red-500/10 border border-red-500/30 rounded text-red-400">
                       Failed
                     </span>
                   )}
@@ -254,15 +254,15 @@ export function PayrollStatusPanel() {
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-[var(--text-muted)] text-xs">Gross</span>
-                  <div className="font-mono">${run.totalGross.toLocaleString()}</div>
+                  <div className="font-theme-data">${run.totalGross.toLocaleString()}</div>
                 </div>
                 <div>
                   <span className="text-[var(--text-muted)] text-xs">Taxes</span>
-                  <div className="font-mono text-red-400">${run.totalTaxes.toLocaleString()}</div>
+                  <div className="font-theme-data text-red-400">${run.totalTaxes.toLocaleString()}</div>
                 </div>
                 <div>
                   <span className="text-[var(--text-muted)] text-xs">Net</span>
-                  <div className="font-mono text-[var(--acid-green)]">${run.totalNet.toLocaleString()}</div>
+                  <div className="font-theme-data text-[var(--acid-green)]">${run.totalNet.toLocaleString()}</div>
                 </div>
               </div>
               {run.journalEntryId && (

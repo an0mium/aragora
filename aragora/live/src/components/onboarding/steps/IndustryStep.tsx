@@ -25,10 +25,10 @@ export function IndustryStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-mono text-[var(--acid-green)] mb-2">
+        <h2 className="text-lg font-theme-data text-[var(--acid-green)] mb-2">
           What brings you to Aragora?
         </h2>
-        <p className="text-sm font-mono text-[var(--text-muted)]">
+        <p className="text-sm font-theme-data text-[var(--text-muted)]">
           Select your industry so we can tailor the experience.
           No account needed for this step.
         </p>
@@ -50,16 +50,16 @@ export function IndustryStep() {
               }`}
             >
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-sm font-mono text-[var(--acid-cyan)]">
+                <span className="text-sm font-theme-data text-[var(--acid-cyan)]">
                   {meta.icon}
                 </span>
-                <span className={`text-sm font-mono font-bold ${
+                <span className={`text-sm font-theme-data font-bold ${
                   isSelected ? 'text-[var(--acid-green)]' : 'text-[var(--text)]'
                 }`}>
                   {meta.label}
                 </span>
               </div>
-              <p className="text-xs font-mono text-[var(--text-muted)]">
+              <p className="text-xs font-theme-data text-[var(--text-muted)]">
                 {description}
               </p>
             </button>

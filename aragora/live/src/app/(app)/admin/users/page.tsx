@@ -68,12 +68,12 @@ function InviteUserModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-surface border border-acid-green/40 rounded-lg shadow-xl w-full max-w-md p-6 z-10">
-        <h2 className="font-mono text-lg text-acid-green mb-4">Invite User</h2>
+      <div className="relative bg-surface border border-[var(--accent)]/40 rounded-lg shadow-xl w-full max-w-md p-6 z-10">
+        <h2 className="font-theme-data text-lg text-[var(--accent)] mb-4">Invite User</h2>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label className="block font-mono text-xs text-text-muted mb-2">
+              <label className="block font-theme-data text-xs text-text-muted mb-2">
                 Email Address
               </label>
               <input
@@ -81,18 +81,18 @@ function InviteUserModal({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full bg-bg border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2 focus:outline-none focus:border-acid-green"
+                className="w-full bg-bg border border-[var(--accent)]/40 text-text font-theme-data text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--accent)]"
                 placeholder="user@example.com"
               />
             </div>
             <div>
-              <label className="block font-mono text-xs text-text-muted mb-2">
+              <label className="block font-theme-data text-xs text-text-muted mb-2">
                 Role
               </label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-full bg-bg border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2 focus:outline-none focus:border-acid-green"
+                className="w-full bg-bg border border-[var(--accent)]/40 text-text font-theme-data text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="viewer">Viewer</option>
                 <option value="member">Member</option>
@@ -101,7 +101,7 @@ function InviteUserModal({
             </div>
             {error && (
               <div className="p-3 bg-acid-red/10 border border-acid-red/40 rounded">
-                <p className="font-mono text-xs text-acid-red">{error}</p>
+                <p className="font-theme-data text-xs text-acid-red">{error}</p>
               </div>
             )}
           </div>
@@ -109,14 +109,14 @@ function InviteUserModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-acid-green/40 text-text-muted font-mono text-sm rounded hover:bg-surface-elevated transition-colors"
+              className="flex-1 px-4 py-2 border border-[var(--accent)]/40 text-text-muted font-theme-data text-sm rounded hover:bg-surface-elevated transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Inviting...' : 'Send Invite'}
             </button>
@@ -166,21 +166,21 @@ function ChangeRoleModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-surface border border-acid-green/40 rounded-lg shadow-xl w-full max-w-md p-6 z-10">
-        <h2 className="font-mono text-lg text-acid-green mb-4">Change Role</h2>
-        <p className="font-mono text-sm text-text-muted mb-4">
-          Changing role for: <span className="text-acid-cyan">{user.email}</span>
+      <div className="relative bg-surface border border-[var(--accent)]/40 rounded-lg shadow-xl w-full max-w-md p-6 z-10">
+        <h2 className="font-theme-data text-lg text-[var(--accent)] mb-4">Change Role</h2>
+        <p className="font-theme-data text-sm text-text-muted mb-4">
+          Changing role for: <span className="text-[var(--acid-cyan)]">{user.email}</span>
         </p>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label className="block font-mono text-xs text-text-muted mb-2">
+              <label className="block font-theme-data text-xs text-text-muted mb-2">
                 New Role
               </label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-full bg-bg border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2 focus:outline-none focus:border-acid-green"
+                className="w-full bg-bg border border-[var(--accent)]/40 text-text font-theme-data text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="viewer">Viewer</option>
                 <option value="member">Member</option>
@@ -190,7 +190,7 @@ function ChangeRoleModal({
             </div>
             {error && (
               <div className="p-3 bg-acid-red/10 border border-acid-red/40 rounded">
-                <p className="font-mono text-xs text-acid-red">{error}</p>
+                <p className="font-theme-data text-xs text-acid-red">{error}</p>
               </div>
             )}
           </div>
@@ -198,14 +198,14 @@ function ChangeRoleModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-acid-green/40 text-text-muted font-mono text-sm rounded hover:bg-surface-elevated transition-colors"
+              className="flex-1 px-4 py-2 border border-[var(--accent)]/40 text-text-muted font-theme-data text-sm rounded hover:bg-surface-elevated transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || role === user.role}
-              className="flex-1 px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Updating...' : 'Update Role'}
             </button>
@@ -404,12 +404,12 @@ function UsersAdminPageContent() {
       sortable: true,
       render: (_, row) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-acid-green/20 flex items-center justify-center font-mono text-acid-green text-sm">
+          <div className="w-8 h-8 rounded-full bg-[var(--accent)]/20 flex items-center justify-center font-theme-data text-[var(--accent)] text-sm">
             {row.name?.charAt(0).toUpperCase() || '?'}
           </div>
           <div>
-            <div className="font-mono text-sm text-text">{row.name}</div>
-            <div className="font-mono text-xs text-acid-cyan">{row.email}</div>
+            <div className="font-theme-data text-sm text-text">{row.name}</div>
+            <div className="font-theme-data text-xs text-[var(--acid-cyan)]">{row.email}</div>
           </div>
         </div>
       ),
@@ -430,7 +430,7 @@ function UsersAdminPageContent() {
       key: 'email_verified',
       label: 'Verified',
       render: (value) => (
-        <span className={`font-mono text-xs ${value ? 'text-acid-green' : 'text-text-muted'}`}>
+        <span className={`font-theme-data text-xs ${value ? 'text-[var(--accent)]' : 'text-text-muted'}`}>
           {value ? 'YES' : 'NO'}
         </span>
       ),
@@ -441,7 +441,7 @@ function UsersAdminPageContent() {
       label: 'Joined',
       sortable: true,
       render: (value) => (
-        <span className="font-mono text-xs text-text-muted">
+        <span className="font-theme-data text-xs text-text-muted">
           {value ? new Date(value as string).toLocaleDateString() : '-'}
         </span>
       ),
@@ -452,7 +452,7 @@ function UsersAdminPageContent() {
       label: 'Last Login',
       sortable: true,
       render: (value) => (
-        <span className="font-mono text-xs text-text-muted">
+        <span className="font-theme-data text-xs text-text-muted">
           {value ? new Date(value as string).toLocaleDateString() : 'Never'}
         </span>
       ),
@@ -470,18 +470,18 @@ function UsersAdminPageContent() {
         <div className="flex items-center gap-2">
           {selectedIds.length > 0 && (
             <div className="flex items-center gap-2 mr-4">
-              <span className="font-mono text-xs text-text-muted">
+              <span className="font-theme-data text-xs text-text-muted">
                 {selectedIds.length} selected
               </span>
               <button
                 onClick={() => handleBulkAction('deactivate')}
-                className="px-3 py-1.5 bg-acid-red/20 border border-acid-red/40 text-acid-red font-mono text-xs rounded hover:bg-acid-red/30 transition-colors"
+                className="px-3 py-1.5 bg-acid-red/20 border border-acid-red/40 text-acid-red font-theme-data text-xs rounded hover:bg-acid-red/30 transition-colors"
               >
                 Deactivate
               </button>
               <button
                 onClick={() => setSelectedIds([])}
-                className="px-3 py-1.5 border border-acid-green/40 text-text-muted font-mono text-xs rounded hover:bg-surface-elevated transition-colors"
+                className="px-3 py-1.5 border border-[var(--accent)]/40 text-text-muted font-theme-data text-xs rounded hover:bg-surface-elevated transition-colors"
               >
                 Clear
               </button>
@@ -489,7 +489,7 @@ function UsersAdminPageContent() {
           )}
           <button
             onClick={() => setShowInviteModal(true)}
-            className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors"
+            className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors"
           >
             + Invite User
           </button>
@@ -498,7 +498,7 @@ function UsersAdminPageContent() {
     >
       {error && (
         <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
-          <p className="text-acid-red font-mono text-sm">{error}</p>
+          <p className="text-acid-red font-theme-data text-sm">{error}</p>
         </div>
       )}
 
@@ -513,7 +513,7 @@ function UsersAdminPageContent() {
               setPage(1);
             }}
             placeholder="Search by name or email..."
-            className="w-full bg-surface border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2 focus:outline-none focus:border-acid-green"
+            className="w-full bg-surface border border-[var(--accent)]/40 text-text font-theme-data text-sm rounded px-3 py-2 focus:outline-none focus:border-[var(--accent)]"
           />
         </div>
         <select
@@ -523,7 +523,7 @@ function UsersAdminPageContent() {
             setPage(1);
           }}
           aria-label="Filter by role"
-          className="bg-surface border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2"
+          className="bg-surface border border-[var(--accent)]/40 text-text font-theme-data text-sm rounded px-3 py-2"
         >
           <option value="">All Roles</option>
           <option value="owner">Owner</option>
@@ -538,7 +538,7 @@ function UsersAdminPageContent() {
             setPage(1);
           }}
           aria-label="Filter by status"
-          className="bg-surface border border-acid-green/40 text-text font-mono text-sm rounded px-3 py-2"
+          className="bg-surface border border-[var(--accent)]/40 text-text font-theme-data text-sm rounded px-3 py-2"
         >
           <option value="">All Status</option>
           <option value="active">Active Only</option>
@@ -547,7 +547,7 @@ function UsersAdminPageContent() {
         <button
           onClick={fetchUsers}
           disabled={loading}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
         >
           {loading ? 'Loading...' : 'Refresh'}
         </button>
@@ -556,22 +556,22 @@ function UsersAdminPageContent() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted">Total Users</div>
-          <div className="font-mono text-2xl text-acid-green">{total}</div>
+          <div className="font-theme-data text-xs text-text-muted">Total Users</div>
+          <div className="font-theme-data text-2xl text-[var(--accent)]">{total}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted">Filtered</div>
-          <div className="font-mono text-2xl text-text">{users.length}</div>
+          <div className="font-theme-data text-xs text-text-muted">Filtered</div>
+          <div className="font-theme-data text-2xl text-text">{users.length}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted">Active</div>
-          <div className="font-mono text-2xl text-acid-cyan">
+          <div className="font-theme-data text-xs text-text-muted">Active</div>
+          <div className="font-theme-data text-2xl text-[var(--acid-cyan)]">
             {users.filter(u => u.status === 'active').length}
           </div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted">Selected</div>
-          <div className="font-mono text-2xl text-acid-yellow">{selectedIds.length}</div>
+          <div className="font-theme-data text-xs text-text-muted">Selected</div>
+          <div className="font-theme-data text-2xl text-[var(--acid-yellow)]">{selectedIds.length}</div>
         </div>
       </div>
 
@@ -616,7 +616,7 @@ function UsersAdminPageContent() {
 
 export default function UsersAdminPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center font-mono text-text-muted">Loading...</div>}>
+    <Suspense fallback={<div className="p-8 text-center font-theme-data text-text-muted">Loading...</div>}>
       <UsersAdminPageContent />
     </Suspense>
   );

@@ -97,8 +97,8 @@ export function MermaidRenderer({ diagram, className = '' }: MermaidRendererProp
 
   if (!diagram) {
     return (
-      <div className={`flex items-center justify-center p-8 border border-acid-green/20 bg-surface/30 ${className}`}>
-        <p className="text-text-muted text-sm font-mono">No diagram to display</p>
+      <div className={`flex items-center justify-center p-8 border border-[var(--accent)]/20 bg-surface/30 ${className}`}>
+        <p className="text-text-muted text-sm font-theme-data">No diagram to display</p>
       </div>
     );
   }
@@ -109,14 +109,14 @@ export function MermaidRenderer({ diagram, className = '' }: MermaidRendererProp
       <div className="absolute top-2 right-2 z-10 flex gap-2">
         <button
           onClick={handleCopy}
-          className="px-3 py-1 text-xs font-mono bg-surface/90 border border-acid-green/20 text-acid-green hover:bg-surface transition-colors"
+          className="px-3 py-1 text-xs font-theme-data bg-surface/90 border border-[var(--accent)]/20 text-[var(--accent)] hover:bg-surface transition-colors"
         >
           {copied ? 'Copied!' : 'Copy Code'}
         </button>
         <button
           onClick={handleDownload}
           disabled={!svg}
-          className="px-3 py-1 text-xs font-mono bg-surface/90 border border-acid-green/20 text-acid-cyan hover:bg-surface transition-colors disabled:opacity-50"
+          className="px-3 py-1 text-xs font-theme-data bg-surface/90 border border-[var(--accent)]/20 text-[var(--acid-cyan)] hover:bg-surface transition-colors disabled:opacity-50"
         >
           Download SVG
         </button>
@@ -124,10 +124,10 @@ export function MermaidRenderer({ diagram, className = '' }: MermaidRendererProp
 
       {/* Loading State */}
       {loading && (
-        <div className="flex items-center justify-center p-16 border border-acid-green/20 bg-surface/30">
+        <div className="flex items-center justify-center p-16 border border-[var(--accent)]/20 bg-surface/30">
           <div className="text-center">
-            <div className="w-8 h-8 border-2 border-acid-green/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-text-muted text-sm font-mono">Rendering diagram...</p>
+            <div className="w-8 h-8 border-2 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-text-muted text-sm font-theme-data">Rendering diagram...</p>
           </div>
         </div>
       )}
@@ -135,13 +135,13 @@ export function MermaidRenderer({ diagram, className = '' }: MermaidRendererProp
       {/* Error State */}
       {error && !loading && (
         <div className="border border-warning/30 bg-warning/10 p-4">
-          <p className="text-warning text-sm font-mono mb-2">Failed to render diagram:</p>
+          <p className="text-warning text-sm font-theme-data mb-2">Failed to render diagram:</p>
           <pre className="text-xs text-text-muted overflow-x-auto">{error}</pre>
           <details className="mt-4">
-            <summary className="text-xs text-text-muted cursor-pointer hover:text-acid-green">
+            <summary className="text-xs text-text-muted cursor-pointer hover:text-[var(--accent)]">
               Show diagram code
             </summary>
-            <pre className="mt-2 p-2 bg-bg/50 text-xs font-mono text-text-muted overflow-x-auto max-h-48">
+            <pre className="mt-2 p-2 bg-bg/50 text-xs font-theme-data text-text-muted overflow-x-auto max-h-48">
               {diagram}
             </pre>
           </details>
@@ -152,17 +152,17 @@ export function MermaidRenderer({ diagram, className = '' }: MermaidRendererProp
       {svg && !loading && !error && (
         <div
           ref={containerRef}
-          className="border border-acid-green/20 bg-bg overflow-auto p-4"
+          className="border border-[var(--accent)]/20 bg-bg overflow-auto p-4"
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       )}
 
       {/* Raw Code View */}
       <details className="mt-4">
-        <summary className="text-xs font-mono text-text-muted cursor-pointer hover:text-acid-green">
+        <summary className="text-xs font-theme-data text-text-muted cursor-pointer hover:text-[var(--accent)]">
           View Mermaid source
         </summary>
-        <pre className="mt-2 p-3 bg-surface/50 border border-acid-green/10 text-xs font-mono text-text overflow-x-auto max-h-64">
+        <pre className="mt-2 p-3 bg-surface/50 border border-[var(--accent)]/10 text-xs font-theme-data text-text overflow-x-auto max-h-64">
           {diagram}
         </pre>
       </details>

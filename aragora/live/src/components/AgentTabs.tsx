@@ -15,8 +15,8 @@ type AgentStatus = 'idle' | 'thinking' | 'active' | 'rate_limited' | 'failed';
 function StatusBadge({ status, compact = false }: { status: AgentStatus; compact?: boolean }) {
   const config: Record<AgentStatus, { color: string; label: string; animate?: boolean }> = {
     idle: { color: 'bg-text-muted/30', label: 'IDLE' },
-    thinking: { color: 'bg-acid-cyan', label: 'THINKING', animate: true },
-    active: { color: 'bg-acid-green', label: 'ACTIVE' },
+    thinking: { color: 'bg-[var(--acid-cyan)]', label: 'THINKING', animate: true },
+    active: { color: 'bg-[var(--accent)]', label: 'ACTIVE' },
     rate_limited: { color: 'bg-yellow-500', label: 'LIMITED' },
     failed: { color: 'bg-red-500', label: 'FAILED' },
   };
@@ -32,7 +32,7 @@ function StatusBadge({ status, compact = false }: { status: AgentStatus; compact
   }
 
   return (
-    <span className={`px-1.5 py-0.5 text-[10px] font-mono uppercase rounded ${color} ${
+    <span className={`px-1.5 py-0.5 text-[10px] font-theme-data uppercase rounded ${color} ${
       status === 'thinking' || status === 'active' ? 'text-background' : 'text-text'
     } ${animate ? 'animate-pulse' : ''}`}>
       {label}
@@ -275,16 +275,16 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
           onClick={() => setSelectedAgent(ALL_AGENTS_TAB)}
           className={`
             relative px-4 py-3 text-sm font-medium whitespace-nowrap transition-all
-            ${activeAgent === ALL_AGENTS_TAB ? 'text-acid-green' : 'text-text-muted hover:text-text'}
+            ${activeAgent === ALL_AGENTS_TAB ? 'text-[var(--accent)]' : 'text-text-muted hover:text-text'}
           `}
         >
           <span className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-acid-green" />
+            <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
             All Agents
             <span className="text-xs opacity-60">{unifiedTimeline.length}</span>
           </span>
           {activeAgent === ALL_AGENTS_TAB && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-acid-green" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />
           )}
         </button>
         {/* Individual Agent Tabs */}
@@ -331,7 +331,7 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
             <div className="flex items-center gap-2 text-xs text-text-muted">
               {autoScroll ? (
                 <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-acid-green animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
                   Live
                 </span>
               ) : (
@@ -342,7 +342,7 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
                       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
                     }
                   }}
-                  className="px-2 py-1 bg-acid-green/20 text-acid-green border border-acid-green/30 hover:bg-acid-green/30"
+                  className="px-2 py-1 bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30 hover:bg-[var(--accent)]/30"
                 >
                   ↓ Jump to Latest
                 </button>
@@ -413,7 +413,7 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
               {currentAgent.confidence !== undefined && (
                 <span className="text-sm">
                   <span className="text-text-muted">Confidence:</span>{' '}
-                  <span className={`font-mono font-medium ${
+                  <span className={`font-theme-data font-medium ${
                     currentAgent.confidence >= 0.8 ? 'text-green-400' :
                     currentAgent.confidence >= 0.6 ? 'text-yellow-400' : 'text-red-400'
                   }`}>

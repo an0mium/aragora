@@ -26,7 +26,7 @@ export const ProgressIndicator = memo(function ProgressIndicator({
       {/* Progress bar */}
       <div className="w-24 h-1.5 bg-bg rounded-full overflow-hidden">
         <div
-          className="h-full bg-acid-green rounded-full transition-all duration-500"
+          className="h-full bg-[var(--accent)] rounded-full transition-all duration-500"
           style={{ width: `${progressPct}%` }}
         />
       </div>
@@ -40,9 +40,9 @@ export const ProgressIndicator = memo(function ProgressIndicator({
           return (
             <div key={stage} className="flex items-center">
               <span
-                className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
+                className={`text-[10px] font-theme-data font-bold uppercase tracking-wider ${
                   isComplete
-                    ? 'text-acid-green'
+                    ? 'text-[var(--accent)]'
                     : isCurrent
                     ? 'text-text'
                     : 'text-text-muted/50'
@@ -59,7 +59,7 @@ export const ProgressIndicator = memo(function ProgressIndicator({
       </div>
 
       {/* Count label */}
-      <span className="text-[10px] font-mono text-text-muted">
+      <span className="text-[10px] font-theme-data text-text-muted">
         {completedCount}/{STAGES.length}
       </span>
     </div>

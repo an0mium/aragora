@@ -113,7 +113,7 @@ export const FractalPipelineCanvas = memo(function FractalPipelineCanvas({
         {nav.canDrillUp && (
           <button
             onClick={nav.drillUp}
-            className="px-2 py-1 text-xs font-mono text-text-muted hover:text-text bg-surface hover:bg-white/5 border border-border rounded transition-colors"
+            className="px-2 py-1 text-xs font-theme-data text-text-muted hover:text-text bg-surface hover:bg-white/5 border border-border rounded transition-colors"
           >
             &larr; Back
           </button>
@@ -130,7 +130,7 @@ export const FractalPipelineCanvas = memo(function FractalPipelineCanvas({
               readOnly={readOnly}
             />
           ) : (
-            <div className="flex items-center justify-center h-full text-text-muted text-sm font-mono">
+            <div className="flex items-center justify-center h-full text-text-muted text-sm font-theme-data">
               No data for {nav.current.stage} stage
             </div>
           )}

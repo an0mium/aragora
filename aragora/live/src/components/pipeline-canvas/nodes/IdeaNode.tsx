@@ -41,11 +41,11 @@ export const IdeaNode = memo(function IdeaNode({ data, selected }: IdeaNodeProps
       />
 
       <div className="flex items-center gap-2 mb-2">
-        <span className="px-1.5 py-0.5 text-xs bg-indigo-500/30 text-indigo-200 rounded font-mono uppercase">
+        <span className="px-1.5 py-0.5 text-xs bg-indigo-500/30 text-indigo-200 rounded font-theme-data uppercase">
           {ideaTypeLabels[ideaType] || ideaType}
         </span>
         {agent && (
-          <span className="text-xs text-text-muted font-mono">{agent}</span>
+          <span className="text-xs text-text-muted font-theme-data">{agent}</span>
         )}
       </div>
 
@@ -60,7 +60,7 @@ export const IdeaNode = memo(function IdeaNode({ data, selected }: IdeaNodeProps
       )}
 
       {contentHash && (
-        <div className="text-xs font-mono text-indigo-300 truncate">
+        <div className="text-xs font-theme-data text-indigo-300 truncate">
           #{contentHash.slice(0, 8)}
         </div>
       )}

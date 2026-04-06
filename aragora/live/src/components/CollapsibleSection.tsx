@@ -75,7 +75,7 @@ export function CollapsibleSection({
   };
 
   return (
-    <div className={`border border-acid-green/20 rounded-lg overflow-hidden mb-3 bg-surface/30 ${priorityStyles[priority]}`}>
+    <div className={`border border-[var(--accent)]/20 rounded-lg overflow-hidden mb-3 bg-surface/30 ${priorityStyles[priority]}`}>
       <button
         onClick={() => {
           if (!isForced) {
@@ -86,31 +86,31 @@ export function CollapsibleSection({
         aria-controls={`section-${id}-content`}
         aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${title} section`}
         title={description}
-        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-acid-green/5 transition-colors group"
+        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[var(--accent)]/5 transition-colors group"
       >
         <div className="flex items-center gap-2">
           <span
-            className={`text-acid-green text-xs transition-transform duration-200 ${
+            className={`text-[var(--accent)] text-xs transition-transform duration-200 ${
               isExpanded ? 'rotate-90' : ''
             }`}
           >
             ▶
           </span>
-          <span className="font-mono text-sm text-text group-hover:text-acid-green transition-colors">
+          <span className="font-theme-data text-sm text-text group-hover:text-[var(--accent)] transition-colors">
             {title}
           </span>
           {priority === 'core' && (
-            <span className="px-1 py-0.5 text-[9px] font-mono bg-acid-green/20 text-acid-green rounded">
+            <span className="px-1 py-0.5 text-[9px] font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] rounded">
               CORE
             </span>
           )}
           {badge !== undefined && badge > 0 && (
-            <span className="px-1.5 py-0.5 text-[10px] font-mono bg-acid-cyan/20 text-acid-cyan rounded">
+            <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] rounded">
               {badge}
             </span>
           )}
         </div>
-        <span className="text-text-muted text-xs font-mono">
+        <span className="text-text-muted text-xs font-theme-data">
           {isExpanded ? '[−]' : '[+]'}
         </span>
       </button>

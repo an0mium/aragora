@@ -62,14 +62,14 @@ export function SubscriptionCard({
 
   const tierColors: Record<string, string> = {
     free: 'text-text-muted',
-    starter: 'text-acid-cyan',
-    professional: 'text-acid-green',
-    enterprise: 'text-acid-magenta',
+    starter: 'text-[var(--acid-cyan)]',
+    professional: 'text-[var(--accent)]',
+    enterprise: 'text-[var(--acid-magenta)]',
   };
 
   if (compact) {
     return (
-      <div className={`font-mono text-xs flex items-center gap-2 ${className}`}>
+      <div className={`font-theme-data text-xs flex items-center gap-2 ${className}`}>
         <span className="text-text-muted">Plan:</span>
         <span className={tierColors[subscription?.tier || 'free'] || 'text-text'}>
           {(subscription?.tier || 'FREE').toUpperCase()}
@@ -82,22 +82,22 @@ export function SubscriptionCard({
   }
 
   return (
-    <div className={`border border-acid-green/30 bg-surface/30 p-4 ${className}`}>
-      <h3 className="text-sm font-mono text-acid-cyan mb-3">SUBSCRIPTION</h3>
+    <div className={`border border-[var(--accent)]/30 bg-surface/30 p-4 ${className}`}>
+      <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3">SUBSCRIPTION</h3>
 
       {loading ? (
-        <div className="text-xs font-mono text-text-muted">Loading...</div>
+        <div className="text-xs font-theme-data text-text-muted">Loading...</div>
       ) : (
         <div className="space-y-3">
           {/* Tier display */}
           <div>
-            <div className={`text-lg font-mono uppercase ${tierColors[subscription?.tier || 'free']}`}>
+            <div className={`text-lg font-theme-data uppercase ${tierColors[subscription?.tier || 'free']}`}>
               {subscription?.tier || 'FREE'}
             </div>
-            <div className="text-xs font-mono text-text-muted">
+            <div className="text-xs font-theme-data text-text-muted">
               Status:{' '}
               {subscription?.is_active ? (
-                <span className="text-acid-green">Active</span>
+                <span className="text-[var(--accent)]">Active</span>
               ) : (
                 <span className="text-warning">Inactive</span>
               )}
@@ -106,7 +106,7 @@ export function SubscriptionCard({
 
           {/* Cancellation notice */}
           {subscription?.cancel_at_period_end && (
-            <div className="text-xs font-mono text-warning bg-warning/10 p-2 border border-warning/30">
+            <div className="text-xs font-theme-data text-warning bg-warning/10 p-2 border border-warning/30">
               Subscription will cancel at period end
             </div>
           )}
@@ -116,14 +116,14 @@ export function SubscriptionCard({
             <div className="pt-2 space-y-2">
               <Link
                 href="/billing"
-                className="block text-center py-2 text-xs font-mono border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors"
+                className="block text-center py-2 text-xs font-theme-data border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
               >
                 MANAGE BILLING
               </Link>
               {subscription?.tier === 'free' && (
                 <Link
                   href="/pricing"
-                  className="block text-center py-2 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+                  className="block text-center py-2 text-xs font-theme-data bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors"
                 >
                   UPGRADE
                 </Link>

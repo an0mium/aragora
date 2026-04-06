@@ -118,8 +118,8 @@ function RobustnessDistribution({ evidence }: { evidence: VettingEvidence[] }) {
   const colors = ['#ef4444', '#f59e0b', '#eab308', '#22c55e', '#39ff14'];
 
   return (
-    <div className="border border-acid-green/20 bg-surface/50 rounded p-4">
-      <h3 className="text-sm font-mono text-acid-green mb-3">
+    <div className="border border-[var(--accent)]/20 bg-surface/50 rounded p-4">
+      <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">
         {'>'} ROBUSTNESS DISTRIBUTION
       </h3>
       <svg viewBox="0 0 300 120" className="w-full h-32">
@@ -170,9 +170,9 @@ function RobustnessDistribution({ evidence }: { evidence: VettingEvidence[] }) {
 function EloDistribution({ agents }: { agents: CalibrationAgent[] }) {
   if (agents.length === 0) {
     return (
-      <div className="border border-acid-cyan/20 bg-surface/50 rounded p-4">
-        <h3 className="text-sm font-mono text-acid-cyan mb-3">{'>'} ELO DISTRIBUTION</h3>
-        <p className="text-text-muted font-mono text-xs">No agent data available</p>
+      <div className="border border-[var(--acid-cyan)]/20 bg-surface/50 rounded p-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3">{'>'} ELO DISTRIBUTION</h3>
+        <p className="text-text-muted font-theme-data text-xs">No agent data available</p>
       </div>
     );
   }
@@ -182,23 +182,23 @@ function EloDistribution({ agents }: { agents: CalibrationAgent[] }) {
   const range = maxElo - minElo || 1;
 
   return (
-    <div className="border border-acid-cyan/20 bg-surface/50 rounded p-4">
-      <h3 className="text-sm font-mono text-acid-cyan mb-3">{'>'} ELO DISTRIBUTION</h3>
+    <div className="border border-[var(--acid-cyan)]/20 bg-surface/50 rounded p-4">
+      <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3">{'>'} ELO DISTRIBUTION</h3>
       <div className="space-y-1">
         {agents.slice(0, 10).map((agent) => {
           const pct = ((agent.elo - minElo) / range) * 100;
           return (
             <div key={agent.agent_id} className="flex items-center gap-2">
-              <span className="text-[10px] font-mono text-text-muted w-24 truncate">
+              <span className="text-[10px] font-theme-data text-text-muted w-24 truncate">
                 {agent.agent_id}
               </span>
               <div className="flex-1 h-3 bg-surface rounded overflow-hidden">
                 <div
-                  className="h-full bg-acid-cyan/60 rounded transition-all"
+                  className="h-full bg-[var(--acid-cyan)]/60 rounded transition-all"
                   style={{ width: `${Math.max(5, pct)}%` }}
                 />
               </div>
-              <span className="text-[10px] font-mono text-acid-cyan w-10 text-right">
+              <span className="text-[10px] font-theme-data text-[var(--acid-cyan)] w-10 text-right">
                 {agent.elo.toFixed(0)}
               </span>
             </div>
@@ -227,13 +227,13 @@ function MemoryTiers({
 
   return (
     <div className="border border-purple-500/20 bg-surface/50 rounded p-4">
-      <h3 className="text-sm font-mono text-purple-400 mb-3">{'>'} MEMORY TIERS</h3>
+      <h3 className="text-sm font-theme-data text-purple-400 mb-3">{'>'} MEMORY TIERS</h3>
       <div className="space-y-2">
         {tiers.map((tier) => {
           const pct = (tier.count / maxCount) * 100;
           return (
             <div key={tier.label} className="flex items-center gap-2">
-              <span className="text-[10px] font-mono w-16" style={{ color: tier.color }}>
+              <span className="text-[10px] font-theme-data w-16" style={{ color: tier.color }}>
                 {tier.label}
               </span>
               <div className="flex-1 h-4 bg-surface rounded overflow-hidden">
@@ -246,7 +246,7 @@ function MemoryTiers({
                   }}
                 />
               </div>
-              <span className="text-[10px] font-mono text-text-muted w-20 text-right">
+              <span className="text-[10px] font-theme-data text-text-muted w-20 text-right">
                 {tier.count} ({tier.ttl})
               </span>
             </div>
@@ -262,7 +262,7 @@ function MemoryTiers({
 function VettingTable({ evidence }: { evidence: VettingEvidence[] }) {
   if (evidence.length === 0) {
     return (
-      <div className="text-text-muted font-mono text-sm p-4">
+      <div className="text-text-muted font-theme-data text-sm p-4">
         No decision receipts available yet. Run a debate to generate vetting evidence.
       </div>
     );
@@ -270,9 +270,9 @@ function VettingTable({ evidence }: { evidence: VettingEvidence[] }) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full font-mono text-xs">
+      <table className="w-full font-theme-data text-xs">
         <thead>
-          <tr className="border-b border-acid-green/20">
+          <tr className="border-b border-[var(--accent)]/20">
             <th className="text-left text-text-muted p-2">QUESTION</th>
             <th className="text-center text-text-muted p-2">DISSENT</th>
             <th className="text-center text-text-muted p-2">TENSIONS</th>
@@ -293,7 +293,7 @@ function VettingTable({ evidence }: { evidence: VettingEvidence[] }) {
                 <span
                   className={
                     e.dissenting_views_count > 0
-                      ? 'text-acid-yellow'
+                      ? 'text-[var(--acid-yellow)]'
                       : 'text-text-muted'
                   }
                 >
@@ -304,7 +304,7 @@ function VettingTable({ evidence }: { evidence: VettingEvidence[] }) {
                 <span
                   className={
                     e.unresolved_tensions_count > 0
-                      ? 'text-crimson'
+                      ? 'text-[var(--crimson)]'
                       : 'text-text-muted'
                   }
                 >
@@ -312,17 +312,17 @@ function VettingTable({ evidence }: { evidence: VettingEvidence[] }) {
                 </span>
               </td>
               <td className="p-2 text-center">
-                <span className="text-acid-green">{e.verified_claims_count}</span>
+                <span className="text-[var(--accent)]">{e.verified_claims_count}</span>
               </td>
               <td className="p-2 text-center">
                 {e.robustness_score !== null ? (
                   <span
                     className={
                       e.robustness_score >= 0.7
-                        ? 'text-acid-green'
+                        ? 'text-[var(--accent)]'
                         : e.robustness_score >= 0.4
-                          ? 'text-acid-yellow'
-                          : 'text-crimson'
+                          ? 'text-[var(--acid-yellow)]'
+                          : 'text-[var(--crimson)]'
                     }
                   >
                     {(e.robustness_score * 100).toFixed(0)}%
@@ -364,26 +364,26 @@ function ComparisonCard({
     singleAgent !== 0 ? (diff / Math.abs(singleAgent)) * 100 : 0;
 
   return (
-    <div className="border border-acid-green/20 bg-surface/50 rounded p-3">
-      <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider mb-2">
+    <div className="border border-[var(--accent)]/20 bg-surface/50 rounded p-3">
+      <div className="text-[10px] font-theme-data text-text-muted uppercase tracking-wider mb-2">
         {title}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <div className="text-[10px] font-mono text-text-muted">ARAGORA</div>
-          <div className="text-lg font-mono text-acid-green">
+          <div className="text-[10px] font-theme-data text-text-muted">ARAGORA</div>
+          <div className="text-lg font-theme-data text-[var(--accent)]">
             {aragora.toFixed(unit === '%' ? 1 : 0)}{unit}
           </div>
         </div>
         <div>
-          <div className="text-[10px] font-mono text-text-muted">SINGLE AGENT</div>
-          <div className="text-lg font-mono text-text-muted">
+          <div className="text-[10px] font-theme-data text-text-muted">SINGLE AGENT</div>
+          <div className="text-lg font-theme-data text-text-muted">
             {singleAgent.toFixed(unit === '%' ? 1 : 0)}{unit}
           </div>
         </div>
       </div>
       {aragoraBetter && pctImprovement > 0 && (
-        <div className="mt-2 text-[10px] font-mono text-acid-green">
+        <div className="mt-2 text-[10px] font-theme-data text-[var(--accent)]">
           +{pctImprovement.toFixed(1)}% advantage
         </div>
       )}
@@ -432,7 +432,7 @@ export default function DifferentiationPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -440,19 +440,19 @@ export default function DifferentiationPage() {
             <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [DASHBOARD]
               </Link>
               <Link
                 href="/analytics"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [ANALYTICS]
               </Link>
               <Link
                 href="/calibration"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [CALIBRATION]
               </Link>
@@ -465,10 +465,10 @@ export default function DifferentiationPage() {
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} DIFFERENTIATION DASHBOARD
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Why multi-agent adversarial debate outperforms single-model decisions.
               Live evidence from your decision data.
             </p>
@@ -480,10 +480,10 @@ export default function DifferentiationPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 text-xs font-mono border rounded transition-all whitespace-nowrap ${
+                className={`px-4 py-2 text-xs font-theme-data border rounded transition-all whitespace-nowrap ${
                   activeTab === tab.id
-                    ? 'border-acid-green text-acid-green bg-acid-green/10'
-                    : 'border-surface text-text-muted hover:border-acid-green/30 hover:text-text'
+                    ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
+                    : 'border-surface text-text-muted hover:border-[var(--accent)]/30 hover:text-text'
                 }`}
               >
                 {tab.icon} {tab.label}
@@ -574,29 +574,29 @@ function OverviewTab({
       {/* Three Pillars */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Pillar 1: Adversarial Vetting */}
-        <div className="border border-acid-green/20 bg-surface/30 rounded p-4">
-          <h3 className="text-sm font-mono text-acid-green mb-1">
+        <div className="border border-[var(--accent)]/20 bg-surface/30 rounded p-4">
+          <h3 className="text-sm font-theme-data text-[var(--accent)] mb-1">
             ADVERSARIAL VETTING
           </h3>
-          <p className="text-[10px] font-mono text-text-muted mb-3">
+          <p className="text-[10px] font-theme-data text-text-muted mb-3">
             Every decision stress-tested by opposing agents
           </p>
-          <div className="space-y-2 text-xs font-mono">
+          <div className="space-y-2 text-xs font-theme-data">
             <div className="flex justify-between">
               <span className="text-text-muted">Adversarially vetted</span>
-              <span className="text-acid-green">
+              <span className="text-[var(--accent)]">
                 {((vetting?.aggregates.adversarial_rate ?? 0) * 100).toFixed(0)}%
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-text-muted">Avg dissenting views</span>
-              <span className="text-acid-yellow">
+              <span className="text-[var(--acid-yellow)]">
                 {(vetting?.aggregates.avg_dissenting_views ?? 0).toFixed(1)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-text-muted">Avg verified claims</span>
-              <span className="text-acid-cyan">
+              <span className="text-[var(--acid-cyan)]">
                 {(vetting?.aggregates.avg_verified_claims ?? 0).toFixed(1)}
               </span>
             </div>
@@ -604,15 +604,15 @@ function OverviewTab({
         </div>
 
         {/* Pillar 2: Calibrated Trust */}
-        <div className="border border-acid-cyan/20 bg-surface/30 rounded p-4">
-          <h3 className="text-sm font-mono text-acid-cyan mb-1">CALIBRATED TRUST</h3>
-          <p className="text-[10px] font-mono text-text-muted mb-3">
+        <div className="border border-[var(--acid-cyan)]/20 bg-surface/30 rounded p-4">
+          <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-1">CALIBRATED TRUST</h3>
+          <p className="text-[10px] font-theme-data text-text-muted mb-3">
             Multi-agent consensus provides better-calibrated confidence
           </p>
-          <div className="space-y-2 text-xs font-mono">
+          <div className="space-y-2 text-xs font-theme-data">
             <div className="flex justify-between">
               <span className="text-text-muted">Agent diversity</span>
-              <span className="text-acid-cyan">
+              <span className="text-[var(--acid-cyan)]">
                 {calibration?.ensemble_metrics.agent_count ?? 0} agents
               </span>
             </div>
@@ -624,13 +624,13 @@ function OverviewTab({
             </div>
             <div className="flex justify-between">
               <span className="text-text-muted">Ensemble avg ELO</span>
-              <span className="text-acid-cyan">
+              <span className="text-[var(--acid-cyan)]">
                 {calibration?.ensemble_metrics.ensemble_avg_elo?.toFixed(0) ?? '--'}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-text-muted">Diversity score</span>
-              <span className="text-acid-green">
+              <span className="text-[var(--accent)]">
                 {((calibration?.ensemble_metrics.diversity_score ?? 0) * 100).toFixed(0)}%
               </span>
             </div>
@@ -639,13 +639,13 @@ function OverviewTab({
 
         {/* Pillar 3: Institutional Memory */}
         <div className="border border-purple-500/20 bg-surface/30 rounded p-4">
-          <h3 className="text-sm font-mono text-purple-400 mb-1">
+          <h3 className="text-sm font-theme-data text-purple-400 mb-1">
             INSTITUTIONAL MEMORY
           </h3>
-          <p className="text-[10px] font-mono text-text-muted mb-3">
+          <p className="text-[10px] font-theme-data text-text-muted mb-3">
             Past decisions inform future ones through multi-tier memory
           </p>
-          <div className="space-y-2 text-xs font-mono">
+          <div className="space-y-2 text-xs font-theme-data">
             <div className="flex justify-between">
               <span className="text-text-muted">Memory entries</span>
               <span className="text-purple-400">
@@ -666,7 +666,7 @@ function OverviewTab({
             </div>
             <div className="flex justify-between">
               <span className="text-text-muted">Knowledge reuse</span>
-              <span className="text-acid-green">
+              <span className="text-[var(--accent)]">
                 {((memory?.learning_indicators.knowledge_reuse_rate ?? 0) * 100).toFixed(0)}%
               </span>
             </div>
@@ -675,8 +675,8 @@ function OverviewTab({
       </div>
 
       {/* Value Proposition */}
-      <div className="border border-acid-green/10 bg-surface/20 rounded p-4">
-        <h3 className="text-sm font-mono text-acid-green mb-3">
+      <div className="border border-[var(--accent)]/10 bg-surface/20 rounded p-4">
+        <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">
           {'>'} VS SINGLE-AGENT DECISIONS
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -777,8 +777,8 @@ function VettingTab({
       <RobustnessDistribution evidence={evidence} />
 
       {/* Evidence Table */}
-      <div className="border border-acid-green/20 bg-surface/30 rounded p-4">
-        <h3 className="text-sm font-mono text-acid-green mb-3">
+      <div className="border border-[var(--accent)]/20 bg-surface/30 rounded p-4">
+        <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">
           {'>'} DECISION RECEIPTS WITH VETTING EVIDENCE
         </h3>
         <VettingTable evidence={evidence} />
@@ -786,8 +786,8 @@ function VettingTab({
 
       {/* Explanation */}
       <div className="border border-surface bg-surface/20 rounded p-4">
-        <h4 className="text-xs font-mono text-acid-green mb-2">HOW ADVERSARIAL VETTING WORKS</h4>
-        <div className="text-[11px] font-mono text-text-muted space-y-1">
+        <h4 className="text-xs font-theme-data text-[var(--accent)] mb-2">HOW ADVERSARIAL VETTING WORKS</h4>
+        <div className="text-[11px] font-theme-data text-text-muted space-y-1">
           <p>1. Multiple agents independently analyze the question from different perspectives</p>
           <p>2. Agents critique each other&apos;s proposals, identifying weaknesses and blind spots</p>
           <p>3. Dissenting views are preserved in the decision receipt, not silenced</p>
@@ -859,14 +859,14 @@ function CalibrationTab({
       <EloDistribution agents={agents} />
 
       {/* Agent Table */}
-      <div className="border border-acid-cyan/20 bg-surface/30 rounded p-4">
-        <h3 className="text-sm font-mono text-acid-cyan mb-3">
+      <div className="border border-[var(--acid-cyan)]/20 bg-surface/30 rounded p-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3">
           {'>'} AGENT PERFORMANCE RANKINGS
         </h3>
         <div className="overflow-x-auto">
-          <table className="w-full font-mono text-xs">
+          <table className="w-full font-theme-data text-xs">
             <thead>
-              <tr className="border-b border-acid-cyan/20">
+              <tr className="border-b border-[var(--acid-cyan)]/20">
                 <th className="text-left text-text-muted p-2">RANK</th>
                 <th className="text-left text-text-muted p-2">AGENT</th>
                 <th className="text-right text-text-muted p-2">ELO</th>
@@ -880,19 +880,19 @@ function CalibrationTab({
                   key={agent.agent_id}
                   className="border-b border-surface/50 hover:bg-surface/30"
                 >
-                  <td className="p-2 text-acid-cyan">#{idx + 1}</td>
+                  <td className="p-2 text-[var(--acid-cyan)]">#{idx + 1}</td>
                   <td className="p-2 text-text">{agent.agent_id}</td>
-                  <td className="p-2 text-right text-acid-green">
+                  <td className="p-2 text-right text-[var(--accent)]">
                     {agent.elo.toFixed(0)}
                   </td>
                   <td className="p-2 text-right">
                     <span
                       className={
                         agent.win_rate >= 0.6
-                          ? 'text-acid-green'
+                          ? 'text-[var(--accent)]'
                           : agent.win_rate >= 0.4
-                            ? 'text-acid-yellow'
-                            : 'text-crimson'
+                            ? 'text-[var(--acid-yellow)]'
+                            : 'text-[var(--crimson)]'
                       }
                     >
                       {(agent.win_rate * 100).toFixed(1)}%
@@ -910,8 +910,8 @@ function CalibrationTab({
 
       {/* Explanation */}
       <div className="border border-surface bg-surface/20 rounded p-4">
-        <h4 className="text-xs font-mono text-acid-cyan mb-2">WHY MULTI-AGENT CONSENSUS IS BETTER CALIBRATED</h4>
-        <div className="text-[11px] font-mono text-text-muted space-y-1">
+        <h4 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-2">WHY MULTI-AGENT CONSENSUS IS BETTER CALIBRATED</h4>
+        <div className="text-[11px] font-theme-data text-text-muted space-y-1">
           <p>1. Individual models have systematic biases. Ensemble consensus cancels these out.</p>
           <p>2. ELO ratings track each agent&apos;s accuracy over time, weighting reliable agents higher.</p>
           <p>3. Diversity of model architectures (Claude, GPT, Gemini, Mistral) reduces correlated errors.</p>
@@ -983,40 +983,40 @@ function MemoryTab({
       {mem && <MemoryTiers memory={mem} />}
 
       {/* Knowledge Mound Architecture */}
-      <div className="border border-acid-cyan/20 bg-surface/30 rounded p-4">
-        <h3 className="text-sm font-mono text-acid-cyan mb-3">
+      <div className="border border-[var(--acid-cyan)]/20 bg-surface/30 rounded p-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3">
           {'>'} KNOWLEDGE MOUND ARCHITECTURE
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="text-center">
-            <div className="text-2xl font-mono text-acid-green">
+            <div className="text-2xl font-theme-data text-[var(--accent)]">
               {km?.adapter_count ?? 41}
             </div>
-            <div className="text-[10px] font-mono text-text-muted">KM ADAPTERS</div>
+            <div className="text-[10px] font-theme-data text-text-muted">KM ADAPTERS</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-mono text-acid-cyan">4</div>
-            <div className="text-[10px] font-mono text-text-muted">MEMORY TIERS</div>
+            <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">4</div>
+            <div className="text-[10px] font-theme-data text-text-muted">MEMORY TIERS</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-mono text-purple-400">
+            <div className="text-2xl font-theme-data text-purple-400">
               {learning?.decisions_informing_future ?? 0}
             </div>
-            <div className="text-[10px] font-mono text-text-muted">DECISIONS REUSED</div>
+            <div className="text-[10px] font-theme-data text-text-muted">DECISIONS REUSED</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-mono text-acid-yellow">
+            <div className="text-2xl font-theme-data text-[var(--acid-yellow)]">
               {((learning?.memory_quality_score ?? 0) * 100).toFixed(0)}%
             </div>
-            <div className="text-[10px] font-mono text-text-muted">QUALITY SCORE</div>
+            <div className="text-[10px] font-theme-data text-text-muted">QUALITY SCORE</div>
           </div>
         </div>
       </div>
 
       {/* Explanation */}
       <div className="border border-surface bg-surface/20 rounded p-4">
-        <h4 className="text-xs font-mono text-purple-400 mb-2">HOW INSTITUTIONAL MEMORY WORKS</h4>
-        <div className="text-[11px] font-mono text-text-muted space-y-1">
+        <h4 className="text-xs font-theme-data text-purple-400 mb-2">HOW INSTITUTIONAL MEMORY WORKS</h4>
+        <div className="text-[11px] font-theme-data text-text-muted space-y-1">
           <p>1. Every debate outcome is stored in multi-tier memory (fast/medium/slow/glacial).</p>
           <p>2. The Knowledge Mound aggregates insights across 41 adapter systems.</p>
           <p>3. Cross-debate links connect related decisions, building organizational knowledge.</p>

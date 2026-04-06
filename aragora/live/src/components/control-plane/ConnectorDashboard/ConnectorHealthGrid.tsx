@@ -72,7 +72,7 @@ export function ConnectorHealthGrid({
         <div className="p-3 bg-surface rounded-lg border border-border">
           <div className="text-xs text-text-muted mb-1">Health Score</div>
           <div
-            className={`text-2xl font-mono font-bold ${
+            className={`text-2xl font-theme-data font-bold ${
               healthSummary.healthScore >= 80
                 ? 'text-green-400'
                 : healthSummary.healthScore >= 50
@@ -85,19 +85,19 @@ export function ConnectorHealthGrid({
         </div>
         <div className="p-3 bg-surface rounded-lg border border-green-500/30">
           <div className="text-xs text-text-muted mb-1">Healthy</div>
-          <div className="text-2xl font-mono font-bold text-green-400">
+          <div className="text-2xl font-theme-data font-bold text-green-400">
             {healthSummary.healthy}
           </div>
         </div>
         <div className="p-3 bg-surface rounded-lg border border-yellow-500/30">
           <div className="text-xs text-text-muted mb-1">Degraded</div>
-          <div className="text-2xl font-mono font-bold text-yellow-400">
+          <div className="text-2xl font-theme-data font-bold text-yellow-400">
             {healthSummary.degraded}
           </div>
         </div>
         <div className="p-3 bg-surface rounded-lg border border-red-500/30">
           <div className="text-xs text-text-muted mb-1">Unhealthy</div>
-          <div className="text-2xl font-mono font-bold text-red-400">
+          <div className="text-2xl font-theme-data font-bold text-red-400">
             {healthSummary.unhealthy}
           </div>
         </div>
@@ -188,19 +188,19 @@ function ConnectorHealthCard({ connector, onClick }: ConnectorHealthCardProps) {
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div>
           <div className="text-text-muted">Uptime</div>
-          <div className="font-mono">{connector.uptime}%</div>
+          <div className="font-theme-data">{connector.uptime}%</div>
         </div>
         <div>
           <div className="text-text-muted">Error Rate</div>
-          <div className="font-mono">{connector.errorRate}%</div>
+          <div className="font-theme-data">{connector.errorRate}%</div>
         </div>
         <div>
           <div className="text-text-muted">Last Sync</div>
-          <div className="font-mono">{lastSyncFormatted}</div>
+          <div className="font-theme-data">{lastSyncFormatted}</div>
         </div>
         <div>
           <div className="text-text-muted">Items</div>
-          <div className="font-mono">{connector.itemsSynced.toLocaleString()}</div>
+          <div className="font-theme-data">{connector.itemsSynced.toLocaleString()}</div>
         </div>
       </div>
     </button>

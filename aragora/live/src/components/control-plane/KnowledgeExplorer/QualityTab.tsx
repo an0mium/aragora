@@ -128,7 +128,7 @@ export function QualityTab({
           onClick={() => setActiveSubTab('overview')}
           className={`px-4 py-2 text-sm rounded-t transition-colors ${
             activeSubTab === 'overview'
-              ? 'bg-surface text-acid-green border-b-2 border-acid-green'
+              ? 'bg-surface text-[var(--accent)] border-b-2 border-[var(--accent)]'
               : 'text-text-muted hover:text-white'
           }`}
         >
@@ -138,7 +138,7 @@ export function QualityTab({
           onClick={() => setActiveSubTab('freshness')}
           className={`px-4 py-2 text-sm rounded-t transition-colors ${
             activeSubTab === 'freshness'
-              ? 'bg-surface text-acid-green border-b-2 border-acid-green'
+              ? 'bg-surface text-[var(--accent)] border-b-2 border-[var(--accent)]'
               : 'text-text-muted hover:text-white'
           }`}
         >
@@ -148,7 +148,7 @@ export function QualityTab({
           onClick={() => setActiveSubTab('coverage')}
           className={`px-4 py-2 text-sm rounded-t transition-colors ${
             activeSubTab === 'coverage'
-              ? 'bg-surface text-acid-green border-b-2 border-acid-green'
+              ? 'bg-surface text-[var(--accent)] border-b-2 border-[var(--accent)]'
               : 'text-text-muted hover:text-white'
           }`}
         >
@@ -160,7 +160,7 @@ export function QualityTab({
         <button
           onClick={fetchQualityData}
           disabled={isLoading}
-          className="text-xs text-text-muted hover:text-acid-green transition-colors
+          className="text-xs text-text-muted hover:text-[var(--accent)] transition-colors
                      disabled:opacity-50"
         >
           {isLoading ? 'Loading...' : 'Refresh'}

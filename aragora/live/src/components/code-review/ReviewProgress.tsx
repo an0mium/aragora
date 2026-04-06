@@ -47,7 +47,7 @@ export function ReviewProgress({ progress, agents }: ReviewProgressProps) {
           <div className="text-4xl mb-3">
             {progress.percent < 35 ? '1' : progress.percent < 70 ? '2' : '3'}
           </div>
-          <h2 className="text-lg font-mono text-[var(--acid-green)]">
+          <h2 className="text-lg font-theme-data text-[var(--acid-green)]">
             {progress.phase}{dots}
           </h2>
           <p className="text-sm text-[var(--text-muted)] mt-1">
@@ -65,7 +65,7 @@ export function ReviewProgress({ progress, agents }: ReviewProgressProps) {
           </div>
           <div className="flex justify-between mt-2 text-xs text-[var(--text-muted)]">
             <span>Starting</span>
-            <span className="font-mono text-[var(--acid-green)]">{progress.percent}%</span>
+            <span className="font-theme-data text-[var(--acid-green)]">{progress.percent}%</span>
             <span>Complete</span>
           </div>
         </div>
@@ -108,7 +108,7 @@ export function ReviewProgress({ progress, agents }: ReviewProgressProps) {
           <div className="flex items-center justify-center gap-3 p-4 bg-[var(--bg)] rounded">
             <span className="text-3xl">{activeAgent.icon}</span>
             <div>
-              <div className="font-mono text-sm text-[var(--text)]">
+              <div className="font-theme-data text-sm text-[var(--text)]">
                 {activeAgent.name} is analyzing
               </div>
               <div className="text-xs text-[var(--text-muted)]">
@@ -121,7 +121,7 @@ export function ReviewProgress({ progress, agents }: ReviewProgressProps) {
 
       {/* Agent Activity Panel */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} AGENT ACTIVITY
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -141,7 +141,7 @@ export function ReviewProgress({ progress, agents }: ReviewProgressProps) {
               >
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xl">{agent.icon}</span>
-                  <span className={`text-sm font-mono ${isActive ? 'text-[var(--acid-green)]' : 'text-[var(--text)]'}`}>
+                  <span className={`text-sm font-theme-data ${isActive ? 'text-[var(--acid-green)]' : 'text-[var(--text)]'}`}>
                     {agent.name}
                   </span>
                 </div>
@@ -156,7 +156,7 @@ export function ReviewProgress({ progress, agents }: ReviewProgressProps) {
 
       {/* Debate Preview */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} LIVE DEBATE
         </h3>
         <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -217,7 +217,7 @@ function DebateMessage({ agent, message, isTyping }: DebateMessageProps) {
       <span className="text-xl flex-shrink-0">{agent.icon}</span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="font-mono text-sm text-[var(--text)]">{agent.name}</span>
+          <span className="font-theme-data text-sm text-[var(--text)]">{agent.name}</span>
           {isTyping && (
             <span className="text-xs text-[var(--acid-cyan)]">typing...</span>
           )}

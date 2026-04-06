@@ -60,22 +60,22 @@ interface LocalPolicy extends Omit<Policy, 'rules'> {
 
 const severityColors: Record<string, string> = {
   low: 'text-text-muted border-text-muted/30',
-  medium: 'text-acid-yellow border-acid-yellow/30',
+  medium: 'text-[var(--acid-yellow)] border-acid-yellow/30',
   high: 'text-warning border-warning/30',
-  critical: 'text-crimson border-crimson/30',
+  critical: 'text-[var(--crimson)] border-[var(--crimson)]/30',
 };
 
 const severityBgColors: Record<string, string> = {
   low: 'bg-text-muted/10',
   medium: 'bg-acid-yellow/10',
   high: 'bg-warning/10',
-  critical: 'bg-crimson/10',
+  critical: 'bg-[var(--crimson)]/10',
 };
 
 const statusColors: Record<string, string> = {
-  open: 'text-crimson bg-crimson/10 border-crimson/30',
-  investigating: 'text-acid-yellow bg-acid-yellow/10 border-acid-yellow/30',
-  resolved: 'text-acid-green bg-acid-green/10 border-acid-green/30',
+  open: 'text-[var(--crimson)] bg-[var(--crimson)]/10 border-[var(--crimson)]/30',
+  investigating: 'text-[var(--acid-yellow)] bg-acid-yellow/10 border-acid-yellow/30',
+  resolved: 'text-[var(--accent)] bg-[var(--accent)]/10 border-[var(--accent)]/30',
   false_positive: 'text-text-muted bg-text-muted/10 border-text-muted/30',
   ignored: 'text-text-muted bg-text-muted/10 border-text-muted/30',
 };
@@ -88,31 +88,31 @@ const typeIcons: Record<string, string> = {
 };
 
 const actionColors: Record<string, string> = {
-  warn: 'text-acid-yellow',
-  block: 'text-crimson',
-  flag: 'text-acid-cyan',
+  warn: 'text-[var(--acid-yellow)]',
+  block: 'text-[var(--crimson)]',
+  flag: 'text-[var(--acid-cyan)]',
   redact: 'text-warning',
 };
 
 const conflictTypeColors: Record<string, string> = {
-  contradictory: 'text-crimson border-crimson/30 bg-crimson/10',
-  overlapping: 'text-acid-yellow border-acid-yellow/30 bg-acid-yellow/10',
+  contradictory: 'text-[var(--crimson)] border-[var(--crimson)]/30 bg-[var(--crimson)]/10',
+  overlapping: 'text-[var(--acid-yellow)] border-acid-yellow/30 bg-acid-yellow/10',
   redundant: 'text-text-muted border-text-muted/30 bg-text-muted/10',
   escalation: 'text-warning border-warning/30 bg-warning/10',
 };
 
 const syncStatusColors: Record<string, string> = {
-  synced: 'text-acid-green',
-  syncing: 'text-acid-cyan',
-  error: 'text-crimson',
-  stale: 'text-acid-yellow',
+  synced: 'text-[var(--accent)]',
+  syncing: 'text-[var(--acid-cyan)]',
+  error: 'text-[var(--crimson)]',
+  stale: 'text-[var(--acid-yellow)]',
   disabled: 'text-text-muted',
 };
 
 const syncStatusBg: Record<string, string> = {
-  synced: 'bg-acid-green/10 border-acid-green/30',
-  syncing: 'bg-acid-cyan/10 border-acid-cyan/30',
-  error: 'bg-crimson/10 border-crimson/30',
+  synced: 'bg-[var(--accent)]/10 border-[var(--accent)]/30',
+  syncing: 'bg-[var(--acid-cyan)]/10 border-[var(--acid-cyan)]/30',
+  error: 'bg-[var(--crimson)]/10 border-[var(--crimson)]/30',
   stale: 'bg-acid-yellow/10 border-acid-yellow/30',
   disabled: 'bg-text-muted/10 border-text-muted/30',
 };
@@ -192,43 +192,43 @@ function PolicyModal({
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 overflow-y-auto p-4">
       <div className="card p-6 w-full max-w-2xl my-4">
-        <h2 className="text-lg font-mono font-bold text-acid-green mb-4">
+        <h2 className="text-lg font-theme-data font-bold text-[var(--accent)] mb-4">
           {policy ? '[EDIT POLICY]' : '[NEW POLICY]'}
         </h2>
 
         <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
           {/* Name */}
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1">Name *</label>
+            <label className="block text-xs font-theme-data text-text-muted mb-1">Name *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Policy name"
-              className="w-full bg-bg border border-border px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+              className="w-full bg-bg border border-border px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1">Description</label>
+            <label className="block text-xs font-theme-data text-text-muted mb-1">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe what this policy enforces..."
               rows={2}
-              className="w-full bg-bg border border-border px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+              className="w-full bg-bg border border-border px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
 
           {/* Type & Severity */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Type</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Type</label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full bg-bg border border-border px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                className="w-full bg-bg border border-border px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="content">Content</option>
                 <option value="output">Output</option>
@@ -237,11 +237,11 @@ function PolicyModal({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Severity</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Severity</label>
               <select
                 value={severity}
                 onChange={(e) => setSeverity(e.target.value)}
-                className="w-full bg-bg border border-border px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                className="w-full bg-bg border border-border px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -254,23 +254,23 @@ function PolicyModal({
           {/* Framework & Vertical */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Framework ID</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Framework ID</label>
               <input
                 type="text"
                 value={frameworkId}
                 onChange={(e) => setFrameworkId(e.target.value)}
                 placeholder="default"
-                className="w-full bg-bg border border-border px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                className="w-full bg-bg border border-border px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Vertical ID</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Vertical ID</label>
               <input
                 type="text"
                 value={verticalId}
                 onChange={(e) => setVerticalId(e.target.value)}
                 placeholder="general"
-                className="w-full bg-bg border border-border px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                className="w-full bg-bg border border-border px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
           </div>
@@ -278,11 +278,11 @@ function PolicyModal({
           {/* Rules */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-mono text-text-muted">Rules</label>
+              <label className="text-xs font-theme-data text-text-muted">Rules</label>
               <button
                 type="button"
                 onClick={handleAddRule}
-                className="text-xs font-mono text-acid-green hover:text-acid-green/80"
+                className="text-xs font-theme-data text-[var(--accent)] hover:text-[var(--accent)]/80"
               >
                 [+ ADD RULE]
               </button>
@@ -291,11 +291,11 @@ function PolicyModal({
               {rules.map((rule, idx) => (
                 <div key={rule.id} className="bg-bg border border-border p-3 rounded space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-text-muted">Rule {idx + 1}</span>
+                    <span className="text-xs font-theme-data text-text-muted">Rule {idx + 1}</span>
                     <button
                       type="button"
                       onClick={() => handleRemoveRule(rule.id)}
-                      className="text-xs font-mono text-crimson hover:text-crimson/80"
+                      className="text-xs font-theme-data text-[var(--crimson)] hover:text-[var(--crimson)]/80"
                     >
                       [X]
                     </button>
@@ -307,7 +307,7 @@ function PolicyModal({
                         onChange={(e) =>
                           handleUpdateRule(rule.id, { action: e.target.value as PolicyRule['action'] })
                         }
-                        className="w-full bg-surface border border-border px-2 py-1 text-xs font-mono text-text focus:outline-none focus:border-acid-green"
+                        className="w-full bg-surface border border-border px-2 py-1 text-xs font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
                       >
                         <option value="warn">Warn</option>
                         <option value="block">Block</option>
@@ -321,7 +321,7 @@ function PolicyModal({
                         value={rule.pattern || ''}
                         onChange={(e) => handleUpdateRule(rule.id, { pattern: e.target.value })}
                         placeholder="Regex pattern (optional)"
-                        className="w-full bg-surface border border-border px-2 py-1 text-xs font-mono text-text focus:outline-none focus:border-acid-green"
+                        className="w-full bg-surface border border-border px-2 py-1 text-xs font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
                       />
                     </div>
                   </div>
@@ -330,7 +330,7 @@ function PolicyModal({
                     value={rule.message}
                     onChange={(e) => handleUpdateRule(rule.id, { message: e.target.value })}
                     placeholder="Violation message"
-                    className="w-full bg-surface border border-border px-2 py-1 text-xs font-mono text-text focus:outline-none focus:border-acid-green"
+                    className="w-full bg-surface border border-border px-2 py-1 text-xs font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
                   />
                 </div>
               ))}
@@ -348,13 +348,13 @@ function PolicyModal({
           <button
             onClick={handleSubmit}
             disabled={saving || !name.trim()}
-            className="flex-1 px-4 py-2 font-mono text-sm bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2 font-theme-data text-sm bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
           >
             {saving ? '[SAVING...]' : policy ? '[SAVE CHANGES]' : '[CREATE POLICY]'}
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 font-mono text-sm border border-border text-text-muted hover:border-text-muted transition-colors"
+            className="px-4 py-2 font-theme-data text-sm border border-border text-text-muted hover:border-text-muted transition-colors"
           >
             [CANCEL]
           </button>
@@ -397,51 +397,51 @@ function ViolationModal({
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
       <div className="card p-6 w-full max-w-lg">
-        <h2 className="text-lg font-mono font-bold text-acid-green mb-4">[VIOLATION DETAILS]</h2>
+        <h2 className="text-lg font-theme-data font-bold text-[var(--accent)] mb-4">[VIOLATION DETAILS]</h2>
 
         <div className="space-y-3">
           <div>
-            <span className="text-xs font-mono text-text-muted">Policy:</span>
-            <p className="font-mono text-text">{violation.rule_name || violation.policy_id}</p>
+            <span className="text-xs font-theme-data text-text-muted">Policy:</span>
+            <p className="font-theme-data text-text">{violation.rule_name || violation.policy_id}</p>
           </div>
           <div>
-            <span className="text-xs font-mono text-text-muted">Severity:</span>
-            <span className={`ml-2 px-2 py-0.5 text-xs font-mono border ${severityColors[violationSeverity]}`}>
+            <span className="text-xs font-theme-data text-text-muted">Severity:</span>
+            <span className={`ml-2 px-2 py-0.5 text-xs font-theme-data border ${severityColors[violationSeverity]}`}>
               {violationSeverity.toUpperCase()}
             </span>
           </div>
           <div>
-            <span className="text-xs font-mono text-text-muted">Status:</span>
-            <span className={`ml-2 px-2 py-0.5 text-xs font-mono border ${statusColors[violation.status]}`}>
+            <span className="text-xs font-theme-data text-text-muted">Status:</span>
+            <span className={`ml-2 px-2 py-0.5 text-xs font-theme-data border ${statusColors[violation.status]}`}>
               {violation.status.toUpperCase()}
             </span>
           </div>
           {violationDescription && (
             <div>
-              <span className="text-xs font-mono text-text-muted">Description:</span>
+              <span className="text-xs font-theme-data text-text-muted">Description:</span>
               <p className="text-sm text-text">{violationDescription}</p>
             </div>
           )}
           {violationSource && (
             <div>
-              <span className="text-xs font-mono text-text-muted">Source:</span>
+              <span className="text-xs font-theme-data text-text-muted">Source:</span>
               <p className="text-sm text-text">{violationSource}</p>
             </div>
           )}
           <div>
-            <span className="text-xs font-mono text-text-muted">Detected:</span>
+            <span className="text-xs font-theme-data text-text-muted">Detected:</span>
             <p className="text-sm text-text">{new Date(violation.detected_at).toLocaleString()}</p>
           </div>
 
           {violation.status === 'open' && (
             <div>
-              <label className="text-xs font-mono text-text-muted block mb-1">Resolution Notes</label>
+              <label className="text-xs font-theme-data text-text-muted block mb-1">Resolution Notes</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Add notes about the resolution..."
                 rows={2}
-                className="w-full bg-bg border border-border px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                className="w-full bg-bg border border-border px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
           )}
@@ -454,21 +454,21 @@ function ViolationModal({
               <button
                 onClick={() => handleUpdate('investigating')}
                 disabled={updating}
-                className="px-3 py-1.5 font-mono text-xs bg-acid-yellow/20 border border-acid-yellow text-acid-yellow hover:bg-acid-yellow/30 transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 font-theme-data text-xs bg-acid-yellow/20 border border-acid-yellow text-[var(--acid-yellow)] hover:bg-acid-yellow/30 transition-colors disabled:opacity-50"
               >
                 [INVESTIGATE]
               </button>
               <button
                 onClick={() => handleUpdate('resolved')}
                 disabled={updating}
-                className="px-3 py-1.5 font-mono text-xs bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 font-theme-data text-xs bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
               >
                 [RESOLVE]
               </button>
               <button
                 onClick={() => handleUpdate('false_positive')}
                 disabled={updating}
-                className="px-3 py-1.5 font-mono text-xs border border-text-muted text-text-muted hover:border-text transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 font-theme-data text-xs border border-text-muted text-text-muted hover:border-text transition-colors disabled:opacity-50"
               >
                 [FALSE POSITIVE]
               </button>
@@ -478,14 +478,14 @@ function ViolationModal({
             <button
               onClick={() => handleUpdate('resolved')}
               disabled={updating}
-              className="px-3 py-1.5 font-mono text-xs bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 font-theme-data text-xs bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               [RESOLVE]
             </button>
           )}
           <button
             onClick={onClose}
-            className="ml-auto px-3 py-1.5 font-mono text-xs border border-border text-text-muted hover:border-text-muted transition-colors"
+            className="ml-auto px-3 py-1.5 font-theme-data text-xs border border-border text-text-muted hover:border-text-muted transition-colors"
           >
             [CLOSE]
           </button>
@@ -537,27 +537,27 @@ function ComplianceCheckModal({
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
       <div className="card p-6 w-full max-w-lg">
-        <h2 className="text-lg font-mono font-bold text-acid-green mb-4">[COMPLIANCE CHECK]</h2>
+        <h2 className="text-lg font-theme-data font-bold text-[var(--accent)] mb-4">[COMPLIANCE CHECK]</h2>
 
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-mono text-text-muted block mb-1">Content to Check</label>
+            <label className="text-xs font-theme-data text-text-muted block mb-1">Content to Check</label>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Enter content to check against compliance policies..."
               rows={5}
-              className="w-full bg-bg border border-border px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+              className="w-full bg-bg border border-border px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
 
           {result && (
-            <div className={`p-4 rounded border ${result.compliant ? 'border-acid-green bg-acid-green/10' : 'border-crimson bg-crimson/10'}`}>
+            <div className={`p-4 rounded border ${result.compliant ? 'border-[var(--accent)] bg-[var(--accent)]/10' : 'border-[var(--crimson)] bg-[var(--crimson)]/10'}`}>
               <div className="flex items-center justify-between mb-2">
-                <span className={`font-mono font-bold ${result.compliant ? 'text-acid-green' : 'text-crimson'}`}>
+                <span className={`font-theme-data font-bold ${result.compliant ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'}`}>
                   {result.compliant ? 'COMPLIANT' : 'NON-COMPLIANT'}
                 </span>
-                <span className="font-mono text-sm text-text-muted">
+                <span className="font-theme-data text-sm text-text-muted">
                   Score: {result.score.toFixed(0)}%
                 </span>
               </div>
@@ -574,13 +574,13 @@ function ComplianceCheckModal({
           <button
             onClick={handleCheck}
             disabled={checking || !content.trim()}
-            className="flex-1 px-4 py-2 font-mono text-sm bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2 font-theme-data text-sm bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
           >
             {checking ? '[CHECKING...]' : '[CHECK]'}
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 font-mono text-sm border border-border text-text-muted hover:border-text-muted transition-colors"
+            className="px-4 py-2 font-theme-data text-sm border border-border text-text-muted hover:border-text-muted transition-colors"
           >
             [CLOSE]
           </button>
@@ -605,8 +605,8 @@ function ConflictPanel({ conflicts }: { conflicts: PolicyConflict[] }) {
   if (unresolvedConflicts.length === 0) {
     return (
       <div className="card p-6 text-center">
-        <div className="text-acid-green font-mono text-lg mb-2">NO CONFLICTS</div>
-        <div className="text-text-muted font-mono text-xs">
+        <div className="text-[var(--accent)] font-theme-data text-lg mb-2">NO CONFLICTS</div>
+        <div className="text-text-muted font-theme-data text-xs">
           PolicyConflictDetector found no contradictions between active policies.
         </div>
       </div>
@@ -616,7 +616,7 @@ function ConflictPanel({ conflicts }: { conflicts: PolicyConflict[] }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-mono text-text-muted">
+        <span className="text-xs font-theme-data text-text-muted">
           {unresolvedConflicts.length} unresolved conflict{unresolvedConflicts.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -632,45 +632,45 @@ function ConflictPanel({ conflicts }: { conflicts: PolicyConflict[] }) {
           >
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className={`text-xs font-mono uppercase px-2 py-0.5 border ${conflictTypeColors[conflict.conflict_type]}`}>
+                <span className={`text-xs font-theme-data uppercase px-2 py-0.5 border ${conflictTypeColors[conflict.conflict_type]}`}>
                   {conflict.conflict_type}
                 </span>
-                <span className={`text-xs font-mono uppercase px-2 py-0.5 border ${severityColors[conflict.severity]} ${severityBgColors[conflict.severity]}`}>
+                <span className={`text-xs font-theme-data uppercase px-2 py-0.5 border ${severityColors[conflict.severity]} ${severityBgColors[conflict.severity]}`}>
                   {conflict.severity}
                 </span>
               </div>
-              <div className="text-sm font-mono text-text mt-1">
-                <span className="text-acid-cyan">{conflict.policy_a_name}</span>
+              <div className="text-sm font-theme-data text-text mt-1">
+                <span className="text-[var(--acid-cyan)]">{conflict.policy_a_name}</span>
                 <span className="text-text-muted mx-2">vs</span>
-                <span className="text-acid-cyan">{conflict.policy_b_name}</span>
+                <span className="text-[var(--acid-cyan)]">{conflict.policy_b_name}</span>
               </div>
               <p className="text-xs text-text-muted mt-1">{conflict.description}</p>
             </div>
-            <span className="text-text-muted font-mono text-xs ml-2">
+            <span className="text-text-muted font-theme-data text-xs ml-2">
               {expandedId === conflict.id ? '[-]' : '[+]'}
             </span>
           </div>
 
           {expandedId === conflict.id && (
             <div className="mt-3 pt-3 border-t border-border space-y-2">
-              <div className="text-xs font-mono">
+              <div className="text-xs font-theme-data">
                 <span className="text-text-muted">Detected:</span>{' '}
                 <span className="text-text">{new Date(conflict.detected_at).toLocaleString()}</span>
               </div>
-              <div className="text-xs font-mono">
+              <div className="text-xs font-theme-data">
                 <span className="text-text-muted">Policy A:</span>{' '}
                 <span className="text-text">{conflict.policy_a_name}</span>{' '}
                 <span className="text-text-muted">({conflict.policy_a_id})</span>
               </div>
-              <div className="text-xs font-mono">
+              <div className="text-xs font-theme-data">
                 <span className="text-text-muted">Policy B:</span>{' '}
                 <span className="text-text">{conflict.policy_b_name}</span>{' '}
                 <span className="text-text-muted">({conflict.policy_b_id})</span>
               </div>
               {conflict.resolution_suggestion && (
-                <div className="bg-acid-green/5 border border-acid-green/20 rounded p-2 mt-2">
-                  <div className="text-xs font-mono text-acid-green mb-1">Suggested Resolution:</div>
-                  <div className="text-xs font-mono text-text">{conflict.resolution_suggestion}</div>
+                <div className="bg-[var(--accent)]/5 border border-[var(--accent)]/20 rounded p-2 mt-2">
+                  <div className="text-xs font-theme-data text-[var(--accent)] mb-1">Suggested Resolution:</div>
+                  <div className="text-xs font-theme-data text-text">{conflict.resolution_suggestion}</div>
                 </div>
               )}
             </div>
@@ -689,7 +689,7 @@ function SyncStatusPanel({ syncStatus }: { syncStatus: PolicySyncStatus | null }
   if (!syncStatus) {
     return (
       <div className="card p-4">
-        <div className="text-xs font-mono text-text-muted text-center py-3">
+        <div className="text-xs font-theme-data text-text-muted text-center py-3">
           Policy sync status unavailable.
         </div>
       </div>
@@ -699,20 +699,20 @@ function SyncStatusPanel({ syncStatus }: { syncStatus: PolicySyncStatus | null }
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono font-bold text-acid-green uppercase tracking-wide">
+        <h3 className="text-sm font-theme-data font-bold text-[var(--accent)] uppercase tracking-wide">
           {'>'} Policy Sync Scheduler
         </h3>
         <div className={`flex items-center gap-2 px-3 py-1 border rounded-full ${syncStatusBg[syncStatus.status]}`}>
           {syncStatus.status === 'syncing' && (
-            <span className="inline-block w-2 h-2 border border-acid-cyan border-t-transparent rounded-full animate-spin" />
+            <span className="inline-block w-2 h-2 border border-[var(--acid-cyan)] border-t-transparent rounded-full animate-spin" />
           )}
           {syncStatus.status === 'synced' && (
-            <span className="w-2 h-2 bg-acid-green rounded-full" />
+            <span className="w-2 h-2 bg-[var(--accent)] rounded-full" />
           )}
           {(syncStatus.status === 'error' || syncStatus.status === 'stale') && (
-            <span className={`w-2 h-2 rounded-full ${syncStatus.status === 'error' ? 'bg-crimson' : 'bg-acid-yellow'}`} />
+            <span className={`w-2 h-2 rounded-full ${syncStatus.status === 'error' ? 'bg-[var(--crimson)]' : 'bg-acid-yellow'}`} />
           )}
-          <span className={`text-xs font-mono ${syncStatusColors[syncStatus.status]}`}>
+          <span className={`text-xs font-theme-data ${syncStatusColors[syncStatus.status]}`}>
             {syncStatus.status.toUpperCase()}
           </span>
         </div>
@@ -720,38 +720,38 @@ function SyncStatusPanel({ syncStatus }: { syncStatus: PolicySyncStatus | null }
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <div className="text-xs font-mono text-text-muted mb-1">Scheduler</div>
-          <div className={`text-sm font-mono ${syncStatus.scheduler_running ? 'text-acid-green' : 'text-text-muted'}`}>
+          <div className="text-xs font-theme-data text-text-muted mb-1">Scheduler</div>
+          <div className={`text-sm font-theme-data ${syncStatus.scheduler_running ? 'text-[var(--accent)]' : 'text-text-muted'}`}>
             {syncStatus.scheduler_running ? 'RUNNING' : 'STOPPED'}
           </div>
         </div>
         <div>
-          <div className="text-xs font-mono text-text-muted mb-1">Sync Interval</div>
-          <div className="text-sm font-mono text-text">
+          <div className="text-xs font-theme-data text-text-muted mb-1">Sync Interval</div>
+          <div className="text-sm font-theme-data text-text">
             {syncStatus.sync_interval_seconds}s
           </div>
         </div>
         <div>
-          <div className="text-xs font-mono text-text-muted mb-1">Last Sync</div>
-          <div className="text-sm font-mono text-text">
+          <div className="text-xs font-theme-data text-text-muted mb-1">Last Sync</div>
+          <div className="text-sm font-theme-data text-text">
             {syncStatus.last_sync ? timeAgo(syncStatus.last_sync) : 'Never'}
           </div>
         </div>
         <div>
-          <div className="text-xs font-mono text-text-muted mb-1">Next Sync</div>
-          <div className="text-sm font-mono text-text">
+          <div className="text-xs font-theme-data text-text-muted mb-1">Next Sync</div>
+          <div className="text-sm font-theme-data text-text">
             {syncStatus.next_sync ? timeAgo(syncStatus.next_sync) : '--'}
           </div>
         </div>
         <div>
-          <div className="text-xs font-mono text-text-muted mb-1">Policies Synced</div>
-          <div className="text-sm font-mono text-acid-cyan">
+          <div className="text-xs font-theme-data text-text-muted mb-1">Policies Synced</div>
+          <div className="text-sm font-theme-data text-[var(--acid-cyan)]">
             {syncStatus.policies_synced}
           </div>
         </div>
         <div>
-          <div className="text-xs font-mono text-text-muted mb-1">Sync Errors</div>
-          <div className={`text-sm font-mono ${syncStatus.sync_errors > 0 ? 'text-crimson' : 'text-acid-green'}`}>
+          <div className="text-xs font-theme-data text-text-muted mb-1">Sync Errors</div>
+          <div className={`text-sm font-theme-data ${syncStatus.sync_errors > 0 ? 'text-[var(--crimson)]' : 'text-[var(--accent)]'}`}>
             {syncStatus.sync_errors}
           </div>
         </div>
@@ -916,15 +916,15 @@ export default function PolicyPage() {
           {/* Title */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-2xl font-mono font-bold text-acid-green mb-2">[POLICY_ADMIN]</h1>
-              <p className="text-text-muted font-mono text-sm">
+              <h1 className="text-2xl font-theme-data font-bold text-[var(--accent)] mb-2">[POLICY_ADMIN]</h1>
+              <p className="text-text-muted font-theme-data text-sm">
                 Compliance policies, conflict detection, and violation tracking
               </p>
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowComplianceCheck(true)}
-                className="px-4 py-2 font-mono text-sm border border-acid-cyan text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                className="px-4 py-2 font-theme-data text-sm border border-[var(--acid-cyan)] text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
               >
                 [CHECK CONTENT]
               </button>
@@ -933,7 +933,7 @@ export default function PolicyPage() {
                   setEditingPolicy(null);
                   setShowPolicyModal(true);
                 }}
-                className="px-4 py-2 font-mono text-sm bg-acid-green/20 border border-acid-green text-acid-green hover:bg-acid-green/30 transition-colors"
+                className="px-4 py-2 font-theme-data text-sm bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors"
               >
                 [+ NEW POLICY]
               </button>
@@ -944,7 +944,7 @@ export default function PolicyPage() {
 
           {loading ? (
             <div className="text-center py-12">
-              <div className="text-acid-green font-mono animate-pulse">Loading policy data...</div>
+              <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading policy data...</div>
             </div>
           ) : (
             <>
@@ -952,36 +952,36 @@ export default function PolicyPage() {
               {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
                   <div className="card p-4 text-center">
-                    <div className={`text-3xl font-mono ${riskScore < 25 ? 'text-acid-green' : riskScore < 50 ? 'text-acid-yellow' : riskScore < 75 ? 'text-warning' : 'text-crimson'}`}>
+                    <div className={`text-3xl font-theme-data ${riskScore < 25 ? 'text-[var(--accent)]' : riskScore < 50 ? 'text-[var(--acid-yellow)]' : riskScore < 75 ? 'text-warning' : 'text-[var(--crimson)]'}`}>
                       {100 - riskScore}%
                     </div>
-                    <div className="text-xs font-mono text-text-muted">Compliance Score</div>
+                    <div className="text-xs font-theme-data text-text-muted">Compliance Score</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-accent">
+                    <div className="text-3xl font-theme-data text-accent">
                       {stats.policies.enabled}/{stats.policies.total}
                     </div>
-                    <div className="text-xs font-mono text-text-muted">Active Policies</div>
+                    <div className="text-xs font-theme-data text-text-muted">Active Policies</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-crimson">{openViolations.length}</div>
-                    <div className="text-xs font-mono text-text-muted">Open Violations</div>
+                    <div className="text-3xl font-theme-data text-[var(--crimson)]">{openViolations.length}</div>
+                    <div className="text-xs font-theme-data text-text-muted">Open Violations</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className="text-3xl font-mono text-warning">{criticalViolations.length}</div>
-                    <div className="text-xs font-mono text-text-muted">Critical</div>
+                    <div className="text-3xl font-theme-data text-warning">{criticalViolations.length}</div>
+                    <div className="text-xs font-theme-data text-text-muted">Critical</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className={`text-3xl font-mono ${unresolvedConflicts.length > 0 ? 'text-acid-yellow' : 'text-acid-green'}`}>
+                    <div className={`text-3xl font-theme-data ${unresolvedConflicts.length > 0 ? 'text-[var(--acid-yellow)]' : 'text-[var(--accent)]'}`}>
                       {unresolvedConflicts.length}
                     </div>
-                    <div className="text-xs font-mono text-text-muted">Conflicts</div>
+                    <div className="text-xs font-theme-data text-text-muted">Conflicts</div>
                   </div>
                   <div className="card p-4 text-center">
-                    <div className={`text-3xl font-mono ${syncStatusColors[syncStatus?.status ?? 'disabled']}`}>
+                    <div className={`text-3xl font-theme-data ${syncStatusColors[syncStatus?.status ?? 'disabled']}`}>
                       {syncStatus?.status === 'synced' ? 'OK' : syncStatus?.status === 'syncing' ? '...' : syncStatus?.status?.toUpperCase() ?? '--'}
                     </div>
-                    <div className="text-xs font-mono text-text-muted">Sync Status</div>
+                    <div className="text-xs font-theme-data text-text-muted">Sync Status</div>
                   </div>
                 </div>
               )}
@@ -990,9 +990,9 @@ export default function PolicyPage() {
               <div className="flex gap-4 mb-6 border-b border-border">
                 <button
                   onClick={() => setActiveTab('policies')}
-                  className={`px-4 py-2 font-mono text-sm border-b-2 transition-colors ${
+                  className={`px-4 py-2 font-theme-data text-sm border-b-2 transition-colors ${
                     activeTab === 'policies'
-                      ? 'border-acid-green text-acid-green'
+                      ? 'border-[var(--accent)] text-[var(--accent)]'
                       : 'border-transparent text-text-muted hover:text-text'
                   }`}
                 >
@@ -1000,9 +1000,9 @@ export default function PolicyPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('violations')}
-                  className={`px-4 py-2 font-mono text-sm border-b-2 transition-colors ${
+                  className={`px-4 py-2 font-theme-data text-sm border-b-2 transition-colors ${
                     activeTab === 'violations'
-                      ? 'border-acid-green text-acid-green'
+                      ? 'border-[var(--accent)] text-[var(--accent)]'
                       : 'border-transparent text-text-muted hover:text-text'
                   }`}
                 >
@@ -1010,9 +1010,9 @@ export default function PolicyPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('conflicts')}
-                  className={`px-4 py-2 font-mono text-sm border-b-2 transition-colors ${
+                  className={`px-4 py-2 font-theme-data text-sm border-b-2 transition-colors ${
                     activeTab === 'conflicts'
-                      ? 'border-acid-yellow text-acid-yellow'
+                      ? 'border-acid-yellow text-[var(--acid-yellow)]'
                       : 'border-transparent text-text-muted hover:text-text'
                   }`}
                 >
@@ -1020,9 +1020,9 @@ export default function PolicyPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab('sync')}
-                  className={`px-4 py-2 font-mono text-sm border-b-2 transition-colors ${
+                  className={`px-4 py-2 font-theme-data text-sm border-b-2 transition-colors ${
                     activeTab === 'sync'
-                      ? 'border-acid-cyan text-acid-cyan'
+                      ? 'border-[var(--acid-cyan)] text-[var(--acid-cyan)]'
                       : 'border-transparent text-text-muted hover:text-text'
                   }`}
                 >
@@ -1035,43 +1035,43 @@ export default function PolicyPage() {
                 <div className="space-y-4">
                   {policies.length === 0 ? (
                     <div className="card p-8 text-center">
-                      <div className="text-text-muted font-mono">No policies defined. Create your first compliance policy.</div>
+                      <div className="text-text-muted font-theme-data">No policies defined. Create your first compliance policy.</div>
                     </div>
                   ) : (
                     policies.filter((policy): policy is LocalPolicy => Boolean(policy?.id)).map((policy) => (
                       <div
                         key={policy.id}
-                        className={`card p-4 transition-colors ${selectedPolicy?.id === policy.id ? 'border-acid-green/50' : 'hover:border-acid-green/30'}`}
+                        className={`card p-4 transition-colors ${selectedPolicy?.id === policy.id ? 'border-[var(--accent)]/50' : 'hover:border-[var(--accent)]/30'}`}
                       >
                         <div className="flex items-start justify-between">
                           <div
                             className="flex items-start gap-3 flex-1 cursor-pointer"
                             onClick={() => setSelectedPolicy(selectedPolicy?.id === policy.id ? null : policy)}
                           >
-                            <span className="text-acid-green font-mono text-lg">{typeIcons[policy.type || 'content'] || '#'}</span>
+                            <span className="text-[var(--accent)] font-theme-data text-lg">{typeIcons[policy.type || 'content'] || '#'}</span>
                             <div className="flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-mono font-bold text-text">{policy.name}</h3>
+                                <h3 className="font-theme-data font-bold text-text">{policy.name}</h3>
                                 {policy.level && (
-                                  <span className={`text-xs font-mono uppercase px-2 py-0.5 border ${
-                                    policy.level === 'mandatory' ? 'text-crimson border-crimson/30 bg-crimson/10'
-                                    : policy.level === 'recommended' ? 'text-acid-yellow border-acid-yellow/30 bg-acid-yellow/10'
+                                  <span className={`text-xs font-theme-data uppercase px-2 py-0.5 border ${
+                                    policy.level === 'mandatory' ? 'text-[var(--crimson)] border-[var(--crimson)]/30 bg-[var(--crimson)]/10'
+                                    : policy.level === 'recommended' ? 'text-[var(--acid-yellow)] border-acid-yellow/30 bg-acid-yellow/10'
                                     : 'text-text-muted border-text-muted/30 bg-text-muted/10'
                                   }`}>
                                     {policy.level}
                                   </span>
                                 )}
-                                <span className="text-xs font-mono text-text-muted">
+                                <span className="text-xs font-theme-data text-text-muted">
                                   [{policy.rules_count ?? policy.rules?.length ?? 0} rules]
                                 </span>
                               </div>
                               <p className="text-sm text-text-muted mt-1">{policy.description}</p>
                               <div className="flex items-center gap-3 mt-1">
                                 {policy.framework_id && (
-                                  <span className="text-xs font-mono text-acid-cyan">{policy.framework_id}</span>
+                                  <span className="text-xs font-theme-data text-[var(--acid-cyan)]">{policy.framework_id}</span>
                                 )}
                                 {policy.updated_at && (
-                                  <span className="text-xs font-mono text-text-muted">
+                                  <span className="text-xs font-theme-data text-text-muted">
                                     Updated {timeAgo(policy.updated_at)}
                                   </span>
                                 )}
@@ -1081,9 +1081,9 @@ export default function PolicyPage() {
                           <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => handleTogglePolicy(policy.id)}
-                              className={`px-3 py-1 font-mono text-xs border transition-colors ${
+                              className={`px-3 py-1 font-theme-data text-xs border transition-colors ${
                                 policy.enabled
-                                  ? 'border-acid-green text-acid-green hover:bg-acid-green/10'
+                                  ? 'border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/10'
                                   : 'border-text-muted text-text-muted hover:border-text'
                               }`}
                             >
@@ -1094,13 +1094,13 @@ export default function PolicyPage() {
                                 setEditingPolicy(policy);
                                 setShowPolicyModal(true);
                               }}
-                              className="px-3 py-1 font-mono text-xs border border-acid-cyan text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                              className="px-3 py-1 font-theme-data text-xs border border-[var(--acid-cyan)] text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                             >
                               [EDIT]
                             </button>
                             <button
                               onClick={() => handleDeletePolicy(policy.id)}
-                              className="px-3 py-1 font-mono text-xs border border-crimson text-crimson hover:bg-crimson/10 transition-colors"
+                              className="px-3 py-1 font-theme-data text-xs border border-[var(--crimson)] text-[var(--crimson)] hover:bg-[var(--crimson)]/10 transition-colors"
                             >
                               [DEL]
                             </button>
@@ -1110,11 +1110,11 @@ export default function PolicyPage() {
                         {/* Expanded details */}
                         {selectedPolicy?.id === policy.id && (
                           <div className="mt-4 pt-4 border-t border-border">
-                            <h4 className="font-mono text-sm text-acid-green mb-2">Rules ({policy.rules?.length || 0}):</h4>
+                            <h4 className="font-theme-data text-sm text-[var(--accent)] mb-2">Rules ({policy.rules?.length || 0}):</h4>
                             {policy.rules && policy.rules.length > 0 ? (
                               <div className="space-y-2">
                                 {policy.rules.map((rule) => (
-                                  <div key={rule.id} className="bg-bg p-2 rounded text-sm font-mono">
+                                  <div key={rule.id} className="bg-bg p-2 rounded text-sm font-theme-data">
                                     <span className={`${actionColors[rule.action] || 'text-text-muted'}`}>[{rule.action?.toUpperCase?.() || 'RULE'}]</span>{' '}
                                     {rule.message}
                                     {rule.pattern && <span className="text-text-muted ml-2">/{rule.pattern}/</span>}
@@ -1124,7 +1124,7 @@ export default function PolicyPage() {
                             ) : (
                               <div className="text-text-muted text-sm">No rules defined</div>
                             )}
-                            <div className="mt-3 text-xs text-text-muted font-mono">
+                            <div className="mt-3 text-xs text-text-muted font-theme-data">
                               Framework: {policy.framework_id || 'default'} | Vertical: {policy.vertical_id || 'general'}
                               {policy.workspace_id && ` | Workspace: ${policy.workspace_id}`}
                             </div>
@@ -1142,14 +1142,14 @@ export default function PolicyPage() {
                   {/* Filters */}
                   <div className="flex gap-4 flex-wrap">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-text-muted">Status:</span>
+                      <span className="text-xs font-theme-data text-text-muted">Status:</span>
                       {(['all', 'open', 'resolved'] as const).map((f) => (
                         <button
                           key={f}
                           onClick={() => setViolationFilter(f)}
-                          className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                          className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                             violationFilter === f
-                              ? 'border-acid-green text-acid-green bg-acid-green/10'
+                              ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
                               : 'border-border text-text-muted hover:border-text-muted'
                           }`}
                         >
@@ -1158,14 +1158,14 @@ export default function PolicyPage() {
                       ))}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-text-muted">Severity:</span>
+                      <span className="text-xs font-theme-data text-text-muted">Severity:</span>
                       {(['all', 'critical', 'high', 'medium', 'low'] as const).map((f) => (
                         <button
                           key={f}
                           onClick={() => setSeverityFilter(f)}
-                          className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                          className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                             severityFilter === f
-                              ? 'border-acid-green text-acid-green bg-acid-green/10'
+                              ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
                               : 'border-border text-text-muted hover:border-text-muted'
                           }`}
                         >
@@ -1178,13 +1178,13 @@ export default function PolicyPage() {
                   <div className="card">
                     {filteredViolations.length === 0 ? (
                       <div className="p-8 text-center">
-                        <div className="text-text-muted font-mono">
+                        <div className="text-text-muted font-theme-data">
                           {violations.length === 0 ? 'No violations recorded. Your content is compliant.' : 'No violations match the current filters.'}
                         </div>
                       </div>
                     ) : (
                       <div className="overflow-x-auto">
-                        <table className="w-full font-mono text-sm">
+                        <table className="w-full font-theme-data text-sm">
                           <thead>
                             <tr className="border-b border-border">
                               <th className="text-left py-3 px-4 text-text-muted">Policy</th>
@@ -1201,12 +1201,12 @@ export default function PolicyPage() {
                                 <td className="py-3 px-4">{violation.rule_name || violation.policy_id}</td>
                                 <td className="py-3 px-4 text-text-muted max-w-[200px] truncate">{violation.description}</td>
                                 <td className="py-3 px-4">
-                                  <span className={`text-xs font-mono px-2 py-0.5 border ${severityColors[violation.severity]}`}>
+                                  <span className={`text-xs font-theme-data px-2 py-0.5 border ${severityColors[violation.severity]}`}>
                                     {violation.severity.toUpperCase()}
                                   </span>
                                 </td>
                                 <td className="py-3 px-4">
-                                  <span className={`text-xs font-mono px-2 py-0.5 border ${statusColors[violation.status]}`}>
+                                  <span className={`text-xs font-theme-data px-2 py-0.5 border ${statusColors[violation.status]}`}>
                                     {violation.status.toUpperCase()}
                                   </span>
                                 </td>
@@ -1214,7 +1214,7 @@ export default function PolicyPage() {
                                 <td className="py-3 px-4">
                                   <button
                                     onClick={() => setSelectedViolation(violation)}
-                                    className="text-acid-cyan hover:text-acid-green text-xs"
+                                    className="text-[var(--acid-cyan)] hover:text-[var(--accent)] text-xs"
                                   >
                                     [VIEW]
                                   </button>
@@ -1233,7 +1233,7 @@ export default function PolicyPage() {
               {activeTab === 'conflicts' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-mono text-text-muted">
+                    <p className="text-xs font-theme-data text-text-muted">
                       PolicyConflictDetector analyzes active policies for contradictions, overlaps, and redundancies.
                     </p>
                   </div>
@@ -1245,7 +1245,7 @@ export default function PolicyPage() {
               {activeTab === 'sync' && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-mono text-text-muted">
+                    <p className="text-xs font-theme-data text-text-muted">
                       PolicySyncScheduler continuously synchronizes policies across distributed nodes.
                     </p>
                   </div>

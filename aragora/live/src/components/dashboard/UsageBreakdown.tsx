@@ -62,10 +62,10 @@ export function UsageBreakdown({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] flex items-center gap-2">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] flex items-center gap-2">
           <span>@</span> USAGE BREAKDOWN
         </h3>
-        <span className="text-xs font-mono text-[var(--text-muted)]">
+        <span className="text-xs font-theme-data text-[var(--text-muted)]">
           {getTimeRangeLabel(timeRange)}
         </span>
       </div>
@@ -106,7 +106,7 @@ export function UsageBreakdown({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Debate Activity */}
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-          <h4 className="text-xs font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
+          <h4 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
             <span>!</span> DEBATE ACTIVITY
           </h4>
           <div className="space-y-1">
@@ -130,7 +130,7 @@ export function UsageBreakdown({
 
         {/* Cost Breakdown */}
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-          <h4 className="text-xs font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
+          <h4 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
             <span>$</span> COST BREAKDOWN
           </h4>
           <div className="space-y-1">
@@ -154,7 +154,7 @@ export function UsageBreakdown({
 
         {/* Consensus Metrics */}
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-          <h4 className="text-xs font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
+          <h4 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
             <span>%</span> CONSENSUS
           </h4>
           <div className="space-y-1">
@@ -180,7 +180,7 @@ export function UsageBreakdown({
       {/* Forecast Section */}
       {forecast && (
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-          <h4 className="text-xs font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
+          <h4 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
             <span>{getTrendIcon(forecast.trend)}</span> MONTHLY FORECAST
             <span className="text-[var(--text-muted)]">
               ({(forecast.confidence * 100).toFixed(0)}% confidence)
@@ -188,36 +188,36 @@ export function UsageBreakdown({
           </h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-xs font-mono text-[var(--text-muted)] mb-1">Projected Debates</div>
-              <div className="text-lg font-mono font-bold text-[var(--acid-green)]">
+              <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">Projected Debates</div>
+              <div className="text-lg font-theme-data font-bold text-[var(--acid-green)]">
                 {formatNumber(forecast.projected_monthly_debates)}
               </div>
             </div>
             <div className="text-center">
-              <div className="text-xs font-mono text-[var(--text-muted)] mb-1">Projected Tokens</div>
-              <div className="text-lg font-mono font-bold text-[var(--acid-cyan)]">
+              <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">Projected Tokens</div>
+              <div className="text-lg font-theme-data font-bold text-[var(--acid-cyan)]">
                 {formatNumber(forecast.projected_monthly_tokens)}
               </div>
             </div>
             <div className="text-center">
-              <div className="text-xs font-mono text-[var(--text-muted)] mb-1">Projected Cost</div>
-              <div className="text-lg font-mono font-bold text-yellow-400">
+              <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">Projected Cost</div>
+              <div className="text-lg font-theme-data font-bold text-yellow-400">
                 {formatCurrency(forecast.projected_monthly_cost_usd)}
               </div>
             </div>
             <div className="text-center">
-              <div className="text-xs font-mono text-[var(--text-muted)] mb-1">Growth Rate</div>
-              <div className={`text-lg font-mono font-bold ${getTrendColor(forecast.trend) === 'green' ? 'text-green-400' : getTrendColor(forecast.trend) === 'red' ? 'text-red-400' : 'text-yellow-400'}`}>
+              <div className="text-xs font-theme-data text-[var(--text-muted)] mb-1">Growth Rate</div>
+              <div className={`text-lg font-theme-data font-bold ${getTrendColor(forecast.trend) === 'green' ? 'text-green-400' : getTrendColor(forecast.trend) === 'red' ? 'text-red-400' : 'text-yellow-400'}`}>
                 {forecast.growth_rate_percent >= 0 ? '+' : ''}{forecast.growth_rate_percent.toFixed(1)}%
               </div>
             </div>
           </div>
           {forecast.recommendations.length > 0 && (
             <div className="mt-4 pt-4 border-t border-[var(--border)]">
-              <div className="text-xs font-mono text-[var(--text-muted)] mb-2">RECOMMENDATIONS:</div>
+              <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">RECOMMENDATIONS:</div>
               <ul className="space-y-1">
                 {forecast.recommendations.slice(0, 3).map((rec, idx) => (
-                  <li key={idx} className="text-xs font-mono text-[var(--acid-green)]">
+                  <li key={idx} className="text-xs font-theme-data text-[var(--acid-green)]">
                     {'>'} {rec}
                   </li>
                 ))}

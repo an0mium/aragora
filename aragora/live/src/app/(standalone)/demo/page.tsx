@@ -791,7 +791,7 @@ function DetailRow({
       <dd
         className={
           mono
-            ? "break-all font-mono text-[12px] leading-5 text-[var(--text)]"
+            ? "break-all font-theme-data text-[12px] leading-5 text-[var(--text)]"
             : "text-sm font-medium leading-6 text-[var(--text)]"
         }
         title={title ?? value}

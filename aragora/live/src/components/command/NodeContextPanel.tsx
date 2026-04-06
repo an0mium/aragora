@@ -87,20 +87,20 @@ export function NodeContextPanel({ node, events, onAction, onClose }: NodeContex
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className={`px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider rounded ${config.bg} ${config.color} border ${config.border}`}>
+              <span className={`px-2 py-0.5 text-[10px] font-theme-data uppercase tracking-wider rounded ${config.bg} ${config.color} border ${config.border}`}>
                 {node.stage}
               </span>
-              <span className="px-2 py-0.5 text-[10px] font-mono text-text-muted bg-bg rounded border border-border">
+              <span className="px-2 py-0.5 text-[10px] font-theme-data text-text-muted bg-bg rounded border border-border">
                 {node.subtype}
               </span>
             </div>
-            <h3 className="text-sm font-mono font-bold text-text truncate">
+            <h3 className="text-sm font-theme-data font-bold text-text truncate">
               {node.label}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text text-sm font-mono ml-2 flex-shrink-0"
+            className="text-text-muted hover:text-text text-sm font-theme-data ml-2 flex-shrink-0"
           >
             {'\u00D7'}
           </button>
@@ -108,7 +108,7 @@ export function NodeContextPanel({ node, events, onAction, onClose }: NodeContex
 
         {/* Description */}
         {node.description && (
-          <div className="text-xs font-mono text-text-muted bg-bg p-3 rounded border border-border">
+          <div className="text-xs font-theme-data text-text-muted bg-bg p-3 rounded border border-border">
             {node.description}
           </div>
         )}
@@ -117,7 +117,7 @@ export function NodeContextPanel({ node, events, onAction, onClose }: NodeContex
         <div className="flex items-center gap-2">
           <StatusBadge status={node.status} />
           {node.priority > 0 && (
-            <span className="px-2 py-0.5 text-[10px] font-mono bg-amber-500/10 text-amber-400 rounded border border-amber-500/30">
+            <span className="px-2 py-0.5 text-[10px] font-theme-data bg-amber-500/10 text-amber-400 rounded border border-amber-500/30">
               Priority: {node.priority}
             </span>
           )}
@@ -125,13 +125,13 @@ export function NodeContextPanel({ node, events, onAction, onClose }: NodeContex
 
         {/* Action Buttons */}
         <div className="space-y-2">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">Actions</h4>
+          <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">Actions</h4>
           <div className="grid grid-cols-1 gap-1.5">
             {config.actions.map(a => (
               <button
                 key={a.action}
                 onClick={() => onAction(a.action, node.id)}
-                className="flex items-center gap-2 px-3 py-2 text-xs font-mono rounded border border-border bg-bg hover:bg-indigo-500/10 hover:border-indigo-500/30 text-text transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-xs font-theme-data rounded border border-border bg-bg hover:bg-indigo-500/10 hover:border-indigo-500/30 text-text transition-colors"
               >
                 <span>{a.icon}</span>
                 <span>{a.label}</span>
@@ -142,8 +142,8 @@ export function NodeContextPanel({ node, events, onAction, onClose }: NodeContex
 
         {/* Related Knowledge (placeholder) */}
         <div className="space-y-2">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">Related Knowledge</h4>
-          <div className="text-xs font-mono text-text-muted/50 bg-bg p-3 rounded border border-border text-center">
+          <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">Related Knowledge</h4>
+          <div className="text-xs font-theme-data text-text-muted/50 bg-bg p-3 rounded border border-border text-center">
             Select a node to see related knowledge from the Knowledge Mound
           </div>
         </div>
@@ -151,14 +151,14 @@ export function NodeContextPanel({ node, events, onAction, onClose }: NodeContex
         {/* Node Events */}
         {recentEvents.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+            <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
               Events ({events.length})
             </h4>
             <div className="space-y-1">
               {recentEvents.map(e => (
                 <div
                   key={e.id}
-                  className="flex items-center gap-2 px-2 py-1.5 text-[11px] font-mono bg-bg rounded border border-border"
+                  className="flex items-center gap-2 px-2 py-1.5 text-[11px] font-theme-data bg-bg rounded border border-border"
                 >
                   <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                     e.severity === 'error' ? 'bg-red-500' :
@@ -175,8 +175,8 @@ export function NodeContextPanel({ node, events, onAction, onClose }: NodeContex
         {/* Metadata */}
         {Object.keys(node.metadata).length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">Metadata</h4>
-            <pre className="text-[10px] font-mono text-text-muted bg-bg p-2 rounded border border-border overflow-x-auto max-h-32">
+            <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">Metadata</h4>
+            <pre className="text-[10px] font-theme-data text-text-muted bg-bg p-2 rounded border border-border overflow-x-auto max-h-32">
               {JSON.stringify(node.metadata, null, 2)}
             </pre>
           </div>
@@ -185,7 +185,7 @@ export function NodeContextPanel({ node, events, onAction, onClose }: NodeContex
         {/* Delete */}
         <button
           onClick={() => onAction('delete', node.id)}
-          className="w-full px-3 py-2 text-xs font-mono text-red-400 border border-red-500/20 rounded hover:bg-red-500/10 transition-colors"
+          className="w-full px-3 py-2 text-xs font-theme-data text-red-400 border border-red-500/20 rounded hover:bg-red-500/10 transition-colors"
         >
           Delete Node
         </button>
@@ -205,7 +205,7 @@ function StatusBadge({ status }: { status: string }) {
     blocked: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
   };
   return (
-    <span className={`px-2 py-0.5 text-[10px] font-mono uppercase rounded border ${colors[status] || colors.pending}`}>
+    <span className={`px-2 py-0.5 text-[10px] font-theme-data uppercase rounded border ${colors[status] || colors.pending}`}>
       {status}
     </span>
   );

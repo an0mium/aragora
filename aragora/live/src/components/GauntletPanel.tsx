@@ -8,7 +8,7 @@ import { logger } from '@/utils/logger';
 const GauntletHeatmap = dynamic(() => import('./GauntletHeatmap'), {
   ssr: false,
   loading: () => (
-    <div className="p-4 text-center text-text-muted text-sm font-mono">
+    <div className="p-4 text-center text-text-muted text-sm font-theme-data">
       Loading heatmap...
     </div>
   ),
@@ -33,7 +33,7 @@ interface GauntletPanelProps {
 }
 
 const verdictBadges: Record<string, string> = {
-  PASS: 'bg-acid-green/20 border-acid-green/50 text-acid-green',
+  PASS: 'bg-[var(--accent)]/20 border-[var(--accent)]/50 text-[var(--accent)]',
   CONDITIONAL: 'bg-amber-400/20 border-amber-400/50 text-amber-400',
   FAIL: 'bg-red-500/20 border-red-500/50 text-red-500',
   UNKNOWN: 'bg-surface border-border text-text-muted',
@@ -119,7 +119,7 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
     <div className="bg-surface border border-border rounded-lg">
       <div className="border-b border-border p-4 flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-mono text-acid-green flex items-center gap-2">
+          <h2 className="text-lg font-theme-data text-[var(--accent)] flex items-center gap-2">
             <span className="text-xl">⚔️</span> GAUNTLET RESULTS
           </h2>
           <p className="text-xs text-text-muted mt-1">
@@ -128,22 +128,22 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
         </div>
         <button
           onClick={fetchResults}
-          className="px-3 py-1 text-xs font-mono bg-bg border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+          className="px-3 py-1 text-xs font-theme-data bg-bg border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
         >
           REFRESH
         </button>
       </div>
 
       <div className="border-b border-border p-3 flex items-center gap-2 bg-bg/50">
-        <span className="text-xs text-text-muted font-mono">FILTER:</span>
+        <span className="text-xs text-text-muted font-theme-data">FILTER:</span>
         {['PASS', 'CONDITIONAL', 'FAIL'].map((verdict) => (
           <button
             key={verdict}
             onClick={() => setSelectedVerdict(selectedVerdict === verdict ? null : verdict)}
-            className={`px-2 py-0.5 text-xs font-mono border transition-colors ${
+            className={`px-2 py-0.5 text-xs font-theme-data border transition-colors ${
               selectedVerdict === verdict
                 ? verdictBadges[verdict]
-                : 'bg-bg border-border text-text-muted hover:border-acid-green/30'
+                : 'bg-bg border-border text-text-muted hover:border-[var(--accent)]/30'
             }`}
           >
             {verdict}
@@ -152,7 +152,7 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
         {selectedVerdict && (
           <button
             onClick={() => setSelectedVerdict(null)}
-            className="text-xs text-text-muted hover:text-acid-green"
+            className="text-xs text-text-muted hover:text-[var(--accent)]"
           >
             [CLEAR]
           </button>
@@ -162,13 +162,13 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
       <div className="max-h-[600px] overflow-y-auto">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="inline-block animate-spin text-acid-green text-2xl">⟳</div>
-            <p className="text-text-muted mt-2 font-mono text-sm">Loading results...</p>
+            <div className="inline-block animate-spin text-[var(--accent)] text-2xl">⟳</div>
+            <p className="text-text-muted mt-2 font-theme-data text-sm">Loading results...</p>
           </div>
         ) : error ? (
-          <div className="p-4 text-center text-red-500 font-mono text-sm">{error}</div>
+          <div className="p-4 text-center text-red-500 font-theme-data text-sm">{error}</div>
         ) : results.length === 0 ? (
-          <div className="p-8 text-center text-text-muted font-mono">
+          <div className="p-8 text-center text-text-muted font-theme-data">
             <p className="text-2xl mb-2">∅</p>
             <p>No stress test results yet</p>
             <p className="text-xs mt-2 text-text-muted/60">Run a security or compliance audit to see results here.</p>
@@ -185,18 +185,18 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span
-                          className={`px-2 py-0.5 text-xs font-mono border ${verdictBadges[result.verdict] || verdictBadges.UNKNOWN}`}
+                          className={`px-2 py-0.5 text-xs font-theme-data border ${verdictBadges[result.verdict] || verdictBadges.UNKNOWN}`}
                         >
                           {result.verdict}
                         </span>
-                        <span className="text-xs text-text-muted font-mono">
+                        <span className="text-xs text-text-muted font-theme-data">
                           {result.gauntlet_id.slice(-12)}
                         </span>
                       </div>
-                      <p className="text-sm text-text truncate font-mono">
+                      <p className="text-sm text-text truncate font-theme-data">
                         {result.input_summary}
                       </p>
-                      <div className="flex items-center gap-4 mt-2 text-xs text-text-muted font-mono">
+                      <div className="flex items-center gap-4 mt-2 text-xs text-text-muted font-theme-data">
                         <span>{formatDate(result.created_at)}</span>
                         <span>⏱ {formatDuration(result.duration_seconds)}</span>
                       </div>
@@ -204,17 +204,17 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
                     <div className="text-right">
                       <div className="flex items-center gap-2">
                         {result.critical_count > 0 && (
-                          <span className="px-2 py-0.5 bg-red-500/20 text-red-500 text-xs font-mono border border-red-500/30">
+                          <span className="px-2 py-0.5 bg-red-500/20 text-red-500 text-xs font-theme-data border border-red-500/30">
                             {result.critical_count} CRIT
                           </span>
                         )}
                         {result.high_count > 0 && (
-                          <span className="px-2 py-0.5 bg-amber-500/20 text-amber-500 text-xs font-mono border border-amber-500/30">
+                          <span className="px-2 py-0.5 bg-amber-500/20 text-amber-500 text-xs font-theme-data border border-amber-500/30">
                             {result.high_count} HIGH
                           </span>
                         )}
                       </div>
-                      <div className="mt-2 text-xs text-text-muted font-mono">
+                      <div className="mt-2 text-xs text-text-muted font-theme-data">
                         {result.total_findings} finding{result.total_findings !== 1 ? 's' : ''}
                       </div>
                     </div>
@@ -225,7 +225,7 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
                   <div className="bg-bg border-t border-border p-4">
                     {/* Details Error */}
                     {detailsError && (
-                      <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded text-red-500 font-mono text-sm flex items-center justify-between">
+                      <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded text-red-500 font-theme-data text-sm flex items-center justify-between">
                         <span>{detailsError}</span>
                         <button
                           onClick={() => fetchDetails(result.gauntlet_id)}
@@ -247,7 +247,7 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
                         href={`${apiBase}/api/gauntlet/${result.gauntlet_id}/receipt?format=html`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1 text-xs font-mono bg-acid-green/10 border border-acid-green/30 text-acid-green hover:bg-acid-green/20 transition-colors"
+                        className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
                       >
                         📜 VIEW RECEIPT
                       </a>
@@ -255,7 +255,7 @@ export function GauntletPanel({ apiBase }: GauntletPanelProps) {
                         href={`${apiBase}/api/gauntlet/${result.gauntlet_id}/heatmap?format=svg`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-3 py-1 text-xs font-mono bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/20 transition-colors"
+                        className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/20 transition-colors"
                       >
                         🔥 EXPORT SVG
                       </a>

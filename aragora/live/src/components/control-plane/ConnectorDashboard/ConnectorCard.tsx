@@ -82,13 +82,13 @@ export function ConnectorCard({
       case 'connected':
         return 'text-success';
       case 'syncing':
-        return 'text-acid-cyan';
+        return 'text-[var(--acid-cyan)]';
       case 'disconnected':
         return 'text-text-muted';
       case 'configuring':
-        return 'text-acid-yellow';
+        return 'text-[var(--acid-yellow)]';
       case 'error':
-        return 'text-crimson';
+        return 'text-[var(--crimson)]';
       default:
         return 'text-text-muted';
     }
@@ -99,13 +99,13 @@ export function ConnectorCard({
       case 'connected':
         return 'bg-success';
       case 'syncing':
-        return 'bg-acid-cyan animate-pulse';
+        return 'bg-[var(--acid-cyan)] animate-pulse';
       case 'disconnected':
         return 'bg-text-muted';
       case 'configuring':
         return 'bg-acid-yellow';
       case 'error':
-        return 'bg-crimson';
+        return 'bg-[var(--crimson)]';
       default:
         return 'bg-text-muted';
     }
@@ -139,14 +139,14 @@ export function ConnectorCard({
         onClick={() => onSelect?.(connector)}
         className={`p-3 rounded border cursor-pointer transition-all ${
           selected
-            ? 'border-acid-green bg-acid-green/10'
-            : 'border-border bg-surface hover:border-acid-green/50'
+            ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+            : 'border-border bg-surface hover:border-[var(--accent)]/50'
         }`}
       >
         <div className="flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${statusIndicator}`} />
-          <span className="font-mono text-sm">{connector.name}</span>
-          <span className={`text-xs font-mono ml-auto ${statusColor}`}>
+          <span className="font-theme-data text-sm">{connector.name}</span>
+          <span className={`text-xs font-theme-data ml-auto ${statusColor}`}>
             {connector.status.toUpperCase()}
           </span>
         </div>
@@ -157,7 +157,7 @@ export function ConnectorCard({
   return (
     <div
       className={`card p-4 transition-all ${
-        selected ? 'border-acid-green ring-1 ring-acid-green/30' : ''
+        selected ? 'border-[var(--accent)] ring-1 ring-acid-green/30' : ''
       }`}
     >
       {/* Header */}
@@ -170,13 +170,13 @@ export function ConnectorCard({
             {CONNECTOR_EMOJI[connector.type]}
           </div>
           <div>
-            <h3 className="font-mono font-medium">{connector.name}</h3>
+            <h3 className="font-theme-data font-medium">{connector.name}</h3>
             <p className="text-xs text-text-muted">{connector.description}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${statusIndicator}`} />
-          <span className={`text-xs font-mono uppercase ${statusColor}`}>
+          <span className={`text-xs font-theme-data uppercase ${statusColor}`}>
             {connector.status}
           </span>
         </div>
@@ -187,11 +187,11 @@ export function ConnectorCard({
         <div className="mb-3">
           <div className="h-1.5 bg-surface rounded overflow-hidden">
             <div
-              className="h-full bg-acid-cyan transition-all"
+              className="h-full bg-[var(--acid-cyan)] transition-all"
               style={{ width: `${connector.sync_progress * 100}%` }}
             />
           </div>
-          <div className="text-xs text-text-muted font-mono mt-1 text-right">
+          <div className="text-xs text-text-muted font-theme-data mt-1 text-right">
             {Math.round(connector.sync_progress * 100)}%
           </div>
         </div>
@@ -199,7 +199,7 @@ export function ConnectorCard({
 
       {/* Error Message */}
       {connector.status === 'error' && connector.error_message && (
-        <div className="mb-3 p-2 bg-crimson/10 border border-crimson/30 rounded text-xs text-crimson font-mono">
+        <div className="mb-3 p-2 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded text-xs text-[var(--crimson)] font-theme-data">
           {connector.error_message}
         </div>
       )}
@@ -207,12 +207,12 @@ export function ConnectorCard({
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="bg-surface p-2 rounded">
-          <div className="text-xs text-text-muted font-mono">Last Sync</div>
-          <div className="text-sm font-mono">{formatLastSync(connector.last_sync)}</div>
+          <div className="text-xs text-text-muted font-theme-data">Last Sync</div>
+          <div className="text-sm font-theme-data">{formatLastSync(connector.last_sync)}</div>
         </div>
         <div className="bg-surface p-2 rounded">
-          <div className="text-xs text-text-muted font-mono">Items</div>
-          <div className="text-sm font-mono">{formatItemCount(connector.items_synced)}</div>
+          <div className="text-xs text-text-muted font-theme-data">Items</div>
+          <div className="text-sm font-theme-data">{formatItemCount(connector.items_synced)}</div>
         </div>
       </div>
 
@@ -220,7 +220,7 @@ export function ConnectorCard({
       <div className="flex gap-2">
         <button
           onClick={() => onConfigure?.(connector)}
-          className="flex-1 px-3 py-1.5 text-xs font-mono border border-border rounded hover:border-acid-green transition-colors"
+          className="flex-1 px-3 py-1.5 text-xs font-theme-data border border-border rounded hover:border-[var(--accent)] transition-colors"
         >
           Configure
         </button>
@@ -228,13 +228,13 @@ export function ConnectorCard({
           <>
             <button
               onClick={() => onSync?.(connector)}
-              className="flex-1 px-3 py-1.5 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/30 transition-colors"
+              className="flex-1 px-3 py-1.5 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/30 transition-colors"
             >
               Sync Now
             </button>
             <button
               onClick={() => onDisconnect?.(connector)}
-              className="px-3 py-1.5 text-xs font-mono text-crimson border border-crimson/30 rounded hover:bg-crimson/10 transition-colors"
+              className="px-3 py-1.5 text-xs font-theme-data text-[var(--crimson)] border border-[var(--crimson)]/30 rounded hover:bg-[var(--crimson)]/10 transition-colors"
               title="Disconnect"
             >
               x
@@ -244,7 +244,7 @@ export function ConnectorCard({
         {connector.status === 'disconnected' && (
           <button
             onClick={() => onConfigure?.(connector)}
-            className="flex-1 px-3 py-1.5 text-xs font-mono bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/30 rounded hover:bg-acid-cyan/30 transition-colors"
+            className="flex-1 px-3 py-1.5 text-xs font-theme-data bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 rounded hover:bg-[var(--acid-cyan)]/30 transition-colors"
           >
             Connect
           </button>
@@ -252,7 +252,7 @@ export function ConnectorCard({
         {connector.status === 'syncing' && (
           <button
             onClick={() => onSync?.(connector)}
-            className="flex-1 px-3 py-1.5 text-xs font-mono text-acid-yellow border border-acid-yellow/30 rounded hover:bg-acid-yellow/10 transition-colors"
+            className="flex-1 px-3 py-1.5 text-xs font-theme-data text-[var(--acid-yellow)] border border-acid-yellow/30 rounded hover:bg-acid-yellow/10 transition-colors"
           >
             Cancel
           </button>

@@ -47,7 +47,7 @@ function ReputationTabPanelComponent({ reputations, loading }: ReputationTabPane
                 {rep.agent}
               </Link>
               <span
-                className={`text-sm font-mono font-bold ${
+                className={`text-sm font-theme-data font-bold ${
                   rep.score >= 0.7
                     ? 'text-green-400'
                     : rep.score >= 0.4

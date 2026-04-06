@@ -74,7 +74,7 @@ const EVENT_COLORS: Record<string, string> = {
   debate_end: 'text-fuchsia-400 border-fuchsia-400/30',
   intervention_pause: 'text-yellow-400 border-yellow-400/30',
   intervention_resume: 'text-green-400 border-green-400/30',
-  intervention_inject: 'text-acid-yellow border-acid-yellow/30',
+  intervention_inject: 'text-[var(--acid-yellow)] border-acid-yellow/30',
   hollow_consensus: 'text-red-400 border-red-400/30',
   trickster_intervention: 'text-red-400 border-red-400/30',
 };
@@ -214,10 +214,10 @@ export function DebateTimeline({ messages, streamEvents, agents }: DebateTimelin
   }, []);
 
   return (
-    <div className="bg-surface border border-acid-green/30">
+    <div className="bg-surface border border-[var(--accent)]/30">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
-        <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 flex items-center justify-between">
+        <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
           {'>'} DEBATE TIMELINE ({filteredEntries.length} events)
         </span>
         <div className="flex items-center gap-2">
@@ -225,7 +225,7 @@ export function DebateTimeline({ messages, streamEvents, agents }: DebateTimelin
           <select
             value={selectedAgent || ''}
             onChange={(e) => setSelectedAgent(e.target.value || null)}
-            className="text-[10px] font-mono bg-bg border border-border text-text-muted px-1 py-0.5"
+            className="text-[10px] font-theme-data bg-bg border border-border text-text-muted px-1 py-0.5"
           >
             <option value="">All Agents</option>
             {agents.map(agent => (
@@ -241,7 +241,7 @@ export function DebateTimeline({ messages, streamEvents, agents }: DebateTimelin
           <button
             key={type}
             onClick={() => toggleFilter(type)}
-            className={`px-1.5 py-0.5 text-[10px] font-mono border transition-colors ${
+            className={`px-1.5 py-0.5 text-[10px] font-theme-data border transition-colors ${
               filterTypes.has(type)
                 ? `${EVENT_COLORS[type] || 'text-text-muted border-border'} bg-surface`
                 : 'text-text-muted/50 border-border/50 bg-bg'
@@ -255,7 +255,7 @@ export function DebateTimeline({ messages, streamEvents, agents }: DebateTimelin
       {/* Timeline entries */}
       <div className="p-4 space-y-0 max-h-[600px] overflow-y-auto">
         {filteredEntries.length === 0 ? (
-          <div className="text-center text-text-muted text-xs font-mono py-8">
+          <div className="text-center text-text-muted text-xs font-theme-data py-8">
             No timeline events to display
           </div>
         ) : (
@@ -282,7 +282,7 @@ export function DebateTimeline({ messages, streamEvents, agents }: DebateTimelin
                   className="flex-1 pb-3 cursor-pointer"
                   onClick={() => entry.detail ? toggleEntry(entry.id) : undefined}
                 >
-                  <div className="flex items-center gap-2 text-[10px] font-mono">
+                  <div className="flex items-center gap-2 text-[10px] font-theme-data">
                     <span className="text-text-muted">{formatTime(entry.timestamp)}</span>
                     <span className={eventColor.split(' ')[0]}>
                       [{EVENT_LABELS[entry.type] || entry.type.toUpperCase()}]
@@ -294,11 +294,11 @@ export function DebateTimeline({ messages, streamEvents, agents }: DebateTimelin
                       <span className="text-text-muted">R{entry.round}</span>
                     )}
                   </div>
-                  <div className="text-xs text-text font-mono mt-0.5">
+                  <div className="text-xs text-text font-theme-data mt-0.5">
                     {entry.content}
                   </div>
                   {isExpanded && entry.detail && (
-                    <div className="text-xs text-text-muted font-mono mt-1 pl-2 border-l border-border whitespace-pre-wrap">
+                    <div className="text-xs text-text-muted font-theme-data mt-1 pl-2 border-l border-border whitespace-pre-wrap">
                       {entry.detail}
                     </div>
                   )}

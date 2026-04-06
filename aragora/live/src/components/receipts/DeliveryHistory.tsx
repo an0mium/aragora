@@ -221,7 +221,7 @@ function DeliveryRecordItem({ record }: DeliveryRecordItemProps) {
         <div className="flex items-center gap-3">
           <span className="text-xl">{CHANNEL_ICONS[record.channel]}</span>
           <div>
-            <div className="font-mono text-sm">
+            <div className="font-theme-data text-sm">
               {record.destinationName || record.destination}
             </div>
             <div className="text-xs text-text-muted">
@@ -231,7 +231,7 @@ function DeliveryRecordItem({ record }: DeliveryRecordItemProps) {
         </div>
         <div className="text-right">
           <span
-            className={`px-2 py-0.5 text-xs font-mono rounded ${statusColors[record.status]}`}
+            className={`px-2 py-0.5 text-xs font-theme-data rounded ${statusColors[record.status]}`}
           >
             {record.status}
           </span>

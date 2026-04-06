@@ -101,7 +101,7 @@ function StageFilterSidebar({ enabledStages, onToggle, onFocus, nodeCounts }: St
       className="w-48 flex-shrink-0 bg-surface border-r border-border h-full overflow-y-auto p-4"
       data-testid="mc-stage-filter-sidebar"
     >
-      <h3 className="text-sm font-mono font-bold text-text-muted uppercase tracking-wide mb-4">
+      <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase tracking-wide mb-4">
         Stages
       </h3>
       <div className="space-y-2">
@@ -116,7 +116,7 @@ function StageFilterSidebar({ enabledStages, onToggle, onFocus, nodeCounts }: St
               <button
                 onClick={() => onToggle(stage)}
                 className={`
-                  w-full flex items-center justify-between px-3 py-2 rounded font-mono text-xs
+                  w-full flex items-center justify-between px-3 py-2 rounded font-theme-data text-xs
                   transition-all duration-200 border
                   ${enabled
                     ? 'border-current opacity-100'
@@ -127,11 +127,11 @@ function StageFilterSidebar({ enabledStages, onToggle, onFocus, nodeCounts }: St
                 data-testid={`mc-stage-toggle-${stage}`}
               >
                 <span className="flex items-center gap-1.5">
-                  <span className="text-text-muted text-xs font-mono">{idx + 1}</span>
+                  <span className="text-text-muted text-xs font-theme-data">{idx + 1}</span>
                   <span className="font-bold uppercase">{config.label}</span>
                 </span>
                 <span
-                  className="px-1.5 py-0.5 rounded-full text-xs font-mono"
+                  className="px-1.5 py-0.5 rounded-full text-xs font-theme-data"
                   style={{
                     backgroundColor: enabled ? `${color}33` : 'transparent',
                   }}
@@ -141,7 +141,7 @@ function StageFilterSidebar({ enabledStages, onToggle, onFocus, nodeCounts }: St
               </button>
               <button
                 onClick={() => onFocus(stage)}
-                className="w-full text-center text-xs font-mono text-text-muted hover:text-text transition-colors"
+                className="w-full text-center text-xs font-theme-data text-text-muted hover:text-text transition-colors"
                 data-testid={`mc-stage-focus-${stage}`}
               >
                 Focus
@@ -152,10 +152,10 @@ function StageFilterSidebar({ enabledStages, onToggle, onFocus, nodeCounts }: St
       </div>
 
       <div className="mt-6 pt-4 border-t border-border">
-        <h4 className="text-xs font-mono text-text-muted mb-2 uppercase tracking-wide">
+        <h4 className="text-xs font-theme-data text-text-muted mb-2 uppercase tracking-wide">
           Shortcuts
         </h4>
-        <div className="space-y-1 text-xs font-mono text-text-muted">
+        <div className="space-y-1 text-xs font-theme-data text-text-muted">
           {ALL_STAGES.map((stage, idx) => (
             <div key={stage} className="flex justify-between">
               <span>{PIPELINE_STAGE_CONFIG[stage].label}</span>
@@ -230,7 +230,7 @@ function ProvenanceSidebar({
       data-testid="mc-provenance-sidebar"
     >
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono font-bold text-text uppercase">Provenance</h3>
+        <h3 className="text-sm font-theme-data font-bold text-text uppercase">Provenance</h3>
         <button
           onClick={onClose}
           className="text-text-muted hover:text-text text-lg leading-none"
@@ -242,12 +242,12 @@ function ProvenanceSidebar({
 
       <div className="mb-4">
         <p className="text-sm text-text truncate">{nodeLabel}</p>
-        <p className="text-xs text-text-muted font-mono">{nodeId}</p>
+        <p className="text-xs text-text-muted font-theme-data">{nodeId}</p>
       </div>
 
       <div className="space-y-4">
         <div className="p-3 bg-bg rounded border border-border">
-          <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-2">
+          <h4 className="text-xs font-theme-data font-bold text-text-muted uppercase mb-2">
             Upstream Provenance
           </h4>
           <ProvenanceTrail
@@ -262,7 +262,7 @@ function ProvenanceSidebar({
 
         {provenanceChain.length > 0 ? (
           <div className="space-y-2">
-            <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-2">
+            <h4 className="text-xs font-theme-data font-bold text-text-muted uppercase mb-2">
               Derivation Chain
             </h4>
             {provenanceChain.map((entry, i) => {
@@ -274,18 +274,18 @@ function ProvenanceSidebar({
                       className="w-2 h-2 rounded-full inline-block"
                       style={{ backgroundColor: stageColor }}
                     />
-                    <span className="text-xs font-mono uppercase" style={{ color: stageColor }}>
+                    <span className="text-xs font-theme-data uppercase" style={{ color: stageColor }}>
                       {entry.stage}
                     </span>
                     {entry.method && (
-                      <span className="text-xs text-text-muted font-mono">
+                      <span className="text-xs text-text-muted font-theme-data">
                         ({entry.method})
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-text truncate mb-1">{entry.nodeLabel}</p>
                   {entry.contentHash && (
-                    <p className="text-xs text-text-muted font-mono">
+                    <p className="text-xs text-text-muted font-theme-data">
                       #{entry.contentHash.slice(0, 12)}
                     </p>
                   )}
@@ -298,7 +298,7 @@ function ProvenanceSidebar({
         )}
 
         <div className="space-y-2">
-          <h4 className="text-xs font-mono font-bold text-text-muted uppercase mb-2">
+          <h4 className="text-xs font-theme-data font-bold text-text-muted uppercase mb-2">
             Downstream Execution
           </h4>
           {downstreamExecution.length > 0 ? (
@@ -313,30 +313,30 @@ function ProvenanceSidebar({
                   disabled={!entry.navigable}
                   className={`w-full text-left p-2 bg-bg rounded border border-border transition-colors ${
                     entry.navigable
-                      ? 'hover:border-acid-green/50'
+                      ? 'hover:border-[var(--accent)]/50'
                       : 'opacity-80 cursor-default'
                   }`}
                   data-testid="mc-downstream-execution-entry"
                 >
                   <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <span className={`px-1 py-0.5 text-xs rounded font-mono ${colors.bg} ${colors.text}`}>
+                    <span className={`px-1 py-0.5 text-xs rounded font-theme-data ${colors.bg} ${colors.text}`}>
                       {stageLabel}
                     </span>
                     <StatusBadge status={entry.status} size="sm" agent={entry.agent} />
                     {entry.isSelectedNode && (
-                      <span className="px-1 py-0.5 text-[10px] rounded font-mono bg-acid-green/10 text-acid-green border border-acid-green/30">
+                      <span className="px-1 py-0.5 text-[10px] rounded font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30">
                         selected
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-text truncate mb-1">{entry.label}</p>
-                  <div className="flex items-center gap-2 text-[10px] text-text-muted font-mono flex-wrap">
+                  <div className="flex items-center gap-2 text-[10px] text-text-muted font-theme-data flex-wrap">
                     {entry.agent && <span>{entry.agent}</span>}
                     {entry.elapsedMs != null && <span>{(entry.elapsedMs / 1000).toFixed(1)}s</span>}
                     {entry.rawStatus && <span>{entry.rawStatus.replace('_', ' ')}</span>}
                   </div>
                   {entry.outputPreview && (
-                    <p className="mt-1 text-[10px] text-text-muted font-mono bg-surface/40 rounded px-1.5 py-1 line-clamp-2">
+                    <p className="mt-1 text-[10px] text-text-muted font-theme-data bg-surface/40 rounded px-1.5 py-1 line-clamp-2">
                       {entry.outputPreview}
                     </p>
                   )}
@@ -649,7 +649,7 @@ function MissionControlCanvasInner() {
             {/* Error banner */}
             {error && (
               <Panel position="top-center">
-                <div className="px-4 py-2 bg-red-500/20 border border-red-500 rounded text-sm text-red-300 font-mono">
+                <div className="px-4 py-2 bg-red-500/20 border border-red-500 rounded text-sm text-red-300 font-theme-data">
                   {error}
                 </div>
               </Panel>
@@ -658,7 +658,7 @@ function MissionControlCanvasInner() {
             {/* Loading indicator */}
             {loading && (
               <Panel position="top-center">
-                <div className="px-4 py-2 bg-blue-500/20 border border-blue-500 rounded text-sm text-blue-300 font-mono flex items-center gap-2">
+                <div className="px-4 py-2 bg-blue-500/20 border border-blue-500 rounded text-sm text-blue-300 font-theme-data flex items-center gap-2">
                   <span className="inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
                   Processing...
                 </div>
@@ -667,7 +667,7 @@ function MissionControlCanvasInner() {
 
             {/* Bottom panel: stats */}
             <Panel position="bottom-left" className="bg-surface/90 border border-border rounded p-2">
-              <div className="text-xs font-mono text-text-muted">
+              <div className="text-xs font-theme-data text-text-muted">
                 {pipelineId && (
                   <>
                     Pipeline: <span className="text-text">{pipelineId.slice(0, 12)}</span>
@@ -690,7 +690,7 @@ function MissionControlCanvasInner() {
 
             {/* Bottom right: keyboard hint */}
             <Panel position="bottom-right" className="bg-surface/90 border border-border rounded p-2">
-              <div className="text-xs font-mono text-text-muted">
+              <div className="text-xs font-theme-data text-text-muted">
                 <kbd className="px-1 bg-bg border border-border rounded">1</kbd>-
                 <kbd className="px-1 bg-bg border border-border rounded">5</kbd> stages |{' '}
                 <kbd className="px-1 bg-bg border border-border rounded">A</kbd> all
@@ -700,7 +700,7 @@ function MissionControlCanvasInner() {
             {/* Brain dump trigger placeholder */}
             <Panel position="top-left">
               <button
-                className="px-3 py-1.5 bg-violet-600 text-white font-mono text-xs font-bold rounded
+                className="px-3 py-1.5 bg-violet-600 text-white font-theme-data text-xs font-bold rounded
                            hover:bg-violet-500 transition-colors disabled:opacity-40"
                 disabled={loading}
                 data-testid="mc-brain-dump-trigger"

@@ -119,7 +119,7 @@ export function StaleKnowledgeTab({
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-2 border-acid-green border-t-transparent rounded-full mx-auto" />
+          <div className="animate-spin w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full mx-auto" />
           <p className="text-sm text-text-muted mt-4">Loading stale knowledge...</p>
         </div>
       </div>
@@ -130,14 +130,14 @@ export function StaleKnowledgeTab({
     return (
       <div className="text-center py-12">
         <span className="text-4xl">✅</span>
-        <h4 className="font-mono font-bold text-text mt-4">All Knowledge Current</h4>
+        <h4 className="font-theme-data font-bold text-text mt-4">All Knowledge Current</h4>
         <p className="text-sm text-text-muted mt-2">
           No stale knowledge nodes need revalidation
         </p>
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className="mt-4 px-4 py-2 text-xs font-mono bg-bg border border-border rounded hover:border-acid-green transition-colors"
+            className="mt-4 px-4 py-2 text-xs font-theme-data bg-bg border border-border rounded hover:border-[var(--accent)] transition-colors"
           >
             CHECK AGAIN
           </button>
@@ -169,7 +169,7 @@ export function StaleKnowledgeTab({
             <button
               onClick={handleBulkRevalidate}
               disabled={bulkLoading}
-              className="px-3 py-1 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/50 rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {bulkLoading ? '...' : `REVALIDATE (${selectedNodes.size})`}
             </button>
@@ -180,9 +180,9 @@ export function StaleKnowledgeTab({
           <span className="text-xs text-text-muted">Sort by:</span>
           <button
             onClick={() => setSortBy('daysStale')}
-            className={`px-2 py-1 text-xs font-mono rounded ${
+            className={`px-2 py-1 text-xs font-theme-data rounded ${
               sortBy === 'daysStale'
-                ? 'bg-acid-green/20 text-acid-green'
+                ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                 : 'bg-bg border border-border'
             }`}
           >
@@ -190,9 +190,9 @@ export function StaleKnowledgeTab({
           </button>
           <button
             onClick={() => setSortBy('confidence')}
-            className={`px-2 py-1 text-xs font-mono rounded ${
+            className={`px-2 py-1 text-xs font-theme-data rounded ${
               sortBy === 'confidence'
-                ? 'bg-acid-green/20 text-acid-green'
+                ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                 : 'bg-bg border border-border'
             }`}
           >
@@ -208,7 +208,7 @@ export function StaleKnowledgeTab({
             key={node.id}
             className={`
               p-4 bg-bg border rounded-lg transition-colors
-              ${selectedNodes.has(node.id) ? 'border-acid-green' : 'border-border'}
+              ${selectedNodes.has(node.id) ? 'border-[var(--accent)]' : 'border-border'}
             `}
           >
             <div className="flex items-start gap-3">
@@ -226,7 +226,7 @@ export function StaleKnowledgeTab({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-text line-clamp-2">{node.content}</p>
                     <div className="flex items-center gap-3 mt-2 text-xs">
-                      <span className="px-1.5 py-0.5 bg-surface border border-border rounded font-mono">
+                      <span className="px-1.5 py-0.5 bg-surface border border-border rounded font-theme-data">
                         {node.node_type}
                       </span>
                       <span className="text-text-muted">
@@ -244,7 +244,7 @@ export function StaleKnowledgeTab({
                       <button
                         onClick={() => handleRevalidate(node.id)}
                         disabled={actionLoading === node.id}
-                        className="px-2 py-1 text-xs font-mono text-acid-green hover:bg-acid-green/10 rounded transition-colors disabled:opacity-50"
+                        className="px-2 py-1 text-xs font-theme-data text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded transition-colors disabled:opacity-50"
                       >
                         {actionLoading === node.id ? '...' : 'REVALIDATE'}
                       </button>
@@ -252,7 +252,7 @@ export function StaleKnowledgeTab({
                     {onDismiss && (
                       <button
                         onClick={() => onDismiss(node.id)}
-                        className="px-2 py-1 text-xs font-mono text-text-muted hover:text-text hover:bg-surface rounded transition-colors"
+                        className="px-2 py-1 text-xs font-theme-data text-text-muted hover:text-text hover:bg-surface rounded transition-colors"
                       >
                         DISMISS
                       </button>
@@ -262,7 +262,7 @@ export function StaleKnowledgeTab({
 
                 {/* Stale Reason */}
                 <div className="mt-3 p-2 bg-yellow-500/10 border border-yellow-500/20 rounded">
-                  <span className="text-xs text-yellow-400 font-mono">
+                  <span className="text-xs text-yellow-400 font-theme-data">
                     Reason: {STALE_REASONS[node.staleReason] || node.staleReason}
                   </span>
                   {node.lastValidated && (
@@ -284,7 +284,7 @@ export function StaleKnowledgeTab({
           {onRefresh && (
             <button
               onClick={onRefresh}
-              className="text-acid-green hover:underline"
+              className="text-[var(--accent)] hover:underline"
             >
               Refresh
             </button>

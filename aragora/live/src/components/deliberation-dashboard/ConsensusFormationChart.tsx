@@ -39,12 +39,12 @@ export function ConsensusFormationChart({
 
   if (dataPoints.length === 0) {
     return (
-      <div className="bg-surface border border-acid-green/30 p-4">
-        <div className="text-xs font-mono text-acid-green mb-2 uppercase">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
+        <div className="text-xs font-theme-data text-[var(--accent)] mb-2 uppercase">
           {'>'} CONSENSUS FORMATION
         </div>
         <div
-          className="flex items-center justify-center text-text-muted font-mono text-xs"
+          className="flex items-center justify-center text-text-muted font-theme-data text-xs"
           style={{ height }}
         >
           Waiting for consensus data...
@@ -73,14 +73,14 @@ export function ConsensusFormationChart({
   const currentConsensus = dataPoints[dataPoints.length - 1]?.consensus ?? 0;
 
   return (
-    <div className="bg-surface border border-acid-green/30 p-4">
+    <div className="bg-surface border border-[var(--accent)]/30 p-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-mono text-acid-green uppercase">
+        <span className="text-xs font-theme-data text-[var(--accent)] uppercase">
           {'>'} CONSENSUS FORMATION
         </span>
-        <span className={`text-sm font-mono ${
+        <span className={`text-sm font-theme-data ${
           currentConsensus >= 0.8 ? 'text-success' :
-          currentConsensus >= 0.5 ? 'text-acid-yellow' :
+          currentConsensus >= 0.5 ? 'text-[var(--acid-yellow)]' :
           'text-text-muted'
         }`}>
           {Math.round(currentConsensus * 100)}%
@@ -105,7 +105,7 @@ export function ConsensusFormationChart({
               y={yScale(threshold)}
               textAnchor="end"
               dominantBaseline="middle"
-              className="text-[8px] font-mono fill-text-muted"
+              className="text-[8px] font-theme-data fill-text-muted"
             >
               {Math.round(threshold * 100)}
             </text>
@@ -153,7 +153,7 @@ export function ConsensusFormationChart({
               x={xScale(i)}
               y={padding.top + chartHeight + 12}
               textAnchor="middle"
-              className="text-[8px] font-mono fill-text-muted"
+              className="text-[8px] font-theme-data fill-text-muted"
             >
               R{point.round}
             </text>

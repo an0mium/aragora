@@ -108,12 +108,12 @@ export function TemplateMarketplace() {
   return (
     <div className="mt-8">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} DEBATE TEMPLATES
         </h3>
         <Link
           href="/templates"
-          className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
         >
           BROWSE ALL
         </Link>
@@ -133,12 +133,12 @@ export function TemplateMarketplace() {
               {/* Category + Pro badge row */}
               <div className="flex items-center justify-between mb-2">
                 <span
-                  className={`px-2 py-0.5 text-[10px] font-mono border ${catStyle}`}
+                  className={`px-2 py-0.5 text-[10px] font-theme-data border ${catStyle}`}
                 >
                   {template.category.toUpperCase()}
                 </span>
                 {template.isPro && (
-                  <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono bg-yellow-500/15 text-yellow-400 border border-yellow-500/30">
+                  <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-theme-data bg-yellow-500/15 text-yellow-400 border border-yellow-500/30">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       viewBox="0 0 16 16"
@@ -157,23 +157,23 @@ export function TemplateMarketplace() {
               </div>
 
               {/* Title */}
-              <h4 className="text-sm font-mono text-[var(--text)] group-hover:text-[var(--acid-green)] transition-colors mb-1">
+              <h4 className="text-sm font-theme-data text-[var(--text)] group-hover:text-[var(--acid-green)] transition-colors mb-1">
                 {template.title}
               </h4>
 
               {/* Description */}
-              <p className="text-[11px] font-mono text-[var(--text-muted)] leading-relaxed mb-3 flex-1 line-clamp-2">
+              <p className="text-[11px] font-theme-data text-[var(--text-muted)] leading-relaxed mb-3 flex-1 line-clamp-2">
                 {template.description}
               </p>
 
               {/* Footer: difficulty + CTA */}
               <div className="flex items-center justify-between mt-auto pt-2 border-t border-[var(--border)]">
                 <span
-                  className={`px-2 py-0.5 text-[10px] font-mono border ${diffStyle.className}`}
+                  className={`px-2 py-0.5 text-[10px] font-theme-data border ${diffStyle.className}`}
                 >
                   {diffStyle.label}
                 </span>
-                <span className="text-[10px] font-mono text-[var(--text-muted)] group-hover:text-[var(--acid-green)] transition-colors">
+                <span className="text-[10px] font-theme-data text-[var(--text-muted)] group-hover:text-[var(--acid-green)] transition-colors">
                   START {'>'}
                 </span>
               </div>

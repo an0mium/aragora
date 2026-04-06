@@ -274,12 +274,12 @@ export function VoiceInput({
         aria-pressed={state === 'recording'}
         className={`
           relative w-10 h-10 rounded-full border-2 transition-all
-          flex items-center justify-center font-mono
+          flex items-center justify-center font-theme-data
           ${state === 'recording'
-            ? 'border-crimson bg-crimson/20 text-crimson animate-pulse'
+            ? 'border-[var(--crimson)] bg-[var(--crimson)]/20 text-[var(--crimson)] animate-pulse'
             : state === 'processing' || state === 'requesting'
-            ? 'border-acid-cyan bg-acid-cyan/10 text-acid-cyan cursor-wait'
-            : 'border-acid-green/50 text-acid-green hover:border-acid-green hover:bg-acid-green/10'
+            ? 'border-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] cursor-wait'
+            : 'border-[var(--accent)]/50 text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/10'
           }
           disabled:opacity-50 disabled:cursor-not-allowed
         `}
@@ -292,7 +292,7 @@ export function VoiceInput({
         }
       >
         {state === 'recording' ? (
-          <span className="w-3 h-3 bg-crimson rounded-sm" />
+          <span className="w-3 h-3 bg-[var(--crimson)] rounded-sm" />
         ) : state === 'processing' || state === 'requesting' ? (
           <span className="animate-spin">*</span>
         ) : (
@@ -302,7 +302,7 @@ export function VoiceInput({
 
       {/* Audio level / duration display */}
       {state === 'recording' && (
-        <div className="flex items-center gap-2 text-xs font-mono">
+        <div className="flex items-center gap-2 text-xs font-theme-data">
           {showWaveform && (
             <div className="flex items-end gap-0.5 h-4" aria-hidden="true" role="presentation">
               {Array.from({ length: 5 }).map((_, i) => {
@@ -312,7 +312,7 @@ export function VoiceInput({
                   <div
                     key={i}
                     className={`w-1 transition-all duration-75 ${
-                      active ? 'bg-acid-green' : 'bg-acid-green/30'
+                      active ? 'bg-[var(--accent)]' : 'bg-[var(--accent)]/30'
                     }`}
                     style={{ height: `${(i + 1) * 20}%` }}
                   />
@@ -320,12 +320,12 @@ export function VoiceInput({
               })}
             </div>
           )}
-          <span className="text-crimson">{formatDuration(duration)}</span>
+          <span className="text-[var(--crimson)]">{formatDuration(duration)}</span>
         </div>
       )}
 
       {state === 'processing' && (
-        <span className="text-xs font-mono text-acid-cyan">Processing...</span>
+        <span className="text-xs font-theme-data text-[var(--acid-cyan)]">Processing...</span>
       )}
     </div>
   );
@@ -382,14 +382,14 @@ export function VoiceInputExpanded({
           disabled={disabled}
           showWaveform
         />
-        <span className="text-xs text-text-muted font-mono">
+        <span className="text-xs text-text-muted font-theme-data">
           Click to record, click again to stop
         </span>
       </div>
 
       {transcript && (
-        <div className="p-3 bg-surface border border-acid-green/20 rounded text-sm font-mono">
-          <div className="text-xs text-acid-green/70 mb-1">TRANSCRIPT:</div>
+        <div className="p-3 bg-surface border border-[var(--accent)]/20 rounded text-sm font-theme-data">
+          <div className="text-xs text-[var(--accent)]/70 mb-1">TRANSCRIPT:</div>
           <div className="text-text">{transcript}</div>
         </div>
       )}

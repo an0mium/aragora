@@ -307,8 +307,8 @@ export function RoutingRulesBuilder({
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 px-4 py-2 text-sm font-mono rounded transition-colors ${
-              activeTab === tab.id ? 'bg-acid-green text-bg' : 'text-text-muted hover:text-text'
+            className={`flex-1 px-4 py-2 text-sm font-theme-data rounded transition-colors ${
+              activeTab === tab.id ? 'bg-[var(--accent)] text-bg' : 'text-text-muted hover:text-text'
             }`}
           >
             {tab.label}
@@ -326,11 +326,11 @@ export function RoutingRulesBuilder({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search rules..."
-              className="flex-1 px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+              className="flex-1 px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
             />
             <button
               onClick={handleCreateRule}
-              className="px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+              className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors"
             >
               + New Rule
             </button>
@@ -344,7 +344,7 @@ export function RoutingRulesBuilder({
                 <p className="text-text-muted">No routing rules yet</p>
                 <button
                   onClick={handleCreateRule}
-                  className="mt-4 px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+                  className="mt-4 px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors"
                 >
                   Create Your First Rule
                 </button>
@@ -353,7 +353,7 @@ export function RoutingRulesBuilder({
               filteredRules.map((rule) => (
                 <div
                   key={rule.id}
-                  className={`card p-4 cursor-pointer hover:border-acid-green/50 transition-colors ${
+                  className={`card p-4 cursor-pointer hover:border-[var(--accent)]/50 transition-colors ${
                     !rule.enabled ? 'opacity-60' : ''
                   }`}
                   onClick={() => handleEditRule(rule)}
@@ -361,11 +361,11 @@ export function RoutingRulesBuilder({
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-mono font-bold">{rule.name}</h3>
+                        <h3 className="font-theme-data font-bold">{rule.name}</h3>
                         <span
                           className={`px-2 py-0.5 text-xs rounded ${
                             rule.enabled
-                              ? 'bg-acid-green/20 text-acid-green'
+                              ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                               : 'bg-surface text-text-muted'
                           }`}
                         >
@@ -381,7 +381,7 @@ export function RoutingRulesBuilder({
                           {rule.conditions.length} condition{rule.conditions.length !== 1 ? 's' : ''}
                         </span>
                         <span className="text-text-muted">→</span>
-                        <span className="text-acid-green">
+                        <span className="text-[var(--accent)]">
                           {rule.actions.length} action{rule.actions.length !== 1 ? 's' : ''}
                         </span>
                       </div>
@@ -394,7 +394,7 @@ export function RoutingRulesBuilder({
                         }}
                         className={`p-2 rounded transition-colors ${
                           rule.enabled
-                            ? 'bg-acid-green/20 text-acid-green hover:bg-acid-green/30'
+                            ? 'bg-[var(--accent)]/20 text-[var(--accent)] hover:bg-[var(--accent)]/30'
                             : 'bg-surface text-text-muted hover:bg-surface-alt'
                         }`}
                         title={rule.enabled ? 'Disable rule' : 'Enable rule'}
@@ -421,15 +421,15 @@ export function RoutingRulesBuilder({
           {/* Templates Section */}
           {templates.length > 0 && (
             <div className="mt-6">
-              <h3 className="font-mono text-sm mb-3 text-text-muted">Templates</h3>
+              <h3 className="font-theme-data text-sm mb-3 text-text-muted">Templates</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {templates.map((template) => (
                   <button
                     key={template.id}
                     onClick={() => handleUseTemplate(template)}
-                    className="card p-3 text-left hover:border-acid-green/50 transition-colors"
+                    className="card p-3 text-left hover:border-[var(--accent)]/50 transition-colors"
                   >
-                    <div className="font-mono text-sm font-bold mb-1">{template.name}</div>
+                    <div className="font-theme-data text-sm font-bold mb-1">{template.name}</div>
                     <p className="text-xs text-text-muted">{template.description}</p>
                   </button>
                 ))}
@@ -445,41 +445,41 @@ export function RoutingRulesBuilder({
           {/* Rule Metadata */}
           <div className="card p-4 space-y-4">
             <div>
-              <label className="block text-sm font-mono mb-1">Rule Name</label>
+              <label className="block text-sm font-theme-data mb-1">Rule Name</label>
               <input
                 type="text"
                 value={editorRule.name || ''}
                 onChange={(e) => setEditorRule({ ...editorRule, name: e.target.value })}
                 placeholder="Enter rule name..."
-                className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+                className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-mono mb-1">Description</label>
+              <label className="block text-sm font-theme-data mb-1">Description</label>
               <textarea
                 value={editorRule.description || ''}
                 onChange={(e) => setEditorRule({ ...editorRule, description: e.target.value })}
                 placeholder="What does this rule do?"
                 rows={2}
-                className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none resize-none"
+                className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none resize-none"
               />
             </div>
             <div className="flex items-center gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-mono mb-1">Priority</label>
+                <label className="block text-sm font-theme-data mb-1">Priority</label>
                 <input
                   type="number"
                   value={editorRule.priority || 0}
                   onChange={(e) => setEditorRule({ ...editorRule, priority: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+                  className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
                 />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-sm font-mono">Enabled</label>
+                <label className="text-sm font-theme-data">Enabled</label>
                 <button
                   onClick={() => setEditorRule({ ...editorRule, enabled: !editorRule.enabled })}
                   className={`relative w-10 h-5 rounded-full transition-colors ${
-                    editorRule.enabled ? 'bg-acid-green' : 'bg-surface-alt'
+                    editorRule.enabled ? 'bg-[var(--accent)]' : 'bg-surface-alt'
                   }`}
                 >
                   <span
@@ -514,14 +514,14 @@ export function RoutingRulesBuilder({
           <div className="flex items-center justify-end gap-3">
             <button
               onClick={() => setActiveTab('rules')}
-              className="px-4 py-2 text-sm font-mono text-text-muted hover:text-text transition-colors"
+              className="px-4 py-2 text-sm font-theme-data text-text-muted hover:text-text transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveRule}
               disabled={saving}
-              className="px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving...' : selectedRule ? 'Update Rule' : 'Create Rule'}
             </button>
@@ -533,18 +533,18 @@ export function RoutingRulesBuilder({
       {activeTab === 'test' && (
         <div className="space-y-4">
           <div className="card p-4">
-            <label className="block text-sm font-mono mb-2">Test Context (JSON)</label>
+            <label className="block text-sm font-theme-data mb-2">Test Context (JSON)</label>
             <textarea
               value={testContext}
               onChange={(e) => setTestContext(e.target.value)}
               rows={8}
-              className="w-full px-3 py-2 text-sm font-mono bg-surface border border-border rounded focus:border-acid-green focus:outline-none resize-none"
+              className="w-full px-3 py-2 text-sm font-theme-data bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none resize-none"
               placeholder='{"confidence": 0.65, "topic": "security"}'
             />
             <button
               onClick={handleTestRules}
               disabled={testing}
-              className="mt-3 px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50"
+              className="mt-3 px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50"
             >
               {testing ? 'Evaluating...' : 'Evaluate Rules'}
             </button>
@@ -552,22 +552,22 @@ export function RoutingRulesBuilder({
 
           {testResults && (
             <div className="card p-4">
-              <h3 className="font-mono text-sm mb-3">Results</h3>
+              <h3 className="font-theme-data text-sm mb-3">Results</h3>
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-surface rounded p-3 text-center">
-                  <div className="text-xl font-mono font-bold text-text">
+                  <div className="text-xl font-theme-data font-bold text-text">
                     {testResults.rules_evaluated}
                   </div>
                   <div className="text-xs text-text-muted">Evaluated</div>
                 </div>
                 <div className="bg-surface rounded p-3 text-center">
-                  <div className="text-xl font-mono font-bold text-acid-green">
+                  <div className="text-xl font-theme-data font-bold text-[var(--accent)]">
                     {testResults.rules_matched}
                   </div>
                   <div className="text-xs text-text-muted">Matched</div>
                 </div>
                 <div className="bg-surface rounded p-3 text-center">
-                  <div className="text-xl font-mono font-bold text-cyan-400">
+                  <div className="text-xl font-theme-data font-bold text-cyan-400">
                     {testResults.matching_actions.length}
                   </div>
                   <div className="text-xs text-text-muted">Actions</div>
@@ -579,15 +579,15 @@ export function RoutingRulesBuilder({
                   <div
                     key={result.rule_id}
                     className={`p-3 rounded ${
-                      result.matched ? 'bg-acid-green/10 border border-acid-green/30' : 'bg-surface'
+                      result.matched ? 'bg-[var(--accent)]/10 border border-[var(--accent)]/30' : 'bg-surface'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-sm">{result.rule_name}</span>
+                      <span className="font-theme-data text-sm">{result.rule_name}</span>
                       <span
                         className={`px-2 py-0.5 text-xs rounded ${
                           result.matched
-                            ? 'bg-acid-green/20 text-acid-green'
+                            ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                             : 'bg-surface-alt text-text-muted'
                         }`}
                       >

@@ -41,17 +41,17 @@ interface PluginMarketplacePanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 const CAPABILITY_COLORS: Record<string, { text: string; bg: string }> = {
-  code_analysis: { text: 'text-acid-cyan', bg: 'bg-acid-cyan/20' },
-  lint: { text: 'text-acid-yellow', bg: 'bg-acid-yellow/20' },
+  code_analysis: { text: 'text-[var(--acid-cyan)]', bg: 'bg-[var(--acid-cyan)]/20' },
+  lint: { text: 'text-[var(--acid-yellow)]', bg: 'bg-acid-yellow/20' },
   security_scan: { text: 'text-acid-red', bg: 'bg-acid-red/20' },
-  type_check: { text: 'text-acid-green', bg: 'bg-acid-green/20' },
-  test_runner: { text: 'text-acid-cyan', bg: 'bg-acid-cyan/20' },
-  benchmark: { text: 'text-acid-yellow', bg: 'bg-acid-yellow/20' },
-  formatter: { text: 'text-acid-green', bg: 'bg-acid-green/20' },
-  evidence_fetch: { text: 'text-acid-cyan', bg: 'bg-acid-cyan/20' },
+  type_check: { text: 'text-[var(--accent)]', bg: 'bg-[var(--accent)]/20' },
+  test_runner: { text: 'text-[var(--acid-cyan)]', bg: 'bg-[var(--acid-cyan)]/20' },
+  benchmark: { text: 'text-[var(--acid-yellow)]', bg: 'bg-acid-yellow/20' },
+  formatter: { text: 'text-[var(--accent)]', bg: 'bg-[var(--accent)]/20' },
+  evidence_fetch: { text: 'text-[var(--acid-cyan)]', bg: 'bg-[var(--acid-cyan)]/20' },
   documentation: { text: 'text-text', bg: 'bg-surface' },
   formal_verify: { text: 'text-acid-red', bg: 'bg-acid-red/20' },
-  property_check: { text: 'text-acid-yellow', bg: 'bg-acid-yellow/20' },
+  property_check: { text: 'text-[var(--acid-yellow)]', bg: 'bg-acid-yellow/20' },
   custom: { text: 'text-text-muted', bg: 'bg-surface' },
 };
 
@@ -275,8 +275,8 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
     return (
       <div className="card p-6">
         <div className="flex items-center gap-3">
-          <div className="animate-spin w-5 h-5 border-2 border-acid-green border-t-transparent rounded-full" />
-          <span className="font-mono text-text-muted">Loading plugins...</span>
+          <div className="animate-spin w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+          <span className="font-theme-data text-text-muted">Loading plugins...</span>
         </div>
       </div>
     );
@@ -298,13 +298,13 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
         <div className="bg-warning/10 border border-warning/30 rounded px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-warning">⚠</span>
-            <span className="font-mono text-sm text-warning">
+            <span className="font-theme-data text-sm text-warning">
               Demo Mode - Showing example plugins (API unavailable)
             </span>
           </div>
           <button
             onClick={fetchPlugins}
-            className="font-mono text-xs text-warning hover:text-warning/80 transition-colors"
+            className="font-theme-data text-xs text-warning hover:text-warning/80 transition-colors"
           >
             [RETRY]
           </button>
@@ -315,7 +315,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
       <div className="card p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block font-mono text-xs text-text-muted mb-2">
+            <label className="block font-theme-data text-xs text-text-muted mb-2">
               Search Plugins
             </label>
             <input
@@ -323,17 +323,17 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by name, description, or tags..."
-              className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
           <div>
-            <label className="block font-mono text-xs text-text-muted mb-2">
+            <label className="block font-theme-data text-xs text-text-muted mb-2">
               Filter by Capability
             </label>
             <select
               value={filterCapability}
               onChange={(e) => setFilterCapability(e.target.value)}
-              className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             >
               <option value="">All Capabilities</option>
               {allCapabilities.map((cap) => (
@@ -350,11 +350,11 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
       <div className="card p-4">
         <div className="grid grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-2xl font-mono text-acid-green">{plugins.length}</div>
-            <div className="text-xs font-mono text-text-muted">Total Plugins</div>
+            <div className="text-2xl font-theme-data text-[var(--accent)]">{plugins.length}</div>
+            <div className="text-xs font-theme-data text-text-muted">Total Plugins</div>
           </div>
           <div>
-            <div className="text-2xl font-mono text-accent">
+            <div className="text-2xl font-theme-data text-accent">
               {installedError === 'auth' ? (
                 <span className="text-text-muted" title="Login to see installed plugins">--</span>
               ) : installedError ? (
@@ -363,17 +363,17 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
                 installedPlugins.size
               )}
             </div>
-            <div className="text-xs font-mono text-text-muted">
+            <div className="text-xs font-theme-data text-text-muted">
               {installedError === 'auth' ? 'Login Required' : 'Installed'}
             </div>
           </div>
           <div>
-            <div className="text-2xl font-mono text-acid-cyan">{allCapabilities.length}</div>
-            <div className="text-xs font-mono text-text-muted">Capabilities</div>
+            <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">{allCapabilities.length}</div>
+            <div className="text-xs font-theme-data text-text-muted">Capabilities</div>
           </div>
           <div>
-            <div className="text-2xl font-mono text-acid-yellow">{filteredPlugins.length}</div>
-            <div className="text-xs font-mono text-text-muted">Showing</div>
+            <div className="text-2xl font-theme-data text-[var(--acid-yellow)]">{filteredPlugins.length}</div>
+            <div className="text-xs font-theme-data text-text-muted">Showing</div>
           </div>
         </div>
       </div>
@@ -389,23 +389,23 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
               setSelectedPlugin(plugin);
               fetchPluginDetails(plugin.name);
             }}
-            className={`card p-4 text-left transition-all hover:border-acid-green/60 ${
-              selectedPlugin?.name === plugin.name ? 'border-acid-green bg-acid-green/5' : ''
+            className={`card p-4 text-left transition-all hover:border-[var(--accent)]/60 ${
+              selectedPlugin?.name === plugin.name ? 'border-[var(--accent)] bg-[var(--accent)]/5' : ''
             } ${isInstalled ? 'ring-1 ring-accent/50' : ''}`}
           >
             <div className="flex items-start justify-between mb-2">
               <div className="flex items-center gap-2">
-                <h3 className="font-mono text-acid-green font-bold">{plugin.name}</h3>
+                <h3 className="font-theme-data text-[var(--accent)] font-bold">{plugin.name}</h3>
                 {isInstalled && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-mono bg-accent/20 text-accent rounded">
+                  <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-accent/20 text-accent rounded">
                     INSTALLED
                   </span>
                 )}
               </div>
-              <span className="text-xs font-mono text-text-muted">v{plugin.version}</span>
+              <span className="text-xs font-theme-data text-text-muted">v{plugin.version}</span>
             </div>
 
-            <p className="font-mono text-xs text-text-muted mb-3 line-clamp-2">
+            <p className="font-theme-data text-xs text-text-muted mb-3 line-clamp-2">
               {plugin.description}
             </p>
 
@@ -416,14 +416,14 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
                 return (
                   <span
                     key={cap}
-                    className={`text-xs font-mono px-2 py-0.5 rounded ${style.bg} ${style.text}`}
+                    className={`text-xs font-theme-data px-2 py-0.5 rounded ${style.bg} ${style.text}`}
                   >
                     {cap.replace(/_/g, ' ')}
                   </span>
                 );
               })}
               {plugin.capabilities.length > 3 && (
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   +{plugin.capabilities.length - 3}
                 </span>
               )}
@@ -433,7 +433,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
             {plugin.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {plugin.tags.slice(0, 3).map((tag) => (
-                  <span key={tag} className="text-xs font-mono text-text-muted">
+                  <span key={tag} className="text-xs font-theme-data text-text-muted">
                     #{tag}
                   </span>
                 ))}
@@ -441,7 +441,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
             )}
 
             {/* Author */}
-            <div className="mt-2 text-xs font-mono text-text-muted">
+            <div className="mt-2 text-xs font-theme-data text-text-muted">
               by {plugin.author}
             </div>
           </button>
@@ -451,7 +451,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
 
       {filteredPlugins.length === 0 && (
         <div className="card p-8 text-center">
-          <p className="text-text-muted font-mono">
+          <p className="text-text-muted font-theme-data">
             No plugins match your search criteria.
           </p>
         </div>
@@ -459,13 +459,13 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
 
       {/* Selected Plugin Details */}
       {selectedPlugin && (
-        <div className="card p-6 border-2 border-acid-green/40">
+        <div className="card p-6 border-2 border-[var(--accent)]/40">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="text-xl font-mono text-acid-green font-bold">
+              <h2 className="text-xl font-theme-data text-[var(--accent)] font-bold">
                 {selectedPlugin.name}
               </h2>
-              <p className="text-sm font-mono text-text-muted">
+              <p className="text-sm font-theme-data text-text-muted">
                 v{selectedPlugin.version} by {selectedPlugin.author}
               </p>
             </div>
@@ -478,21 +478,21 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
             </button>
           </div>
 
-          <p className="font-mono text-sm text-text mb-6">
+          <p className="font-theme-data text-sm text-text mb-6">
             {selectedPlugin.description}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Capabilities */}
             <div>
-              <h4 className="font-mono text-xs text-acid-cyan mb-2">CAPABILITIES</h4>
+              <h4 className="font-theme-data text-xs text-[var(--acid-cyan)] mb-2">CAPABILITIES</h4>
               <div className="space-y-1">
                 {selectedPlugin.capabilities.map((cap) => {
                   const style = CAPABILITY_COLORS[cap] || CAPABILITY_COLORS.custom;
                   return (
                     <div
                       key={cap}
-                      className={`px-3 py-1.5 rounded ${style.bg} ${style.text} font-mono text-sm`}
+                      className={`px-3 py-1.5 rounded ${style.bg} ${style.text} font-theme-data text-sm`}
                     >
                       {cap.replace(/_/g, ' ')}
                     </div>
@@ -503,14 +503,14 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
 
             {/* Requirements */}
             <div>
-              <h4 className="font-mono text-xs text-acid-yellow mb-2">REQUIREMENTS</h4>
+              <h4 className="font-theme-data text-xs text-[var(--acid-yellow)] mb-2">REQUIREMENTS</h4>
               <div className="space-y-1">
                 {selectedPlugin.requirements.map((req) => {
                   const info = REQUIREMENT_INFO[req] || { icon: '?', description: req };
                   return (
                     <div
                       key={req}
-                      className="px-3 py-1.5 rounded bg-surface font-mono text-sm flex items-center gap-2"
+                      className="px-3 py-1.5 rounded bg-surface font-theme-data text-sm flex items-center gap-2"
                     >
                       <span>{info.icon}</span>
                       <span className="text-text-muted">{info.description}</span>
@@ -520,8 +520,8 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
               </div>
 
               {selectedPlugin.requirements_satisfied !== undefined && (
-                <div className={`mt-2 text-xs font-mono ${
-                  selectedPlugin.requirements_satisfied ? 'text-acid-green' : 'text-acid-red'
+                <div className={`mt-2 text-xs font-theme-data ${
+                  selectedPlugin.requirements_satisfied ? 'text-[var(--accent)]' : 'text-acid-red'
                 }`}>
                   {selectedPlugin.requirements_satisfied
                     ? 'All requirements satisfied'
@@ -533,8 +533,8 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
 
           {/* Technical Details */}
           <div className="mt-6 p-4 bg-surface rounded">
-            <h4 className="font-mono text-xs text-acid-cyan mb-3">TECHNICAL DETAILS</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-mono text-xs">
+            <h4 className="font-theme-data text-xs text-[var(--acid-cyan)] mb-3">TECHNICAL DETAILS</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 font-theme-data text-xs">
               <div>
                 <span className="text-text-muted">Entry Point:</span>
                 <div className="text-text">{selectedPlugin.entry_point}</div>
@@ -574,7 +574,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
 
           {/* Install Error */}
           {installError && (
-            <div className="mt-4 p-3 bg-warning/10 border border-warning/30 rounded text-xs font-mono text-warning">
+            <div className="mt-4 p-3 bg-warning/10 border border-warning/30 rounded text-xs font-theme-data text-warning">
               {installError}
             </div>
           )}
@@ -586,7 +586,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
                 href={selectedPlugin.homepage}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-4 py-2 bg-surface border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/10 transition-colors"
+                className="px-4 py-2 bg-surface border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/10 transition-colors"
               >
                 View Documentation
               </a>
@@ -594,14 +594,14 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
             {installedPlugins.has(selectedPlugin.name) ? (
               <>
                 <button
-                  className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
                   disabled={installingPlugin === selectedPlugin.name}
                   onClick={() => setRunModalPlugin(selectedPlugin)}
                 >
                   Run Plugin
                 </button>
                 <button
-                  className="px-4 py-2 bg-warning/20 border border-warning/40 text-warning font-mono text-sm rounded hover:bg-warning/30 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-warning/20 border border-warning/40 text-warning font-theme-data text-sm rounded hover:bg-warning/30 transition-colors disabled:opacity-50"
                   disabled={installingPlugin === selectedPlugin.name}
                   onClick={() => handleUninstallPlugin(selectedPlugin.name)}
                 >
@@ -610,7 +610,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
               </>
             ) : (
               <button
-                className="px-4 py-2 bg-accent/20 border border-accent/40 text-accent font-mono text-sm rounded hover:bg-accent/30 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-accent/20 border border-accent/40 text-accent font-theme-data text-sm rounded hover:bg-accent/30 transition-colors disabled:opacity-50"
                 disabled={installingPlugin === selectedPlugin.name}
                 onClick={() => handleInstallPlugin(selectedPlugin.name)}
               >
@@ -626,7 +626,7 @@ export function PluginMarketplacePanel({ backendConfig }: PluginMarketplacePanel
         <button
           onClick={fetchPlugins}
           disabled={loading}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
         >
           {loading ? 'Refreshing...' : 'Refresh Plugins'}
         </button>

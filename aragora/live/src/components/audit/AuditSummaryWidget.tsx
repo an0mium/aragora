@@ -125,7 +125,7 @@ export function AuditSummaryWidget({
     return (
       <Link
         href="/audit"
-        className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
       >
         <span>🔍</span>
         <span className="text-[var(--text-muted)]">Audits</span>
@@ -164,11 +164,11 @@ export function AuditSummaryWidget({
       <div className="p-3 border-b border-[var(--border)] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">🔍</span>
-          <span className="text-sm font-mono text-[var(--acid-green)]">AUDIT STATUS</span>
+          <span className="text-sm font-theme-data text-[var(--acid-green)]">AUDIT STATUS</span>
         </div>
         <Link
           href="/audit"
-          className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
         >
           View All →
         </Link>
@@ -177,19 +177,19 @@ export function AuditSummaryWidget({
       {/* Stats */}
       <div className="p-3 grid grid-cols-3 gap-3">
         <div className="text-center">
-          <div className="text-xl font-mono font-bold text-[var(--acid-cyan)]">
+          <div className="text-xl font-theme-data font-bold text-[var(--acid-cyan)]">
             {summary.running_sessions}
           </div>
           <div className="text-xs text-[var(--text-muted)]">Running</div>
         </div>
         <div className="text-center">
-          <div className={`text-xl font-mono font-bold ${summary.critical_findings > 0 ? 'text-[var(--acid-red)]' : 'text-[var(--text)]'}`}>
+          <div className={`text-xl font-theme-data font-bold ${summary.critical_findings > 0 ? 'text-[var(--acid-red)]' : 'text-[var(--text)]'}`}>
             {summary.critical_findings}
           </div>
           <div className="text-xs text-[var(--text-muted)]">Critical</div>
         </div>
         <div className="text-center">
-          <div className={`text-xl font-mono font-bold ${summary.high_findings > 0 ? 'text-orange-400' : 'text-[var(--text)]'}`}>
+          <div className={`text-xl font-theme-data font-bold ${summary.high_findings > 0 ? 'text-orange-400' : 'text-[var(--text)]'}`}>
             {summary.high_findings}
           </div>
           <div className="text-xs text-[var(--text-muted)]">High</div>
@@ -204,12 +204,12 @@ export function AuditSummaryWidget({
             href={`/audit/view?id=${summary.recent_session.id}`}
             className="flex items-center justify-between hover:text-[var(--acid-green)] transition-colors"
           >
-            <span className="text-sm font-mono truncate max-w-[150px]">
+            <span className="text-sm font-theme-data truncate max-w-[150px]">
               {summary.recent_session.name}
             </span>
             <div className="flex items-center gap-2">
               <span
-                className={`px-1.5 py-0.5 text-xs font-mono rounded ${
+                className={`px-1.5 py-0.5 text-xs font-theme-data rounded ${
                   summary.recent_session.status === 'running'
                     ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] animate-pulse'
                     : summary.recent_session.status === 'completed'
@@ -231,13 +231,13 @@ export function AuditSummaryWidget({
       <div className="p-3 border-t border-[var(--border)] flex gap-2">
         <Link
           href="/audit/new"
-          className="flex-1 px-3 py-1.5 text-xs font-mono text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 rounded hover:bg-[var(--acid-green)]/20 transition-colors"
+          className="flex-1 px-3 py-1.5 text-xs font-theme-data text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 rounded hover:bg-[var(--acid-green)]/20 transition-colors"
         >
           + New Audit
         </Link>
         <Link
           href="/gauntlet"
-          className="px-3 py-1.5 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-cyan)]/30 transition-colors"
+          className="px-3 py-1.5 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-cyan)]/30 transition-colors"
         >
           Gauntlet
         </Link>

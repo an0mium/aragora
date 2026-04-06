@@ -74,8 +74,8 @@ const STEP_TYPE_ICONS: Record<string, string> = {
 
 const COMPLEXITY_COLORS: Record<string, string> = {
   simple: 'text-success',
-  moderate: 'text-acid-yellow',
-  complex: 'text-crimson',
+  moderate: 'text-[var(--acid-yellow)]',
+  complex: 'text-[var(--crimson)]',
 };
 
 /**
@@ -116,14 +116,14 @@ export function TemplateCard({
         onClick={() => onSelect?.(template)}
         className={`p-3 rounded border cursor-pointer transition-all ${
           selected
-            ? 'border-acid-green bg-acid-green/10'
-            : 'border-border bg-surface hover:border-acid-green/50'
+            ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+            : 'border-border bg-surface hover:border-[var(--accent)]/50'
         }`}
       >
         <div className="flex items-center gap-3">
           <span className="text-lg">{categoryIcon}</span>
           <div className="flex-1 min-w-0">
-            <div className="font-mono text-sm truncate">{template.name}</div>
+            <div className="font-theme-data text-sm truncate">{template.name}</div>
             <div className="text-xs text-text-muted capitalize">{template.category}</div>
           </div>
           <div className="text-xs text-text-muted">{template.steps.length} steps</div>
@@ -135,7 +135,7 @@ export function TemplateCard({
   return (
     <div
       className={`card p-4 transition-all ${
-        selected ? 'border-acid-green ring-1 ring-acid-green/30' : ''
+        selected ? 'border-[var(--accent)] ring-1 ring-acid-green/30' : ''
       }`}
     >
       {/* Header */}
@@ -148,10 +148,10 @@ export function TemplateCard({
             {categoryIcon}
           </div>
           <div>
-            <h3 className="font-mono font-medium">{template.name}</h3>
+            <h3 className="font-theme-data font-medium">{template.name}</h3>
             <div className="flex items-center gap-2 mt-0.5">
               <span
-                className="text-xs font-mono px-2 py-0.5 rounded"
+                className="text-xs font-theme-data px-2 py-0.5 rounded"
                 style={{ backgroundColor: `${categoryColor}20`, color: categoryColor }}
               >
                 {template.category}
@@ -160,7 +160,7 @@ export function TemplateCard({
             </div>
           </div>
         </div>
-        <div className={`text-xs font-mono capitalize ${COMPLEXITY_COLORS[complexity]}`}>
+        <div className={`text-xs font-theme-data capitalize ${COMPLEXITY_COLORS[complexity]}`}>
           {complexity}
         </div>
       </div>
@@ -186,13 +186,13 @@ export function TemplateCard({
         {template.tags.slice(0, 4).map((tag) => (
           <span
             key={tag}
-            className="px-2 py-0.5 text-xs font-mono bg-bg border border-border rounded text-text-muted"
+            className="px-2 py-0.5 text-xs font-theme-data bg-bg border border-border rounded text-text-muted"
           >
             {tag}
           </span>
         ))}
         {template.tags.length > 4 && (
-          <span className="px-2 py-0.5 text-xs font-mono text-text-muted">
+          <span className="px-2 py-0.5 text-xs font-theme-data text-text-muted">
             +{template.tags.length - 4}
           </span>
         )}
@@ -201,15 +201,15 @@ export function TemplateCard({
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2 mb-3 text-center">
         <div className="bg-surface p-2 rounded">
-          <div className="text-lg font-mono">{template.steps.length}</div>
+          <div className="text-lg font-theme-data">{template.steps.length}</div>
           <div className="text-xs text-text-muted">Steps</div>
         </div>
         <div className="bg-surface p-2 rounded">
-          <div className="text-lg font-mono">{Object.keys(template.inputs || {}).length}</div>
+          <div className="text-lg font-theme-data">{Object.keys(template.inputs || {}).length}</div>
           <div className="text-xs text-text-muted">Inputs</div>
         </div>
         <div className="bg-surface p-2 rounded">
-          <div className="text-lg font-mono">{Object.keys(template.outputs || {}).length}</div>
+          <div className="text-lg font-theme-data">{Object.keys(template.outputs || {}).length}</div>
           <div className="text-xs text-text-muted">Outputs</div>
         </div>
       </div>
@@ -218,13 +218,13 @@ export function TemplateCard({
       <div className="flex gap-2">
         <button
           onClick={() => onPreview?.(template)}
-          className="flex-1 px-3 py-1.5 text-xs font-mono border border-border rounded hover:border-acid-green transition-colors"
+          className="flex-1 px-3 py-1.5 text-xs font-theme-data border border-border rounded hover:border-[var(--accent)] transition-colors"
         >
           Preview
         </button>
         <button
           onClick={() => onInstantiate?.(template)}
-          className="flex-1 px-3 py-1.5 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/30 transition-colors"
+          className="flex-1 px-3 py-1.5 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/30 transition-colors"
         >
           Use Template
         </button>

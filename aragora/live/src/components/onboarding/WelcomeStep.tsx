@@ -9,7 +9,7 @@ export function WelcomeStep() {
             &#128640;
           </span>
         </div>
-        <h3 className="text-xl font-mono text-acid-green mb-2">
+        <h3 className="text-xl font-theme-data text-[var(--accent)] mb-2">
           Welcome to Aragora
         </h3>
         <p className="text-sm text-text-muted">
@@ -61,9 +61,9 @@ interface FeatureCardProps {
 
 function FeatureCard({ icon, title, description }: FeatureCardProps) {
   return (
-    <div className="p-4 border border-acid-green/20 rounded-lg text-center">
+    <div className="p-4 border border-[var(--accent)]/20 rounded-lg text-center">
       <div className="text-2xl mb-2">{icon}</div>
-      <div className="text-sm font-mono text-acid-green">{title}</div>
+      <div className="text-sm font-theme-data text-[var(--accent)]">{title}</div>
       <div className="text-xs text-text-muted mt-1">{description}</div>
     </div>
   );

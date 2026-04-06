@@ -270,38 +270,38 @@ export function IntegrationSetupWizard({
       />
 
       {/* Modal */}
-      <div className="relative bg-surface border border-acid-green/30 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden">
+      <div className="relative bg-surface border border-[var(--accent)]/30 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-acid-green/20 flex items-center justify-between">
+        <div className="p-4 border-b border-[var(--accent)]/20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-acid-cyan text-xl">{config.icon}</span>
+            <span className="font-theme-data text-[var(--acid-cyan)] text-xl">{config.icon}</span>
             <div>
-              <h2 className="font-mono text-acid-green text-lg">
+              <h2 className="font-theme-data text-[var(--accent)] text-lg">
                 {existingConfig ? 'Edit' : 'Setup'} {config.title}
               </h2>
-              <p className="font-mono text-xs text-text-muted">{config.description}</p>
+              <p className="font-theme-data text-xs text-text-muted">{config.description}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text font-mono"
+            className="text-text-muted hover:text-text font-theme-data"
           >
             [X]
           </button>
         </div>
 
         {/* Progress */}
-        <div className="px-4 py-2 border-b border-acid-green/10 flex gap-2">
+        <div className="px-4 py-2 border-b border-[var(--accent)]/10 flex gap-2">
           {[1, 2, 3].map(s => (
             <button
               key={s}
               onClick={() => setStep(s)}
-              className={`flex-1 py-1 font-mono text-xs border transition-colors ${
+              className={`flex-1 py-1 font-theme-data text-xs border transition-colors ${
                 step === s
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
                   : step > s
-                  ? 'border-acid-green/30 text-acid-green/50'
-                  : 'border-acid-green/20 text-text-muted'
+                  ? 'border-[var(--accent)]/30 text-[var(--accent)]/50'
+                  : 'border-[var(--accent)]/20 text-text-muted'
               }`}
             >
               {s === 1 ? 'Credentials' : s === 2 ? 'Notifications' : 'Test & Save'}
@@ -313,7 +313,7 @@ export function IntegrationSetupWizard({
         <div className="p-4 overflow-y-auto max-h-[60vh]">
           {error && (
             <div className="mb-4 p-3 border border-warning/30 bg-warning/10 rounded">
-              <p className="text-warning font-mono text-sm">{error}</p>
+              <p className="text-warning font-theme-data text-sm">{error}</p>
             </div>
           )}
 
@@ -321,7 +321,7 @@ export function IntegrationSetupWizard({
             <div className="space-y-4">
               {config.fields.map(field => (
                 <div key={field.key}>
-                  <label className="block font-mono text-sm text-text-muted mb-1">
+                  <label className="block font-theme-data text-sm text-text-muted mb-1">
                     {field.label}
                     {field.required && <span className="text-warning ml-1">*</span>}
                   </label>
@@ -330,7 +330,7 @@ export function IntegrationSetupWizard({
                     <select
                       value={(formData[field.key] as string) || ''}
                       onChange={(e) => handleFieldChange(field.key, e.target.value)}
-                      className="w-full bg-bg border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                      className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
                     >
                       <option value="">Select...</option>
                       {field.options?.map(opt => (
@@ -343,9 +343,9 @@ export function IntegrationSetupWizard({
                         type="checkbox"
                         checked={!!formData[field.key]}
                         onChange={(e) => handleFieldChange(field.key, e.target.checked)}
-                        className="form-checkbox bg-bg border-acid-green/30"
+                        className="form-checkbox bg-bg border-[var(--accent)]/30"
                       />
-                      <span className="font-mono text-sm text-text">{field.placeholder}</span>
+                      <span className="font-theme-data text-sm text-text">{field.placeholder}</span>
                     </label>
                   ) : (
                     <input
@@ -357,12 +357,12 @@ export function IntegrationSetupWizard({
                       }
                       onChange={(e) => handleFieldChange(field.key, e.target.value)}
                       placeholder={field.placeholder}
-                      className="w-full bg-bg border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                      className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
                     />
                   )}
 
                   {field.helpText && (
-                    <p className="mt-1 text-xs font-mono text-text-muted">{field.helpText}</p>
+                    <p className="mt-1 text-xs font-theme-data text-text-muted">{field.helpText}</p>
                   )}
                 </div>
               ))}
@@ -371,7 +371,7 @@ export function IntegrationSetupWizard({
                 href={config.docsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block mt-2 text-xs font-mono text-acid-cyan hover:underline"
+                className="inline-block mt-2 text-xs font-theme-data text-[var(--acid-cyan)] hover:underline"
               >
                 [VIEW DOCUMENTATION]
               </a>
@@ -380,22 +380,22 @@ export function IntegrationSetupWizard({
 
           {step === 2 && (
             <div className="space-y-3">
-              <p className="font-mono text-sm text-text-muted mb-4">
+              <p className="font-theme-data text-sm text-text-muted mb-4">
                 Select which events should trigger notifications:
               </p>
 
               {config.notificationOptions.map(opt => (
                 <label
                   key={opt.key}
-                  className="flex items-center gap-3 p-3 border border-acid-green/20 rounded cursor-pointer hover:border-acid-green/40 transition-colors"
+                  className="flex items-center gap-3 p-3 border border-[var(--accent)]/20 rounded cursor-pointer hover:border-[var(--accent)]/40 transition-colors"
                 >
                   <input
                     type="checkbox"
                     checked={!!formData[opt.key]}
                     onChange={() => handleNotificationToggle(opt.key)}
-                    className="form-checkbox bg-bg border-acid-green/30 text-acid-green"
+                    className="form-checkbox bg-bg border-[var(--accent)]/30 text-[var(--accent)]"
                   />
-                  <span className="font-mono text-sm text-text">{opt.label}</span>
+                  <span className="font-theme-data text-sm text-text">{opt.label}</span>
                 </label>
               ))}
             </div>
@@ -403,9 +403,9 @@ export function IntegrationSetupWizard({
 
           {step === 3 && (
             <div className="space-y-4">
-              <div className="p-4 border border-acid-green/20 rounded bg-bg/50">
-                <h4 className="font-mono text-sm text-acid-green mb-3">Configuration Summary</h4>
-                <div className="space-y-2 text-xs font-mono">
+              <div className="p-4 border border-[var(--accent)]/20 rounded bg-bg/50">
+                <h4 className="font-theme-data text-sm text-[var(--accent)] mb-3">Configuration Summary</h4>
+                <div className="space-y-2 text-xs font-theme-data">
                   {config.fields
                     .filter(f => formData[f.key])
                     .map(f => (
@@ -424,16 +424,16 @@ export function IntegrationSetupWizard({
                 <button
                   onClick={handleTest}
                   disabled={testStatus === 'testing'}
-                  className="px-4 py-2 border border-acid-cyan/50 text-acid-cyan font-mono text-sm hover:bg-acid-cyan/10 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 border border-[var(--acid-cyan)]/50 text-[var(--acid-cyan)] font-theme-data text-sm hover:bg-[var(--acid-cyan)]/10 transition-colors disabled:opacity-50"
                 >
                   {testStatus === 'testing' ? 'Testing...' : '[TEST CONNECTION]'}
                 </button>
 
                 {testStatus === 'success' && (
-                  <span className="font-mono text-sm text-acid-green">Connection successful!</span>
+                  <span className="font-theme-data text-sm text-[var(--accent)]">Connection successful!</span>
                 )}
                 {testStatus === 'failed' && (
-                  <span className="font-mono text-sm text-warning">Connection failed</span>
+                  <span className="font-theme-data text-sm text-warning">Connection failed</span>
                 )}
               </div>
             </div>
@@ -441,10 +441,10 @@ export function IntegrationSetupWizard({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-acid-green/20 flex justify-between">
+        <div className="p-4 border-t border-[var(--accent)]/20 flex justify-between">
           <button
             onClick={() => step > 1 ? setStep(step - 1) : onClose()}
-            className="px-4 py-2 border border-acid-green/30 text-text-muted font-mono text-sm hover:text-text transition-colors"
+            className="px-4 py-2 border border-[var(--accent)]/30 text-text-muted font-theme-data text-sm hover:text-text transition-colors"
           >
             {step > 1 ? '[BACK]' : '[CANCEL]'}
           </button>
@@ -452,7 +452,7 @@ export function IntegrationSetupWizard({
           {step < 3 ? (
             <button
               onClick={() => setStep(step + 1)}
-              className="px-4 py-2 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/10 transition-colors"
+              className="px-4 py-2 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/10 transition-colors"
             >
               [NEXT]
             </button>
@@ -460,7 +460,7 @@ export function IntegrationSetupWizard({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving...' : '[SAVE INTEGRATION]'}
             </button>

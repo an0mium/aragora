@@ -84,10 +84,10 @@ export function RhetoricalObserverPanel({ events }: RhetoricalObserverPanelProps
       {/* Header */}
       <div className="panel-collapsible-header">
         <div className="flex items-center gap-2">
-          <span className="text-acid-cyan font-mono text-sm">[RHETORICAL OBSERVER]</span>
+          <span className="text-[var(--acid-cyan)] font-theme-data text-sm">[RHETORICAL OBSERVER]</span>
           <span className="text-text-muted text-xs">Debate pattern analysis</span>
         </div>
-        <span className="text-xs text-acid-green">{observations.length} observations</span>
+        <span className="text-xs text-[var(--accent)]">{observations.length} observations</span>
       </div>
 
       <div className="px-4 pb-4 space-y-3">
@@ -96,8 +96,8 @@ export function RhetoricalObserverPanel({ events }: RhetoricalObserverPanelProps
           <div className="space-y-2">
             <div className="text-xs text-text-muted">Pattern frequency by agent:</div>
             {Object.entries(agentPatterns).map(([agent, patterns]) => (
-              <div key={agent} className="border border-acid-green/20 p-2">
-                <div className="text-xs font-mono text-acid-cyan mb-1">{agent}</div>
+              <div key={agent} className="border border-[var(--accent)]/20 p-2">
+                <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-1">{agent}</div>
                 <div className="flex flex-wrap gap-1">
                   {Object.entries(patterns)
                     .sort(([, a], [, b]) => b - a)
@@ -126,10 +126,10 @@ export function RhetoricalObserverPanel({ events }: RhetoricalObserverPanelProps
           {observations.slice(0, 10).map((obs, idx) => (
             <div
               key={`${obs.agent}-${obs.round}-${idx}`}
-              className="p-2 bg-bg/50 border border-acid-green/10 text-xs"
+              className="p-2 bg-bg/50 border border-[var(--accent)]/10 text-xs"
             >
               <div className="flex items-center justify-between mb-1">
-                <span className="font-mono text-acid-cyan">{obs.agent}</span>
+                <span className="font-theme-data text-[var(--acid-cyan)]">{obs.agent}</span>
                 <span className="text-text-muted">Round {obs.round}</span>
               </div>
               <div className="flex flex-wrap gap-1 mb-1">
@@ -156,7 +156,7 @@ export function RhetoricalObserverPanel({ events }: RhetoricalObserverPanelProps
         </div>
 
         {/* Legend */}
-        <div className="text-xs text-text-muted/50 text-center pt-2 border-t border-acid-green/10">
+        <div className="text-xs text-text-muted/50 text-center pt-2 border-t border-[var(--accent)]/10">
           Rhetorical patterns detected during debate
         </div>
       </div>

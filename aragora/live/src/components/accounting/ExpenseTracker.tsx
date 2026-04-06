@@ -242,7 +242,7 @@ export function ExpenseTracker({
           <div className="flex items-center gap-1 bg-[var(--surface)] border border-[var(--border)] rounded p-1">
             <button
               onClick={() => setViewMode('list')}
-              className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
+              className={`px-2 py-1 text-xs font-theme-data rounded transition-colors ${
                 viewMode === 'list' ? 'bg-[var(--acid-green)] text-black' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
               }`}
             >
@@ -250,7 +250,7 @@ export function ExpenseTracker({
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
+              className={`px-2 py-1 text-xs font-theme-data rounded transition-colors ${
                 viewMode === 'grid' ? 'bg-[var(--acid-green)] text-black' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
               }`}
             >
@@ -258,7 +258,7 @@ export function ExpenseTracker({
             </button>
             <button
               onClick={() => setViewMode('stats')}
-              className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
+              className={`px-2 py-1 text-xs font-theme-data rounded transition-colors ${
                 viewMode === 'stats' ? 'bg-[var(--acid-green)] text-black' : 'text-[var(--text-muted)] hover:text-[var(--text)]'
               }`}
             >
@@ -267,7 +267,7 @@ export function ExpenseTracker({
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="px-3 py-1.5 bg-[var(--acid-green)] text-black rounded text-sm font-mono hover:opacity-90 transition-opacity"
+            className="px-3 py-1.5 bg-[var(--acid-green)] text-black rounded text-sm font-theme-data hover:opacity-90 transition-opacity"
           >
             + Add Expense
           </button>
@@ -328,7 +328,7 @@ export function ExpenseTracker({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search expenses..."
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
             />
           </div>
 
@@ -338,7 +338,7 @@ export function ExpenseTracker({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="px-2 py-1 bg-[var(--bg)] border border-[var(--border)] rounded text-sm font-mono text-[var(--text)]"
+              className="px-2 py-1 bg-[var(--bg)] border border-[var(--border)] rounded text-sm font-theme-data text-[var(--text)]"
             >
               <option value="all">All</option>
               <option value="pending">Pending</option>
@@ -355,7 +355,7 @@ export function ExpenseTracker({
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="px-2 py-1 bg-[var(--bg)] border border-[var(--border)] rounded text-sm font-mono text-[var(--text)]"
+              className="px-2 py-1 bg-[var(--bg)] border border-[var(--border)] rounded text-sm font-theme-data text-[var(--text)]"
             >
               <option value="all">All</option>
               {EXPENSE_CATEGORIES.map(cat => (
@@ -373,19 +373,19 @@ export function ExpenseTracker({
             </span>
             <button
               onClick={handleBulkApprove}
-              className="px-2 py-1 text-xs font-mono bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30"
+              className="px-2 py-1 text-xs font-theme-data bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30"
             >
               Approve Selected
             </button>
             <button
               onClick={handleSyncSelected}
-              className="px-2 py-1 text-xs font-mono bg-green-500/20 text-green-400 rounded hover:bg-green-500/30"
+              className="px-2 py-1 text-xs font-theme-data bg-green-500/20 text-green-400 rounded hover:bg-green-500/30"
             >
               Sync to QBO
             </button>
             <button
               onClick={clearSelection}
-              className="px-2 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)]"
+              className="px-2 py-1 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)]"
             >
               Clear
             </button>
@@ -431,7 +431,7 @@ export function ExpenseTracker({
                   value={newExpense.vendorName}
                   onChange={(e) => setNewExpense({ ...newExpense, vendorName: e.target.value })}
                   placeholder="Vendor name"
-                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
                 />
               </div>
 
@@ -444,7 +444,7 @@ export function ExpenseTracker({
                     value={newExpense.amount}
                     onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
                     placeholder="0.00"
-                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
+                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
                   />
                 </div>
                 <div>
@@ -453,7 +453,7 @@ export function ExpenseTracker({
                     type="date"
                     value={newExpense.date}
                     onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
-                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
+                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
                   />
                 </div>
               </div>
@@ -464,7 +464,7 @@ export function ExpenseTracker({
                   <select
                     value={newExpense.category}
                     onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
-                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
+                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
                   >
                     {EXPENSE_CATEGORIES.map(cat => (
                       <option key={cat.value} value={cat.value}>{cat.icon} {cat.label}</option>
@@ -476,7 +476,7 @@ export function ExpenseTracker({
                   <select
                     value={newExpense.paymentMethod}
                     onChange={(e) => setNewExpense({ ...newExpense, paymentMethod: e.target.value })}
-                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
+                    className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
                   >
                     {PAYMENT_METHODS.map(pm => (
                       <option key={pm.value} value={pm.value}>{pm.label}</option>
@@ -492,7 +492,7 @@ export function ExpenseTracker({
                   onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
                   placeholder="Description"
                   rows={2}
-                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none resize-none"
+                  className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none resize-none"
                 />
               </div>
 
@@ -513,14 +513,14 @@ export function ExpenseTracker({
             <div className="flex justify-end gap-2 mt-6">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-sm font-mono text-[var(--text-muted)] hover:text-[var(--text)]"
+                className="px-4 py-2 text-sm font-theme-data text-[var(--text-muted)] hover:text-[var(--text)]"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateExpense}
                 disabled={!newExpense.vendorName || !newExpense.amount}
-                className="px-4 py-2 bg-[var(--acid-green)] text-black rounded text-sm font-mono hover:opacity-90 disabled:opacity-50"
+                className="px-4 py-2 bg-[var(--acid-green)] text-black rounded text-sm font-theme-data hover:opacity-90 disabled:opacity-50"
               >
                 Add Expense
               </button>
@@ -540,20 +540,20 @@ function StatsView({ stats }: { stats: ExpenseStats }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
           <div className="text-xs text-[var(--text-muted)]">Total Expenses</div>
-          <div className="text-2xl font-mono text-[var(--text)]">{stats.totalExpenses}</div>
+          <div className="text-2xl font-theme-data text-[var(--text)]">{stats.totalExpenses}</div>
         </div>
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
           <div className="text-xs text-[var(--text-muted)]">Total Amount</div>
-          <div className="text-2xl font-mono text-[var(--acid-green)]">${stats.totalAmount.toLocaleString()}</div>
+          <div className="text-2xl font-theme-data text-[var(--acid-green)]">${stats.totalAmount.toLocaleString()}</div>
         </div>
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
           <div className="text-xs text-[var(--text-muted)]">Pending Approval</div>
-          <div className="text-2xl font-mono text-yellow-400">{stats.pendingCount}</div>
+          <div className="text-2xl font-theme-data text-yellow-400">{stats.pendingCount}</div>
           <div className="text-xs text-[var(--text-muted)]">${stats.pendingAmount.toLocaleString()}</div>
         </div>
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
           <div className="text-xs text-[var(--text-muted)]">Average Expense</div>
-          <div className="text-2xl font-mono text-[var(--text)]">${stats.avgExpense.toLocaleString()}</div>
+          <div className="text-2xl font-theme-data text-[var(--text)]">${stats.avgExpense.toLocaleString()}</div>
         </div>
       </div>
 
@@ -567,7 +567,7 @@ function StatsView({ stats }: { stats: ExpenseStats }) {
               <div key={category} className="flex items-center gap-2">
                 <span className="text-lg">{EXPENSE_CATEGORIES.find(c => c.value === category)?.icon || '📦'}</span>
                 <span className="flex-1 text-sm text-[var(--text)]">{category}</span>
-                <span className="font-mono text-sm text-[var(--text)]">${amount.toLocaleString()}</span>
+                <span className="font-theme-data text-sm text-[var(--text)]">${amount.toLocaleString()}</span>
                 <div className="w-24 h-2 bg-[var(--border)] rounded-full overflow-hidden">
                   <div
                     className="h-full bg-[var(--acid-green)]"
@@ -587,7 +587,7 @@ function StatsView({ stats }: { stats: ExpenseStats }) {
             <div key={vendor.vendor} className="flex items-center gap-2">
               <span className="text-xs text-[var(--text-muted)] w-4">{index + 1}.</span>
               <span className="flex-1 text-sm text-[var(--text)]">{vendor.vendor}</span>
-              <span className="font-mono text-sm text-[var(--text)]">${vendor.total.toLocaleString()}</span>
+              <span className="font-theme-data text-sm text-[var(--text)]">${vendor.total.toLocaleString()}</span>
             </div>
           ))}
         </div>
@@ -619,7 +619,7 @@ function ListView({
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-12 gap-4 p-3 bg-[var(--bg)] border-b border-[var(--border)] text-xs font-mono text-[var(--text-muted)]">
+      <div className="grid grid-cols-12 gap-4 p-3 bg-[var(--bg)] border-b border-[var(--border)] text-xs font-theme-data text-[var(--text-muted)]">
         <div className="col-span-1">
           <input
             type="checkbox"
@@ -638,7 +638,7 @@ function ListView({
 
       {/* Rows */}
       {expenses.length === 0 ? (
-        <div className="p-8 text-center text-[var(--text-muted)] font-mono text-sm">
+        <div className="p-8 text-center text-[var(--text-muted)] font-theme-data text-sm">
           No expenses found. Upload a receipt or add one manually.
         </div>
       ) : (
@@ -671,7 +671,7 @@ function ListView({
                 </div>
               </div>
               <div className="col-span-2 text-right">
-                <div className="font-mono text-sm text-[var(--text)]">
+                <div className="font-theme-data text-sm text-[var(--text)]">
                   ${expense.totalAmount.toLocaleString()}
                 </div>
                 {expense.isReimbursable && (
@@ -679,7 +679,7 @@ function ListView({
                 )}
               </div>
               <div className="col-span-2">
-                <span className={`px-2 py-1 text-xs font-mono rounded ${getStatusColor(expense.status)}`}>
+                <span className={`px-2 py-1 text-xs font-theme-data rounded ${getStatusColor(expense.status)}`}>
                   {expense.status}
                 </span>
               </div>
@@ -688,13 +688,13 @@ function ListView({
                   <div className="flex items-center justify-end gap-1">
                     <button
                       onClick={() => onApprove?.(expense.id)}
-                      className="px-2 py-1 text-xs font-mono bg-green-500/20 text-green-400 rounded hover:bg-green-500/30"
+                      className="px-2 py-1 text-xs font-theme-data bg-green-500/20 text-green-400 rounded hover:bg-green-500/30"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => onReject?.(expense.id, '')}
-                      className="px-2 py-1 text-xs font-mono bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
+                      className="px-2 py-1 text-xs font-theme-data bg-red-500/20 text-red-400 rounded hover:bg-red-500/30"
                     >
                       Reject
                     </button>
@@ -735,11 +735,11 @@ function GridView({
         >
           <div className="flex items-start justify-between mb-2">
             <span className="text-2xl">{getCategoryIcon(expense.category)}</span>
-            <span className={`px-2 py-1 text-xs font-mono rounded ${getStatusColor(expense.status)}`}>
+            <span className={`px-2 py-1 text-xs font-theme-data rounded ${getStatusColor(expense.status)}`}>
               {expense.status}
             </span>
           </div>
-          <div className="font-mono text-lg text-[var(--text)] mb-1">
+          <div className="font-theme-data text-lg text-[var(--text)] mb-1">
             ${expense.totalAmount.toLocaleString()}
           </div>
           <div className="text-sm text-[var(--text)] truncate">{expense.vendorName}</div>

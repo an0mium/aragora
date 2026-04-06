@@ -63,7 +63,7 @@ export function QualityMetrics({
         <div className="flex items-center justify-between">
           <div>
             <div className="text-sm text-text-muted mb-1">Overall Quality Score</div>
-            <div className={`text-4xl font-mono font-bold ${scoreColor}`}>
+            <div className={`text-4xl font-theme-data font-bold ${scoreColor}`}>
               {overallScore}
               <span className="text-lg text-text-muted">/100</span>
             </div>
@@ -169,7 +169,7 @@ function CategoryScoreCard({ category, onClick }: CategoryScoreCardProps) {
   return (
     <button
       onClick={onClick}
-      className="p-3 bg-surface rounded-lg border border-border hover:border-acid-green/30
+      className="p-3 bg-surface rounded-lg border border-border hover:border-[var(--accent)]/30
                  transition-colors text-left w-full"
     >
       <div className="flex items-center gap-2 mb-2">
@@ -184,7 +184,7 @@ function CategoryScoreCard({ category, onClick }: CategoryScoreCardProps) {
             style={{ width: `${percentage}%` }}
           />
         </div>
-        <span className="text-sm font-mono text-text-muted w-12 text-right">
+        <span className="text-sm font-theme-data text-text-muted w-12 text-right">
           {percentage}%
         </span>
       </div>

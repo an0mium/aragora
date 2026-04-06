@@ -67,15 +67,15 @@ export function CommandPaletteResults({
     return (
       <div className="px-4 py-8 text-center">
         {searchError ? (
-          <div className="text-red-400 font-mono text-sm">
+          <div className="text-red-400 font-theme-data text-sm">
             <span className="text-red-500">!</span> {searchError}
           </div>
         ) : query.trim() ? (
-          <div className="text-text-muted font-mono text-sm">
+          <div className="text-text-muted font-theme-data text-sm">
             No results found for &quot;{query}&quot;
           </div>
         ) : (
-          <div className="text-text-muted font-mono text-sm">
+          <div className="text-text-muted font-theme-data text-sm">
             Type to search or use arrow keys
           </div>
         )}
@@ -87,7 +87,7 @@ export function CommandPaletteResults({
   if (isSearching && totalItems === 0) {
     return (
       <div className="px-4 py-8 text-center">
-        <div className="text-acid-green font-mono text-sm animate-pulse">
+        <div className="text-[var(--accent)] font-theme-data text-sm animate-pulse">
           Searching...
         </div>
       </div>
@@ -122,7 +122,7 @@ export function CommandPaletteResults({
               {/* Section header */}
               <div
                 id={`section-${section.id}`}
-                className="px-4 py-2 text-xs font-mono text-text-muted uppercase tracking-wider bg-surface/50 sticky top-0"
+                className="px-4 py-2 text-xs font-theme-data text-text-muted uppercase tracking-wider bg-surface/50 sticky top-0"
               >
                 {section.title}
               </div>
@@ -157,7 +157,7 @@ export function CommandPaletteResults({
 
       {/* Loading indicator when searching with existing results */}
       {isSearching && totalItems > 0 && (
-        <div className="px-4 py-2 text-center text-acid-green font-mono text-xs animate-pulse border-t border-acid-green/10">
+        <div className="px-4 py-2 text-center text-[var(--accent)] font-theme-data text-xs animate-pulse border-t border-[var(--accent)]/10">
           Updating...
         </div>
       )}

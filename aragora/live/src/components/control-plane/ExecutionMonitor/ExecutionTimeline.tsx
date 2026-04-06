@@ -118,7 +118,7 @@ export function ExecutionTimeline({
                 className={`
                   p-3 rounded-lg border transition-colors
                   ${styles.bg} ${styles.border}
-                  ${isCurrent ? 'border-acid-green' : ''}
+                  ${isCurrent ? 'border-[var(--accent)]' : ''}
                 `}
               >
                 {/* Header */}
@@ -128,14 +128,14 @@ export function ExecutionTimeline({
                       {stepTypeIcons[step.step_type] || '📦'}
                     </span>
                     <div>
-                      <div className="text-sm font-mono text-text">{step.name}</div>
+                      <div className="text-sm font-theme-data text-text">{step.name}</div>
                       <div className="text-xs text-text-muted">{step.step_type}</div>
                     </div>
                   </div>
 
                   <div
                     className={`
-                      px-2 py-1 text-xs font-mono rounded
+                      px-2 py-1 text-xs font-theme-data rounded
                       ${styles.bg} ${styles.text}
                     `}
                   >

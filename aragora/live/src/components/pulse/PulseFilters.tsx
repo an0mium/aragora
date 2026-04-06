@@ -104,7 +104,7 @@ export function PulseFilters({
     <div className="bg-surface border border-border rounded-lg p-4 space-y-4">
       {/* Search */}
       <div>
-        <label className="block text-xs font-mono text-text-muted mb-2">
+        <label className="block text-xs font-theme-data text-text-muted mb-2">
           SEARCH TOPICS
         </label>
         <input
@@ -112,17 +112,17 @@ export function PulseFilters({
           value={filters.search}
           onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Search trending topics..."
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none"
+          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
         />
       </div>
 
       {/* Sources */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-mono text-text-muted">SOURCES</label>
+          <label className="text-xs font-theme-data text-text-muted">SOURCES</label>
           <button
             onClick={selectAllSources}
-            className="text-xs font-mono text-acid-green/70 hover:text-acid-green"
+            className="text-xs font-theme-data text-[var(--accent)]/70 hover:text-[var(--accent)]"
           >
             Select All
           </button>
@@ -133,10 +133,10 @@ export function PulseFilters({
               key={source}
               onClick={() => toggleSource(source)}
               className={`
-                px-2 py-1 text-xs font-mono rounded border transition-colors
+                px-2 py-1 text-xs font-theme-data rounded border transition-colors
                 ${
                   filters.sources.includes(source)
-                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
                     : 'bg-bg border-border text-text-muted hover:border-text-muted'
                 }
               `}
@@ -150,10 +150,10 @@ export function PulseFilters({
       {/* Categories */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-mono text-text-muted">CATEGORIES</label>
+          <label className="text-xs font-theme-data text-text-muted">CATEGORIES</label>
           <button
             onClick={selectAllCategories}
-            className="text-xs font-mono text-acid-green/70 hover:text-acid-green"
+            className="text-xs font-theme-data text-[var(--accent)]/70 hover:text-[var(--accent)]"
           >
             Select All
           </button>
@@ -164,10 +164,10 @@ export function PulseFilters({
               key={category}
               onClick={() => toggleCategory(category)}
               className={`
-                px-2 py-1 text-xs font-mono rounded border capitalize transition-colors
+                px-2 py-1 text-xs font-theme-data rounded border capitalize transition-colors
                 ${
                   filters.categories.includes(category)
-                    ? 'bg-acid-cyan/20 border-acid-cyan text-acid-cyan'
+                    ? 'bg-[var(--acid-cyan)]/20 border-[var(--acid-cyan)] text-[var(--acid-cyan)]'
                     : 'bg-bg border-border text-text-muted hover:border-text-muted'
                 }
               `}
@@ -181,8 +181,8 @@ export function PulseFilters({
       {/* Min Score Slider */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-mono text-text-muted">MIN SCORE</label>
-          <span className="text-xs font-mono text-acid-green">
+          <label className="text-xs font-theme-data text-text-muted">MIN SCORE</label>
+          <span className="text-xs font-theme-data text-[var(--accent)]">
             {filters.minScore > 0 ? `${Math.round(filters.minScore * 100)}%+` : 'Any'}
           </span>
         </div>
@@ -203,7 +203,7 @@ export function PulseFilters({
 
       {/* Time Range */}
       <div>
-        <label className="block text-xs font-mono text-text-muted mb-2">
+        <label className="block text-xs font-theme-data text-text-muted mb-2">
           TIME RANGE
         </label>
         <div className="flex gap-2">
@@ -212,10 +212,10 @@ export function PulseFilters({
               key={range}
               onClick={() => handleTimeRangeChange(range)}
               className={`
-                flex-1 px-2 py-1.5 text-xs font-mono rounded border transition-colors
+                flex-1 px-2 py-1.5 text-xs font-theme-data rounded border transition-colors
                 ${
                   filters.timeRange === range
-                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
                     : 'bg-bg border-border text-text-muted hover:border-text-muted'
                 }
               `}
@@ -230,7 +230,7 @@ export function PulseFilters({
       {hasActiveFilters && (
         <button
           onClick={clearAllFilters}
-          className="w-full py-2 text-xs font-mono text-warning border border-warning/30 rounded hover:bg-warning/10 transition-colors"
+          className="w-full py-2 text-xs font-theme-data text-warning border border-warning/30 rounded hover:bg-warning/10 transition-colors"
         >
           Clear All Filters
         </button>

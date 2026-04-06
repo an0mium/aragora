@@ -215,7 +215,7 @@ export function CommandPalette() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="command-palette-title"
-        className="w-full h-full sm:h-auto sm:max-h-[70vh] max-w-2xl border-0 sm:border border-acid-green/40 bg-surface shadow-2xl shadow-acid-green/10 rounded-none sm:rounded-sm overflow-hidden flex flex-col"
+        className="w-full h-full sm:h-auto sm:max-h-[70vh] max-w-2xl border-0 sm:border border-[var(--accent)]/40 bg-surface shadow-2xl shadow-acid-green/10 rounded-none sm:rounded-sm overflow-hidden flex flex-col"
       >
         {/* Hidden title for accessibility */}
         <h2 id="command-palette-title" className="sr-only">
@@ -223,11 +223,11 @@ export function CommandPalette() {
         </h2>
 
         {/* Mobile header with close button */}
-        <div className="flex sm:hidden items-center justify-between px-4 py-3 border-b border-acid-green/20 bg-bg/50">
-          <span className="text-acid-green font-mono text-sm font-medium">Search</span>
+        <div className="flex sm:hidden items-center justify-between px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50">
+          <span className="text-[var(--accent)] font-theme-data text-sm font-medium">Search</span>
           <button
             onClick={close}
-            className="text-text-muted hover:text-acid-green transition-colors p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="text-text-muted hover:text-[var(--accent)] transition-colors p-1 min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Close search"
           >
             <span className="text-xl">&times;</span>
@@ -245,15 +245,15 @@ export function CommandPalette() {
         />
 
         {/* Category tabs - horizontal scroll on mobile */}
-        <div className="flex gap-1 px-3 sm:px-4 py-2 border-b border-acid-green/10 bg-bg/30 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-1 px-3 sm:px-4 py-2 border-b border-[var(--accent)]/10 bg-bg/30 overflow-x-auto scrollbar-hide">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
               className={`
-                flex-shrink-0 px-3 py-2 sm:py-1 text-xs font-mono transition-colors rounded-sm min-h-[44px] sm:min-h-0
+                flex-shrink-0 px-3 py-2 sm:py-1 text-xs font-theme-data transition-colors rounded-sm min-h-[44px] sm:min-h-0
                 ${activeCategory === cat.id
-                  ? 'bg-acid-green/20 text-acid-green border border-acid-green/40'
+                  ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40'
                   : 'text-text-muted hover:text-text border border-transparent'
                 }
               `}
@@ -278,21 +278,21 @@ export function CommandPalette() {
         </div>
 
         {/* Footer with keyboard hints - simplified on mobile */}
-        <div className="px-4 py-3 sm:py-2 border-t border-acid-green/10 bg-bg/30 flex gap-4 text-xs font-mono text-text-muted safe-area-bottom">
+        <div className="px-4 py-3 sm:py-2 border-t border-[var(--accent)]/10 bg-bg/30 flex gap-4 text-xs font-theme-data text-text-muted safe-area-bottom">
           {/* Hide keyboard hints on mobile (touch users) */}
           <span className="hidden sm:inline">
-            <kbd className="text-acid-green">↑↓</kbd> navigate
+            <kbd className="text-[var(--accent)]">↑↓</kbd> navigate
           </span>
           <span className="hidden sm:inline">
-            <kbd className="text-acid-green">↵</kbd> select
+            <kbd className="text-[var(--accent)]">↵</kbd> select
           </span>
           <span className="hidden sm:inline">
-            <kbd className="text-acid-green">tab</kbd> category
+            <kbd className="text-[var(--accent)]">tab</kbd> category
           </span>
           {/* Show on mobile */}
           <span className="sm:hidden">Tap to select</span>
           <span className="ml-auto">
-            <kbd className="text-acid-green hidden sm:inline">⌘K</kbd>
+            <kbd className="text-[var(--accent)] hidden sm:inline">⌘K</kbd>
             <span className="sm:hidden text-text-muted">Swipe down to close</span>
           </span>
         </div>

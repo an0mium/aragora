@@ -54,10 +54,10 @@ export function TemplateSuggestions({ question }: TemplateSuggestionsProps) {
   return (
     <div className="mt-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-mono text-[var(--text-muted)]">SUGGESTED TEMPLATES</span>
+        <span className="text-xs font-theme-data text-[var(--text-muted)]">SUGGESTED TEMPLATES</span>
         <button
           onClick={() => setDismissed(true)}
-          className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+          className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
         >
           [X]
         </button>
@@ -67,7 +67,7 @@ export function TemplateSuggestions({ question }: TemplateSuggestionsProps) {
           <button
             key={s.name}
             onClick={() => router.push(`/arena?template=${encodeURIComponent(s.name)}`)}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono border border-[var(--acid-cyan)]/30
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-theme-data border border-[var(--acid-cyan)]/30
                      text-[var(--text)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
           >
             <span className="text-[var(--acid-cyan)]">{s.name}</span>

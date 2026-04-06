@@ -153,15 +153,15 @@ const INDUSTRY_VERTICALS: Vertical[] = [
 const COST_TIER_STYLES = {
   standard: {
     label: 'Standard',
-    color: 'text-acid-green',
-    bgColor: 'bg-acid-green/10',
-    borderColor: 'border-acid-green/30',
+    color: 'text-[var(--accent)]',
+    bgColor: 'bg-[var(--accent)]/10',
+    borderColor: 'border-[var(--accent)]/30',
   },
   professional: {
     label: 'Pro',
-    color: 'text-acid-cyan',
-    bgColor: 'bg-acid-cyan/10',
-    borderColor: 'border-acid-cyan/30',
+    color: 'text-[var(--acid-cyan)]',
+    bgColor: 'bg-[var(--acid-cyan)]/10',
+    borderColor: 'border-[var(--acid-cyan)]/30',
   },
   enterprise: {
     label: 'Enterprise',
@@ -277,9 +277,9 @@ export function VerticalSelector({
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className={`px-2 py-1 text-xs font-mono border rounded flex items-center gap-1.5
+          className={`px-2 py-1 text-xs font-theme-data border rounded flex items-center gap-1.5
                      ${COST_TIER_STYLES[currentVertical.costTier].borderColor}
-                     hover:border-acid-green/60 transition-colors`}
+                     hover:border-[var(--accent)]/60 transition-colors`}
         >
           <span>{currentVertical.icon}</span>
           <span className="text-text-muted">{currentVertical.displayName}</span>
@@ -305,14 +305,14 @@ export function VerticalSelector({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="block text-xs font-mono text-text-muted">
+        <label className="block text-xs font-theme-data text-text-muted">
           INDUSTRY VERTICAL
         </label>
         {suggestedVertical && suggestedVertical !== selectedVertical && (
           <button
             type="button"
             onClick={() => handleVerticalSelect(suggestedVertical)}
-            className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+            className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
           >
             [Detected: {INDUSTRY_VERTICALS.find(v => v.id === suggestedVertical)?.displayName}]
           </button>
@@ -323,21 +323,21 @@ export function VerticalSelector({
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-4 py-3 bg-bg border border-acid-green/30 rounded
+          className="w-full px-4 py-3 bg-bg border border-[var(--accent)]/30 rounded
                      flex items-center justify-between gap-2
-                     hover:border-acid-green/60 transition-colors"
+                     hover:border-[var(--accent)]/60 transition-colors"
         >
           <div className="flex items-center gap-3">
             <span className="text-xl">{currentVertical.icon}</span>
             <div className="text-left">
-              <div className="font-mono text-sm text-text">{currentVertical.displayName}</div>
+              <div className="font-theme-data text-sm text-text">{currentVertical.displayName}</div>
               <div className="text-[10px] text-text-muted">{currentVertical.description}</div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             {/* Cost tier badge */}
-            <span className={`px-2 py-0.5 text-[10px] font-mono rounded
+            <span className={`px-2 py-0.5 text-[10px] font-theme-data rounded
                             ${COST_TIER_STYLES[currentVertical.costTier].bgColor}
                             ${COST_TIER_STYLES[currentVertical.costTier].color}`}>
               {COST_TIER_STYLES[currentVertical.costTier].label}
@@ -370,7 +370,7 @@ export function VerticalSelector({
               {currentVertical.expertiseAreas.slice(0, 3).map((area) => (
                 <span
                   key={area}
-                  className="px-1.5 py-0.5 text-[10px] font-mono bg-surface border border-acid-green/20 rounded"
+                  className="px-1.5 py-0.5 text-[10px] font-theme-data bg-surface border border-[var(--accent)]/20 rounded"
                 >
                   {area}
                 </span>
@@ -389,7 +389,7 @@ export function VerticalSelector({
                 {currentVertical.complianceFrameworks.slice(0, 2).map((framework) => (
                   <span
                     key={framework}
-                    className="px-1.5 py-0.5 text-[10px] font-mono bg-warning/10 text-warning border border-warning/20 rounded"
+                    className="px-1.5 py-0.5 text-[10px] font-theme-data bg-warning/10 text-warning border border-warning/20 rounded"
                   >
                     {framework}
                   </span>
@@ -410,11 +410,11 @@ export function VerticalSelector({
               {currentVertical.personas.slice(0, 3).map((persona) => (
                 <span
                   key={persona.id}
-                  className="px-1.5 py-0.5 text-[10px] font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/20 rounded flex items-center gap-1"
+                  className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/20 rounded flex items-center gap-1"
                   title={`${persona.role} - ${persona.traits.join(', ')}`}
                 >
                   {persona.name}
-                  <span className="text-[8px] text-acid-cyan/60">
+                  <span className="text-[8px] text-[var(--acid-cyan)]/60">
                     {Math.round(persona.suitability * 100)}%
                   </span>
                 </span>
@@ -428,7 +428,7 @@ export function VerticalSelector({
             {currentVertical.suggestedAgents.map((agent) => (
               <span
                 key={agent}
-                className="px-1.5 py-0.5 text-[10px] font-mono bg-bg border border-acid-green/20 rounded text-text"
+                className="px-1.5 py-0.5 text-[10px] font-theme-data bg-bg border border-[var(--accent)]/20 rounded text-text"
               >
                 {agent}
               </span>
@@ -482,7 +482,7 @@ function VerticalDropdown({
   return (
     <div
       className="vertical-dropdown absolute top-full left-0 right-0 mt-1 z-50
-                 bg-surface border border-acid-green/30 rounded shadow-lg
+                 bg-surface border border-[var(--accent)]/30 rounded shadow-lg
                  max-h-[400px] overflow-y-auto"
     >
       {verticals.map((vertical) => {
@@ -496,22 +496,22 @@ function VerticalDropdown({
             type="button"
             onClick={() => onSelect(vertical.id)}
             className={`w-full px-4 py-3 flex items-start gap-3 text-left
-                       border-b border-acid-green/10 last:border-b-0
+                       border-b border-[var(--accent)]/10 last:border-b-0
                        hover:bg-bg transition-colors
-                       ${isSelected ? 'bg-acid-green/10' : ''}`}
+                       ${isSelected ? 'bg-[var(--accent)]/10' : ''}`}
           >
             <span className="text-xl flex-shrink-0">{vertical.icon}</span>
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-sm text-text">{vertical.displayName}</span>
+                <span className="font-theme-data text-sm text-text">{vertical.displayName}</span>
                 {isSuggested && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-mono bg-acid-cyan/20 text-acid-cyan rounded">
+                  <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] rounded">
                     Suggested
                   </span>
                 )}
                 {isSelected && (
-                  <span className="text-acid-green">\u2713</span>
+                  <span className="text-[var(--accent)]">\u2713</span>
                 )}
               </div>
 
@@ -524,14 +524,14 @@ function VerticalDropdown({
                     {vertical.expertiseAreas.slice(0, 3).map((area) => (
                       <span
                         key={area}
-                        className="px-1 py-0.5 text-[10px] font-mono bg-bg rounded text-text-muted"
+                        className="px-1 py-0.5 text-[10px] font-theme-data bg-bg rounded text-text-muted"
                       >
                         {area}
                       </span>
                     ))}
                     {vertical.complianceFrameworks.length > 0 && (
                       <span
-                        className="px-1 py-0.5 text-[10px] font-mono bg-warning/10 text-warning rounded"
+                        className="px-1 py-0.5 text-[10px] font-theme-data bg-warning/10 text-warning rounded"
                       >
                         +{vertical.complianceFrameworks.length} compliance
                       </span>
@@ -544,14 +544,14 @@ function VerticalDropdown({
                       {vertical.personas.slice(0, 2).map((persona) => (
                         <span
                           key={persona.id}
-                          className="px-1 py-0.5 text-[10px] font-mono bg-acid-cyan/10 text-acid-cyan/80 rounded"
+                          className="px-1 py-0.5 text-[10px] font-theme-data bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)]/80 rounded"
                           title={persona.role}
                         >
                           {persona.name}
                         </span>
                       ))}
                       {vertical.personas.length > 2 && (
-                        <span className="text-[10px] text-acid-cyan/50">
+                        <span className="text-[10px] text-[var(--acid-cyan)]/50">
                           +{vertical.personas.length - 2}
                         </span>
                       )}
@@ -561,7 +561,7 @@ function VerticalDropdown({
               )}
             </div>
 
-            <span className={`px-2 py-0.5 text-[10px] font-mono rounded flex-shrink-0
+            <span className={`px-2 py-0.5 text-[10px] font-theme-data rounded flex-shrink-0
                             ${tierStyle.bgColor} ${tierStyle.color}`}>
               {tierStyle.label}
             </span>

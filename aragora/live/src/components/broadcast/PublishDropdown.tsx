@@ -76,7 +76,7 @@ export function PublishDropdown({ debateId, title }: PublishDropdownProps) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="px-2 py-1 text-xs font-mono border border-accent/40 hover:bg-accent/10 transition-colors"
+        className="px-2 py-1 text-xs font-theme-data border border-accent/40 hover:bg-accent/10 transition-colors"
         aria-haspopup="true"
         aria-expanded={isOpen}
       >
@@ -88,14 +88,14 @@ export function PublishDropdown({ debateId, title }: PublishDropdownProps) {
           <button
             onClick={handleTwitter}
             disabled={publishing === 'twitter'}
-            className="w-full px-3 py-2 text-xs font-mono text-left hover:bg-accent/10 disabled:opacity-50 transition-colors"
+            className="w-full px-3 py-2 text-xs font-theme-data text-left hover:bg-accent/10 disabled:opacity-50 transition-colors"
           >
             {publishing === 'twitter' ? 'Posting...' : 'Twitter/X'}
           </button>
           <button
             onClick={handleYouTube}
             disabled={publishing === 'youtube'}
-            className="w-full px-3 py-2 text-xs font-mono text-left hover:bg-accent/10 disabled:opacity-50 transition-colors"
+            className="w-full px-3 py-2 text-xs font-theme-data text-left hover:bg-accent/10 disabled:opacity-50 transition-colors"
           >
             {publishing === 'youtube' ? 'Uploading...' : 'YouTube'}
           </button>
@@ -104,7 +104,7 @@ export function PublishDropdown({ debateId, title }: PublishDropdownProps) {
 
       {result && (
         <div
-          className={`absolute right-0 mt-1 px-3 py-2 text-xs font-mono z-50 ${
+          className={`absolute right-0 mt-1 px-3 py-2 text-xs font-theme-data z-50 ${
             result.type === 'success'
               ? 'bg-success/20 text-success border border-success/40'
               : 'bg-warning/20 text-warning border border-warning/40'

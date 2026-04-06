@@ -235,7 +235,7 @@ export function SnoozePanel({
       {/* Header */}
       <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
         <div>
-          <h3 className="font-mono text-sm font-medium text-[var(--text)]">
+          <h3 className="font-theme-data text-sm font-medium text-[var(--text)]">
             Snooze Email
           </h3>
           {emailSubject && (
@@ -258,7 +258,7 @@ export function SnoozePanel({
       <div className="p-4">
         {loading ? (
           <div className="text-center py-4">
-            <div className="text-[var(--text-muted)] text-sm font-mono">
+            <div className="text-[var(--text-muted)] text-sm font-theme-data">
               Getting smart suggestions...
             </div>
           </div>
@@ -267,7 +267,7 @@ export function SnoozePanel({
             {/* Recommended */}
             {recommended && (
               <div className="mb-4">
-                <div className="text-xs text-[var(--text-muted)] font-mono mb-2">
+                <div className="text-xs text-[var(--text-muted)] font-theme-data mb-2">
                   RECOMMENDED
                 </div>
                 <button
@@ -277,7 +277,7 @@ export function SnoozePanel({
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-mono text-blue-400">
+                      <div className="text-sm font-theme-data text-blue-400">
                         {recommended.label}
                       </div>
                       <div className="text-xs text-[var(--text-muted)]">
@@ -297,7 +297,7 @@ export function SnoozePanel({
 
             {/* Other Suggestions */}
             <div className="space-y-2">
-              <div className="text-xs text-[var(--text-muted)] font-mono">
+              <div className="text-xs text-[var(--text-muted)] font-theme-data">
                 QUICK OPTIONS
               </div>
               {suggestions
@@ -312,7 +312,7 @@ export function SnoozePanel({
                     <div className="flex items-center gap-2">
                       <span>{getSourceIcon(suggestion.source)}</span>
                       <div>
-                        <div className="text-sm font-mono text-[var(--text)]">
+                        <div className="text-sm font-theme-data text-[var(--text)]">
                           {suggestion.label}
                         </div>
                         <div className="text-xs text-[var(--text-muted)]">
@@ -329,7 +329,7 @@ export function SnoozePanel({
 
             {/* Custom Date/Time */}
             <div className="mt-4 pt-4 border-t border-[var(--border)]">
-              <div className="text-xs text-[var(--text-muted)] font-mono mb-2">
+              <div className="text-xs text-[var(--text-muted)] font-theme-data mb-2">
                 CUSTOM TIME
               </div>
               <div className="flex items-center gap-2">
@@ -338,18 +338,18 @@ export function SnoozePanel({
                   value={customDate}
                   onChange={(e) => setCustomDate(e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
-                  className="flex-1 px-2 py-1 text-sm font-mono bg-[var(--surface)] border border-[var(--border)] rounded text-[var(--text)]"
+                  className="flex-1 px-2 py-1 text-sm font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded text-[var(--text)]"
                 />
                 <input
                   type="time"
                   value={customTime}
                   onChange={(e) => setCustomTime(e.target.value)}
-                  className="w-24 px-2 py-1 text-sm font-mono bg-[var(--surface)] border border-[var(--border)] rounded text-[var(--text)]"
+                  className="w-24 px-2 py-1 text-sm font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded text-[var(--text)]"
                 />
                 <button
                   onClick={handleCustomSnooze}
                   disabled={applying || !customDate}
-                  className="px-3 py-1 text-sm font-mono bg-[var(--primary)] text-white rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
+                  className="px-3 py-1 text-sm font-theme-data bg-[var(--primary)] text-white rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
                 >
                   Set
                 </button>
@@ -358,7 +358,7 @@ export function SnoozePanel({
 
             {/* Error */}
             {error && (
-              <div className="mt-3 text-xs text-red-400 font-mono">{error}</div>
+              <div className="mt-3 text-xs text-red-400 font-theme-data">{error}</div>
             )}
           </>
         )}
@@ -426,7 +426,7 @@ export function SnoozedEmailsList({
     >
       <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h3 className="font-mono text-sm font-medium text-[var(--text)]">
+          <h3 className="font-theme-data text-sm font-medium text-[var(--text)]">
             Snoozed Emails
           </h3>
           {dueCount > 0 && (
@@ -435,18 +435,18 @@ export function SnoozedEmailsList({
             </span>
           )}
         </div>
-        <span className="text-xs text-[var(--text-muted)] font-mono">
+        <span className="text-xs text-[var(--text-muted)] font-theme-data">
           {snoozed.length} snoozed
         </span>
       </div>
 
       <div className="max-h-[300px] overflow-y-auto">
         {loading ? (
-          <div className="p-4 text-center text-[var(--text-muted)] text-sm font-mono">
+          <div className="p-4 text-center text-[var(--text-muted)] text-sm font-theme-data">
             Loading...
           </div>
         ) : snoozed.length === 0 ? (
-          <div className="p-4 text-center text-[var(--text-muted)] text-sm font-mono">
+          <div className="p-4 text-center text-[var(--text-muted)] text-sm font-theme-data">
             No snoozed emails
           </div>
         ) : (
@@ -457,7 +457,7 @@ export function SnoozedEmailsList({
                 className={`p-3 flex items-center justify-between ${item.is_due ? 'bg-blue-500/10' : ''}`}
               >
                 <div>
-                  <div className="text-sm font-mono text-[var(--text)]">
+                  <div className="text-sm font-theme-data text-[var(--text)]">
                     {item.label}
                   </div>
                   <div className="text-xs text-[var(--text-muted)]">
@@ -470,7 +470,7 @@ export function SnoozedEmailsList({
                 </div>
                 <button
                   onClick={() => handleCancel(item.email_id)}
-                  className="px-2 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)] rounded"
+                  className="px-2 py-1 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)] rounded"
                 >
                   {item.is_due ? 'Open' : 'Cancel'}
                 </button>

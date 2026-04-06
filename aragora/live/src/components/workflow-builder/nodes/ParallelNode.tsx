@@ -32,7 +32,7 @@ export const ParallelNode = memo(function ParallelNode({
 
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">⚡</span>
-        <span className="text-sm font-mono font-bold text-orange-300 uppercase tracking-wide">
+        <span className="text-sm font-theme-data font-bold text-orange-300 uppercase tracking-wide">
           Parallel
         </span>
       </div>
@@ -47,7 +47,7 @@ export const ParallelNode = memo(function ParallelNode({
         </div>
       )}
 
-      <div className="text-xs font-mono text-orange-300">
+      <div className="text-xs font-theme-data text-orange-300">
         {branchCount} parallel branch{branchCount !== 1 ? 'es' : ''}
       </div>
 
@@ -103,7 +103,7 @@ export const LoopNode = memo(function LoopNode({
 
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">🔄</span>
-        <span className="text-sm font-mono font-bold text-pink-300 uppercase tracking-wide">
+        <span className="text-sm font-theme-data font-bold text-pink-300 uppercase tracking-wide">
           Loop
         </span>
       </div>
@@ -118,11 +118,11 @@ export const LoopNode = memo(function LoopNode({
         </div>
       )}
 
-      <div className="px-2 py-1 bg-pink-500/30 rounded text-xs font-mono text-pink-200 mb-2 truncate">
+      <div className="px-2 py-1 bg-pink-500/30 rounded text-xs font-theme-data text-pink-200 mb-2 truncate">
         while: {data.condition}
       </div>
 
-      <div className="text-xs font-mono text-pink-300">
+      <div className="text-xs font-theme-data text-pink-300">
         max {data.maxIterations} iterations
       </div>
 

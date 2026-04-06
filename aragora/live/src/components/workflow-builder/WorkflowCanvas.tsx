@@ -338,7 +338,7 @@ export function WorkflowCanvas({
               <>
                 <button
                   onClick={handleSave}
-                  className="px-4 py-2 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/80 transition-colors rounded"
+                  className="px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm font-bold hover:bg-[var(--accent)]/80 transition-colors rounded"
                 >
                   SAVE WORKFLOW
                 </button>
@@ -346,7 +346,7 @@ export function WorkflowCanvas({
                   <button
                     onClick={handleExecute}
                     disabled={isExecuting || nodes.length === 0}
-                    className={`px-4 py-2 font-mono text-sm font-bold transition-colors rounded flex items-center gap-2 ${
+                    className={`px-4 py-2 font-theme-data text-sm font-bold transition-colors rounded flex items-center gap-2 ${
                       isExecuting || nodes.length === 0
                         ? 'bg-surface border border-border text-text-muted cursor-not-allowed'
                         : 'bg-blue-600 text-white hover:bg-blue-500'
@@ -371,7 +371,7 @@ export function WorkflowCanvas({
                     setEdges([]);
                     setSelectedNodeId(null);
                   }}
-                  className="px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-text transition-colors rounded"
+                  className="px-4 py-2 bg-surface border border-border text-text font-theme-data text-sm hover:border-text transition-colors rounded"
                 >
                   CLEAR
                 </button>
@@ -381,7 +381,7 @@ export function WorkflowCanvas({
 
           {/* Stats panel */}
           <Panel position="bottom-left" className="bg-surface/90 border border-border rounded p-2">
-            <div className="text-xs font-mono text-text-muted">
+            <div className="text-xs font-theme-data text-text-muted">
               <span className="text-text">{nodes.length}</span> nodes |{' '}
               <span className="text-text">{edges.length}</span> connections
             </div>

@@ -38,8 +38,8 @@ export function ShortcutKey({ keys, size = 'md', className = '' }: ShortcutKeyPr
 
   const baseClasses = `
     inline-flex items-center justify-center
-    font-mono font-medium
-    bg-surface border border-acid-green/30
+    font-theme-data font-medium
+    bg-surface border border-[var(--accent)]/30
     text-text-muted
     rounded
     ${sizeClasses[size]}
@@ -105,7 +105,7 @@ export function ShortcutKey({ keys, size = 'md', className = '' }: ShortcutKeyPr
  */
 export function ShortcutKeyInline({ keys }: { keys: KeyBinding }) {
   return (
-    <span className="text-text-muted font-mono text-xs">
+    <span className="text-text-muted font-theme-data text-xs">
       {formatKeyBinding(keys)}
     </span>
   );

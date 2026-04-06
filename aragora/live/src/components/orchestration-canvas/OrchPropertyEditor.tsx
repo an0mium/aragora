@@ -18,7 +18,7 @@ export function OrchPropertyEditor({ data, onChange, onExecute, onDelete }: Orch
 
   return (
     <div className="w-64 border-l border-[var(--border)] bg-[var(--surface)] p-4 overflow-y-auto space-y-4">
-      <h3 className="text-xs font-mono uppercase text-text-muted tracking-wider">Orchestration Properties</h3>
+      <h3 className="text-xs font-theme-data uppercase text-text-muted tracking-wider">Orchestration Properties</h3>
 
       <div>
         <label className="block text-xs text-text-muted mb-1">Type</label>
@@ -65,10 +65,10 @@ export function OrchPropertyEditor({ data, onChange, onExecute, onDelete }: Orch
 
       <div className="pt-2 space-y-2 border-t border-[var(--border)]">
         {onExecute && (
-          <button onClick={onExecute} className="w-full px-3 py-1.5 text-xs font-mono rounded bg-pink-500/20 border border-pink-500 text-pink-200 hover:bg-pink-500/30 transition-colors">Execute Pipeline</button>
+          <button onClick={onExecute} className="w-full px-3 py-1.5 text-xs font-theme-data rounded bg-pink-500/20 border border-pink-500 text-pink-200 hover:bg-pink-500/30 transition-colors">Execute Pipeline</button>
         )}
         {onDelete && (
-          <button onClick={onDelete} className="w-full px-3 py-1.5 text-xs font-mono rounded bg-red-500/20 border border-red-500 text-red-200 hover:bg-red-500/30 transition-colors">Delete Node</button>
+          <button onClick={onDelete} className="w-full px-3 py-1.5 text-xs font-theme-data rounded bg-red-500/20 border border-red-500 text-red-200 hover:bg-red-500/30 transition-colors">Delete Node</button>
         )}
       </div>
     </div>

@@ -150,9 +150,9 @@ export default function CrossDebateLearningPage() {
     if (!analyticsStats) return null;
 
     const cards = [
-      { label: 'Knowledge Items', value: analyticsStats.knowledge_items, color: 'text-acid-green' },
+      { label: 'Knowledge Items', value: analyticsStats.knowledge_items, color: 'text-[var(--accent)]' },
       { label: 'Avg Confidence', value: `${Math.round((analyticsStats.avg_confidence ?? 0) * 100)}%`, color: getConfidenceColor(analyticsStats.avg_confidence ?? 0) },
-      { label: 'Cross-Debate Refs', value: analyticsStats.cross_debate_references ?? 0, color: 'text-acid-cyan' },
+      { label: 'Cross-Debate Refs', value: analyticsStats.cross_debate_references ?? 0, color: 'text-[var(--acid-cyan)]' },
       { label: 'Contradictions', value: analyticsStats.contradictions_detected ?? 0, color: analyticsStats.contradictions_detected > 0 ? 'text-red-400' : 'text-green-400' },
       { label: 'Usage Events', value: analyticsStats.total_usage_events ?? 0, color: 'text-blue-400' },
       { label: 'Quality Snapshots', value: analyticsStats.total_quality_snapshots ?? 0, color: 'text-purple-400' },
@@ -162,7 +162,7 @@ export default function CrossDebateLearningPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         {cards.map((card) => (
           <div key={card.label} className="p-4 bg-surface border border-border rounded-lg text-center">
-            <div className={`text-2xl font-mono ${card.color}`}>{card.value}</div>
+            <div className={`text-2xl font-theme-data ${card.color}`}>{card.value}</div>
             <div className="text-xs text-text-muted mt-1">{card.label}</div>
           </div>
         ))}
@@ -175,10 +175,10 @@ export default function CrossDebateLearningPage() {
     if (!topItems || topItems.length === 0) {
       return (
         <div className="p-4 bg-surface border border-border rounded-lg">
-          <h3 className="text-sm font-mono text-acid-green uppercase mb-4">
+          <h3 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
             Cross-Debate Frequency
           </h3>
-          <div className="text-center py-8 text-text-muted font-mono text-sm">
+          <div className="text-center py-8 text-text-muted font-theme-data text-sm">
             No cross-debate usage data yet. Knowledge entries will appear here as they are referenced across debates.
           </div>
         </div>
@@ -189,7 +189,7 @@ export default function CrossDebateLearningPage() {
 
     return (
       <div className="p-4 bg-surface border border-border rounded-lg">
-        <h3 className="text-sm font-mono text-acid-green uppercase mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
           Most Referenced Knowledge ({topItems.length})
         </h3>
         <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
@@ -197,17 +197,17 @@ export default function CrossDebateLearningPage() {
             <div key={item.item_id} className="p-3 bg-bg border border-border rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-acid-green/70">#{idx + 1}</span>
-                  <span className="text-xs font-mono text-text-muted truncate max-w-[200px]">
+                  <span className="text-xs font-theme-data text-[var(--accent)]/70">#{idx + 1}</span>
+                  <span className="text-xs font-theme-data text-text-muted truncate max-w-[200px]">
                     {item.item_id}
                   </span>
                   {item.node_type && (
-                    <span className="px-2 py-0.5 text-xs font-mono rounded bg-blue-900/30 text-blue-400">
+                    <span className="px-2 py-0.5 text-xs font-theme-data rounded bg-blue-900/30 text-blue-400">
                       {item.node_type}
                     </span>
                   )}
                 </div>
-                <span className="text-sm font-mono text-acid-cyan">{item.count} refs</span>
+                <span className="text-sm font-theme-data text-[var(--acid-cyan)]">{item.count} refs</span>
               </div>
               {item.content && (
                 <p className="text-sm text-text line-clamp-2 mb-2">{item.content}</p>
@@ -217,13 +217,13 @@ export default function CrossDebateLearningPage() {
                 <div className="flex-1 mr-4">
                   <div className="h-1.5 bg-bg rounded-full overflow-hidden border border-border">
                     <div
-                      className="h-full bg-acid-green/60 rounded-full transition-all"
+                      className="h-full bg-[var(--accent)]/60 rounded-full transition-all"
                       style={{ width: `${(item.count / maxCount) * 100}%` }}
                     />
                   </div>
                 </div>
                 {item.confidence !== undefined && (
-                  <span className={`text-xs font-mono ${getConfidenceColor(item.confidence)}`}>
+                  <span className={`text-xs font-theme-data ${getConfidenceColor(item.confidence)}`}>
                     {Math.round(item.confidence * 100)}%
                   </span>
                 )}
@@ -240,10 +240,10 @@ export default function CrossDebateLearningPage() {
     if (!snapshots || snapshots.length === 0) {
       return (
         <div className="p-4 bg-surface border border-border rounded-lg">
-          <h3 className="text-sm font-mono text-acid-green uppercase mb-4">
+          <h3 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
             Confidence Trend
           </h3>
-          <div className="text-center py-8 text-text-muted font-mono text-sm">
+          <div className="text-center py-8 text-text-muted font-theme-data text-sm">
             No quality trend data available. Snapshots will appear as the system tracks confidence over time.
           </div>
         </div>
@@ -256,7 +256,7 @@ export default function CrossDebateLearningPage() {
 
     return (
       <div className="p-4 bg-surface border border-border rounded-lg">
-        <h3 className="text-sm font-mono text-acid-green uppercase mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
           Confidence Trend ({snapshots.length} snapshots)
         </h3>
 
@@ -273,7 +273,7 @@ export default function CrossDebateLearningPage() {
 
               return (
                 <div key={idx} className="flex-1 flex flex-col items-center justify-end" style={{ height: chartHeight }}>
-                  <div className="text-[8px] font-mono text-text-muted mb-1">
+                  <div className="text-[8px] font-theme-data text-text-muted mb-1">
                     {Math.round(snap.avg_confidence * 100)}%
                   </div>
                   <div
@@ -283,7 +283,7 @@ export default function CrossDebateLearningPage() {
                   />
                   {/* X-axis label for first, last, and middle */}
                   {(idx === 0 || idx === snapshots.length - 1 || idx === Math.floor(snapshots.length / 2)) && (
-                    <div className="text-[8px] font-mono text-text-muted mt-1 whitespace-nowrap">
+                    <div className="text-[8px] font-theme-data text-text-muted mt-1 whitespace-nowrap">
                       {new Date(snap.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                     </div>
                   )}
@@ -299,19 +299,19 @@ export default function CrossDebateLearningPage() {
           return (
             <div className="grid grid-cols-4 gap-3 pt-3 border-t border-border">
               <div className="text-center">
-                <div className="text-sm font-mono text-text">{latest.total_items}</div>
+                <div className="text-sm font-theme-data text-text">{latest.total_items}</div>
                 <div className="text-[10px] text-text-muted">Total Items</div>
               </div>
               <div className="text-center">
-                <div className="text-sm font-mono text-green-400">{latest.verified_count}</div>
+                <div className="text-sm font-theme-data text-green-400">{latest.verified_count}</div>
                 <div className="text-[10px] text-text-muted">Verified</div>
               </div>
               <div className="text-center">
-                <div className="text-sm font-mono text-red-400">{latest.contradictions_count}</div>
+                <div className="text-sm font-theme-data text-red-400">{latest.contradictions_count}</div>
                 <div className="text-[10px] text-text-muted">Contradictions</div>
               </div>
               <div className="text-center">
-                <div className="text-sm font-mono text-yellow-400">{latest.stale_count}</div>
+                <div className="text-sm font-theme-data text-yellow-400">{latest.stale_count}</div>
                 <div className="text-[10px] text-text-muted">Stale</div>
               </div>
             </div>
@@ -326,7 +326,7 @@ export default function CrossDebateLearningPage() {
 
     return (
       <div className="p-4 bg-surface border border-border rounded-lg">
-        <h3 className="text-sm font-mono text-acid-green uppercase mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
           Recent Knowledge Extractions
         </h3>
 
@@ -334,22 +334,22 @@ export default function CrossDebateLearningPage() {
         {extractionStats && (
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="p-2 bg-bg rounded text-center">
-              <div className="text-lg font-mono text-acid-cyan">{extractionStats.total_extractions}</div>
+              <div className="text-lg font-theme-data text-[var(--acid-cyan)]">{extractionStats.total_extractions}</div>
               <div className="text-[10px] text-text-muted">Extractions</div>
             </div>
             <div className="p-2 bg-bg rounded text-center">
-              <div className="text-lg font-mono text-purple-400">{extractionStats.total_claims_extracted}</div>
+              <div className="text-lg font-theme-data text-purple-400">{extractionStats.total_claims_extracted}</div>
               <div className="text-[10px] text-text-muted">Claims Found</div>
             </div>
             <div className="p-2 bg-bg rounded text-center">
-              <div className="text-lg font-mono text-green-400">{extractionStats.total_promoted}</div>
+              <div className="text-lg font-theme-data text-green-400">{extractionStats.total_promoted}</div>
               <div className="text-[10px] text-text-muted">Promoted</div>
             </div>
           </div>
         )}
 
         {!recent || recent.length === 0 ? (
-          <div className="text-center py-6 text-text-muted font-mono text-sm">
+          <div className="text-center py-6 text-text-muted font-theme-data text-sm">
             No extractions yet. Run a debate to extract knowledge automatically.
           </div>
         ) : (
@@ -357,7 +357,7 @@ export default function CrossDebateLearningPage() {
             {recent.map((ext, idx) => (
               <div key={`${ext.debate_id}-${idx}`} className="p-3 bg-bg border border-border rounded-lg">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono text-acid-cyan truncate max-w-[200px]">
+                  <span className="text-xs font-theme-data text-[var(--acid-cyan)] truncate max-w-[200px]">
                     {ext.debate_id}
                   </span>
                   <span className="text-xs text-text-muted">
@@ -388,10 +388,10 @@ export default function CrossDebateLearningPage() {
     if (!adjustments || adjustments.length === 0) {
       return (
         <div className="p-4 bg-surface border border-border rounded-lg">
-          <h3 className="text-sm font-mono text-acid-green uppercase mb-4">
+          <h3 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
             Confidence Adjustments
           </h3>
-          <div className="text-center py-6 text-text-muted font-mono text-sm">
+          <div className="text-center py-6 text-text-muted font-theme-data text-sm">
             No confidence adjustments recorded yet.
           </div>
         </div>
@@ -400,7 +400,7 @@ export default function CrossDebateLearningPage() {
 
     return (
       <div className="p-4 bg-surface border border-border rounded-lg">
-        <h3 className="text-sm font-mono text-acid-green uppercase mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--accent)] uppercase mb-4">
           Confidence Adjustments ({confidenceHistory?.count ?? 0})
         </h3>
         <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
@@ -411,10 +411,10 @@ export default function CrossDebateLearningPage() {
             return (
               <div key={`${adj.item_id}-${idx}`} className="p-3 bg-bg border border-border rounded-lg">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-mono text-text-muted truncate max-w-[180px]">
+                  <span className="text-xs font-theme-data text-text-muted truncate max-w-[180px]">
                     {adj.item_id}
                   </span>
-                  <span className={`text-xs font-mono px-2 py-0.5 rounded ${
+                  <span className={`text-xs font-theme-data px-2 py-0.5 rounded ${
                     adj.event === 'validated' ? 'bg-green-900/30 text-green-400' :
                     adj.event === 'contradicted' || adj.event === 'invalidated' ? 'bg-red-900/30 text-red-400' :
                     'bg-blue-900/30 text-blue-400'
@@ -430,7 +430,7 @@ export default function CrossDebateLearningPage() {
                   <span className={getConfidenceColor(adj.new_confidence)}>
                     {Math.round(adj.new_confidence * 100)}%
                   </span>
-                  <span className={`font-mono ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+                  <span className={`font-theme-data ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
                     ({isPositive ? '+' : ''}{Math.round(delta * 100)}%)
                   </span>
                 </div>
@@ -461,14 +461,14 @@ export default function CrossDebateLearningPage() {
             <div className="flex items-center gap-2 mb-2">
               <Link
                 href="/knowledge"
-                className="text-sm font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-sm font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 Knowledge Mound
               </Link>
               <span className="text-text-muted">/</span>
-              <span className="text-sm font-mono text-acid-green">Cross-Debate Learning</span>
+              <span className="text-sm font-theme-data text-[var(--accent)]">Cross-Debate Learning</span>
             </div>
-            <h1 className="text-3xl font-mono font-bold text-text mb-2">
+            <h1 className="text-3xl font-theme-data font-bold text-text mb-2">
               Cross-Debate Learning
             </h1>
             <p className="text-text-muted">
@@ -481,7 +481,7 @@ export default function CrossDebateLearningPage() {
             <button
               onClick={fetchAllData}
               disabled={loading}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm rounded-lg hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm rounded-lg hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Loading...' : 'Refresh Data'}
             </button>
@@ -490,7 +490,7 @@ export default function CrossDebateLearningPage() {
           {/* Error state */}
           {error && (
             <div className="mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
-              <p className="text-sm text-red-400 font-mono">{error}</p>
+              <p className="text-sm text-red-400 font-theme-data">{error}</p>
               <p className="text-xs text-text-muted mt-1">
                 The dashboard will populate once the Knowledge Mound API is available.
               </p>
@@ -500,7 +500,7 @@ export default function CrossDebateLearningPage() {
           {/* Loading state */}
           {loading && (
             <div className="text-center py-16">
-              <div className="text-acid-green font-mono text-lg mb-2">Loading dashboard data...</div>
+              <div className="text-[var(--accent)] font-theme-data text-lg mb-2">Loading dashboard data...</div>
               <div className="text-text-muted text-sm">Fetching from Knowledge Mound APIs</div>
             </div>
           )}

@@ -304,9 +304,9 @@ export function TriageRulesPanel({
 
   if (isLoading) {
     return (
-      <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
-        <h3 className="text-acid-green font-mono text-sm mb-4">Triage Rules</h3>
-        <div className="text-center py-8 text-text-muted font-mono text-sm animate-pulse">
+      <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
+        <h3 className="text-[var(--accent)] font-theme-data text-sm mb-4">Triage Rules</h3>
+        <div className="text-center py-8 text-text-muted font-theme-data text-sm animate-pulse">
           Loading rules...
         </div>
       </div>
@@ -314,13 +314,13 @@ export function TriageRulesPanel({
   }
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50 p-4 rounded">
+    <div className="border border-[var(--accent)]/30 bg-surface/50 p-4 rounded">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-acid-green font-mono text-sm">Triage Rules</h3>
+        <h3 className="text-[var(--accent)] font-theme-data text-sm">Triage Rules</h3>
         <button
           onClick={() => setIsCreating(true)}
-          className="px-3 py-1 text-xs font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green hover:bg-acid-green/20 rounded"
+          className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/20 rounded"
         >
           + New Rule
         </button>
@@ -328,16 +328,16 @@ export function TriageRulesPanel({
 
       {/* Error */}
       {error && (
-        <div className="mb-4 p-2 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-mono rounded">
+        <div className="mb-4 p-2 bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-theme-data rounded">
           {error}
         </div>
       )}
 
       {/* Rule Creation Form */}
       {isCreating && (
-        <div className="mb-4 p-4 bg-bg/50 border border-acid-green/20 rounded">
+        <div className="mb-4 p-4 bg-bg/50 border border-[var(--accent)]/20 rounded">
           <div className="flex justify-between items-center mb-4">
-            <span className="text-acid-green font-mono text-sm">Create New Rule</span>
+            <span className="text-[var(--accent)] font-theme-data text-sm">Create New Rule</span>
             <button
               onClick={() => {
                 setIsCreating(false);
@@ -356,25 +356,25 @@ export function TriageRulesPanel({
               placeholder="Rule name..."
               value={newRule.name || ''}
               onChange={(e) => setNewRule({ ...newRule, name: e.target.value })}
-              className="w-full px-3 py-2 text-sm bg-bg border border-acid-green/30 rounded font-mono focus:border-acid-green focus:outline-none"
+              className="w-full px-3 py-2 text-sm bg-bg border border-[var(--accent)]/30 rounded font-theme-data focus:border-[var(--accent)] focus:outline-none"
             />
             <input
               type="text"
               placeholder="Description (optional)..."
               value={newRule.description || ''}
               onChange={(e) => setNewRule({ ...newRule, description: e.target.value })}
-              className="w-full px-3 py-2 text-sm bg-bg border border-acid-green/30 rounded font-mono focus:border-acid-green focus:outline-none"
+              className="w-full px-3 py-2 text-sm bg-bg border border-[var(--accent)]/30 rounded font-theme-data focus:border-[var(--accent)] focus:outline-none"
             />
           </div>
 
           {/* Conditions */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-text-muted text-xs font-mono">CONDITIONS</span>
+              <span className="text-text-muted text-xs font-theme-data">CONDITIONS</span>
               <select
                 value={newRule.condition_logic || 'AND'}
                 onChange={(e) => setNewRule({ ...newRule, condition_logic: e.target.value as 'AND' | 'OR' })}
-                className="px-2 py-1 text-xs bg-bg border border-acid-green/30 rounded font-mono"
+                className="px-2 py-1 text-xs bg-bg border border-[var(--accent)]/30 rounded font-theme-data"
               >
                 <option value="AND">Match ALL</option>
                 <option value="OR">Match ANY</option>
@@ -386,7 +386,7 @@ export function TriageRulesPanel({
                   <select
                     value={condition.field}
                     onChange={(e) => updateCondition(idx, { field: e.target.value as ConditionField })}
-                    className="px-2 py-1 text-xs bg-bg border border-acid-green/30 rounded font-mono"
+                    className="px-2 py-1 text-xs bg-bg border border-[var(--accent)]/30 rounded font-theme-data"
                   >
                     {FIELD_OPTIONS.map((f) => (
                       <option key={f.value} value={f.value}>{f.label}</option>
@@ -395,7 +395,7 @@ export function TriageRulesPanel({
                   <select
                     value={condition.operator}
                     onChange={(e) => updateCondition(idx, { operator: e.target.value as ConditionOperator })}
-                    className="px-2 py-1 text-xs bg-bg border border-acid-green/30 rounded font-mono"
+                    className="px-2 py-1 text-xs bg-bg border border-[var(--accent)]/30 rounded font-theme-data"
                   >
                     {OPERATOR_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -406,7 +406,7 @@ export function TriageRulesPanel({
                     value={condition.value}
                     onChange={(e) => updateCondition(idx, { value: e.target.value })}
                     placeholder="Value..."
-                    className="flex-1 px-2 py-1 text-xs bg-bg border border-acid-green/30 rounded font-mono"
+                    className="flex-1 px-2 py-1 text-xs bg-bg border border-[var(--accent)]/30 rounded font-theme-data"
                   />
                   {(newRule.conditions?.length || 0) > 1 && (
                     <button
@@ -421,7 +421,7 @@ export function TriageRulesPanel({
             </div>
             <button
               onClick={addCondition}
-              className="mt-2 text-xs text-acid-green hover:text-acid-green/80 font-mono"
+              className="mt-2 text-xs text-[var(--accent)] hover:text-[var(--accent)]/80 font-theme-data"
             >
               + Add condition
             </button>
@@ -429,7 +429,7 @@ export function TriageRulesPanel({
 
           {/* Actions */}
           <div className="mb-4">
-            <span className="text-text-muted text-xs font-mono block mb-2">ACTIONS</span>
+            <span className="text-text-muted text-xs font-theme-data block mb-2">ACTIONS</span>
             <div className="space-y-2">
               {newRule.actions?.map((action, idx) => {
                 const actionConfig = ACTION_OPTIONS.find(a => a.value === action.type);
@@ -438,7 +438,7 @@ export function TriageRulesPanel({
                     <select
                       value={action.type}
                       onChange={(e) => updateAction(idx, { type: e.target.value as ActionType })}
-                      className="px-2 py-1 text-xs bg-bg border border-acid-green/30 rounded font-mono"
+                      className="px-2 py-1 text-xs bg-bg border border-[var(--accent)]/30 rounded font-theme-data"
                     >
                       {ACTION_OPTIONS.map((a) => (
                         <option key={a.value} value={a.value}>{a.icon} {a.label}</option>
@@ -450,7 +450,7 @@ export function TriageRulesPanel({
                         value={action.target || ''}
                         onChange={(e) => updateAction(idx, { target: e.target.value })}
                         placeholder="Target..."
-                        className="flex-1 px-2 py-1 text-xs bg-bg border border-acid-green/30 rounded font-mono"
+                        className="flex-1 px-2 py-1 text-xs bg-bg border border-[var(--accent)]/30 rounded font-theme-data"
                       />
                     )}
                     {(newRule.actions?.length || 0) > 1 && (
@@ -467,7 +467,7 @@ export function TriageRulesPanel({
             </div>
             <button
               onClick={addAction}
-              className="mt-2 text-xs text-acid-green hover:text-acid-green/80 font-mono"
+              className="mt-2 text-xs text-[var(--accent)] hover:text-[var(--accent)]/80 font-theme-data"
             >
               + Add action
             </button>
@@ -475,7 +475,7 @@ export function TriageRulesPanel({
 
           {/* Priority */}
           <div className="mb-4">
-            <label className="text-text-muted text-xs font-mono block mb-1">
+            <label className="text-text-muted text-xs font-theme-data block mb-1">
               PRIORITY (lower = higher priority)
             </label>
             <input
@@ -484,7 +484,7 @@ export function TriageRulesPanel({
               max="100"
               value={newRule.priority || 5}
               onChange={(e) => setNewRule({ ...newRule, priority: parseInt(e.target.value) || 5 })}
-              className="w-20 px-2 py-1 text-xs bg-bg border border-acid-green/30 rounded font-mono"
+              className="w-20 px-2 py-1 text-xs bg-bg border border-[var(--accent)]/30 rounded font-theme-data"
             />
           </div>
 
@@ -492,7 +492,7 @@ export function TriageRulesPanel({
           <div className="flex gap-2">
             <button
               onClick={handleCreateRule}
-              className="px-4 py-2 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 rounded"
+              className="px-4 py-2 text-xs font-theme-data bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 rounded"
             >
               Create Rule
             </button>
@@ -501,7 +501,7 @@ export function TriageRulesPanel({
                 setIsCreating(false);
                 resetNewRule();
               }}
-              className="px-4 py-2 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-white rounded"
+              className="px-4 py-2 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-white rounded"
             >
               Cancel
             </button>
@@ -511,7 +511,7 @@ export function TriageRulesPanel({
 
       {/* Rules List */}
       {rules.length === 0 ? (
-        <div className="text-center py-8 text-text-muted font-mono text-sm">
+        <div className="text-center py-8 text-text-muted font-theme-data text-sm">
           No triage rules configured. Create one to get started.
         </div>
       ) : (
@@ -521,7 +521,7 @@ export function TriageRulesPanel({
               key={rule.id}
               className={`border rounded transition-all ${
                 rule.enabled
-                  ? 'border-acid-green/30 bg-bg/30'
+                  ? 'border-[var(--accent)]/30 bg-bg/30'
                   : 'border-gray-600/30 bg-bg/20 opacity-60'
               }`}
             >
@@ -537,7 +537,7 @@ export function TriageRulesPanel({
                         handleToggleRule(rule.id, !rule.enabled);
                       }}
                       className={`w-8 h-4 rounded-full relative transition-colors ${
-                        rule.enabled ? 'bg-acid-green' : 'bg-gray-600'
+                        rule.enabled ? 'bg-[var(--accent)]' : 'bg-gray-600'
                       }`}
                     >
                       <div
@@ -547,7 +547,7 @@ export function TriageRulesPanel({
                       />
                     </button>
                     <div>
-                      <div className="text-sm font-mono text-text">{rule.name}</div>
+                      <div className="text-sm font-theme-data text-text">{rule.name}</div>
                       {rule.description && (
                         <div className="text-xs text-text-muted">{rule.description}</div>
                       )}
@@ -555,11 +555,11 @@ export function TriageRulesPanel({
                   </div>
                   <div className="flex items-center gap-3">
                     {rule.stats && (
-                      <span className="text-xs text-text-muted font-mono">
+                      <span className="text-xs text-text-muted font-theme-data">
                         {rule.stats.total_matches} matches
                       </span>
                     )}
-                    <span className="text-xs text-acid-green/60 font-mono">
+                    <span className="text-xs text-[var(--accent)]/60 font-theme-data">
                       P{rule.priority}
                     </span>
                     <span className="text-text-muted">
@@ -571,18 +571,18 @@ export function TriageRulesPanel({
 
               {/* Expanded View */}
               {expandedRuleId === rule.id && (
-                <div className="border-t border-acid-green/20 p-3 bg-surface/30">
+                <div className="border-t border-[var(--accent)]/20 p-3 bg-surface/30">
                   {/* Conditions */}
                   <div className="mb-3">
-                    <span className="text-text-muted text-xs font-mono block mb-1">
+                    <span className="text-text-muted text-xs font-theme-data block mb-1">
                       CONDITIONS ({rule.condition_logic})
                     </span>
                     <div className="space-y-1">
                       {rule.conditions.map((c, idx) => (
-                        <div key={idx} className="text-xs font-mono text-text-muted flex items-center gap-1">
-                          <span className="text-acid-green">{c.field}</span>
+                        <div key={idx} className="text-xs font-theme-data text-text-muted flex items-center gap-1">
+                          <span className="text-[var(--accent)]">{c.field}</span>
                           <span>{c.operator}</span>
-                          <span className="text-acid-cyan">"{c.value}"</span>
+                          <span className="text-[var(--acid-cyan)]">"{c.value}"</span>
                         </div>
                       ))}
                     </div>
@@ -590,14 +590,14 @@ export function TriageRulesPanel({
 
                   {/* Actions */}
                   <div className="mb-3">
-                    <span className="text-text-muted text-xs font-mono block mb-1">ACTIONS</span>
+                    <span className="text-text-muted text-xs font-theme-data block mb-1">ACTIONS</span>
                     <div className="flex flex-wrap gap-2">
                       {rule.actions.map((a, idx) => {
                         const config = ACTION_OPTIONS.find(opt => opt.value === a.type);
                         return (
                           <span
                             key={idx}
-                            className="px-2 py-1 text-xs bg-acid-green/10 border border-acid-green/30 rounded font-mono"
+                            className="px-2 py-1 text-xs bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded font-theme-data"
                           >
                             {config?.icon} {config?.label}
                             {a.target && `: ${a.target}`}
@@ -611,19 +611,19 @@ export function TriageRulesPanel({
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleTestRule(rule)}
-                      className="px-3 py-1 text-xs font-mono bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/20 rounded"
+                      className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/20 rounded"
                     >
                       Test Rule
                     </button>
                     <button
                       onClick={() => setEditingRule(rule)}
-                      className="px-3 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-acid-green rounded"
+                      className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)] rounded"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDeleteRule(rule.id)}
-                      className="px-3 py-1 text-xs font-mono bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded"
+                      className="px-3 py-1 text-xs font-theme-data bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded"
                     >
                       Delete
                     </button>

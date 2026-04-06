@@ -176,7 +176,7 @@ export function ChannelConfigModal({
       <div className="bg-bg border border-border rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-bg border-b border-border p-4 flex items-center justify-between">
-          <h2 className="font-mono font-bold text-lg">
+          <h2 className="font-theme-data font-bold text-lg">
             Configure {channel.name}
           </h2>
           <button
@@ -196,7 +196,7 @@ export function ChannelConfigModal({
           )}
 
           {testResult === 'success' && (
-            <div className="p-3 bg-acid-green/10 border border-acid-green/30 rounded text-sm text-acid-green">
+            <div className="p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded text-sm text-[var(--accent)]">
               Connection test successful!
             </div>
           )}
@@ -209,7 +209,7 @@ export function ChannelConfigModal({
 
           {fields.map((field) => (
             <div key={field.key}>
-              <label className="block text-sm font-mono mb-1">
+              <label className="block text-sm font-theme-data mb-1">
                 {field.label}
                 {field.required && <span className="text-red-400 ml-1">*</span>}
               </label>
@@ -218,7 +218,7 @@ export function ChannelConfigModal({
                 <button
                   onClick={() => handleChange(field.key, !config[field.key])}
                   className={`relative w-10 h-5 rounded-full transition-colors ${
-                    config[field.key] ? 'bg-acid-green' : 'bg-surface-alt'
+                    config[field.key] ? 'bg-[var(--accent)]' : 'bg-surface-alt'
                   }`}
                 >
                   <span
@@ -231,7 +231,7 @@ export function ChannelConfigModal({
                 <select
                   value={(config[field.key] as string) || ''}
                   onChange={(e) => handleChange(field.key, e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+                  className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
                 >
                   <option value="">Select...</option>
                   {field.options?.map((opt) => (
@@ -246,7 +246,7 @@ export function ChannelConfigModal({
                   value={(config[field.key] as string) || ''}
                   onChange={(e) => handleChange(field.key, e.target.value)}
                   placeholder={field.placeholder}
-                  className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+                  className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
                 />
               )}
 
@@ -261,21 +261,21 @@ export function ChannelConfigModal({
         <div className="sticky bottom-0 bg-bg border-t border-border p-4 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-mono text-text-muted hover:text-text transition-colors"
+            className="px-4 py-2 text-sm font-theme-data text-text-muted hover:text-text transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleTest}
             disabled={testing}
-            className="px-4 py-2 text-sm font-mono bg-surface hover:bg-surface-alt rounded transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-theme-data bg-surface hover:bg-surface-alt rounded transition-colors disabled:opacity-50"
           >
             {testing ? 'Testing...' : 'Test Connection'}
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Configuration'}
           </button>

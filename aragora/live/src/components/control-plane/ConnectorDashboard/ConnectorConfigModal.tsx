@@ -229,7 +229,7 @@ export function ConnectorConfigModal({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
-            <h2 className="font-mono font-medium text-lg">Configure {connector.name}</h2>
+            <h2 className="font-theme-data font-medium text-lg">Configure {connector.name}</h2>
             <p className="text-xs text-text-muted mt-1">{connector.description}</p>
           </div>
           <button
@@ -245,9 +245,9 @@ export function ConnectorConfigModal({
           <div className="space-y-4">
             {configFields.map((field) => (
               <div key={field.key}>
-                <label className="block text-sm font-mono mb-1">
+                <label className="block text-sm font-theme-data mb-1">
                   {field.label}
-                  {field.required && <span className="text-crimson ml-1">*</span>}
+                  {field.required && <span className="text-[var(--crimson)] ml-1">*</span>}
                 </label>
 
                 {field.type === 'text' && (
@@ -256,7 +256,7 @@ export function ConnectorConfigModal({
                     value={(formData[field.key] as string) || ''}
                     onChange={(e) => handleChange(field.key, e.target.value)}
                     placeholder={field.placeholder}
-                    className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono focus:border-acid-green focus:outline-none"
+                    className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data focus:border-[var(--accent)] focus:outline-none"
                   />
                 )}
 
@@ -266,7 +266,7 @@ export function ConnectorConfigModal({
                     value={(formData[field.key] as string) || ''}
                     onChange={(e) => handleChange(field.key, e.target.value)}
                     placeholder={field.placeholder}
-                    className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono focus:border-acid-green focus:outline-none"
+                    className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data focus:border-[var(--accent)] focus:outline-none"
                   />
                 )}
 
@@ -276,7 +276,7 @@ export function ConnectorConfigModal({
                     value={(formData[field.key] as number) ?? ''}
                     onChange={(e) => handleChange(field.key, parseInt(e.target.value, 10))}
                     placeholder={field.placeholder}
-                    className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono focus:border-acid-green focus:outline-none"
+                    className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data focus:border-[var(--accent)] focus:outline-none"
                   />
                 )}
 
@@ -286,7 +286,7 @@ export function ConnectorConfigModal({
                     onChange={(e) => handleChange(field.key, e.target.value)}
                     placeholder={field.placeholder}
                     rows={3}
-                    className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono focus:border-acid-green focus:outline-none resize-none"
+                    className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data focus:border-[var(--accent)] focus:outline-none resize-none"
                   />
                 )}
 
@@ -294,7 +294,7 @@ export function ConnectorConfigModal({
                   <select
                     value={(formData[field.key] as string) || ''}
                     onChange={(e) => handleChange(field.key, e.target.value)}
-                    className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono focus:border-acid-green focus:outline-none"
+                    className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data focus:border-[var(--accent)] focus:outline-none"
                   >
                     <option value="">Select...</option>
                     {field.options?.map((opt) => (
@@ -311,7 +311,7 @@ export function ConnectorConfigModal({
                       type="checkbox"
                       checked={(formData[field.key] as boolean) ?? false}
                       onChange={(e) => handleChange(field.key, e.target.checked)}
-                      className="w-4 h-4 rounded border-border bg-bg checked:bg-acid-green checked:border-acid-green"
+                      className="w-4 h-4 rounded border-border bg-bg checked:bg-[var(--accent)] checked:border-[var(--accent)]"
                     />
                     <span className="text-sm text-text-muted">{field.helperText || 'Enable'}</span>
                   </label>
@@ -322,7 +322,7 @@ export function ConnectorConfigModal({
                 )}
 
                 {errors[field.key] && (
-                  <p className="text-xs text-crimson mt-1">{errors[field.key]}</p>
+                  <p className="text-xs text-[var(--crimson)] mt-1">{errors[field.key]}</p>
                 )}
               </div>
             ))}
@@ -330,7 +330,7 @@ export function ConnectorConfigModal({
 
           {/* Form-level error */}
           {errors._form && (
-            <div className="mt-4 p-3 bg-crimson/10 border border-crimson/30 rounded text-sm text-crimson">
+            <div className="mt-4 p-3 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded text-sm text-[var(--crimson)]">
               {errors._form}
             </div>
           )}
@@ -341,7 +341,7 @@ export function ConnectorConfigModal({
               className={`mt-4 p-3 rounded text-sm ${
                 testResult.success
                   ? 'bg-success/10 border border-success/30 text-success'
-                  : 'bg-crimson/10 border border-crimson/30 text-crimson'
+                  : 'bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 text-[var(--crimson)]'
               }`}
             >
               {testResult.message}
@@ -356,7 +356,7 @@ export function ConnectorConfigModal({
               <button
                 onClick={handleTest}
                 disabled={testing}
-                className="px-4 py-2 text-sm font-mono border border-border rounded hover:border-acid-cyan transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-theme-data border border-border rounded hover:border-[var(--acid-cyan)] transition-colors disabled:opacity-50"
               >
                 {testing ? 'Testing...' : 'Test Connection'}
               </button>
@@ -365,14 +365,14 @@ export function ConnectorConfigModal({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-mono border border-border rounded hover:border-text-muted transition-colors"
+              className="px-4 py-2 text-sm font-theme-data border border-border rounded hover:border-text-muted transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save'}
             </button>

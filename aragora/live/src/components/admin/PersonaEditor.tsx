@@ -173,10 +173,10 @@ export function PersonaEditor({ apiBase = '/api' }: PersonaEditorProps) {
 
   if (loading) {
     return (
-      <div className="bg-surface border border-acid-green/30 p-8">
+      <div className="bg-surface border border-[var(--accent)]/30 p-8">
         <div className="flex items-center justify-center gap-2">
-          <div className="w-2 h-2 bg-acid-green rounded-full animate-pulse" />
-          <span className="text-xs font-mono text-acid-green">LOADING PERSONAS...</span>
+          <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" />
+          <span className="text-xs font-theme-data text-[var(--accent)]">LOADING PERSONAS...</span>
         </div>
       </div>
     );
@@ -184,17 +184,17 @@ export function PersonaEditor({ apiBase = '/api' }: PersonaEditorProps) {
 
   if (error) {
     return (
-      <div className="bg-surface border border-crimson/30 p-4">
+      <div className="bg-surface border border-[var(--crimson)]/30 p-4">
         <div className="flex items-center gap-2">
-          <span className="text-crimson text-xs font-mono">ERROR:</span>
-          <span className="text-text-primary text-xs font-mono">{error}</span>
+          <span className="text-[var(--crimson)] text-xs font-theme-data">ERROR:</span>
+          <span className="text-text-primary text-xs font-theme-data">{error}</span>
         </div>
         <button
           onClick={() => {
             setError(null);
             fetchPersonas();
           }}
-          className="mt-3 px-3 py-1.5 text-xs font-mono bg-crimson/20 text-crimson border border-crimson/40 hover:bg-crimson/30 transition-colors"
+          className="mt-3 px-3 py-1.5 text-xs font-theme-data bg-[var(--crimson)]/20 text-[var(--crimson)] border border-[var(--crimson)]/40 hover:bg-[var(--crimson)]/30 transition-colors"
         >
           RETRY
         </button>
@@ -203,40 +203,40 @@ export function PersonaEditor({ apiBase = '/api' }: PersonaEditorProps) {
   }
 
   return (
-    <div className="bg-surface border border-acid-green/30">
+    <div className="bg-surface border border-[var(--accent)]/30">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+          <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
             {'>'} PERSONA MANAGER
           </span>
-          <span className="text-xs font-mono text-text-muted">
+          <span className="text-xs font-theme-data text-text-muted">
             {personas.length} agent{personas.length !== 1 ? 's' : ''}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleCreate}
-            className="px-3 py-1 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/40 hover:bg-acid-green/30 transition-colors"
+            className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40 hover:bg-[var(--accent)]/30 transition-colors"
           >
             + NEW
           </button>
           <button
             onClick={() => setViewMode('grid')}
-            className={`px-2 py-1 text-xs font-mono border ${
+            className={`px-2 py-1 text-xs font-theme-data border ${
               viewMode === 'grid'
-                ? 'bg-acid-green/20 text-acid-green border-acid-green/40'
-                : 'text-text-muted border-border hover:border-acid-green/40'
+                ? 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40'
+                : 'text-text-muted border-border hover:border-[var(--accent)]/40'
             }`}
           >
             GRID
           </button>
           <button
             onClick={() => setViewMode('list')}
-            className={`px-2 py-1 text-xs font-mono border ${
+            className={`px-2 py-1 text-xs font-theme-data border ${
               viewMode === 'list'
-                ? 'bg-acid-green/20 text-acid-green border-acid-green/40'
-                : 'text-text-muted border-border hover:border-acid-green/40'
+                ? 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40'
+                : 'text-text-muted border-border hover:border-[var(--accent)]/40'
             }`}
           >
             LIST
@@ -245,13 +245,13 @@ export function PersonaEditor({ apiBase = '/api' }: PersonaEditorProps) {
       </div>
 
       {/* Search */}
-      <div className="px-4 py-3 border-b border-acid-green/10">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/10">
         <input
           type="text"
           placeholder="Search personas by name, traits, or expertise..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-bg border border-border px-3 py-2 text-xs font-mono text-text-primary placeholder-text-muted focus:border-acid-green/50 focus:outline-none"
+          className="w-full bg-bg border border-border px-3 py-2 text-xs font-theme-data text-text-primary placeholder-text-muted focus:border-[var(--accent)]/50 focus:outline-none"
         />
       </div>
 
@@ -259,7 +259,7 @@ export function PersonaEditor({ apiBase = '/api' }: PersonaEditorProps) {
       <div className="p-4">
         {filteredPersonas.length === 0 ? (
           <div className="text-center py-8">
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               {searchQuery ? 'No personas match your search' : 'No personas configured'}
             </span>
           </div>
@@ -347,12 +347,12 @@ function PersonaCard({ persona, isSelected, onClick, onEdit, formatDate }: Perso
       onClick={onClick}
       className={`p-4 border cursor-pointer transition-all ${
         isSelected
-          ? 'border-acid-green bg-acid-green/10'
-          : 'border-border hover:border-acid-green/40 bg-bg/30'
+          ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+          : 'border-border hover:border-[var(--accent)]/40 bg-bg/30'
       }`}
     >
       <div className="flex items-start justify-between mb-3">
-        <span className="text-sm font-mono text-acid-cyan font-medium">
+        <span className="text-sm font-theme-data text-[var(--acid-cyan)] font-medium">
           {persona.agent_name}
         </span>
         <div className="flex items-center gap-2">
@@ -361,15 +361,15 @@ function PersonaCard({ persona, isSelected, onClick, onEdit, formatDate }: Perso
               e.stopPropagation();
               onEdit();
             }}
-            className="text-xs font-mono text-text-muted hover:text-acid-green"
+            className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)]"
           >
             [EDIT]
           </button>
-          <span className="text-xs font-mono text-text-muted">{formatDate(persona.updated_at)}</span>
+          <span className="text-xs font-theme-data text-text-muted">{formatDate(persona.updated_at)}</span>
         </div>
       </div>
 
-      <p className="text-xs font-mono text-text-primary mb-3 line-clamp-2">
+      <p className="text-xs font-theme-data text-text-primary mb-3 line-clamp-2">
         {persona.description || 'No description'}
       </p>
 
@@ -378,13 +378,13 @@ function PersonaCard({ persona, isSelected, onClick, onEdit, formatDate }: Perso
           {persona.traits.slice(0, 3).map((trait) => (
             <span
               key={trait}
-              className="px-1.5 py-0.5 text-xs font-mono bg-purple/10 text-purple border border-purple/30"
+              className="px-1.5 py-0.5 text-xs font-theme-data bg-purple/10 text-purple border border-purple/30"
             >
               {trait}
             </span>
           ))}
           {persona.traits.length > 3 && (
-            <span className="px-1.5 py-0.5 text-xs font-mono text-text-muted">
+            <span className="px-1.5 py-0.5 text-xs font-theme-data text-text-muted">
               +{persona.traits.length - 3}
             </span>
           )}
@@ -396,13 +396,13 @@ function PersonaCard({ persona, isSelected, onClick, onEdit, formatDate }: Perso
           {expertiseKeys.map((exp) => (
             <span
               key={exp}
-              className="px-1.5 py-0.5 text-xs font-mono bg-acid-green/10 text-acid-green border border-acid-green/30"
+              className="px-1.5 py-0.5 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30"
             >
               {exp}
             </span>
           ))}
           {expertiseCount > 3 && (
-            <span className="px-1.5 py-0.5 text-xs font-mono text-text-muted">
+            <span className="px-1.5 py-0.5 text-xs font-theme-data text-text-muted">
               +{expertiseCount - 3}
             </span>
           )}
@@ -428,23 +428,23 @@ function PersonaRow({ persona, isSelected, onClick, onEdit, formatDate }: Person
       onClick={onClick}
       className={`p-3 border cursor-pointer transition-all flex items-center gap-4 ${
         isSelected
-          ? 'border-acid-green bg-acid-green/10'
-          : 'border-border hover:border-acid-green/40 bg-bg/30'
+          ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+          : 'border-border hover:border-[var(--accent)]/40 bg-bg/30'
       }`}
     >
       <div className="flex-shrink-0 w-32">
-        <span className="text-sm font-mono text-acid-cyan font-medium">{persona.agent_name}</span>
+        <span className="text-sm font-theme-data text-[var(--acid-cyan)] font-medium">{persona.agent_name}</span>
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-mono text-text-primary truncate">
+        <p className="text-xs font-theme-data text-text-primary truncate">
           {persona.description || 'No description'}
         </p>
       </div>
 
       <div className="flex-shrink-0 flex items-center gap-2">
-        <span className="text-xs font-mono text-purple">{persona.traits.length} traits</span>
-        <span className="text-xs font-mono text-acid-green">{expertiseCount} expertise</span>
+        <span className="text-xs font-theme-data text-purple">{persona.traits.length} traits</span>
+        <span className="text-xs font-theme-data text-[var(--accent)]">{expertiseCount} expertise</span>
       </div>
 
       <button
@@ -452,13 +452,13 @@ function PersonaRow({ persona, isSelected, onClick, onEdit, formatDate }: Person
           e.stopPropagation();
           onEdit();
         }}
-        className="text-xs font-mono text-text-muted hover:text-acid-green"
+        className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)]"
       >
         [EDIT]
       </button>
 
       <div className="flex-shrink-0 w-24 text-right">
-        <span className="text-xs font-mono text-text-muted">{formatDate(persona.updated_at)}</span>
+        <span className="text-xs font-theme-data text-text-muted">{formatDate(persona.updated_at)}</span>
       </div>
     </div>
   );
@@ -482,27 +482,27 @@ function PersonaDetailPanel({
   const expertiseEntries = Object.entries(persona.expertise || {});
 
   return (
-    <div className="border-t border-acid-green/20 bg-bg/50 p-4">
+    <div className="border-t border-[var(--accent)]/20 bg-bg/50 p-4">
       <div className="flex items-center justify-between mb-4">
-        <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+        <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
           PERSONA DETAILS: {persona.agent_name}
         </span>
         <div className="flex items-center gap-2">
           <button
             onClick={onEdit}
-            className="px-2 py-1 text-xs font-mono text-acid-cyan hover:text-acid-green border border-acid-cyan/40 hover:border-acid-green/40 transition-colors"
+            className="px-2 py-1 text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] border border-[var(--acid-cyan)]/40 hover:border-[var(--accent)]/40 transition-colors"
           >
             EDIT
           </button>
           <button
             onClick={onDelete}
-            className="px-2 py-1 text-xs font-mono text-crimson hover:bg-crimson/10 border border-crimson/40 transition-colors"
+            className="px-2 py-1 text-xs font-theme-data text-[var(--crimson)] hover:bg-[var(--crimson)]/10 border border-[var(--crimson)]/40 transition-colors"
           >
             DELETE
           </button>
           <button
             onClick={onClose}
-            className="px-2 py-1 text-xs font-mono text-text-muted hover:text-crimson border border-border hover:border-crimson/40 transition-colors"
+            className="px-2 py-1 text-xs font-theme-data text-text-muted hover:text-[var(--crimson)] border border-border hover:border-[var(--crimson)]/40 transition-colors"
           >
             CLOSE
           </button>
@@ -511,46 +511,46 @@ function PersonaDetailPanel({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <h4 className="text-xs font-mono text-text-muted mb-2">DESCRIPTION</h4>
-          <p className="text-xs font-mono text-text-primary bg-surface p-3 border border-border">
+          <h4 className="text-xs font-theme-data text-text-muted mb-2">DESCRIPTION</h4>
+          <p className="text-xs font-theme-data text-text-primary bg-surface p-3 border border-border">
             {persona.description || 'No description provided'}
           </p>
         </div>
 
         <div className="space-y-4">
           <div>
-            <h4 className="text-xs font-mono text-text-muted mb-2">TRAITS</h4>
+            <h4 className="text-xs font-theme-data text-text-muted mb-2">TRAITS</h4>
             <div className="flex flex-wrap gap-1">
               {persona.traits.length > 0 ? (
                 persona.traits.map((trait) => (
                   <span
                     key={trait}
-                    className="px-2 py-1 text-xs font-mono bg-purple/10 text-purple border border-purple/30"
+                    className="px-2 py-1 text-xs font-theme-data bg-purple/10 text-purple border border-purple/30"
                   >
                     {trait}
                   </span>
                 ))
               ) : (
-                <span className="text-xs font-mono text-text-muted">No traits defined</span>
+                <span className="text-xs font-theme-data text-text-muted">No traits defined</span>
               )}
             </div>
           </div>
 
           <div>
-            <h4 className="text-xs font-mono text-text-muted mb-2">EXPERTISE</h4>
+            <h4 className="text-xs font-theme-data text-text-muted mb-2">EXPERTISE</h4>
             <div className="flex flex-wrap gap-1">
               {expertiseEntries.length > 0 ? (
                 expertiseEntries.map(([domain, score]) => (
                   <span
                     key={domain}
-                    className="px-2 py-1 text-xs font-mono bg-acid-green/10 text-acid-green border border-acid-green/30"
+                    className="px-2 py-1 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30"
                     title={`Score: ${(score as number).toFixed(2)}`}
                   >
                     {domain}
                   </span>
                 ))
               ) : (
-                <span className="text-xs font-mono text-text-muted">No expertise defined</span>
+                <span className="text-xs font-theme-data text-text-muted">No expertise defined</span>
               )}
             </div>
           </div>
@@ -559,12 +559,12 @@ function PersonaDetailPanel({
 
       <div className="mt-4 pt-4 border-t border-border flex gap-6">
         <div>
-          <span className="text-xs font-mono text-text-muted">CREATED: </span>
-          <span className="text-xs font-mono text-text-primary">{formatDate(persona.created_at)}</span>
+          <span className="text-xs font-theme-data text-text-muted">CREATED: </span>
+          <span className="text-xs font-theme-data text-text-primary">{formatDate(persona.created_at)}</span>
         </div>
         <div>
-          <span className="text-xs font-mono text-text-muted">UPDATED: </span>
-          <span className="text-xs font-mono text-text-primary">{formatDate(persona.updated_at)}</span>
+          <span className="text-xs font-theme-data text-text-muted">UPDATED: </span>
+          <span className="text-xs font-theme-data text-text-primary">{formatDate(persona.updated_at)}</span>
         </div>
       </div>
     </div>
@@ -612,14 +612,14 @@ function PersonaEditModal({
 
   return (
     <div className="fixed inset-0 bg-bg/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface border border-acid-green/40 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between sticky top-0">
-          <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+      <div className="bg-surface border border-[var(--accent)]/40 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 flex items-center justify-between sticky top-0">
+          <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
             {isNew ? '+ CREATE PERSONA' : `EDIT: ${persona.agent_name}`}
           </span>
           <button
             onClick={onCancel}
-            className="text-xs font-mono text-text-muted hover:text-crimson"
+            className="text-xs font-theme-data text-text-muted hover:text-[var(--crimson)]"
           >
             [X]
           </button>
@@ -628,14 +628,14 @@ function PersonaEditModal({
         <div className="p-4 space-y-4">
           {/* Agent Name (only editable on create) */}
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1">AGENT NAME *</label>
+            <label className="block text-xs font-theme-data text-text-muted mb-1">AGENT NAME *</label>
             <input
               type="text"
               value={persona.agent_name}
               onChange={(e) => onChange({ ...persona, agent_name: e.target.value })}
               disabled={!isNew}
               placeholder="e.g., claude, gpt4, mistral"
-              className={`w-full bg-bg border border-border px-3 py-2 text-xs font-mono text-text-primary placeholder-text-muted focus:border-acid-green/50 focus:outline-none ${
+              className={`w-full bg-bg border border-border px-3 py-2 text-xs font-theme-data text-text-primary placeholder-text-muted focus:border-[var(--accent)]/50 focus:outline-none ${
                 !isNew ? 'opacity-50 cursor-not-allowed' : ''
               }`}
             />
@@ -643,19 +643,19 @@ function PersonaEditModal({
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-1">DESCRIPTION</label>
+            <label className="block text-xs font-theme-data text-text-muted mb-1">DESCRIPTION</label>
             <textarea
               value={persona.description}
               onChange={(e) => onChange({ ...persona, description: e.target.value })}
               placeholder="Describe this agent's personality and approach..."
               rows={3}
-              className="w-full bg-bg border border-border px-3 py-2 text-xs font-mono text-text-primary placeholder-text-muted focus:border-acid-green/50 focus:outline-none resize-none"
+              className="w-full bg-bg border border-border px-3 py-2 text-xs font-theme-data text-text-primary placeholder-text-muted focus:border-[var(--accent)]/50 focus:outline-none resize-none"
             />
           </div>
 
           {/* Traits */}
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-2">
+            <label className="block text-xs font-theme-data text-text-muted mb-2">
               PERSONALITY TRAITS ({persona.traits.length} selected)
             </label>
             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 bg-bg border border-border">
@@ -663,7 +663,7 @@ function PersonaEditModal({
                 <button
                   key={trait}
                   onClick={() => toggleTrait(trait)}
-                  className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                  className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                     persona.traits.includes(trait)
                       ? 'bg-purple/20 text-purple border-purple/50'
                       : 'text-text-muted border-border hover:border-purple/30'
@@ -677,7 +677,7 @@ function PersonaEditModal({
 
           {/* Expertise */}
           <div>
-            <label className="block text-xs font-mono text-text-muted mb-2">
+            <label className="block text-xs font-theme-data text-text-muted mb-2">
               EXPERTISE DOMAINS ({Object.keys(persona.expertise).length} selected)
             </label>
             <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2 bg-bg border border-border">
@@ -685,10 +685,10 @@ function PersonaEditModal({
                 <button
                   key={domain}
                   onClick={() => toggleDomain(domain)}
-                  className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                  className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                     domain in persona.expertise
-                      ? 'bg-acid-green/20 text-acid-green border-acid-green/50'
-                      : 'text-text-muted border-border hover:border-acid-green/30'
+                      ? 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/50'
+                      : 'text-text-muted border-border hover:border-[var(--accent)]/30'
                   }`}
                 >
                   {domain}
@@ -699,18 +699,18 @@ function PersonaEditModal({
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-acid-green/20 bg-bg/50 flex items-center justify-end gap-2 sticky bottom-0">
+        <div className="px-4 py-3 border-t border-[var(--accent)]/20 bg-bg/50 flex items-center justify-end gap-2 sticky bottom-0">
           <button
             onClick={onCancel}
             disabled={saving}
-            className="px-4 py-2 text-xs font-mono text-text-muted border border-border hover:border-crimson/40 hover:text-crimson transition-colors disabled:opacity-50"
+            className="px-4 py-2 text-xs font-theme-data text-text-muted border border-border hover:border-[var(--crimson)]/40 hover:text-[var(--crimson)] transition-colors disabled:opacity-50"
           >
             CANCEL
           </button>
           <button
             onClick={onSave}
             disabled={saving || !persona.agent_name.trim()}
-            className="px-4 py-2 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/40 hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40 hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'SAVING...' : 'SAVE'}
           </button>

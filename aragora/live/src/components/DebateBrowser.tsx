@@ -47,13 +47,13 @@ export function DebateBrowser() {
   };
 
   return (
-    <div className="panel font-mono" style={{ padding: 0 }}>
+    <div className="panel font-theme-data" style={{ padding: 0 }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
-          <span className="text-acid-green">[</span>
-          <span className="panel-title-sm text-acid-green">DEBATE_ARCHIVE</span>
-          <span className="text-acid-green">]</span>
+          <span className="text-[var(--accent)]">[</span>
+          <span className="panel-title-sm text-[var(--accent)]">DEBATE_ARCHIVE</span>
+          <span className="text-[var(--accent)]">]</span>
           <span className="text-text-muted text-xs">{'// '}{debates.length} recent</span>
         </div>
       </div>
@@ -75,13 +75,13 @@ export function DebateBrowser() {
             <div className="flex items-start justify-between gap-2 mb-2">
               <Link
                 href={`/debate/${debate.id}`}
-                className="text-xs text-acid-green hover:text-acid-cyan transition-colors line-clamp-2 flex-1"
+                className="text-xs text-[var(--accent)] hover:text-[var(--acid-cyan)] transition-colors line-clamp-2 flex-1"
               >
                 {debate.task}
               </Link>
               <button
                 onClick={() => handleCopyLink(debate.id)}
-                className="text-[10px] text-text-muted hover:text-acid-green transition-colors flex-shrink-0"
+                className="text-[10px] text-text-muted hover:text-[var(--accent)] transition-colors flex-shrink-0"
                 title="Copy permalink"
               >
                 {copiedId === debate.id ? '[OK]' : '[LINK]'}
@@ -131,7 +131,7 @@ export function DebateBrowser() {
       <div className="px-4 py-3 border-t border-border">
         <Link
           href="/debates"
-          className="text-xs text-text-muted hover:text-acid-green transition-colors"
+          className="text-xs text-text-muted hover:text-[var(--accent)] transition-colors"
         >
           {'>'} VIEW ALL DEBATES...
         </Link>

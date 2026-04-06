@@ -36,7 +36,7 @@ const InputField = memo(function InputField({
 }: InputFieldProps) {
   return (
     <div className="mb-3">
-      <label className="block text-xs font-mono text-text-muted uppercase tracking-wide mb-1">
+      <label className="block text-xs font-theme-data text-text-muted uppercase tracking-wide mb-1">
         {label}
       </label>
       {type === 'textarea' ? (
@@ -44,7 +44,7 @@ const InputField = memo(function InputField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none resize-none"
+          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none resize-none"
           rows={3}
         />
       ) : (
@@ -53,7 +53,7 @@ const InputField = memo(function InputField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+          className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
         />
       )}
     </div>
@@ -75,13 +75,13 @@ const SelectField = memo(function SelectField({
 }: SelectFieldProps) {
   return (
     <div className="mb-3">
-      <label className="block text-xs font-mono text-text-muted uppercase tracking-wide mb-1">
+      <label className="block text-xs font-theme-data text-text-muted uppercase tracking-wide mb-1">
         {label}
       </label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+        className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -119,7 +119,7 @@ const MultiSelect = memo(function MultiSelect({
 
   return (
     <div className="mb-3">
-      <label className="block text-xs font-mono text-text-muted uppercase tracking-wide mb-1">
+      <label className="block text-xs font-theme-data text-text-muted uppercase tracking-wide mb-1">
         {label}
       </label>
       <div className="flex flex-wrap gap-1 p-2 bg-bg border border-border rounded max-h-32 overflow-y-auto">
@@ -128,9 +128,9 @@ const MultiSelect = memo(function MultiSelect({
             key={opt}
             type="button"
             onClick={() => toggleOption(opt)}
-            className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
+            className={`px-2 py-1 text-xs font-theme-data rounded transition-colors ${
               selected.includes(opt)
-                ? 'bg-acid-green text-bg'
+                ? 'bg-[var(--accent)] text-bg'
                 : 'bg-surface text-text-muted hover:text-text'
             }`}
           >
@@ -344,7 +344,7 @@ export function PropertyEditor({ node, onUpdate, onDelete }: PropertyEditorProps
     return (
       <div className="h-full p-4 bg-surface border-l border-border">
         <div className="text-center text-text-muted py-8">
-          <p className="text-sm font-mono">Select a node to edit its properties</p>
+          <p className="text-sm font-theme-data">Select a node to edit its properties</p>
         </div>
       </div>
     );
@@ -358,7 +358,7 @@ export function PropertyEditor({ node, onUpdate, onDelete }: PropertyEditorProps
       <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border">
         <span className="text-lg">{config.icon}</span>
         <div>
-          <h3 className="text-sm font-mono font-bold text-text">{config.label}</h3>
+          <h3 className="text-sm font-theme-data font-bold text-text">{config.label}</h3>
           <p className="text-xs text-text-muted">{config.description}</p>
         </div>
       </div>
@@ -422,7 +422,7 @@ export function PropertyEditor({ node, onUpdate, onDelete }: PropertyEditorProps
       <div className="mt-6 pt-4 border-t border-border">
         <button
           onClick={onDelete}
-          className="w-full px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-mono text-sm hover:bg-red-500/30 transition-colors rounded"
+          className="w-full px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-theme-data text-sm hover:bg-red-500/30 transition-colors rounded"
         >
           Delete Node
         </button>

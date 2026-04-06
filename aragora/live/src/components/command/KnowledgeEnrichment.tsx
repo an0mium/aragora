@@ -14,8 +14,8 @@ export function KnowledgeEnrichment({ nodeLabel, relatedDebates, contradictions,
   if (loading) {
     return (
       <div className="space-y-2">
-        <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">Related Knowledge</h4>
-        <div className="text-xs font-mono text-text-muted animate-pulse">Querying knowledge mound...</div>
+        <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">Related Knowledge</h4>
+        <div className="text-xs font-theme-data text-text-muted animate-pulse">Querying knowledge mound...</div>
       </div>
     );
   }
@@ -25,14 +25,14 @@ export function KnowledgeEnrichment({ nodeLabel, relatedDebates, contradictions,
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">Related Knowledge</h4>
-        <Link href="/intelligence" className="text-[10px] font-mono text-acid-green hover:underline">
+        <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">Related Knowledge</h4>
+        <Link href="/intelligence" className="text-[10px] font-theme-data text-[var(--accent)] hover:underline">
           Explore
         </Link>
       </div>
 
       {!hasData ? (
-        <div className="text-xs font-mono text-text-muted/50 bg-bg p-3 rounded border border-border text-center">
+        <div className="text-xs font-theme-data text-text-muted/50 bg-bg p-3 rounded border border-border text-center">
           No related knowledge found for &quot;{nodeLabel}&quot;
         </div>
       ) : (
@@ -40,9 +40,9 @@ export function KnowledgeEnrichment({ nodeLabel, relatedDebates, contradictions,
           {/* Past Debates */}
           {relatedDebates.length > 0 && (
             <div className="space-y-1">
-              <span className="text-[10px] font-mono text-indigo-400 uppercase">Past Debates</span>
+              <span className="text-[10px] font-theme-data text-indigo-400 uppercase">Past Debates</span>
               {relatedDebates.slice(0, 3).map(d => (
-                <div key={d.id} className="flex items-center gap-2 px-2 py-1 text-[11px] font-mono bg-bg rounded border border-border">
+                <div key={d.id} className="flex items-center gap-2 px-2 py-1 text-[11px] font-theme-data bg-bg rounded border border-border">
                   <span className="text-indigo-400">{'\u2694'}</span>
                   <span className="truncate text-text-muted flex-1">{d.topic}</span>
                   <span className="text-text-muted/50">{Math.round(d.relevance * 100)}%</span>
@@ -54,9 +54,9 @@ export function KnowledgeEnrichment({ nodeLabel, relatedDebates, contradictions,
           {/* Contradictions */}
           {contradictions.length > 0 && (
             <div className="space-y-1">
-              <span className="text-[10px] font-mono text-amber-400 uppercase">Contradictions</span>
+              <span className="text-[10px] font-theme-data text-amber-400 uppercase">Contradictions</span>
               {contradictions.slice(0, 3).map(c => (
-                <div key={c.id} className="flex items-center gap-2 px-2 py-1 text-[11px] font-mono bg-amber-500/5 rounded border border-amber-500/20">
+                <div key={c.id} className="flex items-center gap-2 px-2 py-1 text-[11px] font-theme-data bg-amber-500/5 rounded border border-amber-500/20">
                   <span className="text-amber-400">{'\u26A0'}</span>
                   <span className="truncate text-text-muted">{c.claim}</span>
                 </div>
@@ -67,9 +67,9 @@ export function KnowledgeEnrichment({ nodeLabel, relatedDebates, contradictions,
           {/* Trending */}
           {trending.length > 0 && (
             <div className="space-y-1">
-              <span className="text-[10px] font-mono text-emerald-400 uppercase">Trending Topics</span>
+              <span className="text-[10px] font-theme-data text-emerald-400 uppercase">Trending Topics</span>
               {trending.slice(0, 3).map(t => (
-                <div key={t.id} className="flex items-center gap-2 px-2 py-1 text-[11px] font-mono bg-bg rounded border border-border">
+                <div key={t.id} className="flex items-center gap-2 px-2 py-1 text-[11px] font-theme-data bg-bg rounded border border-border">
                   <span className="text-emerald-400">{'\u2191'}</span>
                   <span className="truncate text-text-muted flex-1">{t.topic}</span>
                   <span className="text-text-muted/50">{t.score}</span>

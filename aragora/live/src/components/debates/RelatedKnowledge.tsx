@@ -43,7 +43,7 @@ export function RelatedKnowledge({ query, limit = 5 }: RelatedKnowledgeProps) {
 
   if (isLoading) {
     return (
-      <div className="text-xs font-mono text-[var(--text-muted)] animate-pulse py-2">
+      <div className="text-xs font-theme-data text-[var(--text-muted)] animate-pulse py-2">
         {'>'} Searching knowledge base...
       </div>
     );
@@ -51,7 +51,7 @@ export function RelatedKnowledge({ query, limit = 5 }: RelatedKnowledgeProps) {
 
   if (error) {
     return (
-      <div className="text-xs font-mono text-[var(--text-muted)] py-2">
+      <div className="text-xs font-theme-data text-[var(--text-muted)] py-2">
         {'>'} Knowledge search unavailable
       </div>
     );
@@ -59,7 +59,7 @@ export function RelatedKnowledge({ query, limit = 5 }: RelatedKnowledgeProps) {
 
   if (results.length === 0) {
     return (
-      <div className="text-xs font-mono text-[var(--text-muted)] py-2">
+      <div className="text-xs font-theme-data text-[var(--text-muted)] py-2">
         {'>'} No related knowledge found
       </div>
     );
@@ -82,11 +82,11 @@ export function RelatedKnowledge({ query, limit = 5 }: RelatedKnowledgeProps) {
             className="block p-2 border border-[var(--border)] hover:border-[var(--acid-green)]/40 bg-[var(--bg)] transition-colors group"
           >
             <div className="flex items-start justify-between gap-2">
-              <span className="text-xs font-mono text-[var(--text)] line-clamp-2 group-hover:text-[var(--acid-green)] transition-colors">
+              <span className="text-xs font-theme-data text-[var(--text)] line-clamp-2 group-hover:text-[var(--acid-green)] transition-colors">
                 {title}
               </span>
               <span
-                className={`text-xs font-mono flex-shrink-0 ${
+                className={`text-xs font-theme-data flex-shrink-0 ${
                   confidencePct >= 80
                     ? 'text-[var(--acid-green)]'
                     : confidencePct >= 60
@@ -98,11 +98,11 @@ export function RelatedKnowledge({ query, limit = 5 }: RelatedKnowledgeProps) {
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-[10px] font-mono px-1 py-0.5 bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/20">
+              <span className="text-[10px] font-theme-data px-1 py-0.5 bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/20">
                 {nodeType.toUpperCase()}
               </span>
               {item.content.length > 0 && (
-                <span className="text-[10px] font-mono text-[var(--text-muted)] truncate">
+                <span className="text-[10px] font-theme-data text-[var(--text-muted)] truncate">
                   {item.content.slice(0, 40)}...
                 </span>
               )}
@@ -113,7 +113,7 @@ export function RelatedKnowledge({ query, limit = 5 }: RelatedKnowledgeProps) {
 
       <Link
         href={`/knowledge?q=${encodeURIComponent(query)}`}
-        className="block text-center text-[10px] font-mono text-[var(--acid-green)] hover:text-[var(--acid-green)]/80 py-1 transition-colors"
+        className="block text-center text-[10px] font-theme-data text-[var(--acid-green)] hover:text-[var(--acid-green)]/80 py-1 transition-colors"
       >
         EXPLORE ALL IN KNOWLEDGE BASE &rarr;
       </Link>

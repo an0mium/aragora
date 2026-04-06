@@ -72,17 +72,17 @@ interface EncryptionKey {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    healthy: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    degraded: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+    healthy: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
+    degraded: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
     unhealthy: 'bg-acid-red/20 text-acid-red border-acid-red/40',
-    active: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    rotating: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+    active: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
+    rotating: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
     retired: 'bg-text-muted/20 text-text-muted border-text-muted/40',
     compromised: 'bg-acid-red/20 text-acid-red border-acid-red/40',
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[status] || colors.degraded}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[status] || colors.degraded}`}>
       {status.toUpperCase()}
     </span>
   );
@@ -265,7 +265,7 @@ export default function SecurityAdminPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-acid-green font-mono animate-pulse">Loading Security Dashboard...</div>
+        <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading Security Dashboard...</div>
       </div>
     );
   }
@@ -285,8 +285,8 @@ export default function SecurityAdminPage() {
             <Link href="/admin" className="text-text-muted hover:text-text mb-2 inline-block text-sm">
               &larr; Back to Admin
             </Link>
-            <h1 className="text-2xl font-mono text-acid-green">Security Dashboard</h1>
-            <p className="text-sm text-text-muted font-mono">Encryption keys and security compliance</p>
+            <h1 className="text-2xl font-theme-data text-[var(--accent)]">Security Dashboard</h1>
+            <p className="text-sm text-text-muted font-theme-data">Encryption keys and security compliance</p>
           </div>
           <div className="flex items-center gap-4">
             <BackendSelector />
@@ -298,7 +298,7 @@ export default function SecurityAdminPage() {
         {error && (
           <div className="card p-4 border-acid-red/40 bg-acid-red/10">
             <div className="flex items-center justify-between">
-              <span className="text-acid-red font-mono text-sm">{error}</span>
+              <span className="text-acid-red font-theme-data text-sm">{error}</span>
               <button onClick={() => setError(null)} className="text-text-muted hover:text-text">
                 &times;
               </button>
@@ -309,26 +309,26 @@ export default function SecurityAdminPage() {
         {/* Security Status Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">Encryption</div>
-            <div className={`text-xl font-mono ${status?.encryption_enabled ? 'text-acid-green' : 'text-acid-red'}`}>
+            <div className="text-xs font-theme-data text-text-muted mb-1">Encryption</div>
+            <div className={`text-xl font-theme-data ${status?.encryption_enabled ? 'text-[var(--accent)]' : 'text-acid-red'}`}>
               {status?.encryption_enabled ? 'ENABLED' : 'DISABLED'}
             </div>
           </div>
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">Algorithm</div>
-            <div className="text-xl font-mono text-acid-cyan">
+            <div className="text-xs font-theme-data text-text-muted mb-1">Algorithm</div>
+            <div className="text-xl font-theme-data text-[var(--acid-cyan)]">
               {status?.algorithm || 'AES-256-GCM'}
             </div>
           </div>
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">Key Age</div>
-            <div className={`text-xl font-mono ${rotationDue ? 'text-acid-yellow' : 'text-acid-green'}`}>
+            <div className="text-xs font-theme-data text-text-muted mb-1">Key Age</div>
+            <div className={`text-xl font-theme-data ${rotationDue ? 'text-[var(--acid-yellow)]' : 'text-[var(--accent)]'}`}>
               {keyAgeDays} days
             </div>
           </div>
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">SOC 2 Status</div>
-            <div className={`text-xl font-mono ${health?.compliance?.soc2_compliant ? 'text-acid-green' : 'text-acid-yellow'}`}>
+            <div className="text-xs font-theme-data text-text-muted mb-1">SOC 2 Status</div>
+            <div className={`text-xl font-theme-data ${health?.compliance?.soc2_compliant ? 'text-[var(--accent)]' : 'text-[var(--acid-yellow)]'}`}>
               {health?.compliance?.soc2_compliant ? 'COMPLIANT' : 'REVIEW'}
             </div>
           </div>
@@ -338,10 +338,10 @@ export default function SecurityAdminPage() {
         {rotationDue && (
           <div className="card p-4 border-acid-yellow/40 bg-acid-yellow/10">
             <div className="flex items-center gap-3">
-              <span className="text-acid-yellow text-2xl">!</span>
+              <span className="text-[var(--acid-yellow)] text-2xl">!</span>
               <div>
-                <div className="text-acid-yellow font-mono">Key Rotation Recommended</div>
-                <div className="text-sm text-text-muted font-mono">
+                <div className="text-[var(--acid-yellow)] font-theme-data">Key Rotation Recommended</div>
+                <div className="text-sm text-text-muted font-theme-data">
                   Current key is {keyAgeDays} days old. SOC 2 CC6.1 recommends rotation every 90 days.
                 </div>
               </div>
@@ -351,25 +351,25 @@ export default function SecurityAdminPage() {
 
         {/* Active Key Details */}
         <div className="card p-4">
-          <h2 className="text-lg font-mono text-text mb-4">Active Encryption Key</h2>
+          <h2 className="text-lg font-theme-data text-text mb-4">Active Encryption Key</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
             <div>
-              <div className="text-xs font-mono text-text-muted">Key ID</div>
-              <div className="text-sm font-mono text-text truncate" title={status?.active_key_id}>
+              <div className="text-xs font-theme-data text-text-muted">Key ID</div>
+              <div className="text-sm font-theme-data text-text truncate" title={status?.active_key_id}>
                 {status?.active_key_id?.slice(0, 16)}...
               </div>
             </div>
             <div>
-              <div className="text-xs font-mono text-text-muted">Version</div>
-              <div className="text-sm font-mono text-text">v{status?.key_version || 1}</div>
+              <div className="text-xs font-theme-data text-text-muted">Version</div>
+              <div className="text-sm font-theme-data text-text">v{status?.key_version || 1}</div>
             </div>
             <div>
-              <div className="text-xs font-mono text-text-muted">Created</div>
-              <div className="text-sm font-mono text-text">{formatDateTime(status?.key_created_at)}</div>
+              <div className="text-xs font-theme-data text-text-muted">Created</div>
+              <div className="text-sm font-theme-data text-text">{formatDateTime(status?.key_created_at)}</div>
             </div>
             <div>
-              <div className="text-xs font-mono text-text-muted">Last Rotation</div>
-              <div className="text-sm font-mono text-text">{formatDateTime(status?.last_rotation_at)}</div>
+              <div className="text-xs font-theme-data text-text-muted">Last Rotation</div>
+              <div className="text-sm font-theme-data text-text">{formatDateTime(status?.last_rotation_at)}</div>
             </div>
           </div>
 
@@ -377,8 +377,8 @@ export default function SecurityAdminPage() {
           <div className="border-t border-border pt-4 mt-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-mono text-text">Rotate Encryption Key</div>
-                <div className="text-xs font-mono text-text-muted">
+                <div className="text-sm font-theme-data text-text">Rotate Encryption Key</div>
+                <div className="text-xs font-theme-data text-text-muted">
                   Creates a new key and re-encrypts all secrets. Existing data will be decrypted with old key and re-encrypted with new key.
                 </div>
               </div>
@@ -386,7 +386,7 @@ export default function SecurityAdminPage() {
                 {rotationConfirm && (
                   <button
                     onClick={() => setRotationConfirm(false)}
-                    className="px-4 py-2 font-mono text-sm rounded border border-border text-text-muted hover:text-text"
+                    className="px-4 py-2 font-theme-data text-sm rounded border border-border text-text-muted hover:text-text"
                   >
                     Cancel
                   </button>
@@ -394,10 +394,10 @@ export default function SecurityAdminPage() {
                 <button
                   onClick={handleRotateKey}
                   disabled={actionLoading !== null}
-                  className={`px-4 py-2 font-mono text-sm rounded border ${
+                  className={`px-4 py-2 font-theme-data text-sm rounded border ${
                     rotationConfirm
                       ? 'border-acid-red/40 bg-acid-red/10 text-acid-red hover:bg-acid-red/20'
-                      : 'border-acid-yellow/40 bg-acid-yellow/10 text-acid-yellow hover:bg-acid-yellow/20'
+                      : 'border-acid-yellow/40 bg-acid-yellow/10 text-[var(--acid-yellow)] hover:bg-acid-yellow/20'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {actionLoading === 'rotate'
@@ -413,12 +413,12 @@ export default function SecurityAdminPage() {
 
         {/* Encryption Keys History */}
         <div className="card p-4">
-          <h2 className="text-lg font-mono text-text mb-4">Key History</h2>
+          <h2 className="text-lg font-theme-data text-text mb-4">Key History</h2>
           {keys.length === 0 ? (
-            <div className="text-sm font-mono text-text-muted">No key history available</div>
+            <div className="text-sm font-theme-data text-text-muted">No key history available</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm font-mono">
+              <table className="w-full text-sm font-theme-data">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-2 text-text-muted font-normal">Key ID</th>
@@ -454,24 +454,24 @@ export default function SecurityAdminPage() {
 
         {/* Compliance Information */}
         <div className="card p-4">
-          <h2 className="text-lg font-mono text-text mb-4">Compliance Status</h2>
+          <h2 className="text-lg font-theme-data text-text mb-4">Compliance Status</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-3 bg-surface rounded">
-              <div className="text-xs font-mono text-text-muted mb-1">SOC 2 CC6.1</div>
+              <div className="text-xs font-theme-data text-text-muted mb-1">SOC 2 CC6.1</div>
               <div className="flex items-center gap-2">
                 <StatusBadge status={health?.compliance?.soc2_compliant ? 'healthy' : 'degraded'} />
-                <span className="text-sm font-mono text-text">Key Management</span>
+                <span className="text-sm font-theme-data text-text">Key Management</span>
               </div>
             </div>
             <div className="p-3 bg-surface rounded">
-              <div className="text-xs font-mono text-text-muted mb-1">Rotation Policy</div>
-              <div className="text-sm font-mono text-text">
+              <div className="text-xs font-theme-data text-text-muted mb-1">Rotation Policy</div>
+              <div className="text-sm font-theme-data text-text">
                 {health?.compliance?.key_rotation_policy || '90 days (SOC 2 recommended)'}
               </div>
             </div>
             <div className="p-3 bg-surface rounded">
-              <div className="text-xs font-mono text-text-muted mb-1">Last Audit</div>
-              <div className="text-sm font-mono text-text">
+              <div className="text-xs font-theme-data text-text-muted mb-1">Last Audit</div>
+              <div className="text-sm font-theme-data text-text">
                 {formatDate(health?.compliance?.last_audit) || 'Pending'}
               </div>
             </div>
@@ -481,14 +481,14 @@ export default function SecurityAdminPage() {
         {/* Service Health */}
         {health && (
           <div className="card p-4">
-            <h2 className="text-lg font-mono text-text mb-4">Service Health</h2>
+            <h2 className="text-lg font-theme-data text-text mb-4">Service Health</h2>
             <div className="flex items-center gap-4">
               <StatusBadge status={health.status} />
-              <span className="text-sm font-mono text-text">
+              <span className="text-sm font-theme-data text-text">
                 Encryption service {health.encryption_service?.available ? 'available' : 'unavailable'}
               </span>
               {health.encryption_service?.latency_ms && (
-                <span className="text-sm font-mono text-text-muted">
+                <span className="text-sm font-theme-data text-text-muted">
                   ({health.encryption_service.latency_ms}ms latency)
                 </span>
               )}
@@ -498,8 +498,8 @@ export default function SecurityAdminPage() {
 
         {/* Secrets Scanning */}
         <div className="card p-4">
-          <h2 className="text-lg font-mono text-text mb-4">Secrets Scanner</h2>
-          <p className="text-sm text-text-muted font-mono mb-4">
+          <h2 className="text-lg font-theme-data text-text mb-4">Secrets Scanner</h2>
+          <p className="text-sm text-text-muted font-theme-data mb-4">
             Scan repositories for hardcoded credentials, API keys, and sensitive data.
           </p>
 
@@ -509,7 +509,7 @@ export default function SecurityAdminPage() {
               value={repoPath}
               onChange={(e) => setRepoPath(e.target.value)}
               placeholder="/path/to/repository"
-              className="flex-1 px-3 py-2 bg-surface border border-border rounded font-mono text-sm text-text placeholder:text-text-muted"
+              className="flex-1 px-3 py-2 bg-surface border border-border rounded font-theme-data text-sm text-text placeholder:text-text-muted"
             />
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -518,12 +518,12 @@ export default function SecurityAdminPage() {
                 onChange={(e) => setIncludeHistory(e.target.checked)}
                 className="w-4 h-4 accent-acid-green"
               />
-              <span className="font-mono text-sm text-text-muted whitespace-nowrap">Scan Git History</span>
+              <span className="font-theme-data text-sm text-text-muted whitespace-nowrap">Scan Git History</span>
             </label>
             <button
               onClick={handleSecretsScan}
               disabled={secretsLoading || !repoPath.trim()}
-              className="px-4 py-2 font-mono text-sm rounded border border-acid-cyan/40 bg-acid-cyan/10 text-acid-cyan hover:bg-acid-cyan/20 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              className="px-4 py-2 font-theme-data text-sm rounded border border-[var(--acid-cyan)]/40 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/20 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
             >
               {secretsLoading ? 'Scanning...' : 'Scan for Secrets'}
             </button>
@@ -535,11 +535,11 @@ export default function SecurityAdminPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <StatusBadge status={secretsScan.summary.total_secrets > 0 ? 'degraded' : 'healthy'} />
-                  <span className="font-mono text-sm text-text">
+                  <span className="font-theme-data text-sm text-text">
                     {secretsScan.summary.total_secrets} secrets found
                   </span>
                 </div>
-                <span className="font-mono text-xs text-text-muted">
+                <span className="font-theme-data text-xs text-text-muted">
                   {secretsScan.files_scanned} files scanned
                   {secretsScan.scanned_history && ' (including history)'}
                 </span>
@@ -549,20 +549,20 @@ export default function SecurityAdminPage() {
               {secretsScan.summary.total_secrets > 0 && (
                 <div className="grid grid-cols-4 gap-2 mb-4">
                   <div className="p-2 bg-acid-red/10 border border-acid-red/40 rounded text-center">
-                    <div className="text-lg font-mono text-acid-red">{secretsScan.summary.critical_count}</div>
-                    <div className="text-xs font-mono text-text-muted">Critical</div>
+                    <div className="text-lg font-theme-data text-acid-red">{secretsScan.summary.critical_count}</div>
+                    <div className="text-xs font-theme-data text-text-muted">Critical</div>
                   </div>
                   <div className="p-2 bg-acid-yellow/10 border border-acid-yellow/40 rounded text-center">
-                    <div className="text-lg font-mono text-acid-yellow">{secretsScan.summary.high_count}</div>
-                    <div className="text-xs font-mono text-text-muted">High</div>
+                    <div className="text-lg font-theme-data text-[var(--acid-yellow)]">{secretsScan.summary.high_count}</div>
+                    <div className="text-xs font-theme-data text-text-muted">High</div>
                   </div>
-                  <div className="p-2 bg-acid-cyan/10 border border-acid-cyan/40 rounded text-center">
-                    <div className="text-lg font-mono text-acid-cyan">{secretsScan.summary.medium_count}</div>
-                    <div className="text-xs font-mono text-text-muted">Medium</div>
+                  <div className="p-2 bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/40 rounded text-center">
+                    <div className="text-lg font-theme-data text-[var(--acid-cyan)]">{secretsScan.summary.medium_count}</div>
+                    <div className="text-xs font-theme-data text-text-muted">Medium</div>
                   </div>
                   <div className="p-2 bg-text-muted/10 border border-text-muted/40 rounded text-center">
-                    <div className="text-lg font-mono text-text-muted">{secretsScan.summary.low_count}</div>
-                    <div className="text-xs font-mono text-text-muted">Low</div>
+                    <div className="text-lg font-theme-data text-text-muted">{secretsScan.summary.low_count}</div>
+                    <div className="text-xs font-theme-data text-text-muted">Low</div>
                   </div>
                 </div>
               )}
@@ -570,7 +570,7 @@ export default function SecurityAdminPage() {
               {/* Findings Table */}
               {secretsScan.secrets.length > 0 && (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm font-mono">
+                  <table className="w-full text-sm font-theme-data">
                     <thead>
                       <tr className="border-b border-border">
                         <th className="text-left py-2 text-text-muted font-normal">Type</th>
@@ -596,7 +596,7 @@ export default function SecurityAdminPage() {
                             {secret.file_path}
                           </td>
                           <td className="py-2 text-text-muted">{secret.line_number}</td>
-                          <td className="py-2 text-acid-cyan truncate max-w-[150px]" title={secret.matched_text}>
+                          <td className="py-2 text-[var(--acid-cyan)] truncate max-w-[150px]" title={secret.matched_text}>
                             {secret.matched_text}
                           </td>
                         </tr>
@@ -604,7 +604,7 @@ export default function SecurityAdminPage() {
                     </tbody>
                   </table>
                   {secretsScan.secrets.length > 20 && (
-                    <div className="text-center py-2 text-text-muted text-sm font-mono">
+                    <div className="text-center py-2 text-text-muted text-sm font-theme-data">
                       Showing first 20 of {secretsScan.secrets.length} findings
                     </div>
                   )}
@@ -612,7 +612,7 @@ export default function SecurityAdminPage() {
               )}
 
               {secretsScan.secrets.length === 0 && (
-                <div className="text-center py-4 text-acid-green font-mono text-sm">
+                <div className="text-center py-4 text-[var(--accent)] font-theme-data text-sm">
                   No secrets detected in repository
                 </div>
               )}

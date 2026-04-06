@@ -34,7 +34,7 @@ export function FeaturesTab({ config, loading, onUpdate }: FeaturesTabProps) {
     <div className="space-y-6">
       {/* Analysis Features */}
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Analysis Features</h3>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Analysis Features</h3>
         <div className="space-y-4">
           <ToggleSwitch
             checked={config.calibration}
@@ -65,7 +65,7 @@ export function FeaturesTab({ config, loading, onUpdate }: FeaturesTabProps) {
 
       {/* Learning & Memory */}
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Learning & Memory</h3>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Learning & Memory</h3>
         <div className="space-y-4">
           <ToggleSwitch
             checked={config.continuum_memory}
@@ -100,7 +100,7 @@ export function FeaturesTab({ config, loading, onUpdate }: FeaturesTabProps) {
 
       {/* Panels & UI */}
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Panels & UI</h3>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Panels & UI</h3>
         <div className="space-y-4">
           <ToggleSwitch
             checked={config.insights}

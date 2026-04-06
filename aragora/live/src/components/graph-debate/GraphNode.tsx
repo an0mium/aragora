@@ -50,7 +50,7 @@ export function GraphNode({ position, isSelected, onClick }: GraphNodeProps) {
       <text
         textAnchor="middle"
         dominantBaseline="central"
-        className={`text-xs font-mono ${branchColor}`}
+        className={`text-xs font-theme-data ${branchColor}`}
         style={{ pointerEvents: 'none' }}
       >
         <NodeTypeIcon type={node.node_type} />
@@ -61,7 +61,7 @@ export function GraphNode({ position, isSelected, onClick }: GraphNodeProps) {
         <text
           y={35}
           textAnchor="middle"
-          className="text-[10px] font-mono fill-text-muted"
+          className="text-[10px] font-theme-data fill-text-muted"
         >
           {(node.confidence * 100).toFixed(0)}%
         </text>
@@ -71,7 +71,7 @@ export function GraphNode({ position, isSelected, onClick }: GraphNodeProps) {
       <text
         y={-35}
         textAnchor="middle"
-        className={`text-[10px] font-mono ${colors.text}`}
+        className={`text-[10px] font-theme-data ${colors.text}`}
       >
         {node.agent_id.slice(0, 8)}
       </text>

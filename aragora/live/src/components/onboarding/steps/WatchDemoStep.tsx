@@ -80,20 +80,20 @@ export function WatchDemoStep() {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-lg font-mono text-[var(--acid-green)] mb-2">
+        <h2 className="text-lg font-theme-data text-[var(--acid-green)] mb-2">
           Watch a Demo Debate
         </h2>
-        <p className="text-sm font-mono text-[var(--text-muted)]">
+        <p className="text-sm font-theme-data text-[var(--text-muted)]">
           See how multiple AI agents collaborate to stress-test a decision.
         </p>
       </div>
 
       {/* Mini debate topic */}
       <div className="border border-[var(--border)] bg-[var(--surface)] p-3">
-        <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase mb-1">
+        <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase mb-1">
           Topic
         </div>
-        <p className="text-sm font-mono text-[var(--text)]">
+        <p className="text-sm font-theme-data text-[var(--text)]">
           Should we use microservices or a monolith for our new product?
         </p>
       </div>
@@ -107,7 +107,7 @@ export function WatchDemoStep() {
           >
             <div className="flex items-center gap-2 mb-2">
               <span
-                className="w-6 h-6 flex items-center justify-center text-[10px] font-mono font-bold"
+                className="w-6 h-6 flex items-center justify-center text-[10px] font-theme-data font-bold"
                 style={{
                   backgroundColor: `color-mix(in srgb, ${AGENT_COLORS[msg.model]} 20%, transparent)`,
                   color: AGENT_COLORS[msg.model],
@@ -115,11 +115,11 @@ export function WatchDemoStep() {
               >
                 {msg.agent[0]}
               </span>
-              <span className="text-sm font-mono font-bold text-[var(--text)]">
+              <span className="text-sm font-theme-data font-bold text-[var(--text)]">
                 {msg.agent}
               </span>
               <span
-                className="text-[10px] font-mono px-1.5 py-0.5 border"
+                className="text-[10px] font-theme-data px-1.5 py-0.5 border"
                 style={{
                   borderColor: `color-mix(in srgb, ${AGENT_COLORS[msg.model]} 30%, transparent)`,
                   color: AGENT_COLORS[msg.model],
@@ -128,7 +128,7 @@ export function WatchDemoStep() {
                 {ROLE_LABELS[msg.role]}
               </span>
             </div>
-            <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+            <p className="text-xs font-theme-data text-[var(--text-muted)] leading-relaxed">
               {msg.content}
             </p>
           </div>
@@ -138,7 +138,7 @@ export function WatchDemoStep() {
         {visibleMessages < DEMO_MESSAGES.length && (
           <div className="flex items-center gap-3 py-2 px-4">
             <div className="w-4 h-4 border-2 border-[var(--acid-green)]/30 border-t-[var(--acid-green)] rounded-full animate-spin" />
-            <span className="text-xs font-mono text-[var(--text-muted)]">
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">
               Agent is responding...
             </span>
           </div>
@@ -149,19 +149,19 @@ export function WatchDemoStep() {
       {showConsensus && (
         <div className="border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/5 p-4 animate-in fade-in duration-500">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-[var(--acid-green)] font-mono font-bold text-sm">
+            <span className="text-[var(--acid-green)] font-theme-data font-bold text-sm">
               CONSENSUS REACHED
             </span>
-            <span className="text-xs font-mono px-2 py-0.5 border border-green-500/30 text-green-400 bg-green-500/10">
+            <span className="text-xs font-theme-data px-2 py-0.5 border border-green-500/30 text-green-400 bg-green-500/10">
               82% CONFIDENCE
             </span>
           </div>
-          <p className="text-xs font-mono text-[var(--text)] leading-relaxed">
+          <p className="text-xs font-theme-data text-[var(--text)] leading-relaxed">
             Start with a modular monolith. Extract services when team contention
             provides a concrete trigger. This balances development velocity with
             future scalability.
           </p>
-          <p className="text-xs font-mono text-[var(--acid-cyan)] mt-2">
+          <p className="text-xs font-theme-data text-[var(--acid-cyan)] mt-2">
             This is how Aragora turns complex decisions into clear, defensible outcomes.
           </p>
         </div>

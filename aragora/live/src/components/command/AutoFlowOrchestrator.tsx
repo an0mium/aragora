@@ -36,11 +36,11 @@ export function AutoFlowOrchestrator({ currentPhase, phaseProgress, nodesCreated
         <div className="flex items-center gap-3 mb-6">
           <div className="flex-1 h-2 bg-bg rounded-full overflow-hidden">
             <div
-              className="h-full bg-acid-green rounded-full transition-all duration-500"
+              className="h-full bg-[var(--accent)] rounded-full transition-all duration-500"
               style={{ width: `${overallPct}%` }}
             />
           </div>
-          <span className="text-xs font-mono text-acid-green font-bold w-10 text-right">
+          <span className="text-xs font-theme-data text-[var(--accent)] font-bold w-10 text-right">
             {overallPct}%
           </span>
         </div>
@@ -66,7 +66,7 @@ export function AutoFlowOrchestrator({ currentPhase, phaseProgress, nodesCreated
                   {isDone ? (
                     <span className="text-emerald-400 text-sm">{'\u2713'}</span>
                   ) : isActive ? (
-                    <div className="w-4 h-4 border-2 border-acid-green/30 border-t-acid-green rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin" />
                   ) : (
                     <span className="text-text-muted text-xs">{i + 1}</span>
                   )}
@@ -76,11 +76,11 @@ export function AutoFlowOrchestrator({ currentPhase, phaseProgress, nodesCreated
                 <span className="text-lg">{phase.icon}</span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className={`text-sm font-mono ${isActive ? 'text-text font-bold' : 'text-text-muted'}`}>
+                    <span className={`text-sm font-theme-data ${isActive ? 'text-text font-bold' : 'text-text-muted'}`}>
                       {phase.label}
                     </span>
                     {isActive && (
-                      <span className={`text-xs font-mono ${colors.active}`}>
+                      <span className={`text-xs font-theme-data ${colors.active}`}>
                         ({nodesCreated} nodes)
                       </span>
                     )}
@@ -90,7 +90,7 @@ export function AutoFlowOrchestrator({ currentPhase, phaseProgress, nodesCreated
                     <div className="h-1 bg-bg/50 rounded-full mt-1 overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ${
-                          isDone ? 'bg-emerald-500' : 'bg-acid-green'
+                          isDone ? 'bg-emerald-500' : 'bg-[var(--accent)]'
                         }`}
                         style={{ width: `${phasePct}%` }}
                       />
@@ -99,7 +99,7 @@ export function AutoFlowOrchestrator({ currentPhase, phaseProgress, nodesCreated
                 </div>
 
                 {/* Phase percentage */}
-                <span className={`text-xs font-mono min-w-[3ch] text-right ${
+                <span className={`text-xs font-theme-data min-w-[3ch] text-right ${
                   isDone ? 'text-emerald-400' : isActive ? colors.active : 'text-text-muted'
                 }`}>
                   {phasePct}%
@@ -113,20 +113,20 @@ export function AutoFlowOrchestrator({ currentPhase, phaseProgress, nodesCreated
         <div className="flex items-center justify-between">
           <button
             onClick={onCancel}
-            className="px-3 py-1.5 text-xs font-mono text-red-400 hover:bg-red-500/10 rounded transition-colors"
+            className="px-3 py-1.5 text-xs font-theme-data text-red-400 hover:bg-red-500/10 rounded transition-colors"
           >
             Cancel
           </button>
           <div className="flex gap-2">
             <button
               onClick={onPause}
-              className="px-3 py-1.5 text-xs font-mono text-text-muted border border-border rounded hover:bg-bg transition-colors"
+              className="px-3 py-1.5 text-xs font-theme-data text-text-muted border border-border rounded hover:bg-bg transition-colors"
             >
               Pause
             </button>
             <button
               onClick={onSkipToEnd}
-              className="px-3 py-1.5 text-xs font-mono text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/10 transition-colors"
+              className="px-3 py-1.5 text-xs font-theme-data text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/10 transition-colors"
             >
               Skip to End
             </button>

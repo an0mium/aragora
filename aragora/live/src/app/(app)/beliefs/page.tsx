@@ -39,7 +39,7 @@ function ConfidenceBar({ value, label }: { value: number; label: string }) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs font-mono text-[var(--text-muted)] w-16 shrink-0">
+      <span className="text-xs font-theme-data text-[var(--text-muted)] w-16 shrink-0">
         {label}
       </span>
       <div className="flex-1 h-2 bg-[var(--bg)] rounded overflow-hidden">
@@ -48,7 +48,7 @@ function ConfidenceBar({ value, label }: { value: number; label: string }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs font-mono text-[var(--text)] w-10 text-right">
+      <span className="text-xs font-theme-data text-[var(--text)] w-10 text-right">
         {pct}%
       </span>
     </div>
@@ -76,12 +76,12 @@ function NodeCard({
       }`}
     >
       <div className="flex items-start justify-between gap-3 mb-2">
-        <p className="font-mono text-sm text-[var(--text)] line-clamp-2 flex-1">
+        <p className="font-theme-data text-sm text-[var(--text)] line-clamp-2 flex-1">
           {node.statement}
         </p>
         <div className="flex gap-1 shrink-0 items-center">
           {node.is_crux && (
-            <span className="px-1.5 py-0.5 text-[10px] font-mono bg-red-500/20 text-red-400 border border-red-500/30 rounded">
+            <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-red-500/20 text-red-400 border border-red-500/30 rounded">
               CRUX
             </span>
           )}
@@ -94,7 +94,7 @@ function NodeCard({
         </div>
       </div>
 
-      <div className="flex items-center gap-3 text-xs font-mono text-[var(--text-muted)]">
+      <div className="flex items-center gap-3 text-xs font-theme-data text-[var(--text-muted)]">
         <span>
           Agent: <span className="text-[var(--acid-cyan)]">{node.author}</span>
         </span>
@@ -140,18 +140,18 @@ function NodeCard({
 function EmptyState() {
   return (
     <div className="p-12 border border-[var(--border)] rounded bg-[var(--surface)]/30 text-center">
-      <div className="text-4xl mb-4 font-mono">{'\u0394'}</div>
-      <h3 className="font-mono text-lg text-[var(--text)] mb-2">
+      <div className="text-4xl mb-4 font-theme-data">{'\u0394'}</div>
+      <h3 className="font-theme-data text-lg text-[var(--text)] mb-2">
         No Belief Networks Yet
       </h3>
-      <p className="font-mono text-sm text-[var(--text-muted)] max-w-md mx-auto mb-4">
+      <p className="font-theme-data text-sm text-[var(--text-muted)] max-w-md mx-auto mb-4">
         Belief networks are built from debate traces. Run a debate first, then
         select it here to explore the claims, cruxes, and evidence
         relationships.
       </p>
       <a
         href="/arena"
-        className="inline-block px-4 py-2 bg-[var(--acid-green)] text-[var(--bg)] font-mono text-sm hover:bg-[var(--acid-green)]/80 transition-colors"
+        className="inline-block px-4 py-2 bg-[var(--acid-green)] text-[var(--bg)] font-theme-data text-sm hover:bg-[var(--acid-green)]/80 transition-colors"
       >
         START A DEBATE
       </a>
@@ -294,10 +294,10 @@ export default function BeliefsPage() {
         <div className="container mx-auto px-4 py-6 max-w-7xl">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-[var(--acid-green)] mb-1">
+            <h1 className="text-2xl font-theme-data text-[var(--acid-green)] mb-1">
               {'>'} BELIEFS &amp; PREDICTIONS
             </h1>
-            <p className="text-[var(--text-muted)] font-mono text-sm">
+            <p className="text-[var(--text-muted)] font-theme-data text-sm">
               Explore belief networks built from debate traces. View claims,
               crux points, load-bearing arguments, and evidence support chains.
             </p>
@@ -306,13 +306,13 @@ export default function BeliefsPage() {
           {/* Debate Selector */}
           <div className="mb-6 p-4 border border-[var(--border)] rounded bg-[var(--surface)]/30">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-mono text-sm text-[var(--acid-green)]">
+              <h2 className="font-theme-data text-sm text-[var(--acid-green)]">
                 SELECT DEBATE
               </h2>
               <button
                 onClick={fetchRecentDebates}
                 disabled={debatesLoading}
-                className="px-3 py-1 text-xs font-mono border border-[var(--acid-green)]/30 text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors disabled:opacity-50"
+                className="px-3 py-1 text-xs font-theme-data border border-[var(--acid-green)]/30 text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors disabled:opacity-50"
               >
                 {debatesLoading ? '[LOADING...]' : '[REFRESH]'}
               </button>
@@ -324,7 +324,7 @@ export default function BeliefsPage() {
                   <button
                     key={debate.debate_id}
                     onClick={() => handleSelectDebate(debate.debate_id)}
-                    className={`px-3 py-2 text-xs font-mono border rounded transition-colors text-left max-w-xs truncate ${
+                    className={`px-3 py-2 text-xs font-theme-data border rounded transition-colors text-left max-w-xs truncate ${
                       selectedDebateId === debate.debate_id
                         ? 'border-[var(--acid-green)] bg-[var(--acid-green)]/10 text-[var(--acid-green)]'
                         : 'border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)]/40'
@@ -336,11 +336,11 @@ export default function BeliefsPage() {
                 ))}
               </div>
             ) : debatesLoading ? (
-              <div className="text-center py-4 text-[var(--acid-green)] font-mono animate-pulse text-sm">
+              <div className="text-center py-4 text-[var(--acid-green)] font-theme-data animate-pulse text-sm">
                 Loading debates...
               </div>
             ) : (
-              <p className="text-sm font-mono text-[var(--text-muted)]">
+              <p className="text-sm font-theme-data text-[var(--text-muted)]">
                 No recent debates found. Start a debate to build belief
                 networks.
               </p>
@@ -349,7 +349,7 @@ export default function BeliefsPage() {
 
           {/* Error Banner */}
           {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm font-mono">
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm font-theme-data">
               {error}
             </div>
           )}
@@ -372,7 +372,7 @@ export default function BeliefsPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`px-4 py-2 font-mono text-sm border transition-colors ${
+                    className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                       activeTab === tab.id
                         ? 'border-[var(--acid-green)] bg-[var(--acid-green)]/10 text-[var(--acid-green)]'
                         : 'border-[var(--acid-green)]/30 text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -385,7 +385,7 @@ export default function BeliefsPage() {
 
               {/* Loading */}
               {loading && (
-                <div className="text-center py-8 text-[var(--acid-green)] font-mono animate-pulse">
+                <div className="text-center py-8 text-[var(--acid-green)] font-theme-data animate-pulse">
                   Loading belief network...
                 </div>
               )}
@@ -431,7 +431,7 @@ export default function BeliefsPage() {
           )}
 
           {/* Footer */}
-          <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+          <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
             <div className="text-[var(--acid-green)]/50 mb-2">
               {'='.repeat(40)}
             </div>
@@ -463,10 +463,10 @@ function GraphTab({
   if (!graph || graph.nodes.length === 0) {
     return (
       <div className="p-8 border border-[var(--border)] rounded text-center">
-        <p className="font-mono text-[var(--text-muted)]">
+        <p className="font-theme-data text-[var(--text-muted)]">
           No claims found for this debate.
         </p>
-        <p className="font-mono text-[var(--text-muted)]/60 text-xs mt-2">
+        <p className="font-theme-data text-[var(--text-muted)]/60 text-xs mt-2">
           The debate trace may not have generated belief network data.
         </p>
       </div>
@@ -479,26 +479,26 @@ function GraphTab({
       <div className="lg:col-span-3">
         <div className="grid grid-cols-3 gap-3">
           <div className="p-3 border border-[var(--acid-green)]/30 rounded bg-[var(--surface)]/30 text-center">
-            <div className="text-2xl font-mono text-[var(--acid-green)]">
+            <div className="text-2xl font-theme-data text-[var(--acid-green)]">
               {graph.metadata.total_claims}
             </div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">
               Total Claims
             </div>
           </div>
           <div className="p-3 border border-[var(--acid-green)]/30 rounded bg-[var(--surface)]/30 text-center">
-            <div className="text-2xl font-mono text-red-400">
+            <div className="text-2xl font-theme-data text-red-400">
               {graph.metadata.crux_count}
             </div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">
               Crux Points
             </div>
           </div>
           <div className="p-3 border border-[var(--acid-green)]/30 rounded bg-[var(--surface)]/30 text-center">
-            <div className="text-2xl font-mono text-[var(--acid-cyan)]">
+            <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
               {graph.links.length}
             </div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">
               Relationships
             </div>
           </div>
@@ -523,10 +523,10 @@ function GraphTab({
       <div>
         {selectedNode ? (
           <div className="p-4 border border-[var(--acid-green)]/30 rounded bg-[var(--surface)]/30 sticky top-24">
-            <h3 className="font-mono text-sm text-[var(--acid-green)] mb-3">
+            <h3 className="font-theme-data text-sm text-[var(--acid-green)] mb-3">
               CLAIM DETAILS
             </h3>
-            <p className="font-mono text-sm text-[var(--text)] mb-4">
+            <p className="font-theme-data text-sm text-[var(--text)] mb-4">
               {selectedNode.statement}
             </p>
 
@@ -535,7 +535,7 @@ function GraphTab({
                 <div className="text-[10px] text-[var(--text-muted)]">
                   AUTHOR
                 </div>
-                <div className="font-mono text-sm text-[var(--acid-cyan)]">
+                <div className="font-theme-data text-sm text-[var(--acid-cyan)]">
                   {selectedNode.author}
                 </div>
               </div>
@@ -543,7 +543,7 @@ function GraphTab({
                 <div className="text-[10px] text-[var(--text-muted)]">
                   CENTRALITY
                 </div>
-                <div className="font-mono text-sm text-[var(--text)]">
+                <div className="font-theme-data text-sm text-[var(--text)]">
                   {Math.round(selectedNode.centrality * 100)}%
                 </div>
               </div>
@@ -551,7 +551,7 @@ function GraphTab({
 
             {selectedNode.belief && (
               <div className="mb-4 space-y-1.5">
-                <div className="text-[10px] font-mono text-[var(--text-muted)] mb-1">
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)] mb-1">
                   BELIEF DISTRIBUTION
                 </div>
                 <ConfidenceBar
@@ -572,7 +572,7 @@ function GraphTab({
             {/* Related links */}
             {graph && (
               <div className="border-t border-[var(--border)] pt-3">
-                <div className="text-[10px] font-mono text-[var(--text-muted)] mb-2">
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)] mb-2">
                   RELATIONSHIPS
                 </div>
                 {graph.links
@@ -595,10 +595,10 @@ function GraphTab({
                         key={i}
                         className="flex items-center justify-between py-1 text-xs"
                       >
-                        <span className="font-mono text-[var(--text-muted)] truncate max-w-[180px]">
+                        <span className="font-theme-data text-[var(--text-muted)] truncate max-w-[180px]">
                           {otherNode?.statement?.slice(0, 40) || otherId}...
                         </span>
-                        <span className="font-mono text-[var(--acid-cyan)] shrink-0 ml-2">
+                        <span className="font-theme-data text-[var(--acid-cyan)] shrink-0 ml-2">
                           {Math.round(link.weight * 100)}%
                         </span>
                       </div>
@@ -609,13 +609,13 @@ function GraphTab({
 
             <button
               onClick={() => onViewSupport(selectedNode)}
-              className="mt-4 w-full px-3 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+              className="mt-4 w-full px-3 py-2 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
             >
               VIEW EVIDENCE SUPPORT
             </button>
           </div>
         ) : (
-          <div className="p-8 border border-[var(--border)] rounded text-center text-[var(--text-muted)] font-mono text-sm">
+          <div className="p-8 border border-[var(--border)] rounded text-center text-[var(--text-muted)] font-theme-data text-sm">
             Select a claim to view details
           </div>
         )}
@@ -632,10 +632,10 @@ function CruxesTab({
   if (!cruxAnalysis || !cruxAnalysis.cruxes?.length) {
     return (
       <div className="p-8 border border-[var(--border)] rounded text-center">
-        <p className="font-mono text-[var(--text-muted)]">
+        <p className="font-theme-data text-[var(--text-muted)]">
           No crux points detected for this debate.
         </p>
-        <p className="font-mono text-[var(--text-muted)]/60 text-xs mt-2">
+        <p className="font-theme-data text-[var(--text-muted)]/60 text-xs mt-2">
           Cruxes are claims where changing belief would most affect the debate
           outcome.
         </p>
@@ -645,7 +645,7 @@ function CruxesTab({
 
   return (
     <div className="space-y-4">
-      <p className="font-mono text-sm text-[var(--text-muted)]">
+      <p className="font-theme-data text-sm text-[var(--text-muted)]">
         Crux points are claims that, if resolved differently, would most change
         the debate outcome. High crux scores indicate pivotal arguments.
       </p>
@@ -656,39 +656,39 @@ function CruxesTab({
         >
           <div className="flex items-start justify-between gap-4 mb-3">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-lg text-red-400 font-bold">
+              <span className="font-theme-data text-lg text-red-400 font-bold">
                 #{idx + 1}
               </span>
-              <p className="font-mono text-sm text-[var(--text)]">
+              <p className="font-theme-data text-sm text-[var(--text)]">
                 {crux.statement}
               </p>
             </div>
-            <span className="px-2 py-1 text-xs font-mono bg-red-500/20 text-red-400 border border-red-500/30 rounded shrink-0">
+            <span className="px-2 py-1 text-xs font-theme-data bg-red-500/20 text-red-400 border border-red-500/30 rounded shrink-0">
               {Math.round(crux.crux_score * 100)}%
             </span>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="p-2 bg-[var(--bg)] rounded">
-              <div className="text-[10px] font-mono text-[var(--text-muted)]">
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)]">
                 INFLUENCE
               </div>
-              <div className="font-mono text-sm text-[var(--acid-green)]">
+              <div className="font-theme-data text-sm text-[var(--acid-green)]">
                 {Math.round(crux.influence * 100)}%
               </div>
             </div>
             <div className="p-2 bg-[var(--bg)] rounded">
-              <div className="text-[10px] font-mono text-[var(--text-muted)]">
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)]">
                 DISAGREEMENT
               </div>
-              <div className="font-mono text-sm text-orange-400">
+              <div className="font-theme-data text-sm text-orange-400">
                 {Math.round(crux.disagreement * 100)}%
               </div>
             </div>
             <div className="p-2 bg-[var(--bg)] rounded">
-              <div className="text-[10px] font-mono text-[var(--text-muted)]">
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)]">
                 UNCERTAINTY
               </div>
-              <div className="font-mono text-sm text-yellow-400">
+              <div className="font-theme-data text-sm text-yellow-400">
                 {Math.round(crux.uncertainty * 100)}%
               </div>
             </div>
@@ -707,10 +707,10 @@ function LoadBearingTab({
   if (!claims || claims.length === 0) {
     return (
       <div className="p-8 border border-[var(--border)] rounded text-center">
-        <p className="font-mono text-[var(--text-muted)]">
+        <p className="font-theme-data text-[var(--text-muted)]">
           No load-bearing claims found.
         </p>
-        <p className="font-mono text-[var(--text-muted)]/60 text-xs mt-2">
+        <p className="font-theme-data text-[var(--text-muted)]/60 text-xs mt-2">
           Load-bearing claims have the highest centrality in the belief network,
           meaning many other claims depend on them.
         </p>
@@ -720,12 +720,12 @@ function LoadBearingTab({
 
   return (
     <div className="space-y-4">
-      <p className="font-mono text-sm text-[var(--text-muted)]">
+      <p className="font-theme-data text-sm text-[var(--text-muted)]">
         Load-bearing claims have the highest centrality -- many other arguments
         depend on them. If they fall, the argument structure collapses.
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-sm">
+        <table className="w-full font-theme-data text-sm">
           <thead>
             <tr className="border-b border-[var(--acid-green)]/30">
               <th className="py-2 px-3 text-[var(--acid-green)] text-left">
@@ -795,7 +795,7 @@ function SupportTab({
   if (!selectedNode) {
     return (
       <div className="space-y-4">
-        <p className="font-mono text-sm text-[var(--text-muted)]">
+        <p className="font-theme-data text-sm text-[var(--text-muted)]">
           Select a claim from the Graph tab to view its evidence support chain.
         </p>
         {graph && graph.nodes.length > 0 && (
@@ -806,10 +806,10 @@ function SupportTab({
                 onClick={() => onNodeSelect(node)}
                 className="p-3 border border-[var(--border)] rounded text-left hover:border-[var(--acid-green)]/40 transition-colors"
               >
-                <p className="font-mono text-xs text-[var(--text)] line-clamp-2">
+                <p className="font-theme-data text-xs text-[var(--text)] line-clamp-2">
                   {node.statement}
                 </p>
-                <span className="font-mono text-[10px] text-[var(--text-muted)] mt-1 block">
+                <span className="font-theme-data text-[10px] text-[var(--text-muted)] mt-1 block">
                   by {node.author}
                 </span>
               </button>
@@ -824,13 +824,13 @@ function SupportTab({
     <div className="space-y-4">
       {/* Selected claim */}
       <div className="p-4 border border-[var(--acid-green)]/30 rounded bg-[var(--surface)]/30">
-        <div className="text-[10px] font-mono text-[var(--acid-green)] mb-1">
+        <div className="text-[10px] font-theme-data text-[var(--acid-green)] mb-1">
           SELECTED CLAIM
         </div>
-        <p className="font-mono text-sm text-[var(--text)]">
+        <p className="font-theme-data text-sm text-[var(--text)]">
           {selectedNode.statement}
         </p>
-        <span className="font-mono text-xs text-[var(--text-muted)] mt-1 block">
+        <span className="font-theme-data text-xs text-[var(--text-muted)] mt-1 block">
           by {selectedNode.author} | centrality:{' '}
           {Math.round(selectedNode.centrality * 100)}%
         </span>
@@ -840,47 +840,47 @@ function SupportTab({
       {claimSupport?.support ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="p-3 border border-[var(--border)] rounded bg-[var(--surface)]/30 text-center">
-            <div className="text-2xl font-mono text-[var(--acid-green)]">
+            <div className="text-2xl font-theme-data text-[var(--acid-green)]">
               {claimSupport.support.supporting}
             </div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">
               Supporting
             </div>
           </div>
           <div className="p-3 border border-[var(--border)] rounded bg-[var(--surface)]/30 text-center">
-            <div className="text-2xl font-mono text-red-400">
+            <div className="text-2xl font-theme-data text-red-400">
               {claimSupport.support.contradicting}
             </div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">
               Contradicting
             </div>
           </div>
           <div className="p-3 border border-[var(--border)] rounded bg-[var(--surface)]/30 text-center">
-            <div className="text-2xl font-mono text-[var(--acid-cyan)]">
+            <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
               {claimSupport.support.evidence_count}
             </div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">
               Evidence Total
             </div>
           </div>
           <div className="p-3 border border-[var(--border)] rounded bg-[var(--surface)]/30 text-center">
-            <div className="text-2xl font-mono text-[var(--text)]">
+            <div className="text-2xl font-theme-data text-[var(--text)]">
               {Math.round(claimSupport.support.confidence * 100)}%
             </div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">
               Confidence
             </div>
           </div>
         </div>
       ) : claimSupport?.message ? (
         <div className="p-4 border border-[var(--border)] rounded text-center">
-          <p className="font-mono text-sm text-[var(--text-muted)]">
+          <p className="font-theme-data text-sm text-[var(--text-muted)]">
             {claimSupport.message}
           </p>
         </div>
       ) : (
         <div className="p-4 border border-[var(--border)] rounded text-center">
-          <p className="font-mono text-sm text-[var(--text-muted)]">
+          <p className="font-theme-data text-sm text-[var(--text-muted)]">
             No provenance data available for this claim.
           </p>
         </div>

@@ -268,7 +268,7 @@ function GenomeCard({
             </span>
           )}
           <div>
-            <p className="text-white font-mono text-sm">
+            <p className="text-white font-theme-data text-sm">
               {genome.genome_id.slice(0, 12)}...
             </p>
             <p className="text-xs text-slate-400">
@@ -299,7 +299,7 @@ function LineageView({
       {/* Current Genome */}
       <div className="p-4 bg-green-900/20 border border-green-700 rounded-lg">
         <p className="text-xs text-green-400 mb-1">Selected Genome</p>
-        <p className="text-white font-mono">{lineage.genome_id}</p>
+        <p className="text-white font-theme-data">{lineage.genome_id}</p>
         <p className="text-sm text-slate-400 mt-1">
           Depth: {lineage.depth} generations
         </p>
@@ -321,7 +321,7 @@ function LineageView({
                 className="w-full text-left p-2 bg-slate-800 rounded hover:bg-slate-700 transition-colors"
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-white font-mono text-sm">
+                  <span className="text-white font-theme-data text-sm">
                     {ancestor.genome_id.slice(0, 12)}...
                   </span>
                   <span className="text-slate-400 text-xs">
@@ -350,7 +350,7 @@ function LineageView({
                 className="w-full text-left p-2 bg-slate-800 rounded hover:bg-slate-700 transition-colors"
               >
                 <div className="flex justify-between items-center">
-                  <span className="text-white font-mono text-sm">
+                  <span className="text-white font-theme-data text-sm">
                     {descendant.genome_id.slice(0, 12)}...
                   </span>
                   <div className="text-right">

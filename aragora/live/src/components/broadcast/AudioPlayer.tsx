@@ -52,7 +52,7 @@ export function AudioPlayer({ url }: AudioPlayerProps) {
       <div className="flex items-center gap-3">
         <button
           onClick={togglePlay}
-          className="px-2 py-1 text-xs font-mono border border-acid-green/40 hover:bg-acid-green/10 transition-colors"
+          className="px-2 py-1 text-xs font-theme-data border border-[var(--accent)]/40 hover:bg-[var(--accent)]/10 transition-colors"
           aria-label={isPlaying ? 'Pause' : 'Play'}
         >
           {isPlaying ? '[PAUSE]' : '[PLAY]'}
@@ -67,12 +67,12 @@ export function AudioPlayer({ url }: AudioPlayerProps) {
           aria-valuemax={duration}
         >
           <div
-            className="h-full bg-acid-green transition-all duration-100"
+            className="h-full bg-[var(--accent)] transition-all duration-100"
             style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
           />
         </div>
 
-        <span className="text-xs font-mono text-text-muted whitespace-nowrap">
+        <span className="text-xs font-theme-data text-text-muted whitespace-nowrap">
           {formatTime(progress)} / {formatTime(duration)}
         </span>
       </div>
@@ -80,7 +80,7 @@ export function AudioPlayer({ url }: AudioPlayerProps) {
       <a
         href={url}
         download
-        className="inline-block text-xs font-mono text-acid-cyan hover:underline"
+        className="inline-block text-xs font-theme-data text-[var(--acid-cyan)] hover:underline"
       >
         [DOWNLOAD MP3]
       </a>

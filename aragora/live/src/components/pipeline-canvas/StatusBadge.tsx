@@ -61,7 +61,7 @@ export const StatusBadge = memo(function StatusBadge({
     <div className="relative inline-block" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <span
         className={`
-          inline-flex items-center gap-1 rounded font-mono ring-1
+          inline-flex items-center gap-1 rounded font-theme-data ring-1
           ${colors.bg} ${colors.text} ${colors.ring}
           ${sizeClasses}
           ${status === 'in_progress' ? 'animate-pulse' : ''}
@@ -73,7 +73,7 @@ export const StatusBadge = memo(function StatusBadge({
 
       {showTooltip && hasDetails && (
         <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-48 p-2 rounded bg-surface border border-border shadow-lg text-xs">
-          <div className="font-mono text-text-muted mb-1">{STATUS_LABELS[status]}</div>
+          <div className="font-theme-data text-text-muted mb-1">{STATUS_LABELS[status]}</div>
           {agent && (
             <div className="flex justify-between">
               <span className="text-text-muted">Agent:</span>
@@ -83,7 +83,7 @@ export const StatusBadge = memo(function StatusBadge({
           {receiptHash && (
             <div className="flex justify-between">
               <span className="text-text-muted">Receipt:</span>
-              <span className="text-text font-mono">{receiptHash.slice(0, 12)}</span>
+              <span className="text-text font-theme-data">{receiptHash.slice(0, 12)}</span>
             </div>
           )}
           {timestamp && (

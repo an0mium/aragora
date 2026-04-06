@@ -216,7 +216,7 @@ export default function ModelRegistryPage() {
           <div className="flex items-center gap-4">
             <Link
               href="/training/explorer"
-              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
             >
               [DATA EXPLORER]
             </Link>
@@ -227,8 +227,8 @@ export default function ModelRegistryPage() {
 
         {/* Title */}
         <div className="mb-8">
-          <h1 className="text-3xl font-mono font-bold text-acid-green mb-2">Model Registry</h1>
-          <p className="text-text-muted font-mono text-sm">
+          <h1 className="text-3xl font-theme-data font-bold text-[var(--accent)] mb-2">Model Registry</h1>
+          <p className="text-text-muted font-theme-data text-sm">
             Track fine-tuned specialist models and monitor training progress
           </p>
         </div>
@@ -249,9 +249,9 @@ export default function ModelRegistryPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 font-mono text-sm rounded transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm rounded transition-colors ${
                 activeTab === tab
-                  ? 'bg-acid-green/20 text-acid-green border border-acid-green'
+                  ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]'
                   : 'bg-surface border border-border text-text-muted hover:text-text'
               }`}
             >
@@ -266,12 +266,12 @@ export default function ModelRegistryPage() {
           <div className="lg:col-span-2 space-y-4">
             {loading ? (
               <div className="p-8 text-center">
-                <div className="text-acid-green font-mono animate-pulse">Loading models...</div>
+                <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading models...</div>
               </div>
             ) : filteredJobs.length === 0 ? (
               <div className="p-8 text-center bg-surface border border-border rounded-lg">
-                <p className="text-text-muted font-mono">No training jobs found</p>
-                <p className="text-xs text-text-muted font-mono mt-2">
+                <p className="text-text-muted font-theme-data">No training jobs found</p>
+                <p className="text-xs text-text-muted font-theme-data mt-2">
                   Start training specialist models via the verticals page
                 </p>
               </div>
@@ -282,16 +282,16 @@ export default function ModelRegistryPage() {
                   onClick={() => fetchJobDetails(job)}
                   className={`p-4 bg-surface border rounded-lg cursor-pointer transition-all ${
                     selectedJob?.id === job.id
-                      ? 'border-acid-green'
-                      : 'border-border hover:border-acid-green/50'
+                      ? 'border-[var(--accent)]'
+                      : 'border-border hover:border-[var(--accent)]/50'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <div className="flex items-center gap-3">
-                      <span className={`px-2 py-1 text-xs font-mono rounded border ${getStatusColor(job.status)}`}>
+                      <span className={`px-2 py-1 text-xs font-theme-data rounded border ${getStatusColor(job.status)}`}>
                         {job.status.toUpperCase()}
                       </span>
-                      <span className={`text-sm font-mono font-bold ${getVerticalColor(job.vertical)}`}>
+                      <span className={`text-sm font-theme-data font-bold ${getVerticalColor(job.vertical)}`}>
                         {job.vertical}
                       </span>
                     </div>
@@ -303,7 +303,7 @@ export default function ModelRegistryPage() {
                             handleStartJob(job.id);
                           }}
                           disabled={actionLoading === job.id}
-                          className="px-3 py-1 text-xs font-mono bg-acid-green/20 border border-acid-green text-acid-green rounded hover:bg-acid-green/30 disabled:opacity-50 transition-colors"
+                          className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] rounded hover:bg-[var(--accent)]/30 disabled:opacity-50 transition-colors"
                         >
                           {actionLoading === job.id ? '...' : 'START'}
                         </button>
@@ -315,7 +315,7 @@ export default function ModelRegistryPage() {
                             handleCancelJob(job.id);
                           }}
                           disabled={actionLoading === job.id}
-                          className="px-3 py-1 text-xs font-mono bg-red-500/20 border border-red-500/50 text-red-400 rounded hover:bg-red-500/30 disabled:opacity-50 transition-colors"
+                          className="px-3 py-1 text-xs font-theme-data bg-red-500/20 border border-red-500/50 text-red-400 rounded hover:bg-red-500/30 disabled:opacity-50 transition-colors"
                         >
                           CANCEL
                         </button>
@@ -323,13 +323,13 @@ export default function ModelRegistryPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs font-mono text-text-muted mb-2">
+                  <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted mb-2">
                     <span>ID: <span className="text-text">{job.id.slice(0, 12)}...</span></span>
                     <span>Base: <span className="text-text">{job.base_model}</span></span>
                   </div>
 
-                  <div className="flex items-center gap-4 text-xs font-mono text-text-muted">
-                    <span>Examples: <span className="text-acid-cyan">{job.training_data_examples}</span></span>
+                  <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted">
+                    <span>Examples: <span className="text-[var(--acid-cyan)]">{job.training_data_examples}</span></span>
                     {job.adapter_name && (
                       <span>Adapter: <span className="text-text">{job.adapter_name}</span></span>
                     )}
@@ -347,7 +347,7 @@ export default function ModelRegistryPage() {
             {selectedJob ? (
               <div className="p-4 bg-surface border border-border rounded-lg space-y-4 sticky top-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-mono font-bold text-acid-green">Model Details</h3>
+                  <h3 className="font-theme-data font-bold text-[var(--accent)]">Model Details</h3>
                   <button
                     onClick={() => setSelectedJob(null)}
                     className="text-text-muted hover:text-text text-xs"
@@ -358,14 +358,14 @@ export default function ModelRegistryPage() {
 
                 {loadingDetail ? (
                   <div className="py-4 text-center">
-                    <div className="text-acid-green font-mono animate-pulse text-sm">Loading...</div>
+                    <div className="text-[var(--accent)] font-theme-data animate-pulse text-sm">Loading...</div>
                   </div>
                 ) : (
                   <>
                     {/* Basic Info */}
                     <div className="p-3 bg-bg border border-border rounded">
-                      <div className="text-xs font-mono text-text-muted uppercase mb-2">Info</div>
-                      <div className="space-y-1 text-sm font-mono">
+                      <div className="text-xs font-theme-data text-text-muted uppercase mb-2">Info</div>
+                      <div className="space-y-1 text-sm font-theme-data">
                         <div className="flex justify-between">
                           <span className="text-text-muted">Status</span>
                           <span className={getStatusColor(selectedJob.status).split(' ')[0]}>
@@ -388,12 +388,12 @@ export default function ModelRegistryPage() {
                     {/* Metrics */}
                     {jobMetrics && (
                       <div className="p-3 bg-bg border border-border rounded">
-                        <div className="text-xs font-mono text-text-muted uppercase mb-2">Metrics</div>
+                        <div className="text-xs font-theme-data text-text-muted uppercase mb-2">Metrics</div>
                         <div className="grid grid-cols-2 gap-2">
                           {jobMetrics.elo_rating !== null && (
                             <div className="p-2 bg-surface rounded">
                               <div className="text-xs text-text-muted">ELO</div>
-                              <div className="text-lg font-mono text-acid-green">
+                              <div className="text-lg font-theme-data text-[var(--accent)]">
                                 {(Number(jobMetrics.elo_rating) || 0).toFixed(0)}
                               </div>
                             </div>
@@ -401,7 +401,7 @@ export default function ModelRegistryPage() {
                           {jobMetrics.win_rate !== null && (
                             <div className="p-2 bg-surface rounded">
                               <div className="text-xs text-text-muted">Win Rate</div>
-                              <div className="text-lg font-mono text-acid-cyan">
+                              <div className="text-lg font-theme-data text-[var(--acid-cyan)]">
                                 {((Number(jobMetrics.win_rate) || 0) * 100).toFixed(1)}%
                               </div>
                             </div>
@@ -409,7 +409,7 @@ export default function ModelRegistryPage() {
                           {jobMetrics.vertical_accuracy !== null && (
                             <div className="p-2 bg-surface rounded">
                               <div className="text-xs text-text-muted">Accuracy</div>
-                              <div className="text-lg font-mono text-yellow-400">
+                              <div className="text-lg font-theme-data text-yellow-400">
                                 {((Number(jobMetrics.vertical_accuracy) || 0) * 100).toFixed(1)}%
                               </div>
                             </div>
@@ -417,13 +417,13 @@ export default function ModelRegistryPage() {
                           {jobMetrics.final_loss !== null && (
                             <div className="p-2 bg-surface rounded">
                               <div className="text-xs text-text-muted">Final Loss</div>
-                              <div className="text-lg font-mono text-text">
+                              <div className="text-lg font-theme-data text-text">
                                 {(Number(jobMetrics.final_loss) || 0).toFixed(4)}
                               </div>
                             </div>
                           )}
                         </div>
-                        <div className="mt-2 text-xs font-mono text-text-muted">
+                        <div className="mt-2 text-xs font-theme-data text-text-muted">
                           Examples: {jobMetrics.training_data_examples} |
                           Debates: {jobMetrics.training_data_debates}
                         </div>
@@ -433,21 +433,21 @@ export default function ModelRegistryPage() {
                     {/* Artifacts */}
                     {jobArtifacts && (
                       <div className="p-3 bg-bg border border-border rounded">
-                        <div className="text-xs font-mono text-text-muted uppercase mb-2">Artifacts</div>
+                        <div className="text-xs font-theme-data text-text-muted uppercase mb-2">Artifacts</div>
                         {jobArtifacts.checkpoint_path ? (
-                          <div className="text-xs font-mono mb-2">
+                          <div className="text-xs font-theme-data mb-2">
                             <span className="text-text-muted">Checkpoint: </span>
-                            <span className="text-acid-green break-all">{jobArtifacts.checkpoint_path}</span>
+                            <span className="text-[var(--accent)] break-all">{jobArtifacts.checkpoint_path}</span>
                           </div>
                         ) : (
-                          <div className="text-xs font-mono text-text-muted mb-2">
+                          <div className="text-xs font-theme-data text-text-muted mb-2">
                             No checkpoint available
                           </div>
                         )}
                         {jobArtifacts.files.length > 0 && (
                           <div className="space-y-1">
                             {jobArtifacts.files.map((file, i) => (
-                              <div key={i} className="flex justify-between text-xs font-mono">
+                              <div key={i} className="flex justify-between text-xs font-theme-data">
                                 <span className="text-text truncate">{file.name}</span>
                                 <span className="text-text-muted">{formatBytes(file.size_bytes)}</span>
                               </div>
@@ -463,7 +463,7 @@ export default function ModelRegistryPage() {
                         <button
                           onClick={() => handleStartJob(selectedJob.id)}
                           disabled={actionLoading === selectedJob.id}
-                          className="flex-1 px-4 py-2 font-mono text-sm bg-acid-green/20 border border-acid-green text-acid-green rounded hover:bg-acid-green/30 disabled:opacity-50 transition-colors"
+                          className="flex-1 px-4 py-2 font-theme-data text-sm bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] rounded hover:bg-[var(--accent)]/30 disabled:opacity-50 transition-colors"
                         >
                           {actionLoading === selectedJob.id ? 'STARTING...' : 'START TRAINING'}
                         </button>
@@ -471,7 +471,7 @@ export default function ModelRegistryPage() {
                       {selectedJob.status === 'completed' && (
                         <Link
                           href={`/verticals?vertical=${selectedJob.vertical}`}
-                          className="flex-1 px-4 py-2 font-mono text-sm text-center bg-acid-cyan/20 border border-acid-cyan text-acid-cyan rounded hover:bg-acid-cyan/30 transition-colors"
+                          className="flex-1 px-4 py-2 font-theme-data text-sm text-center bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)] text-[var(--acid-cyan)] rounded hover:bg-[var(--acid-cyan)]/30 transition-colors"
                         >
                           VIEW VERTICAL
                         </Link>
@@ -482,7 +482,7 @@ export default function ModelRegistryPage() {
               </div>
             ) : (
               <div className="p-8 bg-surface border border-border rounded-lg text-center">
-                <p className="text-text-muted font-mono text-sm">
+                <p className="text-text-muted font-theme-data text-sm">
                   Select a model to view details
                 </p>
               </div>
@@ -493,35 +493,35 @@ export default function ModelRegistryPage() {
         {/* Summary Stats */}
         {jobs.length > 0 && (
           <div className="mt-8 p-4 bg-surface border border-border rounded-lg">
-            <h3 className="text-sm font-mono font-bold text-acid-green mb-4">Registry Summary</h3>
+            <h3 className="text-sm font-theme-data font-bold text-[var(--accent)] mb-4">Registry Summary</h3>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="p-3 bg-bg rounded text-center">
-                <div className="text-2xl font-mono text-text">{jobs.length}</div>
-                <div className="text-xs font-mono text-text-muted">Total Models</div>
+                <div className="text-2xl font-theme-data text-text">{jobs.length}</div>
+                <div className="text-xs font-theme-data text-text-muted">Total Models</div>
               </div>
               <div className="p-3 bg-bg rounded text-center">
-                <div className="text-2xl font-mono text-yellow-400">
+                <div className="text-2xl font-theme-data text-yellow-400">
                   {jobs.filter(j => j.status === 'pending').length}
                 </div>
-                <div className="text-xs font-mono text-text-muted">Pending</div>
+                <div className="text-xs font-theme-data text-text-muted">Pending</div>
               </div>
               <div className="p-3 bg-bg rounded text-center">
-                <div className="text-2xl font-mono text-blue-400">
+                <div className="text-2xl font-theme-data text-blue-400">
                   {jobs.filter(j => j.status === 'training').length}
                 </div>
-                <div className="text-xs font-mono text-text-muted">Training</div>
+                <div className="text-xs font-theme-data text-text-muted">Training</div>
               </div>
               <div className="p-3 bg-bg rounded text-center">
-                <div className="text-2xl font-mono text-green-400">
+                <div className="text-2xl font-theme-data text-green-400">
                   {jobs.filter(j => j.status === 'completed').length}
                 </div>
-                <div className="text-xs font-mono text-text-muted">Completed</div>
+                <div className="text-xs font-theme-data text-text-muted">Completed</div>
               </div>
               <div className="p-3 bg-bg rounded text-center">
-                <div className="text-2xl font-mono text-red-400">
+                <div className="text-2xl font-theme-data text-red-400">
                   {jobs.filter(j => j.status === 'failed').length}
                 </div>
-                <div className="text-xs font-mono text-text-muted">Failed</div>
+                <div className="text-xs font-theme-data text-text-muted">Failed</div>
               </div>
             </div>
           </div>

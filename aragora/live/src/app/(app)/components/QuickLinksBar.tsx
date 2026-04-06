@@ -49,15 +49,15 @@ export function QuickLinksBar() {
   const { isFeatureVisible } = useProgressiveMode();
 
   return (
-    <div className="hidden sm:block border-b border-acid-green/10 bg-surface/30">
+    <div className="hidden sm:block border-b border-[var(--accent)]/10 bg-surface/30">
       <div className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-6 py-1.5">
         <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-          <span className="text-[9px] font-mono text-text-muted/40 mr-2 shrink-0">EXPLORE:</span>
+          <span className="text-[9px] font-theme-data text-text-muted/40 mr-2 shrink-0">EXPLORE:</span>
           {QUICK_LINKS.filter(link => isFeatureVisible(link.minMode)).map(link => (
             <Link
               key={link.href}
               href={link.href}
-              className={`px-2 py-0.5 text-[10px] font-mono text-text-muted/60 hover:text-${link.color} hover:bg-${link.color}/5 transition-colors shrink-0`}
+              className={`px-2 py-0.5 text-[10px] font-theme-data text-text-muted/60 hover:text-${link.color} hover:bg-${link.color}/5 transition-colors shrink-0`}
             >
               [{link.label}]
             </Link>

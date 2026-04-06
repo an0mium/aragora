@@ -14,7 +14,7 @@ function LoginRedirectContent() {
 
   return (
     <main className="min-h-screen bg-bg text-text flex items-center justify-center">
-      <div className="font-mono text-acid-green animate-pulse text-sm">
+      <div className="font-theme-data text-[var(--accent)] animate-pulse text-sm">
         Redirecting to login...
       </div>
     </main>
@@ -30,7 +30,7 @@ export default function LoginRedirectPage() {
     <Suspense
       fallback={
         <main className="min-h-screen bg-bg text-text flex items-center justify-center">
-          <div className="font-mono text-acid-green animate-pulse text-sm">
+          <div className="font-theme-data text-[var(--accent)] animate-pulse text-sm">
             Redirecting to login...
           </div>
         </main>

@@ -22,10 +22,10 @@ interface ProofTreeVisualizationProps {
 }
 
 const NODE_COLORS: Record<string, { border: string; bg: string; text: string }> = {
-  claim: { border: 'border-acid-cyan', bg: 'bg-acid-cyan/10', text: 'text-acid-cyan' },
-  translation: { border: 'border-acid-yellow', bg: 'bg-acid-yellow/10', text: 'text-acid-yellow' },
-  verification: { border: 'border-acid-green', bg: 'bg-acid-green/10', text: 'text-acid-green' },
-  proof_step: { border: 'border-acid-magenta', bg: 'bg-acid-magenta/10', text: 'text-acid-magenta' },
+  claim: { border: 'border-[var(--acid-cyan)]', bg: 'bg-[var(--acid-cyan)]/10', text: 'text-[var(--acid-cyan)]' },
+  translation: { border: 'border-acid-yellow', bg: 'bg-acid-yellow/10', text: 'text-[var(--acid-yellow)]' },
+  verification: { border: 'border-[var(--accent)]', bg: 'bg-[var(--accent)]/10', text: 'text-[var(--accent)]' },
+  proof_step: { border: 'border-acid-magenta', bg: 'bg-acid-magenta/10', text: 'text-[var(--acid-magenta)]' },
 };
 
 const NODE_ICONS: Record<string, string> = {
@@ -57,7 +57,7 @@ function TreeNode({
     <div className="relative">
       {/* Connector line */}
       {level > 0 && (
-        <div className="absolute -left-4 top-0 h-full w-px bg-acid-green/20" />
+        <div className="absolute -left-4 top-0 h-full w-px bg-[var(--accent)]/20" />
       )}
 
       {/* Node */}
@@ -75,19 +75,19 @@ function TreeNode({
         {/* Node header */}
         <div className="flex items-center gap-2 mb-1">
           <span className="text-lg">{icon}</span>
-          <span className={`font-mono text-xs uppercase ${colors.text}`}>
+          <span className={`font-theme-data text-xs uppercase ${colors.text}`}>
             {node.type.replace('_', ' ')}
           </span>
           {node.step_number && (
-            <span className="text-xs text-text-muted font-mono">
+            <span className="text-xs text-text-muted font-theme-data">
               #{node.step_number}
             </span>
           )}
           {node.is_verified !== undefined && (
             <span
-              className={`text-xs font-mono px-1 rounded ${
+              className={`text-xs font-theme-data px-1 rounded ${
                 node.is_verified
-                  ? 'bg-acid-green/20 text-acid-green'
+                  ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                   : 'bg-acid-red/20 text-acid-red'
               }`}
             >
@@ -102,14 +102,14 @@ function TreeNode({
         </div>
 
         {/* Node content */}
-        <div className="font-mono text-sm text-text whitespace-pre-wrap break-all">
+        <div className="font-theme-data text-sm text-text whitespace-pre-wrap break-all">
           {node.content.length > 200
             ? `${node.content.slice(0, 200)}...`
             : node.content}
         </div>
 
         {/* Metadata */}
-        <div className="flex gap-3 mt-2 text-xs text-text-muted font-mono">
+        <div className="flex gap-3 mt-2 text-xs text-text-muted font-theme-data">
           {node.language && <span>Lang: {node.language}</span>}
           {node.proof_hash && (
             <span title={node.proof_hash}>
@@ -121,7 +121,7 @@ function TreeNode({
 
       {/* Children */}
       {expanded && hasChildren && (
-        <div className="ml-6 pl-4 border-l border-acid-green/20">
+        <div className="ml-6 pl-4 border-l border-[var(--accent)]/20">
           {childNodes.map((child) => (
             <TreeNode
               key={child.id}
@@ -186,7 +186,7 @@ export function ProofTreeVisualization({
   if (loading) {
     return (
       <div className="p-4 text-center">
-        <div className="text-acid-green font-mono animate-pulse">
+        <div className="text-[var(--accent)] font-theme-data animate-pulse">
           Loading proof tree...
         </div>
       </div>
@@ -196,7 +196,7 @@ export function ProofTreeVisualization({
   if (error) {
     return (
       <div className="p-4 bg-acid-red/10 border border-acid-red/30 rounded-lg">
-        <div className="text-acid-red font-mono text-sm">{error}</div>
+        <div className="text-acid-red font-theme-data text-sm">{error}</div>
       </div>
     );
   }
@@ -204,7 +204,7 @@ export function ProofTreeVisualization({
   if (nodes.length === 0) {
     return (
       <div className="p-4 bg-surface border border-border rounded-lg">
-        <div className="text-text-muted font-mono text-sm text-center">
+        <div className="text-text-muted font-theme-data text-sm text-center">
           No proof tree available
         </div>
       </div>
@@ -215,12 +215,12 @@ export function ProofTreeVisualization({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h4 className="font-mono text-acid-green text-sm">PROOF TREE</h4>
+        <h4 className="font-theme-data text-[var(--accent)] text-sm">PROOF TREE</h4>
         <div className="flex gap-2">
           {Object.entries(NODE_COLORS).map(([type, colors]) => (
             <div key={type} className="flex items-center gap-1">
               <div className={`w-3 h-3 rounded ${colors.bg} ${colors.border} border`} />
-              <span className="text-xs text-text-muted font-mono">{type}</span>
+              <span className="text-xs text-text-muted font-theme-data">{type}</span>
             </div>
           ))}
         </div>
@@ -236,7 +236,7 @@ export function ProofTreeVisualization({
             onNodeClick={handleNodeClick}
           />
         ) : (
-          <div className="text-text-muted font-mono text-sm">
+          <div className="text-text-muted font-theme-data text-sm">
             No root node found in proof tree
           </div>
         )}
@@ -244,15 +244,15 @@ export function ProofTreeVisualization({
 
       {/* Selected node details */}
       {selectedNode && (
-        <div className="bg-surface border border-acid-cyan/30 rounded-lg p-4">
-          <h5 className="font-mono text-acid-cyan text-sm mb-2">
+        <div className="bg-surface border border-[var(--acid-cyan)]/30 rounded-lg p-4">
+          <h5 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-2">
             SELECTED NODE: {selectedNode.type.toUpperCase()}
           </h5>
-          <pre className="font-mono text-xs text-text whitespace-pre-wrap overflow-x-auto">
+          <pre className="font-theme-data text-xs text-text whitespace-pre-wrap overflow-x-auto">
             {selectedNode.content}
           </pre>
           {selectedNode.proof_hash && (
-            <div className="mt-2 text-xs text-text-muted font-mono">
+            <div className="mt-2 text-xs text-text-muted font-theme-data">
               Proof Hash: {selectedNode.proof_hash}
             </div>
           )}

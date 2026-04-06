@@ -33,10 +33,10 @@ function StatCard({ label, value, color, bgColor, icon, subtext }: StatCardProps
   return (
     <div className={`border rounded p-4 ${bgColor}`}>
       <div className="flex items-center justify-between">
-        <span className={`text-2xl font-bold font-mono ${color}`}>{value}</span>
+        <span className={`text-2xl font-bold font-theme-data ${color}`}>{value}</span>
         <span className="text-xl">{icon}</span>
       </div>
-      <div className={`text-xs font-mono mt-1 ${color}`}>{label}</div>
+      <div className={`text-xs font-theme-data mt-1 ${color}`}>{label}</div>
       {subtext && (
         <div className="text-xs text-text-muted mt-1">{subtext}</div>
       )}
@@ -121,9 +121,9 @@ export function InboxStatsCards({
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="border border-acid-green/20 rounded p-4 animate-pulse">
-            <div className="h-8 bg-acid-green/10 rounded mb-2"></div>
-            <div className="h-4 bg-acid-green/10 rounded w-2/3"></div>
+          <div key={i} className="border border-[var(--accent)]/20 rounded p-4 animate-pulse">
+            <div className="h-8 bg-[var(--accent)]/10 rounded mb-2"></div>
+            <div className="h-4 bg-[var(--accent)]/10 rounded w-2/3"></div>
           </div>
         ))}
       </div>
@@ -132,7 +132,7 @@ export function InboxStatsCards({
 
   if (error && !stats) {
     return (
-      <div className="p-4 border border-red-500/30 bg-red-500/5 rounded text-sm font-mono text-red-400">
+      <div className="p-4 border border-red-500/30 bg-red-500/5 rounded text-sm font-theme-data text-red-400">
         {error}
       </div>
     );

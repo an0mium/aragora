@@ -99,7 +99,7 @@ function ProvenanceNodeComponent({ data }: { data: ProvenanceNode }) {
 
   return (
     <div
-      className="font-mono text-xs p-3 min-w-[180px]"
+      className="font-theme-data text-xs p-3 min-w-[180px]"
       style={{
         background: colors.bg,
         border: `1px solid ${colors.border}`,
@@ -122,7 +122,7 @@ function ProvenanceNodeComponent({ data }: { data: ProvenanceNode }) {
         {data.label}
       </div>
       <div
-        className="text-[9px] opacity-60 font-mono truncate"
+        className="text-[9px] opacity-60 font-theme-data truncate"
         title={data.hash}
         data-testid="provenance-hash"
       >
@@ -224,10 +224,10 @@ function ProvenanceExplorerInner({ graphId, nodeId }: ProvenanceExplorerProps) {
     return (
       <div className="border border-[var(--border)] p-4 h-[500px] flex items-center justify-center">
         <div className="text-center">
-          <span className="text-[var(--acid-green)] font-mono text-sm font-bold block mb-2">
+          <span className="text-[var(--acid-green)] font-theme-data text-sm font-bold block mb-2">
             PROVENANCE EXPLORER
           </span>
-          <span className="text-[var(--text-muted)] font-mono text-xs animate-pulse">
+          <span className="text-[var(--text-muted)] font-theme-data text-xs animate-pulse">
             Loading provenance chain...
           </span>
         </div>
@@ -239,10 +239,10 @@ function ProvenanceExplorerInner({ graphId, nodeId }: ProvenanceExplorerProps) {
     return (
       <div className="border border-[var(--border)] p-4 h-[500px] flex items-center justify-center">
         <div className="text-center">
-          <span className="text-red-400 font-mono text-sm font-bold block mb-2">
+          <span className="text-red-400 font-theme-data text-sm font-bold block mb-2">
             PROVENANCE ERROR
           </span>
-          <span className="text-[var(--text-muted)] font-mono text-xs">{error}</span>
+          <span className="text-[var(--text-muted)] font-theme-data text-xs">{error}</span>
         </div>
       </div>
     );
@@ -252,14 +252,14 @@ function ProvenanceExplorerInner({ graphId, nodeId }: ProvenanceExplorerProps) {
     <div className="border border-[var(--border)] h-[500px]" data-testid="provenance-explorer">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border)]">
-        <span className="text-[var(--acid-green)] font-mono text-sm font-bold">
+        <span className="text-[var(--acid-green)] font-theme-data text-sm font-bold">
           PROVENANCE EXPLORER
         </span>
         <div className="flex items-center gap-3">
           {Object.entries(STAGE_COLORS).map(([stage, colors]) => (
             <span
               key={stage}
-              className="flex items-center gap-1 text-[10px] font-mono"
+              className="flex items-center gap-1 text-[10px] font-theme-data"
               style={{ color: colors.text }}
             >
               <span
@@ -282,7 +282,7 @@ function ProvenanceExplorerInner({ graphId, nodeId }: ProvenanceExplorerProps) {
           proOptions={{ hideAttribution: true }}
         >
           <Controls
-            className="font-mono"
+            className="font-theme-data"
             showInteractive={false}
           />
           <Background variant={BackgroundVariant.Dots} gap={16} size={1} />

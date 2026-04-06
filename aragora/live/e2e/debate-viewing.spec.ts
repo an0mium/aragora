@@ -1,14 +1,23 @@
+import type { Page } from '@playwright/test';
 import { test, expect, mockApiResponse, mockDebate } from './fixtures';
+
+async function mockSavedDebateEndpoints(
+  page: Page,
+  debateId: string,
+  payload = mockDebate,
+) {
+  await mockApiResponse(page, `**/api/v1/debates/public/${debateId}`, { data: payload });
+  await mockApiResponse(page, `**/api/v1/playground/debate/${debateId}`, { data: payload });
+  await mockApiResponse(page, `**/api/debates/${debateId}`, payload);
+}
 
 test.describe('Debate Viewing', () => {
   const debateId = 'test-debate-123';
 
   test.beforeEach(async ({ page }) => {
-    // Mock debate data endpoint
-    await mockApiResponse(page, `**/api/debates/${debateId}`, mockDebate);
+    await mockSavedDebateEndpoints(page, debateId, mockDebate);
     await mockApiResponse(page, '**/api/health', { status: 'ok' });
     await mockApiResponse(page, '**/api/health/', { status: 'ok' });
-    await mockApiResponse(page, '**/api/debates/test-debate**', mockDebate);
   });
 
   test('should display debate topic', async ({ page, aragoraPage }) => {
@@ -16,15 +25,8 @@ test.describe('Debate Viewing', () => {
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
-    // Should show debate topic somewhere on page (h1, h2, task section, or any text container)
-    const topicElement = page.locator('h1, h2, [class*="topic"], [class*="task"], .font-mono').filter({
-      hasText: new RegExp(mockDebate.topic.substring(0, 10), 'i')
-    }).first();
-
-    // May also just show general debate content without exact topic match
-    const debateContent = page.locator('main').first();
-
-    await expect(topicElement.or(debateContent)).toBeVisible({ timeout: 10000 });
+    const topicHeading = page.getByRole('heading', { name: new RegExp(mockDebate.topic, 'i') }).first();
+    await expect(topicHeading).toBeVisible({ timeout: 10000 });
   });
 
   test('should display agent messages', async ({ page, aragoraPage }) => {
@@ -32,13 +34,13 @@ test.describe('Debate Viewing', () => {
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
-    // Check that main content area is visible (messages may be loaded dynamically)
+    // Check that main content area is visible (saved debates render transcript content)
     const mainContent = page.locator('main').first();
     await expect(mainContent).toBeVisible({ timeout: 10000 });
 
-    // Look for any message-like content
-    const messageArea = page.locator('[class*="message"], [class*="content"], .font-mono').first();
-    await expect(messageArea).toBeVisible({ timeout: 10000 });
+    // Archived debates render a stable transcript heading and transcript text.
+    const transcriptHeading = page.getByRole('heading', { name: /full transcript/i }).first();
+    await expect(transcriptHeading).toBeVisible({ timeout: 10000 });
   });
 
   test('should display agent panel', async ({ page, aragoraPage }) => {
@@ -92,11 +94,8 @@ test.describe('Debate Viewing', () => {
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');
 
-    // Should show round information (or general debate content)
-    const roundElement = page.locator('text=/round|r1|r2|cycle/i').first();
-    const mainContent = page.locator('main').first();
-
-    await expect(roundElement.or(mainContent)).toBeVisible({ timeout: 10000 });
+    const roundElement = page.getByText(/rounds?/i).first();
+    await expect(roundElement).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -110,11 +109,12 @@ test.describe('Debate Viewing - Real-time Updates', () => {
       });
     });
 
-    await mockApiResponse(page, '**/api/debates/live-debate', {
+    const liveDebate = {
       ...mockDebate,
       id: 'live-debate',
       status: 'running',
-    });
+    };
+    await mockSavedDebateEndpoints(page, 'live-debate', liveDebate);
 
     await page.goto('/debate/live-debate');
     await aragoraPage.dismissAllOverlays();
@@ -129,7 +129,7 @@ test.describe('Debate Viewing - Real-time Updates', () => {
 
 test.describe('Debate Viewing - Interaction', () => {
   test('should allow collapsing message sections', async ({ page, aragoraPage }) => {
-    await mockApiResponse(page, '**/api/debates/test-debate', mockDebate);
+    await mockSavedDebateEndpoints(page, 'test-debate', mockDebate);
     await page.goto('/debate/test-debate');
     await aragoraPage.dismissAllOverlays();
     await page.waitForLoadState('domcontentloaded');

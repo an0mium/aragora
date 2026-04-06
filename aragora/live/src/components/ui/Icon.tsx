@@ -160,7 +160,7 @@ export const Icon = forwardRef<HTMLSpanElement, IconProps>(
         aria-hidden={!label}
         className={`
           inline-flex items-center justify-center
-          font-mono leading-none
+          font-theme-data leading-none
           ${sizeClasses[size]}
           ${className}
         `}

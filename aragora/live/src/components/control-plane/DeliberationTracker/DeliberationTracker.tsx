@@ -127,10 +127,10 @@ export function DeliberationTracker({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             {stats.active > 0 && (
-              <span className="w-2 h-2 rounded-full bg-acid-cyan animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[var(--acid-cyan)] animate-pulse" />
             )}
-            <h3 className="font-mono text-sm text-acid-green">{title}</h3>
-            <span className="text-xs text-text-muted font-mono">
+            <h3 className="font-theme-data text-sm text-[var(--accent)]">{title}</h3>
+            <span className="text-xs text-text-muted font-theme-data">
               ({stats.active} active)
             </span>
           </div>
@@ -138,7 +138,7 @@ export function DeliberationTracker({
           {onViewAll && (
             <button
               onClick={onViewAll}
-              className="text-xs text-text-muted hover:text-acid-green transition-colors font-mono"
+              className="text-xs text-text-muted hover:text-[var(--accent)] transition-colors font-theme-data"
             >
               View All &rarr;
             </button>
@@ -148,19 +148,19 @@ export function DeliberationTracker({
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-2 mb-3">
           <div className="bg-surface p-2 rounded text-center">
-            <div className="text-lg font-mono text-acid-cyan">{stats.active}</div>
+            <div className="text-lg font-theme-data text-[var(--acid-cyan)]">{stats.active}</div>
             <div className="text-xs text-text-muted">Active</div>
           </div>
           <div className="bg-surface p-2 rounded text-center">
-            <div className="text-lg font-mono text-green-400">{stats.consensus}</div>
+            <div className="text-lg font-theme-data text-green-400">{stats.consensus}</div>
             <div className="text-xs text-text-muted">Consensus</div>
           </div>
           <div className="bg-surface p-2 rounded text-center">
-            <div className="text-lg font-mono text-yellow-400">{stats.noConsensus}</div>
+            <div className="text-lg font-theme-data text-yellow-400">{stats.noConsensus}</div>
             <div className="text-xs text-text-muted">No Cons.</div>
           </div>
           <div className="bg-surface p-2 rounded text-center">
-            <div className="text-lg font-mono text-crimson">{stats.failed}</div>
+            <div className="text-lg font-theme-data text-[var(--crimson)]">{stats.failed}</div>
             <div className="text-xs text-text-muted">Failed</div>
           </div>
         </div>
@@ -168,8 +168,8 @@ export function DeliberationTracker({
         {/* SLA violations warning */}
         {stats.slaViolations > 0 && (
           <div className="flex items-center gap-2 p-2 bg-red-900/10 border border-red-800/30 rounded text-xs">
-            <span className="text-crimson">\u26A0</span>
-            <span className="text-crimson font-mono">
+            <span className="text-[var(--crimson)]">\u26A0</span>
+            <span className="text-[var(--crimson)] font-theme-data">
               {stats.slaViolations} SLA violation{stats.slaViolations > 1 ? 's' : ''}
             </span>
           </div>
@@ -182,9 +182,9 @@ export function DeliberationTracker({
               <button
                 key={tab.id}
                 onClick={() => handleFilterClick(tab.id)}
-                className={`px-2 py-1 text-xs font-mono rounded transition-colors flex items-center gap-1 ${
+                className={`px-2 py-1 text-xs font-theme-data rounded transition-colors flex items-center gap-1 ${
                   activeFilter === tab.id
-                    ? 'bg-acid-green/20 text-acid-green border border-acid-green/30'
+                    ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30'
                     : 'bg-surface text-text-muted hover:text-text border border-transparent'
                 }`}
               >
@@ -203,7 +203,7 @@ export function DeliberationTracker({
       {/* Debate list */}
       <div className="max-h-[500px] overflow-y-auto">
         {visibleDeliberations.length === 0 ? (
-          <div className="p-6 text-center text-text-muted font-mono text-sm">
+          <div className="p-6 text-center text-text-muted font-theme-data text-sm">
             No debate sessions to display
           </div>
         ) : (
@@ -218,7 +218,7 @@ export function DeliberationTracker({
 
             {sortedDeliberations.length > maxVisible && (
               <div className="text-center pt-2">
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   + {sortedDeliberations.length - maxVisible} more decisionmaking sessions
                 </span>
               </div>

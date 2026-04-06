@@ -64,16 +64,16 @@ export default function ExplainabilityPage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-3">
-              <Link href="/" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [DASHBOARD]
               </Link>
-              <Link href="/receipts" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/receipts" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [RECEIPTS]
               </Link>
               <BackendSelector compact />
@@ -84,10 +84,10 @@ export default function ExplainabilityPage() {
 
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} DECISION EXPLAINABILITY
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Understand why decisions were made. View factor decomposition, evidence chains,
               counterfactual analysis, and vote influence for any debate.
             </p>
@@ -99,10 +99,10 @@ export default function ExplainabilityPage() {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-sm font-mono rounded border transition-colors ${
+                className={`px-4 py-2 text-sm font-theme-data rounded border transition-colors ${
                   activeTab === tab
-                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
-                    : 'border-border text-text-muted hover:border-acid-green/50'
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-border text-text-muted hover:border-[var(--accent)]/50'
                 }`}
               >
                 {tab === 'single' ? 'Single Debate' : 'Batch Analysis'}
@@ -115,11 +115,11 @@ export default function ExplainabilityPage() {
               {/* Debate Selector */}
               <div className="lg:col-span-1">
                 <div className="p-4 bg-surface border border-border rounded-lg">
-                  <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                  <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                     Select Debate
                   </h3>
                   {isLoading ? (
-                    <div className="text-acid-green font-mono animate-pulse text-sm">Loading...</div>
+                    <div className="text-[var(--accent)] font-theme-data animate-pulse text-sm">Loading...</div>
                   ) : debates.length === 0 ? (
                     <p className="text-text-muted text-sm">No debates found. Run a debate first.</p>
                   ) : (
@@ -130,18 +130,18 @@ export default function ExplainabilityPage() {
                           onClick={() => setSelectedDebateId(debate.id)}
                           className={`w-full p-3 text-left rounded border transition-all text-sm ${
                             selectedDebateId === debate.id
-                              ? 'border-acid-green bg-acid-green/10'
-                              : 'border-border hover:border-acid-green/50'
+                              ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                              : 'border-border hover:border-[var(--accent)]/50'
                           }`}
                         >
-                          <div className="font-mono text-xs text-text-muted mb-1">
+                          <div className="font-theme-data text-xs text-text-muted mb-1">
                             {debate.id.substring(0, 12)}...
                           </div>
                           <div className="text-text line-clamp-2">{debate.task}</div>
                           <div className="flex items-center gap-2 mt-1">
                             <span className={`text-xs px-1.5 py-0.5 rounded ${
                               debate.consensus_reached
-                                ? 'bg-acid-green/20 text-acid-green'
+                                ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                                 : 'bg-yellow-500/20 text-yellow-400'
                             }`}>
                               {debate.consensus_reached ? 'Consensus' : 'No Consensus'}
@@ -163,10 +163,10 @@ export default function ExplainabilityPage() {
                 ) : (
                   <div className="p-8 bg-surface border border-border rounded-lg text-center">
                     <div className="text-4xl mb-4">?!</div>
-                    <p className="text-text-muted font-mono">
+                    <p className="text-text-muted font-theme-data">
                       Select a debate to view its decision explanation
                     </p>
-                    <p className="text-text-muted font-mono text-xs mt-2">
+                    <p className="text-text-muted font-theme-data text-xs mt-2">
                       Factor decomposition, evidence chains, counterfactuals, and vote influence
                     </p>
                   </div>
@@ -182,8 +182,8 @@ export default function ExplainabilityPage() {
           )}
         </div>
 
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // DECISION EXPLAINABILITY</p>
         </footer>
       </main>

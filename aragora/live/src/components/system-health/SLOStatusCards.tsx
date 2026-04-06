@@ -21,12 +21,12 @@ export function SLOStatusCards() {
   return (
     <div className="card p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-mono text-acid-green">SLO Compliance</h3>
+        <h3 className="font-theme-data text-[var(--accent)]">SLO Compliance</h3>
         {available && (
           <span
-            className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+            className={`text-[10px] font-theme-data px-2 py-0.5 rounded border ${
               overallHealthy
-                ? 'text-acid-green border-acid-green/40 bg-acid-green/10'
+                ? 'text-[var(--accent)] border-[var(--accent)]/40 bg-[var(--accent)]/10'
                 : 'text-acid-red border-acid-red/40 bg-acid-red/10'
             }`}
           >
@@ -35,15 +35,15 @@ export function SLOStatusCards() {
         )}
       </div>
       {!available ? (
-        <p className="text-text-muted font-mono text-xs">SLO tracking unavailable</p>
+        <p className="text-text-muted font-theme-data text-xs">SLO tracking unavailable</p>
       ) : slos.length === 0 ? (
-        <p className="text-text-muted font-mono text-xs">No SLOs configured</p>
+        <p className="text-text-muted font-theme-data text-xs">No SLOs configured</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {slos.map((s) => {
             const compliantColor = s.compliant ? 'acid-green' : 'acid-red';
             const burnColor =
-              s.burn_rate > 5 ? 'text-acid-red' : s.burn_rate > 1 ? 'text-acid-yellow' : 'text-text-muted';
+              s.burn_rate > 5 ? 'text-acid-red' : s.burn_rate > 1 ? 'text-[var(--acid-yellow)]' : 'text-text-muted';
             // For latency SLO (lte comparison), gauge shows target/current
             const isLatency = s.key === 'latency_p99';
             const gaugePct = isLatency
@@ -53,14 +53,14 @@ export function SLOStatusCards() {
             return (
               <div
                 key={s.key}
-                className={`card p-3 space-y-2 border-l-2 ${s.compliant ? 'border-acid-green' : 'border-acid-red'}`}
+                className={`card p-3 space-y-2 border-l-2 ${s.compliant ? 'border-[var(--accent)]' : 'border-acid-red'}`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs text-text">{s.name}</span>
+                  <span className="font-theme-data text-xs text-text">{s.name}</span>
                   <span
-                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+                    className={`text-[10px] font-theme-data px-1.5 py-0.5 rounded border ${
                       s.compliant
-                        ? 'text-acid-green border-acid-green/40'
+                        ? 'text-[var(--accent)] border-[var(--accent)]/40'
                         : 'text-acid-red border-acid-red/40'
                     }`}
                   >
@@ -68,7 +68,7 @@ export function SLOStatusCards() {
                   </span>
                 </div>
                 {/* Target vs current */}
-                <div className="flex justify-between text-[10px] font-mono">
+                <div className="flex justify-between text-[10px] font-theme-data">
                   <span className="text-text-muted">
                     Target: {isLatency ? `${(s.target * 1000).toFixed(0)}ms` : `${(s.target * 100).toFixed(2)}%`}
                   </span>
@@ -84,7 +84,7 @@ export function SLOStatusCards() {
                   />
                 </div>
                 {/* Error budget and burn rate */}
-                <div className="flex justify-between text-[10px] font-mono">
+                <div className="flex justify-between text-[10px] font-theme-data">
                   <span className="text-text-muted">
                     Budget: {s.error_budget_remaining.toFixed(1)}%
                   </span>

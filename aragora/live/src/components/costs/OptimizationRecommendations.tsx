@@ -190,11 +190,11 @@ export function OptimizationRecommendations({ workspaceId = 'default' }: Props) 
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} OPTIMIZATION RECOMMENDATIONS
         </h3>
         {summary && (
-          <div className="text-xs font-mono text-green-400">
+          <div className="text-xs font-theme-data text-green-400">
             Potential savings: ${parseFloat(summary.total_potential_savings_usd).toFixed(2)}
           </div>
         )}
@@ -204,19 +204,19 @@ export function OptimizationRecommendations({ workspaceId = 'default' }: Props) 
       {summary && (
         <div className="grid grid-cols-4 gap-2 text-center">
           <div className="bg-[var(--bg)] rounded p-2">
-            <div className="text-lg font-mono text-red-400">{summary.by_priority.critical}</div>
+            <div className="text-lg font-theme-data text-red-400">{summary.by_priority.critical}</div>
             <div className="text-xs text-[var(--text-muted)]">Critical</div>
           </div>
           <div className="bg-[var(--bg)] rounded p-2">
-            <div className="text-lg font-mono text-orange-400">{summary.by_priority.high}</div>
+            <div className="text-lg font-theme-data text-orange-400">{summary.by_priority.high}</div>
             <div className="text-xs text-[var(--text-muted)]">High</div>
           </div>
           <div className="bg-[var(--bg)] rounded p-2">
-            <div className="text-lg font-mono text-yellow-400">{summary.by_priority.medium}</div>
+            <div className="text-lg font-theme-data text-yellow-400">{summary.by_priority.medium}</div>
             <div className="text-xs text-[var(--text-muted)]">Medium</div>
           </div>
           <div className="bg-[var(--bg)] rounded p-2">
-            <div className="text-lg font-mono text-green-400">{summary.by_priority.low}</div>
+            <div className="text-lg font-theme-data text-green-400">{summary.by_priority.low}</div>
             <div className="text-xs text-[var(--text-muted)]">Low</div>
           </div>
         </div>
@@ -228,7 +228,7 @@ export function OptimizationRecommendations({ workspaceId = 'default' }: Props) 
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-3 py-2 text-xs font-mono transition-colors ${
+            className={`px-3 py-2 text-xs font-theme-data transition-colors ${
               filter === f
                 ? 'text-[var(--acid-green)] border-b-2 border-[var(--acid-green)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -257,7 +257,7 @@ export function OptimizationRecommendations({ workspaceId = 'default' }: Props) 
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{TYPE_ICONS[rec.type]}</span>
-                    <h4 className="text-sm font-mono text-[var(--text)]">{rec.title}</h4>
+                    <h4 className="text-sm font-theme-data text-[var(--text)]">{rec.title}</h4>
                     <span className={`text-xs px-2 py-0.5 rounded ${
                       rec.status === 'applied' ? 'bg-green-500/20 text-green-400' :
                       rec.status === 'dismissed' ? 'bg-gray-500/20 text-gray-400' :
@@ -303,7 +303,7 @@ export function OptimizationRecommendations({ workspaceId = 'default' }: Props) 
                 </div>
 
                 <div className="text-right">
-                  <div className="text-lg font-mono text-green-400">
+                  <div className="text-lg font-theme-data text-green-400">
                     -${parseFloat(rec.estimated_savings_usd).toFixed(2)}
                   </div>
                   <div className="text-xs text-[var(--text-muted)]">
@@ -315,13 +315,13 @@ export function OptimizationRecommendations({ workspaceId = 'default' }: Props) 
                       <button
                         onClick={() => handleApply(rec.id)}
                         disabled={applying === rec.id}
-                        className="px-3 py-1 text-xs font-mono bg-[var(--acid-green)] text-[var(--bg)] rounded hover:bg-[var(--acid-green)]/80 disabled:opacity-50 transition-colors"
+                        className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-green)] text-[var(--bg)] rounded hover:bg-[var(--acid-green)]/80 disabled:opacity-50 transition-colors"
                       >
                         {applying === rec.id ? 'Applying...' : 'Apply'}
                       </button>
                       <button
                         onClick={() => handleDismiss(rec.id)}
-                        className="px-3 py-1 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] rounded hover:border-red-500/30 hover:text-red-400 transition-colors"
+                        className="px-3 py-1 text-xs font-theme-data text-[var(--text-muted)] border border-[var(--border)] rounded hover:border-red-500/30 hover:text-red-400 transition-colors"
                       >
                         Dismiss
                       </button>

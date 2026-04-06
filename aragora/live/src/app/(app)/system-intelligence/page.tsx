@@ -172,7 +172,7 @@ function getSeverityStyle(severity: string) {
 
 function getOverallStatusStyle(status: string) {
   switch (status) {
-    case 'healthy': return 'text-acid-green border-acid-green/30 bg-acid-green/10';
+    case 'healthy': return 'text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10';
     case 'degraded': return 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10';
     case 'critical': return 'text-red-400 border-red-500/30 bg-red-500/10';
     default: return 'text-text-muted border-border bg-surface';
@@ -361,19 +361,19 @@ export default function SystemIntelligencePage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-3">
-              <Link href="/leaderboard" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/leaderboard" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [LEADERBOARD]
               </Link>
-              <Link href="/self-improve" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/self-improve" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [SELF-IMPROVE]
               </Link>
-              <Link href="/memory-gateway" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/memory-gateway" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [MEMORY]
               </Link>
               <BackendSelector compact />
@@ -384,10 +384,10 @@ export default function SystemIntelligencePage() {
 
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} SYSTEM INTELLIGENCE
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Aggregated view of system health, agent performance, institutional memory,
               self-improvement cycles, and anomaly detection. The system&apos;s learning at a glance.
             </p>
@@ -402,18 +402,18 @@ export default function SystemIntelligencePage() {
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-3">
                     <span className={`w-3 h-3 rounded-full ${
-                      health.overall_status === 'healthy' ? 'bg-acid-green animate-pulse' :
+                      health.overall_status === 'healthy' ? 'bg-[var(--accent)] animate-pulse' :
                       health.overall_status === 'degraded' ? 'bg-yellow-400 animate-pulse' :
                       'bg-red-400 animate-pulse'
                     }`} />
-                    <span className="font-mono text-sm font-bold uppercase">
+                    <span className="font-theme-data text-sm font-bold uppercase">
                       System {health.overall_status}
                     </span>
-                    <span className="text-xs font-mono opacity-70">
+                    <span className="text-xs font-theme-data opacity-70">
                       checked {formatTimestamp(health.last_check)} ({health.collection_time_ms}ms)
                     </span>
                   </div>
-                  <div className="flex gap-4 text-xs font-mono">
+                  <div className="flex gap-4 text-xs font-theme-data">
                     {health.budget?.available && (
                       <span>
                         Budget: {(health.budget.utilization * 100).toFixed(0)}% used
@@ -430,7 +430,7 @@ export default function SystemIntelligencePage() {
                       </span>
                     )}
                     {health.slos?.available && (
-                      <span className={health.slos.overall_healthy ? 'text-acid-green' : 'text-red-400'}>
+                      <span className={health.slos.overall_healthy ? 'text-[var(--accent)]' : 'text-red-400'}>
                         SLOs: {health.slos.overall_healthy ? 'compliant' : 'breach'}
                       </span>
                     )}
@@ -447,42 +447,42 @@ export default function SystemIntelligencePage() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
               {/* Nomic cycles */}
               <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                <div className="text-2xl font-mono font-bold text-acid-green">
+                <div className="text-2xl font-theme-data font-bold text-[var(--accent)]">
                   {overviewLoading ? '-' : overview?.totalCycles ?? 0}
                 </div>
                 <div className="text-xs text-text-muted uppercase">Nomic Cycles</div>
               </div>
               {/* Success rate */}
               <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                <div className="text-2xl font-mono font-bold text-blue-400">
+                <div className="text-2xl font-theme-data font-bold text-blue-400">
                   {overviewLoading ? '-' : overview ? `${(overview.successRate * 100).toFixed(0)}%` : '0%'}
                 </div>
                 <div className="text-xs text-text-muted uppercase">Success Rate</div>
               </div>
               {/* Active agents */}
               <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                <div className="text-2xl font-mono font-bold text-purple-400">
+                <div className="text-2xl font-theme-data font-bold text-purple-400">
                   {poolAvailable ? `${poolActive}/${poolTotal}` : overview?.activeAgents ?? '-'}
                 </div>
                 <div className="text-xs text-text-muted uppercase">Agents Active</div>
               </div>
               {/* Active debates */}
               <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                <div className="text-2xl font-mono font-bold text-yellow-400">
+                <div className="text-2xl font-theme-data font-bold text-yellow-400">
                   {debateQueue ? debateQueue.active_debates : '-'}
                 </div>
                 <div className="text-xs text-text-muted uppercase">Active Debates</div>
               </div>
               {/* Queue depth */}
               <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                <div className="text-2xl font-mono font-bold text-orange-400">
+                <div className="text-2xl font-theme-data font-bold text-orange-400">
                   {debateQueue ? debateQueue.queued_debates : '-'}
                 </div>
                 <div className="text-xs text-text-muted uppercase">Queue Depth</div>
               </div>
               {/* Knowledge items */}
               <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                <div className="text-2xl font-mono font-bold text-gold">
+                <div className="text-2xl font-theme-data font-bold text-gold">
                   {overviewLoading ? '-' : overview?.knowledgeItems ?? 0}
                 </div>
                 <div className="text-xs text-text-muted uppercase">Knowledge Items</div>
@@ -496,10 +496,10 @@ export default function SystemIntelligencePage() {
               <button
                 key={key}
                 onClick={() => setActiveSection(key)}
-                className={`px-4 py-2 text-sm font-mono rounded border transition-colors ${
+                className={`px-4 py-2 text-sm font-theme-data rounded border transition-colors ${
                   activeSection === key
-                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
-                    : 'border-border text-text-muted hover:border-acid-green/50'
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-border text-text-muted hover:border-[var(--accent)]/50'
                 }`}
               >
                 {label}
@@ -517,14 +517,14 @@ export default function SystemIntelligencePage() {
                 {/* Self-Improvement Cycle Status */}
                 <PanelErrorBoundary panelName="Nomic Cycle">
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Self-Improvement Cycle
                     </h2>
                     {nomicStatus ? (
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${nomicStatus.active ? 'bg-acid-green animate-pulse' : 'bg-text-muted'}`} />
-                          <span className="font-mono text-sm text-text">
+                          <span className={`w-2 h-2 rounded-full ${nomicStatus.active ? 'bg-[var(--accent)] animate-pulse' : 'bg-text-muted'}`} />
+                          <span className="font-theme-data text-sm text-text">
                             {nomicStatus.active ? 'Running' : 'Idle'}
                           </span>
                         </div>
@@ -532,26 +532,26 @@ export default function SystemIntelligencePage() {
                           <div className="space-y-1">
                             <div className="flex justify-between text-xs">
                               <span className="text-text-muted">Cycle:</span>
-                              <span className="font-mono text-text">{nomicStatus.current_cycle}</span>
+                              <span className="font-theme-data text-text">{nomicStatus.current_cycle}</span>
                             </div>
                             <div className="flex justify-between text-xs">
                               <span className="text-text-muted">Phase:</span>
-                              <span className="font-mono text-acid-green">{getPhaseLabel(nomicStatus.current_phase)}</span>
+                              <span className="font-theme-data text-[var(--accent)]">{getPhaseLabel(nomicStatus.current_phase)}</span>
                             </div>
                           </div>
                         )}
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs">
                             <span className="text-text-muted">Total Cycles:</span>
-                            <span className="font-mono text-text">{nomicStatus.total_cycles}</span>
+                            <span className="font-theme-data text-text">{nomicStatus.total_cycles}</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-text-muted">Success Rate:</span>
-                            <span className="font-mono text-text">{(nomicStatus.success_rate * 100).toFixed(0)}%</span>
+                            <span className="font-theme-data text-text">{(nomicStatus.success_rate * 100).toFixed(0)}%</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-text-muted">Last Completed:</span>
-                            <span className="font-mono text-text">{formatTimestamp(nomicStatus.last_completed_at)}</span>
+                            <span className="font-theme-data text-text">{formatTimestamp(nomicStatus.last_completed_at)}</span>
                           </div>
                         </div>
                       </div>
@@ -564,31 +564,31 @@ export default function SystemIntelligencePage() {
                 {/* KM Sync Status */}
                 <PanelErrorBoundary panelName="KM Sync">
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Knowledge Mound Sync
                     </h2>
                     {kmSync ? (
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full ${kmSync.sync_healthy ? 'bg-acid-green' : 'bg-red-400'}`} />
-                          <span className="font-mono text-sm text-text">
+                          <span className={`w-2 h-2 rounded-full ${kmSync.sync_healthy ? 'bg-[var(--accent)]' : 'bg-red-400'}`} />
+                          <span className="font-theme-data text-sm text-text">
                             {kmSync.sync_healthy ? 'Healthy' : 'Degraded'}
                           </span>
                         </div>
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs">
                             <span className="text-text-muted">Adapters:</span>
-                            <span className="font-mono text-text">{kmSync.adapters_active}/{kmSync.adapters_total}</span>
+                            <span className="font-theme-data text-text">{kmSync.adapters_active}/{kmSync.adapters_total}</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-text-muted">Pending:</span>
-                            <span className={`font-mono ${kmSync.pending_items > 100 ? 'text-yellow-400' : 'text-text'}`}>
+                            <span className={`font-theme-data ${kmSync.pending_items > 100 ? 'text-yellow-400' : 'text-text'}`}>
                               {kmSync.pending_items}
                             </span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-text-muted">Last Sync:</span>
-                            <span className="font-mono text-text">{formatTimestamp(kmSync.last_sync)}</span>
+                            <span className="font-theme-data text-text">{formatTimestamp(kmSync.last_sync)}</span>
                           </div>
                         </div>
                         {/* Adapter health bar */}
@@ -596,13 +596,13 @@ export default function SystemIntelligencePage() {
                           <div>
                             <div className="flex items-center justify-between text-xs text-text-muted mb-1">
                               <span>Adapter Coverage</span>
-                              <span className="font-mono">
+                              <span className="font-theme-data">
                                 {((kmSync.adapters_active / kmSync.adapters_total) * 100).toFixed(0)}%
                               </span>
                             </div>
                             <div className="w-full bg-bg rounded-full h-1.5">
                               <div
-                                className={`h-1.5 rounded-full ${kmSync.sync_healthy ? 'bg-acid-green' : 'bg-yellow-400'}`}
+                                className={`h-1.5 rounded-full ${kmSync.sync_healthy ? 'bg-[var(--accent)]' : 'bg-yellow-400'}`}
                                 style={{ width: `${(kmSync.adapters_active / kmSync.adapters_total) * 100}%` }}
                               />
                             </div>
@@ -618,26 +618,26 @@ export default function SystemIntelligencePage() {
                 {/* Debate Queue */}
                 <PanelErrorBoundary panelName="Debate Queue">
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Debate Activity
                     </h2>
                     {debateQueue ? (
                       <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-2">
                           <div className="p-2 bg-bg rounded text-center">
-                            <div className="text-lg font-mono font-bold text-acid-green">{debateQueue.active_debates}</div>
+                            <div className="text-lg font-theme-data font-bold text-[var(--accent)]">{debateQueue.active_debates}</div>
                             <div className="text-xs text-text-muted">Active</div>
                           </div>
                           <div className="p-2 bg-bg rounded text-center">
-                            <div className="text-lg font-mono font-bold text-yellow-400">{debateQueue.queued_debates}</div>
+                            <div className="text-lg font-theme-data font-bold text-yellow-400">{debateQueue.queued_debates}</div>
                             <div className="text-xs text-text-muted">Queued</div>
                           </div>
                           <div className="p-2 bg-bg rounded text-center">
-                            <div className="text-lg font-mono font-bold text-blue-400">{debateQueue.completed_today}</div>
+                            <div className="text-lg font-theme-data font-bold text-blue-400">{debateQueue.completed_today}</div>
                             <div className="text-xs text-text-muted">Today</div>
                           </div>
                           <div className="p-2 bg-bg rounded text-center">
-                            <div className="text-lg font-mono font-bold text-purple-400">
+                            <div className="text-lg font-theme-data font-bold text-purple-400">
                               {debateQueue.avg_duration_ms > 0
                                 ? `${(debateQueue.avg_duration_ms / 1000).toFixed(1)}s`
                                 : '-'}
@@ -659,18 +659,18 @@ export default function SystemIntelligencePage() {
                 <PanelErrorBoundary panelName="Anomaly Detection">
                   <div className="p-4 bg-surface border border-border rounded-lg">
                     <div className="flex items-center justify-between mb-3">
-                      <h2 className="text-sm font-mono font-bold text-text-muted uppercase">
+                      <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase">
                         Anomaly Detection
                       </h2>
                       {unresolvedAnomalies.length > 0 && (
-                        <span className="px-2 py-0.5 text-xs font-mono rounded bg-red-500/20 text-red-400">
+                        <span className="px-2 py-0.5 text-xs font-theme-data rounded bg-red-500/20 text-red-400">
                           {unresolvedAnomalies.length} active
                         </span>
                       )}
                     </div>
                     {anomalies.length === 0 ? (
                       <div className="text-center py-6">
-                        <span className="text-acid-green font-mono text-sm">No anomalies detected</span>
+                        <span className="text-[var(--accent)] font-theme-data text-sm">No anomalies detected</span>
                       </div>
                     ) : (
                       <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -681,13 +681,13 @@ export default function SystemIntelligencePage() {
                               <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${style.dot}`} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <span className={`px-1.5 py-0.5 text-xs font-mono rounded ${style.badge}`}>
+                                  <span className={`px-1.5 py-0.5 text-xs font-theme-data rounded ${style.badge}`}>
                                     {alert.severity}
                                   </span>
-                                  <span className="text-xs text-text-muted font-mono">{alert.source}</span>
+                                  <span className="text-xs text-text-muted font-theme-data">{alert.source}</span>
                                   <span className="text-xs text-text-muted">{formatTimestamp(alert.timestamp)}</span>
                                   {alert.resolved && (
-                                    <span className="text-xs text-acid-green font-mono">RESOLVED</span>
+                                    <span className="text-xs text-[var(--accent)] font-theme-data">RESOLVED</span>
                                   )}
                                 </div>
                                 <p className="text-sm text-text mt-1 line-clamp-2">{alert.message}</p>
@@ -703,7 +703,7 @@ export default function SystemIntelligencePage() {
                 {/* Agent Pool Utilization */}
                 <PanelErrorBoundary panelName="Agent Pool">
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Agent Pool Utilization
                     </h2>
                     {poolAvailable && poolAgents.length > 0 ? (
@@ -712,7 +712,7 @@ export default function SystemIntelligencePage() {
                         <div>
                           <div className="flex items-center justify-between text-xs text-text-muted mb-1">
                             <span>Utilization</span>
-                            <span className="font-mono">{poolTotal > 0 ? ((poolActive / poolTotal) * 100).toFixed(0) : 0}%</span>
+                            <span className="font-theme-data">{poolTotal > 0 ? ((poolActive / poolTotal) * 100).toFixed(0) : 0}%</span>
                           </div>
                           <div className="w-full bg-bg rounded-full h-2">
                             <div
@@ -721,7 +721,7 @@ export default function SystemIntelligencePage() {
                                   ? 'bg-red-400'
                                   : poolTotal > 0 && (poolActive / poolTotal) > 0.7
                                   ? 'bg-yellow-400'
-                                  : 'bg-acid-green'
+                                  : 'bg-[var(--accent)]'
                               }`}
                               style={{ width: `${poolTotal > 0 ? (poolActive / poolTotal) * 100 : 0}%` }}
                             />
@@ -732,14 +732,14 @@ export default function SystemIntelligencePage() {
                           {poolAgents.slice(0, 20).map((agent) => (
                             <div key={agent.agent_id} className="flex items-center gap-2 p-2 bg-bg rounded text-xs">
                               <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                agent.status === 'active' ? 'bg-acid-green' :
+                                agent.status === 'active' ? 'bg-[var(--accent)]' :
                                 agent.status === 'idle' ? 'bg-yellow-400' :
                                 'bg-red-400'
                               }`} />
-                              <span className="font-mono text-text flex-1 truncate">{agent.agent_id}</span>
+                              <span className="font-theme-data text-text flex-1 truncate">{agent.agent_id}</span>
                               <span className="text-text-muted">{agent.type}</span>
-                              <span className={`px-1 py-0.5 rounded font-mono ${
-                                agent.status === 'active' ? 'text-acid-green bg-acid-green/10' :
+                              <span className={`px-1 py-0.5 rounded font-theme-data ${
+                                agent.status === 'active' ? 'text-[var(--accent)] bg-[var(--accent)]/10' :
                                 agent.status === 'idle' ? 'text-yellow-400 bg-yellow-500/10' :
                                 'text-red-400 bg-red-500/10'
                               }`}>
@@ -761,7 +761,7 @@ export default function SystemIntelligencePage() {
               {/* Recent System Events Timeline */}
               <PanelErrorBoundary panelName="System Events">
                 <div className="p-4 bg-surface border border-border rounded-lg">
-                  <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                  <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                     Recent System Events
                   </h2>
                   {systemEvents.length === 0 ? (
@@ -777,11 +777,11 @@ export default function SystemIntelligencePage() {
                             <div className={`absolute left-2 top-3 w-2.5 h-2.5 rounded-full border-2 border-surface ${
                               event.type.includes('error') || event.type.includes('fail') ? 'bg-red-400' :
                               event.type.includes('warn') ? 'bg-yellow-400' :
-                              event.type.includes('complete') || event.type.includes('success') ? 'bg-acid-green' :
+                              event.type.includes('complete') || event.type.includes('success') ? 'bg-[var(--accent)]' :
                               'bg-blue-400'
                             }`} />
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="px-1.5 py-0.5 text-xs font-mono bg-surface border border-border rounded text-text-muted">
+                              <span className="px-1.5 py-0.5 text-xs font-theme-data bg-surface border border-border rounded text-text-muted">
                                 {event.type}
                               </span>
                               <span className="text-xs text-text-muted">{event.source}</span>
@@ -807,15 +807,15 @@ export default function SystemIntelligencePage() {
               {overview?.topAgents && overview.topAgents.length > 0 && (
                 <PanelErrorBoundary panelName="Top Agents">
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Top Agents by ELO
                     </h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {overview.topAgents.slice(0, 8).map((agent, idx) => (
                         <div key={agent.id} className="p-3 bg-bg rounded-lg text-center">
                           <div className="text-xs text-text-muted mb-1">#{idx + 1}</div>
-                          <div className="font-mono text-sm text-text truncate">{agent.id}</div>
-                          <div className="text-lg font-mono font-bold text-acid-green">{agent.elo}</div>
+                          <div className="font-theme-data text-sm text-text truncate">{agent.id}</div>
+                          <div className="text-lg font-theme-data font-bold text-[var(--accent)]">{agent.elo}</div>
                           <div className="text-xs text-text-muted">{agent.wins} wins</div>
                         </div>
                       ))}
@@ -827,17 +827,17 @@ export default function SystemIntelligencePage() {
               {/* Full Agent Performance Table */}
               <PanelErrorBoundary panelName="Agent Performance">
                 <div className="p-4 bg-surface border border-border rounded-lg">
-                  <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                  <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                     Agent Performance (ELO + Calibration)
                   </h2>
                   {agentLoading ? (
-                    <div className="text-acid-green font-mono animate-pulse text-sm">Loading...</div>
+                    <div className="text-[var(--accent)] font-theme-data animate-pulse text-sm">Loading...</div>
                   ) : agentPerfAgents && agentPerfAgents.length > 0 ? (
                     <div className="space-y-2 max-h-[500px] overflow-y-auto">
                       {agentPerfAgents.map((agent) => (
                         <div key={agent.id} className="p-3 bg-bg rounded flex items-center gap-3">
                           <div className="flex-1 min-w-0">
-                            <div className="font-mono text-sm text-text truncate">{agent.name}</div>
+                            <div className="font-theme-data text-sm text-text truncate">{agent.name}</div>
                             <div className="flex gap-1 mt-1 flex-wrap">
                               {agent.domains.slice(0, 4).map((d) => (
                                 <span key={d} className="px-1 py-0.5 text-xs bg-surface rounded text-text-muted">
@@ -847,17 +847,17 @@ export default function SystemIntelligencePage() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-mono text-sm text-acid-green">{agent.elo}</div>
+                            <div className="font-theme-data text-sm text-[var(--accent)]">{agent.elo}</div>
                             <div className="text-xs text-text-muted">ELO</div>
                           </div>
                           <div className="text-right">
-                            <div className="font-mono text-sm text-blue-400">
+                            <div className="font-theme-data text-sm text-blue-400">
                               {(agent.calibration * 100).toFixed(0)}%
                             </div>
                             <div className="text-xs text-text-muted">Cal.</div>
                           </div>
                           <div className="text-right">
-                            <div className="font-mono text-sm text-purple-400">
+                            <div className="font-theme-data text-sm text-purple-400">
                               {(agent.winRate * 100).toFixed(0)}%
                             </div>
                             <div className="text-xs text-text-muted">Win</div>
@@ -872,7 +872,7 @@ export default function SystemIntelligencePage() {
                               return (
                                 <div
                                   key={i}
-                                  className="flex-1 bg-acid-green/40 rounded-sm"
+                                  className="flex-1 bg-[var(--accent)]/40 rounded-sm"
                                   style={{ height: `${Math.max(10, h)}%` }}
                                 />
                               );
@@ -898,21 +898,21 @@ export default function SystemIntelligencePage() {
                 {/* Institutional Memory */}
                 <PanelErrorBoundary panelName="Institutional Memory">
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Institutional Memory
                     </h2>
                     {memoryLoading ? (
-                      <div className="text-acid-green font-mono animate-pulse text-sm">Loading...</div>
+                      <div className="text-[var(--accent)] font-theme-data animate-pulse text-sm">Loading...</div>
                     ) : memory ? (
                       <div className="space-y-4">
                         {/* Stats */}
                         <div className="grid grid-cols-2 gap-3">
                           <div className="p-2 bg-bg rounded text-center">
-                            <div className="text-lg font-mono font-bold text-acid-green">{memory.totalInjections}</div>
+                            <div className="text-lg font-theme-data font-bold text-[var(--accent)]">{memory.totalInjections}</div>
                             <div className="text-xs text-text-muted">Injections</div>
                           </div>
                           <div className="p-2 bg-bg rounded text-center">
-                            <div className="text-lg font-mono font-bold text-blue-400">{memory.retrievalCount}</div>
+                            <div className="text-lg font-theme-data font-bold text-blue-400">{memory.retrievalCount}</div>
                             <div className="text-xs text-text-muted">Retrievals</div>
                           </div>
                         </div>
@@ -925,7 +925,7 @@ export default function SystemIntelligencePage() {
                               {memory.topPatterns.slice(0, 10).map((p, i) => (
                                 <div key={i} className="flex items-center gap-2 text-sm p-2 bg-bg rounded">
                                   <span className="text-text flex-1 line-clamp-1">{p.pattern}</span>
-                                  <span className="text-xs font-mono text-acid-green whitespace-nowrap">
+                                  <span className="text-xs font-theme-data text-[var(--accent)] whitespace-nowrap">
                                     {(p.confidence * 100).toFixed(0)}%
                                   </span>
                                   <span className="text-xs text-text-muted whitespace-nowrap">{p.frequency}x</span>
@@ -945,10 +945,10 @@ export default function SystemIntelligencePage() {
                                 return (
                                   <div key={i} className="flex items-center gap-2 text-sm p-2 bg-bg rounded">
                                     <span className="text-text flex-1 line-clamp-1">{c.topic}</span>
-                                    <span className="text-red-400 text-xs font-mono">{(c.before * 100).toFixed(0)}%</span>
+                                    <span className="text-red-400 text-xs font-theme-data">{(c.before * 100).toFixed(0)}%</span>
                                     <span className="text-text-muted">&rarr;</span>
-                                    <span className="text-acid-green text-xs font-mono">{(c.after * 100).toFixed(0)}%</span>
-                                    <span className={`text-xs font-mono ${delta > 0 ? 'text-acid-green' : 'text-red-400'}`}>
+                                    <span className="text-[var(--accent)] text-xs font-theme-data">{(c.after * 100).toFixed(0)}%</span>
+                                    <span className={`text-xs font-theme-data ${delta > 0 ? 'text-[var(--accent)]' : 'text-red-400'}`}>
                                       {delta > 0 ? '+' : ''}{(delta * 100).toFixed(0)}
                                     </span>
                                   </div>
@@ -967,17 +967,17 @@ export default function SystemIntelligencePage() {
                 {/* Recent Improvements from Overview */}
                 <PanelErrorBoundary panelName="Recent Improvements">
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Recent Improvements
                     </h2>
                     {overviewLoading ? (
-                      <div className="text-acid-green font-mono animate-pulse text-sm">Loading...</div>
+                      <div className="text-[var(--accent)] font-theme-data animate-pulse text-sm">Loading...</div>
                     ) : overview?.recentImprovements && overview.recentImprovements.length > 0 ? (
                       <div className="space-y-2 max-h-[400px] overflow-y-auto">
                         {overview.recentImprovements.map((imp) => (
                           <div key={imp.id} className="flex items-center gap-3 p-3 bg-bg rounded">
-                            <span className={`px-2 py-0.5 text-xs font-mono rounded ${
-                              imp.status === 'completed' ? 'bg-acid-green/20 text-acid-green' :
+                            <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${
+                              imp.status === 'completed' ? 'bg-[var(--accent)]/20 text-[var(--accent)]' :
                               imp.status === 'in_progress' ? 'bg-blue-400/20 text-blue-400' :
                               imp.status === 'failed' ? 'bg-red-500/20 text-red-400' :
                               'bg-surface text-text-muted'
@@ -1005,7 +1005,7 @@ export default function SystemIntelligencePage() {
               <div className="space-y-4">
                 {/* Add Goal Form */}
                 <div className="p-4 bg-surface border border-border rounded-lg">
-                  <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                  <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                     Submit Improvement Goal
                   </h2>
                   <div className="flex gap-2">
@@ -1015,12 +1015,12 @@ export default function SystemIntelligencePage() {
                       onChange={(e) => setNewGoal(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddGoal()}
                       placeholder="Describe an improvement goal for the system..."
-                      className="flex-1 px-4 py-2 bg-bg border border-border rounded font-mono text-sm text-text placeholder-text-muted focus:border-acid-green focus:outline-none"
+                      className="flex-1 px-4 py-2 bg-bg border border-border rounded font-theme-data text-sm text-text placeholder-text-muted focus:border-[var(--accent)] focus:outline-none"
                     />
                     <button
                       onClick={handleAddGoal}
                       disabled={submittingGoal || !newGoal.trim()}
-                      className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 disabled:opacity-50"
+                      className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 disabled:opacity-50"
                     >
                       {submittingGoal ? 'Adding...' : 'Add Goal'}
                     </button>
@@ -1029,24 +1029,24 @@ export default function SystemIntelligencePage() {
 
                 {/* Queue List */}
                 <div className="p-4 bg-surface border border-border rounded-lg">
-                  <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                  <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                     Self-Improvement Queue
                   </h2>
                   {queueLoading ? (
-                    <div className="text-acid-green font-mono animate-pulse text-sm">Loading...</div>
+                    <div className="text-[var(--accent)] font-theme-data animate-pulse text-sm">Loading...</div>
                   ) : queueItems && queueItems.length > 0 ? (
                     <div className="space-y-2 max-h-[500px] overflow-y-auto">
                       {queueItems.map((item) => (
                         <div key={item.id} className="flex items-center gap-3 p-3 bg-bg rounded">
-                          <span className={`px-2 py-0.5 text-xs font-mono rounded whitespace-nowrap ${
+                          <span className={`px-2 py-0.5 text-xs font-theme-data rounded whitespace-nowrap ${
                             item.priority >= 75 ? 'bg-red-500/20 text-red-400' :
                             item.priority >= 50 ? 'bg-yellow-500/20 text-yellow-400' :
                             'bg-blue-400/20 text-blue-400'
                           }`}>
                             P{item.priority}
                           </span>
-                          <span className={`px-1.5 py-0.5 text-xs font-mono rounded ${
-                            item.status === 'completed' ? 'bg-acid-green/20 text-acid-green' :
+                          <span className={`px-1.5 py-0.5 text-xs font-theme-data rounded ${
+                            item.status === 'completed' ? 'bg-[var(--accent)]/20 text-[var(--accent)]' :
                             item.status === 'in_progress' ? 'bg-blue-400/20 text-blue-400' :
                             item.status === 'failed' ? 'bg-red-500/20 text-red-400' :
                             'bg-surface text-text-muted'
@@ -1070,8 +1070,8 @@ export default function SystemIntelligencePage() {
           )}
         </div>
 
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // SYSTEM INTELLIGENCE</p>
         </footer>
       </main>

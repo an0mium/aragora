@@ -22,7 +22,7 @@ function CanvasLoadingState() {
   return (
     <div className="flex-1 flex items-center justify-center bg-bg">
       <div className="text-center">
-        <div className="animate-pulse text-acid-green text-xl font-mono mb-2">
+        <div className="animate-pulse text-[var(--accent)] text-xl font-theme-data mb-2">
           Loading Canvas...
         </div>
         <p className="text-text-muted text-sm">Initializing workflow builder</p>
@@ -194,30 +194,30 @@ export default function WorkflowBuilderPage() {
               type="text"
               value={workflowName}
               onChange={(e) => setWorkflowName(e.target.value)}
-              className="text-xl font-mono font-bold text-text bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-acid-green rounded px-2 -mx-2"
+              className="text-xl font-theme-data font-bold text-text bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-acid-green rounded px-2 -mx-2"
             />
-            <p className="text-sm text-text-muted font-mono">Workflow Builder</p>
+            <p className="text-sm text-text-muted font-theme-data">Workflow Builder</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowTemplates(true)}
-            className="px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-acid-green transition-colors rounded flex items-center gap-2"
+            className="px-4 py-2 bg-surface border border-border text-text font-theme-data text-sm hover:border-[var(--accent)] transition-colors rounded flex items-center gap-2"
           >
             <span>📁</span>
             <span>Templates</span>
           </button>
           <a
             href="/workflows/runtime"
-            className="px-4 py-2 bg-surface border border-border text-text-muted font-mono text-sm hover:text-text hover:border-text transition-colors rounded flex items-center gap-2"
+            className="px-4 py-2 bg-surface border border-border text-text-muted font-theme-data text-sm hover:text-text hover:border-text transition-colors rounded flex items-center gap-2"
           >
             <span>📊</span>
             <span>Runtime</span>
           </a>
           <a
             href="/workflows"
-            className="px-4 py-2 bg-surface border border-border text-text-muted font-mono text-sm hover:text-text hover:border-text transition-colors rounded"
+            className="px-4 py-2 bg-surface border border-border text-text-muted font-theme-data text-sm hover:text-text hover:border-text transition-colors rounded"
           >
             My Workflows
           </a>

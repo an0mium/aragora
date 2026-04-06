@@ -21,7 +21,7 @@ export function IdeaPropertyEditor({
   if (!data) {
     return (
       <div className="w-72 flex-shrink-0 border-l border-[var(--border)] bg-[var(--bg)] p-4">
-        <p className="text-xs text-[var(--text-muted)] font-mono">
+        <p className="text-xs text-[var(--text-muted)] font-theme-data">
           Select a node to edit its properties
         </p>
       </div>
@@ -31,7 +31,7 @@ export function IdeaPropertyEditor({
   const config = IDEA_NODE_CONFIGS[data.ideaType] || IDEA_NODE_CONFIGS.concept;
 
   return (
-    <div className="w-72 flex-shrink-0 border-l border-[var(--border)] bg-[var(--bg)] p-4 overflow-y-auto font-mono">
+    <div className="w-72 flex-shrink-0 border-l border-[var(--border)] bg-[var(--bg)] p-4 overflow-y-auto font-theme-data">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <span className={`text-sm ${config.borderColor.replace('border-', 'text-')}`}>

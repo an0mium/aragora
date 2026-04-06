@@ -24,7 +24,7 @@ export function ActionPropertyEditor({ data, onChange, onAdvance, onDelete, adva
 
   return (
     <div className="w-64 border-l border-[var(--border)] bg-[var(--surface)] p-4 overflow-y-auto space-y-4">
-      <h3 className="text-xs font-mono uppercase text-text-muted tracking-wider">Action Properties</h3>
+      <h3 className="text-xs font-theme-data uppercase text-text-muted tracking-wider">Action Properties</h3>
 
       <div>
         <label className="block text-xs text-text-muted mb-1">Type</label>
@@ -76,12 +76,12 @@ export function ActionPropertyEditor({ data, onChange, onAdvance, onDelete, adva
 
       <div className="pt-2 space-y-2 border-t border-[var(--border)]">
         {onAdvance && (
-          <button onClick={onAdvance} disabled={advancing} className="w-full px-3 py-1.5 text-xs font-mono rounded bg-pink-500/20 border border-pink-500 text-pink-200 hover:bg-pink-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          <button onClick={onAdvance} disabled={advancing} className="w-full px-3 py-1.5 text-xs font-theme-data rounded bg-pink-500/20 border border-pink-500 text-pink-200 hover:bg-pink-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
             {advancing ? 'Advancing...' : 'Advance to Orchestration \u2192'}
           </button>
         )}
         {onDelete && (
-          <button onClick={onDelete} className="w-full px-3 py-1.5 text-xs font-mono rounded bg-red-500/20 border border-red-500 text-red-200 hover:bg-red-500/30 transition-colors">
+          <button onClick={onDelete} className="w-full px-3 py-1.5 text-xs font-theme-data rounded bg-red-500/20 border border-red-500 text-red-200 hover:bg-red-500/30 transition-colors">
             Delete Action
           </button>
         )}

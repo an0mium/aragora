@@ -18,11 +18,11 @@ export function AsciiCard({
   glow = false,
 }: AsciiCardProps) {
   const variantStyles: Record<string, string> = {
-    default: 'border-acid-green/50',
-    terminal: 'border-acid-green',
-    success: 'border-acid-green',
+    default: 'border-[var(--accent)]/50',
+    terminal: 'border-[var(--accent)]',
+    success: 'border-[var(--accent)]',
     warning: 'border-acid-yellow',
-    danger: 'border-crimson',
+    danger: 'border-[var(--crimson)]',
   };
 
   const glowStyles: Record<string, string> = {
@@ -44,10 +44,10 @@ export function AsciiCard({
       {/* Title bar */}
       {title && (
         <div className="border-b border-inherit px-3 py-1.5 flex items-center gap-2">
-          <span className="text-acid-green font-mono text-xs">
+          <span className="text-[var(--accent)] font-theme-data text-xs">
             {'>'} {title.toUpperCase()}
           </span>
-          <span className="flex-1 border-b border-dashed border-acid-green/30" />
+          <span className="flex-1 border-b border-dashed border-[var(--accent)]/30" />
         </div>
       )}
 
@@ -73,10 +73,10 @@ export function AsciiHeader({
 
   return (
     <div className="flex items-center gap-2 mb-3">
-      <span className="text-acid-green font-mono">[</span>
+      <span className="text-[var(--accent)] font-theme-data">[</span>
       <span className={`text-text font-bold ${sizes[level]}`}>{children}</span>
-      <span className="text-acid-green font-mono">]</span>
-      <span className="flex-1 border-b border-acid-green/30" />
+      <span className="text-[var(--accent)] font-theme-data">]</span>
+      <span className="flex-1 border-b border-[var(--accent)]/30" />
     </div>
   );
 }
@@ -100,14 +100,14 @@ export function AsciiProgress({
   const empty = 20 - filled;
 
   const variantColors: Record<string, string> = {
-    default: 'text-acid-green',
-    success: 'text-acid-green',
-    warning: 'text-acid-yellow',
-    danger: 'text-crimson',
+    default: 'text-[var(--accent)]',
+    success: 'text-[var(--accent)]',
+    warning: 'text-[var(--acid-yellow)]',
+    danger: 'text-[var(--crimson)]',
   };
 
   return (
-    <div className="font-mono text-xs">
+    <div className="font-theme-data text-xs">
       {label && (
         <div className="flex justify-between mb-1">
           <span className="text-text-muted">{label}</span>
@@ -117,12 +117,12 @@ export function AsciiProgress({
         </div>
       )}
       <div className="flex items-center gap-1">
-        <span className="text-acid-green/50">[</span>
+        <span className="text-[var(--accent)]/50">[</span>
         <span className={variantColors[variant]}>
           {'#'.repeat(filled)}
           {'-'.repeat(empty)}
         </span>
-        <span className="text-acid-green/50">]</span>
+        <span className="text-[var(--accent)]/50">]</span>
       </div>
     </div>
   );
@@ -143,7 +143,7 @@ export function AsciiSpinner({ text = 'Loading' }: { text?: string }) {
   }, []);
 
   return (
-    <span className="font-mono text-acid-green">
+    <span className="font-theme-data text-[var(--accent)]">
       {text} <span className="inline-block w-3">{SPINNER_FRAMES[frame]}</span>
     </span>
   );
@@ -188,7 +188,7 @@ export function TypewriterText({
   return (
     <span className={className}>
       {displayed}
-      <span className={`${showCursor ? 'opacity-100' : 'opacity-0'} text-acid-green`}>
+      <span className={`${showCursor ? 'opacity-100' : 'opacity-0'} text-[var(--accent)]`}>
         _
       </span>
     </span>
@@ -205,17 +205,17 @@ export function AsciiBadge({
 }) {
   const variants: Record<string, string> = {
     default: 'border-text-muted text-text-muted',
-    success: 'border-acid-green text-acid-green',
-    warning: 'border-acid-yellow text-acid-yellow',
-    danger: 'border-crimson text-crimson',
-    info: 'border-acid-cyan text-acid-cyan',
+    success: 'border-[var(--accent)] text-[var(--accent)]',
+    warning: 'border-acid-yellow text-[var(--acid-yellow)]',
+    danger: 'border-[var(--crimson)] text-[var(--crimson)]',
+    info: 'border-[var(--acid-cyan)] text-[var(--acid-cyan)]',
   };
 
   return (
     <span
       className={`
         inline-flex items-center px-1.5 py-0.5
-        text-xs font-mono border
+        text-xs font-theme-data border
         ${variants[variant]}
       `}
     >

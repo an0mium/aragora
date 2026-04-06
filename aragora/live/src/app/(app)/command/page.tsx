@@ -18,10 +18,10 @@ function CanvasLoading() {
   return (
     <div className="flex-1 flex items-center justify-center bg-bg">
       <div className="text-center">
-        <div className="animate-pulse text-acid-green text-xl font-mono mb-2">
+        <div className="animate-pulse text-[var(--accent)] text-xl font-theme-data mb-2">
           Loading Command Center...
         </div>
-        <p className="text-text-muted text-sm font-mono">Initializing canvas</p>
+        <p className="text-text-muted text-sm font-theme-data">Initializing canvas</p>
       </div>
     </div>
   );

@@ -27,7 +27,7 @@ interface MonitoringPanelProps {
 }
 
 const DIRECTION_STYLES: Record<string, { icon: string; color: string }> = {
-  increasing: { icon: '↑', color: 'text-acid-green' },
+  increasing: { icon: '↑', color: 'text-[var(--accent)]' },
   decreasing: { icon: '↓', color: 'text-red-400' },
   stable: { icon: '→', color: 'text-white/50' },
   volatile: { icon: '↕', color: 'text-yellow-500' },
@@ -111,7 +111,7 @@ export function MonitoringPanel({ apiBase }: MonitoringPanelProps) {
               </div>
               <div className="flex items-center gap-2 mt-1 text-xs">
                 <span className={
-                  trend.change_percent > 0 ? 'text-acid-green' :
+                  trend.change_percent > 0 ? 'text-[var(--accent)]' :
                   trend.change_percent < 0 ? 'text-red-400' : 'text-white/50'
                 }>
                   {trend.change_percent > 0 ? '+' : ''}{trend.change_percent.toFixed(1)}%

@@ -85,7 +85,7 @@ const EVENT_ICONS: Record<string, string> = {
 };
 
 const SEVERITY_COLORS = {
-  info: { bg: 'bg-acid-cyan/20', text: 'text-acid-cyan', border: 'border-acid-cyan/30' },
+  info: { bg: 'bg-[var(--acid-cyan)]/20', text: 'text-[var(--acid-cyan)]', border: 'border-[var(--acid-cyan)]/30' },
   warning: { bg: 'bg-yellow-900/30', text: 'text-yellow-400', border: 'border-yellow-800/30' },
   error: { bg: 'bg-red-900/30', text: 'text-red-400', border: 'border-red-800/30' },
 };
@@ -157,14 +157,14 @@ export function AuditTrailViewer({
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-acid-green font-mono text-lg">[AUDIT]</span>
-            <h2 className="font-mono text-text font-bold">Decision Audit Trail</h2>
+            <span className="text-[var(--accent)] font-theme-data text-lg">[AUDIT]</span>
+            <h2 className="font-theme-data text-text font-bold">Decision Audit Trail</h2>
           </div>
           <div className="flex items-center gap-2">
             {onVerify && (
               <button
                 onClick={onVerify}
-                className="px-3 py-1.5 text-xs font-mono bg-surface border border-border rounded hover:border-acid-green transition-colors"
+                className="px-3 py-1.5 text-xs font-theme-data bg-surface border border-border rounded hover:border-[var(--accent)] transition-colors"
               >
                 Verify Integrity
               </button>
@@ -173,19 +173,19 @@ export function AuditTrailViewer({
               <div className="flex border border-border rounded overflow-hidden">
                 <button
                   onClick={() => onExport('json')}
-                  className="px-2 py-1.5 text-xs font-mono bg-surface hover:bg-acid-green/20 transition-colors"
+                  className="px-2 py-1.5 text-xs font-theme-data bg-surface hover:bg-[var(--accent)]/20 transition-colors"
                 >
                   JSON
                 </button>
                 <button
                   onClick={() => onExport('csv')}
-                  className="px-2 py-1.5 text-xs font-mono bg-surface border-l border-border hover:bg-acid-green/20 transition-colors"
+                  className="px-2 py-1.5 text-xs font-theme-data bg-surface border-l border-border hover:bg-[var(--accent)]/20 transition-colors"
                 >
                   CSV
                 </button>
                 <button
                   onClick={() => onExport('md')}
-                  className="px-2 py-1.5 text-xs font-mono bg-surface border-l border-border hover:bg-acid-green/20 transition-colors"
+                  className="px-2 py-1.5 text-xs font-theme-data bg-surface border-l border-border hover:bg-[var(--accent)]/20 transition-colors"
                 >
                   MD
                 </button>
@@ -197,35 +197,35 @@ export function AuditTrailViewer({
         {/* Summary Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <div className="bg-surface p-3 rounded">
-            <div className="text-xs text-text-muted font-mono mb-1">VERDICT</div>
-            <div className={`text-lg font-mono font-bold ${verdictColor.text}`}>
+            <div className="text-xs text-text-muted font-theme-data mb-1">VERDICT</div>
+            <div className={`text-lg font-theme-data font-bold ${verdictColor.text}`}>
               {trail.verdict.toUpperCase()}
             </div>
           </div>
           <div className="bg-surface p-3 rounded">
-            <div className="text-xs text-text-muted font-mono mb-1">CONFIDENCE</div>
-            <div className="text-lg font-mono font-bold text-acid-cyan">
+            <div className="text-xs text-text-muted font-theme-data mb-1">CONFIDENCE</div>
+            <div className="text-lg font-theme-data font-bold text-[var(--acid-cyan)]">
               {(trail.confidence * 100).toFixed(0)}%
             </div>
           </div>
           <div className="bg-surface p-3 rounded">
-            <div className="text-xs text-text-muted font-mono mb-1">FINDINGS</div>
-            <div className="text-lg font-mono font-bold text-acid-yellow">
+            <div className="text-xs text-text-muted font-theme-data mb-1">FINDINGS</div>
+            <div className="text-lg font-theme-data font-bold text-[var(--acid-yellow)]">
               {trail.total_findings}
             </div>
           </div>
           <div className="bg-surface p-3 rounded">
-            <div className="text-xs text-text-muted font-mono mb-1">DURATION</div>
-            <div className="text-lg font-mono font-bold text-text">
+            <div className="text-xs text-text-muted font-theme-data mb-1">DURATION</div>
+            <div className="text-lg font-theme-data font-bold text-text">
               {formatDuration(trail.duration_seconds)}
             </div>
           </div>
         </div>
 
         {/* Trail Info */}
-        <div className="flex flex-wrap gap-4 text-xs font-mono text-text-muted">
-          <span>Trail: <code className="text-acid-green">{trail.trail_id}</code></span>
-          <span>Checksum: <code className="text-acid-cyan">{trail.checksum}</code></span>
+        <div className="flex flex-wrap gap-4 text-xs font-theme-data text-text-muted">
+          <span>Trail: <code className="text-[var(--accent)]">{trail.trail_id}</code></span>
+          <span>Checksum: <code className="text-[var(--acid-cyan)]">{trail.checksum}</code></span>
           <span>Created: {new Date(trail.created_at).toLocaleString()}</span>
         </div>
       </div>
@@ -234,26 +234,26 @@ export function AuditTrailViewer({
       <div className="p-4 border-b border-border bg-surface/30">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
           <div>
-            <div className="text-xl font-mono font-bold text-red-400">{trail.redteam_attacks}</div>
-            <div className="text-xs text-text-muted font-mono">Red-Team Attacks</div>
+            <div className="text-xl font-theme-data font-bold text-red-400">{trail.redteam_attacks}</div>
+            <div className="text-xs text-text-muted font-theme-data">Red-Team Attacks</div>
           </div>
           <div>
-            <div className="text-xl font-mono font-bold text-acid-cyan">{trail.probes_run}</div>
-            <div className="text-xs text-text-muted font-mono">Probes Run</div>
+            <div className="text-xl font-theme-data font-bold text-[var(--acid-cyan)]">{trail.probes_run}</div>
+            <div className="text-xs text-text-muted font-theme-data">Probes Run</div>
           </div>
           <div>
-            <div className="text-xl font-mono font-bold text-yellow-400">{trail.audit_findings}</div>
-            <div className="text-xs text-text-muted font-mono">Audit Findings</div>
+            <div className="text-xl font-theme-data font-bold text-yellow-400">{trail.audit_findings}</div>
+            <div className="text-xs text-text-muted font-theme-data">Audit Findings</div>
           </div>
           <div>
-            <div className="text-xl font-mono font-bold text-green-400">
+            <div className="text-xl font-theme-data font-bold text-green-400">
               {trail.verifications_successful}/{trail.verifications_attempted}
             </div>
-            <div className="text-xs text-text-muted font-mono">Verifications</div>
+            <div className="text-xs text-text-muted font-theme-data">Verifications</div>
           </div>
           <div>
-            <div className="text-xl font-mono font-bold text-acid-green">{trail.agents_involved.length}</div>
-            <div className="text-xs text-text-muted font-mono">Agents</div>
+            <div className="text-xl font-theme-data font-bold text-[var(--accent)]">{trail.agents_involved.length}</div>
+            <div className="text-xs text-text-muted font-theme-data">Agents</div>
           </div>
         </div>
       </div>
@@ -265,9 +265,9 @@ export function AuditTrailViewer({
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+              className={`px-3 py-1 text-xs font-theme-data rounded transition-colors ${
                 filter === f
-                  ? 'bg-acid-green text-bg'
+                  ? 'bg-[var(--accent)] text-bg'
                   : 'bg-surface text-text-muted hover:text-text'
               }`}
             >
@@ -279,11 +279,11 @@ export function AuditTrailViewer({
         {/* Agent Filter */}
         {trail.agents_involved.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            <span className="text-xs text-text-muted font-mono mr-2">Agents:</span>
+            <span className="text-xs text-text-muted font-theme-data mr-2">Agents:</span>
             <button
               onClick={() => setShowAgentFilter(null)}
-              className={`px-2 py-0.5 text-xs font-mono rounded ${
-                showAgentFilter === null ? 'bg-acid-cyan/20 text-acid-cyan' : 'bg-surface text-text-muted'
+              className={`px-2 py-0.5 text-xs font-theme-data rounded ${
+                showAgentFilter === null ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]' : 'bg-surface text-text-muted'
               }`}
             >
               All
@@ -292,8 +292,8 @@ export function AuditTrailViewer({
               <button
                 key={agent}
                 onClick={() => setShowAgentFilter(agent)}
-                className={`px-2 py-0.5 text-xs font-mono rounded ${
-                  showAgentFilter === agent ? 'bg-acid-cyan/20 text-acid-cyan' : 'bg-surface text-text-muted'
+                className={`px-2 py-0.5 text-xs font-theme-data rounded ${
+                  showAgentFilter === agent ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]' : 'bg-surface text-text-muted'
                 }`}
               >
                 {agent}
@@ -306,7 +306,7 @@ export function AuditTrailViewer({
       {/* Event Timeline */}
       <div className="p-4 max-h-96 overflow-y-auto">
         {filteredEvents.length === 0 ? (
-          <div className="text-center py-8 text-text-muted font-mono">
+          <div className="text-center py-8 text-text-muted font-theme-data">
             No events match the current filter
           </div>
         ) : (
@@ -327,7 +327,7 @@ export function AuditTrailViewer({
                   <div className="flex items-start gap-3">
                     {/* Timeline connector */}
                     <div className="flex flex-col items-center">
-                      <span className={`font-mono text-xs ${colors.text}`}>
+                      <span className={`font-theme-data text-xs ${colors.text}`}>
                         {EVENT_ICONS[event.event_type] || '[?]'}
                       </span>
                       {idx < filteredEvents.length - 1 && (
@@ -338,27 +338,27 @@ export function AuditTrailViewer({
                     {/* Event content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`font-mono text-xs font-bold ${colors.text}`}>
+                        <span className={`font-theme-data text-xs font-bold ${colors.text}`}>
                           {event.event_type.toUpperCase().replace(/_/g, ' ')}
                         </span>
-                        <span className="text-xs text-text-muted font-mono">
+                        <span className="text-xs text-text-muted font-theme-data">
                           {formatTime(event.timestamp)}
                         </span>
                       </div>
                       <p className="text-sm text-text mt-1">{event.description}</p>
 
                       <div className="flex items-center gap-3 mt-2 text-xs text-text-muted">
-                        <span className="font-mono">Source: {event.source}</span>
+                        <span className="font-theme-data">Source: {event.source}</span>
                         {event.agent && (
-                          <span className="font-mono text-acid-cyan">Agent: {event.agent}</span>
+                          <span className="font-theme-data text-[var(--acid-cyan)]">Agent: {event.agent}</span>
                         )}
                       </div>
 
                       {/* Expanded details */}
                       {isExpanded && Object.keys(event.details).length > 0 && (
                         <div className="mt-3 pt-3 border-t border-border/50">
-                          <div className="text-xs text-text-muted font-mono mb-2">DETAILS</div>
-                          <pre className="text-xs font-mono bg-bg/50 p-2 rounded overflow-x-auto">
+                          <div className="text-xs text-text-muted font-theme-data mb-2">DETAILS</div>
+                          <pre className="text-xs font-theme-data bg-bg/50 p-2 rounded overflow-x-auto">
                             {JSON.stringify(event.details, null, 2)}
                           </pre>
                         </div>
@@ -373,7 +373,7 @@ export function AuditTrailViewer({
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border bg-surface/30 text-xs text-text-muted font-mono text-center">
+      <div className="p-4 border-t border-border bg-surface/30 text-xs text-text-muted font-theme-data text-center">
         {filteredEvents.length} events shown | Input: {trail.input_type} | &quot;{trail.input_summary.slice(0, 50)}...&quot;
       </div>
     </div>

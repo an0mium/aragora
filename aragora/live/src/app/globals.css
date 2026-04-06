@@ -299,6 +299,100 @@ body {
   font-feature-settings: 'liga' 1, 'calt' 1;
 }
 
+/* ============================================================================
+   Theme-aware app page utilities
+   These replace hardcoded dark-theme classes (font-mono, sharp borders)
+   with theme-responsive equivalents that work across warm/dark/professional.
+   ============================================================================ */
+
+/* Data/dashboard font — monospace in dark, theme font in warm/professional */
+.font-theme-data {
+  font-family: var(--font-display);
+}
+[data-theme="dark"] .font-theme-data {
+  font-family: var(--font-jetbrains-mono, 'JetBrains Mono'), 'Fira Code', monospace;
+}
+
+/* Heading font — serif in warm, mono in dark, sans in professional */
+.font-theme-heading {
+  font-family: var(--font-display);
+}
+
+/* App card — adapts border radius and shadow per theme */
+.card-theme {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-card, 6px);
+  box-shadow: var(--shadow-card, none);
+}
+[data-theme="dark"] .card-theme {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* App section card — lighter variant for info panels */
+.card-theme-info {
+  border: 1px solid var(--acid-cyan);
+  border-opacity: 0.2;
+  background: color-mix(in srgb, var(--acid-cyan) 5%, transparent);
+  border-radius: var(--radius-card, 6px);
+}
+[data-theme="dark"] .card-theme-info {
+  border-radius: 0;
+}
+
+/* Primary action button — theme-aware shape */
+.btn-theme-primary {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+  border-radius: var(--radius-button, 6px);
+  transition: opacity 150ms ease;
+}
+.btn-theme-primary:hover {
+  opacity: 0.85;
+}
+[data-theme="dark"] .btn-theme-primary {
+  border-radius: 0;
+  font-family: var(--font-jetbrains-mono, 'JetBrains Mono'), monospace;
+  font-weight: 700;
+}
+
+/* Secondary action button */
+.btn-theme-secondary {
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+  border-radius: var(--radius-button, 6px);
+  transition: border-color 150ms ease;
+}
+.btn-theme-secondary:hover {
+  border-color: var(--accent);
+}
+[data-theme="dark"] .btn-theme-secondary {
+  border-radius: 0;
+  font-family: var(--font-jetbrains-mono, 'JetBrains Mono'), monospace;
+}
+
+/* Status badge — adapts shape per theme */
+.badge-theme {
+  border-radius: var(--radius-sm, 4px);
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-width: 1px;
+}
+[data-theme="dark"] .badge-theme {
+  border-radius: 0;
+}
+[data-theme="warm"] .badge-theme {
+  border-radius: 9999px;
+}
+
+/* Hide CRT effects in non-dark themes */
+[data-theme="warm"] .crt-effect,
+[data-theme="professional"] .crt-effect {
+  display: none !important;
+}
+
 /* CRT scanline overlay effect */
 .crt-overlay::before {
   content: '';

@@ -1333,7 +1333,7 @@ export default function Oracle() {
   // ------------------------------------------------------------------
 
   return (
-    <div className="min-h-screen bg-[#050508] text-[var(--text)] font-mono relative overflow-hidden">
+    <div className="min-h-screen bg-[#050508] text-[var(--text)] font-theme-data relative overflow-hidden">
       {/* Oracle-specific CSS */}
       <style>{`
         @keyframes eye-blink-bg {
@@ -1548,7 +1548,7 @@ export default function Oracle() {
             <button
               type="button"
               onClick={() => setUseDebateStreaming(false)}
-              className={`px-3 py-1.5 text-xs font-mono border rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-theme-data border rounded-lg transition-all ${
                 !useDebateStreaming
                   ? 'border-[var(--acid-magenta)]/60 text-[var(--acid-magenta)] bg-[var(--acid-magenta)]/10'
                   : 'border-[var(--border)]/30 text-[var(--text-muted)] hover:border-[var(--border)]/60'
@@ -1559,7 +1559,7 @@ export default function Oracle() {
             <button
               type="button"
               onClick={() => setUseDebateStreaming(true)}
-              className={`px-3 py-1.5 text-xs font-mono border rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-theme-data border rounded-lg transition-all ${
                 useDebateStreaming
                   ? 'border-[var(--acid-cyan)]/60 text-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10'
                   : 'border-[var(--border)]/30 text-[var(--text-muted)] hover:border-[var(--border)]/60'
@@ -1639,7 +1639,7 @@ export default function Oracle() {
                     ? 'What do you want to know?'
                     : 'What\'s your take on AI? Give me the position you\'d bet money on.'
               }
-              className="w-full bg-[#0c0c14] border border-[var(--border)]/40 text-white px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)]/60 focus:outline-none focus:border-[var(--acid-magenta)]/60 transition-colors resize-none min-h-[48px] rounded-xl"
+              className="w-full bg-[#0c0c14] border border-[var(--border)]/40 text-white px-4 py-3 font-theme-data text-sm placeholder:text-[var(--text-muted)]/60 focus:outline-none focus:border-[var(--acid-magenta)]/60 transition-colors resize-none min-h-[48px] rounded-xl"
               disabled={loading || debating}
               rows={1}
             />

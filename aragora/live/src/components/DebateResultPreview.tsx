@@ -156,7 +156,7 @@ function ConfidenceGauge({ value }: { value: number }) {
           }}
         />
       </div>
-      <span className="text-xs font-mono" style={{ color: `hsl(${hue}, 80%, 50%)` }}>
+      <span className="text-xs font-theme-data" style={{ color: `hsl(${hue}, 80%, 50%)` }}>
         {pct}%
       </span>
     </div>
@@ -340,7 +340,7 @@ export function DebateResultPreview({
       {/* Demo mode / Live badge */}
       {result.mock_fallback && (
         <div className="flex items-center justify-between gap-3 p-3 bg-[var(--acid-yellow,#ffd700)]/10 border border-[var(--acid-yellow,#ffd700)]/30">
-          <div className="flex items-center gap-2 text-[var(--acid-yellow,#ffd700)] font-mono text-sm">
+          <div className="flex items-center gap-2 text-[var(--acid-yellow,#ffd700)] font-theme-data text-sm">
             <span className="px-1.5 py-0.5 text-xs font-bold bg-[var(--acid-yellow,#ffd700)]/20 border border-[var(--acid-yellow,#ffd700)]/40">
               DEMO
             </span>
@@ -349,7 +349,7 @@ export function DebateResultPreview({
           {result.upgrade_cta && (
             <Link
               href={result.upgrade_cta.action_url}
-              className="shrink-0 px-3 py-1.5 text-xs font-mono font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
+              className="shrink-0 px-3 py-1.5 text-xs font-theme-data font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:opacity-90 transition-opacity"
             >
               {result.upgrade_cta.action_label}
             </Link>
@@ -357,7 +357,7 @@ export function DebateResultPreview({
         </div>
       )}
       {result.is_live && !result.mock_fallback && (
-        <div className="flex items-center gap-2 text-xs font-mono text-[var(--acid-green)]">
+        <div className="flex items-center gap-2 text-xs font-theme-data text-[var(--acid-green)]">
           <span className="w-2 h-2 rounded-full bg-[var(--acid-green)] animate-pulse" />
           LIVE DEBATE
         </div>
@@ -368,25 +368,25 @@ export function DebateResultPreview({
         {/* Verdict status + confidence side by side */}
         <div className="flex items-center justify-between gap-4">
           <span
-            className={`text-base font-bold font-mono ${statusTone}`}
+            className={`text-base font-bold font-theme-data ${statusTone}`}
           >
             {statusLabel}
           </span>
           <div className="flex items-center gap-2 shrink-0">
             {previewOnly ? (
-              <span className="text-xs font-mono text-[var(--text-muted)]">
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">
                 Preview only
               </span>
             ) : (
               <>
-                <span className="text-xs font-mono text-[var(--text-muted)]">Confidence</span>
+                <span className="text-xs font-theme-data text-[var(--text-muted)]">Confidence</span>
                 <ConfidenceGauge value={result.confidence} />
               </>
             )}
           </div>
         </div>
         {/* Metadata row */}
-        <div className="flex flex-wrap gap-x-4 gap-y-1 items-center text-xs font-mono text-[var(--text-muted)]">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 items-center text-xs font-theme-data text-[var(--text-muted)]">
           <span>
             {result.rounds_used} round{result.rounds_used !== 1 ? 's' : ''}
           </span>
@@ -405,7 +405,7 @@ export function DebateResultPreview({
         {result.participants.length > 0 && (
           <div className="flex items-center gap-3 flex-wrap">
             {result.participants.map((name) => (
-              <span key={name} className="flex items-center gap-1 text-xs font-mono">
+              <span key={name} className="flex items-center gap-1 text-xs font-theme-data">
                 <span
                   className="w-2 h-2 rounded-full inline-block"
                   style={{ backgroundColor: agentDot(name) }}
@@ -457,7 +457,7 @@ export function DebateResultPreview({
         if (verdictDuplicatesProposal) {
           return (
             <div className="border border-[var(--acid-green)]/30 p-4">
-              <h3 className="text-sm text-[var(--acid-green)] mb-3 font-bold font-mono">
+              <h3 className="text-sm text-[var(--acid-green)] mb-3 font-bold font-theme-data">
                 Result
               </h3>
               <div className="text-sm text-[var(--text)] leading-relaxed max-w-none [&_h1]:text-base [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mt-2 [&_h3]:mb-1 [&_p]:mb-2 [&_strong]:font-bold [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:mb-2 [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:mb-2 [&_li]:mb-0.5 [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--accent)] [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-[var(--text-muted)]">
@@ -631,7 +631,7 @@ export function DebateResultPreview({
         <div className="grid grid-cols-2 gap-3 text-xs mb-5">
           <div>
             <span className="text-[var(--text-muted)] block text-[10px] uppercase tracking-wider mb-0.5">Receipt ID</span>
-            <span className="text-[var(--accent)] font-mono">
+            <span className="text-[var(--accent)] font-theme-data">
               {result.receipt?.receipt_id || result.id}
             </span>
           </div>
@@ -643,13 +643,13 @@ export function DebateResultPreview({
           </div>
           <div>
             <span className="text-[var(--text-muted)] block text-[10px] uppercase tracking-wider mb-0.5">Hash</span>
-            <span className="text-[var(--text)] font-mono">
+            <span className="text-[var(--text)] font-theme-data">
               {result.receipt_hash ? result.receipt_hash.slice(0, 16) + '...' : 'pending'}
             </span>
           </div>
           <div>
             <span className="text-[var(--text-muted)] block text-[10px] uppercase tracking-wider mb-0.5">Timestamp</span>
-            <span className="font-mono">{result.receipt?.timestamp || new Date().toISOString()}</span>
+            <span className="font-theme-data">{result.receipt?.timestamp || new Date().toISOString()}</span>
           </div>
         </div>
         <div className="border-t border-[var(--border)] pt-4 text-center">

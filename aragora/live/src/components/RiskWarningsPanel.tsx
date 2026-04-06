@@ -97,18 +97,18 @@ export function RiskWarningsPanel({ apiBase = '', events = [] }: RiskWarningsPan
       >
         <div className="flex items-center justify-between">
           <h3 className="panel-title-sm flex items-center gap-2">
-            <span className="text-acid-green">{'>'}</span>
+            <span className="text-[var(--accent)]">{'>'}</span>
             RISK_WARNINGS
             {warnings.length > 0 && <span className="panel-badge">{warnings.length}</span>}
           </h3>
           <div className="flex items-center gap-2">
             {criticalCount > 0 && (
-              <span className="text-xs font-mono text-red-400">
+              <span className="text-xs font-theme-data text-red-400">
                 {criticalCount} CRITICAL
               </span>
             )}
             {highCount > 0 && (
-              <span className="text-xs font-mono text-orange-400">
+              <span className="text-xs font-theme-data text-orange-400">
                 {highCount} HIGH
               </span>
             )}
@@ -123,29 +123,29 @@ export function RiskWarningsPanel({ apiBase = '', events = [] }: RiskWarningsPan
     <div className="panel">
       <div className="panel-header">
         <h3 className="panel-title-sm flex items-center gap-2">
-          <span className="text-acid-green">{'>'}</span>
+          <span className="text-[var(--accent)]">{'>'}</span>
           RISK_WARNINGS
         </h3>
         <button
           onClick={() => setIsExpanded(false)}
-          className="panel-toggle hover:text-acid-green transition-colors"
+          className="panel-toggle hover:text-[var(--accent)] transition-colors"
         >
           [COLLAPSE]
         </button>
       </div>
 
       {loading && (
-        <div className="text-xs text-text-muted font-mono animate-pulse">
+        <div className="text-xs text-text-muted font-theme-data animate-pulse">
           Scanning for domain-specific risks...
         </div>
       )}
 
       {error && (
-        <div className="text-xs text-warning font-mono">{error}</div>
+        <div className="text-xs text-warning font-theme-data">{error}</div>
       )}
 
       {!loading && !error && warnings.length === 0 && (
-        <div className="text-xs text-green-400 font-mono">
+        <div className="text-xs text-green-400 font-theme-data">
           No risk warnings detected.
         </div>
       )}
@@ -157,10 +157,10 @@ export function RiskWarningsPanel({ apiBase = '', events = [] }: RiskWarningsPan
             className={`border p-3 space-y-2 ${severityColors[warning.severity] || severityColors.medium}`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono uppercase">
+              <span className="text-xs font-theme-data uppercase">
                 [{warning.severity}] {warning.risk_type}
               </span>
-              <span className="text-xs font-mono text-text-muted">
+              <span className="text-xs font-theme-data text-text-muted">
                 {warning.domain}
               </span>
             </div>
@@ -169,14 +169,14 @@ export function RiskWarningsPanel({ apiBase = '', events = [] }: RiskWarningsPan
             </p>
             {warning.mitigation && (
               <p className="text-xs text-text-muted">
-                <span className="text-acid-green">Mitigation:</span> {warning.mitigation}
+                <span className="text-[var(--accent)]">Mitigation:</span> {warning.mitigation}
               </p>
             )}
           </div>
         ))}
       </div>
 
-      <div className="mt-3 text-[10px] text-text-muted font-mono">
+      <div className="mt-3 text-[10px] text-text-muted font-theme-data">
         Domain-specific risk assessment from debate analysis
       </div>
     </div>

@@ -251,9 +251,9 @@ function TopicTable({ topics }: { topics: TopicData[] }) {
   };
 
   return (
-    <table className="w-full font-mono text-sm">
+    <table className="w-full font-theme-data text-sm">
       <thead>
-        <tr className="border-b border-acid-green/30">
+        <tr className="border-b border-[var(--accent)]/30">
           {(
             [
               ['topic', 'Topic'],
@@ -265,7 +265,7 @@ function TopicTable({ topics }: { topics: TopicData[] }) {
             <th
               key={key}
               onClick={() => handleSort(key)}
-              className={`py-2 px-3 text-acid-green cursor-pointer select-none hover:text-acid-cyan transition-colors ${
+              className={`py-2 px-3 text-[var(--accent)] cursor-pointer select-none hover:text-[var(--acid-cyan)] transition-colors ${
                 key === 'topic' ? 'text-left' : 'text-right'
               }`}
             >
@@ -279,11 +279,11 @@ function TopicTable({ topics }: { topics: TopicData[] }) {
         {sorted.map((t, i) => (
           <tr
             key={t.topic}
-            className={`border-b border-acid-green/10 ${
-              i % 2 === 0 ? 'bg-acid-green/5' : ''
+            className={`border-b border-[var(--accent)]/10 ${
+              i % 2 === 0 ? 'bg-[var(--accent)]/5' : ''
             }`}
           >
-            <td className="py-2 px-3 text-acid-cyan">{t.topic}</td>
+            <td className="py-2 px-3 text-[var(--acid-cyan)]">{t.topic}</td>
             <td className="py-2 px-3 text-right text-text">{t.debate_count}</td>
             <td className={`py-2 px-3 text-right ${rateColor(t.consensus_rate)}`}>
               {t.consensus_rate.toFixed(1)}%
@@ -478,24 +478,24 @@ export default function AnalyticsPage() {
         <div className="container mx-auto px-4 py-6">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} ANALYTICS DASHBOARD
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Debate metrics, agent performance, usage trends, and cost analysis.
             </p>
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex flex-wrap gap-1 border-b border-acid-green/20 pb-2 mb-6">
+          <div className="flex flex-wrap gap-1 border-b border-[var(--accent)]/20 pb-2 mb-6">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 text-xs font-mono transition-colors ${
+                className={`px-4 py-2 text-xs font-theme-data transition-colors ${
                   activeTab === tab.id
-                    ? 'bg-acid-green text-bg'
-                    : 'text-text-muted hover:text-acid-green'
+                    ? 'bg-[var(--accent)] text-bg'
+                    : 'text-text-muted hover:text-[var(--accent)]'
                 }`}
               >
                 [{tab.label}]
@@ -508,9 +508,9 @@ export default function AnalyticsPage() {
                 <button
                   key={range}
                   onClick={() => handleTimeRangeChange(range)}
-                  className={`px-3 py-2 text-xs font-mono transition-colors ${
+                  className={`px-3 py-2 text-xs font-theme-data transition-colors ${
                     timeRange === range
-                      ? 'bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/40'
+                      ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40'
                       : 'text-text-muted hover:text-text'
                   }`}
                 >
@@ -528,7 +528,7 @@ export default function AnalyticsPage() {
                 <div className="space-y-6">
                   {/* Key Metrics */}
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} KEY METRICS</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">{'>'} KEY METRICS</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <MetricCard
                         title="Total Debates"
@@ -569,7 +569,7 @@ export default function AnalyticsPage() {
 
                   {/* Debates Trend */}
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} DEBATE ACTIVITY</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">{'>'} DEBATE ACTIVITY</h2>
                     <TrendChart
                       title="Debates Over Time"
                       data={debateTrendData}
@@ -604,7 +604,7 @@ export default function AnalyticsPage() {
                 <div className="space-y-6">
                   {/* Agent Stats Summary */}
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} AGENT STATISTICS</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">{'>'} AGENT STATISTICS</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <MetricCard
                         title="Total Agents"
@@ -663,28 +663,28 @@ export default function AnalyticsPage() {
                   {leaderboard?.leaderboard && leaderboard.leaderboard.length > 0 && (
                     <section>
                       <div className="card p-4">
-                        <h3 className="font-mono text-sm text-acid-green mb-4">
+                        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">
                           {'>'} TOP AGENT COMPARISON
                         </h3>
                         <div className="overflow-x-auto">
-                          <table className="w-full font-mono text-sm">
+                          <table className="w-full font-theme-data text-sm">
                             <thead>
-                              <tr className="border-b border-acid-green/30">
-                                <th className="text-left py-2 px-3 text-acid-green">Agent</th>
-                                <th className="text-right py-2 px-3 text-acid-green">ELO</th>
-                                <th className="text-right py-2 px-3 text-acid-green">Win Rate</th>
-                                <th className="text-right py-2 px-3 text-acid-green">Games</th>
+                              <tr className="border-b border-[var(--accent)]/30">
+                                <th className="text-left py-2 px-3 text-[var(--accent)]">Agent</th>
+                                <th className="text-right py-2 px-3 text-[var(--accent)]">ELO</th>
+                                <th className="text-right py-2 px-3 text-[var(--accent)]">Win Rate</th>
+                                <th className="text-right py-2 px-3 text-[var(--accent)]">Games</th>
                               </tr>
                             </thead>
                             <tbody>
                               {leaderboard.leaderboard.slice(0, 5).map((agent, i) => (
                                 <tr
                                   key={agent.agent_name}
-                                  className={`border-b border-acid-green/10 ${
-                                    i % 2 === 0 ? 'bg-acid-green/5' : ''
+                                  className={`border-b border-[var(--accent)]/10 ${
+                                    i % 2 === 0 ? 'bg-[var(--accent)]/5' : ''
                                   }`}
                                 >
-                                  <td className="py-2 px-3 text-acid-cyan">
+                                  <td className="py-2 px-3 text-[var(--acid-cyan)]">
                                     {agent.agent_name}
                                   </td>
                                   <td className="py-2 px-3 text-right text-text">
@@ -714,7 +714,7 @@ export default function AnalyticsPage() {
                 <div className="space-y-6">
                   {/* Token Usage Summary */}
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} TOKEN USAGE</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">{'>'} TOKEN USAGE</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <MetricCard
                         title="Total Tokens"
@@ -767,15 +767,15 @@ export default function AnalyticsPage() {
                   {tokenUsage?.by_model && Object.keys(tokenUsage.by_model).length > 0 && (
                     <section>
                       <div className="card p-4">
-                        <h3 className="font-mono text-sm text-acid-green mb-4">{'>'} USAGE BY MODEL</h3>
+                        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">{'>'} USAGE BY MODEL</h3>
                         <div className="space-y-2">
                           {Object.entries(tokenUsage.by_model).map(([model, usage]) => (
                             <div
                               key={model}
-                              className="flex items-center justify-between p-2 border border-acid-green/20 rounded"
+                              className="flex items-center justify-between p-2 border border-[var(--accent)]/20 rounded"
                             >
-                              <span className="font-mono text-sm text-acid-cyan">{model}</span>
-                              <span className="font-mono text-sm text-text">{usage}</span>
+                              <span className="font-theme-data text-sm text-[var(--acid-cyan)]">{model}</span>
+                              <span className="font-theme-data text-sm text-text">{usage}</span>
                             </div>
                           ))}
                         </div>
@@ -792,7 +792,7 @@ export default function AnalyticsPage() {
                 <div className="space-y-6">
                   {/* Cost Summary */}
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} COST SUMMARY</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">{'>'} COST SUMMARY</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <MetricCard
                         title="Total Cost"
@@ -842,17 +842,17 @@ export default function AnalyticsPage() {
                   {costData?.by_model && Object.keys(costData.by_model).length > 0 && (
                     <section>
                       <div className="card p-4">
-                        <h3 className="font-mono text-sm text-acid-green mb-4">{'>'} COST BY MODEL</h3>
+                        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">{'>'} COST BY MODEL</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                           {Object.entries(costData.by_model)
                             .sort(([, a], [, b]) => parseFloat(b) - parseFloat(a))
                             .map(([model, cost]) => (
                               <div
                                 key={model}
-                                className="flex items-center justify-between p-3 border border-acid-green/20 rounded hover:bg-acid-green/5 transition-colors"
+                                className="flex items-center justify-between p-3 border border-[var(--accent)]/20 rounded hover:bg-[var(--accent)]/5 transition-colors"
                               >
-                                <span className="font-mono text-sm text-acid-cyan">{model}</span>
-                                <span className="font-mono text-sm text-acid-green">${cost}</span>
+                                <span className="font-theme-data text-sm text-[var(--acid-cyan)]">{model}</span>
+                                <span className="font-theme-data text-sm text-[var(--accent)]">${cost}</span>
                               </div>
                             ))}
                         </div>
@@ -868,20 +868,20 @@ export default function AnalyticsPage() {
               <PanelErrorBoundary panelName="Consensus Analysis">
                 <div className="space-y-6">
                   {consensusLoading ? (
-                    <div className="card p-8 text-center font-mono text-text-muted animate-pulse">
+                    <div className="card p-8 text-center font-theme-data text-text-muted animate-pulse">
                       Loading consensus data...
                     </div>
                   ) : consensusData ? (
                     <>
                       {/* Donut Chart */}
                       <section>
-                        <h2 className="text-lg font-mono text-acid-green mb-4">
+                        <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">
                           {'>'} OUTCOME DISTRIBUTION
                         </h2>
                         <div className="card p-6">
                           <div className="flex flex-col md:flex-row items-center gap-8">
                             <ConsensusDonut outcomes={consensusData.outcomes} />
-                            <div className="space-y-3 font-mono text-sm">
+                            <div className="space-y-3 font-theme-data text-sm">
                               <DonutLegendItem
                                 color="#22c55e"
                                 label="Consensus"
@@ -936,7 +936,7 @@ export default function AnalyticsPage() {
                       </section>
                     </>
                   ) : (
-                    <div className="card p-8 text-center font-mono text-text-muted space-y-2">
+                    <div className="card p-8 text-center font-theme-data text-text-muted space-y-2">
                       <p>No consensus data in this time range.</p>
                       <p className="text-xs text-text-muted/60">Try a wider date range or run debates to generate consensus metrics.</p>
                     </div>
@@ -949,11 +949,11 @@ export default function AnalyticsPage() {
             {activeTab === 'topics' && (
               <PanelErrorBoundary panelName="Topic Analysis">
                 <div className="space-y-6">
-                  <h2 className="text-lg font-mono text-acid-green mb-4">
+                  <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">
                     {'>'} TOPIC ANALYSIS
                   </h2>
                   {topicsLoading ? (
-                    <div className="card p-8 text-center font-mono text-text-muted animate-pulse">
+                    <div className="card p-8 text-center font-theme-data text-text-muted animate-pulse">
                       Loading topic data...
                     </div>
                   ) : topicsData && topicsData.length > 0 ? (
@@ -965,7 +965,7 @@ export default function AnalyticsPage() {
                       </div>
                     </section>
                   ) : (
-                    <div className="card p-8 text-center font-mono text-text-muted space-y-2">
+                    <div className="card p-8 text-center font-theme-data text-text-muted space-y-2">
                       <p>No topic data in this time range.</p>
                       <p className="text-xs text-text-muted/60">Expand your date range or start a debate to see trending topics.</p>
                     </div>
@@ -977,8 +977,8 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // ANALYTICS DASHBOARD</p>
         </footer>
       </main>

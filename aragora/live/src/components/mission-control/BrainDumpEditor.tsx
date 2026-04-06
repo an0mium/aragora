@@ -64,10 +64,10 @@ export const BrainDumpEditor = memo(function BrainDumpEditor({
       <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
         <div className="flex items-center gap-2">
           <span className="text-base">🧠</span>
-          <h3 className="text-sm font-mono font-bold text-[var(--text)]">Brain Dump</h3>
+          <h3 className="text-sm font-theme-data font-bold text-[var(--text)]">Brain Dump</h3>
         </div>
         {preview && !preview.isLoading && preview.ideaCount > 0 && (
-          <span className="text-xs font-mono text-[var(--text-muted)]">
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">
             ~{preview.ideaCount} ideas detected
           </span>
         )}
@@ -76,7 +76,7 @@ export const BrainDumpEditor = memo(function BrainDumpEditor({
       {/* Editor area */}
       <div className="flex-1 p-4">
         <textarea
-          className="w-full h-full min-h-[200px] bg-transparent text-[var(--text)] text-sm font-mono
+          className="w-full h-full min-h-[200px] bg-transparent text-[var(--text)] text-sm font-theme-data
                      placeholder:text-[var(--text-muted)] resize-none focus:outline-none"
           placeholder="Paste your ideas, thoughts, goals, concerns, brainstorms...&#10;&#10;Use any format: bullets, numbered lists, paragraphs, or free-flowing prose.&#10;AI will extract ideas, detect themes, and organize them into actionable goals."
           value={text}
@@ -94,7 +94,7 @@ export const BrainDumpEditor = memo(function BrainDumpEditor({
             {preview.themes.map((theme) => (
               <span
                 key={theme}
-                className={`px-2 py-0.5 text-xs font-mono rounded-full border ${
+                className={`px-2 py-0.5 text-xs font-theme-data rounded-full border ${
                   THEME_COLORS[theme] || 'bg-gray-500/20 text-gray-400 border-gray-500/30'
                 }`}
               >
@@ -109,7 +109,7 @@ export const BrainDumpEditor = memo(function BrainDumpEditor({
             <div className="flex items-center gap-1.5 mt-1.5">
               <span className="text-xs text-amber-400">⚡ Urgency:</span>
               {preview.urgencySignals.map((signal, i) => (
-                <span key={i} className="px-1.5 py-0.5 text-xs font-mono bg-amber-500/20 text-amber-400 rounded">
+                <span key={i} className="px-1.5 py-0.5 text-xs font-theme-data bg-amber-500/20 text-amber-400 rounded">
                   {signal}
                 </span>
               ))}
@@ -124,7 +124,7 @@ export const BrainDumpEditor = memo(function BrainDumpEditor({
           <AutomationLevelSelector value={automationLevel} onChange={setAutomationLevel} />
         </div>
         <button
-          className={`px-4 py-2 text-sm font-mono rounded-lg transition-all
+          className={`px-4 py-2 text-sm font-theme-data rounded-lg transition-all
             ${
               hasContent && !isLaunching
                 ? 'bg-[var(--acid-green)] text-black hover:opacity-90 cursor-pointer'

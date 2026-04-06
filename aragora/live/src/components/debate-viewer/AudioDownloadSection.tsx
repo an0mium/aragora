@@ -64,7 +64,7 @@ export function AudioDownloadSection({ debateId }: AudioDownloadSectionProps) {
 
   if (status === 'checking') {
     return (
-      <span className="px-3 py-2 text-xs font-mono text-text-muted">
+      <span className="px-3 py-2 text-xs font-theme-data text-text-muted">
         Checking audio...
       </span>
     );
@@ -75,7 +75,7 @@ export function AudioDownloadSection({ debateId }: AudioDownloadSectionProps) {
       <a
         href={audioUrl}
         download={`debate-${debateId}.mp3`}
-        className="inline-block px-3 py-2 text-xs font-mono bg-bg border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
+        className="inline-block px-3 py-2 text-xs font-theme-data bg-bg border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
       >
         [DOWNLOAD MP3]
       </a>
@@ -84,7 +84,7 @@ export function AudioDownloadSection({ debateId }: AudioDownloadSectionProps) {
 
   if (status === 'generating') {
     return (
-      <span className="px-3 py-2 text-xs font-mono bg-bg border border-border text-text-muted animate-pulse">
+      <span className="px-3 py-2 text-xs font-theme-data bg-bg border border-border text-text-muted animate-pulse">
         [GENERATING AUDIO...]
       </span>
     );
@@ -93,12 +93,12 @@ export function AudioDownloadSection({ debateId }: AudioDownloadSectionProps) {
   if (status === 'error') {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-mono text-red-400 truncate max-w-[200px]" title={error || ''}>
+        <span className="text-xs font-theme-data text-red-400 truncate max-w-[200px]" title={error || ''}>
           {error}
         </span>
         <button
           onClick={generateAudio}
-          className="px-3 py-2 text-xs font-mono bg-bg border border-border text-text-muted hover:border-accent/40 transition-colors"
+          className="px-3 py-2 text-xs font-theme-data bg-bg border border-border text-text-muted hover:border-accent/40 transition-colors"
         >
           [RETRY]
         </button>
@@ -110,7 +110,7 @@ export function AudioDownloadSection({ debateId }: AudioDownloadSectionProps) {
   return (
     <button
       onClick={generateAudio}
-      className="px-3 py-2 text-xs font-mono bg-bg border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
+      className="px-3 py-2 text-xs font-theme-data bg-bg border border-accent/40 text-accent hover:bg-accent/10 transition-colors"
     >
       [GENERATE MP3]
     </button>

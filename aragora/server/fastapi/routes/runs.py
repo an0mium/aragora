@@ -1,6 +1,8 @@
-"""Runs endpoints (FastAPI v2).
+"""Runs endpoints.
 
 Provides read-only access to persisted backbone run ledgers:
+- GET /api/runs
+- GET /api/runs/{run_id}
 - GET /api/v2/runs
 - GET /api/v2/runs/{run_id}
 """
@@ -16,7 +18,7 @@ from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.runs import handle_run_detail, handle_runs_list
 from aragora.server.fastapi.dependencies.auth import require_permission
 
-router = APIRouter(prefix="/api/v2", tags=["Runs"])
+router = APIRouter(prefix="/api", tags=["Runs"])
 _RUNS_READ_PERMISSION = "orchestration:read"
 
 
@@ -41,13 +43,13 @@ class RunSummary(BaseModel):
 
 
 class RunListResponse(BaseModel):
-    """Response model for GET /api/v2/runs."""
+    """Response model for GET /api/runs and GET /api/v2/runs."""
 
     runs: list[RunSummary] = Field(default_factory=list)
 
 
 class RunDetailResponse(BaseModel):
-    """Response model for GET /api/v2/runs/{run_id}."""
+    """Response model for GET /api/runs/{run_id} and GET /api/v2/runs/{run_id}."""
 
     run: RunSummary
 
@@ -85,6 +87,7 @@ def _unwrap_handler_result(result: Any) -> dict[str, Any]:
     return payload
 
 
+@router.get("/v2/runs", response_model=RunListResponse)
 @router.get("/runs", response_model=RunListResponse)
 async def list_runs(
     request: Request,
@@ -105,6 +108,7 @@ async def list_runs(
     return RunListResponse(**payload)
 
 
+@router.get("/v2/runs/{run_id}", response_model=RunDetailResponse)
 @router.get("/runs/{run_id}", response_model=RunDetailResponse)
 async def get_run(
     run_id: str,

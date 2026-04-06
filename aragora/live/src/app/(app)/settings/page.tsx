@@ -167,24 +167,24 @@ function RoleEditorModal({ role, allPermissions, onSave, onClose }: RoleEditorPr
       >
         {/* Header */}
         <div className="p-4 border-b border-[var(--border)] flex items-center justify-between">
-          <h2 className="font-mono text-sm text-[var(--acid-green)]">
+          <h2 className="font-theme-data text-sm text-[var(--acid-green)]">
             {'>'} {isEdit ? 'EDIT ROLE' : 'CREATE ROLE'}
           </h2>
-          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text)] font-mono text-sm">
+          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text)] font-theme-data text-sm">
             [X]
           </button>
         </div>
 
         <div className="p-4 space-y-4">
           {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-xs">
+            <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-xs">
               {error}
             </div>
           )}
 
           {/* Name */}
           <div>
-            <label className="block font-mono text-[10px] text-[var(--text-muted)] mb-1 uppercase">
+            <label className="block font-theme-data text-[10px] text-[var(--text-muted)] mb-1 uppercase">
               Role Name {isEdit && <span className="text-[var(--text-muted)]/50">(read-only)</span>}
             </label>
             <input
@@ -193,13 +193,13 @@ function RoleEditorModal({ role, allPermissions, onSave, onClose }: RoleEditorPr
               onChange={(e) => setName(e.target.value)}
               disabled={isEdit}
               placeholder="e.g. data_analyst"
-              className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] outline-none disabled:opacity-50"
+              className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] outline-none disabled:opacity-50"
             />
           </div>
 
           {/* Display Name */}
           <div>
-            <label className="block font-mono text-[10px] text-[var(--text-muted)] mb-1 uppercase">
+            <label className="block font-theme-data text-[10px] text-[var(--text-muted)] mb-1 uppercase">
               Display Name
             </label>
             <input
@@ -207,13 +207,13 @@ function RoleEditorModal({ role, allPermissions, onSave, onClose }: RoleEditorPr
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="e.g. Data Analyst"
-              className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] outline-none"
+              className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] outline-none"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block font-mono text-[10px] text-[var(--text-muted)] mb-1 uppercase">
+            <label className="block font-theme-data text-[10px] text-[var(--text-muted)] mb-1 uppercase">
               Description
             </label>
             <textarea
@@ -221,13 +221,13 @@ function RoleEditorModal({ role, allPermissions, onSave, onClose }: RoleEditorPr
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What this role is for..."
               rows={2}
-              className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] outline-none resize-none"
+              className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] outline-none resize-none"
             />
           </div>
 
           {/* Permission Selector */}
           <div>
-            <label className="block font-mono text-[10px] text-[var(--text-muted)] mb-1 uppercase">
+            <label className="block font-theme-data text-[10px] text-[var(--text-muted)] mb-1 uppercase">
               Permissions ({selectedPerms.size} selected)
             </label>
             <input
@@ -235,7 +235,7 @@ function RoleEditorModal({ role, allPermissions, onSave, onClose }: RoleEditorPr
               value={permFilter}
               onChange={(e) => setPermFilter(e.target.value)}
               placeholder="Filter permissions..."
-              className="w-full px-3 py-2 mb-2 bg-[var(--surface)] border border-[var(--border)] font-mono text-xs text-[var(--text)] focus:border-[var(--acid-green)] outline-none"
+              className="w-full px-3 py-2 mb-2 bg-[var(--surface)] border border-[var(--border)] font-theme-data text-xs text-[var(--text)] focus:border-[var(--acid-green)] outline-none"
             />
             <div className="border border-[var(--border)] max-h-48 overflow-y-auto">
               {filteredGroups.map(([resource, perms]) => {
@@ -246,9 +246,9 @@ function RoleEditorModal({ role, allPermissions, onSave, onClose }: RoleEditorPr
                   <div key={resource}>
                     <button
                       onClick={() => toggleResource(perms)}
-                      className="w-full text-left px-3 py-1.5 bg-[var(--acid-green)]/5 font-mono text-[10px] text-[var(--acid-green)] uppercase tracking-wider flex items-center gap-2 hover:bg-[var(--acid-green)]/10"
+                      className="w-full text-left px-3 py-1.5 bg-[var(--acid-green)]/5 font-theme-data text-[10px] text-[var(--acid-green)] uppercase tracking-wider flex items-center gap-2 hover:bg-[var(--acid-green)]/10"
                     >
-                      <span className="font-mono">{allSelected ? '[+]' : someSelected ? '[~]' : '[-]'}</span>
+                      <span className="font-theme-data">{allSelected ? '[+]' : someSelected ? '[~]' : '[-]'}</span>
                       {resource} ({perms.length})
                     </button>
                     {perms.map((p) => {
@@ -257,7 +257,7 @@ function RoleEditorModal({ role, allPermissions, onSave, onClose }: RoleEditorPr
                         <button
                           key={p.id}
                           onClick={() => togglePerm(key)}
-                          className={`w-full text-left px-6 py-1 font-mono text-xs flex items-center gap-2 hover:bg-[var(--surface)]/50 ${
+                          className={`w-full text-left px-6 py-1 font-theme-data text-xs flex items-center gap-2 hover:bg-[var(--surface)]/50 ${
                             selectedPerms.has(key) ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'
                           }`}
                         >
@@ -277,14 +277,14 @@ function RoleEditorModal({ role, allPermissions, onSave, onClose }: RoleEditorPr
         <div className="p-4 border-t border-[var(--border)] flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 font-mono text-xs text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] hover:border-[var(--text-muted)]"
+            className="px-4 py-2 font-theme-data text-xs text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] hover:border-[var(--text-muted)]"
           >
             CANCEL
           </button>
           <button
             onClick={handleSubmit}
             disabled={saving}
-            className="px-4 py-2 font-mono text-xs bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 disabled:opacity-50"
+            className="px-4 py-2 font-theme-data text-xs bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 disabled:opacity-50"
           >
             {saving ? 'SAVING...' : isEdit ? 'UPDATE ROLE' : 'CREATE ROLE'}
           </button>
@@ -314,19 +314,19 @@ function ConfirmDeleteModal({ roleName, onConfirm, onClose }: { roleName: string
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
       <div className="bg-[var(--bg)] border border-red-500/50 p-6 max-w-sm" onClick={(e) => e.stopPropagation()}>
-        <h3 className="font-mono text-sm text-red-400 mb-3">{'>'} DELETE ROLE</h3>
-        <p className="font-mono text-xs text-[var(--text-muted)] mb-4">
+        <h3 className="font-theme-data text-sm text-red-400 mb-3">{'>'} DELETE ROLE</h3>
+        <p className="font-theme-data text-xs text-[var(--text-muted)] mb-4">
           Are you sure you want to delete <span className="text-[var(--text)]">{roleName}</span>?
           This action cannot be undone.
         </p>
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 font-mono text-xs text-[var(--text-muted)] border border-[var(--border)]">
+          <button onClick={onClose} className="px-4 py-2 font-theme-data text-xs text-[var(--text-muted)] border border-[var(--border)]">
             CANCEL
           </button>
           <button
             onClick={handleDelete}
             disabled={deleting}
-            className="px-4 py-2 font-mono text-xs bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
+            className="px-4 py-2 font-theme-data text-xs bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
           >
             {deleting ? 'DELETING...' : 'DELETE'}
           </button>
@@ -360,16 +360,16 @@ function RoleHierarchy({ roles }: { roles: Role[] }) {
     return (
       <div key={role.id} style={{ marginLeft: depth * 24 }}>
         <div className="flex items-center gap-2 py-2 px-3 hover:bg-[var(--surface)]/50 transition-colors">
-          <span className="text-[var(--acid-green)] font-mono text-xs">
+          <span className="text-[var(--acid-green)] font-theme-data text-xs">
             {depth > 0 ? '\u2514\u2500 ' : '\u25B8 '}
           </span>
-          <span className="font-mono text-sm text-[var(--text)]">{role.name}</span>
+          <span className="font-theme-data text-sm text-[var(--text)]">{role.name}</span>
           {role.is_default && (
-            <span className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
+            <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
               DEFAULT
             </span>
           )}
-          <span className="text-[10px] font-mono text-[var(--text-muted)] ml-auto">
+          <span className="text-[10px] font-theme-data text-[var(--text-muted)] ml-auto">
             {role.permissions.length} permissions
             {role.user_count !== undefined && ` | ${role.user_count} users`}
           </span>
@@ -382,11 +382,11 @@ function RoleHierarchy({ roles }: { roles: Role[] }) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)]">
       <div className="p-4 border-b border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} ROLE HIERARCHY</h3>
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} ROLE HIERARCHY</h3>
       </div>
       <div className="p-4">
         {rootRoles.length === 0 ? (
-          <div className="text-center py-4 text-[var(--text-muted)] font-mono text-sm">
+          <div className="text-center py-4 text-[var(--text-muted)] font-theme-data text-sm">
             No roles defined
           </div>
         ) : (
@@ -412,7 +412,7 @@ function PermissionMatrix({ roles, permissions }: { roles: Role[]; permissions: 
   if (permissions.length === 0 || roles.length === 0) {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] p-8 text-center">
-        <div className="text-[var(--text-muted)] font-mono text-sm">
+        <div className="text-[var(--text-muted)] font-theme-data text-sm">
           No permission data available
         </div>
       </div>
@@ -422,8 +422,8 @@ function PermissionMatrix({ roles, permissions }: { roles: Role[]; permissions: 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] overflow-hidden">
       <div className="p-4 border-b border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} PERMISSION MATRIX</h3>
-        <p className="text-[10px] font-mono text-[var(--text-muted)] mt-1">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} PERMISSION MATRIX</h3>
+        <p className="text-[10px] font-theme-data text-[var(--text-muted)] mt-1">
           {permissions.length} permissions across {resources.length} resources
         </p>
       </div>
@@ -431,13 +431,13 @@ function PermissionMatrix({ roles, permissions }: { roles: Role[]; permissions: 
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[var(--border)] bg-[var(--bg)]">
-              <th className="text-left p-3 font-mono text-[var(--text-muted)] sticky left-0 bg-[var(--bg)] min-w-[180px]">
+              <th className="text-left p-3 font-theme-data text-[var(--text-muted)] sticky left-0 bg-[var(--bg)] min-w-[180px]">
                 Permission
               </th>
               {roles.map((role) => (
                 <th
                   key={role.id}
-                  className="text-center p-3 font-mono text-[var(--text-muted)] min-w-[80px]"
+                  className="text-center p-3 font-theme-data text-[var(--text-muted)] min-w-[80px]"
                 >
                   {role.name}
                 </th>
@@ -450,7 +450,7 @@ function PermissionMatrix({ roles, permissions }: { roles: Role[]; permissions: 
                 <tr key={`group-${resource}`} className="bg-[var(--acid-green)]/5">
                   <td
                     colSpan={roles.length + 1}
-                    className="p-2 font-mono text-[10px] text-[var(--acid-green)] uppercase tracking-wider"
+                    className="p-2 font-theme-data text-[10px] text-[var(--acid-green)] uppercase tracking-wider"
                   >
                     {resource}
                   </td>
@@ -460,7 +460,7 @@ function PermissionMatrix({ roles, permissions }: { roles: Role[]; permissions: 
                     key={perm.id}
                     className="border-b border-[var(--border)]/50 hover:bg-[var(--surface)]/50"
                   >
-                    <td className="p-3 font-mono text-[var(--text)] sticky left-0 bg-[var(--surface)]">
+                    <td className="p-3 font-theme-data text-[var(--text)] sticky left-0 bg-[var(--surface)]">
                       <div>{perm.name}</div>
                       {perm.description && (
                         <div className="text-[10px] text-[var(--text-muted)]">{perm.description}</div>
@@ -471,9 +471,9 @@ function PermissionMatrix({ roles, permissions }: { roles: Role[]; permissions: 
                       return (
                         <td key={role.id} className="p-3 text-center">
                           {hasPermission ? (
-                            <span className="text-[var(--acid-green)] font-mono">[+]</span>
+                            <span className="text-[var(--acid-green)] font-theme-data">[+]</span>
                           ) : (
-                            <span className="text-[var(--text-muted)]/30 font-mono">[-]</span>
+                            <span className="text-[var(--text-muted)]/30 font-theme-data">[-]</span>
                           )}
                         </td>
                       );
@@ -493,43 +493,43 @@ function RolesList({ roles, onEdit, onDelete }: { roles: Role[]; onEdit: (role: 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)]">
       <div className="p-4 border-b border-[var(--border)]">
-        <h3 className="text-sm font-mono text-[var(--acid-green)]">{'>'} ROLES</h3>
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} ROLES</h3>
       </div>
       <div className="divide-y divide-[var(--border)]">
         {roles.map((role) => (
           <div key={role.id} className="p-4 hover:bg-[var(--bg)] transition-colors group">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="font-mono text-sm text-[var(--acid-cyan)]">
+                <span className="font-theme-data text-sm text-[var(--acid-cyan)]">
                   {role.display_name || role.name}
                 </span>
-                <span className="font-mono text-[10px] text-[var(--text-muted)]">({role.name})</span>
+                <span className="font-theme-data text-[10px] text-[var(--text-muted)]">({role.name})</span>
                 {role.is_system && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
+                  <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
                     SYSTEM
                   </span>
                 )}
                 {role.is_custom && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/30">
+                  <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-purple-500/10 text-purple-400 border border-purple-500/30">
                     CUSTOM
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                   {role.permissions.length} permissions
                 </span>
                 {role.is_custom && (
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                     <button
                       onClick={() => onEdit(role)}
-                      className="px-2 py-0.5 text-[10px] font-mono text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/10"
+                      className="px-2 py-0.5 text-[10px] font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/10"
                     >
                       EDIT
                     </button>
                     <button
                       onClick={() => onDelete(role)}
-                      className="px-2 py-0.5 text-[10px] font-mono text-red-400 border border-red-400/30 hover:bg-red-400/10"
+                      className="px-2 py-0.5 text-[10px] font-theme-data text-red-400 border border-red-400/30 hover:bg-red-400/10"
                     >
                       DEL
                     </button>
@@ -538,7 +538,7 @@ function RolesList({ roles, onEdit, onDelete }: { roles: Role[]; onEdit: (role: 
               </div>
             </div>
             {role.description && (
-              <p className="text-xs text-[var(--text-muted)] font-mono mb-2">
+              <p className="text-xs text-[var(--text-muted)] font-theme-data mb-2">
                 {role.description}
               </p>
             )}
@@ -546,13 +546,13 @@ function RolesList({ roles, onEdit, onDelete }: { roles: Role[]; onEdit: (role: 
               {role.permissions.slice(0, 8).map((p) => (
                 <span
                   key={p}
-                  className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)]"
+                  className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--bg)] text-[var(--text-muted)] border border-[var(--border)]"
                 >
                   {p}
                 </span>
               ))}
               {role.permissions.length > 8 && (
-                <span className="px-1.5 py-0.5 text-[10px] font-mono text-[var(--text-muted)]">
+                <span className="px-1.5 py-0.5 text-[10px] font-theme-data text-[var(--text-muted)]">
                   +{role.permissions.length - 8} more
                 </span>
               )}
@@ -643,16 +643,16 @@ export default function SettingsPage() {
         <div className="container mx-auto px-4 py-6">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-[var(--acid-green)] mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--acid-green)] mb-2">
               {'>'} SETTINGS & RBAC
             </h1>
-            <p className="text-[var(--text-muted)] font-mono text-sm">
+            <p className="text-[var(--text-muted)] font-theme-data text-sm">
               Configure preferences, inspect provider availability, and manage roles.
             </p>
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex gap-0.5 mb-6 bg-[var(--bg)] border border-[var(--border)] p-0.5 w-fit font-mono text-xs">
+          <div className="flex gap-0.5 mb-6 bg-[var(--bg)] border border-[var(--border)] p-0.5 w-fit font-theme-data text-xs">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
@@ -672,31 +672,31 @@ export default function SettingsPage() {
           {showRbacSummary && (
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                <div className="text-2xl font-mono text-[var(--acid-green)]">
+                <div className="text-2xl font-theme-data text-[var(--acid-green)]">
                   {rbacLoading ? '-' : roles.length}
                 </div>
-                <div className="text-[10px] font-mono text-[var(--text-muted)]">Roles</div>
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Roles</div>
               </div>
               <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                <div className="text-2xl font-mono text-[var(--acid-cyan)]">
+                <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
                   {rbacLoading ? '-' : permissions.length}
                 </div>
-                <div className="text-[10px] font-mono text-[var(--text-muted)]">Permissions</div>
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Permissions</div>
               </div>
               <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                <div className="text-2xl font-mono text-purple-400">
+                <div className="text-2xl font-theme-data text-purple-400">
                   {rbacLoading
                     ? '-'
                     : new Set(permissions.map((p) => p.resource)).size}
                 </div>
-                <div className="text-[10px] font-mono text-[var(--text-muted)]">Resources</div>
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Resources</div>
               </div>
             </div>
           )}
 
           {/* Error State for RBAC */}
           {rbacError && showRbacSummary && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-sm">
               Failed to load RBAC data. The backend may be unavailable.
             </div>
           )}
@@ -717,7 +717,7 @@ export default function SettingsPage() {
           {activeTab === 'roles' && (
             <PanelErrorBoundary panelName="Roles">
               {actionError && (
-                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-xs flex items-center justify-between">
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-xs flex items-center justify-between">
                   <span>{actionError}</span>
                   <button onClick={() => setActionError(null)} className="text-red-400 hover:text-red-300">[X]</button>
                 </div>
@@ -725,7 +725,7 @@ export default function SettingsPage() {
               <div className="mb-4">
                 <button
                   onClick={() => setEditorRole(null)}
-                  className="px-4 py-2 font-mono text-xs bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80"
+                  className="px-4 py-2 font-theme-data text-xs bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80"
                 >
                   + CREATE ROLE
                 </button>
@@ -772,7 +772,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
           <div className="text-[var(--acid-green)]/50 mb-2" aria-hidden="true">
             {'='.repeat(40)}
           </div>

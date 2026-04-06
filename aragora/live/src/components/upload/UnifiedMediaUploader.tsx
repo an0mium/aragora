@@ -423,20 +423,20 @@ export function UnifiedMediaUploader({
   };
 
   return (
-    <div className={`border border-acid-green/30 bg-surface ${className}`}>
+    <div className={`border border-[var(--accent)]/30 bg-surface ${className}`}>
       {/* Header */}
-      <div className="border-b border-acid-green/20 px-4 py-3 flex items-center justify-between">
-        <h3 className="text-text font-bold font-mono">Upload Files</h3>
+      <div className="border-b border-[var(--accent)]/20 px-4 py-3 flex items-center justify-between">
+        <h3 className="text-text font-bold font-theme-data">Upload Files</h3>
         {queue.length > 0 && (
-          <span className="text-xs font-mono text-text-muted">
+          <span className="text-xs font-theme-data text-text-muted">
             {completedCount}/{queue.length} completed
-            {failedCount > 0 && <span className="text-crimson ml-2">{failedCount} failed</span>}
+            {failedCount > 0 && <span className="text-[var(--crimson)] ml-2">{failedCount} failed</span>}
           </span>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-acid-green/10">
+      <div className="flex border-b border-[var(--accent)]/10">
         {[
           { id: 'files', label: 'Files', icon: ']' },
           { id: 'record', label: 'Record', icon: '~' },
@@ -447,10 +447,10 @@ export function UnifiedMediaUploader({
             key={tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
             className={`
-              px-4 py-2 font-mono text-sm
+              px-4 py-2 font-theme-data text-sm
               transition-colors
               ${activeTab === tab.id
-                ? 'text-acid-green border-b-2 border-acid-green -mb-px'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px'
                 : 'text-text-muted hover:text-text'
               }
             `}
@@ -477,13 +477,13 @@ export function UnifiedMediaUploader({
                 text-center cursor-pointer
                 transition-colors
                 ${isDragging
-                  ? 'border-acid-green bg-acid-green/10'
-                  : 'border-acid-green/30 hover:border-acid-green/50'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                  : 'border-[var(--accent)]/30 hover:border-[var(--accent)]/50'
                 }
               `}
             >
-              <div className="text-acid-green text-3xl mb-2">+</div>
-              <p className="text-text font-mono text-sm mb-1">
+              <div className="text-[var(--accent)] text-3xl mb-2">+</div>
+              <p className="text-text font-theme-data text-sm mb-1">
                 Drop files or folders here
               </p>
               <p className="text-text-muted text-xs">
@@ -510,7 +510,7 @@ export function UnifiedMediaUploader({
             <div className="flex gap-2 mt-3">
               <button
                 onClick={() => folderInputRef.current?.click()}
-                className="px-3 py-1.5 text-xs font-mono text-acid-green border border-acid-green/30 hover:bg-acid-green/10 transition-colors"
+                className="px-3 py-1.5 text-xs font-theme-data text-[var(--accent)] border border-[var(--accent)]/30 hover:bg-[var(--accent)]/10 transition-colors"
               >
                 [Folder]
               </button>
@@ -518,7 +518,7 @@ export function UnifiedMediaUploader({
                 <>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1.5 text-xs font-mono text-acid-cyan border border-acid-cyan/30 hover:bg-acid-cyan/10 transition-colors"
+                    className="px-3 py-1.5 text-xs font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/10 transition-colors"
                   >
                     [URL]
                   </button>
@@ -531,7 +531,7 @@ export function UnifiedMediaUploader({
         {/* Record tab placeholder */}
         {activeTab === 'record' && (
           <div className="text-center py-8">
-            <div className="text-acid-green text-3xl mb-2">~</div>
+            <div className="text-[var(--accent)] text-3xl mb-2">~</div>
             <p className="text-text-muted text-sm">
               Voice recording component would go here
             </p>
@@ -541,7 +541,7 @@ export function UnifiedMediaUploader({
         {/* YouTube tab placeholder */}
         {activeTab === 'youtube' && (
           <div className="text-center py-8">
-            <div className="text-acid-green text-3xl mb-2">&gt;</div>
+            <div className="text-[var(--accent)] text-3xl mb-2">&gt;</div>
             <p className="text-text-muted text-sm">
               YouTube input component would go here
             </p>
@@ -551,18 +551,18 @@ export function UnifiedMediaUploader({
         {/* Cloud tab placeholder */}
         {activeTab === 'cloud' && (
           <div className="text-center py-8">
-            <div className="text-acid-cyan text-3xl mb-2">@</div>
+            <div className="text-[var(--acid-cyan)] text-3xl mb-2">@</div>
             <p className="text-text-muted text-sm">
               Cloud storage picker would go here
             </p>
             <div className="flex justify-center gap-2 mt-4">
-              <button className="px-3 py-1.5 text-xs font-mono text-text-muted border border-acid-green/20 hover:border-acid-green/40 transition-colors">
+              <button className="px-3 py-1.5 text-xs font-theme-data text-text-muted border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 transition-colors">
                 Google Drive
               </button>
-              <button className="px-3 py-1.5 text-xs font-mono text-text-muted border border-acid-green/20 hover:border-acid-green/40 transition-colors">
+              <button className="px-3 py-1.5 text-xs font-theme-data text-text-muted border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 transition-colors">
                 OneDrive
               </button>
-              <button className="px-3 py-1.5 text-xs font-mono text-text-muted border border-acid-green/20 hover:border-acid-green/40 transition-colors">
+              <button className="px-3 py-1.5 text-xs font-theme-data text-text-muted border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 transition-colors">
                 Dropbox
               </button>
             </div>
@@ -571,16 +571,16 @@ export function UnifiedMediaUploader({
 
         {/* Upload queue */}
         {queue.length > 0 && (
-          <div className="mt-4 border-t border-acid-green/10 pt-4">
+          <div className="mt-4 border-t border-[var(--accent)]/10 pt-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-mono text-text-muted">
+              <span className="text-xs font-theme-data text-text-muted">
                 Upload Queue ({formatSize(totalSize)})
               </span>
               <div className="flex gap-2">
                 {(completedCount > 0 || failedCount > 0) && (
                   <button
                     onClick={clearCompleted}
-                    className="text-xs font-mono text-text-muted hover:text-text transition-colors"
+                    className="text-xs font-theme-data text-text-muted hover:text-text transition-colors"
                   >
                     [Clear]
                   </button>
@@ -590,12 +590,12 @@ export function UnifiedMediaUploader({
                     onClick={startUpload}
                     disabled={isUploading}
                     className={`
-                      px-3 py-1 text-xs font-mono
+                      px-3 py-1 text-xs font-theme-data
                       ${isUploading
                         ? 'text-text-muted cursor-wait'
-                        : 'text-acid-green hover:bg-acid-green/10'
+                        : 'text-[var(--accent)] hover:bg-[var(--accent)]/10'
                       }
-                      border border-acid-green/30 transition-colors
+                      border border-[var(--accent)]/30 transition-colors
                     `}
                   >
                     {isUploading ? '[Uploading...]' : '[Upload All]'}
@@ -612,27 +612,27 @@ export function UnifiedMediaUploader({
                   className={`
                     flex items-center gap-3 px-3 py-2 rounded
                     ${item.status === 'completed'
-                      ? 'bg-acid-green/10'
+                      ? 'bg-[var(--accent)]/10'
                       : item.status === 'failed'
-                        ? 'bg-crimson/10'
+                        ? 'bg-[var(--crimson)]/10'
                         : 'bg-surface'
                     }
                   `}
                 >
                   {/* Category icon */}
-                  <span className="text-acid-green/70 font-mono">
+                  <span className="text-[var(--accent)]/70 font-theme-data">
                     {getCategoryIcon(item.category)}
                   </span>
 
                   {/* File info */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-mono text-text truncate">
+                    <p className="text-sm font-theme-data text-text truncate">
                       {item.name}
                     </p>
                     <p className="text-xs text-text-muted">
                       {formatSize(item.size)} · {item.category}
                       {item.suggestedAction !== 'skip' && (
-                        <span className="text-acid-cyan ml-1">
+                        <span className="text-[var(--acid-cyan)] ml-1">
                           → {item.suggestedAction}
                         </span>
                       )}
@@ -642,16 +642,16 @@ export function UnifiedMediaUploader({
                   {/* Progress/Status */}
                   <div className="w-24 text-right">
                     {item.status === 'uploading' || item.status === 'processing' ? (
-                      <div className="w-full bg-acid-green/20 h-1 rounded">
+                      <div className="w-full bg-[var(--accent)]/20 h-1 rounded">
                         <div
-                          className="bg-acid-green h-1 rounded transition-all"
+                          className="bg-[var(--accent)] h-1 rounded transition-all"
                           style={{ width: `${item.progress}%` }}
                         />
                       </div>
                     ) : item.status === 'completed' ? (
-                      <span className="text-xs text-acid-green">Done</span>
+                      <span className="text-xs text-[var(--accent)]">Done</span>
                     ) : item.status === 'failed' ? (
-                      <span className="text-xs text-crimson" title={item.error}>
+                      <span className="text-xs text-[var(--crimson)]" title={item.error}>
                         Failed
                       </span>
                     ) : (
@@ -663,7 +663,7 @@ export function UnifiedMediaUploader({
                   {item.status !== 'uploading' && item.status !== 'processing' && (
                     <button
                       onClick={() => removeItem(item.id)}
-                      className="text-text-muted hover:text-crimson transition-colors"
+                      className="text-text-muted hover:text-[var(--crimson)] transition-colors"
                     >
                       &times;
                     </button>
@@ -677,17 +677,17 @@ export function UnifiedMediaUploader({
 
       {/* Processing pipeline visualization (advanced mode) */}
       {isAdvanced && queue.length > 0 && (
-        <div className="border-t border-acid-green/10 px-4 py-3">
-          <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
+        <div className="border-t border-[var(--accent)]/10 px-4 py-3">
+          <div className="flex items-center gap-2 text-xs font-theme-data text-text-muted">
             <span>[Upload]</span>
-            <span className="text-acid-green/50">→</span>
+            <span className="text-[var(--accent)]/50">→</span>
             <span>[Detect Type]</span>
-            <span className="text-acid-green/50">→</span>
+            <span className="text-[var(--accent)]/50">→</span>
             <span>[Process]</span>
-            <span className="text-acid-green/50">→</span>
+            <span className="text-[var(--accent)]/50">→</span>
             <span>[Index/Store]</span>
-            <span className="text-acid-green/50">→</span>
-            <span className="text-acid-green">[Ready]</span>
+            <span className="text-[var(--accent)]/50">→</span>
+            <span className="text-[var(--accent)]">[Ready]</span>
           </div>
         </div>
       )}
@@ -716,9 +716,9 @@ export function UploadButton({
       <button
         onClick={() => inputRef.current?.click()}
         className={`
-          px-3 py-1.5 font-mono text-sm
-          border border-acid-green/30
-          text-acid-green hover:bg-acid-green/10
+          px-3 py-1.5 font-theme-data text-sm
+          border border-[var(--accent)]/30
+          text-[var(--accent)] hover:bg-[var(--accent)]/10
           transition-colors
           ${className}
         `}

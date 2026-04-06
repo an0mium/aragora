@@ -137,7 +137,7 @@ export function GoalCanvas({ canvasId, pipelineId, onActionsGenerated }: GoalCan
         <div className="absolute top-2 left-2 z-20 flex gap-2 items-center">
           <button
             onClick={saveCanvas}
-            className="px-3 py-1 text-xs font-mono rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] hover:border-[var(--acid-green)] transition-colors"
+            className="px-3 py-1 text-xs font-theme-data rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] hover:border-[var(--acid-green)] transition-colors"
           >
             Save
           </button>
@@ -146,7 +146,7 @@ export function GoalCanvas({ canvasId, pipelineId, onActionsGenerated }: GoalCan
           <button
             onClick={handleGenerateActions}
             disabled={isGeneratingActions || nodes.length === 0 || !pipelineId}
-            className="px-4 py-1.5 text-xs font-mono font-bold rounded bg-amber-600 text-white hover:bg-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            className="px-4 py-1.5 text-xs font-theme-data font-bold rounded bg-amber-600 text-white hover:bg-amber-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
           >
             {isGeneratingActions ? (
               <>
@@ -159,7 +159,7 @@ export function GoalCanvas({ canvasId, pipelineId, onActionsGenerated }: GoalCan
           </button>
 
           {actionError && (
-            <span className="text-xs font-mono text-red-400 truncate max-w-xs">
+            <span className="text-xs font-theme-data text-red-400 truncate max-w-xs">
               {actionError}
             </span>
           )}

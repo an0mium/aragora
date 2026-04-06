@@ -135,7 +135,7 @@ export function BankConnectionCard() {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-6 text-center">
         <div className="text-3xl mb-3">🏦</div>
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-2">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-2">
           Connect Bank Accounts
         </h3>
         <p className="text-xs text-[var(--text-muted)] mb-4 max-w-sm mx-auto">
@@ -143,7 +143,7 @@ export function BankConnectionCard() {
         </p>
         <button
           onClick={handleConnect}
-          className="px-4 py-2 text-sm font-mono bg-[var(--acid-green)]/10 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/20 transition-colors"
+          className="px-4 py-2 text-sm font-theme-data bg-[var(--acid-green)]/10 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/20 transition-colors"
         >
           Link Bank Account
         </button>
@@ -158,7 +158,7 @@ export function BankConnectionCard() {
         <div className="flex items-center gap-3">
           <span className="text-xl">🏦</span>
           <div>
-            <h3 className="text-sm font-mono text-[var(--acid-green)]">Bank Accounts</h3>
+            <h3 className="text-sm font-theme-data text-[var(--acid-green)]">Bank Accounts</h3>
             <p className="text-xs text-[var(--text-muted)]">
               {status.accounts.length} account{status.accounts.length !== 1 ? 's' : ''} connected via Plaid
             </p>
@@ -172,7 +172,7 @@ export function BankConnectionCard() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="px-3 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors disabled:opacity-50"
+            className="px-3 py-1 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors disabled:opacity-50"
           >
             {syncing ? 'Syncing...' : 'Sync'}
           </button>
@@ -192,18 +192,18 @@ export function BankConnectionCard() {
         {status.accounts.map(account => (
           <div key={account.id} className="p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[var(--bg)] rounded flex items-center justify-center text-sm font-mono">
+              <div className="w-10 h-10 bg-[var(--bg)] rounded flex items-center justify-center text-sm font-theme-data">
                 {account.institution.substring(0, 2).toUpperCase()}
               </div>
               <div>
-                <div className="text-sm font-mono">{account.name}</div>
+                <div className="text-sm font-theme-data">{account.name}</div>
                 <div className="text-xs text-[var(--text-muted)]">
                   {account.institution} ••••{account.mask}
                 </div>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-sm font-mono text-[var(--acid-green)]">
+              <div className="text-sm font-theme-data text-[var(--acid-green)]">
                 ${account.balanceCurrent.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
               <div className="text-xs text-[var(--text-muted)]">
@@ -220,7 +220,7 @@ export function BankConnectionCard() {
       <div className="p-4 bg-[var(--bg)] border-t border-[var(--border)]">
         <div className="flex items-center justify-between">
           <span className="text-xs text-[var(--text-muted)]">Total Balance</span>
-          <span className="text-lg font-mono text-[var(--acid-green)]">
+          <span className="text-lg font-theme-data text-[var(--acid-green)]">
             ${status.accounts.reduce((sum, acc) => sum + acc.balanceCurrent, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </span>
         </div>
@@ -235,7 +235,7 @@ export function BankConnectionCard() {
       <div className="p-4 border-t border-[var(--border)]">
         <button
           onClick={handleConnect}
-          className="w-full px-4 py-2 text-xs font-mono text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 hover:text-[var(--acid-green)] transition-colors"
+          className="w-full px-4 py-2 text-xs font-theme-data text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 hover:text-[var(--acid-green)] transition-colors"
         >
           + Add Another Account
         </button>

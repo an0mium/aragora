@@ -29,7 +29,7 @@ export function TopBar() {
 
         {/* Title link */}
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <span className="text-[var(--acid-green)] font-mono font-bold text-lg tracking-tight">
+          <span className="text-[var(--acid-green)] font-theme-data font-bold text-lg tracking-tight">
             ARAGORA
           </span>
         </Link>
@@ -41,11 +41,11 @@ export function TopBar() {
           onClick={openCommandPalette}
           className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg)]/50 border border-[var(--border)]/60 rounded-[var(--radius-sm)] hover:border-[var(--acid-green)]/40 hover:shadow-[0_0_8px_var(--accent-glow)] transition-all max-w-md w-full"
         >
-          <span className="text-[var(--text-muted)] font-mono text-sm">⌘</span>
+          <span className="text-[var(--text-muted)] font-theme-data text-sm">⌘</span>
           <span className="text-[var(--text-muted)] text-sm flex-1 text-left">
             Search or command...
           </span>
-          <kbd className="hidden sm:inline-block px-1.5 py-0.5 bg-[var(--surface-elevated)] border border-[var(--border)] rounded text-xs text-[var(--text-muted)] font-mono">
+          <kbd className="hidden sm:inline-block px-1.5 py-0.5 bg-[var(--surface-elevated)] border border-[var(--border)] rounded text-xs text-[var(--text-muted)] font-theme-data">
             ⌘K
           </kbd>
         </button>
@@ -91,8 +91,8 @@ export function TopBar() {
               aria-label="Logout"
               title="Logout"
             >
-              <span className="text-[var(--acid-green)] font-mono text-xs">●</span>
-              <span className="hidden sm:inline font-mono text-xs">Logout</span>
+              <span className="text-[var(--acid-green)] font-theme-data text-xs">●</span>
+              <span className="hidden sm:inline font-theme-data text-xs">Logout</span>
             </button>
           </div>
         ) : (
@@ -101,7 +101,7 @@ export function TopBar() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent)]/10 hover:bg-[var(--accent)]/20 border border-[var(--accent)]/30 rounded-md transition-colors"
             title="Login"
           >
-            <span className="text-[var(--accent)] font-mono text-sm">→</span>
+            <span className="text-[var(--accent)] font-theme-data text-sm">→</span>
             <span className="text-[var(--accent)] text-xs font-medium hidden sm:inline">Login</span>
           </Link>
         )}

@@ -410,13 +410,13 @@ export function AgentWorkflowVisualization({
     <div className="relative">
       {/* Header */}
       <div className="flex items-center justify-between mb-2 px-2">
-        <div className="text-xs font-mono text-text-muted">
+        <div className="text-xs font-theme-data text-text-muted">
           PIPELINE STATUS
         </div>
         {activeJobs.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-acid-cyan animate-pulse" />
-            <span className="text-xs font-mono text-acid-cyan">
+            <span className="w-2 h-2 rounded-full bg-[var(--acid-cyan)] animate-pulse" />
+            <span className="text-xs font-theme-data text-[var(--acid-cyan)]">
               {activeJobs.length} ACTIVE • {Math.round(totalProgress * 100)}%
             </span>
           </div>
@@ -428,21 +428,21 @@ export function AgentWorkflowVisualization({
         ref={svgRef}
         width={width}
         height={height}
-        className="bg-bg/50 rounded border border-acid-green/20"
+        className="bg-bg/50 rounded border border-[var(--accent)]/20"
         style={{ minHeight: '300px' }}
       />
 
       {/* Selected Node Details */}
       {selectedNode && (
-        <div className="absolute top-12 right-2 w-64 p-3 bg-surface border border-acid-green/30 rounded shadow-lg z-10">
+        <div className="absolute top-12 right-2 w-64 p-3 bg-surface border border-[var(--accent)]/30 rounded shadow-lg z-10">
           <div className="flex items-center justify-between mb-2">
             <span
-              className={`px-2 py-0.5 rounded text-xs font-mono ${
+              className={`px-2 py-0.5 rounded text-xs font-theme-data ${
                 selectedNode.status === 'working'
-                  ? 'bg-acid-cyan/20 text-acid-cyan'
+                  ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]'
                   : selectedNode.status === 'error'
                   ? 'bg-acid-red/20 text-acid-red'
-                  : 'bg-acid-green/20 text-acid-green'
+                  : 'bg-[var(--accent)]/20 text-[var(--accent)]'
               }`}
             >
               {selectedNode.status.toUpperCase()}
@@ -455,15 +455,15 @@ export function AgentWorkflowVisualization({
             </button>
           </div>
 
-          <div className="font-mono text-sm mb-2">{selectedNode.label}</div>
+          <div className="font-theme-data text-sm mb-2">{selectedNode.label}</div>
 
           {selectedNode.agent && (
-            <div className="space-y-1 text-xs font-mono text-text-muted">
+            <div className="space-y-1 text-xs font-theme-data text-text-muted">
               <div>Model: {selectedNode.agent.model}</div>
               <div>Requests: {selectedNode.agent.requests_today ?? 0}</div>
               <div>Tokens: {(selectedNode.agent.tokens_used ?? 0).toLocaleString()}</div>
               {selectedNode.agent.current_task && (
-                <div className="mt-2 p-2 bg-bg rounded text-acid-cyan">
+                <div className="mt-2 p-2 bg-bg rounded text-[var(--acid-cyan)]">
                   {selectedNode.agent.current_task}
                 </div>
               )}
@@ -471,7 +471,7 @@ export function AgentWorkflowVisualization({
           )}
 
           {!selectedNode.agent && (
-            <div className="text-xs font-mono text-text-muted">
+            <div className="text-xs font-theme-data text-text-muted">
               Pipeline stage: {selectedNode.type.toUpperCase()}
             </div>
           )}
@@ -479,13 +479,13 @@ export function AgentWorkflowVisualization({
       )}
 
       {/* Legend */}
-      <div className="absolute bottom-2 left-2 flex gap-4 text-xs font-mono text-text-muted">
+      <div className="absolute bottom-2 left-2 flex gap-4 text-xs font-theme-data text-text-muted">
         <div className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full bg-acid-green" />
+          <span className="w-3 h-3 rounded-full bg-[var(--accent)]" />
           <span>Idle</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="w-3 h-3 rounded-full bg-acid-cyan animate-pulse" />
+          <span className="w-3 h-3 rounded-full bg-[var(--acid-cyan)] animate-pulse" />
           <span>Working</span>
         </div>
         <div className="flex items-center gap-1">
@@ -495,7 +495,7 @@ export function AgentWorkflowVisualization({
       </div>
 
       {/* Controls hint */}
-      <div className="absolute bottom-2 right-2 text-xs font-mono text-text-muted">
+      <div className="absolute bottom-2 right-2 text-xs font-theme-data text-text-muted">
         Scroll to zoom • Drag agents
       </div>
     </div>

@@ -31,16 +31,16 @@ interface BatchJobsMonitorProps {
 
 const STATUS_COLORS: Record<string, string> = {
   pending: 'text-gray-400 border-gray-400/30 bg-gray-400/10',
-  processing: 'text-acid-cyan border-acid-cyan/30 bg-acid-cyan/10',
-  completed: 'text-acid-green border-acid-green/30 bg-acid-green/10',
-  failed: 'text-crimson border-crimson/30 bg-crimson/10',
+  processing: 'text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10',
+  completed: 'text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10',
+  failed: 'text-[var(--crimson)] border-[var(--crimson)]/30 bg-[var(--crimson)]/10',
   cancelled: 'text-orange-400 border-orange-400/30 bg-orange-400/10',
 };
 
 const RESULT_STATUS_COLORS: Record<string, string> = {
   pending: 'text-gray-400',
-  success: 'text-acid-green',
-  error: 'text-crimson',
+  success: 'text-[var(--accent)]',
+  error: 'text-[var(--crimson)]',
 };
 
 export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
@@ -129,14 +129,14 @@ export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-pulse text-acid-cyan">Loading batch jobs...</div>
+        <div className="animate-pulse text-[var(--acid-cyan)]">Loading batch jobs...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-crimson/10 border border-crimson/30 rounded-lg text-crimson">
+      <div className="p-4 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded-lg text-[var(--crimson)]">
         Error: {error}
       </div>
     );
@@ -172,7 +172,7 @@ export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
           </select>
           <button
             onClick={() => fetchJobs()}
-            className="px-3 py-1.5 bg-acid-cyan/10 border border-acid-cyan/30 rounded text-acid-cyan text-sm hover:bg-acid-cyan/20"
+            className="px-3 py-1.5 bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/30 rounded text-[var(--acid-cyan)] text-sm hover:bg-[var(--acid-cyan)]/20"
           >
             Refresh
           </button>
@@ -185,19 +185,19 @@ export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
           <div className="text-sm text-gray-400">Total Jobs</div>
           <div className="text-2xl font-semibold text-white">{jobs.length}</div>
         </div>
-        <div className="bg-black/50 border border-acid-cyan/30 rounded-lg p-4">
+        <div className="bg-black/50 border border-[var(--acid-cyan)]/30 rounded-lg p-4">
           <div className="text-sm text-gray-400">Active</div>
-          <div className="text-2xl font-semibold text-acid-cyan">{activeJobs}</div>
+          <div className="text-2xl font-semibold text-[var(--acid-cyan)]">{activeJobs}</div>
         </div>
-        <div className="bg-black/50 border border-acid-green/30 rounded-lg p-4">
+        <div className="bg-black/50 border border-[var(--accent)]/30 rounded-lg p-4">
           <div className="text-sm text-gray-400">Completed</div>
-          <div className="text-2xl font-semibold text-acid-green">
+          <div className="text-2xl font-semibold text-[var(--accent)]">
             {jobs.filter(j => j.status === 'completed').length}
           </div>
         </div>
-        <div className="bg-black/50 border border-crimson/30 rounded-lg p-4">
+        <div className="bg-black/50 border border-[var(--crimson)]/30 rounded-lg p-4">
           <div className="text-sm text-gray-400">Failed</div>
-          <div className="text-2xl font-semibold text-crimson">
+          <div className="text-2xl font-semibold text-[var(--crimson)]">
             {jobs.filter(j => j.status === 'failed').length}
           </div>
         </div>
@@ -222,12 +222,12 @@ export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
               <tr
                 key={job.id}
                 className={`hover:bg-white/5 cursor-pointer ${
-                  selectedJob?.id === job.id ? 'bg-acid-cyan/10' : ''
+                  selectedJob?.id === job.id ? 'bg-[var(--acid-cyan)]/10' : ''
                 }`}
                 onClick={() => setSelectedJob(job)}
               >
                 <td className="px-4 py-3">
-                  <span className="font-mono text-sm text-white">
+                  <span className="font-theme-data text-sm text-white">
                     {job.id.substring(0, 12)}...
                   </span>
                 </td>
@@ -241,7 +241,7 @@ export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
                     <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all ${
-                          job.status === 'failed' ? 'bg-crimson' : 'bg-acid-cyan'
+                          job.status === 'failed' ? 'bg-[var(--crimson)]' : 'bg-[var(--acid-cyan)]'
                         }`}
                         style={{ width: `${getProgressPercent(job)}%` }}
                       />
@@ -252,9 +252,9 @@ export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-acid-green text-sm">{job.success_count}</span>
+                  <span className="text-[var(--accent)] text-sm">{job.success_count}</span>
                   <span className="text-gray-500 mx-1">/</span>
-                  <span className="text-crimson text-sm">{job.failure_count}</span>
+                  <span className="text-[var(--crimson)] text-sm">{job.failure_count}</span>
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-400">
                   {getElapsedTime(job)}
@@ -269,7 +269,7 @@ export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
                         e.stopPropagation();
                         cancelJob(job.id);
                       }}
-                      className="px-2 py-1 text-xs bg-crimson/10 text-crimson rounded hover:bg-crimson/20"
+                      className="px-2 py-1 text-xs bg-[var(--crimson)]/10 text-[var(--crimson)] rounded hover:bg-[var(--crimson)]/20"
                     >
                       Cancel
                     </button>
@@ -301,7 +301,7 @@ export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
           </div>
 
           {selectedJob.error_message && (
-            <div className="mb-4 p-3 bg-crimson/10 border border-crimson/30 rounded text-crimson text-sm">
+            <div className="mb-4 p-3 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded text-[var(--crimson)] text-sm">
               Error: {selectedJob.error_message}
             </div>
           )}
@@ -319,7 +319,7 @@ export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
                     <span className={`text-sm ${RESULT_STATUS_COLORS[result.status]}`}>
                       {result.status === 'success' ? '✓' : result.status === 'error' ? '✗' : '○'}
                     </span>
-                    <span className="font-mono text-sm text-white">
+                    <span className="font-theme-data text-sm text-white">
                       {result.debate_id}
                     </span>
                     {result.processing_time_ms && (
@@ -329,7 +329,7 @@ export function BatchJobsMonitor({ apiBase = '/api' }: BatchJobsMonitorProps) {
                     )}
                   </div>
                   {result.error_message && (
-                    <span className="text-xs text-crimson truncate max-w-xs">
+                    <span className="text-xs text-[var(--crimson)] truncate max-w-xs">
                       {result.error_message}
                     </span>
                   )}

@@ -238,7 +238,7 @@ export function DependencySecurityPanel({
     >
       {/* Header */}
       <div className="p-4 border-b border-[var(--border)]">
-        <h3 className="font-mono text-sm font-medium text-[var(--text)] mb-3">
+        <h3 className="font-theme-data text-sm font-medium text-[var(--text)] mb-3">
           Dependency Security Analysis
         </h3>
 
@@ -249,12 +249,12 @@ export function DependencySecurityPanel({
             value={path}
             onChange={(e) => setPath(e.target.value)}
             placeholder="/path/to/repository"
-            className="flex-1 px-3 py-2 text-sm font-mono bg-[var(--surface)] border border-[var(--border)] rounded text-[var(--text)] placeholder:text-[var(--text-muted)]"
+            className="flex-1 px-3 py-2 text-sm font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded text-[var(--text)] placeholder:text-[var(--text-muted)]"
           />
           <button
             onClick={analyzeDependencies}
             disabled={loading || !path}
-            className="px-4 py-2 text-sm font-mono bg-[var(--primary)] text-white rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
+            className="px-4 py-2 text-sm font-theme-data bg-[var(--primary)] text-white rounded hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
             {loading ? 'Analyzing...' : 'Analyze'}
           </button>
@@ -266,21 +266,21 @@ export function DependencySecurityPanel({
             <button
               onClick={scanVulnerabilities}
               disabled={loading}
-              className="px-3 py-1 text-xs font-mono text-red-400 border border-red-400/40 rounded hover:bg-red-500/20 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data text-red-400 border border-red-400/40 rounded hover:bg-red-500/20 transition-colors"
             >
               Scan CVEs
             </button>
             <button
               onClick={checkLicenses}
               disabled={loading}
-              className="px-3 py-1 text-xs font-mono text-yellow-400 border border-yellow-400/40 rounded hover:bg-yellow-500/20 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data text-yellow-400 border border-yellow-400/40 rounded hover:bg-yellow-500/20 transition-colors"
             >
               Check Licenses
             </button>
             <button
               onClick={generateSbom}
               disabled={loading}
-              className="px-3 py-1 text-xs font-mono text-blue-400 border border-blue-400/40 rounded hover:bg-blue-500/20 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data text-blue-400 border border-blue-400/40 rounded hover:bg-blue-500/20 transition-colors"
             >
               Generate SBOM
             </button>
@@ -296,7 +296,7 @@ export function DependencySecurityPanel({
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 text-xs font-mono transition-colors ${
+                className={`px-4 py-2 text-xs font-theme-data transition-colors ${
                   activeTab === tab
                     ? 'text-[var(--primary)] border-b-2 border-[var(--primary)]'
                     : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -322,13 +322,13 @@ export function DependencySecurityPanel({
       {/* Content */}
       <div className="p-4 max-h-[500px] overflow-y-auto">
         {error && (
-          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/40 rounded text-red-400 text-sm font-mono">
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/40 rounded text-red-400 text-sm font-theme-data">
             {error}
           </div>
         )}
 
         {loading && (
-          <div className="text-center py-8 text-[var(--text-muted)] text-sm font-mono">
+          <div className="text-center py-8 text-[var(--text-muted)] text-sm font-theme-data">
             {activeTab === 'vulnerabilities'
               ? 'Scanning for vulnerabilities...'
               : activeTab === 'licenses'
@@ -340,7 +340,7 @@ export function DependencySecurityPanel({
         )}
 
         {!loading && !analysis && (
-          <div className="text-center py-8 text-[var(--text-muted)] text-sm font-mono">
+          <div className="text-center py-8 text-[var(--text-muted)] text-sm font-theme-data">
             Enter a repository path and click Analyze to begin
           </div>
         )}
@@ -351,7 +351,7 @@ export function DependencySecurityPanel({
             {/* Summary Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="p-3 bg-[var(--surface-hover)] rounded">
-                <div className="text-2xl font-mono text-[var(--text)]">
+                <div className="text-2xl font-theme-data text-[var(--text)]">
                   {analysis.total_dependencies}
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">
@@ -359,13 +359,13 @@ export function DependencySecurityPanel({
                 </div>
               </div>
               <div className="p-3 bg-[var(--surface-hover)] rounded">
-                <div className="text-2xl font-mono text-blue-400">
+                <div className="text-2xl font-theme-data text-blue-400">
                   {analysis.direct_dependencies}
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">Direct</div>
               </div>
               <div className="p-3 bg-[var(--surface-hover)] rounded">
-                <div className="text-2xl font-mono text-purple-400">
+                <div className="text-2xl font-theme-data text-purple-400">
                   {analysis.transitive_dependencies}
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">
@@ -373,7 +373,7 @@ export function DependencySecurityPanel({
                 </div>
               </div>
               <div className="p-3 bg-[var(--surface-hover)] rounded">
-                <div className="text-2xl font-mono text-gray-400">
+                <div className="text-2xl font-theme-data text-gray-400">
                   {analysis.dev_dependencies}
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">Dev Only</div>
@@ -382,7 +382,7 @@ export function DependencySecurityPanel({
 
             {/* Project Info */}
             <div className="p-3 border border-[var(--border)] rounded">
-              <div className="text-sm font-mono text-[var(--text)]">
+              <div className="text-sm font-theme-data text-[var(--text)]">
                 {analysis.project_name}@{analysis.project_version}
               </div>
               <div className="text-xs text-[var(--text-muted)] mt-1">
@@ -392,14 +392,14 @@ export function DependencySecurityPanel({
 
             {/* Dependency List */}
             <div>
-              <h4 className="text-xs font-mono text-[var(--text-muted)] mb-2">
+              <h4 className="text-xs font-theme-data text-[var(--text-muted)] mb-2">
                 DEPENDENCIES ({analysis.dependencies.length} shown)
               </h4>
               <div className="space-y-1 max-h-[200px] overflow-y-auto">
                 {analysis.dependencies.slice(0, 50).map((dep, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between p-2 bg-[var(--surface-hover)] rounded text-xs font-mono"
+                    className="flex items-center justify-between p-2 bg-[var(--surface-hover)] rounded text-xs font-theme-data"
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-[var(--text)]">{dep.name}</span>
@@ -432,27 +432,27 @@ export function DependencySecurityPanel({
             {/* Severity Summary */}
             <div className="flex items-center gap-4">
               {scanResult.critical_count > 0 && (
-                <span className="px-2 py-1 text-xs font-mono bg-red-600 text-white rounded">
+                <span className="px-2 py-1 text-xs font-theme-data bg-red-600 text-white rounded">
                   {scanResult.critical_count} Critical
                 </span>
               )}
               {scanResult.high_count > 0 && (
-                <span className="px-2 py-1 text-xs font-mono bg-red-500 text-white rounded">
+                <span className="px-2 py-1 text-xs font-theme-data bg-red-500 text-white rounded">
                   {scanResult.high_count} High
                 </span>
               )}
               {scanResult.medium_count > 0 && (
-                <span className="px-2 py-1 text-xs font-mono bg-yellow-500 text-black rounded">
+                <span className="px-2 py-1 text-xs font-theme-data bg-yellow-500 text-black rounded">
                   {scanResult.medium_count} Medium
                 </span>
               )}
               {scanResult.low_count > 0 && (
-                <span className="px-2 py-1 text-xs font-mono bg-blue-500 text-white rounded">
+                <span className="px-2 py-1 text-xs font-theme-data bg-blue-500 text-white rounded">
                   {scanResult.low_count} Low
                 </span>
               )}
               {scanResult.total_vulnerabilities === 0 && (
-                <span className="px-2 py-1 text-xs font-mono bg-green-500 text-white rounded">
+                <span className="px-2 py-1 text-xs font-theme-data bg-green-500 text-white rounded">
                   No vulnerabilities found
                 </span>
               )}
@@ -468,7 +468,7 @@ export function DependencySecurityPanel({
 
               return (
                 <div key={severity}>
-                  <h4 className="text-xs font-mono text-[var(--text-muted)] mb-2 uppercase">
+                  <h4 className="text-xs font-theme-data text-[var(--text-muted)] mb-2 uppercase">
                     {severity} ({vulns.length})
                   </h4>
                   <div className="space-y-2">
@@ -480,7 +480,7 @@ export function DependencySecurityPanel({
                         <div className="flex items-start justify-between mb-2">
                           <div>
                             <span
-                              className={`px-1.5 py-0.5 text-xs font-mono rounded ${getSeverityColor(severity)}`}
+                              className={`px-1.5 py-0.5 text-xs font-theme-data rounded ${getSeverityColor(severity)}`}
                             >
                               {vuln.id}
                             </span>
@@ -490,7 +490,7 @@ export function DependencySecurityPanel({
                               </span>
                             )}
                           </div>
-                          <span className="text-xs font-mono text-[var(--text-muted)]">
+                          <span className="text-xs font-theme-data text-[var(--text-muted)]">
                             {vuln.affected_package}
                           </span>
                         </div>
@@ -518,7 +518,7 @@ export function DependencySecurityPanel({
         {!loading && activeTab === 'licenses' && (
           <div className="space-y-4">
             {licenseConflicts.length === 0 ? (
-              <div className="text-center py-8 text-green-400 text-sm font-mono">
+              <div className="text-center py-8 text-green-400 text-sm font-theme-data">
                 No license conflicts detected
               </div>
             ) : (
@@ -535,7 +535,7 @@ export function DependencySecurityPanel({
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-mono text-[var(--text)]">
+                      <span className="text-sm font-theme-data text-[var(--text)]">
                         {conflict.package}
                       </span>
                       <span
@@ -573,14 +573,14 @@ export function DependencySecurityPanel({
                   onChange={(e) =>
                     setSbomFormat(e.target.value as 'cyclonedx' | 'spdx')
                   }
-                  className="px-2 py-1 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] rounded text-[var(--text)]"
+                  className="px-2 py-1 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded text-[var(--text)]"
                 >
                   <option value="cyclonedx">CycloneDX</option>
                   <option value="spdx">SPDX</option>
                 </select>
                 <button
                   onClick={generateSbom}
-                  className="px-2 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded"
+                  className="px-2 py-1 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded"
                 >
                   Regenerate
                 </button>
@@ -588,7 +588,7 @@ export function DependencySecurityPanel({
               {sbomContent && (
                 <button
                   onClick={downloadSbom}
-                  className="px-3 py-1 text-xs font-mono text-blue-400 border border-blue-400/40 rounded hover:bg-blue-500/20"
+                  className="px-3 py-1 text-xs font-theme-data text-blue-400 border border-blue-400/40 rounded hover:bg-blue-500/20"
                 >
                   Download JSON
                 </button>
@@ -596,12 +596,12 @@ export function DependencySecurityPanel({
             </div>
 
             {sbomContent ? (
-              <pre className="p-3 bg-[var(--surface-hover)] rounded text-xs font-mono text-[var(--text)] overflow-x-auto max-h-[300px]">
+              <pre className="p-3 bg-[var(--surface-hover)] rounded text-xs font-theme-data text-[var(--text)] overflow-x-auto max-h-[300px]">
                 {sbomContent.slice(0, 5000)}
                 {sbomContent.length > 5000 && '\n... (truncated)'}
               </pre>
             ) : (
-              <div className="text-center py-8 text-[var(--text-muted)] text-sm font-mono">
+              <div className="text-center py-8 text-[var(--text-muted)] text-sm font-theme-data">
                 Click "Generate SBOM" to create a Software Bill of Materials
               </div>
             )}

@@ -61,11 +61,11 @@ export const AutoTransitionSuggestion = memo(function AutoTransitionSuggestion({
             className="rounded-lg border border-border bg-surface/90 p-3 animate-in fade-in slide-in-from-bottom-1"
           >
             {/* Header */}
-            <div className="flex items-center gap-2 mb-2 text-xs font-mono uppercase tracking-wide text-text-muted">
+            <div className="flex items-center gap-2 mb-2 text-xs font-theme-data uppercase tracking-wide text-text-muted">
               <span className={fromColors.text}>{fromConfig.label}</span>
               <span className="text-text-muted">&rarr;</span>
               <span className={toColors.text}>{toConfig.label}</span>
-              <span className="ml-auto px-1.5 py-0.5 rounded bg-acid-green/20 text-acid-green text-[10px]">
+              <span className="ml-auto px-1.5 py-0.5 rounded bg-[var(--accent)]/20 text-[var(--accent)] text-[10px]">
                 {group.length} suggested
               </span>
             </div>
@@ -120,7 +120,7 @@ const SuggestionRow = memo(function SuggestionRow({
 
   return (
     <div className="flex items-center gap-2 px-2 py-1 rounded hover:bg-white/5 group">
-      <span className={`font-mono text-xs ${confidenceColor}`}>
+      <span className={`font-theme-data text-xs ${confidenceColor}`}>
         {Math.round(suggestion.confidence * 100)}%
       </span>
       <span className="text-xs text-text truncate flex-1" title={suggestion.reason}>
@@ -128,13 +128,13 @@ const SuggestionRow = memo(function SuggestionRow({
       </span>
       <button
         onClick={handleApprove}
-        className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 text-[10px] font-mono rounded bg-green-500/20 text-green-300 hover:bg-green-500/30 transition-opacity"
+        className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 text-[10px] font-theme-data rounded bg-green-500/20 text-green-300 hover:bg-green-500/30 transition-opacity"
       >
         Promote
       </button>
       <button
         onClick={handleDismiss}
-        className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 text-[10px] font-mono rounded bg-gray-500/20 text-gray-400 hover:bg-gray-500/30 transition-opacity"
+        className="opacity-0 group-hover:opacity-100 px-1.5 py-0.5 text-[10px] font-theme-data rounded bg-gray-500/20 text-gray-400 hover:bg-gray-500/30 transition-opacity"
       >
         Dismiss
       </button>

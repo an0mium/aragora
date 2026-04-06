@@ -387,21 +387,21 @@ export function Sidebar() {
           onClick={canCollapse ? () => toggleSection(sectionKey!) : undefined}
           className={`
             w-full flex items-center justify-between px-2 mb-2
-            text-acid-cyan text-xs uppercase tracking-wider
-            ${canCollapse ? 'cursor-pointer hover:text-acid-green transition-colors' : 'cursor-default'}
+            text-[var(--acid-cyan)] text-xs uppercase tracking-wider
+            ${canCollapse ? 'cursor-pointer hover:text-[var(--accent)] transition-colors' : 'cursor-default'}
           `}
         >
           <span className="flex items-center gap-1.5">
             {title}
             {/* Count badge -- shows number of visible items in this group */}
             {canCollapse && (
-              <span className="px-1 py-0.5 text-[9px] font-medium bg-acid-green/10 text-acid-green/70 rounded leading-none">
+              <span className="px-1 py-0.5 text-[9px] font-medium bg-[var(--accent)]/10 text-[var(--accent)]/70 rounded leading-none">
                 {filteredItems.length}
               </span>
             )}
           </span>
           {canCollapse && (
-            <span className="font-mono text-[10px] text-acid-green/50">
+            <span className="font-theme-data text-[10px] text-[var(--accent)]/50">
               {isCollapsed ? '\u25B8' : '\u25BE'}
             </span>
           )}
@@ -415,10 +415,10 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 onClick={close}
-                className="flex items-center gap-2 px-2 py-2 text-acid-green hover:bg-acid-green/10 hover:text-acid-cyan transition-colors font-mono text-sm"
+                className="flex items-center gap-2 px-2 py-2 text-[var(--accent)] hover:bg-[var(--accent)]/10 hover:text-[var(--acid-cyan)] transition-colors font-theme-data text-sm"
               >
                 {item.icon && (
-                  <span className="w-4 text-center text-acid-green/70">{item.icon}</span>
+                  <span className="w-4 text-center text-[var(--accent)]/70">{item.icon}</span>
                 )}
                 {item.label}
               </Link>
@@ -446,17 +446,17 @@ export function Sidebar() {
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
-        className={`fixed top-0 left-0 h-full w-72 sm:w-72 bg-bg border-r border-acid-green/30 z-50 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 left-0 h-full w-72 sm:w-72 bg-bg border-r border-[var(--accent)]/30 z-50 transform transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-acid-green/30">
-          <span className="text-acid-green font-mono font-bold text-lg">[MENU]</span>
+        <div className="flex items-center justify-between p-4 border-b border-[var(--accent)]/30">
+          <span className="text-[var(--accent)] font-theme-data font-bold text-lg">[MENU]</span>
           <button
             ref={firstFocusableRef}
             onClick={close}
-            className="text-acid-green hover:text-acid-cyan transition-colors p-1 focus:outline-none focus:ring-2 focus:ring-acid-green/50 rounded"
+            className="text-[var(--accent)] hover:text-[var(--acid-cyan)] transition-colors p-1 focus:outline-none focus:ring-2 focus:ring-acid-green/50 rounded"
             aria-label="Close menu"
           >
             <span className="text-xl">&times;</span>
@@ -471,11 +471,11 @@ export function Sidebar() {
           ) : (
             <>
               {/* User info */}
-              <div className="mb-6 p-3 bg-acid-green/5 border border-acid-green/20 rounded">
-                <div className="text-acid-green font-mono text-sm truncate">
+              <div className="mb-6 p-3 bg-[var(--accent)]/5 border border-[var(--accent)]/20 rounded">
+                <div className="text-[var(--accent)] font-theme-data text-sm truncate">
                   {user?.email || 'User'}
                 </div>
-                <div className="text-acid-green/60 text-xs mt-1">
+                <div className="text-[var(--accent)]/60 text-xs mt-1">
                   {user?.role || 'member'}
                 </div>
               </div>
@@ -485,7 +485,7 @@ export function Sidebar() {
 
           {/* Mode selector */}
           <div className="mb-6 p-2">
-            <h3 className="text-acid-cyan text-xs uppercase tracking-wider mb-2 px-2">
+            <h3 className="text-[var(--acid-cyan)] text-xs uppercase tracking-wider mb-2 px-2">
               Mode: {modeLabel}
             </h3>
             <ModeSelector compact />
@@ -544,12 +544,12 @@ export function Sidebar() {
         </div>
 
         {/* Footer */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-acid-green/30 bg-bg">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[var(--accent)]/30 bg-bg">
           <div className="mb-3 text-center">
             <Link
               href="/about"
               onClick={close}
-              className="text-acid-green/70 hover:text-acid-cyan transition-colors font-mono text-xs"
+              className="text-[var(--accent)]/70 hover:text-[var(--acid-cyan)] transition-colors font-theme-data text-xs"
             >
               About
             </Link>
@@ -557,12 +557,12 @@ export function Sidebar() {
           {isAuthenticated ? (
             <button
               onClick={handleLogout}
-              className="w-full px-4 py-2 text-crimson hover:bg-crimson/10 transition-colors font-mono text-sm border border-crimson/30 rounded"
+              className="w-full px-4 py-2 text-[var(--crimson)] hover:bg-[var(--crimson)]/10 transition-colors font-theme-data text-sm border border-[var(--crimson)]/30 rounded"
             >
               Logout
             </button>
           ) : (
-            <div className="text-center text-acid-green/50 text-xs font-mono">
+            <div className="text-center text-[var(--accent)]/50 text-xs font-theme-data">
               ARAGORA // LIVE
             </div>
           )}

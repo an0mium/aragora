@@ -5,6 +5,8 @@ from . import debates
 from . import decisions
 from . import testfixer
 from . import receipts
+from . import backups
+from . import dr
 from . import gauntlet
 from . import agents
 from . import consensus
@@ -34,6 +36,8 @@ __all__ = [
     "decisions",
     "testfixer",
     "receipts",
+    "backups",
+    "dr",
     "gauntlet",
     "agents",
     "consensus",

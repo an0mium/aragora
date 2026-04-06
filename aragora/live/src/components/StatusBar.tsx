@@ -46,14 +46,14 @@ export function StatusBar({ connected, events, cycle = 0, phase = 'idle' }: Stat
   // Phase indicator
   const phaseColors: Record<string, string> = {
     idle: 'text-text-muted',
-    debate: 'text-acid-green',
-    evolution: 'text-acid-cyan',
+    debate: 'text-[var(--accent)]',
+    evolution: 'text-[var(--acid-cyan)]',
     judgment: 'text-purple',
     execution: 'text-gold',
   };
 
   return (
-    <div className="bg-surface border-t border-acid-green/30 text-xs font-mono">
+    <div className="bg-surface border-t border-[var(--accent)]/30 text-xs font-theme-data">
       <div className="container mx-auto px-4 py-1.5 flex items-center justify-between gap-4">
         {/* Left section */}
         <div className="flex items-center gap-4">
@@ -61,10 +61,10 @@ export function StatusBar({ connected, events, cycle = 0, phase = 'idle' }: Stat
           <div className="flex items-center gap-1.5">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                connected ? 'bg-acid-green animate-pulse' : 'bg-crimson'
+                connected ? 'bg-[var(--accent)] animate-pulse' : 'bg-[var(--crimson)]'
               }`}
             />
-            <span className={connected ? 'text-acid-green' : 'text-crimson'}>
+            <span className={connected ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'}>
               {connected ? 'ONLINE' : 'OFFLINE'}
             </span>
           </div>
@@ -86,14 +86,14 @@ export function StatusBar({ connected, events, cycle = 0, phase = 'idle' }: Stat
           {/* Cycle */}
           <div className="flex items-center gap-1.5">
             <span className="text-text-muted">CYCLE:</span>
-            <span className="text-acid-cyan">{cycle}</span>
+            <span className="text-[var(--acid-cyan)]">{cycle}</span>
           </div>
         </div>
 
         {/* Center section - Last event */}
         <div className="hidden md:flex items-center gap-1.5">
           <span className="text-text-muted">LAST:</span>
-          <span className="text-acid-yellow truncate max-w-[200px]">
+          <span className="text-[var(--acid-yellow)] truncate max-w-[200px]">
             {lastEventType.replace(/_/g, ' ').toUpperCase()}
           </span>
         </div>
@@ -103,7 +103,7 @@ export function StatusBar({ connected, events, cycle = 0, phase = 'idle' }: Stat
           {/* Events count */}
           <div className="flex items-center gap-1.5">
             <span className="text-text-muted">EVENTS:</span>
-            <span className="text-acid-green">{events.length}</span>
+            <span className="text-[var(--accent)]">{events.length}</span>
           </div>
 
           {/* Separator */}
@@ -112,14 +112,14 @@ export function StatusBar({ connected, events, cycle = 0, phase = 'idle' }: Stat
           {/* Uptime */}
           <div className="flex items-center gap-1.5">
             <span className="text-text-muted">UP:</span>
-            <span className="text-acid-cyan">{formatUptime(uptime)}</span>
+            <span className="text-[var(--acid-cyan)]">{formatUptime(uptime)}</span>
           </div>
 
           {/* Separator */}
           <span className="text-border">|</span>
 
           {/* Time */}
-          <div className="text-acid-green">{time}</div>
+          <div className="text-[var(--accent)]">{time}</div>
         </div>
       </div>
     </div>
@@ -129,13 +129,13 @@ export function StatusBar({ connected, events, cycle = 0, phase = 'idle' }: Stat
 // Mini status for header integration
 export function StatusPill({ connected, phase }: { connected: boolean; phase: string }) {
   return (
-    <div className="flex items-center gap-2 px-2 py-0.5 bg-surface border border-acid-green/30 rounded font-mono text-xs">
+    <div className="flex items-center gap-2 px-2 py-0.5 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-xs">
       <span
         className={`w-1.5 h-1.5 rounded-full ${
-          connected ? 'bg-acid-green animate-pulse' : 'bg-crimson'
+          connected ? 'bg-[var(--accent)] animate-pulse' : 'bg-[var(--crimson)]'
         }`}
       />
-      <span className={connected ? 'text-acid-green' : 'text-crimson'}>
+      <span className={connected ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'}>
         {phase.toUpperCase()}
       </span>
     </div>

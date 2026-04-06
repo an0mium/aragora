@@ -84,24 +84,24 @@ export function SyncStatusWidget({
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="card p-3">
-          <div className="text-xs font-mono text-text-muted">Connected</div>
-          <div className="text-xl font-mono text-success">{stats.connected}</div>
+          <div className="text-xs font-theme-data text-text-muted">Connected</div>
+          <div className="text-xl font-theme-data text-success">{stats.connected}</div>
         </div>
         <div className="card p-3">
-          <div className="text-xs font-mono text-text-muted">Syncing</div>
-          <div className="text-xl font-mono text-acid-cyan">{stats.syncing}</div>
+          <div className="text-xs font-theme-data text-text-muted">Syncing</div>
+          <div className="text-xl font-theme-data text-[var(--acid-cyan)]">{stats.syncing}</div>
         </div>
         <div className="card p-3">
-          <div className="text-xs font-mono text-text-muted">Errors</div>
-          <div className="text-xl font-mono text-crimson">{stats.errors}</div>
+          <div className="text-xs font-theme-data text-text-muted">Errors</div>
+          <div className="text-xl font-theme-data text-[var(--crimson)]">{stats.errors}</div>
         </div>
         <div className="card p-3">
-          <div className="text-xs font-mono text-text-muted">Total Items</div>
-          <div className="text-xl font-mono">{formatItemCount(stats.totalItems)}</div>
+          <div className="text-xs font-theme-data text-text-muted">Total Items</div>
+          <div className="text-xl font-theme-data">{formatItemCount(stats.totalItems)}</div>
         </div>
         <div className="card p-3">
-          <div className="text-xs font-mono text-text-muted">Syncs (24h)</div>
-          <div className="text-xl font-mono">{stats.recentSyncs}</div>
+          <div className="text-xs font-theme-data text-text-muted">Syncs (24h)</div>
+          <div className="text-xl font-theme-data">{stats.recentSyncs}</div>
         </div>
       </div>
 
@@ -109,15 +109,15 @@ export function SyncStatusWidget({
       {activeSyncs.length > 0 && (
         <div className="card">
           <div className="p-3 border-b border-border flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-acid-cyan animate-pulse" />
-            <h3 className="font-mono text-sm text-acid-green">Active Syncs</h3>
+            <span className="w-2 h-2 rounded-full bg-[var(--acid-cyan)] animate-pulse" />
+            <h3 className="font-theme-data text-sm text-[var(--accent)]">Active Syncs</h3>
           </div>
           <div className="p-3 space-y-3">
             {activeSyncs.map((sync) => (
               <div key={sync.id} className="bg-surface p-3 rounded">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <span className="font-mono text-sm">{sync.connector_name}</span>
+                    <span className="font-theme-data text-sm">{sync.connector_name}</span>
                     <span className="text-xs text-text-muted ml-2">
                       Started {formatTime(sync.started_at)}
                     </span>
@@ -125,7 +125,7 @@ export function SyncStatusWidget({
                   {onCancelSync && (
                     <button
                       onClick={() => onCancelSync(sync.id)}
-                      className="text-xs text-crimson hover:text-crimson/80 transition-colors"
+                      className="text-xs text-[var(--crimson)] hover:text-[var(--crimson)]/80 transition-colors"
                     >
                       Cancel
                     </button>
@@ -133,7 +133,7 @@ export function SyncStatusWidget({
                 </div>
                 <div className="h-1.5 bg-bg rounded overflow-hidden mb-1">
                   <div
-                    className="h-full bg-acid-cyan transition-all animate-pulse"
+                    className="h-full bg-[var(--acid-cyan)] transition-all animate-pulse"
                     style={{
                       width: sync.items_total
                         ? `${(sync.items_processed / sync.items_total) * 100}%`
@@ -141,7 +141,7 @@ export function SyncStatusWidget({
                     }}
                   />
                 </div>
-                <div className="text-xs text-text-muted font-mono">
+                <div className="text-xs text-text-muted font-theme-data">
                   {sync.items_total
                     ? `${formatItemCount(sync.items_processed)} / ${formatItemCount(sync.items_total)} items`
                     : `${formatItemCount(sync.items_processed)} items processed`}
@@ -155,10 +155,10 @@ export function SyncStatusWidget({
       {/* Recent Syncs */}
       <div className="card">
         <div className="p-3 border-b border-border">
-          <h3 className="font-mono text-sm text-acid-green">Recent Syncs</h3>
+          <h3 className="font-theme-data text-sm text-[var(--accent)]">Recent Syncs</h3>
         </div>
         {recentSyncs.length === 0 ? (
-          <div className="p-6 text-center text-text-muted font-mono text-sm">
+          <div className="p-6 text-center text-text-muted font-theme-data text-sm">
             No sync history yet
           </div>
         ) : (
@@ -171,12 +171,12 @@ export function SyncStatusWidget({
                       sync.status === 'completed'
                         ? 'bg-success'
                         : sync.status === 'failed'
-                        ? 'bg-crimson'
+                        ? 'bg-[var(--crimson)]'
                         : 'bg-text-muted'
                     }`}
                   />
                   <div>
-                    <div className="font-mono text-sm">{sync.connector_name}</div>
+                    <div className="font-theme-data text-sm">{sync.connector_name}</div>
                     <div className="text-xs text-text-muted">
                       {formatTime(sync.started_at)}
                       {sync.duration_seconds && ` - ${formatDuration(sync.duration_seconds)}`}
@@ -185,13 +185,13 @@ export function SyncStatusWidget({
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <div className="text-sm font-mono">{formatItemCount(sync.items_processed)}</div>
+                    <div className="text-sm font-theme-data">{formatItemCount(sync.items_processed)}</div>
                     <div className="text-xs text-text-muted">items</div>
                   </div>
                   {sync.status === 'failed' && onRetrySync && (
                     <button
                       onClick={() => onRetrySync(sync.connector_id)}
-                      className="text-xs text-acid-cyan hover:underline"
+                      className="text-xs text-[var(--acid-cyan)] hover:underline"
                     >
                       Retry
                     </button>

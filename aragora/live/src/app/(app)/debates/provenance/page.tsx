@@ -53,20 +53,20 @@ function ProvenancePageContent() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Debate</span>
-            <span className="text-sm font-mono text-[var(--acid-green)] truncate max-w-[120px]">
+            <span className="text-sm font-theme-data text-[var(--acid-green)] truncate max-w-[120px]">
               {selectedDebate.task.slice(0, 30)}...
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Agents</span>
-            <span className="text-sm font-mono text-[var(--text)]">
+            <span className="text-sm font-theme-data text-[var(--text)]">
               {selectedDebate.agents.length}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Consensus</span>
             <span
-              className={`text-sm font-mono ${
+              className={`text-sm font-theme-data ${
                 selectedDebate.consensus_reached
                   ? 'text-green-400'
                   : 'text-yellow-400'
@@ -77,7 +77,7 @@ function ProvenancePageContent() {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Confidence</span>
-            <span className="text-sm font-mono text-[var(--acid-cyan)]">
+            <span className="text-sm font-theme-data text-[var(--acid-cyan)]">
               {Math.round(selectedDebate.confidence * 100)}%
             </span>
           </div>
@@ -87,19 +87,19 @@ function ProvenancePageContent() {
         <div className="space-y-2">
           <Link
             href="/debates"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             ARCHIVE VIEW
           </Link>
           <Link
             href="/debates/graph"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             GRAPH VIEW
           </Link>
           <Link
             href="/audit"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
           >
             FULL AUDIT LOG
           </Link>
@@ -123,22 +123,22 @@ function ProvenancePageContent() {
           <div className="mb-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <h1 className="text-xl font-mono text-[var(--acid-green)] mb-2">
+                <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-2">
                   {'>'} DECISION PROVENANCE
                 </h1>
-                <p className="text-xs text-[var(--text-muted)] font-mono">
+                <p className="text-xs text-[var(--text-muted)] font-theme-data">
                   Trace the full audit trail of how decisions were reached
                 </p>
               </div>
 
               {/* View mode toggle */}
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--text-muted)] font-mono">View:</span>
+                <span className="text-xs text-[var(--text-muted)] font-theme-data">View:</span>
                 {(['graph', 'timeline'] as const).map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
-                    className={`px-3 py-1 text-xs font-mono border transition-colors uppercase ${
+                    className={`px-3 py-1 text-xs font-theme-data border transition-colors uppercase ${
                       viewMode === mode
                         ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/40'
                         : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/40'
@@ -153,13 +153,13 @@ function ProvenancePageContent() {
 
           {/* Debate Selector */}
           <div className="mb-6 bg-[var(--surface)] border border-[var(--border)] p-4">
-            <label className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+            <label className="block text-xs font-theme-data text-[var(--text-muted)] mb-2">
               SELECT DEBATE
             </label>
             <select
               value={selectedDebateId || ''}
               onChange={(e) => setSelectedDebateId(e.target.value || null)}
-              className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-mono text-sm p-2 focus:border-[var(--acid-green)] focus:outline-none"
+              className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-theme-data text-sm p-2 focus:border-[var(--acid-green)] focus:outline-none"
               disabled={loading}
             >
               <option value="">
@@ -189,10 +189,10 @@ function ProvenancePageContent() {
               {/* Quick info panel */}
               {selectedDebate && (
                 <div className="mt-4 bg-[var(--surface)] border border-[var(--border)] p-4">
-                  <h3 className="text-sm font-mono text-[var(--acid-green)] mb-3">
+                  <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-3">
                     {'>'} DEBATE CONTEXT
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-mono">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-theme-data">
                     <div>
                       <span className="text-[var(--text-muted)]">Task:</span>
                       <p className="text-[var(--text)] mt-1">{selectedDebate.task}</p>
@@ -236,15 +236,15 @@ function ProvenancePageContent() {
           ) : (
             <div className="bg-[var(--surface)] border border-[var(--border)] p-12 text-center">
               <div className="text-6xl mb-4"></div>
-              <h3 className="text-lg font-mono text-[var(--text)] mb-2">
+              <h3 className="text-lg font-theme-data text-[var(--text)] mb-2">
                 No Debate Selected
               </h3>
-              <p className="text-sm text-[var(--text-muted)] font-mono mb-4">
+              <p className="text-sm text-[var(--text-muted)] font-theme-data mb-4">
                 Select a debate from the dropdown above to view its decision provenance
               </p>
               <Link
                 href="/arena"
-                className="inline-block px-4 py-2 text-sm font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+                className="inline-block px-4 py-2 text-sm font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
               >
                 START NEW DEBATE
               </Link>
@@ -253,10 +253,10 @@ function ProvenancePageContent() {
 
           {/* Help section */}
           <div className="mt-6 bg-[var(--surface)]/50 border border-[var(--border)] p-4">
-            <h3 className="text-sm font-mono text-[var(--acid-cyan)] mb-3">
+            <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-3">
               {'>'} UNDERSTANDING PROVENANCE
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-mono">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-theme-data">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="w-3 h-3 rounded-full bg-amber-400" />
@@ -290,7 +290,7 @@ function ProvenancePageContent() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
           <div className="text-[var(--acid-green)]/50 mb-2">{'═'.repeat(40)}</div>
           <p className="text-[var(--text-muted)]">
             {'>'} DECISION PROVENANCE // AUDIT TRAIL FOR DEFENSIBLE DECISIONS
@@ -306,7 +306,7 @@ export default function ProvenancePage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center">
-        <div className="text-[var(--acid-green)] font-mono animate-pulse">
+        <div className="text-[var(--acid-green)] font-theme-data animate-pulse">
           Loading provenance data...
         </div>
       </div>

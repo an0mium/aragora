@@ -14,14 +14,14 @@ import {
 
 function StateBadge({ state }: { state: string }) {
   const colors: Record<string, { text: string; bg: string }> = {
-    running: { text: 'text-acid-green', bg: 'bg-acid-green/10' },
-    paused: { text: 'text-acid-yellow', bg: 'bg-acid-yellow/10' },
+    running: { text: 'text-[var(--accent)]', bg: 'bg-[var(--accent)]/10' },
+    paused: { text: 'text-[var(--acid-yellow)]', bg: 'bg-acid-yellow/10' },
     stopped: { text: 'text-acid-red', bg: 'bg-acid-red/10' },
   };
   const color = colors[state] || colors.stopped;
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono uppercase ${color.text} ${color.bg} rounded`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data uppercase ${color.text} ${color.bg} rounded`}>
       {state}
     </span>
   );
@@ -52,20 +52,20 @@ function MetricsDisplay({
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div className="text-center">
-        <div className="text-lg font-mono text-acid-green">{metrics.debates_created}</div>
-        <div className="text-xs font-mono text-text-muted">CREATED</div>
+        <div className="text-lg font-theme-data text-[var(--accent)]">{metrics.debates_created}</div>
+        <div className="text-xs font-theme-data text-text-muted">CREATED</div>
       </div>
       <div className="text-center">
-        <div className="text-lg font-mono text-acid-cyan">{metrics.polls_completed}</div>
-        <div className="text-xs font-mono text-text-muted">POLLS</div>
+        <div className="text-lg font-theme-data text-[var(--acid-cyan)]">{metrics.polls_completed}</div>
+        <div className="text-xs font-theme-data text-text-muted">POLLS</div>
       </div>
       <div className="text-center">
-        <div className="text-lg font-mono text-acid-yellow">{metrics.duplicates_skipped}</div>
-        <div className="text-xs font-mono text-text-muted">DUPES</div>
+        <div className="text-lg font-theme-data text-[var(--acid-yellow)]">{metrics.duplicates_skipped}</div>
+        <div className="text-xs font-theme-data text-text-muted">DUPES</div>
       </div>
       <div className="text-center">
-        <div className="text-lg font-mono text-text">{formatUptime(metrics.uptime_seconds)}</div>
-        <div className="text-xs font-mono text-text-muted">UPTIME</div>
+        <div className="text-lg font-theme-data text-text">{formatUptime(metrics.uptime_seconds)}</div>
+        <div className="text-xs font-theme-data text-text-muted">UPTIME</div>
       </div>
     </div>
   );
@@ -130,7 +130,7 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
     <div className="space-y-4">
       {/* Rate Limit */}
       <div>
-        <label htmlFor="pulse-debates-per-hour" className="block text-xs font-mono text-text-muted mb-1">
+        <label htmlFor="pulse-debates-per-hour" className="block text-xs font-theme-data text-text-muted mb-1">
           Debates per Hour: {localConfig.max_debates_per_hour}
         </label>
         <input
@@ -147,7 +147,7 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
 
       {/* Poll Interval */}
       <div>
-        <label htmlFor="pulse-poll-interval" className="block text-xs font-mono text-text-muted mb-1">
+        <label htmlFor="pulse-poll-interval" className="block text-xs font-theme-data text-text-muted mb-1">
           Poll Interval: {Math.round(localConfig.poll_interval_seconds / 60)}min
         </label>
         <input
@@ -165,7 +165,7 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
 
       {/* Volume Threshold */}
       <div>
-        <label htmlFor="pulse-min-volume" className="block text-xs font-mono text-text-muted mb-1">
+        <label htmlFor="pulse-min-volume" className="block text-xs font-theme-data text-text-muted mb-1">
           Min Volume: {localConfig.min_volume_threshold}
         </label>
         <input
@@ -183,7 +183,7 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
 
       {/* Platforms */}
       <div>
-        <label className="block text-xs font-mono text-text-muted mb-2">Platforms</label>
+        <label className="block text-xs font-theme-data text-text-muted mb-2">Platforms</label>
         <div className="flex flex-wrap gap-2">
           {AVAILABLE_PLATFORMS.map((platform) => (
             <label key={platform} className="flex items-center gap-1 cursor-pointer">
@@ -198,7 +198,7 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
                 }}
                 className="accent-acid-green"
               />
-              <span className="text-xs font-mono text-text capitalize">{platform}</span>
+              <span className="text-xs font-theme-data text-text capitalize">{platform}</span>
             </label>
           ))}
         </div>
@@ -206,7 +206,7 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
 
       {/* Categories */}
       <div>
-        <label className="block text-xs font-mono text-text-muted mb-2">Allowed Categories</label>
+        <label className="block text-xs font-theme-data text-text-muted mb-2">Allowed Categories</label>
         <div className="flex flex-wrap gap-2">
           {AVAILABLE_CATEGORIES.map((category) => (
             <label key={category} className="flex items-center gap-1 cursor-pointer">
@@ -221,7 +221,7 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
                 }}
                 className="accent-acid-green"
               />
-              <span className="text-xs font-mono text-text capitalize">{category}</span>
+              <span className="text-xs font-theme-data text-text capitalize">{category}</span>
             </label>
           ))}
         </div>
@@ -232,7 +232,7 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
         <button
           onClick={handleSave}
           disabled={loading}
-          className="w-full py-2 bg-acid-green/10 border border-acid-green text-acid-green font-mono text-xs hover:bg-acid-green/20 disabled:opacity-50 transition-colors"
+          className="w-full py-2 bg-[var(--accent)]/10 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-xs hover:bg-[var(--accent)]/20 disabled:opacity-50 transition-colors"
         >
           {loading ? 'SAVING...' : 'SAVE CONFIGURATION'}
         </button>
@@ -248,7 +248,7 @@ function ConfigEditor({ config, onUpdate, loading }: ConfigEditorProps) {
 function HistoryList({ debates }: { debates: ScheduledDebate[] }) {
   if (debates.length === 0) {
     return (
-      <div className="p-4 text-center text-xs font-mono text-text-muted">
+      <div className="p-4 text-center text-xs font-theme-data text-text-muted">
         No scheduled debates yet
       </div>
     );
@@ -257,20 +257,20 @@ function HistoryList({ debates }: { debates: ScheduledDebate[] }) {
   return (
     <div className="space-y-2 max-h-48 overflow-y-auto">
       {debates.map((debate) => (
-        <div key={debate.id} className="p-2 bg-surface/50 border border-acid-green/10">
+        <div key={debate.id} className="p-2 bg-surface/50 border border-[var(--accent)]/10">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-mono text-text truncate" title={debate.topic}>
+              <div className="text-xs font-theme-data text-text truncate" title={debate.topic}>
                 {debate.topic.slice(0, 60)}...
               </div>
-              <div className="flex items-center gap-2 mt-1 text-xs font-mono text-text-muted">
+              <div className="flex items-center gap-2 mt-1 text-xs font-theme-data text-text-muted">
                 <span className="capitalize">{debate.platform}</span>
                 <span>|</span>
                 <span>{debate.hours_ago.toFixed(1)}h ago</span>
                 {debate.consensus_reached !== null && (
                   <>
                     <span>|</span>
-                    <span className={debate.consensus_reached ? 'text-acid-green' : 'text-acid-yellow'}>
+                    <span className={debate.consensus_reached ? 'text-[var(--accent)]' : 'text-[var(--acid-yellow)]'}>
                       {debate.consensus_reached ? 'CONSENSUS' : 'NO CONSENSUS'}
                     </span>
                   </>
@@ -280,7 +280,7 @@ function HistoryList({ debates }: { debates: ScheduledDebate[] }) {
             {debate.debate_id && (
               <Link
                 href={`/debate/${debate.debate_id}`}
-                className="text-xs font-mono text-acid-cyan hover:underline"
+                className="text-xs font-theme-data text-[var(--acid-cyan)] hover:underline"
               >
                 [VIEW]
               </Link>
@@ -329,26 +329,26 @@ export function PulseSchedulerControlPanel() {
   };
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50">
+    <div className="border border-[var(--accent)]/30 bg-surface/50">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
-        <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 flex items-center justify-between">
+        <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
           {'>'} PULSE SCHEDULER
         </span>
         {scheduler.status && <StateBadge state={scheduler.status.state} />}
       </div>
 
       {/* Quick Controls */}
-      <div className="px-4 py-3 border-b border-acid-green/10 flex items-center gap-2">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/10 flex items-center gap-2">
         <button
           onClick={handleToggle}
           disabled={scheduler.actionLoading || scheduler.statusLoading}
-          className={`flex-1 py-2 font-mono text-xs border transition-colors disabled:opacity-50 ${
+          className={`flex-1 py-2 font-theme-data text-xs border transition-colors disabled:opacity-50 ${
             scheduler.isRunning
-              ? 'border-acid-yellow text-acid-yellow hover:bg-acid-yellow/10'
+              ? 'border-acid-yellow text-[var(--acid-yellow)] hover:bg-acid-yellow/10'
               : scheduler.isPaused
-                ? 'border-acid-green text-acid-green hover:bg-acid-green/10'
-                : 'border-acid-green text-acid-green hover:bg-acid-green/10'
+                ? 'border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/10'
+                : 'border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/10'
           }`}
         >
           {scheduler.isRunning ? 'PAUSE' : scheduler.isPaused ? 'RESUME' : 'START'}
@@ -357,7 +357,7 @@ export function PulseSchedulerControlPanel() {
           <button
             onClick={() => scheduler.stop()}
             disabled={scheduler.actionLoading}
-            className="px-4 py-2 font-mono text-xs border border-acid-red text-acid-red hover:bg-acid-red/10 transition-colors disabled:opacity-50"
+            className="px-4 py-2 font-theme-data text-xs border border-acid-red text-acid-red hover:bg-acid-red/10 transition-colors disabled:opacity-50"
           >
             STOP
           </button>
@@ -365,7 +365,7 @@ export function PulseSchedulerControlPanel() {
         <button
           onClick={() => scheduler.fetchStatus()}
           disabled={scheduler.statusLoading}
-          className="px-4 py-2 font-mono text-xs text-text-muted hover:text-acid-green border border-acid-green/30 hover:border-acid-green/50 transition-colors disabled:opacity-50"
+          className="px-4 py-2 font-theme-data text-xs text-text-muted hover:text-[var(--accent)] border border-[var(--accent)]/30 hover:border-[var(--accent)]/50 transition-colors disabled:opacity-50"
         >
           {scheduler.statusLoading ? '...' : 'REFRESH'}
         </button>
@@ -374,14 +374,14 @@ export function PulseSchedulerControlPanel() {
       {/* Error Display */}
       {(scheduler.statusError || scheduler.actionError) && (
         <div className="px-4 py-2 border-b border-acid-red/30">
-          <div className="p-2 text-xs font-mono text-acid-red bg-acid-red/10 border border-acid-red/30">
+          <div className="p-2 text-xs font-theme-data text-acid-red bg-acid-red/10 border border-acid-red/30">
             {'>'} {scheduler.statusError || scheduler.actionError}
           </div>
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-acid-green/10" role="tablist" aria-label="Scheduler panels">
+      <div className="flex border-b border-[var(--accent)]/10" role="tablist" aria-label="Scheduler panels">
         {(['status', 'config', 'history'] as const).map((tab) => (
           <button
             key={tab}
@@ -390,9 +390,9 @@ export function PulseSchedulerControlPanel() {
             aria-selected={activeTab === tab}
             aria-controls={`panel-${tab}`}
             id={`tab-${tab}`}
-            className={`flex-1 px-4 py-2 text-xs font-mono uppercase transition-colors ${
+            className={`flex-1 px-4 py-2 text-xs font-theme-data uppercase transition-colors ${
               activeTab === tab
-                ? 'text-acid-green border-b-2 border-acid-green bg-acid-green/5'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-[var(--accent)]/5'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -413,28 +413,28 @@ export function PulseSchedulerControlPanel() {
             {scheduler.metrics ? (
               <MetricsDisplay metrics={scheduler.metrics} />
             ) : (
-              <div className="text-center text-xs font-mono text-text-muted py-4">
+              <div className="text-center text-xs font-theme-data text-text-muted py-4">
                 {scheduler.statusLoading ? 'Loading...' : 'Scheduler not initialized'}
               </div>
             )}
 
             {scheduler.status?.store_analytics && (
-              <div className="mt-4 p-3 bg-bg/50 border border-acid-green/20">
-                <div className="text-xs font-mono text-text-muted mb-2">STORE ANALYTICS</div>
-                <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+              <div className="mt-4 p-3 bg-bg/50 border border-[var(--accent)]/20">
+                <div className="text-xs font-theme-data text-text-muted mb-2">STORE ANALYTICS</div>
+                <div className="grid grid-cols-3 gap-2 text-xs font-theme-data">
                   <div>
                     <span className="text-text-muted">Total: </span>
                     <span className="text-text">{scheduler.status.store_analytics.total_debates}</span>
                   </div>
                   <div>
                     <span className="text-text-muted">Consensus: </span>
-                    <span className="text-acid-green">
+                    <span className="text-[var(--accent)]">
                       {Math.round(scheduler.status.store_analytics.consensus_rate * 100)}%
                     </span>
                   </div>
                   <div>
                     <span className="text-text-muted">Avg Conf: </span>
-                    <span className="text-acid-cyan">
+                    <span className="text-[var(--acid-cyan)]">
                       {(scheduler.status.store_analytics.avg_confidence * 100).toFixed(0)}%
                     </span>
                   </div>
@@ -464,13 +464,13 @@ export function PulseSchedulerControlPanel() {
             <button
               onClick={() => scheduler.fetchHistory(20)}
               disabled={scheduler.historyLoading}
-              className="w-full py-1 text-xs font-mono text-text-muted hover:text-acid-green border border-acid-green/20 hover:border-acid-green/40 transition-colors disabled:opacity-50"
+              className="w-full py-1 text-xs font-theme-data text-text-muted hover:text-[var(--accent)] border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 transition-colors disabled:opacity-50"
             >
               {scheduler.historyLoading ? 'Loading...' : 'Refresh History'}
             </button>
             <HistoryList debates={scheduler.history} />
             {scheduler.historyTotal > scheduler.history.length && (
-              <div className="text-center text-xs font-mono text-text-muted">
+              <div className="text-center text-xs font-theme-data text-text-muted">
                 Showing {scheduler.history.length} of {scheduler.historyTotal} debates
               </div>
             )}

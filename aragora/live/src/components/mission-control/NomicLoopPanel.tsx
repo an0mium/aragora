@@ -31,10 +31,10 @@ export const NomicLoopPanel = memo(function NomicLoopPanel({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <span className="text-sm">🔄</span>
-          <span className="text-xs font-mono font-bold text-[var(--text)]">Nomic Loop</span>
+          <span className="text-xs font-theme-data font-bold text-[var(--text)]">Nomic Loop</span>
         </div>
         {cycleId && (
-          <span className="text-xs font-mono text-[var(--text-muted)]">cycle: {cycleId.slice(0, 8)}</span>
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">cycle: {cycleId.slice(0, 8)}</span>
         )}
       </div>
 
@@ -48,7 +48,7 @@ export const NomicLoopPanel = memo(function NomicLoopPanel({
           return (
             <div key={p.key} className="flex items-center gap-1">
               <div
-                className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono
+                className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-theme-data
                   ${isActive ? 'bg-blue-500/20 text-blue-400 animate-pulse' : ''}
                   ${isComplete ? 'bg-emerald-500/20 text-emerald-400' : ''}
                   ${isPending ? 'text-[var(--text-muted)]' : ''}
@@ -86,7 +86,7 @@ export const NomicLoopPanel = memo(function NomicLoopPanel({
       )}
 
       {phase === 'complete' && (
-        <div className="mt-2 text-xs font-mono text-emerald-400 flex items-center gap-1">
+        <div className="mt-2 text-xs font-theme-data text-emerald-400 flex items-center gap-1">
           <span>✓</span> Cycle complete
         </div>
       )}

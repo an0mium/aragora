@@ -47,10 +47,10 @@ export const GoalNode = memo(function GoalNode({ data, selected }: GoalNodeProps
       />
 
       <div className="flex items-center gap-2 mb-2">
-        <span className="px-1.5 py-0.5 text-xs bg-emerald-500/30 text-emerald-200 rounded font-mono uppercase">
+        <span className="px-1.5 py-0.5 text-xs bg-emerald-500/30 text-emerald-200 rounded font-theme-data uppercase">
           {goalTypeLabels[goalType] || goalType}
         </span>
-        <span className={`px-1.5 py-0.5 text-xs rounded font-mono ${priorityColors[priority] || priorityColors.medium}`}>
+        <span className={`px-1.5 py-0.5 text-xs rounded font-theme-data ${priorityColors[priority] || priorityColors.medium}`}>
           {priority}
         </span>
       </div>
@@ -73,7 +73,7 @@ export const GoalNode = memo(function GoalNode({ data, selected }: GoalNodeProps
               style={{ width: `${Math.round(confidence * 100)}%` }}
             />
           </div>
-          <span className="text-xs text-emerald-300 font-mono">
+          <span className="text-xs text-emerald-300 font-theme-data">
             {Math.round(confidence * 100)}%
           </span>
         </div>

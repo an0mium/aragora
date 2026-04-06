@@ -34,7 +34,7 @@ export function BudgetBadge() {
   return (
     <Link
       href="/usage"
-      className={`hidden sm:flex items-center gap-1 px-2 py-1 text-xs font-mono border rounded transition-opacity hover:opacity-80 ${colorClass}`}
+      className={`hidden sm:flex items-center gap-1 px-2 py-1 text-xs font-theme-data border rounded transition-opacity hover:opacity-80 ${colorClass}`}
       title={`Budget: ${percent}% used ($${summary.total_cost_usd.toFixed(2)} / $${summary.budget_usd.toFixed(2)})`}
     >
       <span>$</span>

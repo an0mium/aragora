@@ -81,7 +81,7 @@ function RankingsPanel() {
 
   if (isLoading) {
     return (
-      <div className="text-acid-green font-mono animate-pulse text-center py-12">
+      <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-12">
         Loading rankings...
       </div>
     );
@@ -90,7 +90,7 @@ function RankingsPanel() {
   if (error) {
     return (
       <div className="p-8 bg-surface border border-red-500/30 rounded-lg text-center">
-        <p className="text-red-400 font-mono text-sm">Failed to load rankings data.</p>
+        <p className="text-red-400 font-theme-data text-sm">Failed to load rankings data.</p>
       </div>
     );
   }
@@ -98,7 +98,7 @@ function RankingsPanel() {
   if (!agents || agents.length === 0) {
     return (
       <div className="p-8 bg-surface border border-border rounded-lg text-center">
-        <p className="text-text-muted font-mono">
+        <p className="text-text-muted font-theme-data">
           No ranking data available. Run debate cycles to generate ELO ratings.
         </p>
       </div>
@@ -110,7 +110,7 @@ function RankingsPanel() {
       {/* Rankings Table */}
       <div className="bg-surface border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm font-mono">
+          <table className="w-full text-sm font-theme-data">
             <thead>
               <tr className="text-text-muted border-b border-border bg-bg/50">
                 <th className="text-left py-3 px-4 w-12">#</th>
@@ -138,7 +138,7 @@ function RankingsPanel() {
                     onClick={() => setSelectedAgent(isSelected ? null : agent.agent_name)}
                     className={`border-b border-border/50 cursor-pointer transition-colors ${
                       isSelected
-                        ? 'bg-acid-green/10 border-acid-green/30'
+                        ? 'bg-[var(--accent)]/10 border-[var(--accent)]/30'
                         : 'hover:bg-surface/80'
                     }`}
                   >
@@ -152,7 +152,7 @@ function RankingsPanel() {
                     <td className="py-3 px-4">
                       <Link
                         href={`/agent/${encodeURIComponent(agent.agent_name)}/`}
-                        className="text-text hover:text-acid-green transition-colors"
+                        className="text-text hover:text-[var(--accent)] transition-colors"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {agent.agent_name}
@@ -187,47 +187,47 @@ function RankingsPanel() {
 
       {/* Agent Detail Panel (expanded when selected) */}
       {selectedAgent && (
-        <div className="p-4 bg-surface border border-acid-green/30 rounded-lg">
+        <div className="p-4 bg-surface border border-[var(--accent)]/30 rounded-lg">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-mono font-bold text-acid-green">
+            <h3 className="text-sm font-theme-data font-bold text-[var(--accent)]">
               {'>'} AGENT DETAIL: {selectedAgent}
             </h3>
             <button
               onClick={() => setSelectedAgent(null)}
-              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
             >
               [CLOSE]
             </button>
           </div>
 
           {detailLoading ? (
-            <div className="text-acid-green font-mono animate-pulse text-center py-4">
+            <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-4">
               Loading agent detail...
             </div>
           ) : agentDetail ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-3 bg-bg rounded">
-                <div className={`text-xl font-mono font-bold ${getEloColor(agentDetail.elo)}`}>
+                <div className={`text-xl font-theme-data font-bold ${getEloColor(agentDetail.elo)}`}>
                   {Math.round(agentDetail.elo)}
                 </div>
                 <div className="text-xs text-text-muted">Current ELO</div>
               </div>
               <div className="p-3 bg-bg rounded">
-                <div className={`text-xl font-mono font-bold ${
-                  agentDetail.elo_change >= 0 ? 'text-acid-green' : 'text-red-400'
+                <div className={`text-xl font-theme-data font-bold ${
+                  agentDetail.elo_change >= 0 ? 'text-[var(--accent)]' : 'text-red-400'
                 }`}>
                   {agentDetail.elo_change >= 0 ? '+' : ''}{agentDetail.elo_change}
                 </div>
                 <div className="text-xs text-text-muted">ELO Change</div>
               </div>
               <div className="p-3 bg-bg rounded">
-                <div className="text-xl font-mono font-bold text-text">
+                <div className="text-xl font-theme-data font-bold text-text">
                   {agentDetail.debates_count}
                 </div>
                 <div className="text-xs text-text-muted">Total Debates</div>
               </div>
               <div className="p-3 bg-bg rounded">
-                <div className="text-xl font-mono font-bold text-text">
+                <div className="text-xl font-theme-data font-bold text-text">
                   {Math.round(agentDetail.win_rate)}%
                 </div>
                 <div className="text-xs text-text-muted">Win Rate</div>
@@ -236,12 +236,12 @@ function RankingsPanel() {
               {/* Domain Performance */}
               {agentDetail.domain_performance && Object.keys(agentDetail.domain_performance).length > 0 && (
                 <div className="col-span-2 md:col-span-4 p-3 bg-bg rounded">
-                  <div className="text-xs font-mono text-text-muted uppercase mb-2">
+                  <div className="text-xs font-theme-data text-text-muted uppercase mb-2">
                     Domain Performance
                   </div>
                   <div className="flex flex-wrap gap-3">
                     {Object.entries(agentDetail.domain_performance).map(([domain, perf]) => (
-                      <div key={domain} className="text-xs font-mono">
+                      <div key={domain} className="text-xs font-theme-data">
                         <span className="text-text-muted">{domain}: </span>
                         <span className={getEloColor(perf.elo)}>{Math.round(perf.elo)}</span>
                       </div>
@@ -253,10 +253,10 @@ function RankingsPanel() {
               {/* Calibration */}
               {agentDetail.calibration_score != null && (
                 <div className="col-span-2 p-3 bg-bg rounded">
-                  <div className="text-xs font-mono text-text-muted uppercase mb-1">
+                  <div className="text-xs font-theme-data text-text-muted uppercase mb-1">
                     Calibration
                   </div>
-                  <div className="text-sm font-mono text-text">
+                  <div className="text-sm font-theme-data text-text">
                     Score: {(agentDetail.calibration_score * 100).toFixed(1)}%
                     {agentDetail.calibration_accuracy != null && (
                       <span className="ml-3">
@@ -270,7 +270,7 @@ function RankingsPanel() {
               {/* Mini ELO history chart */}
               {agentDetail.elo_history && agentDetail.elo_history.length >= 2 && (
                 <div className="col-span-2 md:col-span-4 p-3 bg-bg rounded">
-                  <div className="text-xs font-mono text-text-muted uppercase mb-2">
+                  <div className="text-xs font-theme-data text-text-muted uppercase mb-2">
                     ELO History
                   </div>
                   <MiniEloChart
@@ -281,7 +281,7 @@ function RankingsPanel() {
               )}
             </div>
           ) : (
-            <p className="text-text-muted font-mono text-xs py-2">
+            <p className="text-text-muted font-theme-data text-xs py-2">
               No detailed data available for this agent.
             </p>
           )}
@@ -359,10 +359,10 @@ function DomainsPanel() {
             onClick={() => setSelectedDomain(key)}
             role="tab"
             aria-selected={selectedDomain === key}
-            className={`px-3 py-1.5 rounded text-xs font-mono transition-colors ${
+            className={`px-3 py-1.5 rounded text-xs font-theme-data transition-colors ${
               selectedDomain === key
-                ? 'bg-acid-green/20 border border-acid-green text-acid-green'
-                : 'border border-border text-text-muted hover:border-acid-green/50'
+                ? 'bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)]'
+                : 'border border-border text-text-muted hover:border-[var(--accent)]/50'
             }`}
           >
             {label}
@@ -371,25 +371,25 @@ function DomainsPanel() {
       </div>
 
       {isLoading ? (
-        <div className="text-acid-green font-mono animate-pulse text-center py-12">
+        <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-12">
           Loading domain leaderboard...
         </div>
       ) : error ? (
         <div className="p-8 bg-surface border border-red-500/30 rounded-lg text-center">
-          <p className="text-red-400 font-mono text-sm">
+          <p className="text-red-400 font-theme-data text-sm">
             Failed to load domain leaderboard.
           </p>
         </div>
       ) : !agents || agents.length === 0 ? (
         <div className="p-8 bg-surface border border-border rounded-lg text-center">
-          <p className="text-text-muted font-mono">
+          <p className="text-text-muted font-theme-data">
             No rankings available for this domain. Run debate cycles to generate data.
           </p>
         </div>
       ) : (
         <div className="bg-surface border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm font-mono">
+            <table className="w-full text-sm font-theme-data">
               <thead>
                 <tr className="text-text-muted border-b border-border bg-bg/50">
                   <th className="text-left py-3 px-4 w-12">#</th>
@@ -425,7 +425,7 @@ function DomainsPanel() {
                       <td className="py-2.5 px-4">
                         <Link
                           href={`/agent/${encodeURIComponent(agent.agent_name)}/`}
-                          className="text-text hover:text-acid-green transition-colors"
+                          className="text-text hover:text-[var(--accent)] transition-colors"
                         >
                           {agent.agent_name}
                         </Link>
@@ -539,7 +539,7 @@ function TrendsPanel() {
 
   if (isLoading) {
     return (
-      <div className="text-acid-green font-mono animate-pulse text-center py-12">
+      <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-12">
         Loading trend data...
       </div>
     );
@@ -548,7 +548,7 @@ function TrendsPanel() {
   if (error) {
     return (
       <div className="p-8 bg-surface border border-red-500/30 rounded-lg text-center">
-        <p className="text-red-400 font-mono text-sm">
+        <p className="text-red-400 font-theme-data text-sm">
           Failed to load ELO trends. The analytics endpoint may be unavailable.
         </p>
       </div>
@@ -558,7 +558,7 @@ function TrendsPanel() {
   if (!chartData) {
     return (
       <div className="p-8 bg-surface border border-border rounded-lg text-center">
-        <p className="text-text-muted font-mono">
+        <p className="text-text-muted font-theme-data">
           Not enough data points to render trends. Run more debate cycles to generate history.
         </p>
       </div>
@@ -595,10 +595,10 @@ function TrendsPanel() {
     <div className="space-y-4">
       <div className="p-4 bg-surface border border-border rounded-lg">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-mono font-bold text-acid-green">
+          <h3 className="text-sm font-theme-data font-bold text-[var(--accent)]">
             ELO RATING TRENDS
           </h3>
-          <span className="font-mono text-xs text-text-muted">
+          <span className="font-theme-data text-xs text-text-muted">
             Top {series.length} agents | {periods.length} data points
           </span>
         </div>
@@ -709,8 +709,8 @@ function TrendsPanel() {
                   className="w-3 h-3 rounded-full inline-block"
                   style={{ backgroundColor: color }}
                 />
-                <span className="font-mono text-xs text-text">{agent}</span>
-                <span className={`font-mono text-xs ${change >= 0 ? 'text-acid-green' : 'text-red-400'}`}>
+                <span className="font-theme-data text-xs text-text">{agent}</span>
+                <span className={`font-theme-data text-xs ${change >= 0 ? 'text-[var(--accent)]' : 'text-red-400'}`}>
                   ({change >= 0 ? '+' : ''}{change})
                 </span>
               </div>
@@ -758,7 +758,7 @@ function StatsPanel() {
 
   if (isLoading) {
     return (
-      <div className="text-acid-green font-mono animate-pulse text-center py-12">
+      <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-12">
         Loading stats...
       </div>
     );
@@ -767,7 +767,7 @@ function StatsPanel() {
   if (error) {
     return (
       <div className="p-8 bg-surface border border-red-500/30 rounded-lg text-center">
-        <p className="text-red-400 font-mono text-sm">Failed to load ranking stats.</p>
+        <p className="text-red-400 font-theme-data text-sm">Failed to load ranking stats.</p>
       </div>
     );
   }
@@ -778,28 +778,28 @@ function StatsPanel() {
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="p-4 bg-surface border border-border rounded-lg text-center">
-            <div className="text-3xl font-mono font-bold text-acid-green">
+            <div className="text-3xl font-theme-data font-bold text-[var(--accent)]">
               {Math.round(stats.mean_elo)}
             </div>
-            <div className="text-xs text-text-muted uppercase font-mono">Mean ELO</div>
+            <div className="text-xs text-text-muted uppercase font-theme-data">Mean ELO</div>
           </div>
           <div className="p-4 bg-surface border border-border rounded-lg text-center">
-            <div className="text-3xl font-mono font-bold text-blue-400">
+            <div className="text-3xl font-theme-data font-bold text-blue-400">
               {Math.round(stats.median_elo)}
             </div>
-            <div className="text-xs text-text-muted uppercase font-mono">Median ELO</div>
+            <div className="text-xs text-text-muted uppercase font-theme-data">Median ELO</div>
           </div>
           <div className="p-4 bg-surface border border-border rounded-lg text-center">
-            <div className="text-3xl font-mono font-bold text-purple-400">
+            <div className="text-3xl font-theme-data font-bold text-purple-400">
               {stats.total_agents}
             </div>
-            <div className="text-xs text-text-muted uppercase font-mono">Total Agents</div>
+            <div className="text-xs text-text-muted uppercase font-theme-data">Total Agents</div>
           </div>
           <div className="p-4 bg-surface border border-border rounded-lg text-center">
-            <div className="text-3xl font-mono font-bold text-yellow-400">
+            <div className="text-3xl font-theme-data font-bold text-yellow-400">
               {stats.total_matches}
             </div>
-            <div className="text-xs text-text-muted uppercase font-mono">Total Matches</div>
+            <div className="text-xs text-text-muted uppercase font-theme-data">Total Matches</div>
           </div>
         </div>
       )}
@@ -808,30 +808,30 @@ function StatsPanel() {
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Highest Rated */}
-          <div className="p-4 bg-surface border border-acid-green/30 rounded-lg">
-            <div className="text-xs font-mono text-text-muted uppercase mb-2">
+          <div className="p-4 bg-surface border border-[var(--accent)]/30 rounded-lg">
+            <div className="text-xs font-theme-data text-text-muted uppercase mb-2">
               Highest Rated
             </div>
-            <div className="text-lg font-mono font-bold text-acid-green">
+            <div className="text-lg font-theme-data font-bold text-[var(--accent)]">
               {summary.highest.agent_name}
             </div>
-            <div className={`text-sm font-mono ${getEloColor(Math.round(summary.highest.elo))}`}>
+            <div className={`text-sm font-theme-data ${getEloColor(Math.round(summary.highest.elo))}`}>
               {Math.round(summary.highest.elo)} ELO
             </div>
-            <div className="text-xs font-mono text-text-muted mt-1">
+            <div className="text-xs font-theme-data text-text-muted mt-1">
               {getEloTier(summary.highest.elo)}
             </div>
           </div>
 
           {/* Most Active */}
           <div className="p-4 bg-surface border border-blue-400/30 rounded-lg">
-            <div className="text-xs font-mono text-text-muted uppercase mb-2">
+            <div className="text-xs font-theme-data text-text-muted uppercase mb-2">
               Most Active
             </div>
-            <div className="text-lg font-mono font-bold text-blue-400">
+            <div className="text-lg font-theme-data font-bold text-blue-400">
               {summary.mostActive.agent_name}
             </div>
-            <div className="text-sm font-mono text-text">
+            <div className="text-sm font-theme-data text-text">
               {summary.mostActive.games || ((summary.mostActive.wins || 0) + (summary.mostActive.losses || 0) + (summary.mostActive.draws || 0))} games
             </div>
           </div>
@@ -839,13 +839,13 @@ function StatsPanel() {
           {/* Best Win Rate */}
           {summary.bestWinRate && (
             <div className="p-4 bg-surface border border-yellow-400/30 rounded-lg">
-              <div className="text-xs font-mono text-text-muted uppercase mb-2">
+              <div className="text-xs font-theme-data text-text-muted uppercase mb-2">
                 Best Win Rate
               </div>
-              <div className="text-lg font-mono font-bold text-yellow-400">
+              <div className="text-lg font-theme-data font-bold text-yellow-400">
                 {summary.bestWinRate.agent_name}
               </div>
-              <div className="text-sm font-mono text-text">
+              <div className="text-sm font-theme-data text-text">
                 {Math.round(summary.bestWinRate.win_rate ?? 0)}% win rate
               </div>
             </div>
@@ -859,16 +859,16 @@ function StatsPanel() {
           {/* Trending Up */}
           {stats.trending_up.length > 0 && (
             <div className="p-4 bg-surface border border-border rounded-lg">
-              <h3 className="text-sm font-mono font-bold text-acid-green mb-3">
+              <h3 className="text-sm font-theme-data font-bold text-[var(--accent)] mb-3">
                 TRENDING UP
               </h3>
               <div className="space-y-1">
                 {stats.trending_up.map((agent) => (
-                  <div key={agent} className="flex items-center gap-2 text-sm font-mono">
-                    <span className="text-acid-green">^</span>
+                  <div key={agent} className="flex items-center gap-2 text-sm font-theme-data">
+                    <span className="text-[var(--accent)]">^</span>
                     <Link
                       href={`/agent/${encodeURIComponent(agent)}/`}
-                      className="text-text hover:text-acid-green transition-colors"
+                      className="text-text hover:text-[var(--accent)] transition-colors"
                     >
                       {agent}
                     </Link>
@@ -881,12 +881,12 @@ function StatsPanel() {
           {/* Trending Down */}
           {stats.trending_down.length > 0 && (
             <div className="p-4 bg-surface border border-border rounded-lg">
-              <h3 className="text-sm font-mono font-bold text-red-400 mb-3">
+              <h3 className="text-sm font-theme-data font-bold text-red-400 mb-3">
                 TRENDING DOWN
               </h3>
               <div className="space-y-1">
                 {stats.trending_down.map((agent) => (
-                  <div key={agent} className="flex items-center gap-2 text-sm font-mono">
+                  <div key={agent} className="flex items-center gap-2 text-sm font-theme-data">
                     <span className="text-red-400">v</span>
                     <Link
                       href={`/agent/${encodeURIComponent(agent)}/`}
@@ -905,7 +905,7 @@ function StatsPanel() {
       {/* Rating Distribution */}
       {stats && stats.rating_distribution && Object.keys(stats.rating_distribution).length > 0 && (
         <div className="p-4 bg-surface border border-border rounded-lg">
-          <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-4">
+          <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-4">
             Rating Distribution
           </h3>
           <div className="space-y-2">
@@ -916,16 +916,16 @@ function StatsPanel() {
                 const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
                 return (
                   <div key={bracket} className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-text-muted w-24 shrink-0 text-right">
+                    <span className="text-xs font-theme-data text-text-muted w-24 shrink-0 text-right">
                       {bracket}
                     </span>
                     <div className="flex-1 bg-bg rounded-full h-4 overflow-hidden">
                       <div
-                        className="h-full bg-acid-green/60 rounded-full transition-all"
+                        className="h-full bg-[var(--accent)]/60 rounded-full transition-all"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="text-xs font-mono text-text w-8 text-right">{count}</span>
+                    <span className="text-xs font-theme-data text-text w-8 text-right">{count}</span>
                   </div>
                 );
               })}
@@ -949,7 +949,7 @@ export default function EloAnalyticsPage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -957,7 +957,7 @@ export default function EloAnalyticsPage() {
             <div className="flex items-center gap-3">
               <Link
                 href="/leaderboard"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [LEADERBOARD]
               </Link>
@@ -969,10 +969,10 @@ export default function EloAnalyticsPage() {
 
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} ELO ANALYTICS
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Deep analytics for agent ELO ratings. Track rankings, domain-specific performance,
               historical trends, and statistical summaries across the debate ecosystem.
             </p>
@@ -984,10 +984,10 @@ export default function EloAnalyticsPage() {
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`px-4 py-2 text-sm font-mono rounded border transition-colors ${
+                className={`px-4 py-2 text-sm font-theme-data rounded border transition-colors ${
                   activeTab === key
-                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
-                    : 'border-border text-text-muted hover:border-acid-green/50'
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-border text-text-muted hover:border-[var(--accent)]/50'
                 }`}
               >
                 {label}
@@ -1020,8 +1020,8 @@ export default function EloAnalyticsPage() {
           )}
         </div>
 
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // ELO ANALYTICS</p>
         </footer>
       </main>

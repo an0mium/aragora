@@ -27,10 +27,10 @@ interface CostBreakdownProps {
 }
 
 const COLORS = [
-  { name: 'green', class: 'bg-acid-green', text: 'text-acid-green' },
-  { name: 'cyan', class: 'bg-acid-cyan', text: 'text-acid-cyan' },
-  { name: 'yellow', class: 'bg-acid-yellow', text: 'text-acid-yellow' },
-  { name: 'magenta', class: 'bg-acid-magenta', text: 'text-acid-magenta' },
+  { name: 'green', class: 'bg-[var(--accent)]', text: 'text-[var(--accent)]' },
+  { name: 'cyan', class: 'bg-[var(--acid-cyan)]', text: 'text-[var(--acid-cyan)]' },
+  { name: 'yellow', class: 'bg-acid-yellow', text: 'text-[var(--acid-yellow)]' },
+  { name: 'magenta', class: 'bg-acid-magenta', text: 'text-[var(--acid-magenta)]' },
   { name: 'purple', class: 'bg-purple-500', text: 'text-purple-400' },
   { name: 'orange', class: 'bg-orange-500', text: 'text-orange-400' },
   { name: 'pink', class: 'bg-pink-500', text: 'text-pink-400' },
@@ -73,7 +73,7 @@ export function CostBreakdown({
   if (loading) {
     return (
       <div className={`card p-4 ${className}`}>
-        <h3 className="font-mono text-sm text-acid-green mb-4">{'>'} {title}</h3>
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">{'>'} {title}</h3>
         <div className="animate-pulse space-y-4">
           <div className="h-24 bg-surface rounded" />
           <div className="space-y-2">
@@ -89,8 +89,8 @@ export function CostBreakdown({
   if (data.length === 0) {
     return (
       <div className={`card p-4 ${className}`}>
-        <h3 className="font-mono text-sm text-acid-green mb-4">{'>'} {title}</h3>
-        <div className="text-center text-text-muted font-mono text-sm py-8">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">{'>'} {title}</h3>
+        <div className="text-center text-text-muted font-theme-data text-sm py-8">
           No cost data available
         </div>
       </div>
@@ -122,12 +122,12 @@ export function CostBreakdown({
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-mono text-sm text-acid-green">{'>'} {title}</h3>
-          {subtitle && <p className="text-text-muted text-xs font-mono">{subtitle}</p>}
+          <h3 className="font-theme-data text-sm text-[var(--accent)]">{'>'} {title}</h3>
+          {subtitle && <p className="text-text-muted text-xs font-theme-data">{subtitle}</p>}
         </div>
         <div className="text-right">
-          <div className="text-text-muted text-xs font-mono">Total</div>
-          <div className="text-acid-green font-mono text-xl">{formatCurrency(totalCost)}</div>
+          <div className="text-text-muted text-xs font-theme-data">Total</div>
+          <div className="text-[var(--accent)] font-theme-data text-xl">{formatCurrency(totalCost)}</div>
         </div>
       </div>
 
@@ -158,10 +158,10 @@ export function CostBreakdown({
           {/* Center label */}
           {hoveredIndex !== null && processedData[hoveredIndex] && (
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <div className={`font-mono text-xs ${processedData[hoveredIndex].color.text}`}>
+              <div className={`font-theme-data text-xs ${processedData[hoveredIndex].color.text}`}>
                 {processedData[hoveredIndex].percentage.toFixed(1)}%
               </div>
-              <div className="font-mono text-[10px] text-text-muted truncate max-w-[60px]">
+              <div className="font-theme-data text-[10px] text-text-muted truncate max-w-[60px]">
                 {processedData[hoveredIndex].name}
               </div>
             </div>
@@ -181,11 +181,11 @@ export function CostBreakdown({
             >
               <div className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded ${item.color.class}`} />
-                <span className="font-mono text-xs text-text truncate max-w-[100px]">
+                <span className="font-theme-data text-xs text-text truncate max-w-[100px]">
                   {item.name}
                 </span>
               </div>
-              <span className={`font-mono text-xs ${item.color.text}`}>
+              <span className={`font-theme-data text-xs ${item.color.text}`}>
                 {formatCurrency(item.cost)}
               </span>
             </div>
@@ -194,10 +194,10 @@ export function CostBreakdown({
       </div>
 
       {/* Detailed breakdown table */}
-      <div className="mt-4 pt-4 border-t border-acid-green/20">
+      <div className="mt-4 pt-4 border-t border-[var(--accent)]/20">
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-text-muted font-mono">
+            <tr className="text-text-muted font-theme-data">
               <th className="text-left pb-2">Provider/Model</th>
               <th className="text-right pb-2">Cost</th>
               <th className="text-right pb-2">%</th>
@@ -206,21 +206,21 @@ export function CostBreakdown({
           </thead>
           <tbody>
             {processedData.map((item) => (
-              <tr key={item.name} className="border-t border-acid-green/10">
+              <tr key={item.name} className="border-t border-[var(--accent)]/10">
                 <td className="py-2">
                   <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded ${item.color.class}`} />
-                    <span className="font-mono text-text">{item.name}</span>
+                    <span className="font-theme-data text-text">{item.name}</span>
                   </div>
                 </td>
-                <td className={`py-2 text-right font-mono ${item.color.text}`}>
+                <td className={`py-2 text-right font-theme-data ${item.color.text}`}>
                   {formatCurrency(item.cost)}
                 </td>
-                <td className="py-2 text-right font-mono text-text-muted">
+                <td className="py-2 text-right font-theme-data text-text-muted">
                   {item.percentage.toFixed(1)}%
                 </td>
                 {showTokens && (
-                  <td className="py-2 text-right font-mono text-text-muted">
+                  <td className="py-2 text-right font-theme-data text-text-muted">
                     {item.tokens ? formatTokens(item.tokens) : '-'}
                   </td>
                 )}
@@ -232,23 +232,23 @@ export function CostBreakdown({
 
       {/* Projected costs */}
       {totalCost > 0 && (
-        <div className="mt-4 pt-4 border-t border-acid-green/20">
+        <div className="mt-4 pt-4 border-t border-[var(--accent)]/20">
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
-              <div className="text-text-muted text-[10px] font-mono">DAILY AVG</div>
-              <div className="text-acid-green font-mono text-sm">
+              <div className="text-text-muted text-[10px] font-theme-data">DAILY AVG</div>
+              <div className="text-[var(--accent)] font-theme-data text-sm">
                 {formatCurrency(totalCost / 30)}
               </div>
             </div>
             <div>
-              <div className="text-text-muted text-[10px] font-mono">MONTHLY PROJ</div>
-              <div className="text-acid-cyan font-mono text-sm">
+              <div className="text-text-muted text-[10px] font-theme-data">MONTHLY PROJ</div>
+              <div className="text-[var(--acid-cyan)] font-theme-data text-sm">
                 {formatCurrency(totalCost)}
               </div>
             </div>
             <div>
-              <div className="text-text-muted text-[10px] font-mono">YEARLY PROJ</div>
-              <div className="text-purple-400 font-mono text-sm">
+              <div className="text-text-muted text-[10px] font-theme-data">YEARLY PROJ</div>
+              <div className="text-purple-400 font-theme-data text-sm">
                 {formatCurrency(totalCost * 12)}
               </div>
             </div>

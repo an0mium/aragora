@@ -90,7 +90,7 @@ const STEP_ICONS: Record<string, string> = {
 };
 
 const TYPE_COLORS: Record<string, string> = {
-  agent: 'text-acid-green',
+  agent: 'text-[var(--accent)]',
   task: 'text-blue-400',
   decision: 'text-yellow-400',
   human_checkpoint: 'text-purple-400',
@@ -125,14 +125,14 @@ function ExecutionNodeComponent({ data }: { data: ExecutionNodeData }) {
       <Handle
         type="target"
         position={Position.Top}
-        className="w-3 h-3 bg-surface border-2 border-acid-green"
+        className="w-3 h-3 bg-surface border-2 border-[var(--accent)]"
       />
 
       {/* Header with type and status */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <span className="text-lg">{icon}</span>
-          <span className={`text-xs font-mono uppercase tracking-wide ${typeColor}`}>
+          <span className={`text-xs font-theme-data uppercase tracking-wide ${typeColor}`}>
             {step.type.replace('_', ' ')}
           </span>
         </div>
@@ -176,7 +176,7 @@ function ExecutionNodeComponent({ data }: { data: ExecutionNodeData }) {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="w-3 h-3 bg-surface border-2 border-acid-green"
+        className="w-3 h-3 bg-surface border-2 border-[var(--accent)]"
       />
     </div>
   );
@@ -200,7 +200,7 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-2 py-0.5 text-[10px] font-mono rounded ${colors[status] || colors.pending}`}>
+    <span className={`px-2 py-0.5 text-[10px] font-theme-data rounded ${colors[status] || colors.pending}`}>
       {labels[status] || status.toUpperCase()}
     </span>
   );
@@ -295,18 +295,18 @@ export function ExecutionDAGView({
     <div className="w-full h-full relative">
       {/* Progress overlay */}
       <div className="absolute top-4 left-4 z-10 bg-surface/90 border border-border rounded-lg p-3">
-        <div className="text-xs font-mono text-text-muted mb-1">PROGRESS</div>
+        <div className="text-xs font-theme-data text-text-muted mb-1">PROGRESS</div>
         <div className="flex items-center gap-3">
-          <div className="text-xl font-mono text-acid-green">
+          <div className="text-xl font-theme-data text-[var(--accent)]">
             {completedCount}/{totalCount}
           </div>
           <div className="flex-1 h-2 bg-bg rounded-full overflow-hidden min-w-[100px]">
             <div
-              className="h-full bg-acid-green transition-all duration-300"
+              className="h-full bg-[var(--accent)] transition-all duration-300"
               style={{ width: `${(completedCount / totalCount) * 100}%` }}
             />
           </div>
-          <div className="text-sm font-mono text-text-muted">
+          <div className="text-sm font-theme-data text-text-muted">
             {Math.round((completedCount / totalCount) * 100)}%
           </div>
         </div>
@@ -314,7 +314,7 @@ export function ExecutionDAGView({
 
       {/* Legend */}
       <div className="absolute top-4 right-4 z-10 bg-surface/90 border border-border rounded-lg p-3">
-        <div className="text-xs font-mono text-text-muted mb-2">STATUS</div>
+        <div className="text-xs font-theme-data text-text-muted mb-2">STATUS</div>
         <div className="flex flex-wrap gap-2">
           {['pending', 'running', 'completed', 'failed', 'waiting_approval'].map((status) => (
             <div key={status} className="flex items-center gap-1.5">
@@ -327,7 +327,7 @@ export function ExecutionDAGView({
                   'bg-purple-400 animate-pulse'
                 }`}
               />
-              <span className="text-[10px] font-mono text-text-muted capitalize">
+              <span className="text-[10px] font-theme-data text-text-muted capitalize">
                 {status.replace('_', ' ')}
               </span>
             </div>

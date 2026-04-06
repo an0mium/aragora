@@ -44,7 +44,7 @@ export default function AccountingPage() {
       <div className="container mx-auto px-4 py-6 max-w-7xl">
         {/* Page Header */}
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-xl font-mono text-[var(--acid-green)]">
+          <h1 className="text-xl font-theme-data text-[var(--acid-green)]">
             {'>'} ACCOUNTING
           </h1>
         </div>
@@ -55,7 +55,7 @@ export default function AccountingPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 text-sm font-mono transition-colors flex items-center gap-2 ${
+              className={`px-4 py-3 text-sm font-theme-data transition-colors flex items-center gap-2 ${
                 activeTab === tab.id
                   ? 'text-[var(--acid-green)] border-b-2 border-[var(--acid-green)] -mb-px'
                   : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -83,7 +83,7 @@ export default function AccountingPage() {
 
               {/* Bank Transaction Summary */}
               <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-                <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+                <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
                   {'>'} RECENT BANK TRANSACTIONS
                 </h3>
                 <p className="text-xs text-[var(--text-muted)]">
@@ -114,7 +114,7 @@ export default function AccountingPage() {
               {/* Payroll-to-QBO Mapping */}
               <div className="bg-[var(--surface)] border border-[var(--border)] rounded">
                 <div className="p-4 border-b border-[var(--border)]">
-                  <h3 className="text-sm font-mono text-[var(--acid-green)]">
+                  <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
                     {'>'} QBO ACCOUNT MAPPING
                   </h3>
                   <p className="text-xs text-[var(--text-muted)] mt-1">
@@ -144,7 +144,7 @@ export default function AccountingPage() {
                   />
                 </div>
                 <div className="p-4 border-t border-[var(--border)]">
-                  <button className="w-full px-4 py-2 text-xs font-mono text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 hover:text-[var(--acid-green)] transition-colors">
+                  <button className="w-full px-4 py-2 text-xs font-theme-data text-[var(--text-muted)] border border-dashed border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 hover:text-[var(--acid-green)] transition-colors">
                     Configure Mapping
                   </button>
                 </div>
@@ -182,8 +182,8 @@ function AccountMappingRow({ label, account, type }: AccountMappingRowProps) {
 
   return (
     <div className="flex items-center justify-between p-3 bg-[var(--bg)] rounded">
-      <span className="text-sm font-mono">{label}</span>
-      <span className={`text-xs font-mono ${typeColors[type]}`}>{account}</span>
+      <span className="text-sm font-theme-data">{label}</span>
+      <span className={`text-xs font-theme-data ${typeColors[type]}`}>{account}</span>
     </div>
   );
 }
@@ -220,7 +220,7 @@ function IntegrationBadge({ name, status }: IntegrationBadgeProps) {
   return (
     <div className={`flex items-center gap-2 px-3 py-2 rounded border ${config.bg} ${config.border}`}>
       <span className={`w-2 h-2 rounded-full ${config.dot}`} />
-      <span className={`text-xs font-mono ${config.text}`}>{name}</span>
+      <span className={`text-xs font-theme-data ${config.text}`}>{name}</span>
     </div>
   );
 }

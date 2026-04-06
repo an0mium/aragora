@@ -418,9 +418,9 @@ export default function NomicControlPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy': return 'text-success';
-      case 'running': return 'text-acid-cyan';
-      case 'paused': return 'text-acid-yellow';
-      case 'stalled': return 'text-crimson';
+      case 'running': return 'text-[var(--acid-cyan)]';
+      case 'paused': return 'text-[var(--acid-yellow)]';
+      case 'stalled': return 'text-[var(--crimson)]';
       case 'not_running': return 'text-text-muted';
       default: return 'text-text-muted';
     }
@@ -429,8 +429,8 @@ export default function NomicControlPage() {
   const getRiskColor = (risk: string) => {
     switch (risk) {
       case 'low': return 'text-success border-success/30';
-      case 'medium': return 'text-acid-yellow border-acid-yellow/30';
-      case 'high': return 'text-crimson border-crimson/30';
+      case 'medium': return 'text-[var(--acid-yellow)] border-acid-yellow/30';
+      case 'high': return 'text-[var(--crimson)] border-[var(--crimson)]/30';
       default: return 'text-text-muted border-border';
     }
   };
@@ -442,7 +442,7 @@ export default function NomicControlPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -450,13 +450,13 @@ export default function NomicControlPage() {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-success animate-pulse' : 'bg-acid-yellow'}`} />
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   {wsConnected ? 'WS LIVE' : 'POLLING'}
                 </span>
               </div>
               <Link
                 href="/control-plane"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
               >
                 [DASHBOARD]
               </Link>
@@ -471,17 +471,17 @@ export default function NomicControlPage() {
           <PanelErrorBoundary panelName="NomicControl">
             {/* Page Header */}
             <div className="mb-6">
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                 Nomic Loop Control
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Autonomous self-improvement cycle management and monitoring.
               </p>
             </div>
 
             {loading ? (
               <div className="card p-8 text-center">
-                <div className="animate-pulse font-mono text-text-muted">Loading...</div>
+                <div className="animate-pulse font-theme-data text-text-muted">Loading...</div>
               </div>
             ) : (
               <>
@@ -490,27 +490,27 @@ export default function NomicControlPage() {
                 <div className="lg:col-span-2 space-y-6">
                   {/* Status Card */}
                   <div className="card p-4">
-                    <h2 className="font-mono text-sm text-acid-green mb-4">Loop Status</h2>
+                    <h2 className="font-theme-data text-sm text-[var(--accent)] mb-4">Loop Status</h2>
                     <div className="flex items-center justify-between mb-6">
                       <div className="flex items-center gap-4">
                         <div className={`w-4 h-4 rounded-full ${
                           state?.running && !state?.paused
-                            ? 'bg-acid-cyan animate-pulse'
+                            ? 'bg-[var(--acid-cyan)] animate-pulse'
                             : state?.paused
                             ? 'bg-acid-yellow'
                             : 'bg-text-muted'
                         }`} />
                         <div>
-                          <div className={`text-lg font-mono uppercase ${getStatusColor(health?.status || 'not_running')}`}>
+                          <div className={`text-lg font-theme-data uppercase ${getStatusColor(health?.status || 'not_running')}`}>
                             {health?.status || 'Not Running'}
                           </div>
-                          <div className="text-xs text-text-muted font-mono">
+                          <div className="text-xs text-text-muted font-theme-data">
                             Cycle {state?.cycle || 0} / Phase: {state?.phase || 'N/A'}
                           </div>
                         </div>
                       </div>
                       {health?.warnings && health.warnings.length > 0 && (
-                        <div className="text-crimson text-xs font-mono">
+                        <div className="text-[var(--crimson)] text-xs font-theme-data">
                           {health.warnings[0]}
                         </div>
                       )}
@@ -522,9 +522,9 @@ export default function NomicControlPage() {
                         {PHASES.map((phase, idx) => (
                           <div
                             key={phase}
-                            className={`text-xs font-mono ${
+                            className={`text-xs font-theme-data ${
                               state?.phase === phase
-                                ? 'text-acid-cyan'
+                                ? 'text-[var(--acid-cyan)]'
                                 : idx < getPhaseIndex(state?.phase || '')
                                 ? 'text-success'
                                 : 'text-text-muted'
@@ -540,7 +540,7 @@ export default function NomicControlPage() {
                             key={phase}
                             className={`flex-1 ${
                               state?.phase === phase
-                                ? 'bg-acid-cyan'
+                                ? 'bg-[var(--acid-cyan)]'
                                 : idx < getPhaseIndex(state?.phase || '')
                                 ? 'bg-success'
                                 : 'bg-border'
@@ -561,11 +561,11 @@ export default function NomicControlPage() {
                               max={10}
                               value={cycleCount}
                               onChange={(e) => setCycleCount(parseInt(e.target.value) || 1)}
-                              className="w-16 bg-surface border border-border rounded px-2 py-1 text-sm font-mono"
+                              className="w-16 bg-surface border border-border rounded px-2 py-1 text-sm font-theme-data"
                             />
-                            <span className="text-xs text-text-muted font-mono">cycles</span>
+                            <span className="text-xs text-text-muted font-theme-data">cycles</span>
                           </div>
-                          <label className="flex items-center gap-2 text-xs font-mono text-text-muted">
+                          <label className="flex items-center gap-2 text-xs font-theme-data text-text-muted">
                             <input
                               type="checkbox"
                               checked={autoApprove}
@@ -577,7 +577,7 @@ export default function NomicControlPage() {
                           <button
                             onClick={startLoop}
                             disabled={actionLoading === 'start'}
-                            className="px-4 py-1.5 bg-acid-green/20 border border-acid-green/50 rounded font-mono text-sm text-acid-green hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+                            className="px-4 py-1.5 bg-[var(--accent)]/20 border border-[var(--accent)]/50 rounded font-theme-data text-sm text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
                           >
                             {actionLoading === 'start' ? 'Starting...' : 'Start Loop'}
                           </button>
@@ -588,7 +588,7 @@ export default function NomicControlPage() {
                             <button
                               onClick={resumeLoop}
                               disabled={actionLoading === 'resume'}
-                              className="px-4 py-1.5 bg-acid-cyan/20 border border-acid-cyan/50 rounded font-mono text-sm text-acid-cyan hover:bg-acid-cyan/30 transition-colors disabled:opacity-50"
+                              className="px-4 py-1.5 bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)]/50 rounded font-theme-data text-sm text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/30 transition-colors disabled:opacity-50"
                             >
                               {actionLoading === 'resume' ? 'Resuming...' : 'Resume'}
                             </button>
@@ -596,7 +596,7 @@ export default function NomicControlPage() {
                             <button
                               onClick={pauseLoop}
                               disabled={actionLoading === 'pause'}
-                              className="px-4 py-1.5 bg-acid-yellow/20 border border-acid-yellow/50 rounded font-mono text-sm text-acid-yellow hover:bg-acid-yellow/30 transition-colors disabled:opacity-50"
+                              className="px-4 py-1.5 bg-acid-yellow/20 border border-acid-yellow/50 rounded font-theme-data text-sm text-[var(--acid-yellow)] hover:bg-acid-yellow/30 transition-colors disabled:opacity-50"
                             >
                               {actionLoading === 'pause' ? 'Pausing...' : 'Pause'}
                             </button>
@@ -604,14 +604,14 @@ export default function NomicControlPage() {
                           <button
                             onClick={skipPhase}
                             disabled={actionLoading === 'skip'}
-                            className="px-4 py-1.5 bg-surface border border-border rounded font-mono text-sm hover:border-acid-cyan transition-colors disabled:opacity-50"
+                            className="px-4 py-1.5 bg-surface border border-border rounded font-theme-data text-sm hover:border-[var(--acid-cyan)] transition-colors disabled:opacity-50"
                           >
                             {actionLoading === 'skip' ? 'Skipping...' : 'Skip Phase'}
                           </button>
                           <button
                             onClick={() => stopLoop(true)}
                             disabled={actionLoading === 'stop'}
-                            className="px-4 py-1.5 bg-crimson/20 border border-crimson/50 rounded font-mono text-sm text-crimson hover:bg-crimson/30 transition-colors disabled:opacity-50"
+                            className="px-4 py-1.5 bg-[var(--crimson)]/20 border border-[var(--crimson)]/50 rounded font-theme-data text-sm text-[var(--crimson)] hover:bg-[var(--crimson)]/30 transition-colors disabled:opacity-50"
                           >
                             {actionLoading === 'stop' ? 'Stopping...' : 'Stop'}
                           </button>
@@ -623,12 +623,12 @@ export default function NomicControlPage() {
                   {/* Proposals Card */}
                   <div className="card">
                     <div className="p-4 border-b border-border flex items-center justify-between">
-                      <h2 className="font-mono text-sm text-acid-green">Pending Proposals</h2>
-                      <span className="text-xs font-mono text-text-muted">{proposals.length} pending</span>
+                      <h2 className="font-theme-data text-sm text-[var(--accent)]">Pending Proposals</h2>
+                      <span className="text-xs font-theme-data text-text-muted">{proposals.length} pending</span>
                     </div>
                     <div className="p-4">
                       {proposals.length === 0 ? (
-                        <div className="text-center text-text-muted font-mono text-sm py-4">
+                        <div className="text-center text-text-muted font-theme-data text-sm py-4">
                           No pending proposals
                         </div>
                       ) : (
@@ -637,28 +637,28 @@ export default function NomicControlPage() {
                             <div key={proposal.id} className="bg-surface p-3 rounded border border-border">
                               <div className="flex items-start justify-between mb-2">
                                 <div>
-                                  <div className="font-mono text-sm">{proposal.title}</div>
-                                  <div className="text-xs text-text-muted font-mono mt-1">
+                                  <div className="font-theme-data text-sm">{proposal.title}</div>
+                                  <div className="text-xs text-text-muted font-theme-data mt-1">
                                     {proposal.category} | {new Date(proposal.created_at).toLocaleDateString()}
                                   </div>
                                 </div>
-                                <span className={`text-xs font-mono px-2 py-0.5 border rounded ${getRiskColor(proposal.risk_level)}`}>
+                                <span className={`text-xs font-theme-data px-2 py-0.5 border rounded ${getRiskColor(proposal.risk_level)}`}>
                                   {proposal.risk_level}
                                 </span>
                               </div>
-                              <p className="text-xs text-text-muted font-mono mb-3">
+                              <p className="text-xs text-text-muted font-theme-data mb-3">
                                 {proposal.description}
                               </p>
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => approveProposal(proposal.id)}
-                                  className="px-3 py-1 text-xs font-mono bg-success/20 border border-success/50 rounded text-success hover:bg-success/30 transition-colors"
+                                  className="px-3 py-1 text-xs font-theme-data bg-success/20 border border-success/50 rounded text-success hover:bg-success/30 transition-colors"
                                 >
                                   Approve
                                 </button>
                                 <button
                                   onClick={() => rejectProposal(proposal.id)}
-                                  className="px-3 py-1 text-xs font-mono bg-crimson/20 border border-crimson/50 rounded text-crimson hover:bg-crimson/30 transition-colors"
+                                  className="px-3 py-1 text-xs font-theme-data bg-[var(--crimson)]/20 border border-[var(--crimson)]/50 rounded text-[var(--crimson)] hover:bg-[var(--crimson)]/30 transition-colors"
                                 >
                                   Reject
                                 </button>
@@ -675,27 +675,27 @@ export default function NomicControlPage() {
                 <div className="space-y-6">
                   {/* Metrics Card */}
                   <div className="card p-4">
-                    <h2 className="font-mono text-sm text-acid-green mb-4">Cycle Metrics</h2>
+                    <h2 className="font-theme-data text-sm text-[var(--accent)] mb-4">Cycle Metrics</h2>
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-xs font-mono text-text-muted">Current Cycle</span>
-                        <span className="font-mono">{state?.cycle || 0}</span>
+                        <span className="text-xs font-theme-data text-text-muted">Current Cycle</span>
+                        <span className="font-theme-data">{state?.cycle || 0}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-xs font-mono text-text-muted">Target Cycles</span>
-                        <span className="font-mono">{state?.target_cycles || '-'}</span>
+                        <span className="text-xs font-theme-data text-text-muted">Target Cycles</span>
+                        <span className="font-theme-data">{state?.target_cycles || '-'}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-xs font-mono text-text-muted">Started</span>
-                        <span className="font-mono text-xs">
+                        <span className="text-xs font-theme-data text-text-muted">Started</span>
+                        <span className="font-theme-data text-xs">
                           {state?.started_at
                             ? new Date(state.started_at).toLocaleTimeString()
                             : '-'}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-xs font-mono text-text-muted">Last Update</span>
-                        <span className="font-mono text-xs">
+                        <span className="text-xs font-theme-data text-text-muted">Last Update</span>
+                        <span className="font-theme-data text-xs">
                           {health?.last_activity
                             ? new Date(health.last_activity).toLocaleTimeString()
                             : '-'}
@@ -713,19 +713,19 @@ export default function NomicControlPage() {
                         if (!showLogs) fetchLogs();
                       }}
                     >
-                      <h2 className="font-mono text-sm text-acid-green">Loop Logs</h2>
-                      <span className="text-xs font-mono text-text-muted">
+                      <h2 className="font-theme-data text-sm text-[var(--accent)]">Loop Logs</h2>
+                      <span className="text-xs font-theme-data text-text-muted">
                         {showLogs ? '[HIDE]' : '[SHOW]'}
                       </span>
                     </div>
                     {showLogs && (
                       <div className="p-4 max-h-80 overflow-y-auto">
                         {logs && logs.lines.length > 0 ? (
-                          <pre className="text-xs font-mono text-text-muted whitespace-pre-wrap">
+                          <pre className="text-xs font-theme-data text-text-muted whitespace-pre-wrap">
                             {logs.lines.join('\n')}
                           </pre>
                         ) : (
-                          <div className="text-center text-text-muted font-mono text-xs py-4">
+                          <div className="text-center text-text-muted font-theme-data text-xs py-4">
                             No logs available
                           </div>
                         )}
@@ -735,23 +735,23 @@ export default function NomicControlPage() {
 
                   {/* Quick Links */}
                   <div className="card p-4">
-                    <h2 className="font-mono text-sm text-acid-green mb-4">Quick Links</h2>
+                    <h2 className="font-theme-data text-sm text-[var(--accent)] mb-4">Quick Links</h2>
                     <div className="space-y-2">
                       <Link
                         href="/admin"
-                        className="block text-xs font-mono text-text-muted hover:text-acid-cyan transition-colors"
+                        className="block text-xs font-theme-data text-text-muted hover:text-[var(--acid-cyan)] transition-colors"
                       >
                         {'>'} Admin Dashboard
                       </Link>
                       <Link
                         href="/control-plane"
-                        className="block text-xs font-mono text-text-muted hover:text-acid-cyan transition-colors"
+                        className="block text-xs font-theme-data text-text-muted hover:text-[var(--acid-cyan)] transition-colors"
                       >
                         {'>'} Dashboard
                       </Link>
                       <Link
                         href="/debates"
-                        className="block text-xs font-mono text-text-muted hover:text-acid-cyan transition-colors"
+                        className="block text-xs font-theme-data text-text-muted hover:text-[var(--acid-cyan)] transition-colors"
                       >
                         {'>'} Debates History
                       </Link>
@@ -762,21 +762,21 @@ export default function NomicControlPage() {
 
               {/* Observatory Section */}
               <div className="mt-8">
-                <h2 className="text-xl font-mono text-acid-green mb-6">
+                <h2 className="text-xl font-theme-data text-[var(--accent)] mb-6">
                   OBSERVATORY
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {/* Health Score Gauge */}
                   <PanelErrorBoundary panelName="HealthScoreGauge">
                     <div className="card p-4">
-                      <h3 className="font-mono text-sm text-acid-green mb-4">Health Score</h3>
+                      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">Health Score</h3>
                       {metrics ? (
                         <HealthScoreGauge
                           score={metrics.health_score ?? 0}
                           label="System Health"
                         />
                       ) : (
-                        <div className="text-center text-text-muted font-mono text-xs py-4">
+                        <div className="text-center text-text-muted font-theme-data text-xs py-4">
                           No data available
                         </div>
                       )}
@@ -786,11 +786,11 @@ export default function NomicControlPage() {
                   {/* Witness Status */}
                   <PanelErrorBoundary panelName="WitnessStatus">
                     <div className="card p-4">
-                      <h3 className="font-mono text-sm text-acid-green mb-4">Witness Patrol</h3>
+                      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">Witness Patrol</h3>
                       {witnessStatus ? (
                         <WitnessStatus status={witnessStatus} />
                       ) : (
-                        <div className="text-center text-text-muted font-mono text-xs py-4">
+                        <div className="text-center text-text-muted font-theme-data text-xs py-4">
                           No data available
                         </div>
                       )}
@@ -800,7 +800,7 @@ export default function NomicControlPage() {
                   {/* Risk Register */}
                   <PanelErrorBoundary panelName="RiskRegister">
                     <div className="card p-4 max-h-80 overflow-y-auto">
-                      <h3 className="font-mono text-sm text-acid-green mb-4">Risk Register</h3>
+                      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">Risk Register</h3>
                       <RiskRegister risks={risks} />
                     </div>
                   </PanelErrorBoundary>
@@ -808,7 +808,7 @@ export default function NomicControlPage() {
                   {/* Cycle Timeline */}
                   <PanelErrorBoundary panelName="CycleTimeline">
                     <div className="card p-4 max-h-80 overflow-y-auto">
-                      <h3 className="font-mono text-sm text-acid-green mb-4">Cycle History</h3>
+                      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">Cycle History</h3>
                       <CycleTimeline cycles={cycleHistory} />
                     </div>
                   </PanelErrorBoundary>
@@ -820,8 +820,8 @@ export default function NomicControlPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

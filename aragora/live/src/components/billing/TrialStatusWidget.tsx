@@ -70,15 +70,15 @@ export function TrialStatusWidget() {
         {/* Left: Status info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-xs font-mono text-[var(--text-muted)]">
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">
               {'>'} SUBSCRIPTION
             </span>
-            <span className="px-2 py-0.5 text-[10px] font-mono uppercase bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30">
+            <span className="px-2 py-0.5 text-[10px] font-theme-data uppercase bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30">
               {plan.tier.replace('_', ' ')}
               {plan.is_trial ? ' TRIAL' : ''}
             </span>
             {plan.is_expired && (
-              <span className="px-2 py-0.5 text-[10px] font-mono bg-red-500/20 text-red-400 border border-red-500/30">
+              <span className="px-2 py-0.5 text-[10px] font-theme-data bg-red-500/20 text-red-400 border border-red-500/30">
                 EXPIRED
               </span>
             )}
@@ -96,11 +96,11 @@ export function TrialStatusWidget() {
                 />
               </div>
             </div>
-            <span className="text-xs font-mono text-[var(--text-muted)] whitespace-nowrap">
+            <span className="text-xs font-theme-data text-[var(--text-muted)] whitespace-nowrap">
               {plan.debates_used}/{plan.debates_limit} debates
             </span>
             {plan.is_trial && plan.trial_days_remaining !== null && (
-              <span className={`text-xs font-mono whitespace-nowrap ${
+              <span className={`text-xs font-theme-data whitespace-nowrap ${
                 plan.trial_days_remaining <= 3 ? 'text-red-400' : 'text-[var(--acid-cyan)]'
               }`}>
                 {plan.trial_days_remaining}d remaining
@@ -112,7 +112,7 @@ export function TrialStatusWidget() {
         {/* Right: Upgrade CTA */}
         <Link
           href="/pricing"
-          className="px-4 py-2 text-xs font-mono font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:brightness-110 transition-all whitespace-nowrap"
+          className="px-4 py-2 text-xs font-theme-data font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:brightness-110 transition-all whitespace-nowrap"
         >
           UPGRADE TO PRO
         </Link>
@@ -121,14 +121,14 @@ export function TrialStatusWidget() {
       {/* Warning messages */}
       {plan.is_expired && (
         <div className="mt-3 pt-3 border-t border-red-500/20">
-          <p className="text-xs font-mono text-red-400">
+          <p className="text-xs font-theme-data text-red-400">
             Your trial has expired. Upgrade to continue using Aragora with full features.
           </p>
         </div>
       )}
       {isAtLimit && !plan.is_expired && (
         <div className="mt-3 pt-3 border-t border-red-500/20">
-          <p className="text-xs font-mono text-red-400">
+          <p className="text-xs font-theme-data text-red-400">
             You&apos;ve reached your monthly debate limit. Upgrade for more debates.
           </p>
         </div>

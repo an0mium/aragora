@@ -58,9 +58,9 @@ function PeriodSelector({
         <button
           key={p}
           onClick={() => onChange(p)}
-          className={`px-3 py-2 text-xs font-mono transition-colors ${
+          className={`px-3 py-2 text-xs font-theme-data transition-colors ${
             value === p
-              ? 'bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/40'
+              ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40'
               : 'text-text-muted hover:text-text'
           }`}
         >
@@ -77,16 +77,16 @@ function AnomalyAlerts({ anomalies }: { anomalies: SpendAnomaly[] }) {
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-yellow mb-3">
+      <h3 className="font-theme-data text-sm text-[var(--acid-yellow)] mb-3">
         {'>'} SPEND ANOMALIES
       </h3>
       <div className="space-y-2">
         {anomalies.map((a) => (
           <div
             key={a.date}
-            className={`flex items-center justify-between p-3 border rounded font-mono text-xs ${
+            className={`flex items-center justify-between p-3 border rounded font-theme-data text-xs ${
               a.severity === 'critical'
-                ? 'border-crimson/40 bg-crimson/5'
+                ? 'border-[var(--crimson)]/40 bg-[var(--crimson)]/5'
                 : 'border-acid-yellow/40 bg-acid-yellow/5'
             }`}
           >
@@ -94,8 +94,8 @@ function AnomalyAlerts({ anomalies }: { anomalies: SpendAnomaly[] }) {
               <span
                 className={
                   a.severity === 'critical'
-                    ? 'text-crimson'
-                    : 'text-acid-yellow'
+                    ? 'text-[var(--crimson)]'
+                    : 'text-[var(--acid-yellow)]'
                 }
               >
                 {a.severity === 'critical' ? '!!' : '!'}
@@ -110,8 +110,8 @@ function AnomalyAlerts({ anomalies }: { anomalies: SpendAnomaly[] }) {
               <span
                 className={
                   a.severity === 'critical'
-                    ? 'text-crimson'
-                    : 'text-acid-yellow'
+                    ? 'text-[var(--crimson)]'
+                    : 'text-[var(--acid-yellow)]'
                 }
               >
                 actual {formatUsd(a.actual_usd)}
@@ -176,10 +176,10 @@ function SpendTable({
   if (rows.length === 0) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-3">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
           {'>'} {title}
         </h3>
-        <p className="text-text-muted font-mono text-sm text-center py-4">
+        <p className="text-text-muted font-theme-data text-sm text-center py-4">
           No spend data yet. Run debates to see cost breakdowns by provider and agent.
         </p>
       </div>
@@ -188,32 +188,32 @@ function SpendTable({
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-green mb-3">
+      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
         {'>'} {title}
       </h3>
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-sm">
+        <table className="w-full font-theme-data text-sm">
           <thead>
-            <tr className="border-b border-acid-green/30">
+            <tr className="border-b border-[var(--accent)]/30">
               <th
                 onClick={() => handleSort('name')}
-                className="py-2 px-3 text-acid-green text-left cursor-pointer select-none hover:text-acid-cyan transition-colors"
+                className="py-2 px-3 text-[var(--accent)] text-left cursor-pointer select-none hover:text-[var(--acid-cyan)] transition-colors"
               >
                 Name{sortIndicator('name')}
               </th>
               <th
                 onClick={() => handleSort('cost')}
-                className="py-2 px-3 text-acid-green text-right cursor-pointer select-none hover:text-acid-cyan transition-colors"
+                className="py-2 px-3 text-[var(--accent)] text-right cursor-pointer select-none hover:text-[var(--acid-cyan)] transition-colors"
               >
                 Cost (USD){sortIndicator('cost')}
               </th>
               <th
                 onClick={() => handleSort('pct')}
-                className="py-2 px-3 text-acid-green text-right cursor-pointer select-none hover:text-acid-cyan transition-colors"
+                className="py-2 px-3 text-[var(--accent)] text-right cursor-pointer select-none hover:text-[var(--acid-cyan)] transition-colors"
               >
                 Share{sortIndicator('pct')}
               </th>
-              <th className="py-2 px-3 text-acid-green text-right">
+              <th className="py-2 px-3 text-[var(--accent)] text-right">
                 Bar
               </th>
             </tr>
@@ -222,11 +222,11 @@ function SpendTable({
             {rows.map((row, i) => (
               <tr
                 key={row.name}
-                className={`border-b border-acid-green/10 ${
-                  i % 2 === 0 ? 'bg-acid-green/5' : ''
+                className={`border-b border-[var(--accent)]/10 ${
+                  i % 2 === 0 ? 'bg-[var(--accent)]/5' : ''
                 }`}
               >
-                <td className="py-2 px-3 text-acid-cyan">{row.name}</td>
+                <td className="py-2 px-3 text-[var(--acid-cyan)]">{row.name}</td>
                 <td className="py-2 px-3 text-right text-text">
                   {formatUsd(row.cost)}
                 </td>
@@ -236,7 +236,7 @@ function SpendTable({
                 <td className="py-2 px-3 text-right">
                   <div className="w-24 h-2 bg-surface rounded overflow-hidden ml-auto">
                     <div
-                      className="h-full bg-acid-green/60 rounded"
+                      className="h-full bg-[var(--accent)]/60 rounded"
                       style={{ width: `${Math.min(row.pct, 100)}%` }}
                     />
                   </div>
@@ -306,10 +306,10 @@ export default function SpendAnalyticsPage() {
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-1">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-1">
                 {'>'} SPEND ANALYTICS
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Actionable cost visibility across providers, agents, and time.
               </p>
             </div>
@@ -318,7 +318,7 @@ export default function SpendAnalyticsPage() {
 
           {/* Error banner */}
           {error && (
-            <div className="mb-6 bg-crimson/10 border border-crimson/30 rounded p-4 text-crimson text-sm font-mono">
+            <div className="mb-6 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded p-4 text-[var(--crimson)] text-sm font-theme-data">
               Failed to load spend analytics. The server may be unavailable.
             </div>
           )}
@@ -326,7 +326,7 @@ export default function SpendAnalyticsPage() {
           {/* ---- Overview Cards ---- */}
           <PanelErrorBoundary panelName="Spend Overview">
             <section className="mb-6">
-              <h2 className="text-lg font-mono text-acid-green mb-4">
+              <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">
                 {'>'} OVERVIEW
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -468,47 +468,47 @@ export default function SpendAnalyticsPage() {
             <PanelErrorBoundary panelName="Forecast">
               <section className="mb-6">
                 <div className="card p-4">
-                  <h3 className="font-mono text-sm text-acid-green mb-4">
+                  <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">
                     {'>'} COST FORECAST (next {forecast.forecast_days} days)
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="text-center">
-                      <div className="text-text-muted text-[10px] font-mono">
+                      <div className="text-text-muted text-[10px] font-theme-data">
                         PROJECTED TOTAL
                       </div>
-                      <div className="text-acid-green font-mono text-lg">
+                      <div className="text-[var(--accent)] font-theme-data text-lg">
                         {formatUsd(forecast.projected_total_usd)}
                       </div>
                     </div>
                     <div className="text-center">
-                      <div className="text-text-muted text-[10px] font-mono">
+                      <div className="text-text-muted text-[10px] font-theme-data">
                         DAILY AVG
                       </div>
-                      <div className="text-acid-cyan font-mono text-lg">
+                      <div className="text-[var(--acid-cyan)] font-theme-data text-lg">
                         {formatUsd(forecast.projected_daily_avg_usd)}
                       </div>
                     </div>
                     <div className="text-center">
-                      <div className="text-text-muted text-[10px] font-mono">
+                      <div className="text-text-muted text-[10px] font-theme-data">
                         TREND
                       </div>
                       <div
-                        className={`font-mono text-lg ${
+                        className={`font-theme-data text-lg ${
                           forecast.trend === 'increasing'
-                            ? 'text-crimson'
+                            ? 'text-[var(--crimson)]'
                             : forecast.trend === 'decreasing'
-                              ? 'text-acid-green'
-                              : 'text-acid-yellow'
+                              ? 'text-[var(--accent)]'
+                              : 'text-[var(--acid-yellow)]'
                         }`}
                       >
                         {forecast.trend}
                       </div>
                     </div>
                     <div className="text-center">
-                      <div className="text-text-muted text-[10px] font-mono">
+                      <div className="text-text-muted text-[10px] font-theme-data">
                         CONFIDENCE
                       </div>
-                      <div className="text-purple-400 font-mono text-lg">
+                      <div className="text-purple-400 font-theme-data text-lg">
                         {(forecast.confidence * 100).toFixed(0)}%
                       </div>
                     </div>
@@ -528,8 +528,8 @@ export default function SpendAnalyticsPage() {
           )}
 
           {/* Footer */}
-          <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-            <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+          <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+            <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
             <p className="text-text-muted">
               {'>'} ARAGORA // SPEND ANALYTICS DASHBOARD
             </p>

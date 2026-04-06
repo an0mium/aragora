@@ -92,7 +92,7 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
       case 'critical': return 'text-red-500 border-red-500/50 bg-red-500/10';
       case 'high': return 'text-orange-500 border-orange-500/50 bg-orange-500/10';
       case 'medium': return 'text-yellow-500 border-yellow-500/50 bg-yellow-500/10';
-      default: return 'text-acid-cyan border-acid-cyan/50 bg-acid-cyan/10';
+      default: return 'text-[var(--acid-cyan)] border-[var(--acid-cyan)]/50 bg-[var(--acid-cyan)]/10';
     }
   };
 
@@ -111,24 +111,24 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-mono text-acid-green">
+        <h2 className="text-lg font-theme-data text-[var(--accent)]">
           Pending Breakpoints
           {breakpoints.length > 0 && (
-            <span className="ml-2 px-2 py-0.5 bg-acid-green/20 text-acid-green text-xs rounded">
+            <span className="ml-2 px-2 py-0.5 bg-[var(--accent)]/20 text-[var(--accent)] text-xs rounded">
               {breakpoints.length}
             </span>
           )}
         </h2>
         <button
           onClick={fetchBreakpoints}
-          className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+          className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
         >
           [REFRESH]
         </button>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm font-mono">
+        <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm font-theme-data">
           Error: {error}
         </div>
       )}
@@ -136,8 +136,8 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
       {breakpoints.length === 0 ? (
         <div className="card p-8 text-center">
           <div className="text-4xl mb-4">&#x2713;</div>
-          <p className="text-text-muted font-mono">No pending breakpoints</p>
-          <p className="text-text-muted/60 font-mono text-xs mt-2">
+          <p className="text-text-muted font-theme-data">No pending breakpoints</p>
+          <p className="text-text-muted/60 font-theme-data text-xs mt-2">
             Debates are running smoothly without intervention
           </p>
         </div>
@@ -151,27 +151,27 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-xs font-mono uppercase px-2 py-0.5 rounded ${getSeverityColor(bp.severity)}`}>
+                    <span className={`text-xs font-theme-data uppercase px-2 py-0.5 rounded ${getSeverityColor(bp.severity)}`}>
                       {bp.severity}
                     </span>
-                    <span className="text-xs font-mono text-text-muted">
+                    <span className="text-xs font-theme-data text-text-muted">
                       {bp.type}
                     </span>
                   </div>
-                  <h3 className="font-mono text-acid-green">{bp.reason}</h3>
+                  <h3 className="font-theme-data text-[var(--accent)]">{bp.reason}</h3>
                 </div>
-                <span className="text-xs font-mono text-text-muted">
+                <span className="text-xs font-theme-data text-text-muted">
                   {new Date(bp.created_at).toLocaleTimeString()}
                 </span>
               </div>
 
-              <div className="text-xs font-mono text-text-muted mb-3">
-                Debate: <span className="text-acid-cyan">{bp.debate_id}</span>
+              <div className="text-xs font-theme-data text-text-muted mb-3">
+                Debate: <span className="text-[var(--acid-cyan)]">{bp.debate_id}</span>
               </div>
 
               {bp.context && Object.keys(bp.context).length > 0 && (
                 <details className="mb-3">
-                  <summary className="text-xs font-mono text-acid-cyan cursor-pointer hover:text-acid-green">
+                  <summary className="text-xs font-theme-data text-[var(--acid-cyan)] cursor-pointer hover:text-[var(--accent)]">
                     [VIEW CONTEXT]
                   </summary>
                   <pre className="mt-2 p-2 bg-surface rounded text-xs overflow-x-auto">
@@ -186,12 +186,12 @@ export function BreakpointsPanel({ apiBase = API_BASE_URL, onBreakpointResolved 
                     key={option}
                     onClick={() => resolveBreakpoint(bp.id, option)}
                     disabled={resolving === bp.id}
-                    className={`px-3 py-1.5 text-xs font-mono rounded border transition-colors
+                    className={`px-3 py-1.5 text-xs font-theme-data rounded border transition-colors
                       ${option === 'abort'
                         ? 'border-red-500/50 text-red-400 hover:bg-red-500/20'
                         : option === 'continue'
-                        ? 'border-acid-green/50 text-acid-green hover:bg-acid-green/20'
-                        : 'border-acid-cyan/50 text-acid-cyan hover:bg-acid-cyan/20'
+                        ? 'border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/20'
+                        : 'border-[var(--acid-cyan)]/50 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/20'
                       }
                       ${resolving === bp.id ? 'opacity-50 cursor-not-allowed' : ''}
                     `}

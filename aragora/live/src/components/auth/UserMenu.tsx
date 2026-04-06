@@ -78,7 +78,7 @@ export function UserMenu() {
 
   if (isLoading) {
     return (
-      <div className="text-xs font-mono text-text-muted animate-pulse">
+      <div className="text-xs font-theme-data text-text-muted animate-pulse">
         [LOADING...]
       </div>
     );
@@ -89,13 +89,13 @@ export function UserMenu() {
       <div className="flex items-center gap-3">
         <Link
           href="/auth/login"
-          className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+          className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
         >
           [LOGIN]
         </Link>
         <Link
           href="/signup"
-          className="text-xs font-mono px-3 py-1 bg-acid-green/10 border border-acid-green/50 text-acid-green hover:bg-acid-green/20 transition-colors"
+          className="text-xs font-theme-data px-3 py-1 bg-[var(--accent)]/10 border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
         >
           [SIGN UP]
         </Link>
@@ -111,29 +111,29 @@ export function UserMenu() {
         aria-label="User menu"
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        className="flex items-center gap-2 text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-background"
+        className="flex items-center gap-2 text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-background"
       >
-        <span className="w-6 h-6 rounded-full bg-acid-green/20 border border-acid-green/50 flex items-center justify-center text-acid-green">
+        <span className="w-6 h-6 rounded-full bg-[var(--accent)]/20 border border-[var(--accent)]/50 flex items-center justify-center text-[var(--accent)]">
           {user.name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
         </span>
         <span className="hidden sm:inline">{user.name || user.email.split('@')[0]}</span>
-        <span className="text-acid-green/50" aria-hidden="true">{isOpen ? '[^]' : '[v]'}</span>
+        <span className="text-[var(--accent)]/50" aria-hidden="true">{isOpen ? '[^]' : '[v]'}</span>
       </button>
 
       {isOpen && (
         <div
-          className="absolute right-0 top-full mt-2 w-64 bg-surface border border-acid-green/30 shadow-lg z-50"
+          className="absolute right-0 top-full mt-2 w-64 bg-surface border border-[var(--accent)]/30 shadow-lg z-50"
           role="menu"
           aria-label="User menu"
         >
           {/* User Info */}
-          <div className="p-4 border-b border-acid-green/20">
-            <div className="text-sm font-mono text-text">{user.name || 'Anonymous'}</div>
-            <div className="text-xs font-mono text-text-muted truncate">{user.email}</div>
+          <div className="p-4 border-b border-[var(--accent)]/20">
+            <div className="text-sm font-theme-data text-text">{user.name || 'Anonymous'}</div>
+            <div className="text-xs font-theme-data text-text-muted truncate">{user.email}</div>
             {organization && (
-              <div className="mt-2 text-xs font-mono text-acid-cyan">
+              <div className="mt-2 text-xs font-theme-data text-[var(--acid-cyan)]">
                 ORG: {organization.name}
-                <span className="ml-2 px-1 py-0.5 bg-acid-green/10 text-acid-green uppercase">
+                <span className="ml-2 px-1 py-0.5 bg-[var(--accent)]/10 text-[var(--accent)] uppercase">
                   {organization.tier}
                 </span>
               </div>
@@ -142,7 +142,7 @@ export function UserMenu() {
 
           {/* Organization Switcher - shown when user has multiple orgs */}
           {organizations.length > 1 && (
-            <div className="p-3 border-b border-acid-green/20">
+            <div className="p-3 border-b border-[var(--accent)]/20">
               <OrganizationSwitcher compact onSwitch={() => setIsOpen(false)} />
             </div>
           )}
@@ -154,7 +154,7 @@ export function UserMenu() {
               href="/billing"
               role="menuitem"
               tabIndex={focusedIndex === 0 ? 0 : -1}
-              className="block px-4 py-2 text-xs font-mono text-text-muted hover:bg-acid-green/10 hover:text-acid-green focus:bg-acid-green/10 focus:text-acid-green focus:outline-none transition-colors"
+              className="block px-4 py-2 text-xs font-theme-data text-text-muted hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] focus:bg-[var(--accent)]/10 focus:text-[var(--accent)] focus:outline-none transition-colors"
               onClick={() => setIsOpen(false)}
             >
               [BILLING & USAGE]
@@ -164,7 +164,7 @@ export function UserMenu() {
               href="/settings"
               role="menuitem"
               tabIndex={focusedIndex === 1 ? 0 : -1}
-              className="block px-4 py-2 text-xs font-mono text-text-muted hover:bg-acid-green/10 hover:text-acid-green focus:bg-acid-green/10 focus:text-acid-green focus:outline-none transition-colors"
+              className="block px-4 py-2 text-xs font-theme-data text-text-muted hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] focus:bg-[var(--accent)]/10 focus:text-[var(--accent)] focus:outline-none transition-colors"
               onClick={() => setIsOpen(false)}
             >
               [SETTINGS]
@@ -174,7 +174,7 @@ export function UserMenu() {
               href="/developer"
               role="menuitem"
               tabIndex={focusedIndex === 2 ? 0 : -1}
-              className="block px-4 py-2 text-xs font-mono text-text-muted hover:bg-acid-green/10 hover:text-acid-green focus:bg-acid-green/10 focus:text-acid-green focus:outline-none transition-colors"
+              className="block px-4 py-2 text-xs font-theme-data text-text-muted hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] focus:bg-[var(--accent)]/10 focus:text-[var(--accent)] focus:outline-none transition-colors"
               onClick={() => setIsOpen(false)}
             >
               [DEVELOPER]
@@ -184,7 +184,7 @@ export function UserMenu() {
               href="/ab-testing"
               role="menuitem"
               tabIndex={focusedIndex === 3 ? 0 : -1}
-              className="block px-4 py-2 text-xs font-mono text-text-muted hover:bg-acid-green/10 hover:text-acid-green focus:bg-acid-green/10 focus:text-acid-green focus:outline-none transition-colors"
+              className="block px-4 py-2 text-xs font-theme-data text-text-muted hover:bg-[var(--accent)]/10 hover:text-[var(--accent)] focus:bg-[var(--accent)]/10 focus:text-[var(--accent)] focus:outline-none transition-colors"
               onClick={() => setIsOpen(false)}
             >
               [A/B TESTING]
@@ -192,7 +192,7 @@ export function UserMenu() {
           </div>
 
           {/* Logout */}
-          <div className="border-t border-acid-green/20 py-2">
+          <div className="border-t border-[var(--accent)]/20 py-2">
             <button
               ref={(el) => { menuItemsRef.current[4] = el; }}
               role="menuitem"
@@ -201,7 +201,7 @@ export function UserMenu() {
                 setIsOpen(false);
                 logout();
               }}
-              className="w-full px-4 py-2 text-xs font-mono text-warning hover:bg-warning/10 focus:bg-warning/10 focus:outline-none transition-colors text-left"
+              className="w-full px-4 py-2 text-xs font-theme-data text-warning hover:bg-warning/10 focus:bg-warning/10 focus:outline-none transition-colors text-left"
               aria-label="Logout"
             >
               [LOGOUT]

@@ -69,18 +69,18 @@ const DEMO_HISTORY: ScheduledDebate[] = [
 
 const stateColor = (state: string) => {
   switch (state) {
-    case 'running': return 'text-acid-green';
-    case 'paused': return 'text-acid-yellow';
-    case 'stopped': return 'text-crimson';
+    case 'running': return 'text-[var(--accent)]';
+    case 'paused': return 'text-[var(--acid-yellow)]';
+    case 'stopped': return 'text-[var(--crimson)]';
     default: return 'text-text-muted';
   }
 };
 
 const stateBg = (state: string) => {
   switch (state) {
-    case 'running': return 'bg-acid-green/20 border-acid-green';
+    case 'running': return 'bg-[var(--accent)]/20 border-[var(--accent)]';
     case 'paused': return 'bg-acid-yellow/20 border-acid-yellow';
-    case 'stopped': return 'bg-crimson/20 border-crimson';
+    case 'stopped': return 'bg-[var(--crimson)]/20 border-[var(--crimson)]';
     default: return 'bg-surface border-border';
   }
 };
@@ -98,7 +98,7 @@ const platformColor = (platform: string) => {
   switch (platform) {
     case 'hackernews': return 'text-orange-400 bg-orange-400/20';
     case 'reddit': return 'text-blue-400 bg-blue-400/20';
-    case 'twitter': return 'text-acid-cyan bg-acid-cyan/20';
+    case 'twitter': return 'text-[var(--acid-cyan)] bg-[var(--acid-cyan)]/20';
     default: return 'text-text-muted bg-surface';
   }
 };
@@ -138,20 +138,20 @@ function SourceHealthCard({ platform, metrics, config }: {
   return (
     <div className={`card p-4 ${isEnabled ? '' : 'opacity-50'}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className={`font-mono text-xs font-bold px-2 py-0.5 rounded ${platformColor(platform)}`}>
+        <span className={`font-theme-data text-xs font-bold px-2 py-0.5 rounded ${platformColor(platform)}`}>
           {platformIcon(platform)}
         </span>
         <span className={`w-2 h-2 rounded-full ${isEnabled ? 'bg-success animate-pulse' : 'bg-text-muted'}`} />
       </div>
-      <div className="font-mono text-sm capitalize mb-1">{platform}</div>
-      <div className="text-xs font-mono text-text-muted">
+      <div className="font-theme-data text-sm capitalize mb-1">{platform}</div>
+      <div className="text-xs font-theme-data text-text-muted">
         {isEnabled ? 'Active' : 'Disabled'}
       </div>
-      <div className="mt-2 text-xs font-mono">
+      <div className="mt-2 text-xs font-theme-data">
         <span className="text-text-muted">Debates:</span>{' '}
-        <span className="text-acid-cyan">{debateCount}</span>
+        <span className="text-[var(--acid-cyan)]">{debateCount}</span>
       </div>
-      <div className="text-xs font-mono">
+      <div className="text-xs font-theme-data">
         <span className="text-text-muted">Last poll:</span>{' '}
         <span>{formatAgo(metrics.last_poll_at)}</span>
       </div>
@@ -226,13 +226,13 @@ export default function PulseSchedulerPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-4">
-              <Link href="/pulse" className="text-xs font-mono text-text-muted hover:text-acid-green">
+              <Link href="/pulse" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)]">
                 [PULSE]
               </Link>
               <BackendSelector compact />
@@ -246,18 +246,18 @@ export default function PulseSchedulerPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <div className="text-xs font-mono text-text-muted mb-1">
-                  <Link href="/pulse" className="hover:text-acid-green">Pulse</Link>
+                <div className="text-xs font-theme-data text-text-muted mb-1">
+                  <Link href="/pulse" className="hover:text-[var(--accent)]">Pulse</Link>
                   <span className="mx-2">/</span>
-                  <span className="text-acid-green">Scheduler</span>
+                  <span className="text-[var(--accent)]">Scheduler</span>
                 </div>
-                <h1 className="text-2xl font-mono text-acid-green">Pulse Scheduler</h1>
-                <p className="text-text-muted font-mono text-sm mt-1">
+                <h1 className="text-2xl font-theme-data text-[var(--accent)]">Pulse Scheduler</h1>
+                <p className="text-text-muted font-theme-data text-sm mt-1">
                   Trending topic ingestion and automated debate scheduling
                 </p>
               </div>
               <div className="flex gap-2 items-center">
-                <div className={`px-3 py-1.5 border rounded font-mono text-xs ${stateBg(displayStatus.state)} ${stateColor(displayStatus.state)}`}>
+                <div className={`px-3 py-1.5 border rounded font-theme-data text-xs ${stateBg(displayStatus.state)} ${stateColor(displayStatus.state)}`}>
                   {displayStatus.state.toUpperCase()}
                 </div>
                 {isRunning || (!status && displayStatus.state === 'running') ? (
@@ -265,14 +265,14 @@ export default function PulseSchedulerPage() {
                     <button
                       onClick={() => pause()}
                       disabled={actionLoading}
-                      className="px-3 py-1.5 bg-acid-yellow/20 border border-acid-yellow text-acid-yellow font-mono text-xs rounded hover:bg-acid-yellow/30 disabled:opacity-50"
+                      className="px-3 py-1.5 bg-acid-yellow/20 border border-acid-yellow text-[var(--acid-yellow)] font-theme-data text-xs rounded hover:bg-acid-yellow/30 disabled:opacity-50"
                     >
                       Pause
                     </button>
                     <button
                       onClick={() => stop()}
                       disabled={actionLoading}
-                      className="px-3 py-1.5 bg-crimson/20 border border-crimson text-crimson font-mono text-xs rounded hover:bg-crimson/30 disabled:opacity-50"
+                      className="px-3 py-1.5 bg-[var(--crimson)]/20 border border-[var(--crimson)] text-[var(--crimson)] font-theme-data text-xs rounded hover:bg-[var(--crimson)]/30 disabled:opacity-50"
                     >
                       Stop
                     </button>
@@ -282,14 +282,14 @@ export default function PulseSchedulerPage() {
                     <button
                       onClick={() => resume()}
                       disabled={actionLoading}
-                      className="px-3 py-1.5 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-xs rounded hover:bg-acid-green/30 disabled:opacity-50"
+                      className="px-3 py-1.5 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-xs rounded hover:bg-[var(--accent)]/30 disabled:opacity-50"
                     >
                       Resume
                     </button>
                     <button
                       onClick={() => stop()}
                       disabled={actionLoading}
-                      className="px-3 py-1.5 bg-crimson/20 border border-crimson text-crimson font-mono text-xs rounded hover:bg-crimson/30 disabled:opacity-50"
+                      className="px-3 py-1.5 bg-[var(--crimson)]/20 border border-[var(--crimson)] text-[var(--crimson)] font-theme-data text-xs rounded hover:bg-[var(--crimson)]/30 disabled:opacity-50"
                     >
                       Stop
                     </button>
@@ -298,7 +298,7 @@ export default function PulseSchedulerPage() {
                   <button
                     onClick={() => start()}
                     disabled={actionLoading}
-                    className="px-3 py-1.5 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-xs rounded hover:bg-acid-green/30 disabled:opacity-50"
+                    className="px-3 py-1.5 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-xs rounded hover:bg-[var(--accent)]/30 disabled:opacity-50"
                   >
                     Start
                   </button>
@@ -308,7 +308,7 @@ export default function PulseSchedulerPage() {
 
             {/* Errors */}
             {(statusError || actionError || usingDemo) && (
-              <div className="mb-4 p-3 bg-crimson/20 border border-crimson/30 rounded text-crimson font-mono text-sm">
+              <div className="mb-4 p-3 bg-[var(--crimson)]/20 border border-[var(--crimson)]/30 rounded text-[var(--crimson)] font-theme-data text-sm">
                 {statusError || actionError || 'Backend unavailable'}
                 <span className="ml-2 text-text-muted">(showing demo data)</span>
               </div>
@@ -316,45 +316,45 @@ export default function PulseSchedulerPage() {
 
             {initialLoad && statusLoading ? (
               <div className="card p-8 text-center">
-                <div className="animate-pulse font-mono text-text-muted">Fetching scheduler status...</div>
+                <div className="animate-pulse font-theme-data text-text-muted">Fetching scheduler status...</div>
               </div>
             ) : (
               <>
                 {/* Metrics Overview */}
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">UPTIME</div>
-                    <div className="text-xl font-mono text-acid-green">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">UPTIME</div>
+                    <div className="text-xl font-theme-data text-[var(--accent)]">
                       {formatUptime(displayMetrics.uptime_seconds)}
                     </div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">POLLS</div>
-                    <div className="text-xl font-mono text-acid-cyan">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">POLLS</div>
+                    <div className="text-xl font-theme-data text-[var(--acid-cyan)]">
                       {displayMetrics.polls_completed.toLocaleString()}
                     </div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">TOPICS SEEN</div>
-                    <div className="text-xl font-mono text-purple-400">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">TOPICS SEEN</div>
+                    <div className="text-xl font-theme-data text-purple-400">
                       {displayMetrics.topics_evaluated.toLocaleString()}
                     </div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">DEBATES CREATED</div>
-                    <div className="text-xl font-mono text-acid-green">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">DEBATES CREATED</div>
+                    <div className="text-xl font-theme-data text-[var(--accent)]">
                       {displayMetrics.debates_created}
                     </div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">DEBATES FAILED</div>
-                    <div className="text-xl font-mono text-crimson">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">DEBATES FAILED</div>
+                    <div className="text-xl font-theme-data text-[var(--crimson)]">
                       {displayMetrics.debates_failed}
                     </div>
                   </div>
                   <div className="card p-4">
-                    <div className="text-xs font-mono text-text-muted mb-1">DUPES SKIPPED</div>
-                    <div className="text-xl font-mono text-acid-yellow">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">DUPES SKIPPED</div>
+                    <div className="text-xl font-theme-data text-[var(--acid-yellow)]">
                       {displayMetrics.duplicates_skipped}
                     </div>
                   </div>
@@ -364,7 +364,7 @@ export default function PulseSchedulerPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   {/* Source Health */}
                   <div className="card p-4">
-                    <h3 className="font-mono text-sm text-acid-green mb-3">Pulse Sources</h3>
+                    <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">Pulse Sources</h3>
                     <div className="grid grid-cols-3 gap-3">
                       {allPlatforms.map(platform => (
                         <SourceHealthCard
@@ -379,48 +379,48 @@ export default function PulseSchedulerPage() {
 
                   {/* Quality Filtering Stats */}
                   <div className="card p-4">
-                    <h3 className="font-mono text-sm text-acid-green mb-3">Quality Filtering</h3>
+                    <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">Quality Filtering</h3>
                     <div className="space-y-4">
                       <div>
-                        <div className="flex justify-between text-xs font-mono text-text-muted mb-1">
+                        <div className="flex justify-between text-xs font-theme-data text-text-muted mb-1">
                           <span>Accepted Topics</span>
-                          <span className="text-acid-green">{acceptedTopics}</span>
+                          <span className="text-[var(--accent)]">{acceptedTopics}</span>
                         </div>
                         <div className="h-3 bg-surface rounded overflow-hidden">
                           <div
-                            className="h-full bg-acid-green transition-all"
+                            className="h-full bg-[var(--accent)] transition-all"
                             style={{ width: `${displayMetrics.topics_evaluated > 0 ? (acceptedTopics / displayMetrics.topics_evaluated) * 100 : 0}%` }}
                           />
                         </div>
                       </div>
                       <div>
-                        <div className="flex justify-between text-xs font-mono text-text-muted mb-1">
+                        <div className="flex justify-between text-xs font-theme-data text-text-muted mb-1">
                           <span>Rejected Topics</span>
-                          <span className="text-crimson">{rejectedTopics}</span>
+                          <span className="text-[var(--crimson)]">{rejectedTopics}</span>
                         </div>
                         <div className="h-3 bg-surface rounded overflow-hidden">
                           <div
-                            className="h-full bg-crimson transition-all"
+                            className="h-full bg-[var(--crimson)] transition-all"
                             style={{ width: `${displayMetrics.topics_evaluated > 0 ? (rejectedTopics / displayMetrics.topics_evaluated) * 100 : 0}%` }}
                           />
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-border">
                         <div>
-                          <div className="text-xs font-mono text-text-muted">Min Volume</div>
-                          <div className="font-mono text-sm">{displayConfig.min_volume_threshold}</div>
+                          <div className="text-xs font-theme-data text-text-muted">Min Volume</div>
+                          <div className="font-theme-data text-sm">{displayConfig.min_volume_threshold}</div>
                         </div>
                         <div>
-                          <div className="text-xs font-mono text-text-muted">Min Controversy</div>
-                          <div className="font-mono text-sm">{displayConfig.min_controversy_score}</div>
+                          <div className="text-xs font-theme-data text-text-muted">Min Controversy</div>
+                          <div className="font-theme-data text-sm">{displayConfig.min_controversy_score}</div>
                         </div>
                         <div>
-                          <div className="text-xs font-mono text-text-muted">Dedup Window</div>
-                          <div className="font-mono text-sm">{displayConfig.dedup_window_hours}h</div>
+                          <div className="text-xs font-theme-data text-text-muted">Dedup Window</div>
+                          <div className="font-theme-data text-sm">{displayConfig.dedup_window_hours}h</div>
                         </div>
                         <div>
-                          <div className="text-xs font-mono text-text-muted">Consensus Threshold</div>
-                          <div className="font-mono text-sm">{displayConfig.consensus_threshold}</div>
+                          <div className="text-xs font-theme-data text-text-muted">Consensus Threshold</div>
+                          <div className="font-theme-data text-sm">{displayConfig.consensus_threshold}</div>
                         </div>
                       </div>
                     </div>
@@ -429,43 +429,43 @@ export default function PulseSchedulerPage() {
 
                 {/* Scheduled Ingestion Config */}
                 <div className="card p-4 mb-6">
-                  <h3 className="font-mono text-sm text-acid-green mb-3">Scheduled Ingestion</h3>
+                  <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">Scheduled Ingestion</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
-                      <div className="text-xs font-mono text-text-muted mb-1">Poll Interval</div>
-                      <div className="font-mono text-sm">
+                      <div className="text-xs font-theme-data text-text-muted mb-1">Poll Interval</div>
+                      <div className="font-theme-data text-sm">
                         Every {displayConfig.poll_interval_seconds}s ({Math.round(displayConfig.poll_interval_seconds / 60)}m)
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs font-mono text-text-muted mb-1">Max Debates / Hour</div>
-                      <div className="font-mono text-sm">{displayConfig.max_debates_per_hour}</div>
+                      <div className="text-xs font-theme-data text-text-muted mb-1">Max Debates / Hour</div>
+                      <div className="font-theme-data text-sm">{displayConfig.max_debates_per_hour}</div>
                     </div>
                     <div>
-                      <div className="text-xs font-mono text-text-muted mb-1">Min Interval Between</div>
-                      <div className="font-mono text-sm">{displayConfig.min_interval_between_debates}s</div>
+                      <div className="text-xs font-theme-data text-text-muted mb-1">Min Interval Between</div>
+                      <div className="font-theme-data text-sm">{displayConfig.min_interval_between_debates}s</div>
                     </div>
                     <div>
-                      <div className="text-xs font-mono text-text-muted mb-1">Debate Rounds</div>
-                      <div className="font-mono text-sm">{displayConfig.debate_rounds}</div>
+                      <div className="text-xs font-theme-data text-text-muted mb-1">Debate Rounds</div>
+                      <div className="font-theme-data text-sm">{displayConfig.debate_rounds}</div>
                     </div>
                   </div>
                   <div className="mt-3 pt-3 border-t border-border grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <div className="text-xs font-mono text-text-muted mb-1">Last Poll</div>
-                      <div className="font-mono text-sm">{formatAgo(displayMetrics.last_poll_at)}</div>
+                      <div className="text-xs font-theme-data text-text-muted mb-1">Last Poll</div>
+                      <div className="font-theme-data text-sm">{formatAgo(displayMetrics.last_poll_at)}</div>
                     </div>
                     <div>
-                      <div className="text-xs font-mono text-text-muted mb-1">Last Debate Created</div>
-                      <div className="font-mono text-sm">{formatAgo(displayMetrics.last_debate_at)}</div>
+                      <div className="text-xs font-theme-data text-text-muted mb-1">Last Debate Created</div>
+                      <div className="font-theme-data text-sm">{formatAgo(displayMetrics.last_debate_at)}</div>
                     </div>
                   </div>
                   {displayConfig.blocked_categories.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-border">
-                      <div className="text-xs font-mono text-text-muted mb-1">Blocked Categories</div>
+                      <div className="text-xs font-theme-data text-text-muted mb-1">Blocked Categories</div>
                       <div className="flex gap-1 flex-wrap">
                         {displayConfig.blocked_categories.map(cat => (
-                          <span key={cat} className="font-mono text-xs px-2 py-0.5 rounded bg-crimson/20 text-crimson">
+                          <span key={cat} className="font-theme-data text-xs px-2 py-0.5 rounded bg-[var(--crimson)]/20 text-[var(--crimson)]">
                             {cat}
                           </span>
                         ))}
@@ -477,29 +477,29 @@ export default function PulseSchedulerPage() {
                 {/* Analytics */}
                 {displayAnalytics && (
                   <div className="card p-4 mb-6">
-                    <h3 className="font-mono text-sm text-acid-green mb-3">Store Analytics</h3>
+                    <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">Store Analytics</h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div>
-                        <div className="text-xs font-mono text-text-muted mb-1">Total Debates</div>
-                        <div className="text-xl font-mono text-acid-green">{displayAnalytics.total_debates}</div>
+                        <div className="text-xs font-theme-data text-text-muted mb-1">Total Debates</div>
+                        <div className="text-xl font-theme-data text-[var(--accent)]">{displayAnalytics.total_debates}</div>
                       </div>
                       <div>
-                        <div className="text-xs font-mono text-text-muted mb-1">Consensus Rate</div>
-                        <div className="text-xl font-mono text-acid-cyan">
+                        <div className="text-xs font-theme-data text-text-muted mb-1">Consensus Rate</div>
+                        <div className="text-xl font-theme-data text-[var(--acid-cyan)]">
                           {(displayAnalytics.consensus_rate * 100).toFixed(0)}%
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs font-mono text-text-muted mb-1">Avg Confidence</div>
-                        <div className="text-xl font-mono text-purple-400">
+                        <div className="text-xs font-theme-data text-text-muted mb-1">Avg Confidence</div>
+                        <div className="text-xl font-theme-data text-purple-400">
                           {(displayAnalytics.avg_confidence * 100).toFixed(0)}%
                         </div>
                       </div>
                       <div>
-                        <div className="text-xs font-mono text-text-muted mb-1">By Platform</div>
+                        <div className="text-xs font-theme-data text-text-muted mb-1">By Platform</div>
                         <div className="flex gap-2 mt-1">
                           {Object.entries(displayAnalytics.by_platform).map(([p, count]) => (
-                            <span key={p} className={`font-mono text-xs px-1.5 py-0.5 rounded ${platformColor(p)}`}>
+                            <span key={p} className={`font-theme-data text-xs px-1.5 py-0.5 rounded ${platformColor(p)}`}>
                               {platformIcon(p)}: {count}
                             </span>
                           ))}
@@ -512,16 +512,16 @@ export default function PulseSchedulerPage() {
                 {/* Trending Topic Feed */}
                 <div className="card p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-mono text-sm text-acid-green">
+                    <h3 className="font-theme-data text-sm text-[var(--accent)]">
                       Recent Debates ({filteredHistory.length})
                     </h3>
                     <div className="flex gap-1">
                       <button
                         onClick={() => setPlatformFilter('all')}
-                        className={`px-2 py-1 font-mono text-xs rounded border ${
+                        className={`px-2 py-1 font-theme-data text-xs rounded border ${
                           platformFilter === 'all'
-                            ? 'border-acid-green text-acid-green bg-acid-green/20'
-                            : 'border-border text-text-muted hover:border-acid-green/50'
+                            ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/20'
+                            : 'border-border text-text-muted hover:border-[var(--accent)]/50'
                         }`}
                       >
                         ALL
@@ -530,10 +530,10 @@ export default function PulseSchedulerPage() {
                         <button
                           key={p}
                           onClick={() => setPlatformFilter(p)}
-                          className={`px-2 py-1 font-mono text-xs rounded border ${
+                          className={`px-2 py-1 font-theme-data text-xs rounded border ${
                             platformFilter === p
-                              ? 'border-acid-green text-acid-green bg-acid-green/20'
-                              : 'border-border text-text-muted hover:border-acid-green/50'
+                              ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/20'
+                              : 'border-border text-text-muted hover:border-[var(--accent)]/50'
                           }`}
                         >
                           {platformIcon(p)}
@@ -543,12 +543,12 @@ export default function PulseSchedulerPage() {
                   </div>
 
                   {historyLoading && history.length === 0 ? (
-                    <div className="py-6 text-center animate-pulse font-mono text-text-muted">
+                    <div className="py-6 text-center animate-pulse font-theme-data text-text-muted">
                       Loading history...
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-sm font-mono">
+                      <table className="w-full text-sm font-theme-data">
                         <thead>
                           <tr className="border-b border-border">
                             <th className="text-left py-2 pr-4 text-text-muted text-xs">SOURCE</th>
@@ -565,13 +565,13 @@ export default function PulseSchedulerPage() {
                           {filteredHistory.map((debate) => (
                             <tr key={debate.id} className="border-b border-border/50 hover:bg-surface/50">
                               <td className="py-2 pr-4">
-                                <span className={`font-mono text-xs px-1.5 py-0.5 rounded ${platformColor(debate.platform)}`}>
+                                <span className={`font-theme-data text-xs px-1.5 py-0.5 rounded ${platformColor(debate.platform)}`}>
                                   {platformIcon(debate.platform)}
                                 </span>
                               </td>
                               <td className="py-2 pr-4 max-w-sm truncate" title={debate.topic}>
                                 {debate.debate_id ? (
-                                  <Link href={`/debates/${debate.debate_id}`} className="hover:text-acid-green">
+                                  <Link href={`/debates/${debate.debate_id}`} className="hover:text-[var(--accent)]">
                                     {debate.topic}
                                   </Link>
                                 ) : (
@@ -579,19 +579,19 @@ export default function PulseSchedulerPage() {
                                 )}
                               </td>
                               <td className="py-2 pr-4 text-xs text-text-muted">{debate.category}</td>
-                              <td className="py-2 pr-4 text-center text-acid-cyan">{debate.volume}</td>
+                              <td className="py-2 pr-4 text-center text-[var(--acid-cyan)]">{debate.volume}</td>
                               <td className="py-2 pr-4 text-center">
                                 {debate.consensus_reached === null ? (
                                   <span className="text-text-muted">--</span>
                                 ) : debate.consensus_reached ? (
-                                  <span className="text-acid-green">YES</span>
+                                  <span className="text-[var(--accent)]">YES</span>
                                 ) : (
-                                  <span className="text-crimson">NO</span>
+                                  <span className="text-[var(--crimson)]">NO</span>
                                 )}
                               </td>
                               <td className="py-2 pr-4 text-center">
                                 {debate.confidence !== null ? (
-                                  <span className={debate.confidence >= 0.7 ? 'text-acid-green' : debate.confidence >= 0.5 ? 'text-acid-yellow' : 'text-crimson'}>
+                                  <span className={debate.confidence >= 0.7 ? 'text-[var(--accent)]' : debate.confidence >= 0.5 ? 'text-[var(--acid-yellow)]' : 'text-[var(--crimson)]'}>
                                     {(debate.confidence * 100).toFixed(0)}%
                                   </span>
                                 ) : (
@@ -622,7 +622,7 @@ export default function PulseSchedulerPage() {
                 </div>
 
                 {historyError && (
-                  <div className="mt-2 text-xs font-mono text-crimson">{historyError}</div>
+                  <div className="mt-2 text-xs font-theme-data text-[var(--crimson)]">{historyError}</div>
                 )}
               </>
             )}
@@ -630,8 +630,8 @@ export default function PulseSchedulerPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // PULSE SCHEDULER</p>
         </footer>
       </main>

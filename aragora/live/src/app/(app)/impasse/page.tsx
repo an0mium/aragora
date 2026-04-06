@@ -40,7 +40,7 @@ export default function ImpassePage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -48,25 +48,25 @@ export default function ImpassePage() {
             <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [DASHBOARD]
               </Link>
               <Link
                 href="/debates"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [DEBATES]
               </Link>
               <Link
                 href="/insights"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [INSIGHTS]
               </Link>
               <Link
                 href="/checkpoints"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [SAVES]
               </Link>
@@ -79,28 +79,28 @@ export default function ImpassePage() {
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} IMPASSE DETECTION
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Detect debate deadlocks, identify pivot claims, and suggest fork points
               for branching discussions into alternative paths.
             </p>
           </div>
 
           <div className="mb-6 p-4 border border-warning/30 bg-warning/5 rounded">
-            <h3 className="text-sm font-mono text-warning mb-2">Impasse Analysis Features</h3>
-            <ul className="text-xs font-mono text-text-muted space-y-1">
-              <li>- <span className="text-acid-green">Deadlock detection</span>: Identify when debates stall</li>
-              <li>- <span className="text-acid-green">Pivot claims</span>: Find claims that could break the impasse</li>
-              <li>- <span className="text-acid-green">Fork suggestions</span>: Branch debates into alternative paths</li>
-              <li>- <span className="text-acid-green">Resolution strategies</span>: Recommended actions to progress</li>
+            <h3 className="text-sm font-theme-data text-warning mb-2">Impasse Analysis Features</h3>
+            <ul className="text-xs font-theme-data text-text-muted space-y-1">
+              <li>- <span className="text-[var(--accent)]">Deadlock detection</span>: Identify when debates stall</li>
+              <li>- <span className="text-[var(--accent)]">Pivot claims</span>: Find claims that could break the impasse</li>
+              <li>- <span className="text-[var(--accent)]">Fork suggestions</span>: Branch debates into alternative paths</li>
+              <li>- <span className="text-[var(--accent)]">Resolution strategies</span>: Recommended actions to progress</li>
             </ul>
           </div>
 
           {/* Debate ID Input */}
-          <div className="mb-6 p-4 border border-acid-green/30 rounded">
-            <label className="block text-sm font-mono text-text-muted mb-2">
+          <div className="mb-6 p-4 border border-[var(--accent)]/30 rounded">
+            <label className="block text-sm font-theme-data text-text-muted mb-2">
               Enter Debate ID to Analyze
             </label>
             <div className="flex gap-2">
@@ -109,11 +109,11 @@ export default function ImpassePage() {
                 value={debateId}
                 onChange={(e) => setDebateId(e.target.value)}
                 placeholder="debate-uuid-here"
-                className="flex-1 bg-bg border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                className="flex-1 bg-bg border border-[var(--accent)]/30 px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
               />
               <button
                 onClick={handleLoadDebate}
-                className="px-4 py-2 bg-acid-green/10 border border-acid-green/30 text-acid-green text-sm font-mono hover:bg-acid-green/20 transition-colors"
+                className="px-4 py-2 bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-[var(--accent)] text-sm font-theme-data hover:bg-[var(--accent)]/20 transition-colors"
               >
                 [ANALYZE]
               </button>
@@ -131,8 +131,8 @@ export default function ImpassePage() {
               <ImpasseDetectionPanel debateId={activeDebateId} apiBase={backendConfig.api} />
             </PanelErrorBoundary>
           ) : (
-            <div className="p-8 border border-acid-green/20 rounded text-center">
-              <p className="text-text-muted font-mono text-sm">
+            <div className="p-8 border border-[var(--accent)]/20 rounded text-center">
+              <p className="text-text-muted font-theme-data text-sm">
                 Enter a debate ID above to analyze for impasses and fork opportunities.
               </p>
             </div>
@@ -140,8 +140,8 @@ export default function ImpassePage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

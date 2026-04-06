@@ -75,11 +75,11 @@ export default function OrchestrationPage() {
         <div className="flex items-center gap-3 px-4 py-2 border-b border-[var(--border)] bg-[var(--bg)]">
           <button
             onClick={() => setSelectedId(null)}
-            className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)]"
+            className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)]"
           >
             &lt; Back
           </button>
-          <span className="text-xs font-mono text-[var(--text)]">
+          <span className="text-xs font-theme-data text-[var(--text)]">
             {canvases.find((c) => c.id === selectedId)?.name || 'Orchestration Canvas'}
           </span>
         </div>
@@ -92,7 +92,7 @@ export default function OrchestrationPage() {
 
   // -- Canvas list view --
   return (
-    <div className="p-6 max-w-4xl mx-auto font-mono">
+    <div className="p-6 max-w-4xl mx-auto font-theme-data">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-[var(--text)]">Orchestration Canvas</h1>

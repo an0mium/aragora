@@ -130,11 +130,11 @@ export function DecisionReceiptViewer({
         <div className="flex items-start justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-acid-green font-mono text-sm">{verdictConfig.icon}</span>
-              <h2 className="font-mono text-lg font-bold text-text">DECISION RECEIPT</h2>
+              <span className="text-[var(--accent)] font-theme-data text-sm">{verdictConfig.icon}</span>
+              <h2 className="font-theme-data text-lg font-bold text-text">DECISION RECEIPT</h2>
             </div>
-            <div className="text-xs font-mono text-text-muted">
-              Receipt ID: <code className="text-acid-cyan">{receipt.receipt_id}</code>
+            <div className="text-xs font-theme-data text-text-muted">
+              Receipt ID: <code className="text-[var(--acid-cyan)]">{receipt.receipt_id}</code>
             </div>
           </div>
 
@@ -144,29 +144,29 @@ export function DecisionReceiptViewer({
               {verificationStatus === 'idle' && onVerify && (
                 <button
                   onClick={handleVerify}
-                  className="px-3 py-1 text-xs font-mono bg-surface border border-border rounded hover:border-acid-green transition-colors"
+                  className="px-3 py-1 text-xs font-theme-data bg-surface border border-border rounded hover:border-[var(--accent)] transition-colors"
                 >
                   Verify Integrity
                 </button>
               )}
               {verificationStatus === 'verifying' && (
-                <span className="px-3 py-1 text-xs font-mono bg-surface border border-border rounded animate-pulse">
+                <span className="px-3 py-1 text-xs font-theme-data bg-surface border border-border rounded animate-pulse">
                   Verifying...
                 </span>
               )}
               {verificationStatus === 'valid' && (
-                <span className="px-3 py-1 text-xs font-mono bg-green-900/30 text-green-400 border border-green-800/30 rounded">
+                <span className="px-3 py-1 text-xs font-theme-data bg-green-900/30 text-green-400 border border-green-800/30 rounded">
                   [+] VERIFIED
                 </span>
               )}
               {verificationStatus === 'invalid' && (
-                <span className="px-3 py-1 text-xs font-mono bg-red-900/30 text-red-400 border border-red-800/30 rounded">
+                <span className="px-3 py-1 text-xs font-theme-data bg-red-900/30 text-red-400 border border-red-800/30 rounded">
                   [X] INVALID
                 </span>
               )}
             </div>
-            <div className="text-xs font-mono text-text-muted">
-              Checksum: <code className="text-acid-cyan">{receipt.checksum}</code>
+            <div className="text-xs font-theme-data text-text-muted">
+              Checksum: <code className="text-[var(--acid-cyan)]">{receipt.checksum}</code>
             </div>
           </div>
         </div>
@@ -175,20 +175,20 @@ export function DecisionReceiptViewer({
         <div className={`p-4 rounded-lg ${verdictConfig.bg} mb-4`}>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs font-mono text-text-muted mb-1">VERDICT</div>
-              <div className={`text-2xl font-mono font-bold ${verdictConfig.text}`}>
+              <div className="text-xs font-theme-data text-text-muted mb-1">VERDICT</div>
+              <div className={`text-2xl font-theme-data font-bold ${verdictConfig.text}`}>
                 {receipt.verdict.toUpperCase()}
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs font-mono text-text-muted mb-1">CONFIDENCE</div>
-              <div className="text-2xl font-mono font-bold text-acid-cyan">
+              <div className="text-xs font-theme-data text-text-muted mb-1">CONFIDENCE</div>
+              <div className="text-2xl font-theme-data font-bold text-[var(--acid-cyan)]">
                 {(receipt.confidence * 100).toFixed(0)}%
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs font-mono text-text-muted mb-1">RISK LEVEL</div>
-              <div className={`text-2xl font-mono font-bold ${riskColor}`}>
+              <div className="text-xs font-theme-data text-text-muted mb-1">RISK LEVEL</div>
+              <div className={`text-2xl font-theme-data font-bold ${riskColor}`}>
                 {receipt.risk_level.toUpperCase()}
               </div>
             </div>
@@ -196,7 +196,7 @@ export function DecisionReceiptViewer({
         </div>
 
         {/* Meta Information */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-mono">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-theme-data">
           <div>
             <span className="text-text-muted">Input Type:</span>
             <div className="text-text">{receipt.input_type}</div>
@@ -218,7 +218,7 @@ export function DecisionReceiptViewer({
 
       {/* Input Summary */}
       <div className="p-4 border-b border-border">
-        <div className="text-xs font-mono text-text-muted mb-2">INPUT SUMMARY</div>
+        <div className="text-xs font-theme-data text-text-muted mb-2">INPUT SUMMARY</div>
         <p className="text-sm text-text">{receipt.input_summary}</p>
       </div>
 
@@ -227,9 +227,9 @@ export function DecisionReceiptViewer({
         <div className="flex">
           <button
             onClick={() => setActiveTab('findings')}
-            className={`flex-1 px-4 py-3 text-sm font-mono border-b-2 transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-theme-data border-b-2 transition-colors ${
               activeTab === 'findings'
-                ? 'border-acid-green text-acid-green bg-surface/30'
+                ? 'border-[var(--accent)] text-[var(--accent)] bg-surface/30'
                 : 'border-transparent text-text-muted hover:text-text'
             }`}
           >
@@ -237,9 +237,9 @@ export function DecisionReceiptViewer({
           </button>
           <button
             onClick={() => setActiveTab('dissent')}
-            className={`flex-1 px-4 py-3 text-sm font-mono border-b-2 transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-theme-data border-b-2 transition-colors ${
               activeTab === 'dissent'
-                ? 'border-acid-green text-acid-green bg-surface/30'
+                ? 'border-[var(--accent)] text-[var(--accent)] bg-surface/30'
                 : 'border-transparent text-text-muted hover:text-text'
             }`}
           >
@@ -247,9 +247,9 @@ export function DecisionReceiptViewer({
           </button>
           <button
             onClick={() => setActiveTab('claims')}
-            className={`flex-1 px-4 py-3 text-sm font-mono border-b-2 transition-colors ${
+            className={`flex-1 px-4 py-3 text-sm font-theme-data border-b-2 transition-colors ${
               activeTab === 'claims'
-                ? 'border-acid-green text-acid-green bg-surface/30'
+                ? 'border-[var(--accent)] text-[var(--accent)] bg-surface/30'
                 : 'border-transparent text-text-muted hover:text-text'
             }`}
           >
@@ -264,7 +264,7 @@ export function DecisionReceiptViewer({
         {activeTab === 'findings' && (
           <div className="space-y-3">
             {receipt.findings.length === 0 ? (
-              <div className="text-center py-6 text-text-muted font-mono">
+              <div className="text-center py-6 text-text-muted font-theme-data">
                 No findings recorded
               </div>
             ) : (
@@ -274,7 +274,7 @@ export function DecisionReceiptViewer({
                   {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((sev) => (
                     <span
                       key={sev}
-                      className={`px-2 py-1 text-xs font-mono rounded ${SEVERITY_COLORS[sev].bg} ${SEVERITY_COLORS[sev].text}`}
+                      className={`px-2 py-1 text-xs font-theme-data rounded ${SEVERITY_COLORS[sev].bg} ${SEVERITY_COLORS[sev].text}`}
                     >
                       {sev}: {findingsBySeverity[sev].length}
                     </span>
@@ -297,15 +297,15 @@ export function DecisionReceiptViewer({
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2 py-0.5 text-xs font-mono uppercase rounded ${colors.text}`}>
+                            <span className={`px-2 py-0.5 text-xs font-theme-data uppercase rounded ${colors.text}`}>
                               {finding.severity}
                             </span>
-                            <span className="text-xs text-text-muted font-mono">{finding.category}</span>
+                            <span className="text-xs text-text-muted font-theme-data">{finding.category}</span>
                             {finding.verified && (
-                              <span className="text-xs text-green-400 font-mono">[VERIFIED]</span>
+                              <span className="text-xs text-green-400 font-theme-data">[VERIFIED]</span>
                             )}
                           </div>
-                          <h4 className="font-mono font-bold text-text">{finding.title}</h4>
+                          <h4 className="font-theme-data font-bold text-text">{finding.title}</h4>
                         </div>
                       </div>
 
@@ -314,11 +314,11 @@ export function DecisionReceiptViewer({
                           <p className="text-sm text-text-muted">{finding.description}</p>
                           {finding.mitigation && (
                             <div>
-                              <span className="text-xs font-mono text-acid-green">Mitigation:</span>
+                              <span className="text-xs font-theme-data text-[var(--accent)]">Mitigation:</span>
                               <p className="text-sm text-text ml-2">{finding.mitigation}</p>
                             </div>
                           )}
-                          <div className="text-xs text-text-muted font-mono">
+                          <div className="text-xs text-text-muted font-theme-data">
                             Source: {finding.source}
                           </div>
                         </div>
@@ -335,7 +335,7 @@ export function DecisionReceiptViewer({
         {activeTab === 'dissent' && (
           <div className="space-y-3">
             {receipt.dissenting_views.length === 0 ? (
-              <div className="text-center py-6 text-text-muted font-mono">
+              <div className="text-center py-6 text-text-muted font-theme-data">
                 No dissenting views recorded - consensus achieved
               </div>
             ) : (
@@ -345,12 +345,12 @@ export function DecisionReceiptViewer({
                   className="p-3 rounded border border-orange-800/30 bg-orange-900/20"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono font-bold text-orange-400">{dissent.agent}</span>
-                    <span className="text-xs font-mono text-text-muted">
+                    <span className="font-theme-data font-bold text-orange-400">{dissent.agent}</span>
+                    <span className="text-xs font-theme-data text-text-muted">
                       Severity: {(dissent.severity * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="text-xs font-mono text-text-muted mb-2">
+                  <div className="text-xs font-theme-data text-text-muted mb-2">
                     Type: {dissent.type}
                   </div>
                   <ul className="text-sm text-text space-y-1">
@@ -363,7 +363,7 @@ export function DecisionReceiptViewer({
                   </ul>
                   {dissent.alternative && (
                     <div className="mt-2 pt-2 border-t border-border/30">
-                      <span className="text-xs font-mono text-acid-cyan">Alternative proposed:</span>
+                      <span className="text-xs font-theme-data text-[var(--acid-cyan)]">Alternative proposed:</span>
                       <p className="text-sm text-text mt-1">{dissent.alternative}</p>
                     </div>
                   )}
@@ -374,7 +374,7 @@ export function DecisionReceiptViewer({
             {/* Unresolved Tensions */}
             {receipt.unresolved_tensions.length > 0 && (
               <div className="mt-4 pt-4 border-t border-border">
-                <div className="text-xs font-mono text-text-muted mb-2">UNRESOLVED TENSIONS</div>
+                <div className="text-xs font-theme-data text-text-muted mb-2">UNRESOLVED TENSIONS</div>
                 <ul className="space-y-2">
                   {receipt.unresolved_tensions.map((tension, idx) => (
                     <li key={idx} className="text-sm text-yellow-400 flex items-start gap-2">
@@ -393,11 +393,11 @@ export function DecisionReceiptViewer({
           <div className="space-y-4">
             {/* Verified Claims */}
             <div>
-              <div className="text-xs font-mono text-green-400 mb-2">
+              <div className="text-xs font-theme-data text-green-400 mb-2">
                 VERIFIED CLAIMS ({receipt.verified_claims.length})
               </div>
               {receipt.verified_claims.length === 0 ? (
-                <div className="text-xs text-text-muted font-mono">No verified claims</div>
+                <div className="text-xs text-text-muted font-theme-data">No verified claims</div>
               ) : (
                 <div className="space-y-2">
                   {receipt.verified_claims.map((claim, idx) => (
@@ -407,14 +407,14 @@ export function DecisionReceiptViewer({
                     >
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm text-text flex-1">{claim.claim}</p>
-                        <span className="text-xs font-mono text-green-400 flex-shrink-0">
+                        <span className="text-xs font-theme-data text-green-400 flex-shrink-0">
                           {claim.verified ? '[+]' : '[-]'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 mt-1 text-xs text-text-muted font-mono">
+                      <div className="flex items-center gap-4 mt-1 text-xs text-text-muted font-theme-data">
                         <span>Method: {claim.method}</span>
                         {claim.proof_hash && (
-                          <span>Proof: <code className="text-acid-cyan">{claim.proof_hash.slice(0, 12)}...</code></span>
+                          <span>Proof: <code className="text-[var(--acid-cyan)]">{claim.proof_hash.slice(0, 12)}...</code></span>
                         )}
                       </div>
                     </div>
@@ -425,11 +425,11 @@ export function DecisionReceiptViewer({
 
             {/* Unverified Claims */}
             <div>
-              <div className="text-xs font-mono text-yellow-400 mb-2">
+              <div className="text-xs font-theme-data text-yellow-400 mb-2">
                 UNVERIFIED CLAIMS ({receipt.unverified_claims.length})
               </div>
               {receipt.unverified_claims.length === 0 ? (
-                <div className="text-xs text-text-muted font-mono">All claims verified</div>
+                <div className="text-xs text-text-muted font-theme-data">All claims verified</div>
               ) : (
                 <div className="space-y-2">
                   {receipt.unverified_claims.map((claim, idx) => (
@@ -438,7 +438,7 @@ export function DecisionReceiptViewer({
                       className="p-2 rounded border border-yellow-800/30 bg-yellow-900/20"
                     >
                       <p className="text-sm text-text">{claim.claim}</p>
-                      <div className="text-xs text-text-muted font-mono mt-1">
+                      <div className="text-xs text-text-muted font-theme-data mt-1">
                         Method attempted: {claim.method}
                       </div>
                     </div>
@@ -452,14 +452,14 @@ export function DecisionReceiptViewer({
 
       {/* Footer Actions */}
       <div className="p-4 border-t border-border bg-surface/30 flex items-center justify-between">
-        <div className="text-xs font-mono text-text-muted">
+        <div className="text-xs font-theme-data text-text-muted">
           Generated: {new Date(receipt.timestamp).toLocaleString()}
         </div>
         <div className="flex gap-2">
           {onViewAuditTrail && (
             <button
               onClick={onViewAuditTrail}
-              className="px-3 py-1.5 text-xs font-mono bg-surface border border-border rounded hover:border-acid-cyan hover:text-acid-cyan transition-colors"
+              className="px-3 py-1.5 text-xs font-theme-data bg-surface border border-border rounded hover:border-[var(--acid-cyan)] hover:text-[var(--acid-cyan)] transition-colors"
             >
               View Audit Trail
             </button>
@@ -467,7 +467,7 @@ export function DecisionReceiptViewer({
           {onExportPdf && (
             <button
               onClick={onExportPdf}
-              className="px-3 py-1.5 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/30 transition-colors"
+              className="px-3 py-1.5 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/30 transition-colors"
             >
               Export PDF
             </button>

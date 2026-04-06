@@ -183,7 +183,7 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
     <div className="space-y-6">
       {/* Error display */}
       {error && (
-        <div className="p-4 border border-red-500/30 bg-red-500/10 rounded text-red-400 text-sm font-mono">
+        <div className="p-4 border border-red-500/30 bg-red-500/10 rounded text-red-400 text-sm font-theme-data">
           {error}
           <button
             onClick={() => setError(null)}
@@ -195,15 +195,15 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-acid-green/30 pb-2">
+      <div className="flex gap-2 border-b border-[var(--accent)]/30 pb-2">
         {(['plugins', 'score', 'team'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-xs font-mono rounded-t transition-colors ${
+            className={`px-4 py-2 text-xs font-theme-data rounded-t transition-colors ${
               activeTab === tab
-                ? 'bg-acid-green/20 text-acid-green border border-acid-green/50 border-b-0'
-                : 'text-text-muted hover:text-acid-green hover:bg-acid-green/5'
+                ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/50 border-b-0'
+                : 'text-text-muted hover:text-[var(--accent)] hover:bg-[var(--accent)]/5'
             }`}
           >
             [{tab === 'plugins' ? 'PLUGINS' : tab === 'score' ? 'SCORE AGENTS' : 'SELECT TEAM'}]
@@ -240,7 +240,7 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
 
           <button
             onClick={fetchPlugins}
-            className="px-4 py-2 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/50 rounded hover:bg-acid-green/30 transition-colors"
+            className="px-4 py-2 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/30 transition-colors"
           >
             [REFRESH PLUGINS]
           </button>
@@ -251,27 +251,27 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
       {activeTab === 'score' && plugins && (
         <div className="space-y-4">
           <div className="card p-6 space-y-4">
-            <h3 className="text-lg font-mono text-acid-green">Score Agents</h3>
-            <p className="text-xs text-text-muted font-mono">
+            <h3 className="text-lg font-theme-data text-[var(--accent)]">Score Agents</h3>
+            <p className="text-xs text-text-muted font-theme-data">
               Evaluate how well each agent matches the requirements of your task.
             </p>
 
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Task Description *</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Task Description *</label>
               <textarea
                 value={scoreTask}
                 onChange={e => setScoreTask(e.target.value)}
                 placeholder="Describe the task to find the best agents..."
-                className="w-full h-24 p-3 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full h-24 p-3 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Scorer Plugin</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Scorer Plugin</label>
               <select
                 value={selectedScorer}
                 onChange={e => setSelectedScorer(e.target.value)}
-                className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               >
                 {plugins.scorers.map(p => (
                   <option key={p.name} value={p.name}>
@@ -284,7 +284,7 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
             <button
               onClick={handleScoreAgents}
               disabled={scoreLoading || !scoreTask.trim()}
-              className="px-4 py-2 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/50 rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {scoreLoading ? '[SCORING...]' : '[SCORE AGENTS]'}
             </button>
@@ -293,12 +293,12 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
           {/* Results */}
           {scoredAgents.length > 0 && (
             <div className="card p-6 space-y-4">
-              <h4 className="text-sm font-mono text-acid-cyan">Agent Scores</h4>
+              <h4 className="text-sm font-theme-data text-[var(--acid-cyan)]">Agent Scores</h4>
               <div className="space-y-2">
                 {scoredAgents.map((agent, index) => (
                   <div
                     key={agent.name}
-                    className="flex items-center gap-3 p-3 bg-surface border border-acid-green/20 rounded"
+                    className="flex items-center gap-3 p-3 bg-surface border border-[var(--accent)]/20 rounded"
                   >
                     <div
                       className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold ${
@@ -316,22 +316,22 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
 
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-text">{agent.name}</span>
+                        <span className="font-theme-data text-text">{agent.name}</span>
                         <span className="text-xs text-text-muted">({agent.type})</span>
                       </div>
-                      <div className="flex gap-3 text-xs font-mono text-text-muted mt-1">
+                      <div className="flex gap-3 text-xs font-theme-data text-text-muted mt-1">
                         <span>ELO: {agent.elo_rating}</span>
                         <span>Domain: {(agent.domain_expertise * 100).toFixed(0)}%</span>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="text-lg font-mono font-bold text-acid-green">
+                      <div className="text-lg font-theme-data font-bold text-[var(--accent)]">
                         {(agent.score * 100).toFixed(1)}%
                       </div>
                       <div className="w-24 h-2 bg-surface rounded overflow-hidden">
                         <div
-                          className="h-full bg-acid-green"
+                          className="h-full bg-[var(--accent)]"
                           style={{ width: `${agent.score * 100}%` }}
                         />
                       </div>
@@ -348,28 +348,28 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
       {activeTab === 'team' && plugins && (
         <div className="space-y-4">
           <div className="card p-6 space-y-4">
-            <h3 className="text-lg font-mono text-acid-green">Select Team</h3>
-            <p className="text-xs text-text-muted font-mono">
+            <h3 className="text-lg font-theme-data text-[var(--accent)]">Select Team</h3>
+            <p className="text-xs text-text-muted font-theme-data">
               Build an optimal team of agents for your task with role assignments.
             </p>
 
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-1">Task Description *</label>
+              <label className="block text-xs font-theme-data text-text-muted mb-1">Task Description *</label>
               <textarea
                 value={teamTask}
                 onChange={e => setTeamTask(e.target.value)}
                 placeholder="Describe the task to build a team..."
-                className="w-full h-24 p-3 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full h-24 p-3 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">Scorer</label>
+                <label className="block text-xs font-theme-data text-text-muted mb-1">Scorer</label>
                 <select
                   value={teamScorer}
                   onChange={e => setTeamScorer(e.target.value)}
-                  className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 >
                   {plugins.scorers.map(p => (
                     <option key={p.name} value={p.name}>{p.name}</option>
@@ -378,11 +378,11 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">Team Selector</label>
+                <label className="block text-xs font-theme-data text-text-muted mb-1">Team Selector</label>
                 <select
                   value={teamSelector}
                   onChange={e => setTeamSelector(e.target.value)}
-                  className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 >
                   {plugins.team_selectors.map(p => (
                     <option key={p.name} value={p.name}>{p.name}</option>
@@ -391,11 +391,11 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">Role Assigner</label>
+                <label className="block text-xs font-theme-data text-text-muted mb-1">Role Assigner</label>
                 <select
                   value={roleAssigner}
                   onChange={e => setRoleAssigner(e.target.value)}
-                  className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 >
                   {plugins.role_assigners.map(p => (
                     <option key={p.name} value={p.name}>{p.name}</option>
@@ -406,33 +406,33 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">Min Agents</label>
+                <label className="block text-xs font-theme-data text-text-muted mb-1">Min Agents</label>
                 <input
                   type="number"
                   value={minAgents}
                   onChange={e => setMinAgents(parseInt(e.target.value) || 2)}
                   min={1}
                   max={10}
-                  className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">Max Agents</label>
+                <label className="block text-xs font-theme-data text-text-muted mb-1">Max Agents</label>
                 <input
                   type="number"
                   value={maxAgents}
                   onChange={e => setMaxAgents(parseInt(e.target.value) || 5)}
                   min={1}
                   max={10}
-                  className="w-full p-2 bg-surface border border-acid-green/30 rounded font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full p-2 bg-surface border border-[var(--accent)]/30 rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">
+                <label className="block text-xs font-theme-data text-text-muted mb-1">
                   Quality Priority
-                  <span className="ml-1 text-acid-green">{(qualityPriority * 100).toFixed(0)}%</span>
+                  <span className="ml-1 text-[var(--accent)]">{(qualityPriority * 100).toFixed(0)}%</span>
                 </label>
                 <input
                   type="range"
@@ -446,9 +446,9 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-1">
+                <label className="block text-xs font-theme-data text-text-muted mb-1">
                   Diversity Pref
-                  <span className="ml-1 text-acid-green">{(diversityPreference * 100).toFixed(0)}%</span>
+                  <span className="ml-1 text-[var(--accent)]">{(diversityPreference * 100).toFixed(0)}%</span>
                 </label>
                 <input
                   type="range"
@@ -465,7 +465,7 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
             <button
               onClick={handleSelectTeam}
               disabled={teamLoading || !teamTask.trim()}
-              className="px-4 py-2 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/50 rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {teamLoading ? '[SELECTING...]' : '[SELECT TEAM]'}
             </button>
@@ -475,8 +475,8 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
           {teamResult && (
             <div className="card p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-sm font-mono text-acid-cyan">Selected Team</h4>
-                <span className="text-xs font-mono text-text-muted">ID: {teamResult.team_id}</span>
+                <h4 className="text-sm font-theme-data text-[var(--acid-cyan)]">Selected Team</h4>
+                <span className="text-xs font-theme-data text-text-muted">ID: {teamResult.team_id}</span>
               </div>
 
               {/* Metrics */}
@@ -499,8 +499,8 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
               </div>
 
               {/* Rationale */}
-              <div className="p-3 bg-surface border border-acid-green/20 rounded">
-                <p className="text-xs font-mono text-text-muted italic">{teamResult.rationale}</p>
+              <div className="p-3 bg-surface border border-[var(--accent)]/20 rounded">
+                <p className="text-xs font-theme-data text-text-muted italic">{teamResult.rationale}</p>
               </div>
 
               {/* Team Members */}
@@ -508,16 +508,16 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
                 {teamResult.agents.map(agent => (
                   <div
                     key={agent.name}
-                    className="flex items-center gap-3 p-3 bg-surface border border-acid-green/20 rounded"
+                    className="flex items-center gap-3 p-3 bg-surface border border-[var(--accent)]/20 rounded"
                   >
                     <RoleBadge role={agent.role} />
 
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-text">{agent.name}</span>
+                        <span className="font-theme-data text-text">{agent.name}</span>
                         <span className="text-xs text-text-muted">({agent.type})</span>
                       </div>
-                      <div className="flex gap-3 text-xs font-mono text-text-muted mt-1">
+                      <div className="flex gap-3 text-xs font-theme-data text-text-muted mt-1">
                         <span>ELO: {agent.elo_rating}</span>
                         <span>Score: {(agent.score * 100).toFixed(1)}%</span>
                       </div>
@@ -531,7 +531,7 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
                         .map(([domain, value]) => (
                           <span
                             key={domain}
-                            className="px-2 py-0.5 text-xs bg-acid-green/10 text-acid-green rounded"
+                            className="px-2 py-0.5 text-xs bg-[var(--accent)]/10 text-[var(--accent)] rounded"
                           >
                             {domain}: {(value * 100).toFixed(0)}%
                           </span>
@@ -542,10 +542,10 @@ export function SelectionDashboard({ apiBase: _apiBase }: SelectionDashboardProp
               </div>
 
               {/* Plugins Used */}
-              <div className="flex gap-4 text-xs font-mono text-text-muted">
-                <span>Scorer: <span className="text-acid-green">{teamResult.plugins_used.scorer}</span></span>
-                <span>Selector: <span className="text-acid-green">{teamResult.plugins_used.team_selector}</span></span>
-                <span>Assigner: <span className="text-acid-green">{teamResult.plugins_used.role_assigner}</span></span>
+              <div className="flex gap-4 text-xs font-theme-data text-text-muted">
+                <span>Scorer: <span className="text-[var(--accent)]">{teamResult.plugins_used.scorer}</span></span>
+                <span>Selector: <span className="text-[var(--accent)]">{teamResult.plugins_used.team_selector}</span></span>
+                <span>Assigner: <span className="text-[var(--accent)]">{teamResult.plugins_used.role_assigner}</span></span>
               </div>
             </div>
           )}
@@ -569,8 +569,8 @@ function PluginSection({
   return (
     <div className="card p-4 space-y-3">
       <div>
-        <h4 className="text-sm font-mono text-acid-green">{title}</h4>
-        <p className="text-xs text-text-muted font-mono">{description}</p>
+        <h4 className="text-sm font-theme-data text-[var(--accent)]">{title}</h4>
+        <p className="text-xs text-text-muted font-theme-data">{description}</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -579,14 +579,14 @@ function PluginSection({
             key={plugin.name}
             className={`p-3 border rounded transition-colors ${
               plugin.name === defaultPlugin
-                ? 'border-acid-green/50 bg-acid-green/5'
-                : 'border-acid-green/20 hover:border-acid-green/40'
+                ? 'border-[var(--accent)]/50 bg-[var(--accent)]/5'
+                : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/40'
             }`}
           >
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono text-text">{plugin.name}</span>
+              <span className="font-theme-data text-text">{plugin.name}</span>
               {plugin.name === defaultPlugin && (
-                <span className="px-1.5 py-0.5 text-xs bg-acid-green/20 text-acid-green rounded">
+                <span className="px-1.5 py-0.5 text-xs bg-[var(--accent)]/20 text-[var(--accent)] rounded">
                   default
                 </span>
               )}
@@ -610,9 +610,9 @@ function MetricCard({
   color: string;
 }) {
   return (
-    <div className="p-3 bg-surface border border-acid-green/20 rounded text-center">
-      <p className="text-xs font-mono text-text-muted">{label}</p>
-      <p className={`text-xl font-mono font-bold text-${color}`}>{value}</p>
+    <div className="p-3 bg-surface border border-[var(--accent)]/20 rounded text-center">
+      <p className="text-xs font-theme-data text-text-muted">{label}</p>
+      <p className={`text-xl font-theme-data font-bold text-${color}`}>{value}</p>
     </div>
   );
 }
@@ -620,8 +620,8 @@ function MetricCard({
 function RoleBadge({ role }: { role: string }) {
   const roleStyles: Record<string, { bg: string; text: string }> = {
     lead: { bg: 'bg-yellow-500/20', text: 'text-yellow-500' },
-    primary: { bg: 'bg-acid-green/20', text: 'text-acid-green' },
-    specialist: { bg: 'bg-acid-cyan/20', text: 'text-acid-cyan' },
+    primary: { bg: 'bg-[var(--accent)]/20', text: 'text-[var(--accent)]' },
+    specialist: { bg: 'bg-[var(--acid-cyan)]/20', text: 'text-[var(--acid-cyan)]' },
     devil_advocate: { bg: 'bg-red-500/20', text: 'text-red-400' },
     critic: { bg: 'bg-orange-500/20', text: 'text-orange-400' },
     synthesizer: { bg: 'bg-purple-500/20', text: 'text-purple-400' },
@@ -631,7 +631,7 @@ function RoleBadge({ role }: { role: string }) {
   const style = roleStyles[role] || roleStyles.participant;
 
   return (
-    <span className={`px-2 py-1 text-xs font-mono rounded ${style.bg} ${style.text} uppercase`}>
+    <span className={`px-2 py-1 text-xs font-theme-data rounded ${style.bg} ${style.text} uppercase`}>
       {role.replace('_', ' ')}
     </span>
   );

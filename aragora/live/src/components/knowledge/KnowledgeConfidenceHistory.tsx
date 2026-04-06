@@ -33,26 +33,26 @@ export function KnowledgeConfidenceHistory() {
   }, [entries]);
 
   if (loading) {
-    return <div className="animate-pulse p-4 text-[var(--text-muted)] font-mono">Loading confidence trends...</div>;
+    return <div className="animate-pulse p-4 text-[var(--text-muted)] font-theme-data">Loading confidence trends...</div>;
   }
 
   if (error) {
-    return <div className="p-4 text-red-400 font-mono">Failed to load confidence history</div>;
+    return <div className="p-4 text-red-400 font-theme-data">Failed to load confidence history</div>;
   }
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+        <h3 className="text-[10px] font-theme-data uppercase tracking-wider text-[var(--text-muted)]">
           Confidence History
         </h3>
-        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+        <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
           Nodes with history: <span className="text-[var(--acid-green)]">{summarized.length}</span>
         </span>
       </div>
 
       {summarized.length === 0 ? (
-        <div className="card p-3 text-[10px] font-mono text-[var(--text-muted)]">
+        <div className="card p-3 text-[10px] font-theme-data text-[var(--text-muted)]">
           No confidence history yet.
         </div>
       ) : (
@@ -63,18 +63,18 @@ export function KnowledgeConfidenceHistory() {
               className={`card p-3 border-l-2 ${entry.delta >= 0 ? 'border-emerald-400' : 'border-red-400'}`}
             >
               <div className="flex items-center justify-between gap-3 mb-1">
-                <span className="font-mono text-[11px] text-[var(--text)] truncate">
+                <span className="font-theme-data text-[11px] text-[var(--text)] truncate">
                   {truncate(entry.preview || entry.nodeId, 46)}
                 </span>
-                <span className={`font-mono text-[10px] ${entry.delta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span className={`font-theme-data text-[10px] ${entry.delta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                   {entry.delta >= 0 ? '+' : ''}
                   {entry.delta.toFixed(3)}
                 </span>
               </div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)]">
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)]">
                 Latest: {(entry.latestValue * 100).toFixed(1)}% • {entry.points} points
               </div>
-              <div className="text-[9px] font-mono text-[var(--text-muted)] mt-1">
+              <div className="text-[9px] font-theme-data text-[var(--text-muted)] mt-1">
                 Reason: {truncate(entry.latestReason, 68)}
               </div>
             </div>

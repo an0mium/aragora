@@ -138,13 +138,13 @@ export function ExecutionMonitor({
           onClick={() => handleSelectExecution(execution)}
           className={`
             p-3 rounded-lg border cursor-pointer transition-all
-            ${isSelected ? 'border-acid-green bg-acid-green/10' : 'border-border hover:border-text-muted'}
+            ${isSelected ? 'border-[var(--accent)] bg-[var(--accent)]/10' : 'border-border hover:border-text-muted'}
           `}
         >
           {/* Header */}
           <div className="flex items-start justify-between mb-2">
             <div>
-              <div className="text-sm font-mono text-text">{execution.workflow_name}</div>
+              <div className="text-sm font-theme-data text-text">{execution.workflow_name}</div>
               <div className="text-xs text-text-muted">
                 Started {new Date(execution.started_at).toLocaleString()}
               </div>
@@ -163,7 +163,7 @@ export function ExecutionMonitor({
               </div>
               <div className="h-1 bg-surface rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-acid-green transition-all"
+                  className="h-full bg-[var(--accent)] transition-all"
                   style={{ width: `${progress}%` }}
                 />
               </div>
@@ -249,7 +249,7 @@ export function ExecutionMonitor({
   const detailPanel = selectedExecution && (
     <div className="mt-4 border-t border-border pt-4">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-sm font-mono text-text-muted">Execution Timeline</h4>
+        <h4 className="text-sm font-theme-data text-text-muted">Execution Timeline</h4>
         <button
           onClick={() => selectExecution(null)}
           className="text-xs text-text-muted hover:text-text"
@@ -275,7 +275,7 @@ export function ExecutionMonitor({
         !isConnected && (
           <button
             onClick={connect}
-            className="text-xs text-acid-green hover:underline"
+            className="text-xs text-[var(--accent)] hover:underline"
           >
             Connect
           </button>

@@ -182,7 +182,7 @@ export function FollowUpPanel({
       <div className="p-4 border-b border-[var(--border)]">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <h3 className="font-mono text-sm font-medium text-[var(--text)]">
+            <h3 className="font-theme-data text-sm font-medium text-[var(--text)]">
               Follow-Up Tracker
             </h3>
             {overdueCount > 0 && (
@@ -195,14 +195,14 @@ export function FollowUpPanel({
             <button
               onClick={handleCheckReplies}
               disabled={loading}
-              className="px-2 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)] rounded transition-colors"
+              className="px-2 py-1 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)] rounded transition-colors"
             >
               Check Replies
             </button>
             <button
               onClick={handleAutoDetect}
               disabled={loading}
-              className="px-2 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)] rounded transition-colors"
+              className="px-2 py-1 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)] rounded transition-colors"
             >
               Auto-Detect
             </button>
@@ -210,7 +210,7 @@ export function FollowUpPanel({
         </div>
 
         {/* Stats */}
-        <div className="flex items-center gap-4 text-xs font-mono text-[var(--text-muted)]">
+        <div className="flex items-center gap-4 text-xs font-theme-data text-[var(--text-muted)]">
           <span>
             <span className="text-yellow-400">{awaitingCount}</span> awaiting
           </span>
@@ -233,28 +233,28 @@ export function FollowUpPanel({
       <div className="max-h-[400px] overflow-y-auto">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="text-[var(--text-muted)] text-sm font-mono">
+            <div className="text-[var(--text-muted)] text-sm font-theme-data">
               Loading follow-ups...
             </div>
           </div>
         ) : error ? (
           <div className="p-4 text-center">
-            <div className="text-red-400 text-sm font-mono mb-2">{error}</div>
+            <div className="text-red-400 text-sm font-theme-data mb-2">{error}</div>
             <button
               onClick={fetchFollowups}
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)]"
+              className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)]"
             >
               Retry
             </button>
           </div>
         ) : followups.length === 0 ? (
           <div className="p-8 text-center">
-            <div className="text-[var(--text-muted)] text-sm font-mono mb-2">
+            <div className="text-[var(--text-muted)] text-sm font-theme-data mb-2">
               No pending follow-ups
             </div>
             <button
               onClick={handleAutoDetect}
-              className="text-xs font-mono text-blue-400 hover:text-blue-300"
+              className="text-xs font-theme-data text-blue-400 hover:text-blue-300"
             >
               Scan sent folder for unreplied emails
             </button>
@@ -273,11 +273,11 @@ export function FollowUpPanel({
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span
-                        className={`px-1.5 py-0.5 text-xs rounded font-mono ${getStatusColor(item.status)}`}
+                        className={`px-1.5 py-0.5 text-xs rounded font-theme-data ${getStatusColor(item.status)}`}
                       >
                         {item.status.toUpperCase()}
                       </span>
-                      <span className="text-xs text-[var(--text-muted)] font-mono">
+                      <span className="text-xs text-[var(--text-muted)] font-theme-data">
                         {item.days_waiting}d
                         {getUrgencyIndicator(item.days_waiting, item.status)}
                       </span>
@@ -287,7 +287,7 @@ export function FollowUpPanel({
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-[var(--text)] truncate font-mono">
+                    <p className="text-sm text-[var(--text)] truncate font-theme-data">
                       {item.subject}
                     </p>
                     <p className="text-xs text-[var(--text-muted)] truncate">
@@ -303,7 +303,7 @@ export function FollowUpPanel({
                           handleResolve(item.followup_id, 'received')
                         }
                         disabled={resolving === item.followup_id}
-                        className="px-2 py-1 text-xs font-mono text-green-400 hover:bg-green-500/20 rounded transition-colors"
+                        className="px-2 py-1 text-xs font-theme-data text-green-400 hover:bg-green-500/20 rounded transition-colors"
                         title="Mark as replied"
                       >
                         Got Reply
@@ -313,7 +313,7 @@ export function FollowUpPanel({
                           handleResolve(item.followup_id, 'no_longer_needed')
                         }
                         disabled={resolving === item.followup_id}
-                        className="px-2 py-1 text-xs font-mono text-[var(--text-muted)] hover:bg-[var(--surface-hover)] rounded transition-colors"
+                        className="px-2 py-1 text-xs font-theme-data text-[var(--text-muted)] hover:bg-[var(--surface-hover)] rounded transition-colors"
                         title="No longer needed"
                       >
                         Dismiss

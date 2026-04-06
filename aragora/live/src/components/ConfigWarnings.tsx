@@ -65,7 +65,7 @@ export function ConfigWarnings({
           {warnings.map((warning) => (
             <div
               key={warning.key}
-              className="text-xs font-mono text-text-muted"
+              className="text-xs font-theme-data text-text-muted"
             >
               <span className={warning.severity === 'error' ? 'text-red-400' : 'text-yellow-500'}>
                 {warning.severity === 'error' ? '!' : '*'}

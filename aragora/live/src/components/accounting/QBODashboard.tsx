@@ -143,7 +143,7 @@ export function QBODashboard() {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-8 text-center">
         <div className="text-4xl mb-4">📊</div>
-        <h2 className="text-xl font-mono text-[var(--acid-green)] mb-2">
+        <h2 className="text-xl font-theme-data text-[var(--acid-green)] mb-2">
           Connect QuickBooks Online
         </h2>
         <p className="text-[var(--text-muted)] mb-6 max-w-md mx-auto">
@@ -152,7 +152,7 @@ export function QBODashboard() {
         </p>
         <button
           onClick={handleConnect}
-          className="px-6 py-3 bg-[#2CA01C] text-white font-mono rounded hover:bg-[#238A17] transition-colors"
+          className="px-6 py-3 bg-[#2CA01C] text-white font-theme-data rounded hover:bg-[#238A17] transition-colors"
         >
           Connect to QuickBooks
         </button>
@@ -175,7 +175,7 @@ export function QBODashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-mono text-[var(--acid-green)]">
+          <h1 className="text-xl font-theme-data text-[var(--acid-green)]">
             {'>'} QUICKBOOKS
           </h1>
           {company && (
@@ -191,7 +191,7 @@ export function QBODashboard() {
           </span>
           <button
             onClick={fetchData}
-            className="px-3 py-2 text-sm font-mono text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
+            className="px-3 py-2 text-sm font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
           >
             Sync
           </button>
@@ -204,7 +204,7 @@ export function QBODashboard() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-mono transition-colors relative ${
+            className={`px-4 py-2 text-sm font-theme-data transition-colors relative ${
               activeTab === tab.id
                 ? 'text-[var(--acid-green)] border-b-2 border-[var(--acid-green)]'
                 : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -249,12 +249,12 @@ export function QBODashboard() {
               <div className="flex items-center gap-3">
                 <span className="text-2xl">⚠️</span>
                 <div>
-                  <h3 className="text-sm font-mono text-red-400">Overdue Invoices</h3>
+                  <h3 className="text-sm font-theme-data text-red-400">Overdue Invoices</h3>
                   <p className="text-xs text-[var(--text-muted)]">
                     You have {stats.overdueInvoices} overdue invoice{stats.overdueInvoices !== 1 ? 's' : ''} requiring attention.
                   </p>
                 </div>
-                <button className="ml-auto px-3 py-1 text-xs font-mono border border-red-500/30 text-red-400 rounded hover:bg-red-500/10 transition-colors">
+                <button className="ml-auto px-3 py-1 text-xs font-theme-data border border-red-500/30 text-red-400 rounded hover:bg-red-500/10 transition-colors">
                   View Overdue
                 </button>
               </div>
@@ -263,7 +263,7 @@ export function QBODashboard() {
 
           {/* Recent Activity */}
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-            <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+            <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
               {'>'} RECENT ACTIVITY
             </h3>
             <div className="space-y-3">
@@ -278,7 +278,7 @@ export function QBODashboard() {
                       txn.status === 'Overdue' ? 'bg-red-400' : 'bg-yellow-400'
                     }`} />
                     <div>
-                      <div className="text-sm font-mono">
+                      <div className="text-sm font-theme-data">
                         {txn.docNumber || txn.type}
                       </div>
                       <div className="text-xs text-[var(--text-muted)]">
@@ -287,7 +287,7 @@ export function QBODashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className={`text-sm font-mono ${
+                    <div className={`text-sm font-theme-data ${
                       txn.type === 'Invoice' ? 'text-[var(--acid-green)]' : 'text-red-400'
                     }`}>
                       {txn.type === 'Invoice' ? '+' : '-'}${txn.totalAmount.toLocaleString()}
@@ -301,7 +301,7 @@ export function QBODashboard() {
 
           {/* AI Insights */}
           <div className="bg-[var(--surface)] border border-[var(--acid-green)]/30 rounded p-4">
-            <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+            <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
               {'>'} AI INSIGHTS
             </h3>
             <div className="space-y-3">
@@ -337,7 +337,7 @@ export function QBODashboard() {
       {activeTab === 'customers' && (
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded overflow-hidden">
           <div className="p-4 border-b border-[var(--border)]">
-            <h3 className="text-sm font-mono text-[var(--acid-green)]">
+            <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
               {'>'} CUSTOMERS ({customers.length})
             </h3>
           </div>
@@ -348,13 +348,13 @@ export function QBODashboard() {
                 className="p-4 flex items-center justify-between hover:bg-[var(--bg)] transition-colors"
               >
                 <div>
-                  <div className="font-mono text-sm">{customer.displayName}</div>
+                  <div className="font-theme-data text-sm">{customer.displayName}</div>
                   <div className="text-xs text-[var(--text-muted)]">
                     {customer.email || 'No email'}
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className={`font-mono ${customer.balance > 0 ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
+                  <div className={`font-theme-data ${customer.balance > 0 ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
                     ${customer.balance.toLocaleString()}
                   </div>
                   <div className="text-xs text-[var(--text-muted)]">Balance</div>
@@ -383,7 +383,7 @@ interface StatCardProps {
 function StatCard({ label, value, color, sublabel }: StatCardProps) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-      <div className={`text-2xl font-mono font-bold ${color}`}>{value}</div>
+      <div className={`text-2xl font-theme-data font-bold ${color}`}>{value}</div>
       <div className="text-xs text-[var(--text-muted)] mt-1">{label}</div>
       {sublabel && (
         <div className="text-xs text-[var(--text-muted)] opacity-70">{sublabel}</div>
@@ -408,7 +408,7 @@ function InsightCard({ icon, title, description, type }: InsightCardProps) {
       <div className="flex items-start gap-3">
         <span className="text-lg">{icon}</span>
         <div>
-          <h4 className="text-sm font-mono text-[var(--text)]">{title}</h4>
+          <h4 className="text-sm font-theme-data text-[var(--text)]">{title}</h4>
           <p className="text-xs text-[var(--text-muted)] mt-1">{description}</p>
         </div>
       </div>

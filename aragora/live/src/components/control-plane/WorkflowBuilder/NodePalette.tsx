@@ -179,7 +179,7 @@ export function NodePalette({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search nodes..."
-          className="w-full px-2 py-1 text-xs bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+          className="w-full px-2 py-1 text-xs bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
         />
 
         <div className="grid grid-cols-4 gap-1">
@@ -189,7 +189,7 @@ export function NodePalette({
               draggable
               onDragStart={(e) => handleDragStart(e, node.type)}
               onClick={() => handleClick(node.type)}
-              className="p-2 text-center bg-surface border border-border rounded hover:border-acid-green transition-colors cursor-grab active:cursor-grabbing"
+              className="p-2 text-center bg-surface border border-border rounded hover:border-[var(--accent)] transition-colors cursor-grab active:cursor-grabbing"
               title={`${node.name}: ${node.description}`}
             >
               <div className="text-lg">{node.icon}</div>
@@ -210,7 +210,7 @@ export function NodePalette({
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         placeholder="Search nodes..."
-        className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+        className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
       />
 
       {/* Categories */}
@@ -230,7 +230,7 @@ export function NodePalette({
             >
               <div className="flex items-center gap-2">
                 <span>{info.icon}</span>
-                <span className="text-sm font-mono text-text">{info.name}</span>
+                <span className="text-sm font-theme-data text-text">{info.name}</span>
                 <span className="text-xs text-text-muted">({nodes.length})</span>
               </div>
               <span className="text-text-muted">{isExpanded ? '▼' : '▶'}</span>
@@ -245,7 +245,7 @@ export function NodePalette({
                     draggable
                     onDragStart={(e) => handleDragStart(e, node.type)}
                     onClick={() => handleClick(node.type)}
-                    className="flex items-center gap-3 p-2 rounded border border-transparent hover:border-acid-green hover:bg-surface/50 cursor-grab active:cursor-grabbing transition-all"
+                    className="flex items-center gap-3 p-2 rounded border border-transparent hover:border-[var(--accent)] hover:bg-surface/50 cursor-grab active:cursor-grabbing transition-all"
                   >
                     <div className="text-xl">{node.icon}</div>
                     <div className="flex-1 min-w-0">

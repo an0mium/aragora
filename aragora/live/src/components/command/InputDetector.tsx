@@ -69,13 +69,13 @@ export function InputDetector({ text, onTemplateSelect }: InputDetectorProps) {
   if (!detection) return null;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono rounded bg-bg border border-border">
+    <div className="flex items-center gap-2 px-3 py-1.5 text-xs font-theme-data rounded bg-bg border border-border">
       <span>{detection.icon}</span>
       <span className="text-text-muted">{detection.message}</span>
       {detection.template && (
         <button
           onClick={() => onTemplateSelect(detection.template!.name)}
-          className="ml-auto text-acid-green hover:underline"
+          className="ml-auto text-[var(--accent)] hover:underline"
         >
           Use {detection.template.label} template?
         </button>

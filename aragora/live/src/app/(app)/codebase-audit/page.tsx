@@ -301,7 +301,7 @@ export default function CodebaseAuditPage() {
     <div className="container mx-auto px-4 py-6 max-w-6xl">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-mono font-bold text-[var(--text)]">Codebase Audit</h1>
+        <h1 className="text-2xl font-theme-data font-bold text-[var(--text)]">Codebase Audit</h1>
         <p className="text-[var(--muted)] text-sm mt-1">
           Security scanning, bug detection, and code quality analysis
         </p>
@@ -313,7 +313,7 @@ export default function CodebaseAuditPage() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 font-mono text-sm border-b-2 transition-colors capitalize ${
+            className={`px-4 py-2 font-theme-data text-sm border-b-2 transition-colors capitalize ${
               activeTab === tab
                 ? 'border-[var(--accent)] text-[var(--accent)]'
                 : 'border-transparent text-[var(--muted)] hover:text-[var(--text)]'
@@ -423,7 +423,7 @@ function DashboardView({
 
       {/* New Scan Panel */}
       <div className="border border-[var(--border)] rounded p-4 bg-[var(--surface)]">
-        <h3 className="font-mono font-bold mb-4">Start New Scan</h3>
+        <h3 className="font-theme-data font-bold mb-4">Start New Scan</h3>
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-[var(--muted)] mb-1">Target Path</label>
@@ -431,7 +431,7 @@ function DashboardView({
               type="text"
               value={targetPath}
               onChange={(e) => setTargetPath(e.target.value)}
-              className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded font-mono text-sm"
+              className="w-full px-3 py-2 bg-[var(--background)] border border-[var(--border)] rounded font-theme-data text-sm"
               placeholder="."
             />
           </div>
@@ -450,7 +450,7 @@ function DashboardView({
                           : [...selectedScanTypes, type]
                       )
                     }
-                    className={`px-3 py-1 text-sm font-mono rounded border transition-colors ${
+                    className={`px-3 py-1 text-sm font-theme-data rounded border transition-colors ${
                       selectedScanTypes.includes(type)
                         ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
                         : 'bg-[var(--surface)] border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)]'
@@ -464,7 +464,7 @@ function DashboardView({
           <button
             onClick={onStartScan}
             disabled={scanning || selectedScanTypes.length === 0}
-            className="px-4 py-2 bg-[var(--accent)] text-[var(--background)] font-mono text-sm rounded hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-[var(--accent)] text-[var(--background)] font-theme-data text-sm rounded hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {scanning ? 'Scanning...' : 'Start Scan'}
           </button>
@@ -473,13 +473,13 @@ function DashboardView({
 
       {/* Findings by Type */}
       <div className="border border-[var(--border)] rounded p-4 bg-[var(--surface)]">
-        <h3 className="font-mono font-bold mb-4">Findings by Type</h3>
+        <h3 className="font-theme-data font-bold mb-4">Findings by Type</h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {(Object.keys(SCAN_TYPE_LABELS) as ScanType[])
             .filter((t) => t !== 'comprehensive')
             .map((type) => (
               <div key={type} className="text-center p-3 border border-[var(--border)] rounded">
-                <div className="text-2xl font-mono font-bold">
+                <div className="text-2xl font-theme-data font-bold">
                   {data.findings_by_type[type] || 0}
                 </div>
                 <div className="text-xs text-[var(--muted)]">{SCAN_TYPE_LABELS[type].label}</div>
@@ -491,7 +491,7 @@ function DashboardView({
       {/* Recent Scans */}
       {data.recent_scans && data.recent_scans.length > 0 && (
         <div className="border border-[var(--border)] rounded p-4 bg-[var(--surface)]">
-          <h3 className="font-mono font-bold mb-4">Recent Scans</h3>
+          <h3 className="font-theme-data font-bold mb-4">Recent Scans</h3>
           <div className="space-y-2">
             {data.recent_scans.slice(0, 5).map((scan) => (
               <div
@@ -499,7 +499,7 @@ function DashboardView({
                 className="flex items-center justify-between p-2 border border-[var(--border)] rounded text-sm"
               >
                 <div className="flex items-center gap-3">
-                  <span className={`font-mono ${scan.status === 'completed' ? 'text-green-400' : scan.status === 'running' ? 'text-cyan-400' : 'text-yellow-400'}`}>
+                  <span className={`font-theme-data ${scan.status === 'completed' ? 'text-green-400' : scan.status === 'running' ? 'text-cyan-400' : 'text-yellow-400'}`}>
                     [{scan.status}]
                   </span>
                   <span className="text-[var(--muted)]">{scan.scan_type}</span>
@@ -532,7 +532,7 @@ function StatCard({
   const config = SEVERITY_CONFIG[severity];
   return (
     <div className={`border rounded p-4 ${config.bgColor}`}>
-      <div className={`text-2xl font-mono font-bold ${config.color}`}>{value}</div>
+      <div className={`text-2xl font-theme-data font-bold ${config.color}`}>{value}</div>
       <div className="text-sm text-[var(--muted)]">{label}</div>
       {subtext && <div className="text-xs text-[var(--muted)] mt-1">{subtext}</div>}
     </div>
@@ -564,7 +564,7 @@ function FindingsView({
           <select
             value={filter.severity || ''}
             onChange={(e) => setFilter({ ...filter, severity: (e.target.value || undefined) as FindingSeverity })}
-            className="px-2 py-1 bg-[var(--background)] border border-[var(--border)] rounded text-sm font-mono"
+            className="px-2 py-1 bg-[var(--background)] border border-[var(--border)] rounded text-sm font-theme-data"
           >
             <option value="">All</option>
             {(['critical', 'high', 'medium', 'low', 'info'] as FindingSeverity[]).map((s) => (
@@ -577,7 +577,7 @@ function FindingsView({
           <select
             value={filter.type || ''}
             onChange={(e) => setFilter({ ...filter, type: (e.target.value || undefined) as ScanType })}
-            className="px-2 py-1 bg-[var(--background)] border border-[var(--border)] rounded text-sm font-mono"
+            className="px-2 py-1 bg-[var(--background)] border border-[var(--border)] rounded text-sm font-theme-data"
           >
             <option value="">All</option>
             {(Object.keys(SCAN_TYPE_LABELS) as ScanType[]).map((t) => (
@@ -590,7 +590,7 @@ function FindingsView({
           <select
             value={filter.status || ''}
             onChange={(e) => setFilter({ ...filter, status: (e.target.value || undefined) as FindingStatus })}
-            className="px-2 py-1 bg-[var(--background)] border border-[var(--border)] rounded text-sm font-mono"
+            className="px-2 py-1 bg-[var(--background)] border border-[var(--border)] rounded text-sm font-theme-data"
           >
             <option value="">All</option>
             {(['open', 'acknowledged', 'fixed', 'false_positive', 'wont_fix'] as FindingStatus[]).map((s) => (
@@ -645,12 +645,12 @@ function FindingCard({
         onClick={onToggle}
       >
         <div className="flex items-center gap-3">
-          <span className={`font-mono font-bold ${config.color}`}>[{config.icon}]</span>
-          <span className="font-mono text-sm">{finding.title}</span>
+          <span className={`font-theme-data font-bold ${config.color}`}>[{config.icon}]</span>
+          <span className="font-theme-data text-sm">{finding.title}</span>
           <span className="text-xs text-[var(--muted)]">{SCAN_TYPE_LABELS[finding.scan_type]?.label}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-[var(--muted)] font-mono">{finding.file_path}</span>
+          <span className="text-xs text-[var(--muted)] font-theme-data">{finding.file_path}</span>
           {finding.line_number && (
             <span className="text-xs text-[var(--muted)]">:{finding.line_number}</span>
           )}
@@ -663,7 +663,7 @@ function FindingCard({
           <p className="text-sm text-[var(--muted)]">{finding.description}</p>
 
           {finding.code_snippet && (
-            <pre className="p-3 bg-[var(--background)] rounded text-xs font-mono overflow-x-auto">
+            <pre className="p-3 bg-[var(--background)] rounded text-xs font-theme-data overflow-x-auto">
               {finding.code_snippet}
             </pre>
           )}
@@ -689,19 +689,19 @@ function FindingCard({
             <div className="flex gap-2 pt-2 border-t border-[var(--border)]">
               <button
                 onClick={() => onDismiss(finding.id, 'False positive', 'false_positive')}
-                className="px-3 py-1 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--accent)]"
+                className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--accent)]"
               >
                 False Positive
               </button>
               <button
                 onClick={() => onDismiss(finding.id, 'Acknowledged', 'acknowledged')}
-                className="px-3 py-1 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--accent)]"
+                className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--accent)]"
               >
                 Acknowledge
               </button>
               <button
                 onClick={() => onCreateIssue(finding.id, 'owner/repo')}
-                className="px-3 py-1 text-xs font-mono bg-[var(--accent)]/20 border border-[var(--accent)] rounded text-[var(--accent)] hover:bg-[var(--accent)]/30"
+                className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/20 border border-[var(--accent)] rounded text-[var(--accent)] hover:bg-[var(--accent)]/30"
               >
                 Create Issue
               </button>
@@ -737,7 +737,7 @@ function ScansView({ scans }: { scans: ScanResult[] }) {
           <div key={scan.id} className="border border-[var(--border)] rounded p-4 bg-[var(--surface)]">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
-                <span className={`font-mono text-sm ${
+                <span className={`font-theme-data text-sm ${
                   scan.status === 'completed' ? 'text-green-400' :
                   scan.status === 'running' ? 'text-cyan-400 animate-pulse' :
                   scan.status === 'failed' ? 'text-red-400' :
@@ -745,7 +745,7 @@ function ScansView({ scans }: { scans: ScanResult[] }) {
                 }`}>
                   [{scan.status.toUpperCase()}]
                 </span>
-                <span className="font-mono">{scan.scan_type}</span>
+                <span className="font-theme-data">{scan.scan_type}</span>
               </div>
               <span className="text-xs text-[var(--muted)]">
                 {new Date(scan.started_at).toLocaleString()}
@@ -782,30 +782,30 @@ function MetricsView({ metrics }: { metrics: CodeMetrics | null }) {
       {/* Overview Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="border border-[var(--border)] rounded p-4 bg-[var(--surface)]">
-          <div className="text-2xl font-mono font-bold">{metrics.total_files.toLocaleString()}</div>
+          <div className="text-2xl font-theme-data font-bold">{metrics.total_files.toLocaleString()}</div>
           <div className="text-sm text-[var(--muted)]">Total Files</div>
         </div>
         <div className="border border-[var(--border)] rounded p-4 bg-[var(--surface)]">
-          <div className="text-2xl font-mono font-bold">{metrics.total_lines.toLocaleString()}</div>
+          <div className="text-2xl font-theme-data font-bold">{metrics.total_lines.toLocaleString()}</div>
           <div className="text-sm text-[var(--muted)]">Lines of Code</div>
         </div>
         <div className="border border-[var(--border)] rounded p-4 bg-[var(--surface)]">
-          <div className="text-2xl font-mono font-bold">{metrics.average_complexity.toFixed(1)}</div>
+          <div className="text-2xl font-theme-data font-bold">{metrics.average_complexity.toFixed(1)}</div>
           <div className="text-sm text-[var(--muted)]">Avg Complexity</div>
         </div>
         <div className="border border-[var(--border)] rounded p-4 bg-[var(--surface)]">
-          <div className="text-2xl font-mono font-bold">{metrics.maintainability_index.toFixed(0)}</div>
+          <div className="text-2xl font-theme-data font-bold">{metrics.maintainability_index.toFixed(0)}</div>
           <div className="text-sm text-[var(--muted)]">Maintainability</div>
         </div>
       </div>
 
       {/* Languages */}
       <div className="border border-[var(--border)] rounded p-4 bg-[var(--surface)]">
-        <h3 className="font-mono font-bold mb-4">Languages</h3>
+        <h3 className="font-theme-data font-bold mb-4">Languages</h3>
         <div className="space-y-2">
           {Object.entries(metrics.languages).map(([lang, lines]) => (
             <div key={lang} className="flex items-center gap-3">
-              <span className="font-mono text-sm w-24">{lang}</span>
+              <span className="font-theme-data text-sm w-24">{lang}</span>
               <div className="flex-1 h-4 bg-[var(--background)] rounded overflow-hidden">
                 <div
                   className="h-full bg-[var(--accent)]"
@@ -823,14 +823,14 @@ function MetricsView({ metrics }: { metrics: CodeMetrics | null }) {
       {/* Hotspots */}
       {metrics.hotspots && metrics.hotspots.length > 0 && (
         <div className="border border-[var(--border)] rounded p-4 bg-[var(--surface)]">
-          <h3 className="font-mono font-bold mb-4">Complexity Hotspots</h3>
+          <h3 className="font-theme-data font-bold mb-4">Complexity Hotspots</h3>
           <div className="space-y-2">
             {metrics.hotspots.map((hotspot, i) => (
               <div
                 key={i}
                 className="flex items-center justify-between p-2 border border-[var(--border)] rounded text-sm"
               >
-                <span className="font-mono text-[var(--muted)] truncate flex-1">{hotspot.file}</span>
+                <span className="font-theme-data text-[var(--muted)] truncate flex-1">{hotspot.file}</span>
                 <div className="flex gap-4 text-xs">
                   <span className="text-orange-400">complexity: {hotspot.complexity}</span>
                   <span className="text-[var(--muted)]">{hotspot.lines} lines</span>

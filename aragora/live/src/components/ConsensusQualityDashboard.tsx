@@ -110,7 +110,7 @@ export function ConsensusQualityDashboard({ apiBase = DEFAULT_API_BASE }: Consen
 
         {/* Quality Score */}
         <div className="text-center mb-4">
-          <div className={`text-4xl font-bold font-mono ${getScoreColor(quality_score)}`}>
+          <div className={`text-4xl font-bold font-theme-data ${getScoreColor(quality_score)}`}>
             {quality_score}
           </div>
           <div className="text-xs text-text-muted">Quality Score</div>
@@ -119,13 +119,13 @@ export function ConsensusQualityDashboard({ apiBase = DEFAULT_API_BASE }: Consen
         {/* Key Metrics */}
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-surface rounded p-3 text-center">
-            <div className="text-lg font-mono text-text">
+            <div className="text-lg font-theme-data text-text">
               {(stats.consensus_rate * 100).toFixed(0)}%
             </div>
             <div className="text-xs text-text-muted">Consensus Rate</div>
           </div>
           <div className="bg-surface rounded p-3 text-center">
-            <div className="text-lg font-mono text-text">
+            <div className="text-lg font-theme-data text-text">
               {(stats.average_confidence * 100).toFixed(0)}%
             </div>
             <div className="text-xs text-text-muted">Avg Confidence</div>

@@ -147,11 +147,13 @@ def mock_state_store():
     """Create a mock OAuth state store."""
     store = MagicMock()
     store.generate.return_value = "test-state-token-abc123"
-    store.validate_and_consume.return_value = {
+    state_payload = {
         "tenant_id": "tenant-1",
         "provider": "slack",
         "created_at": time.time(),
     }
+    store.peek.return_value = state_payload
+    store.validate_and_consume.return_value = state_payload
     return store
 
 
@@ -811,6 +813,7 @@ class TestCallback:
     ):
         """When centralized store returns None, fall back to in-memory."""
         mock_state_store.validate_and_consume.return_value = None
+        mock_state_store.peek.return_value = None
         handler_module._oauth_states_fallback["fallback-state"] = {
             "tenant_id": "t-1",
             "provider": "slack",
@@ -1508,6 +1511,7 @@ class TestRefreshToken:
             "access_token": "xoxb-new-token",
             "refresh_token": "xoxr-new-refresh",
             "expires_in": 43200,
+            "team": {"id": "W123"},
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -1666,6 +1670,7 @@ class TestRefreshToken:
             "ok": True,
             "access_token": "xoxb-new",
             "expires_in": 43200,
+            "team": {"id": "W123"},
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -1724,6 +1729,7 @@ class TestRefreshToken:
         mock_response.json.return_value = {
             "ok": True,
             "access_token": "xoxb-new-token",
+            "team": {"id": "W123"},
         }
         mock_response.raise_for_status = MagicMock()
 

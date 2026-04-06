@@ -85,7 +85,7 @@ export function SharedInboxWidget({
     return (
       <Link
         href="/shared-inbox"
-        className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
       >
         <span>📬</span>
         <span className="text-[var(--text-muted)]">Shared</span>
@@ -120,11 +120,11 @@ export function SharedInboxWidget({
       <div className="p-3 border-b border-[var(--border)] flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">📬</span>
-          <span className="text-sm font-mono text-[var(--acid-green)]">SHARED INBOXES</span>
+          <span className="text-sm font-theme-data text-[var(--acid-green)]">SHARED INBOXES</span>
         </div>
         <Link
           href="/shared-inbox"
-          className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+          className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
         >
           Open →
         </Link>
@@ -134,7 +134,7 @@ export function SharedInboxWidget({
       <div className="p-3 grid grid-cols-3 gap-3">
         <div className="text-center">
           <div
-            className={`text-xl font-mono font-bold ${
+            className={`text-xl font-theme-data font-bold ${
               summary.unread_count > 0 ? 'text-[var(--acid-cyan)]' : 'text-[var(--text)]'
             }`}
           >
@@ -144,7 +144,7 @@ export function SharedInboxWidget({
         </div>
         <div className="text-center">
           <div
-            className={`text-xl font-mono font-bold ${
+            className={`text-xl font-theme-data font-bold ${
               summary.assigned_to_me > 0 ? 'text-[var(--acid-purple)]' : 'text-[var(--text)]'
             }`}
           >
@@ -154,7 +154,7 @@ export function SharedInboxWidget({
         </div>
         <div className="text-center">
           <div
-            className={`text-xl font-mono font-bold ${
+            className={`text-xl font-theme-data font-bold ${
               summary.urgent_count > 0 ? 'text-[var(--acid-red)]' : 'text-[var(--text)]'
             }`}
           >

@@ -40,14 +40,14 @@ export function ErrorRetry({
 
   if (inline) {
     return (
-      <span className="inline-flex items-center gap-2 text-warning font-mono text-sm">
+      <span className="inline-flex items-center gap-2 text-warning font-theme-data text-sm">
         <span>⚠</span>
         <span>{message}</span>
         {onRetry && (
           <button
             onClick={onRetry}
             disabled={retrying}
-            className="text-acid-green hover:underline disabled:opacity-50"
+            className="text-[var(--accent)] hover:underline disabled:opacity-50"
           >
             {retrying ? 'Retrying...' : '[Retry]'}
           </button>
@@ -57,7 +57,7 @@ export function ErrorRetry({
   }
 
   return (
-    <div className={`bg-warning/10 border border-warning/30 rounded ${sizeClasses[size]} font-mono`}>
+    <div className={`bg-warning/10 border border-warning/30 rounded ${sizeClasses[size]} font-theme-data`}>
       <div className="flex items-center gap-3">
         <span className="text-warning text-lg">⚠</span>
         <div className="flex-1">
@@ -77,7 +77,7 @@ export function ErrorRetry({
               bg-warning/20 border border-warning/40
               text-warning hover:bg-warning/30
               transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-              font-mono
+              font-theme-data
             `}
           >
             {retrying ? (
@@ -121,7 +121,7 @@ export function DataState<T>({
 }: DataStateProps<T>) {
   if (loading && !data) {
     return (
-      <div className="flex items-center justify-center p-8 text-text-muted font-mono">
+      <div className="flex items-center justify-center p-8 text-text-muted font-theme-data">
         <span className="animate-pulse">{loadingText}</span>
       </div>
     );
@@ -139,7 +139,7 @@ export function DataState<T>({
 
   if (!data) {
     return (
-      <div className="flex items-center justify-center p-8 text-text-muted font-mono">
+      <div className="flex items-center justify-center p-8 text-text-muted font-theme-data">
         {emptyText}
       </div>
     );

@@ -30,7 +30,7 @@ export default function SecurityScanPage() {
       <div className="flex gap-2 mb-6 border-b border-[var(--border)]">
         <button
           onClick={() => setActiveTab('scan')}
-          className={`px-4 py-2 font-mono text-sm border-b-2 transition-colors ${
+          className={`px-4 py-2 font-theme-data text-sm border-b-2 transition-colors ${
             activeTab === 'scan'
               ? 'border-[var(--accent)] text-[var(--accent)]'
               : 'border-transparent text-[var(--muted)] hover:text-[var(--text)]'
@@ -40,7 +40,7 @@ export default function SecurityScanPage() {
         </button>
         <button
           onClick={() => setActiveTab('dependencies')}
-          className={`px-4 py-2 font-mono text-sm border-b-2 transition-colors ${
+          className={`px-4 py-2 font-theme-data text-sm border-b-2 transition-colors ${
             activeTab === 'dependencies'
               ? 'border-[var(--accent)] text-[var(--accent)]'
               : 'border-transparent text-[var(--muted)] hover:text-[var(--text)]'

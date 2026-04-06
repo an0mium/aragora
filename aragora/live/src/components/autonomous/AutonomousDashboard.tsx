@@ -157,7 +157,7 @@ export function AutonomousDashboard({ apiBase }: AutonomousDashboardProps) {
 
       {/* Connection Status */}
       <div className="flex items-center gap-2 text-xs text-white/50">
-        <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-acid-green' : 'bg-red-500'}`} />
+        <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-[var(--accent)]' : 'bg-red-500'}`} />
         {wsConnected ? 'Real-time updates active' : 'Real-time updates disconnected'}
       </div>
     </div>
@@ -218,7 +218,7 @@ export function AutonomousDashboard({ apiBase }: AutonomousDashboardProps) {
             onClick={() => setActiveTab(tab.id)}
             className={`px-3 py-1.5 text-sm rounded-t transition-colors ${
               activeTab === tab.id
-                ? 'bg-white/10 text-white border-b-2 border-acid-green'
+                ? 'bg-white/10 text-white border-b-2 border-[var(--accent)]'
                 : 'text-white/50 hover:text-white hover:bg-white/5'
             }`}
           >
@@ -248,7 +248,7 @@ function StatCard({ label, value, onClick, color }: StatCardProps) {
     yellow: 'border-yellow-500/30 hover:border-yellow-500/50',
     red: 'border-red-500/30 hover:border-red-500/50',
     cyan: 'border-cyan-500/30 hover:border-cyan-500/50',
-    green: 'border-acid-green/30 hover:border-acid-green/50',
+    green: 'border-[var(--accent)]/30 hover:border-[var(--accent)]/50',
     orange: 'border-orange-500/30 hover:border-orange-500/50',
     purple: 'border-purple-500/30 hover:border-purple-500/50',
   };

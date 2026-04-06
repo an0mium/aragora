@@ -73,7 +73,7 @@ export function AgentRelationships({
 
   if (error) {
     return (
-      <div className="text-xs text-red-400 font-mono">
+      <div className="text-xs text-red-400 font-theme-data">
         {error}
       </div>
     );
@@ -83,7 +83,7 @@ export function AgentRelationships({
 
   if (!hasData) {
     return (
-      <div className="text-xs text-text-muted font-mono text-center py-2">
+      <div className="text-xs text-text-muted font-theme-data text-center py-2">
         No relationship data yet
       </div>
     );
@@ -134,7 +134,7 @@ export function AgentRelationships({
       {/* Rivals Section */}
       {rivals.length > 0 && (
         <div>
-          <h4 className="text-xs font-mono text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+          <h4 className="text-xs font-theme-data text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1">
             <span>&#x2694;</span> Rivals
           </h4>
           <div className="space-y-2">
@@ -165,7 +165,7 @@ export function AgentRelationships({
       {/* Allies Section */}
       {allies.length > 0 && (
         <div>
-          <h4 className="text-xs font-mono text-green-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+          <h4 className="text-xs font-theme-data text-green-400 uppercase tracking-wider mb-2 flex items-center gap-1">
             <span>&#x1F91D;</span> Allies
           </h4>
           <div className="space-y-2">

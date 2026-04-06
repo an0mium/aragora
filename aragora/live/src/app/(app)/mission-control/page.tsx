@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+// Theme-aware effects are hidden in warm/professional via .crt-effect CSS class
 import { useBackend } from '@/components/BackendSelector';
 import { useToastContext } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
@@ -60,28 +61,28 @@ interface HistoryEvent {
 // ============================================================================
 
 const statusColors: Record<string, string> = {
-  healthy: 'text-acid-green',
-  degraded: 'text-acid-yellow',
-  critical: 'text-crimson',
+  healthy: 'text-[var(--accent)]',
+  degraded: 'text-[var(--acid-yellow)]',
+  critical: 'text-[var(--crimson)]',
 };
 
 const statusBgColors: Record<string, string> = {
-  healthy: 'bg-acid-green/10 border-acid-green/30',
-  degraded: 'bg-acid-yellow/10 border-acid-yellow/30',
-  critical: 'bg-crimson/10 border-crimson/30',
+  healthy: 'bg-[var(--accent)]/10 border-[var(--accent)]/30',
+  degraded: 'bg-[var(--acid-yellow)]/10 border-[var(--acid-yellow)]/30',
+  critical: 'bg-[var(--crimson)]/10 border-[var(--crimson)]/30',
 };
 
 const eventSeverityColors: Record<string, string> = {
-  info: 'text-acid-cyan',
-  warning: 'text-acid-yellow',
-  error: 'text-warning',
-  critical: 'text-crimson',
+  info: 'text-[var(--acid-cyan)]',
+  warning: 'text-[var(--acid-yellow)]',
+  error: 'text-[var(--warning)]',
+  critical: 'text-[var(--crimson)]',
 };
 
 const breakerStateColors: Record<string, string> = {
-  closed: 'text-acid-green bg-acid-green/10 border-acid-green/30',
-  open: 'text-crimson bg-crimson/10 border-crimson/30',
-  'half-open': 'text-acid-yellow bg-acid-yellow/10 border-acid-yellow/30',
+  closed: 'text-[var(--accent)] bg-[var(--accent)]/10 border-[var(--accent)]/30',
+  open: 'text-[var(--crimson)] bg-[var(--crimson)]/10 border-[var(--crimson)]/30',
+  'half-open': 'text-[var(--acid-yellow)] bg-[var(--acid-yellow)]/10 border-[var(--acid-yellow)]/30',
 };
 
 function timeAgo(timestamp: string): string {
@@ -154,7 +155,7 @@ function mapHistoryEvent(event: HistoryEvent): SystemEvent {
 // ============================================================================
 
 function StatusIndicator({ status }: { status: string }) {
-  const color = status === 'healthy' ? 'bg-acid-green' : status === 'degraded' ? 'bg-acid-yellow' : 'bg-crimson';
+  const color = status === 'healthy' ? 'bg-[var(--accent)]' : status === 'degraded' ? 'bg-[var(--acid-yellow)]' : 'bg-[var(--crimson)]';
   return (
     <span className={`inline-block w-2 h-2 rounded-full ${color} ${status === 'healthy' ? 'animate-pulse' : ''}`} />
   );
@@ -164,7 +165,7 @@ function MetricCard({
   label,
   value,
   subValue,
-  color = 'text-acid-green',
+  color = 'text-[var(--accent)]',
 }: {
   label: string;
   value: string | number;
@@ -173,10 +174,10 @@ function MetricCard({
 }) {
   return (
     <div className="card p-4">
-      <div className={`text-2xl font-mono font-bold ${color}`}>{value}</div>
-      <div className="text-xs font-mono text-text-muted mt-1">{label}</div>
+      <div className={`text-2xl font-theme-data font-bold ${color}`}>{value}</div>
+      <div className="text-xs font-theme-data text-text-muted mt-1">{label}</div>
       {subValue && (
-        <div className="text-xs font-mono text-text-muted/60 mt-0.5">{subValue}</div>
+        <div className="text-xs font-theme-data text-text-muted/60 mt-0.5">{subValue}</div>
       )}
     </div>
   );
@@ -198,14 +199,14 @@ function UtilizationMeter({
   critical?: number;
 }) {
   const ratio = max > 0 ? value / max : 0;
-  const color = ratio >= critical ? 'bg-crimson' : ratio >= warning ? 'bg-acid-yellow' : 'bg-acid-green';
-  const textColor = ratio >= critical ? 'text-crimson' : ratio >= warning ? 'text-acid-yellow' : 'text-acid-green';
+  const color = ratio >= critical ? 'bg-[var(--crimson)]' : ratio >= warning ? 'bg-[var(--acid-yellow)]' : 'bg-[var(--accent)]';
+  const textColor = ratio >= critical ? 'text-[var(--crimson)]' : ratio >= warning ? 'text-[var(--acid-yellow)]' : 'text-[var(--accent)]';
 
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-mono text-text-muted">{label}</span>
-        <span className={`text-xs font-mono ${textColor}`}>
+        <span className="text-xs font-theme-data text-text-muted">{label}</span>
+        <span className={`text-xs font-theme-data ${textColor}`}>
           {value}{unit} / {max}{unit}
         </span>
       </div>
@@ -233,16 +234,16 @@ function QuickActionButton({
   variant?: 'primary' | 'secondary' | 'danger';
 }) {
   const variantClasses = {
-    primary: 'border-acid-green text-acid-green hover:bg-acid-green/10',
-    secondary: 'border-acid-cyan text-acid-cyan hover:bg-acid-cyan/10',
-    danger: 'border-crimson text-crimson hover:bg-crimson/10',
+    primary: 'border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/10',
+    secondary: 'border-[var(--acid-cyan)] text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10',
+    danger: 'border-[var(--crimson)] text-[var(--crimson)] hover:bg-[var(--crimson)]/10',
   };
 
   return (
     <button
       onClick={onClick}
       disabled={loading}
-      className={`flex items-center gap-2 px-4 py-2.5 font-mono text-xs border transition-colors disabled:opacity-50 ${variantClasses[variant]}`}
+      className={`flex items-center gap-2 px-4 py-2.5 font-theme-data text-xs border transition-colors disabled:opacity-50 ${variantClasses[variant]}`}
     >
       <span className="text-sm">{icon}</span>
       {loading ? '[WORKING...]' : label}
@@ -255,7 +256,7 @@ function CircuitBreakerPanel({ breakers }: { breakers: CircuitBreakerInfo[] }) {
 
   if (openBreakers.length === 0) {
     return (
-      <div className="text-xs font-mono text-text-muted text-center py-3">
+      <div className="text-xs font-theme-data text-text-muted text-center py-3">
         All circuit breakers closed. Systems nominal.
       </div>
     );
@@ -266,7 +267,7 @@ function CircuitBreakerPanel({ breakers }: { breakers: CircuitBreakerInfo[] }) {
       {openBreakers.map((breaker) => (
         <div
           key={breaker.name}
-          className={`px-3 py-2 border rounded text-xs font-mono ${breakerStateColors[breaker.state]}`}
+          className={`px-3 py-2 border rounded text-xs font-theme-data ${breakerStateColors[breaker.state]}`}
         >
           <div className="flex items-center justify-between">
             <span className="font-bold">{breaker.name}</span>
@@ -285,7 +286,7 @@ function CircuitBreakerPanel({ breakers }: { breakers: CircuitBreakerInfo[] }) {
 function ActivityFeed({ events }: { events: SystemEvent[] }) {
   if (events.length === 0) {
     return (
-      <div className="text-xs font-mono text-text-muted text-center py-6">
+      <div className="text-xs font-theme-data text-text-muted text-center py-6">
         No recent system events.
       </div>
     );
@@ -298,14 +299,14 @@ function ActivityFeed({ events }: { events: SystemEvent[] }) {
           key={event.id}
           className="flex items-start gap-2 px-2 py-1.5 rounded hover:bg-surface/50 transition-colors"
         >
-          <span className={`text-xs font-mono mt-0.5 ${eventSeverityColors[event.severity]}`}>
+          <span className={`text-xs font-theme-data mt-0.5 ${eventSeverityColors[event.severity]}`}>
             {event.severity === 'critical' ? '!!!' :
              event.severity === 'error' ? '!!' :
              event.severity === 'warning' ? '!' : '>'}
           </span>
           <div className="flex-1 min-w-0">
-            <div className="text-xs font-mono text-text truncate">{event.message}</div>
-            <div className="text-xs font-mono text-text-muted/60 flex items-center gap-2">
+            <div className="text-xs font-theme-data text-text truncate">{event.message}</div>
+            <div className="text-xs font-theme-data text-text-muted/60 flex items-center gap-2">
               <span>{event.source}</span>
               <span>{timeAgo(event.timestamp)}</span>
             </div>
@@ -324,9 +325,9 @@ function DebateQueuePanel({
   queue: QueueStats | null;
 }) {
   const debateStatusColors: Record<string, string> = {
-    running: 'text-acid-green',
-    completed: 'text-acid-cyan',
-    failed: 'text-crimson',
+    running: 'text-[var(--accent)]',
+    completed: 'text-[var(--acid-cyan)]',
+    failed: 'text-[var(--crimson)]',
     pending: 'text-text-muted',
   };
 
@@ -335,20 +336,20 @@ function DebateQueuePanel({
       {queue && (
         <div className="grid grid-cols-4 gap-2 text-center">
           <div>
-            <div className="text-lg font-mono text-acid-yellow">{queue.pending}</div>
-            <div className="text-xs font-mono text-text-muted">Queued</div>
+            <div className="text-lg font-theme-data text-[var(--acid-yellow)]">{queue.pending}</div>
+            <div className="text-xs font-theme-data text-text-muted">Queued</div>
           </div>
           <div>
-            <div className="text-lg font-mono text-acid-green">{queue.running}</div>
-            <div className="text-xs font-mono text-text-muted">Running</div>
+            <div className="text-lg font-theme-data text-[var(--accent)]">{queue.running}</div>
+            <div className="text-xs font-theme-data text-text-muted">Running</div>
           </div>
           <div>
-            <div className="text-lg font-mono text-acid-cyan">{queue.completed_today}</div>
-            <div className="text-xs font-mono text-text-muted">Done</div>
+            <div className="text-lg font-theme-data text-[var(--acid-cyan)]">{queue.completed_today}</div>
+            <div className="text-xs font-theme-data text-text-muted">Done</div>
           </div>
           <div>
-            <div className="text-lg font-mono text-crimson">{queue.failed_today}</div>
-            <div className="text-xs font-mono text-text-muted">Failed</div>
+            <div className="text-lg font-theme-data text-[var(--crimson)]">{queue.failed_today}</div>
+            <div className="text-xs font-theme-data text-text-muted">Failed</div>
           </div>
         </div>
       )}
@@ -358,7 +359,7 @@ function DebateQueuePanel({
           {debates.slice(0, 5).map((debate) => (
             <div
               key={debate.id}
-              className="flex items-center justify-between px-2 py-1.5 bg-surface/30 rounded text-xs font-mono"
+              className="flex items-center justify-between px-2 py-1.5 bg-surface/30 rounded text-xs font-theme-data"
             >
               <div className="flex-1 min-w-0 truncate text-text">
                 {debate.task}
@@ -379,7 +380,7 @@ function DebateQueuePanel({
       )}
 
       {debates.length === 0 && !queue && (
-        <div className="text-xs font-mono text-text-muted text-center py-4">
+        <div className="text-xs font-theme-data text-text-muted text-center py-4">
           No active debates.
         </div>
       )}
@@ -504,8 +505,8 @@ export default function MissionControlPage() {
 
   return (
     <>
-      <Scanlines opacity={0.02} />
-      <CRTVignette />
+      <div className="crt-effect"><Scanlines opacity={0.02} />
+      <CRTVignette /></div>
 
       <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
         <div className="container mx-auto px-4 py-6">
@@ -513,22 +514,22 @@ export default function MissionControlPage() {
           <div className="mb-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <h1 className="text-xl font-mono text-[var(--acid-green)] mb-1">
+                <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-1">
                   {'>'} MISSION CONTROL
                 </h1>
-                <p className="text-xs text-[var(--text-muted)] font-mono">
+                <p className="text-xs text-[var(--text-muted)] font-theme-data">
                   Real-time system operations and agent orchestration dashboard
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <div className={`flex items-center gap-2 px-3 py-1 border rounded-full ${statusBgColors[overallStatus]}`}>
                   <StatusIndicator status={overallStatus} />
-                  <span className={`text-xs font-mono ${statusColors[overallStatus]}`}>
+                  <span className={`text-xs font-theme-data ${statusColors[overallStatus]}`}>
                     {overallStatus.toUpperCase()}
                   </span>
                 </div>
                 {health && (
-                  <div className="text-xs font-mono text-[var(--text-muted)]">
+                  <div className="text-xs font-theme-data text-[var(--text-muted)]">
                     Last check: {timeAgo(health.last_check)}
                   </div>
                 )}
@@ -542,25 +543,25 @@ export default function MissionControlPage() {
               label="Agents Active"
               value={activeAgents}
               subValue={`of ${totalAgents} total`}
-              color={activeAgents > 0 ? 'text-acid-green' : 'text-text-muted'}
+              color={activeAgents > 0 ? 'text-[var(--accent)]' : 'text-text-muted'}
             />
             <MetricCard
               label="Debates Running"
               value={activeDebates.filter((d) => d.status === 'running').length}
               subValue={queueStats ? `${queueStats.pending} queued` : undefined}
-              color="text-acid-cyan"
+              color="text-[var(--acid-cyan)]"
             />
             <MetricCard
               label="Queue Depth"
               value={queueStats?.pending ?? 0}
               subValue={queueStats ? `${queueStats.completed_today} today` : undefined}
-              color="text-acid-yellow"
+              color="text-[var(--acid-yellow)]"
             />
             <MetricCard
               label="Circuit Breakers"
               value={`${breakers.filter((b) => b.state === 'closed').length}/${breakers.length}`}
               subValue={openBreakers.length > 0 ? `${openBreakers.length} OPEN` : 'all closed'}
-              color={openBreakers.length > 0 ? 'text-crimson' : 'text-acid-green'}
+              color={openBreakers.length > 0 ? 'text-[var(--crimson)]' : 'text-[var(--accent)]'}
             />
             <MetricCard
               label="Budget Used"
@@ -568,9 +569,9 @@ export default function MissionControlPage() {
               subValue={budget?.forecast ? `EOM: $${budget.forecast.eom.toFixed(0)}` : undefined}
               color={
                 budget
-                  ? budget.utilization > 0.9 ? 'text-crimson'
-                    : budget.utilization > 0.75 ? 'text-acid-yellow'
-                    : 'text-acid-green'
+                  ? budget.utilization > 0.9 ? 'text-[var(--crimson)]'
+                    : budget.utilization > 0.75 ? 'text-[var(--acid-yellow)]'
+                    : 'text-[var(--accent)]'
                   : 'text-text-muted'
               }
             />
@@ -588,7 +589,7 @@ export default function MissionControlPage() {
             <div className="space-y-6">
               {/* Quick Actions */}
               <div className="card p-4">
-                <h2 className="text-sm font-mono font-bold text-[var(--acid-green)] mb-4 uppercase tracking-wide">
+                <h2 className="text-sm font-theme-data font-bold text-[var(--acid-green)] mb-4 uppercase tracking-wide">
                   {'>'} Quick Actions
                 </h2>
                 <div className="grid grid-cols-1 gap-2">
@@ -625,7 +626,7 @@ export default function MissionControlPage() {
 
               {/* Debate Queue */}
               <div className="card p-4">
-                <h2 className="text-sm font-mono font-bold text-[var(--acid-green)] mb-4 uppercase tracking-wide">
+                <h2 className="text-sm font-theme-data font-bold text-[var(--acid-green)] mb-4 uppercase tracking-wide">
                   {'>'} Debate Queue
                 </h2>
                 <DebateQueuePanel debates={activeDebates} queue={queueStats} />
@@ -634,7 +635,7 @@ export default function MissionControlPage() {
 
             {/* Column 2: Activity Feed */}
             <div className="card p-4">
-              <h2 className="text-sm font-mono font-bold text-[var(--acid-green)] mb-4 uppercase tracking-wide">
+              <h2 className="text-sm font-theme-data font-bold text-[var(--acid-green)] mb-4 uppercase tracking-wide">
                 {'>'} Recent Activity
               </h2>
               <ActivityFeed events={recentEvents} />
@@ -643,28 +644,28 @@ export default function MissionControlPage() {
             {/* Column 3: Alerts + Resource Utilization */}
             <div className="space-y-6">
               {/* Alert Panel */}
-              <div className={`card p-4 ${hasAlerts ? 'border-crimson/40' : ''}`}>
-                <h2 className={`text-sm font-mono font-bold mb-4 uppercase tracking-wide ${hasAlerts ? 'text-crimson' : 'text-[var(--acid-green)]'}`}>
+              <div className={`card p-4 ${hasAlerts ? 'border-[var(--crimson)]/40' : ''}`}>
+                <h2 className={`text-sm font-theme-data font-bold mb-4 uppercase tracking-wide ${hasAlerts ? 'text-[var(--crimson)]' : 'text-[var(--acid-green)]'}`}>
                   {'>'} {hasAlerts ? 'ALERTS' : 'Alert Panel'}
                 </h2>
 
                 {/* Open circuit breakers */}
                 <div className="mb-4">
-                  <h3 className="text-xs font-mono text-text-muted mb-2">Circuit Breakers</h3>
+                  <h3 className="text-xs font-theme-data text-text-muted mb-2">Circuit Breakers</h3>
                   <CircuitBreakerPanel breakers={breakers} />
                 </div>
 
                 {/* Failing agents */}
                 {failingAgents.length > 0 && (
                   <div>
-                    <h3 className="text-xs font-mono text-text-muted mb-2">Failing Agents</h3>
+                    <h3 className="text-xs font-theme-data text-text-muted mb-2">Failing Agents</h3>
                     <div className="space-y-1">
                       {failingAgents.map((agent) => (
                         <div
                           key={agent.agent_id}
-                          className="flex items-center justify-between px-2 py-1.5 bg-crimson/10 border border-crimson/30 rounded text-xs font-mono"
+                          className="flex items-center justify-between px-2 py-1.5 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded text-xs font-theme-data"
                         >
-                          <span className="text-crimson">{agent.agent_id}</span>
+                          <span className="text-[var(--crimson)]">{agent.agent_id}</span>
                           <span className="text-text-muted">
                             {agent.last_heartbeat ? timeAgo(agent.last_heartbeat) : 'no heartbeat'}
                           </span>
@@ -675,7 +676,7 @@ export default function MissionControlPage() {
                 )}
 
                 {!hasAlerts && (
-                  <div className="text-xs font-mono text-text-muted text-center py-2">
+                  <div className="text-xs font-theme-data text-text-muted text-center py-2">
                     No active alerts. All systems operational.
                   </div>
                 )}
@@ -683,7 +684,7 @@ export default function MissionControlPage() {
 
               {/* Resource Utilization */}
               <div className="card p-4">
-                <h2 className="text-sm font-mono font-bold text-[var(--acid-green)] mb-4 uppercase tracking-wide">
+                <h2 className="text-sm font-theme-data font-bold text-[var(--acid-green)] mb-4 uppercase tracking-wide">
                   {'>'} Resource Utilization
                 </h2>
                 <div className="space-y-3">
@@ -720,20 +721,20 @@ export default function MissionControlPage() {
           {/* ---- Subsystem Status Grid ---- */}
           {health?.subsystems && Object.keys(health.subsystems).length > 0 && (
             <div className="card p-4 mb-6">
-              <h2 className="text-sm font-mono font-bold text-[var(--acid-green)] mb-4 uppercase tracking-wide">
+              <h2 className="text-sm font-theme-data font-bold text-[var(--acid-green)] mb-4 uppercase tracking-wide">
                 {'>'} Subsystem Status
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                 {Object.entries(health.subsystems).map(([name, status]) => {
                   const isHealthy = status === 'healthy' || status === 'ok';
                   const isDegraded = status === 'degraded' || status === 'warning';
-                  const color = isHealthy ? 'border-acid-green/30 text-acid-green' : isDegraded ? 'border-acid-yellow/30 text-acid-yellow' : 'border-crimson/30 text-crimson';
-                  const bg = isHealthy ? 'bg-acid-green/5' : isDegraded ? 'bg-acid-yellow/5' : 'bg-crimson/5';
+                  const color = isHealthy ? 'border-[var(--accent)]/30 text-[var(--accent)]' : isDegraded ? 'border-acid-yellow/30 text-[var(--acid-yellow)]' : 'border-[var(--crimson)]/30 text-[var(--crimson)]';
+                  const bg = isHealthy ? 'bg-[var(--accent)]/5' : isDegraded ? 'bg-acid-yellow/5' : 'bg-[var(--crimson)]/5';
 
                   return (
                     <div
                       key={name}
-                      className={`px-3 py-2 border rounded text-xs font-mono text-center ${color} ${bg}`}
+                      className={`px-3 py-2 border rounded text-xs font-theme-data text-center ${color} ${bg}`}
                     >
                       <div className="font-bold truncate">{name}</div>
                       <div className="opacity-70 uppercase">{status}</div>
@@ -745,7 +746,7 @@ export default function MissionControlPage() {
           )}
 
           {/* ---- Footer ---- */}
-          <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+          <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
             <div className="text-[var(--acid-green)]/50 mb-2">{'='.repeat(40)}</div>
             <p className="text-[var(--text-muted)]">
               {'>'} MISSION CONTROL // REAL-TIME SYSTEM OPERATIONS

@@ -29,9 +29,9 @@ export function AdaptiveModeToggle({
       {showLabels && (
         <span
           className={`
-            font-mono transition-colors
+            font-theme-data transition-colors
             ${compact ? 'text-xs' : 'text-sm'}
-            ${!isAdvanced ? 'text-acid-green' : 'text-text-muted'}
+            ${!isAdvanced ? 'text-[var(--accent)]' : 'text-text-muted'}
           `}
         >
           Simple
@@ -49,11 +49,11 @@ export function AdaptiveModeToggle({
           relative inline-flex items-center
           ${compact ? 'h-5 w-10' : 'h-6 w-12'}
           rounded-full
-          border border-acid-green/40
+          border border-[var(--accent)]/40
           transition-colors duration-200
           focus:outline-none focus:ring-2 focus:ring-acid-green/50
           ${isAdvanced
-            ? 'bg-acid-green/20'
+            ? 'bg-[var(--accent)]/20'
             : 'bg-surface'
           }
         `}
@@ -64,7 +64,7 @@ export function AdaptiveModeToggle({
             absolute
             ${compact ? 'h-3 w-3' : 'h-4 w-4'}
             rounded-full
-            bg-acid-green
+            bg-[var(--accent)]
             shadow-lg shadow-acid-green/30
             transition-transform duration-200
             ${isAdvanced
@@ -78,9 +78,9 @@ export function AdaptiveModeToggle({
       {showLabels && (
         <span
           className={`
-            font-mono transition-colors
+            font-theme-data transition-colors
             ${compact ? 'text-xs' : 'text-sm'}
-            ${isAdvanced ? 'text-acid-cyan' : 'text-text-muted'}
+            ${isAdvanced ? 'text-[var(--acid-cyan)]' : 'text-text-muted'}
           `}
         >
           Advanced
@@ -104,12 +104,12 @@ export function AdaptiveModeBadge({ className = '' }: { className?: string }) {
       aria-label={`Toggle UI mode. Currently in ${modeLabel} mode.`}
       className={`
         px-2 py-0.5
-        text-xs font-mono
+        text-xs font-theme-data
         border rounded
         transition-colors
         ${isAdvanced
-          ? 'border-acid-cyan/50 text-acid-cyan bg-acid-cyan/10'
-          : 'border-acid-green/50 text-acid-green bg-acid-green/10'
+          ? 'border-[var(--acid-cyan)]/50 text-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10'
+          : 'border-[var(--accent)]/50 text-[var(--accent)] bg-[var(--accent)]/10'
         }
         hover:opacity-80
         ${className}
@@ -130,9 +130,9 @@ export function AdaptiveModeCard({ className = '' }: { className?: string }) {
   const { setMode, isSimple, isAdvanced } = useAdaptiveMode();
 
   return (
-    <div className={`border border-acid-green/30 bg-surface ${className}`}>
-      <div className="border-b border-acid-green/20 px-4 py-3">
-        <h3 className="text-text font-bold font-mono">UI Mode</h3>
+    <div className={`border border-[var(--accent)]/30 bg-surface ${className}`}>
+      <div className="border-b border-[var(--accent)]/20 px-4 py-3">
+        <h3 className="text-text font-bold font-theme-data">UI Mode</h3>
         <p className="text-text-muted text-sm mt-1">
           Choose your interface complexity level
         </p>
@@ -148,17 +148,17 @@ export function AdaptiveModeCard({ className = '' }: { className?: string }) {
             w-full p-4 text-left border rounded
             transition-colors
             ${isSimple
-              ? 'border-acid-green bg-acid-green/10'
-              : 'border-acid-green/30 hover:border-acid-green/50'
+              ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+              : 'border-[var(--accent)]/30 hover:border-[var(--accent)]/50'
             }
           `}
         >
           <div className="flex items-center gap-2 mb-1">
-            <span className={`font-mono font-bold ${isSimple ? 'text-acid-green' : 'text-text'}`}>
+            <span className={`font-theme-data font-bold ${isSimple ? 'text-[var(--accent)]' : 'text-text'}`}>
               Simple
             </span>
             {isSimple && (
-              <span className="text-xs text-acid-green">[ACTIVE]</span>
+              <span className="text-xs text-[var(--accent)]">[ACTIVE]</span>
             )}
           </div>
           <p className="text-sm text-text-muted">
@@ -176,17 +176,17 @@ export function AdaptiveModeCard({ className = '' }: { className?: string }) {
             w-full p-4 text-left border rounded
             transition-colors
             ${isAdvanced
-              ? 'border-acid-cyan bg-acid-cyan/10'
-              : 'border-acid-green/30 hover:border-acid-green/50'
+              ? 'border-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10'
+              : 'border-[var(--accent)]/30 hover:border-[var(--accent)]/50'
             }
           `}
         >
           <div className="flex items-center gap-2 mb-1">
-            <span className={`font-mono font-bold ${isAdvanced ? 'text-acid-cyan' : 'text-text'}`}>
+            <span className={`font-theme-data font-bold ${isAdvanced ? 'text-[var(--acid-cyan)]' : 'text-text'}`}>
               Advanced
             </span>
             {isAdvanced && (
-              <span className="text-xs text-acid-cyan">[ACTIVE]</span>
+              <span className="text-xs text-[var(--acid-cyan)]">[ACTIVE]</span>
             )}
           </div>
           <p className="text-sm text-text-muted">

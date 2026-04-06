@@ -25,8 +25,8 @@ export function ScenarioCard({
         result.is_baseline
           ? 'border-gold/40'
           : result.consensus_reached
-          ? 'border-acid-green/40'
-          : 'border-crimson/40'
+          ? 'border-[var(--accent)]/40'
+          : 'border-[var(--crimson)]/40'
       }`}
       role="article"
       aria-labelledby={`${cardId}-title`}
@@ -48,14 +48,14 @@ export function ScenarioCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span
-              className={`text-xs font-mono ${
-                result.is_baseline ? 'text-gold' : 'text-acid-cyan'
+              className={`text-xs font-theme-data ${
+                result.is_baseline ? 'text-gold' : 'text-[var(--acid-cyan)]'
               }`}
               aria-hidden="true"
             >
               {result.is_baseline ? '[BASELINE]' : '[SCENARIO]'}
             </span>
-            <span id={`${cardId}-title`} className="text-sm font-mono text-text">
+            <span id={`${cardId}-title`} className="text-sm font-theme-data text-text">
               {result.scenario_name}
               <span className="sr-only">
                 {result.is_baseline ? ' (baseline)' : ''} -
@@ -67,19 +67,19 @@ export function ScenarioCard({
 
           <div className="flex items-center gap-3">
             {result.winner && winnerColors && (
-              <span className={`px-2 py-0.5 ${winnerColors.bg} ${winnerColors.text} text-xs font-mono`}>
+              <span className={`px-2 py-0.5 ${winnerColors.bg} ${winnerColors.text} text-xs font-theme-data`}>
                 {result.winner}
               </span>
             )}
             <span
               className={`w-2 h-2 rounded-full ${
-                result.consensus_reached ? 'bg-acid-green' : 'bg-crimson'
+                result.consensus_reached ? 'bg-[var(--accent)]' : 'bg-[var(--crimson)]'
               }`}
             />
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               {(result.confidence * 100).toFixed(0)}%
             </span>
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               {isExpanded ? '[-]' : '[+]'}
             </span>
           </div>
@@ -91,7 +91,7 @@ export function ScenarioCard({
             {Object.entries(result.parameters).map(([key, value]) => (
               <span
                 key={key}
-                className="px-2 py-0.5 bg-acid-cyan/10 text-acid-cyan text-[10px] font-mono"
+                className="px-2 py-0.5 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] text-[10px] font-theme-data"
               >
                 {key}={String(value)}
               </span>
@@ -104,8 +104,8 @@ export function ScenarioCard({
         <div id={`${cardId}-content`} className="px-4 pb-4 border-t border-border space-y-3 pt-3">
           {/* Final answer */}
           <div>
-            <div className="text-xs font-mono text-text-muted mb-1">CONCLUSION</div>
-            <div className="text-sm font-mono text-text bg-bg/50 p-3 border border-border">
+            <div className="text-xs font-theme-data text-text-muted mb-1">CONCLUSION</div>
+            <div className="text-sm font-theme-data text-text bg-bg/50 p-3 border border-border">
               {result.final_answer || 'No conclusion reached'}
             </div>
           </div>
@@ -113,10 +113,10 @@ export function ScenarioCard({
           {/* Constraints */}
           {result.constraints.length > 0 && (
             <div>
-              <div className="text-xs font-mono text-text-muted mb-1">CONSTRAINTS</div>
+              <div className="text-xs font-theme-data text-text-muted mb-1">CONSTRAINTS</div>
               <ul className="space-y-1">
                 {result.constraints.map((c, i) => (
-                  <li key={i} className="text-xs font-mono text-text-muted pl-2 border-l border-gold/30">
+                  <li key={i} className="text-xs font-theme-data text-text-muted pl-2 border-l border-gold/30">
                     {c}
                   </li>
                 ))}
@@ -126,19 +126,19 @@ export function ScenarioCard({
 
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-border">
-            <div className="text-xs font-mono">
+            <div className="text-xs font-theme-data">
               <span className="text-text-muted">Rounds: </span>
               <span className="text-text">{result.rounds_used}</span>
             </div>
-            <div className="text-xs font-mono">
+            <div className="text-xs font-theme-data">
               <span className="text-text-muted">Consensus: </span>
-              <span className={result.consensus_reached ? 'text-acid-green' : 'text-crimson'}>
+              <span className={result.consensus_reached ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'}>
                 {result.consensus_reached ? 'YES' : 'NO'}
               </span>
             </div>
-            <div className="text-xs font-mono">
+            <div className="text-xs font-theme-data">
               <span className="text-text-muted">Confidence: </span>
-              <span className="text-acid-cyan">{(result.confidence * 100).toFixed(0)}%</span>
+              <span className="text-[var(--acid-cyan)]">{(result.confidence * 100).toFixed(0)}%</span>
             </div>
           </div>
         </div>

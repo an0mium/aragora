@@ -133,7 +133,7 @@ function ProbeReportsPanelInner({
   };
 
   return (
-    <div className="font-mono text-sm">
+    <div className="font-theme-data text-sm">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-green-400 text-lg">PROBE REPORTS</h3>
         <button

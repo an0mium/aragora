@@ -98,7 +98,7 @@ export function CostBreakdownChart({
     return (
       <div className={`card p-8 ${className}`}>
         <div className="flex items-center justify-center">
-          <div className="font-mono text-text-muted animate-pulse">Loading cost data...</div>
+          <div className="font-theme-data text-text-muted animate-pulse">Loading cost data...</div>
         </div>
       </div>
     );
@@ -107,11 +107,11 @@ export function CostBreakdownChart({
   return (
     <div className={`card ${className}`}>
       {/* Header */}
-      <div className="p-4 border-b border-acid-green/20">
+      <div className="p-4 border-b border-[var(--accent)]/20">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-mono text-lg text-acid-green">{title}</h3>
-            <div className="font-mono text-2xl text-text mt-1">
+            <h3 className="font-theme-data text-lg text-[var(--accent)]">{title}</h3>
+            <div className="font-theme-data text-2xl text-text mt-1">
               {formatCurrency(totalCost, currencySymbol)}
               <span className="text-sm text-text-muted ml-2">total</span>
             </div>
@@ -122,9 +122,9 @@ export function CostBreakdownChart({
                 <button
                   key={range}
                   onClick={() => handleTimeRangeChange(range)}
-                  className={`px-2 py-1 font-mono text-xs rounded transition-colors ${
+                  className={`px-2 py-1 font-theme-data text-xs rounded transition-colors ${
                     timeRange === range
-                      ? 'bg-acid-green/20 text-acid-green border border-acid-green/40'
+                      ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40'
                       : 'text-text-muted hover:text-text'
                   }`}
                 >
@@ -138,14 +138,14 @@ export function CostBreakdownChart({
         {/* Breakdown Type Selector */}
         {onBreakdownTypeChange && (
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-text-muted">BY:</span>
+            <span className="font-theme-data text-xs text-text-muted">BY:</span>
             {breakdownTypes.map((type) => (
               <button
                 key={type.value}
                 onClick={() => onBreakdownTypeChange(type.value)}
-                className={`px-2 py-1 font-mono text-xs rounded transition-colors ${
+                className={`px-2 py-1 font-theme-data text-xs rounded transition-colors ${
                   breakdownType === type.value
-                    ? 'bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/40'
+                    ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40'
                     : 'text-text-muted hover:text-text'
                 }`}
               >
@@ -159,7 +159,7 @@ export function CostBreakdownChart({
       {/* Bar Chart */}
       <div className="p-4">
         {topItems.length === 0 ? (
-          <div className="py-8 text-center font-mono text-text-muted">
+          <div className="py-8 text-center font-theme-data text-text-muted">
             No cost data available
           </div>
         ) : (
@@ -183,18 +183,18 @@ export function CostBreakdownChart({
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full bg-${color}`} />
-                      <span className="font-mono text-sm text-text">{item.label}</span>
+                      <span className="font-theme-data text-sm text-text">{item.label}</span>
                       {item.subcategory && (
-                        <span className="font-mono text-xs text-text-muted">
+                        <span className="font-theme-data text-xs text-text-muted">
                           ({item.subcategory})
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="font-mono text-sm text-text-muted">
+                      <span className="font-theme-data text-sm text-text-muted">
                         {formatPercent(percentage)}
                       </span>
-                      <span className={`font-mono text-sm text-${color}`}>
+                      <span className={`font-theme-data text-sm text-${color}`}>
                         {formatCurrency(item.cost, currencySymbol)}
                       </span>
                     </div>
@@ -219,7 +219,7 @@ export function CostBreakdownChart({
         {sortedData.length > 8 && (
           <button
             onClick={() => setShowAll(!showAll)}
-            className="mt-4 w-full py-2 font-mono text-xs text-acid-cyan hover:text-acid-green transition-colors"
+            className="mt-4 w-full py-2 font-theme-data text-xs text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
           >
             {showAll
               ? `SHOW LESS`
@@ -229,27 +229,27 @@ export function CostBreakdownChart({
       </div>
 
       {/* Summary Footer */}
-      <div className="p-4 border-t border-acid-green/20 bg-surface">
+      <div className="p-4 border-t border-[var(--accent)]/20 bg-surface">
         <div className="grid grid-cols-4 gap-4">
           <div>
-            <div className="font-mono text-xs text-text-muted">ITEMS</div>
-            <div className="font-mono text-lg text-text">{sortedData.length}</div>
+            <div className="font-theme-data text-xs text-text-muted">ITEMS</div>
+            <div className="font-theme-data text-lg text-text">{sortedData.length}</div>
           </div>
           <div>
-            <div className="font-mono text-xs text-text-muted">AVG COST</div>
-            <div className="font-mono text-lg text-text">
+            <div className="font-theme-data text-xs text-text-muted">AVG COST</div>
+            <div className="font-theme-data text-lg text-text">
               {formatCurrency(sortedData.length > 0 ? totalCost / sortedData.length : 0, currencySymbol)}
             </div>
           </div>
           <div>
-            <div className="font-mono text-xs text-text-muted">TOP ITEM</div>
-            <div className="font-mono text-lg text-acid-green">
+            <div className="font-theme-data text-xs text-text-muted">TOP ITEM</div>
+            <div className="font-theme-data text-lg text-[var(--accent)]">
               {sortedData[0] ? formatPercent((sortedData[0].cost / totalCost) * 100) : '-'}
             </div>
           </div>
           <div>
-            <div className="font-mono text-xs text-text-muted">CATEGORIES</div>
-            <div className="font-mono text-lg text-text">
+            <div className="font-theme-data text-xs text-text-muted">CATEGORIES</div>
+            <div className="font-theme-data text-lg text-text">
               {new Set(sortedData.map((d) => d.category)).size}
             </div>
           </div>

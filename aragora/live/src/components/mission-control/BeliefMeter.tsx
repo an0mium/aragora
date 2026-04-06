@@ -26,7 +26,7 @@ export const BeliefMeter = memo(function BeliefMeter({ confidence, size = 'sm' }
           style={{ width: `${percent}%` }}
         />
       </div>
-      <span className={`${fontSize} font-mono ${textColor}`}>{percent}%</span>
+      <span className={`${fontSize} font-theme-data ${textColor}`}>{percent}%</span>
     </div>
   );
 });

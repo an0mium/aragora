@@ -19,10 +19,10 @@ export default function MCPPage() {
         {/* Hero */}
         <div className="border-b border-[var(--acid-green)]/20 bg-[var(--surface)]/30">
           <div className="container mx-auto px-4 py-12">
-            <h1 className="text-3xl md:text-4xl font-mono text-[var(--acid-green)] mb-4">
+            <h1 className="text-3xl md:text-4xl font-theme-data text-[var(--acid-green)] mb-4">
               {'>'} MCP TOOLS
             </h1>
-            <p className="text-[var(--text-muted)] font-mono max-w-2xl">
+            <p className="text-[var(--text-muted)] font-theme-data max-w-2xl">
               {MCP_TOOLS.length} tools for AI coding assistants. Connect Claude Desktop, Cursor,
               or any MCP-compatible client to get multi-agent debate, audit, knowledge,
               and workflow capabilities directly in your editor.
@@ -41,7 +41,7 @@ export default function MCPPage() {
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className={`px-6 py-3 text-sm font-mono border-b-2 transition-colors ${
+                  className={`px-6 py-3 text-sm font-theme-data border-b-2 transition-colors ${
                     tab === t.key
                       ? 'text-[var(--acid-green)] border-[var(--acid-green)]'
                       : 'text-[var(--text-muted)] border-transparent hover:text-[var(--text)]'

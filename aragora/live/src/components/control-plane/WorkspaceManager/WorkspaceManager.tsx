@@ -109,7 +109,7 @@ export function WorkspaceManager({
   const getUsageColor = (percent: number) => {
     if (percent >= 90) return 'bg-red-500';
     if (percent >= 70) return 'bg-yellow-500';
-    return 'bg-acid-green';
+    return 'bg-[var(--accent)]';
   };
 
   const getVerticalIcon = (vertical?: string) => {
@@ -189,7 +189,7 @@ export function WorkspaceManager({
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-bg flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-mono font-bold text-acid-green">
+          <h3 className="text-sm font-theme-data font-bold text-[var(--accent)]">
             WORKSPACE MANAGER
           </h3>
           <p className="text-xs text-text-muted mt-1">
@@ -199,7 +199,7 @@ export function WorkspaceManager({
         <button
           onClick={() => setShowCreateModal(true)}
           disabled={loading}
-          className="px-3 py-1.5 text-xs font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 text-xs font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50"
         >
           + NEW WORKSPACE
         </button>
@@ -213,8 +213,8 @@ export function WorkspaceManager({
             onClick={() => setViewMode(mode)}
             disabled={mode !== 'list' && !selectedWorkspace}
             className={`
-              px-4 py-2 text-xs font-mono uppercase transition-colors
-              ${viewMode === mode ? 'text-acid-green border-b-2 border-acid-green bg-bg' : 'text-text-muted hover:text-text'}
+              px-4 py-2 text-xs font-theme-data uppercase transition-colors
+              ${viewMode === mode ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-bg' : 'text-text-muted hover:text-text'}
               ${mode !== 'list' && !selectedWorkspace ? 'opacity-50 cursor-not-allowed' : ''}
             `}
           >
@@ -226,23 +226,23 @@ export function WorkspaceManager({
       {/* Content */}
       <div className="p-4">
         {loading && workspaces.length === 0 && (
-          <div className="text-center py-8 text-text-muted font-mono">
+          <div className="text-center py-8 text-text-muted font-theme-data">
             Loading workspaces...
           </div>
         )}
 
         {!loading && error && (
-          <div className="text-center py-8 text-red-400 font-mono">
+          <div className="text-center py-8 text-red-400 font-theme-data">
             Error: {error}
           </div>
         )}
 
         {!loading && !error && workspaces.length === 0 && (
           <div className="text-center py-8">
-            <p className="text-text-muted font-mono mb-4">No workspaces found</p>
+            <p className="text-text-muted font-theme-data mb-4">No workspaces found</p>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors"
+              className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors"
             >
               Create your first workspace
             </button>
@@ -264,7 +264,7 @@ export function WorkspaceManager({
                   onClick={() => handleWorkspaceClick(workspace)}
                   className={`
                     p-4 rounded-lg border-2 cursor-pointer transition-all
-                    ${isSelected ? 'border-acid-green bg-acid-green/5' : 'border-border hover:border-text-muted bg-bg'}
+                    ${isSelected ? 'border-[var(--accent)] bg-[var(--accent)]/5' : 'border-border hover:border-text-muted bg-bg'}
                   `}
                 >
                   <div className="flex items-start justify-between mb-3">
@@ -274,12 +274,12 @@ export function WorkspaceManager({
                         dangerouslySetInnerHTML={{ __html: getVerticalIcon(workspace.settings.defaultVertical) || '&#x1F4C1;' }}
                       />
                       <div>
-                        <h4 className="font-mono font-bold text-text">{workspace.name}</h4>
+                        <h4 className="font-theme-data font-bold text-text">{workspace.name}</h4>
                         <p className="text-xs text-text-muted">{workspace.description}</p>
                       </div>
                     </div>
                     {isSelected && (
-                      <span className="px-2 py-0.5 text-xs font-mono bg-acid-green/20 text-acid-green rounded">
+                      <span className="px-2 py-0.5 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] rounded">
                         ACTIVE
                       </span>
                     )}
@@ -289,16 +289,16 @@ export function WorkspaceManager({
                   <div className="flex items-center gap-6 text-xs">
                     <div className="flex items-center gap-2">
                       <span className="text-text-muted">Members:</span>
-                      <span className="font-mono text-text">{workspace.members.length}</span>
+                      <span className="font-theme-data text-text">{workspace.members.length}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-text-muted">Agents:</span>
-                      <span className="font-mono text-text">{workspace.settings.agentLimit}</span>
+                      <span className="font-theme-data text-text">{workspace.settings.agentLimit}</span>
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-text-muted">Documents:</span>
-                        <span className="font-mono text-text">
+                        <span className="font-theme-data text-text">
                           {workspace.settings.documentsUsed.toLocaleString()} / {workspace.settings.documentsQuota.toLocaleString()}
                         </span>
                       </div>
@@ -317,7 +317,7 @@ export function WorkspaceManager({
                       {workspace.settings.complianceFrameworks.map((fw) => (
                         <span
                           key={fw}
-                          className="px-1.5 py-0.5 text-xs font-mono bg-surface border border-border rounded"
+                          className="px-1.5 py-0.5 text-xs font-theme-data bg-surface border border-border rounded"
                         >
                           {fw}
                         </span>
@@ -352,7 +352,7 @@ export function WorkspaceManager({
       {showCreateModal && (
         <div className="fixed inset-0 bg-bg/80 flex items-center justify-center z-50">
           <div className="bg-surface border border-border rounded-lg p-6 w-full max-w-md">
-            <h3 className="font-mono font-bold text-acid-green mb-4">CREATE WORKSPACE</h3>
+            <h3 className="font-theme-data font-bold text-[var(--accent)] mb-4">CREATE WORKSPACE</h3>
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -364,23 +364,23 @@ export function WorkspaceManager({
             >
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-mono text-text-muted mb-1">NAME</label>
+                  <label className="block text-xs font-theme-data text-text-muted mb-1">NAME</label>
                   <input
                     name="name"
                     type="text"
                     required
                     disabled={isCreating}
-                    className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green disabled:opacity-50"
+                    className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
                     placeholder="Workspace name"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-mono text-text-muted mb-1">DESCRIPTION</label>
+                  <label className="block text-xs font-theme-data text-text-muted mb-1">DESCRIPTION</label>
                   <textarea
                     name="description"
                     rows={3}
                     disabled={isCreating}
-                    className="w-full px-3 py-2 bg-bg border border-border rounded font-mono text-sm focus:outline-none focus:border-acid-green resize-none disabled:opacity-50"
+                    className="w-full px-3 py-2 bg-bg border border-border rounded font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] resize-none disabled:opacity-50"
                     placeholder="Workspace description"
                   />
                 </div>
@@ -390,14 +390,14 @@ export function WorkspaceManager({
                   type="button"
                   onClick={() => setShowCreateModal(false)}
                   disabled={isCreating}
-                  className="flex-1 px-4 py-2 text-xs font-mono border border-border rounded hover:border-text-muted transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2 text-xs font-theme-data border border-border rounded hover:border-text-muted transition-colors disabled:opacity-50"
                 >
                   CANCEL
                 </button>
                 <button
                   type="submit"
                   disabled={isCreating}
-                  className="flex-1 px-4 py-2 text-xs font-mono bg-acid-green text-bg rounded hover:bg-acid-green/80 transition-colors disabled:opacity-50"
+                  className="flex-1 px-4 py-2 text-xs font-theme-data bg-[var(--accent)] text-bg rounded hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50"
                 >
                   {isCreating ? 'CREATING...' : 'CREATE'}
                 </button>

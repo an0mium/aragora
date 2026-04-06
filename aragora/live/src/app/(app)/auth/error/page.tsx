@@ -138,20 +138,20 @@ function OAuthErrorContent() {
             </div>
 
             {/* Title */}
-            <h1 className="text-xl font-mono text-warning mb-4">
+            <h1 className="text-xl font-theme-data text-warning mb-4">
               {isTransient ? 'CONNECTION ISSUE' : 'AUTHENTICATION ERROR'}
             </h1>
 
             {/* User-friendly Error Message */}
             <div className="mb-6 p-4 border border-warning/30 bg-warning/5">
-              <p className="text-text-muted text-sm font-mono break-words">
+              <p className="text-text-muted text-sm font-theme-data break-words">
                 {message}
               </p>
             </div>
 
             {/* Auto-retry countdown for transient errors */}
             {isTransient && countdown > 0 && (
-              <p className="text-acid-cyan text-xs font-mono mb-4 animate-pulse">
+              <p className="text-[var(--acid-cyan)] text-xs font-theme-data mb-4 animate-pulse">
                 Retrying in {countdown}s...
               </p>
             )}
@@ -160,13 +160,13 @@ function OAuthErrorContent() {
             <div className="space-y-3">
               <Link
                 href="/auth/login"
-                className="block w-full py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors text-center"
+                className="block w-full py-3 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors text-center"
               >
                 TRY AGAIN
               </Link>
               <Link
                 href="/"
-                className="block w-full py-3 border border-acid-green/30 text-acid-cyan font-mono hover:border-acid-green transition-colors text-center"
+                className="block w-full py-3 border border-[var(--accent)]/30 text-[var(--acid-cyan)] font-theme-data hover:border-[var(--accent)] transition-colors text-center"
               >
                 RETURN HOME
               </Link>
@@ -174,11 +174,11 @@ function OAuthErrorContent() {
 
             {/* Help Text */}
             {!isTransient && (
-              <div className="mt-8 pt-6 border-t border-acid-green/20">
-                <p className="text-xs font-mono text-text-muted">
+              <div className="mt-8 pt-6 border-t border-[var(--accent)]/20">
+                <p className="text-xs font-theme-data text-text-muted">
                   If this error persists, please try:
                 </p>
-                <ul className="text-xs font-mono text-text-muted/70 mt-2 space-y-1">
+                <ul className="text-xs font-theme-data text-text-muted/70 mt-2 space-y-1">
                   <li>- Clearing your browser cookies</li>
                   <li>- Using a different browser</li>
                   <li>- Using a different login method (Google, GitHub, etc.)</li>
@@ -189,10 +189,10 @@ function OAuthErrorContent() {
 
             {/* Debug Info (collapsible) - helps with support tickets */}
             <details className="mt-6 text-left">
-              <summary className="text-xs font-mono text-text-muted/50 cursor-pointer hover:text-text-muted">
+              <summary className="text-xs font-theme-data text-text-muted/50 cursor-pointer hover:text-text-muted">
                 Technical details
               </summary>
-              <pre className="mt-2 p-2 bg-bg/50 border border-acid-green/10 text-xs font-mono text-text-muted/40 overflow-auto max-h-24 whitespace-pre-wrap break-all">
+              <pre className="mt-2 p-2 bg-bg/50 border border-[var(--accent)]/10 text-xs font-theme-data text-text-muted/40 overflow-auto max-h-24 whitespace-pre-wrap break-all">
                 {rawError}
               </pre>
             </details>
@@ -214,9 +214,9 @@ function LoadingFallback() {
             <div className="mb-6">
               <div className="text-4xl text-warning">&#x26A0;</div>
             </div>
-            <h1 className="text-xl font-mono text-warning mb-4">AUTHENTICATION ERROR</h1>
+            <h1 className="text-xl font-theme-data text-warning mb-4">AUTHENTICATION ERROR</h1>
             <div className="mb-6 p-4 border border-warning/30 bg-warning/5">
-              <p className="text-text-muted text-sm font-mono">Loading...</p>
+              <p className="text-text-muted text-sm font-theme-data">Loading...</p>
             </div>
           </div>
         </div>

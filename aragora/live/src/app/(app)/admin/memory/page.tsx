@@ -54,15 +54,15 @@ interface MemoryPressure {
 }
 
 const TIER_COLORS: Record<string, string> = {
-  fast: 'text-acid-green',
-  medium: 'text-acid-cyan',
-  slow: 'text-acid-yellow',
+  fast: 'text-[var(--accent)]',
+  medium: 'text-[var(--acid-cyan)]',
+  slow: 'text-[var(--acid-yellow)]',
   glacial: 'text-purple-400',
 };
 
 const TIER_BG_COLORS: Record<string, string> = {
-  fast: 'bg-acid-green/20',
-  medium: 'bg-acid-cyan/20',
+  fast: 'bg-[var(--accent)]/20',
+  medium: 'bg-[var(--acid-cyan)]/20',
   slow: 'bg-acid-yellow/20',
   glacial: 'bg-purple-400/20',
 };
@@ -178,17 +178,17 @@ export default function MemoryAnalyticsPage() {
   const getPressureColor = (status: string) => {
     switch (status) {
       case 'normal': return 'text-success';
-      case 'elevated': return 'text-acid-yellow';
+      case 'elevated': return 'text-[var(--acid-yellow)]';
       case 'high': return 'text-orange-400';
-      case 'critical': return 'text-crimson';
+      case 'critical': return 'text-[var(--crimson)]';
       default: return 'text-text-muted';
     }
   };
 
   const getUtilizationColor = (util: number) => {
-    if (util >= 0.9) return 'bg-crimson';
+    if (util >= 0.9) return 'bg-[var(--crimson)]';
     if (util >= 0.7) return 'bg-acid-yellow';
-    return 'bg-acid-green';
+    return 'bg-[var(--accent)]';
   };
 
   return (
@@ -198,7 +198,7 @@ export default function MemoryAnalyticsPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -208,12 +208,12 @@ export default function MemoryAnalyticsPage() {
                 <span className={`w-2 h-2 rounded-full ${autoRefresh ? 'bg-success animate-pulse' : 'bg-text-muted'}`} />
                 <button
                   onClick={() => setAutoRefresh(!autoRefresh)}
-                  className="text-xs font-mono text-text-muted hover:text-text"
+                  className="text-xs font-theme-data text-text-muted hover:text-text"
                 >
                   {autoRefresh ? 'AUTO' : 'PAUSED'}
                 </button>
               </div>
-              <Link href="/admin" className="text-xs font-mono text-text-muted hover:text-acid-green">
+              <Link href="/admin" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)]">
                 [ADMIN]
               </Link>
               <BackendSelector compact />
@@ -227,13 +227,13 @@ export default function MemoryAnalyticsPage() {
             {/* Page Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
-                <div className="text-xs font-mono text-text-muted mb-1">
-                  <Link href="/admin" className="hover:text-acid-green">Admin</Link>
+                <div className="text-xs font-theme-data text-text-muted mb-1">
+                  <Link href="/admin" className="hover:text-[var(--accent)]">Admin</Link>
                   <span className="mx-2">/</span>
-                  <span className="text-acid-green">Memory Analytics</span>
+                  <span className="text-[var(--accent)]">Memory Analytics</span>
                 </div>
-                <h1 className="text-2xl font-mono text-acid-green">Memory Tier Analytics</h1>
-                <p className="text-text-muted font-mono text-sm mt-1">
+                <h1 className="text-2xl font-theme-data text-[var(--accent)]">Memory Tier Analytics</h1>
+                <p className="text-text-muted font-theme-data text-sm mt-1">
                   Continuum memory system monitoring and tier management
                 </p>
               </div>
@@ -241,14 +241,14 @@ export default function MemoryAnalyticsPage() {
                 <button
                   onClick={triggerConsolidation}
                   disabled={consolidating}
-                  className="px-3 py-1.5 bg-acid-cyan/20 border border-acid-cyan text-acid-cyan font-mono text-xs rounded hover:bg-acid-cyan/30 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)] text-[var(--acid-cyan)] font-theme-data text-xs rounded hover:bg-[var(--acid-cyan)]/30 disabled:opacity-50"
                 >
                   {consolidating ? 'Consolidating...' : 'Consolidate'}
                 </button>
                 <button
                   onClick={() => triggerCleanup()}
                   disabled={cleaning}
-                  className="px-3 py-1.5 bg-acid-yellow/20 border border-acid-yellow text-acid-yellow font-mono text-xs rounded hover:bg-acid-yellow/30 disabled:opacity-50"
+                  className="px-3 py-1.5 bg-acid-yellow/20 border border-acid-yellow text-[var(--acid-yellow)] font-theme-data text-xs rounded hover:bg-acid-yellow/30 disabled:opacity-50"
                 >
                   {cleaning ? 'Cleaning...' : 'Cleanup'}
                 </button>
@@ -256,7 +256,7 @@ export default function MemoryAnalyticsPage() {
             </div>
 
             {error && (
-              <div className="mb-4 p-3 bg-crimson/20 border border-crimson/30 rounded text-crimson font-mono text-sm">
+              <div className="mb-4 p-3 bg-[var(--crimson)]/20 border border-[var(--crimson)]/30 rounded text-[var(--crimson)] font-theme-data text-sm">
                 {error}
                 <span className="ml-2 text-text-muted">(showing demo data)</span>
               </div>
@@ -264,7 +264,7 @@ export default function MemoryAnalyticsPage() {
 
             {loading ? (
               <div className="card p-8 text-center">
-                <div className="animate-pulse font-mono text-text-muted">Loading memory analytics...</div>
+                <div className="animate-pulse font-theme-data text-text-muted">Loading memory analytics...</div>
               </div>
             ) : (
               <>
@@ -272,35 +272,35 @@ export default function MemoryAnalyticsPage() {
                 {pressure && analytics && (
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                     <div className="card p-4">
-                      <div className="text-xs font-mono text-text-muted mb-1">PRESSURE</div>
-                      <div className={`text-2xl font-mono ${getPressureColor(pressure.status)}`}>
+                      <div className="text-xs font-theme-data text-text-muted mb-1">PRESSURE</div>
+                      <div className={`text-2xl font-theme-data ${getPressureColor(pressure.status)}`}>
                         {(pressure.pressure * 100).toFixed(1)}%
                       </div>
-                      <div className={`text-xs font-mono ${getPressureColor(pressure.status)}`}>
+                      <div className={`text-xs font-theme-data ${getPressureColor(pressure.status)}`}>
                         {pressure.status.toUpperCase()}
                       </div>
                     </div>
                     <div className="card p-4">
-                      <div className="text-xs font-mono text-text-muted mb-1">TOTAL MEMORIES</div>
-                      <div className="text-2xl font-mono text-acid-green">
+                      <div className="text-xs font-theme-data text-text-muted mb-1">TOTAL MEMORIES</div>
+                      <div className="text-2xl font-theme-data text-[var(--accent)]">
                         {analytics.total_entries.toLocaleString()}
                       </div>
                     </div>
                     <div className="card p-4">
-                      <div className="text-xs font-mono text-text-muted mb-1">TOTAL HITS</div>
-                      <div className="text-2xl font-mono text-acid-cyan">
+                      <div className="text-xs font-theme-data text-text-muted mb-1">TOTAL HITS</div>
+                      <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
                         {analytics.total_hits.toLocaleString()}
                       </div>
                     </div>
                     <div className="card p-4">
-                      <div className="text-xs font-mono text-text-muted mb-1">PROMO EFFECTIVENESS</div>
-                      <div className="text-2xl font-mono text-purple-400">
+                      <div className="text-xs font-theme-data text-text-muted mb-1">PROMO EFFECTIVENESS</div>
+                      <div className="text-2xl font-theme-data text-purple-400">
                         {(analytics.promotion_effectiveness * 100).toFixed(1)}%
                       </div>
                     </div>
                     <div className="card p-4">
-                      <div className="text-xs font-mono text-text-muted mb-1">LEARNING VELOCITY</div>
-                      <div className="text-2xl font-mono text-acid-yellow">
+                      <div className="text-xs font-theme-data text-text-muted mb-1">LEARNING VELOCITY</div>
+                      <div className="text-2xl font-theme-data text-[var(--acid-yellow)]">
                         {analytics.learning_velocity.toFixed(2)}/day
                       </div>
                     </div>
@@ -316,25 +316,25 @@ export default function MemoryAnalyticsPage() {
                       <div
                         key={tier.id}
                         className={`card p-4 cursor-pointer transition-colors ${
-                          isSelected ? 'border-acid-green' : 'hover:border-acid-green/50'
+                          isSelected ? 'border-[var(--accent)]' : 'hover:border-[var(--accent)]/50'
                         }`}
                         onClick={() => setSelectedTier(isSelected ? null : tier.id)}
                       >
                         <div className="flex items-center justify-between mb-3">
-                          <div className={`font-mono font-bold ${TIER_COLORS[tier.id]}`}>
+                          <div className={`font-theme-data font-bold ${TIER_COLORS[tier.id]}`}>
                             {tier.name.toUpperCase()}
                           </div>
-                          <span className={`text-xs font-mono px-2 py-0.5 rounded ${TIER_BG_COLORS[tier.id]} ${TIER_COLORS[tier.id]}`}>
+                          <span className={`text-xs font-theme-data px-2 py-0.5 rounded ${TIER_BG_COLORS[tier.id]} ${TIER_COLORS[tier.id]}`}>
                             TTL: {tier.ttl_human}
                           </span>
                         </div>
-                        <div className="text-xs font-mono text-text-muted mb-3">
+                        <div className="text-xs font-theme-data text-text-muted mb-3">
                           {tier.description}
                         </div>
 
                         {/* Utilization Bar */}
                         <div className="mb-3">
-                          <div className="flex justify-between text-xs font-mono text-text-muted mb-1">
+                          <div className="flex justify-between text-xs font-theme-data text-text-muted mb-1">
                             <span>{tier.count} / {tier.limit}</span>
                             <span>{(tier.utilization * 100).toFixed(0)}%</span>
                           </div>
@@ -347,7 +347,7 @@ export default function MemoryAnalyticsPage() {
                         </div>
 
                         {/* Tier Stats */}
-                        <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                        <div className="grid grid-cols-2 gap-2 text-xs font-theme-data">
                           <div>
                             <span className="text-text-muted">Avg Importance:</span>
                             <span className="ml-1">{tier.avg_importance.toFixed(2)}</span>
@@ -373,14 +373,14 @@ export default function MemoryAnalyticsPage() {
                         {/* Promotions/Demotions */}
                         {stats && isSelected && (
                           <div className="mt-4 pt-3 border-t border-border">
-                            <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                            <div className="grid grid-cols-2 gap-2 text-xs font-theme-data">
                               <div className="text-success">
                                 Promotions In: {stats.promotions_in}
                               </div>
-                              <div className="text-crimson">
+                              <div className="text-[var(--crimson)]">
                                 Promotions Out: {stats.promotions_out}
                               </div>
-                              <div className="text-acid-yellow">
+                              <div className="text-[var(--acid-yellow)]">
                                 Demotions In: {stats.demotions_in}
                               </div>
                               <div className="text-text-muted">
@@ -390,7 +390,7 @@ export default function MemoryAnalyticsPage() {
                             <button
                               onClick={(e) => { e.stopPropagation(); triggerCleanup(tier.id); }}
                               disabled={cleaning}
-                              className="mt-3 w-full px-2 py-1 bg-surface border border-border text-text-muted font-mono text-xs rounded hover:border-acid-yellow hover:text-acid-yellow"
+                              className="mt-3 w-full px-2 py-1 bg-surface border border-border text-text-muted font-theme-data text-xs rounded hover:border-acid-yellow hover:text-[var(--acid-yellow)]"
                             >
                               Cleanup This Tier
                             </button>
@@ -403,27 +403,27 @@ export default function MemoryAnalyticsPage() {
 
                 {/* Tier Flow Visualization */}
                 <div className="card p-4 mb-6">
-                  <h3 className="font-mono text-sm text-acid-green mb-4">Memory Tier Flow</h3>
+                  <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">Memory Tier Flow</h3>
                   <div className="flex items-center justify-between">
                     {tiers.map((tier, idx) => (
                       <div key={tier.id} className="flex items-center">
                         <div className={`text-center px-4 py-3 rounded ${TIER_BG_COLORS[tier.id]}`}>
-                          <div className={`font-mono font-bold ${TIER_COLORS[tier.id]}`}>
+                          <div className={`font-theme-data font-bold ${TIER_COLORS[tier.id]}`}>
                             {tier.name}
                           </div>
-                          <div className="text-2xl font-mono">{tier.count}</div>
+                          <div className="text-2xl font-theme-data">{tier.count}</div>
                           <div className="text-xs text-text-muted">{tier.ttl_human}</div>
                         </div>
                         {idx < tiers.length - 1 && (
                           <div className="mx-2 flex flex-col items-center">
-                            <div className="text-xs font-mono text-text-muted">
+                            <div className="text-xs font-theme-data text-text-muted">
                               {analytics?.tier_stats[tier.id]?.promotions_out || 0}
                             </div>
-                            <div className="text-acid-green">→</div>
-                            <div className="text-xs font-mono text-text-muted">
+                            <div className="text-[var(--accent)]">→</div>
+                            <div className="text-xs font-theme-data text-text-muted">
                               {analytics?.tier_stats[tiers[idx + 1].id]?.demotions_out || 0}
                             </div>
-                            <div className="text-crimson">←</div>
+                            <div className="text-[var(--crimson)]">←</div>
                           </div>
                         )}
                       </div>
@@ -434,16 +434,16 @@ export default function MemoryAnalyticsPage() {
                 {/* Recommendations */}
                 {analytics && analytics.recommendations.length > 0 && (
                   <div className="card p-4">
-                    <h3 className="font-mono text-sm text-acid-green mb-3">Recommendations</h3>
+                    <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">Recommendations</h3>
                     <ul className="space-y-2">
                       {analytics.recommendations.map((rec, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-sm font-mono">
-                          <span className="text-acid-cyan">•</span>
+                        <li key={idx} className="flex items-start gap-2 text-sm font-theme-data">
+                          <span className="text-[var(--acid-cyan)]">•</span>
                           <span className="text-text-muted">{rec}</span>
                         </li>
                       ))}
                     </ul>
-                    <div className="mt-4 text-xs font-mono text-text-muted">
+                    <div className="mt-4 text-xs font-theme-data text-text-muted">
                       Generated: {analytics.generated_at ? new Date(analytics.generated_at).toLocaleString() : 'N/A'}
                     </div>
                   </div>
@@ -454,8 +454,8 @@ export default function MemoryAnalyticsPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // MEMORY ANALYTICS</p>
         </footer>
       </main>

@@ -84,15 +84,15 @@ function normalizeHealthStatus(status?: string): HealthStatusValue {
 
 function StatusBadge({ status }: { status: HealthStatusValue }) {
   const colors: Record<HealthStatusValue, string> = {
-    healthy: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    degraded: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+    healthy: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
+    degraded: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
     unhealthy: 'bg-acid-red/20 text-acid-red border-acid-red/40',
-    ok: 'bg-acid-green/20 text-acid-green border-acid-green/40',
+    ok: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
     unknown: 'bg-text-muted/10 text-text-muted border-text-muted/30',
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[status]}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[status]}`}>
       {status.toUpperCase()}
     </span>
   );
@@ -121,10 +121,10 @@ function getActivityIcon(type: string): string {
 
 function getActivityColor(type: string): string {
   const colors: Record<string, string> = {
-    user_signup: 'text-acid-green',
-    debate_completed: 'text-acid-cyan',
-    org_created: 'text-acid-yellow',
-    payment_received: 'text-acid-magenta',
+    user_signup: 'text-[var(--accent)]',
+    debate_completed: 'text-[var(--acid-cyan)]',
+    org_created: 'text-[var(--acid-yellow)]',
+    payment_received: 'text-[var(--acid-magenta)]',
     api_error: 'text-acid-red',
   };
   return colors[type] || 'text-text-muted';
@@ -284,7 +284,7 @@ export default function AdminOverviewPage() {
         <button
           onClick={fetchData}
           disabled={loading}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
         >
           {loading ? 'Refreshing...' : 'Refresh'}
         </button>
@@ -292,7 +292,7 @@ export default function AdminOverviewPage() {
     >
       {error && (
         <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
-          <p className="text-acid-red font-mono text-sm">{error}</p>
+          <p className="text-acid-red font-theme-data text-sm">{error}</p>
         </div>
       )}
 
@@ -304,10 +304,10 @@ export default function AdminOverviewPage() {
             href={action.href}
             className={`card p-4 flex items-center gap-3 hover:border-${action.color}/60 transition-colors group`}
           >
-            <span className={`text-2xl font-mono text-${action.color} group-hover:scale-110 transition-transform`}>
+            <span className={`text-2xl font-theme-data text-${action.color} group-hover:scale-110 transition-transform`}>
               {action.icon}
             </span>
-            <span className="font-mono text-sm text-text group-hover:text-white transition-colors">
+            <span className="font-theme-data text-sm text-text group-hover:text-white transition-colors">
               {action.label}
             </span>
           </Link>
@@ -318,8 +318,8 @@ export default function AdminOverviewPage() {
       {isDemoMode && (
         <div className="mb-4 p-3 rounded border border-acid-yellow/30 bg-acid-yellow/5">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-sm text-acid-yellow">DEMO MODE</span>
-            <span className="font-mono text-xs text-text-muted">
+            <span className="font-theme-data text-sm text-[var(--acid-yellow)]">DEMO MODE</span>
+            <span className="font-theme-data text-xs text-text-muted">
               Running with mock agents and sample data. Set API keys for real AI debates.
             </span>
           </div>
@@ -329,28 +329,28 @@ export default function AdminOverviewPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">Total Users</div>
-          <div className="font-mono text-2xl text-acid-green">{stats?.total_users || '-'}</div>
+          <div className="font-theme-data text-xs text-text-muted mb-1">Total Users</div>
+          <div className="font-theme-data text-2xl text-[var(--accent)]">{stats?.total_users || '-'}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">Organizations</div>
-          <div className="font-mono text-2xl text-acid-cyan">{stats?.total_organizations || '-'}</div>
+          <div className="font-theme-data text-xs text-text-muted mb-1">Organizations</div>
+          <div className="font-theme-data text-2xl text-[var(--acid-cyan)]">{stats?.total_organizations || '-'}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">Active (24h)</div>
-          <div className="font-mono text-2xl text-acid-yellow">{stats?.users_active_24h || '-'}</div>
+          <div className="font-theme-data text-xs text-text-muted mb-1">Active (24h)</div>
+          <div className="font-theme-data text-2xl text-[var(--acid-yellow)]">{stats?.users_active_24h || '-'}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">New Users (7d)</div>
-          <div className="font-mono text-2xl text-text">{stats?.new_users_7d || '-'}</div>
+          <div className="font-theme-data text-xs text-text-muted mb-1">New Users (7d)</div>
+          <div className="font-theme-data text-2xl text-text">{stats?.new_users_7d || '-'}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">Debates (Month)</div>
-          <div className="font-mono text-2xl text-acid-magenta">{stats?.total_debates_this_month || '-'}</div>
+          <div className="font-theme-data text-xs text-text-muted mb-1">Debates (Month)</div>
+          <div className="font-theme-data text-2xl text-[var(--acid-magenta)]">{stats?.total_debates_this_month || '-'}</div>
         </div>
         <div className="card p-4">
-          <div className="font-mono text-xs text-text-muted mb-1">API Calls (Today)</div>
-          <div className="font-mono text-2xl text-text">{stats?.total_api_calls_today?.toLocaleString() || '-'}</div>
+          <div className="font-theme-data text-xs text-text-muted mb-1">API Calls (Today)</div>
+          <div className="font-theme-data text-2xl text-text">{stats?.total_api_calls_today?.toLocaleString() || '-'}</div>
         </div>
       </div>
 
@@ -359,42 +359,42 @@ export default function AdminOverviewPage() {
         {/* System Health Card */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-mono text-acid-green">System Health</h2>
+            <h2 className="font-theme-data text-[var(--accent)]">System Health</h2>
             {health && <StatusBadge status={health.status} />}
           </div>
           {health ? (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="font-mono text-sm text-text-muted">Uptime</span>
-                <span className="font-mono text-sm text-acid-cyan">{formatUptime(health.uptime_seconds)}</span>
+                <span className="font-theme-data text-sm text-text-muted">Uptime</span>
+                <span className="font-theme-data text-sm text-[var(--acid-cyan)]">{formatUptime(health.uptime_seconds)}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-mono text-sm text-text-muted">Version</span>
-                <span className="font-mono text-sm text-text">{health.version}</span>
+                <span className="font-theme-data text-sm text-text-muted">Version</span>
+                <span className="font-theme-data text-sm text-text">{health.version}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-mono text-sm text-text-muted">Agents</span>
-                <span className="font-mono text-sm text-acid-green">{agentAvailability}</span>
+                <span className="font-theme-data text-sm text-text-muted">Agents</span>
+                <span className="font-theme-data text-sm text-[var(--accent)]">{agentAvailability}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-mono text-sm text-text-muted">WebSocket</span>
-                <span className="font-mono text-sm text-text">
+                <span className="font-theme-data text-sm text-text-muted">WebSocket</span>
+                <span className="font-theme-data text-sm text-text">
                   {websocketConnections === null ? '-' : `${websocketConnections} conn`}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-mono text-sm text-text-muted">Database</span>
+                <span className="font-theme-data text-sm text-text-muted">Database</span>
                 <StatusBadge status={databaseStatus} />
               </div>
               <Link
                 href="/admin"
-                className="block mt-4 text-center font-mono text-xs text-acid-cyan hover:text-acid-green transition-colors"
+                className="block mt-4 text-center font-theme-data text-xs text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
               >
                 View Full System Status &gt;
               </Link>
             </div>
           ) : (
-            <div className="font-mono text-sm text-text-muted animate-pulse">Loading...</div>
+            <div className="font-theme-data text-sm text-text-muted animate-pulse">Loading...</div>
           )}
         </div>
 
@@ -427,21 +427,21 @@ export default function AdminOverviewPage() {
 
         {/* Recent Activity */}
         <div className="card p-6">
-          <h2 className="font-mono text-acid-green mb-4">Recent Activity</h2>
+          <h2 className="font-theme-data text-[var(--accent)] mb-4">Recent Activity</h2>
           {recentActivity.length === 0 ? (
-            <div className="font-mono text-sm text-text-muted">No recent activity</div>
+            <div className="font-theme-data text-sm text-text-muted">No recent activity</div>
           ) : (
             <div className="space-y-3">
               {recentActivity.slice(0, 6).map((activity) => (
-                <div key={activity.id} className="flex items-start gap-3 pb-3 border-b border-acid-green/10 last:border-0">
-                  <span className={`font-mono text-lg ${getActivityColor(activity.type)}`}>
+                <div key={activity.id} className="flex items-start gap-3 pb-3 border-b border-[var(--accent)]/10 last:border-0">
+                  <span className={`font-theme-data text-lg ${getActivityColor(activity.type)}`}>
                     {getActivityIcon(activity.type)}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="font-mono text-sm text-text truncate">
+                    <div className="font-theme-data text-sm text-text truncate">
                       {activity.description}
                     </div>
-                    <div className="font-mono text-xs text-text-muted">
+                    <div className="font-theme-data text-xs text-text-muted">
                       {new Date(activity.timestamp).toLocaleString()}
                     </div>
                   </div>
@@ -451,7 +451,7 @@ export default function AdminOverviewPage() {
           )}
           <Link
             href="/admin/audit"
-            className="block mt-4 text-center font-mono text-xs text-acid-cyan hover:text-acid-green transition-colors"
+            className="block mt-4 text-center font-theme-data text-xs text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
           >
             View All Activity &gt;
           </Link>

@@ -38,13 +38,13 @@ describe('ExperimentalBadge', () => {
     it('applies beta colors', () => {
       render(<ExperimentalBadge status="beta" />);
       const badge = screen.getByText('BETA');
-      expect(badge).toHaveClass('text-acid-cyan');
+      expect(badge).toHaveClass('text-[var(--acid-cyan)]');
     });
 
     it('applies alpha colors', () => {
       render(<ExperimentalBadge status="alpha" />);
       const badge = screen.getByText('ALPHA');
-      expect(badge).toHaveClass('text-acid-yellow');
+      expect(badge).toHaveClass('text-[var(--acid-yellow)]');
     });
 
     it('applies deprecated colors', () => {

@@ -97,7 +97,7 @@ export function BudgetAlerts({ alerts, onDismiss }: BudgetAlertsProps) {
         <div className="flex items-center gap-3">
           <span className="text-xl">🔔</span>
           <div className="text-left">
-            <h3 className="text-sm font-mono text-[var(--acid-green)]">
+            <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
               BUDGET ALERTS
             </h3>
             <p className="text-xs text-[var(--text-muted)]">
@@ -111,7 +111,7 @@ export function BudgetAlerts({ alerts, onDismiss }: BudgetAlertsProps) {
               e.stopPropagation();
               dismissAll();
             }}
-            className="px-2 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+            className="px-2 py-1 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
           >
             Dismiss All
           </button>

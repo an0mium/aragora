@@ -136,6 +136,7 @@ const DOC_MAP = {
   'SDK_GUIDE.md': 'guides/sdk.md',
   'SDK_QUICKSTART.md': 'guides/sdk-quickstart.md',
   'guides/PYTHON_SDK_MIGRATION.md': 'guides/python-sdk-migration.md',
+  'api/API_REFERENCE_CURATED.md': 'api-reference/index.md',
   'API_QUICK_START.md': 'guides/api-quickstart.md',
   'API_USAGE.md': 'guides/api-usage.md',
   'WORKFLOWS.md': 'guides/workflows.md',
@@ -355,6 +356,31 @@ const DOC_MAP = {
   'HANDLER_DEVELOPMENT.md': 'contributing/handler-development.md',
   'TESTING.md': 'contributing/testing.md',
   'HANDLERS.md': 'contributing/handlers.md',
+  'status/FEATURE_DISCOVERY.md': 'contributing/feature-discovery.md',
+  'FEATURE_GAP_LIST.md': 'contributing/feature-gap-list.md',
+  'status/ACTIVE_EXECUTION_ISSUES.md': 'contributing/active-execution-issues.md',
+  'status/NEXT_STEPS_CANONICAL.md': 'contributing/next-steps-canonical.md',
+  'status/EXECUTION_NEXT_6_WEEKS_2026-03-05.md':
+    'contributing/execution-next-6-weeks-2026-03-05.md',
+  'status/DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md':
+    'contributing/documentation-hygiene-and-gap-register.md',
+  'status/PMF_SCORECARD.md': 'contributing/pmf-scorecard.md',
+  'CANONICAL_GOALS.md': 'contributing/canonical-goals.md',
+  '../CLAUDE.md': 'contributing/claude.md',
+  'EXTENDED_README.md': 'contributing/extended-readme.md',
+  '../ROADMAP.md': 'contributing/roadmap.md',
+  'plans/ARAGORA_EVOLUTION_ROADMAP.md': 'contributing/aragora-evolution-roadmap.md',
+  'plans/PMF_DOGFOOD_EXECUTION_PLAN.md': 'contributing/pmf-dogfood-execution-plan.md',
+  'plans/2026-03-26-pmf-14-day-execution-plan.md':
+    'contributing/2026-03-26-pmf-14-day-execution-plan.md',
+  'guides/CONDUCTOR_WORKFLOW.md': 'guides/conductor-workflow.md',
+  'guides/SWARM_DOGFOOD_OPERATOR.md': 'guides/swarm-dogfood-operator.md',
+  'guides/WORKER_PROMPT_PACK.md': 'guides/worker-prompt-pack.md',
+  'architecture/DEV_SWARM_COORDINATION.md': 'contributing/dev-swarm-coordination.md',
+  'enterprise/SECRETS.md': 'enterprise/secrets.md',
+  'plans/2026-03-07-conductor-control-plane.md':
+    'contributing/conductor-control-plane-implementation-spec.md',
+  'workflow/MARKETPLACE.md': 'guides/marketplace.md',
 
   // =========================================================================
   // Additional Missing Files (commonly referenced)

@@ -189,29 +189,29 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-surface border border-acid-green/30 p-4">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-mono text-acid-green">{'>'} GRAPH DEBATES</h2>
+            <h2 className="text-lg font-theme-data text-[var(--accent)]">{'>'} GRAPH DEBATES</h2>
             {/* WebSocket Status Indicator */}
             {selectedDebate && (
               <div className="flex items-center gap-1.5">
                 <span
                   className={`w-2 h-2 rounded-full ${
                     wsConnected
-                      ? 'bg-acid-green animate-pulse'
+                      ? 'bg-[var(--accent)] animate-pulse'
                       : wsStatus === 'connecting'
                       ? 'bg-gold animate-pulse'
-                      : 'bg-crimson'
+                      : 'bg-[var(--crimson)]'
                   }`}
                 />
-                <span className="text-[10px] font-mono text-text-muted">
+                <span className="text-[10px] font-theme-data text-text-muted">
                   {wsConnected ? 'LIVE' : wsStatus === 'connecting' ? 'CONNECTING' : 'OFFLINE'}
                 </span>
                 {!wsConnected && wsStatus !== 'connecting' && (
                   <button
                     onClick={wsReconnect}
-                    className="text-[10px] font-mono text-acid-cyan hover:text-acid-green"
+                    className="text-[10px] font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)]"
                   >
                     [RECONNECT]
                   </button>
@@ -219,7 +219,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
               </div>
             )}
           </div>
-          <span className="text-xs font-mono text-text-muted">
+          <span className="text-xs font-theme-data text-text-muted">
             Branching & counterfactual exploration
           </span>
         </div>
@@ -231,13 +231,13 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
             value={newDebateTask}
             onChange={(e) => setNewDebateTask(e.target.value)}
             placeholder="Enter a topic for graph debate..."
-            className="flex-1 px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green"
+            className="flex-1 px-3 py-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             onKeyDown={(e) => e.key === 'Enter' && handleCreateDebate()}
           />
           <button
             onClick={handleCreateDebate}
             disabled={creating || !newDebateTask.trim()}
-            className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+            className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
           >
             {creating ? 'CREATING...' : 'CREATE'}
           </button>
@@ -246,17 +246,17 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
 
       {/* Error display */}
       {error && (
-        <div className="bg-surface border border-crimson/30 p-4">
-          <div className="text-xs font-mono text-crimson">Error: {error}</div>
+        <div className="bg-surface border border-[var(--crimson)]/30 p-4">
+          <div className="text-xs font-theme-data text-[var(--crimson)]">Error: {error}</div>
         </div>
       )}
 
       {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
         {/* Debate list */}
-        <div className="lg:col-span-1 bg-surface border border-acid-green/30">
-          <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
-            <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+        <div className="lg:col-span-1 bg-surface border border-[var(--accent)]/30">
+          <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50">
+            <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
               {'>'} DEBATES ({debates.length})
             </span>
           </div>
@@ -277,7 +277,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
             )}
 
             {!loading && debates.length === 0 && (
-              <div className="p-4 text-xs font-mono text-text-muted">
+              <div className="p-4 text-xs font-theme-data text-text-muted">
                 No graph debates yet. Create one above!
               </div>
             )}
@@ -293,17 +293,17 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
                 aria-pressed={selectedDebate?.debate_id === debate.debate_id}
                 className={`w-full text-left p-3 border-b border-border cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-acid-green/50 ${
                   selectedDebate?.debate_id === debate.debate_id
-                    ? 'bg-acid-green/10 border-l-2 border-l-acid-green'
+                    ? 'bg-[var(--accent)]/10 border-l-2 border-l-acid-green'
                     : 'hover:bg-bg'
                 }`}
               >
-                <div className="text-sm font-mono text-text mb-1 truncate">
+                <div className="text-sm font-theme-data text-text mb-1 truncate">
                   {debate.task.slice(0, 50)}{debate.task.length > 50 ? '...' : ''}
                 </div>
-                <div className="flex items-center gap-2 text-xs font-mono text-text-muted">
-                  <span className="text-acid-green">{debate.node_count} nodes</span>
+                <div className="flex items-center gap-2 text-xs font-theme-data text-text-muted">
+                  <span className="text-[var(--accent)]">{debate.node_count} nodes</span>
                   <span>/</span>
-                  <span className="text-acid-cyan">{debate.branch_count} branches</span>
+                  <span className="text-[var(--acid-cyan)]">{debate.branch_count} branches</span>
                 </div>
               </button>
             ))}
@@ -311,17 +311,17 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
         </div>
 
         {/* Graph visualization */}
-        <div className="lg:col-span-3 bg-surface border border-acid-green/30 relative min-h-[300px] md:min-h-[500px]">
-          <div className="px-3 md:px-4 py-2 md:py-3 border-b border-acid-green/20 bg-bg/50">
+        <div className="lg:col-span-3 bg-surface border border-[var(--accent)]/30 relative min-h-[300px] md:min-h-[500px]">
+          <div className="px-3 md:px-4 py-2 md:py-3 border-b border-[var(--accent)]/20 bg-bg/50">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+                <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
                   {'>'} GRAPH
                 </span>
                 {selectedDebate && (
                   <span
                     data-testid="graph-debate-title"
-                    className="hidden sm:inline text-xs font-mono text-text-muted truncate max-w-[200px] md:max-w-none"
+                    className="hidden sm:inline text-xs font-theme-data text-text-muted truncate max-w-[200px] md:max-w-none"
                   >
                     {selectedDebate.task.slice(0, 60)}{selectedDebate.task.length > 60 ? '...' : ''}
                   </span>
@@ -333,9 +333,9 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
                   <button
                     onClick={() => setMobileViewMode('list')}
                     aria-pressed={mobileViewMode === 'list'}
-                    className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                    className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                       mobileViewMode === 'list'
-                        ? 'border-acid-green text-acid-green bg-acid-green/10'
+                        ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
                         : 'border-border text-text-muted'
                     }`}
                   >
@@ -344,9 +344,9 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
                   <button
                     onClick={() => setMobileViewMode('graph')}
                     aria-pressed={mobileViewMode === 'graph'}
-                    className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                    className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                       mobileViewMode === 'graph'
-                        ? 'border-acid-green text-acid-green bg-acid-green/10'
+                        ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
                         : 'border-border text-text-muted'
                     }`}
                   >
@@ -384,8 +384,8 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
               )}
 
               {/* Branch legend - interactive */}
-              <div className="px-4 py-2 border-t border-acid-green/20 bg-bg/30">
-                <div className="flex flex-wrap gap-3 text-xs font-mono" role="group" aria-label="Branch filters">
+              <div className="px-4 py-2 border-t border-[var(--accent)]/20 bg-bg/30">
+                <div className="flex flex-wrap gap-3 text-xs font-theme-data" role="group" aria-label="Branch filters">
                   {Object.entries(selectedDebate.graph.branches).map(([id, branch]) => (
                     <button
                       key={id}
@@ -393,7 +393,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
                       aria-pressed={highlightedBranch === branch.name}
                       className={`flex items-center gap-1 cursor-pointer px-2 py-1 rounded transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-acid-green/50 ${
                         highlightedBranch === branch.name
-                          ? 'bg-acid-green/20 scale-105'
+                          ? 'bg-[var(--accent)]/20 scale-105'
                           : highlightedBranch && highlightedBranch !== branch.name
                           ? 'opacity-40'
                           : 'hover:bg-surface'
@@ -418,7 +418,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
                         <span className="text-gold">[merged]</span>
                       )}
                       {branch.is_active && (
-                        <span className="text-acid-green animate-pulse">[active]</span>
+                        <span className="text-[var(--accent)] animate-pulse">[active]</span>
                       )}
                     </button>
                   ))}
@@ -436,8 +436,8 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
           ) : (
             <div className="flex items-center justify-center h-[400px]">
               <div className="text-center">
-                <div className="text-4xl font-mono text-acid-green/30 mb-4">/\</div>
-                <div className="text-sm font-mono text-text-muted">
+                <div className="text-4xl font-theme-data text-[var(--accent)]/30 mb-4">/\</div>
+                <div className="text-sm font-theme-data text-text-muted">
                   Select or create a graph debate to visualize
                 </div>
               </div>
@@ -450,7 +450,7 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
       {selectedDebate && selectedDebate.merge_results.length > 0 && (
         <div className="bg-surface border border-purple/30">
           <div className="px-4 py-3 border-b border-purple/20 bg-bg/50">
-            <span className="text-xs font-mono text-purple uppercase tracking-wider">
+            <span className="text-xs font-theme-data text-purple uppercase tracking-wider">
               {'>'} MERGE HISTORY ({selectedDebate.merge_results.length})
             </span>
           </div>
@@ -458,21 +458,21 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
             {selectedDebate.merge_results.map((merge, i) => (
               <div key={i} className="p-3 bg-bg/50 border border-purple/20">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-mono text-purple">
+                  <span className="text-xs font-theme-data text-purple">
                     Merged: {merge.source_branch_ids.join(' + ')}
                   </span>
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     Strategy: {merge.strategy}
                   </span>
-                  <span className="text-xs font-mono text-acid-green">
+                  <span className="text-xs font-theme-data text-[var(--accent)]">
                     {(merge.confidence * 100).toFixed(0)}% confidence
                   </span>
                 </div>
-                <div className="text-xs font-mono text-text">
+                <div className="text-xs font-theme-data text-text">
                   {merge.synthesis.slice(0, 200)}{merge.synthesis.length > 200 ? '...' : ''}
                 </div>
                 {merge.insights_preserved.length > 0 && (
-                  <div className="mt-2 text-[10px] font-mono text-text-muted">
+                  <div className="mt-2 text-[10px] font-theme-data text-text-muted">
                     Preserved: {merge.insights_preserved.slice(0, 3).join(', ')}
                   </div>
                 )}

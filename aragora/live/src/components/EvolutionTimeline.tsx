@@ -33,9 +33,9 @@ interface EvolutionTimelineProps {
 
 const EVENT_COLORS: Record<string, { bg: string; border: string; text: string; icon: string }> = {
   agent_birth: {
-    bg: 'bg-acid-green/20',
-    border: 'border-acid-green',
-    text: 'text-acid-green',
+    bg: 'bg-[var(--accent)]/20',
+    border: 'border-[var(--accent)]',
+    text: 'text-[var(--accent)]',
     icon: '\u{1F423}', // hatching chick
   },
   agent_death: {
@@ -45,9 +45,9 @@ const EVENT_COLORS: Record<string, { bg: string; border: string; text: string; i
     icon: '\u{1F480}', // skull
   },
   mutation: {
-    bg: 'bg-acid-cyan/20',
-    border: 'border-acid-cyan',
-    text: 'text-acid-cyan',
+    bg: 'bg-[var(--acid-cyan)]/20',
+    border: 'border-[var(--acid-cyan)]',
+    text: 'text-[var(--acid-cyan)]',
     icon: '\u{1F9EC}', // dna
   },
   crossover: {
@@ -59,13 +59,13 @@ const EVENT_COLORS: Record<string, { bg: string; border: string; text: string; i
   fitness_update: {
     bg: 'bg-acid-yellow/20',
     border: 'border-acid-yellow',
-    text: 'text-acid-yellow',
+    text: 'text-[var(--acid-yellow)]',
     icon: '\u{1F4C8}', // chart
   },
   selection: {
     bg: 'bg-acid-magenta/20',
     border: 'border-acid-magenta',
-    text: 'text-acid-magenta',
+    text: 'text-[var(--acid-magenta)]',
     icon: '\u{2705}', // check
   },
   extinction: {
@@ -75,9 +75,9 @@ const EVENT_COLORS: Record<string, { bg: string; border: string; text: string; i
     icon: '\u{1F4A5}', // collision
   },
   speciation: {
-    bg: 'bg-acid-green/20',
-    border: 'border-acid-green',
-    text: 'text-acid-green',
+    bg: 'bg-[var(--accent)]/20',
+    border: 'border-[var(--accent)]',
+    text: 'text-[var(--accent)]',
     icon: '\u{1F33F}', // seedling
   },
 };
@@ -148,7 +148,7 @@ function TimelineEvent({
           >
             {colors.icon}
           </div>
-          <div className="w-0.5 h-full min-h-[20px] bg-acid-green/20" />
+          <div className="w-0.5 h-full min-h-[20px] bg-[var(--accent)]/20" />
         </div>
 
         {/* Event content */}
@@ -160,17 +160,17 @@ function TimelineEvent({
           `}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className={`font-mono text-xs uppercase ${colors.text}`}>
+            <span className={`font-theme-data text-xs uppercase ${colors.text}`}>
               {event.event_type.replace(/_/g, ' ')}
             </span>
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               {timestamp.toLocaleTimeString()}
             </span>
           </div>
-          <div className="font-mono text-sm text-text">
+          <div className="font-theme-data text-sm text-text">
             {getEventSummary()}
           </div>
-          <div className="text-xs font-mono text-text-muted mt-1">
+          <div className="text-xs font-theme-data text-text-muted mt-1">
             {timestamp.toLocaleDateString()}
           </div>
         </div>
@@ -278,15 +278,15 @@ export function EvolutionTimeline({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h4 className="font-mono text-acid-green text-sm">EVOLUTION TIMELINE</h4>
+        <h4 className="font-theme-data text-[var(--accent)] text-sm">EVOLUTION TIMELINE</h4>
         <div className="flex items-center gap-2">
           {autoRefresh && (
-            <span className="text-xs font-mono text-acid-green animate-pulse">LIVE</span>
+            <span className="text-xs font-theme-data text-[var(--accent)] animate-pulse">LIVE</span>
           )}
           <button
             onClick={fetchEvents}
             disabled={loading}
-            className="px-3 py-1 text-xs font-mono border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+            className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
           >
             {loading ? 'LOADING...' : 'REFRESH'}
           </button>
@@ -296,21 +296,21 @@ export function EvolutionTimeline({
       {/* Stats bar */}
       <div className="flex flex-wrap gap-4 p-3 bg-surface/50 border border-border rounded-lg">
         <div>
-          <span className="text-xs font-mono text-text-muted">Total Events</span>
-          <div className="text-lg font-mono text-acid-green">{stats.totalEvents}</div>
+          <span className="text-xs font-theme-data text-text-muted">Total Events</span>
+          <div className="text-lg font-theme-data text-[var(--accent)]">{stats.totalEvents}</div>
         </div>
         <div>
-          <span className="text-xs font-mono text-text-muted">Avg Fitness Change</span>
-          <div className={`text-lg font-mono ${stats.avgFitnessChange >= 0 ? 'text-acid-green' : 'text-acid-red'}`}>
+          <span className="text-xs font-theme-data text-text-muted">Avg Fitness Change</span>
+          <div className={`text-lg font-theme-data ${stats.avgFitnessChange >= 0 ? 'text-[var(--accent)]' : 'text-acid-red'}`}>
             {stats.avgFitnessChange >= 0 ? '+' : ''}{(stats.avgFitnessChange * 100).toFixed(2)}%
           </div>
         </div>
         {Object.entries(stats.typeCounts).slice(0, 4).map(([type, count]) => (
           <div key={type}>
-            <span className="text-xs font-mono text-text-muted capitalize">
+            <span className="text-xs font-theme-data text-text-muted capitalize">
               {type.replace(/_/g, ' ')}
             </span>
-            <div className="text-lg font-mono text-text">{count}</div>
+            <div className="text-lg font-theme-data text-text">{count}</div>
           </div>
         ))}
       </div>
@@ -323,7 +323,7 @@ export function EvolutionTimeline({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           aria-label="Filter by event type"
-          className="bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none"
+          className="bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text focus:border-[var(--accent)] focus:outline-none"
         >
           <option value="">All Event Types</option>
           {eventTypes.map((type) => (
@@ -337,7 +337,7 @@ export function EvolutionTimeline({
       {/* Error */}
       {error && (
         <div className="p-4 bg-warning/10 border border-warning/30 rounded-lg">
-          <div className="text-warning font-mono text-sm">{error}</div>
+          <div className="text-warning font-theme-data text-sm">{error}</div>
         </div>
       )}
 
@@ -347,15 +347,15 @@ export function EvolutionTimeline({
         <div className="lg:col-span-2 space-y-1 max-h-[600px] overflow-y-auto">
           {loading && events.length === 0 && (
             <div className="text-center py-8">
-              <div className="text-acid-green font-mono animate-pulse">
+              <div className="text-[var(--accent)] font-theme-data animate-pulse">
                 Loading timeline...
               </div>
             </div>
           )}
 
           {!loading && events.length === 0 && (
-            <div className="text-center py-8 border border-acid-green/20 rounded-lg bg-surface/50">
-              <div className="text-text-muted font-mono text-sm">
+            <div className="text-center py-8 border border-[var(--accent)]/20 rounded-lg bg-surface/50">
+              <div className="text-text-muted font-theme-data text-sm">
                 No evolution events found
               </div>
             </div>
@@ -363,7 +363,7 @@ export function EvolutionTimeline({
 
           {eventsByDate.map(([date, dateEvents]) => (
             <div key={date}>
-              <div className="text-xs font-mono text-acid-cyan mb-2 mt-4 first:mt-0 sticky top-0 bg-bg/90 py-1">
+              <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-2 mt-4 first:mt-0 sticky top-0 bg-bg/90 py-1">
                 {date}
               </div>
               {dateEvents.map((event) => (
@@ -379,29 +379,29 @@ export function EvolutionTimeline({
         </div>
 
         {/* Selected event details */}
-        <div className="bg-surface border border-acid-cyan/30 rounded-lg p-4 h-fit sticky top-4">
-          <h5 className="font-mono text-acid-cyan text-sm mb-4">
+        <div className="bg-surface border border-[var(--acid-cyan)]/30 rounded-lg p-4 h-fit sticky top-4">
+          <h5 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-4">
             EVENT DETAILS
           </h5>
           {selectedEvent ? (
             <div className="space-y-4">
               <div>
                 <div className="text-xs text-text-muted mb-1">EVENT ID</div>
-                <div className="font-mono text-xs text-acid-green break-all">
+                <div className="font-theme-data text-xs text-[var(--accent)] break-all">
                   {selectedEvent.event_id}
                 </div>
               </div>
 
               <div>
                 <div className="text-xs text-text-muted mb-1">TYPE</div>
-                <div className={`font-mono text-sm uppercase ${EVENT_COLORS[selectedEvent.event_type]?.text || 'text-text'}`}>
+                <div className={`font-theme-data text-sm uppercase ${EVENT_COLORS[selectedEvent.event_type]?.text || 'text-text'}`}>
                   {selectedEvent.event_type.replace(/_/g, ' ')}
                 </div>
               </div>
 
               <div>
                 <div className="text-xs text-text-muted mb-1">TIMESTAMP</div>
-                <div className="font-mono text-sm text-text">
+                <div className="font-theme-data text-sm text-text">
                   {new Date(selectedEvent.timestamp).toLocaleString()}
                 </div>
               </div>
@@ -409,7 +409,7 @@ export function EvolutionTimeline({
               {selectedEvent.parent_event_id && (
                 <div>
                   <div className="text-xs text-text-muted mb-1">PARENT EVENT</div>
-                  <div className="font-mono text-xs text-text-muted">
+                  <div className="font-theme-data text-xs text-text-muted">
                     {selectedEvent.parent_event_id.slice(0, 16)}...
                   </div>
                 </div>
@@ -418,7 +418,7 @@ export function EvolutionTimeline({
               {selectedEvent.content_hash && (
                 <div>
                   <div className="text-xs text-text-muted mb-1">CONTENT HASH</div>
-                  <div className="font-mono text-xs text-text-muted">
+                  <div className="font-theme-data text-xs text-text-muted">
                     {selectedEvent.content_hash}
                   </div>
                 </div>
@@ -426,13 +426,13 @@ export function EvolutionTimeline({
 
               <div>
                 <div className="text-xs text-text-muted mb-1">DATA</div>
-                <pre className="font-mono text-xs text-text bg-bg/50 p-2 rounded overflow-x-auto max-h-48">
+                <pre className="font-theme-data text-xs text-text bg-bg/50 p-2 rounded overflow-x-auto max-h-48">
                   {JSON.stringify(selectedEvent.data, null, 2)}
                 </pre>
               </div>
             </div>
           ) : (
-            <div className="text-center text-text-muted font-mono text-sm py-8">
+            <div className="text-center text-text-muted font-theme-data text-sm py-8">
               Select an event to view details
             </div>
           )}
@@ -440,7 +440,7 @@ export function EvolutionTimeline({
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-xs font-mono pt-4 border-t border-border">
+      <div className="flex flex-wrap gap-4 text-xs font-theme-data pt-4 border-t border-border">
         {Object.entries(EVENT_COLORS).map(([type, colors]) => (
           <div key={type} className="flex items-center gap-2">
             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-sm ${colors.bg} ${colors.border} border`}>

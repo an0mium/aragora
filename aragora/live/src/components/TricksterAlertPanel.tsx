@@ -19,17 +19,17 @@ interface TricksterAlert {
 }
 
 function getSeverityColor(metric: number): string {
-  if (metric >= 0.8) return 'text-crimson';
+  if (metric >= 0.8) return 'text-[var(--crimson)]';
   if (metric >= 0.6) return 'text-orange-400';
   if (metric >= 0.4) return 'text-yellow-400';
-  return 'text-acid-cyan';
+  return 'text-[var(--acid-cyan)]';
 }
 
 function getSeverityBg(metric: number): string {
-  if (metric >= 0.8) return 'bg-crimson/20 border-crimson/40';
+  if (metric >= 0.8) return 'bg-[var(--crimson)]/20 border-[var(--crimson)]/40';
   if (metric >= 0.6) return 'bg-orange-400/20 border-orange-400/40';
   if (metric >= 0.4) return 'bg-yellow-400/20 border-yellow-400/40';
-  return 'bg-acid-cyan/20 border-acid-cyan/40';
+  return 'bg-[var(--acid-cyan)]/20 border-[var(--acid-cyan)]/40';
 }
 
 export function TricksterAlertPanel({ events }: TricksterAlertPanelProps) {
@@ -62,12 +62,12 @@ export function TricksterAlertPanel({ events }: TricksterAlertPanelProps) {
   }
 
   return (
-    <div className="bg-surface border border-crimson/30">
-      <div className="px-4 py-3 border-b border-crimson/20 bg-bg/50 flex items-center justify-between">
-        <span className="text-xs font-mono text-crimson uppercase tracking-wider">
+    <div className="bg-surface border border-[var(--crimson)]/30">
+      <div className="px-4 py-3 border-b border-[var(--crimson)]/20 bg-bg/50 flex items-center justify-between">
+        <span className="text-xs font-theme-data text-[var(--crimson)] uppercase tracking-wider">
           {'>'} TRICKSTER ALERTS
         </span>
-        <span className="text-xs font-mono text-crimson animate-pulse">
+        <span className="text-xs font-theme-data text-[var(--crimson)] animate-pulse">
           {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
         </span>
       </div>
@@ -83,17 +83,17 @@ export function TricksterAlertPanel({ events }: TricksterAlertPanelProps) {
                 className={`p-3 border ${getSeverityBg(severity)}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-xs font-mono ${getSeverityColor(severity)}`}>
+                  <span className={`text-xs font-theme-data ${getSeverityColor(severity)}`}>
                     HOLLOW CONSENSUS
                   </span>
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     Round {alert.round}
                   </span>
                 </div>
-                <div className="text-xs font-mono text-text-primary">
+                <div className="text-xs font-theme-data text-text-primary">
                   {data.details}
                 </div>
-                <div className="text-xs font-mono text-text-muted mt-1">
+                <div className="text-xs font-theme-data text-text-muted mt-1">
                   Evidence gap: {(severity * 100).toFixed(0)}%
                 </div>
               </div>
@@ -107,28 +107,28 @@ export function TricksterAlertPanel({ events }: TricksterAlertPanelProps) {
                 className={`p-3 border ${getSeverityBg(priority)}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-xs font-mono ${getSeverityColor(priority)}`}>
+                  <span className={`text-xs font-theme-data ${getSeverityColor(priority)}`}>
                     CHALLENGE INJECTED
                   </span>
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     Round {data.round_num}
                   </span>
                 </div>
-                <div className="text-xs font-mono text-text-primary mb-2">
+                <div className="text-xs font-theme-data text-text-primary mb-2">
                   {data.challenge}
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  <span className="text-xs font-mono text-text-muted">Targets:</span>
+                  <span className="text-xs font-theme-data text-text-muted">Targets:</span>
                   {data.targets.map((target) => (
                     <span
                       key={target}
-                      className="px-1.5 py-0.5 text-xs font-mono bg-crimson/10 text-crimson border border-crimson/30"
+                      className="px-1.5 py-0.5 text-xs font-theme-data bg-[var(--crimson)]/10 text-[var(--crimson)] border border-[var(--crimson)]/30"
                     >
                       {target.split('-')[0]}
                     </span>
                   ))}
                 </div>
-                <div className="text-xs font-mono text-text-muted mt-1">
+                <div className="text-xs font-theme-data text-text-muted mt-1">
                   Type: {data.intervention_type}
                 </div>
               </div>

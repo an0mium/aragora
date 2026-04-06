@@ -268,10 +268,10 @@ export default function SpeechPage() {
         <div className="container mx-auto px-4 py-6">
           {/* Title */}
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} SPEECH
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Transcribe audio to text, browse podcast episodes, and manage speech providers.
             </p>
           </div>
@@ -280,40 +280,40 @@ export default function SpeechPage() {
           <div className="flex gap-2 mb-6">
             <button
               onClick={() => setActiveTab('transcribe')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'transcribe'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
               }`}
             >
               [TRANSCRIBE]
             </button>
             <button
               onClick={() => setActiveTab('url')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'url'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
               }`}
             >
               [URL]
             </button>
             <button
               onClick={() => setActiveTab('podcasts')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'podcasts'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
               }`}
             >
               [PODCASTS]
             </button>
             <button
               onClick={() => setActiveTab('providers')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'providers'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
               }`}
             >
               [PROVIDERS]
@@ -324,7 +324,7 @@ export default function SpeechPage() {
         {error && (
           <div className="mb-6 p-3 border border-warning/30 bg-warning/10">
             <div className="flex items-center justify-between">
-              <span className="text-warning font-mono text-sm">{error}</span>
+              <span className="text-warning font-theme-data text-sm">{error}</span>
               <button
                 onClick={() => setError(null)}
                 className="text-warning hover:text-warning/80"
@@ -347,7 +347,7 @@ export default function SpeechPage() {
                 <div className="flex justify-center">
                   <button
                     onClick={handleReset}
-                    className="px-4 py-2 border border-acid-green/30 text-acid-green font-mono text-sm hover:bg-acid-green/10 transition-colors"
+                    className="px-4 py-2 border border-[var(--accent)]/30 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/10 transition-colors"
                   >
                     [TRANSCRIBE ANOTHER]
                   </button>
@@ -356,8 +356,8 @@ export default function SpeechPage() {
             ) : (
               <div className="space-y-6">
                 {/* Recording Section */}
-                <section className="p-4 border border-acid-green/20 rounded bg-surface/30">
-                  <h2 className="font-mono text-acid-cyan text-sm mb-3">Record Audio</h2>
+                <section className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
+                  <h2 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">Record Audio</h2>
                   <AudioRecorder
                     onRecordingComplete={handleRecordingComplete}
                     onError={handleRecordingError}
@@ -366,8 +366,8 @@ export default function SpeechPage() {
                 </section>
 
                 {/* Upload Section */}
-                <section className="p-4 border border-acid-green/20 rounded bg-surface/30">
-                  <h2 className="font-mono text-acid-cyan text-sm mb-3">Upload Audio File</h2>
+                <section className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
+                  <h2 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">Upload Audio File</h2>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -378,12 +378,12 @@ export default function SpeechPage() {
                   />
                   <label
                     htmlFor="audio-upload"
-                    className="block p-6 border-2 border-dashed border-acid-green/30 hover:border-acid-green/50 cursor-pointer transition-colors text-center"
+                    className="block p-6 border-2 border-dashed border-[var(--accent)]/30 hover:border-[var(--accent)]/50 cursor-pointer transition-colors text-center"
                   >
-                    <div className="text-acid-green font-mono text-sm mb-2">
+                    <div className="text-[var(--accent)] font-theme-data text-sm mb-2">
                       Click to select audio file
                     </div>
-                    <div className="text-text-muted font-mono text-xs">
+                    <div className="text-text-muted font-theme-data text-xs">
                       MP3, WAV, WebM, M4A, OGG, FLAC (max 25MB)
                     </div>
                   </label>
@@ -391,19 +391,19 @@ export default function SpeechPage() {
 
                 {/* Selected File Display */}
                 {audioFile && (
-                  <div className="p-3 border border-acid-cyan/30 bg-acid-cyan/5 rounded">
+                  <div className="p-3 border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 rounded">
                     <div className="flex items-center justify-between">
                       <div>
-                        <span className="text-acid-cyan font-mono text-xs">
+                        <span className="text-[var(--acid-cyan)] font-theme-data text-xs">
                           {audioFile instanceof File ? audioFile.name : 'Recording'}
                         </span>
-                        <span className="text-text-muted font-mono text-xs ml-2">
+                        <span className="text-text-muted font-theme-data text-xs ml-2">
                           ({(audioFile.size / 1024 / 1024).toFixed(2)} MB)
                         </span>
                       </div>
                       <button
                         onClick={handleReset}
-                        className="text-text-muted hover:text-warning font-mono text-xs"
+                        className="text-text-muted hover:text-warning font-theme-data text-xs"
                       >
                         [REMOVE]
                       </button>
@@ -414,11 +414,11 @@ export default function SpeechPage() {
                 {/* Options */}
                 <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block font-mono text-xs text-text-muted mb-2">Language</label>
+                    <label className="block font-theme-data text-xs text-text-muted mb-2">Language</label>
                     <select
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
-                      className="w-full p-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green rounded"
+                      className="w-full p-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] rounded"
                     >
                       <option value="">Auto-detect</option>
                       <option value="en">English</option>
@@ -430,11 +430,11 @@ export default function SpeechPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block font-mono text-xs text-text-muted mb-2">Provider</label>
+                    <label className="block font-theme-data text-xs text-text-muted mb-2">Provider</label>
                     <select
                       value={selectedProvider}
                       onChange={(e) => setSelectedProvider(e.target.value)}
-                      className="w-full p-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green rounded"
+                      className="w-full p-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] rounded"
                     >
                       {providers.map(p => (
                         <option key={p.name} value={p.name} disabled={!p.available}>
@@ -444,13 +444,13 @@ export default function SpeechPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block font-mono text-xs text-text-muted mb-2">Prompt (optional)</label>
+                    <label className="block font-theme-data text-xs text-text-muted mb-2">Prompt (optional)</label>
                     <input
                       type="text"
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       placeholder="Technical terms..."
-                      className="w-full p-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green rounded"
+                      className="w-full p-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] rounded"
                     />
                   </div>
                 </section>
@@ -460,10 +460,10 @@ export default function SpeechPage() {
                   <button
                     onClick={handleTranscribe}
                     disabled={!audioFile || state === 'uploading' || state === 'transcribing'}
-                    className={`px-6 py-3 font-mono text-sm transition-colors rounded ${
+                    className={`px-6 py-3 font-theme-data text-sm transition-colors rounded ${
                       !audioFile || state === 'uploading' || state === 'transcribing'
-                        ? 'bg-surface border border-acid-green/20 text-text-muted cursor-not-allowed'
-                        : 'bg-acid-green/20 border border-acid-green/50 text-acid-green hover:bg-acid-green/30'
+                        ? 'bg-surface border border-[var(--accent)]/20 text-text-muted cursor-not-allowed'
+                        : 'bg-[var(--accent)]/20 border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/30'
                     }`}
                   >
                     {state === 'uploading' && '[UPLOADING...]'}
@@ -477,14 +477,14 @@ export default function SpeechPage() {
                   <div className="text-center">
                     <div className="h-1 bg-surface rounded overflow-hidden max-w-md mx-auto">
                       <div
-                        className="h-full bg-acid-green transition-all duration-300"
+                        className="h-full bg-[var(--accent)] transition-all duration-300"
                         style={{
                           width: state === 'uploading' ? `${uploadProgress}%` : '100%',
                           animation: state === 'transcribing' ? 'pulse 1.5s infinite' : 'none',
                         }}
                       />
                     </div>
-                    <p className="text-text-muted font-mono text-xs mt-2">
+                    <p className="text-text-muted font-theme-data text-xs mt-2">
                       {state === 'uploading' && 'Uploading...'}
                       {state === 'transcribing' && 'Processing with Whisper...'}
                     </p>
@@ -498,31 +498,31 @@ export default function SpeechPage() {
         {/* URL Tab */}
         {activeTab === 'url' && (
           <div className="space-y-6">
-            <div className="p-4 border border-acid-green/20 rounded bg-surface/30">
-              <h2 className="font-mono text-acid-cyan text-sm mb-4">Transcribe from URL</h2>
-              <p className="text-text-muted font-mono text-xs mb-4">
+            <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
+              <h2 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-4">Transcribe from URL</h2>
+              <p className="text-text-muted font-theme-data text-xs mb-4">
                 Enter a direct URL to an audio file. Supports MP3, WAV, and other common formats.
               </p>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block font-mono text-xs text-text-muted mb-2">Audio URL</label>
+                  <label className="block font-theme-data text-xs text-text-muted mb-2">Audio URL</label>
                   <input
                     type="url"
                     value={audioUrl}
                     onChange={(e) => setAudioUrl(e.target.value)}
                     placeholder="https://example.com/audio.mp3"
-                    className="w-full p-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green rounded"
+                    className="w-full p-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] rounded"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block font-mono text-xs text-text-muted mb-2">Language</label>
+                    <label className="block font-theme-data text-xs text-text-muted mb-2">Language</label>
                     <select
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
-                      className="w-full p-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green rounded"
+                      className="w-full p-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] rounded"
                     >
                       <option value="">Auto-detect</option>
                       <option value="en">English</option>
@@ -532,11 +532,11 @@ export default function SpeechPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block font-mono text-xs text-text-muted mb-2">Provider</label>
+                    <label className="block font-theme-data text-xs text-text-muted mb-2">Provider</label>
                     <select
                       value={selectedProvider}
                       onChange={(e) => setSelectedProvider(e.target.value)}
-                      className="w-full p-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green rounded"
+                      className="w-full p-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] rounded"
                     >
                       {providers.map(p => (
                         <option key={p.name} value={p.name} disabled={!p.available}>
@@ -551,10 +551,10 @@ export default function SpeechPage() {
                   <button
                     onClick={handleUrlTranscribe}
                     disabled={!audioUrl.trim() || urlTranscribing}
-                    className={`px-6 py-3 font-mono text-sm transition-colors rounded ${
+                    className={`px-6 py-3 font-theme-data text-sm transition-colors rounded ${
                       !audioUrl.trim() || urlTranscribing
-                        ? 'bg-surface border border-acid-green/20 text-text-muted cursor-not-allowed'
-                        : 'bg-acid-green/20 border border-acid-green/50 text-acid-green hover:bg-acid-green/30'
+                        ? 'bg-surface border border-[var(--accent)]/20 text-text-muted cursor-not-allowed'
+                        : 'bg-[var(--accent)]/20 border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/30'
                     }`}
                   >
                     {urlTranscribing ? '[TRANSCRIBING...]' : '[TRANSCRIBE URL]'}
@@ -578,19 +578,19 @@ export default function SpeechPage() {
         {activeTab === 'podcasts' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="font-mono text-text">Generated Podcast Episodes</h2>
+              <h2 className="font-theme-data text-text">Generated Podcast Episodes</h2>
               <div className="flex gap-2">
                 <button
                   onClick={fetchEpisodes}
                   disabled={episodesLoading}
-                  className="px-3 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-acid-green transition-colors disabled:opacity-50"
+                  className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)] transition-colors disabled:opacity-50"
                 >
                   {episodesLoading ? '[LOADING...]' : '[REFRESH]'}
                 </button>
                 <Link
                   href="/api/podcast/feed.xml"
                   target="_blank"
-                  className="px-3 py-1 text-xs font-mono border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                  className="px-3 py-1 text-xs font-theme-data border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                 >
                   [RSS FEED]
                 </Link>
@@ -598,24 +598,24 @@ export default function SpeechPage() {
             </div>
 
             {episodesLoading ? (
-              <div className="text-center py-8 text-acid-green font-mono animate-pulse">
+              <div className="text-center py-8 text-[var(--accent)] font-theme-data animate-pulse">
                 Loading episodes...
               </div>
             ) : episodes.length === 0 ? (
-              <div className="p-8 border border-acid-green/20 rounded text-center">
-                <p className="font-mono text-text-muted mb-4">No podcast episodes generated yet.</p>
-                <p className="font-mono text-xs text-text-muted">
+              <div className="p-8 border border-[var(--accent)]/20 rounded text-center">
+                <p className="font-theme-data text-text-muted mb-4">No podcast episodes generated yet.</p>
+                <p className="font-theme-data text-xs text-text-muted">
                   Generate podcasts from debates using the broadcast feature.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {episodes.map((episode) => (
-                  <div key={episode.debate_id} className="p-4 border border-acid-green/20 rounded bg-surface/30">
+                  <div key={episode.debate_id} className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-mono text-text truncate">{episode.task}</h3>
-                        <div className="flex items-center gap-3 text-xs font-mono text-text-muted mt-1">
+                        <h3 className="font-theme-data text-text truncate">{episode.task}</h3>
+                        <div className="flex items-center gap-3 text-xs font-theme-data text-text-muted mt-1">
                           <span>{Math.floor(episode.duration_seconds / 60)}:{String(episode.duration_seconds % 60).padStart(2, '0')}</span>
                           <span>|</span>
                           <span>{(episode.file_size_bytes / 1024 / 1024).toFixed(1)} MB</span>
@@ -624,7 +624,7 @@ export default function SpeechPage() {
                         </div>
                         <div className="flex gap-1 mt-2">
                           {episode.agents.map((agent) => (
-                            <span key={agent} className="px-2 py-0.5 text-xs font-mono bg-acid-green/10 text-acid-green/70 rounded">
+                            <span key={agent} className="px-2 py-0.5 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)]/70 rounded">
                               {agent}
                             </span>
                           ))}
@@ -635,13 +635,13 @@ export default function SpeechPage() {
                           href={episode.audio_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-3 py-1 text-xs font-mono border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                          className="px-3 py-1 text-xs font-theme-data border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                         >
                           [PLAY]
                         </a>
                         <Link
                           href={`/debate/${episode.debate_id}`}
-                          className="px-3 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-acid-green transition-colors"
+                          className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)] transition-colors"
                         >
                           [VIEW]
                         </Link>
@@ -658,23 +658,23 @@ export default function SpeechPage() {
         {activeTab === 'providers' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="font-mono text-text">Speech-to-Text Providers</h2>
+              <h2 className="font-theme-data text-text">Speech-to-Text Providers</h2>
               <button
                 onClick={fetchProviders}
                 disabled={providersLoading}
-                className="px-3 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-acid-green transition-colors disabled:opacity-50"
+                className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)] transition-colors disabled:opacity-50"
               >
                 {providersLoading ? '[LOADING...]' : '[REFRESH]'}
               </button>
             </div>
 
             {providersLoading ? (
-              <div className="text-center py-8 text-acid-green font-mono animate-pulse">
+              <div className="text-center py-8 text-[var(--accent)] font-theme-data animate-pulse">
                 Loading providers...
               </div>
             ) : providers.length === 0 ? (
-              <div className="p-8 border border-acid-green/20 rounded text-center">
-                <p className="font-mono text-text-muted">No providers configured.</p>
+              <div className="p-8 border border-[var(--accent)]/20 rounded text-center">
+                <p className="font-theme-data text-text-muted">No providers configured.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -682,23 +682,23 @@ export default function SpeechPage() {
                   <div
                     key={provider.name}
                     className={`p-4 border rounded bg-surface/30 ${
-                      provider.available ? 'border-acid-green/40' : 'border-acid-green/20 opacity-60'
+                      provider.available ? 'border-[var(--accent)]/40' : 'border-[var(--accent)]/20 opacity-60'
                     }`}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
-                        <h3 className="font-mono text-text">{provider.display_name}</h3>
-                        <div className="text-xs font-mono text-text-muted">Model: {provider.model}</div>
+                        <h3 className="font-theme-data text-text">{provider.display_name}</h3>
+                        <div className="text-xs font-theme-data text-text-muted">Model: {provider.model}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         {provider.is_default && (
-                          <span className="px-2 py-0.5 text-xs font-mono bg-acid-cyan/20 text-acid-cyan rounded">
+                          <span className="px-2 py-0.5 text-xs font-theme-data bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] rounded">
                             DEFAULT
                           </span>
                         )}
-                        <span className={`px-2 py-0.5 text-xs font-mono rounded ${
+                        <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${
                           provider.available
-                            ? 'bg-acid-green/20 text-acid-green'
+                            ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                             : 'bg-text-muted/20 text-text-muted'
                         }`}>
                           {provider.available ? 'ONLINE' : 'OFFLINE'}
@@ -706,19 +706,19 @@ export default function SpeechPage() {
                       </div>
                     </div>
 
-                    <div className="text-xs font-mono text-text-muted mb-2">
+                    <div className="text-xs font-theme-data text-text-muted mb-2">
                       Max file size: {provider.max_size_mb}MB
                     </div>
 
                     <div className="flex flex-wrap gap-1 mb-3">
                       {provider.features.map((feature) => (
-                        <span key={feature} className="px-2 py-0.5 text-xs font-mono bg-acid-green/10 text-acid-green/70 rounded">
+                        <span key={feature} className="px-2 py-0.5 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)]/70 rounded">
                           {feature}
                         </span>
                       ))}
                     </div>
 
-                    <div className="text-xs font-mono text-text-muted">
+                    <div className="text-xs font-theme-data text-text-muted">
                       Formats: {provider.formats.join(', ')}
                     </div>
                   </div>
@@ -727,9 +727,9 @@ export default function SpeechPage() {
             )}
 
             {/* Environment Setup */}
-            <div className="p-4 border border-acid-green/20 rounded bg-bg/50">
-              <h3 className="font-mono text-text text-sm mb-3">Provider Configuration</h3>
-              <pre className="font-mono text-xs text-text-muted whitespace-pre overflow-x-auto">
+            <div className="p-4 border border-[var(--accent)]/20 rounded bg-bg/50">
+              <h3 className="font-theme-data text-text text-sm mb-3">Provider Configuration</h3>
+              <pre className="font-theme-data text-xs text-text-muted whitespace-pre overflow-x-auto">
 {`# OpenAI Whisper (default)
 OPENAI_API_KEY=sk-...
 
@@ -742,8 +742,8 @@ ARAGORA_STT_PROVIDER=openai_whisper`}
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

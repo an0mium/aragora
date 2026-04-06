@@ -99,16 +99,16 @@ function buildEditConfig(
 
 function StatusIndicator({ status }: { status: IntegrationStatus['status'] }) {
   const styles: Record<string, { bg: string; text: string; label: string }> = {
-    connected: { bg: 'bg-acid-green/20', text: 'text-acid-green', label: 'CONNECTED' },
+    connected: { bg: 'bg-[var(--accent)]/20', text: 'text-[var(--accent)]', label: 'CONNECTED' },
     degraded: { bg: 'bg-warning/20', text: 'text-warning', label: 'DEGRADED' },
-    disconnected: { bg: 'bg-crimson/20', text: 'text-crimson', label: 'DISCONNECTED' },
+    disconnected: { bg: 'bg-[var(--crimson)]/20', text: 'text-[var(--crimson)]', label: 'DISCONNECTED' },
     not_configured: { bg: 'bg-text-muted/20', text: 'text-text-muted', label: 'NOT CONFIGURED' },
   };
 
   const style = styles[status] || styles.not_configured;
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded ${style.bg} ${style.text}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${style.bg} ${style.text}`}>
       {style.label}
     </span>
   );
@@ -299,8 +299,8 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
 
   if (loading) {
     return (
-      <div className="p-6 border border-acid-green/20 rounded bg-surface/30">
-        <p className="font-mono text-text-muted text-center">Loading integration status...</p>
+      <div className="p-6 border border-[var(--accent)]/20 rounded bg-surface/30">
+        <p className="font-theme-data text-text-muted text-center">Loading integration status...</p>
       </div>
     );
   }
@@ -310,13 +310,13 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
       <div className="space-y-4">
         {error && (
           <div className="p-3 border border-warning/30 bg-warning/10 rounded">
-            <p className="text-warning font-mono text-sm">{error}</p>
+            <p className="text-warning font-theme-data text-sm">{error}</p>
           </div>
         )}
 
         <div className="p-6 border border-warning/30 rounded bg-surface/30">
-          <p className="font-mono text-text text-center">No live integration status is available.</p>
-          <p className="mt-2 font-mono text-xs text-text-muted text-center">
+          <p className="font-theme-data text-text text-center">No live integration status is available.</p>
+          <p className="mt-2 font-theme-data text-xs text-text-muted text-center">
             Sign in and connect to a backend that exposes the integrations API to view real status data.
           </p>
         </div>
@@ -324,7 +324,7 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
         <div className="text-center">
           <button
             onClick={() => void fetchStatus()}
-            className="text-xs font-mono text-text-muted hover:text-text transition-colors"
+            className="text-xs font-theme-data text-text-muted hover:text-text transition-colors"
           >
             [REFRESH STATUS]
           </button>
@@ -337,24 +337,24 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
     <div className="space-y-4">
       {integrations.length > 0 && (
         <div className="grid grid-cols-3 gap-4">
-          <div className="p-4 border border-acid-green/20 rounded bg-surface/30 text-center">
-            <div className="font-mono text-2xl text-acid-green">{connectedCount}</div>
-            <div className="font-mono text-xs text-text-muted">Connected</div>
+          <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30 text-center">
+            <div className="font-theme-data text-2xl text-[var(--accent)]">{connectedCount}</div>
+            <div className="font-theme-data text-xs text-text-muted">Connected</div>
           </div>
-          <div className="p-4 border border-acid-green/20 rounded bg-surface/30 text-center">
-            <div className="font-mono text-2xl text-acid-cyan">{totalMessages.toLocaleString()}</div>
-            <div className="font-mono text-xs text-text-muted">Messages Sent</div>
+          <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30 text-center">
+            <div className="font-theme-data text-2xl text-[var(--acid-cyan)]">{totalMessages.toLocaleString()}</div>
+            <div className="font-theme-data text-xs text-text-muted">Messages Sent</div>
           </div>
-          <div className="p-4 border border-acid-green/20 rounded bg-surface/30 text-center">
-            <div className="font-mono text-2xl text-warning">{totalErrors}</div>
-            <div className="font-mono text-xs text-text-muted">Errors (24h)</div>
+          <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30 text-center">
+            <div className="font-theme-data text-2xl text-warning">{totalErrors}</div>
+            <div className="font-theme-data text-xs text-text-muted">Errors (24h)</div>
           </div>
         </div>
       )}
 
       {error && (
         <div className="p-3 border border-warning/30 bg-warning/10 rounded">
-          <p className="text-warning font-mono text-sm">{error}</p>
+          <p className="text-warning font-theme-data text-sm">{error}</p>
         </div>
       )}
 
@@ -369,19 +369,19 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
               key={integration.type}
               className={`p-4 border rounded transition-colors ${
                 isConfigured
-                  ? 'border-acid-green/30 bg-surface/40'
-                  : 'border-acid-green/10 bg-surface/20'
+                  ? 'border-[var(--accent)]/30 bg-surface/40'
+                  : 'border-[var(--accent)]/10 bg-surface/20'
               }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <span className="font-mono text-lg text-acid-cyan">{config.icon}</span>
+                  <span className="font-theme-data text-lg text-[var(--acid-cyan)]">{config.icon}</span>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-mono text-text">{config.title}</h4>
+                      <h4 className="font-theme-data text-text">{config.title}</h4>
                       <StatusIndicator status={integration.status} />
                     </div>
-                    <p className="font-mono text-xs text-text-muted mt-0.5">
+                    <p className="font-theme-data text-xs text-text-muted mt-0.5">
                       {config.description}
                     </p>
                   </div>
@@ -392,26 +392,26 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
                     <>
                       <button
                         onClick={() => handleTestConnection(integration.type)}
-                        className="px-2 py-1 text-xs font-mono border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                        className="px-2 py-1 text-xs font-theme-data border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                       >
                         [TEST]
                       </button>
                       <button
                         onClick={() => handleEditClick(integration.type)}
                         disabled={loadingConfigType === integration.type}
-                        className="px-2 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-text transition-colors"
+                        className="px-2 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-text transition-colors"
                       >
                         {loadingConfigType === integration.type ? '[LOADING...]' : '[EDIT]'}
                       </button>
                       <button
                         onClick={() => handleDisable(integration.type)}
-                        className="px-2 py-1 text-xs font-mono border border-warning/30 text-warning hover:bg-warning/10 transition-colors"
+                        className="px-2 py-1 text-xs font-theme-data border border-warning/30 text-warning hover:bg-warning/10 transition-colors"
                       >
                         [DISABLE]
                       </button>
                       <button
                         onClick={() => handleDelete(integration.type)}
-                        className="px-2 py-1 text-xs font-mono border border-crimson/30 text-crimson hover:bg-crimson/10 transition-colors"
+                        className="px-2 py-1 text-xs font-theme-data border border-[var(--crimson)]/30 text-[var(--crimson)] hover:bg-[var(--crimson)]/10 transition-colors"
                       >
                         [DELETE]
                       </button>
@@ -419,7 +419,7 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
                   ) : (
                     <button
                       onClick={() => onConfigure(integration.type)}
-                      className="px-3 py-1 text-xs font-mono border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors"
+                      className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                     >
                       [CONFIGURE]
                     </button>
@@ -428,9 +428,9 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
               </div>
 
               {isConfigured && (
-                <div className="mt-3 pt-3 border-t border-acid-green/10 flex gap-4 text-xs font-mono">
+                <div className="mt-3 pt-3 border-t border-[var(--accent)]/10 flex gap-4 text-xs font-theme-data">
                   <span className="text-text-muted">
-                    Messages: <span className="text-acid-cyan">{integration.messagesSent}</span>
+                    Messages: <span className="text-[var(--acid-cyan)]">{integration.messagesSent}</span>
                   </span>
                   {integration.errors > 0 && (
                     <span className="text-text-muted">
@@ -453,7 +453,7 @@ export function IntegrationStatusDashboard({ onConfigure, onEdit }: IntegrationS
       <div className="text-center">
         <button
           onClick={() => void fetchStatus()}
-          className="text-xs font-mono text-text-muted hover:text-text transition-colors"
+          className="text-xs font-theme-data text-text-muted hover:text-text transition-colors"
         >
           [REFRESH STATUS]
         </button>
