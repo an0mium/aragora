@@ -351,6 +351,25 @@ def _default_spec_path() -> Path:
     return Path.cwd() / ".aragora" / "specs" / "quickstart-spec.json"
 
 
+def _write_text_atomic(path: Path, content: str, *, encoding: str = "utf-8") -> None:
+    """Atomically replace a text file so readers never observe partial content."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        text=True,
+    )
+    os.close(fd)
+    tmp_path = Path(tmp_name)
+    try:
+        tmp_path.write_text(content, encoding=encoding)
+        os.replace(tmp_path, path)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            tmp_path.unlink()
+
+
 def _clamp_confidence(raw_confidence: Any) -> float:
     """Normalize confidence values into the expected [0.0, 1.0] range."""
     try:
@@ -435,8 +454,7 @@ def _save_quickstart_spec_payload(payload: dict[str, Any], output_path: str | No
     path = Path(output_path) if output_path else _default_spec_path()
     if path.suffix.lower() != ".json":
         path = path.with_suffix(".json")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, default=str))
+    _write_text_atomic(path, json.dumps(payload, indent=2, default=str))
     return path
 
 
@@ -666,30 +684,29 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
     """Save receipt to file in the specified format."""
     output_path = Path(path)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     suffix = output_path.suffix.lower()
     fallback_json = json.dumps(receipt_data, indent=2, default=str)
 
     if fmt == "json" or suffix == ".json":
-        output_path.write_text(fallback_json)
+        _write_text_atomic(output_path, fallback_json)
     elif fmt == "md" or suffix == ".md":
         try:
             from aragora.cli.receipt_formatter import receipt_to_markdown
 
-            output_path.write_text(receipt_to_markdown(receipt_data))
+            _write_text_atomic(output_path, receipt_to_markdown(receipt_data))
         except ImportError as e:
             logger.debug("Receipt markdown formatter unavailable, writing JSON fallback: %s", e)
-            output_path.write_text(fallback_json)
+            _write_text_atomic(output_path, fallback_json)
     elif fmt == "html" or suffix == ".html":
         try:
             from aragora.cli.receipt_formatter import receipt_to_html
 
-            output_path.write_text(receipt_to_html(receipt_data))
+            _write_text_atomic(output_path, receipt_to_html(receipt_data))
         except ImportError as e:
             logger.debug("Receipt HTML formatter unavailable, writing JSON fallback: %s", e)
-            output_path.write_text(fallback_json)
+            _write_text_atomic(output_path, fallback_json)
     else:
-        output_path.write_text(fallback_json)
+        _write_text_atomic(output_path, fallback_json)
 
     return output_path.resolve()
 

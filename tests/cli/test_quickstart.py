@@ -8,6 +8,7 @@ import builtins
 import json
 import os
 import ssl
+import threading
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -30,6 +31,7 @@ from aragora.cli.commands.quickstart import (
     _run_demo_debate,
     _run_live_debate,
     _save_receipt,
+    _save_quickstart_spec_payload,
     add_quickstart_parser,
     cmd_quickstart,
 )
@@ -320,6 +322,39 @@ class TestReceiptFormatting:
         saved_path = _save_receipt(self.SAMPLE, path, "json")
         assert saved_path.exists()
 
+    def test_save_json_keeps_existing_file_valid_during_atomic_replace(self, tmp_path, monkeypatch):
+        path = tmp_path / "receipt.json"
+        original = {"verdict": "old", "confidence": 0.2}
+        updated = {**self.SAMPLE, "verdict": "new"}
+        path.write_text(json.dumps(original))
+
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow_write_text(self, data, *args, **kwargs):
+            encoding = kwargs.get("encoding", "utf-8")
+            with open(self, "w", encoding=encoding) as handle:
+                midpoint = max(1, len(data) // 2)
+                handle.write(data[:midpoint])
+                handle.flush()
+                started.set()
+                assert release.wait(timeout=1)
+                handle.write(data[midpoint:])
+            return len(data)
+
+        monkeypatch.setattr(Path, "write_text", slow_write_text)
+
+        writer = threading.Thread(target=_save_receipt, args=(updated, path, "json"))
+        writer.start()
+
+        assert started.wait(timeout=1)
+        assert json.loads(path.read_text()) == original
+
+        release.set()
+        writer.join(timeout=1)
+        assert not writer.is_alive()
+        assert json.loads(path.read_text())["verdict"] == "new"
+
     def test_open_browser_returns_none_when_formatter_import_fails(self):
         real_import = builtins.__import__
 
@@ -330,6 +365,13 @@ class TestReceiptFormatting:
 
         with patch("builtins.__import__", side_effect=fake_import):
             assert _open_receipt_in_browser(self.SAMPLE) is None
+
+    def test_save_quickstart_spec_payload_writes_valid_json(self, tmp_path):
+        saved_path = _save_quickstart_spec_payload(
+            {"pipeline": "prompt_engine"},
+            str(tmp_path / "quickstart-spec"),
+        )
+        assert json.loads(saved_path.read_text())["pipeline"] == "prompt_engine"
 
 
 class TestInlineApiKeys:
