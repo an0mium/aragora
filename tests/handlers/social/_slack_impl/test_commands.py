@@ -1531,24 +1531,27 @@ class TestSlashCommandErrorHandling:
 class TestAnswerQuestionAsync:
     """Tests for the async question answering flow."""
 
-    def _make_mock_pool(self, session):
-        mock_pool = MagicMock()
-        mock_pool.get_session.return_value.__aenter__ = AsyncMock(return_value=session)
-        mock_pool.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
-        return mock_pool
-
     @pytest.mark.asyncio
     async def test_happy_path(self, slack_handler):
-        mock_session = AsyncMock()
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"answer": "Paris is the capital of France"}
-        mock_session.post.return_value = mock_response
+        class FakeArena:
+            def __init__(self, env, agents, protocol):
+                self.env = env
+                self.agents = agents
+                self.protocol = protocol
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=self._make_mock_pool(mock_session),
-            create=True,
+            async def run(self):
+                return SimpleNamespace(
+                    final_answer="Paris is the capital of France",
+                    confidence=0.92,
+                )
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("demo", "demo")],
+            ),
+            patch("aragora.agents.base.create_agent", side_effect=[MagicMock()]),
+            patch("aragora.debate.orchestrator.Arena", FakeArena),
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
@@ -1562,20 +1565,23 @@ class TestAnswerQuestionAsync:
             assert "Paris" in json.dumps(payload.get("blocks", []))
 
     @pytest.mark.asyncio
-    async def test_fallback_to_debate(self, slack_handler):
-        mock_session = AsyncMock()
-        resp1 = MagicMock()
-        resp1.status_code = 200
-        resp1.json.return_value = {"answer": None}
-        resp2 = MagicMock()
-        resp2.status_code = 200
-        resp2.json.return_value = {"final_answer": "Debate answer here"}
-        mock_session.post.side_effect = [resp1, resp2]
+    async def test_summary_used_when_final_answer_missing(self, slack_handler):
+        class FakeArena:
+            def __init__(self, env, agents, protocol):
+                self.env = env
+                self.agents = agents
+                self.protocol = protocol
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=self._make_mock_pool(mock_session),
-            create=True,
+            async def run(self):
+                return SimpleNamespace(summary="Debate answer here", confidence=0.65)
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("demo", "demo")],
+            ),
+            patch("aragora.agents.base.create_agent", side_effect=[MagicMock()]),
+            patch("aragora.debate.orchestrator.Arena", FakeArena),
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
@@ -1586,39 +1592,50 @@ class TestAnswerQuestionAsync:
             assert "Debate answer" in json.dumps(payload.get("blocks", []))
 
     @pytest.mark.asyncio
-    async def test_quick_answer_non_200_falls_back(self, slack_handler):
-        mock_session = AsyncMock()
-        resp1 = MagicMock()
-        resp1.status_code = 500
-        resp1.json.return_value = {"error": "service down"}
-        resp2 = MagicMock()
-        resp2.status_code = 201
-        resp2.json.return_value = {"final_answer": "Fallback debate answer"}
-        mock_session.post.side_effect = [resp1, resp2]
+    async def test_low_confidence_posts_guardrail_message(self, slack_handler):
+        class FakeArena:
+            def __init__(self, env, agents, protocol):
+                self.env = env
+                self.agents = agents
+                self.protocol = protocol
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=self._make_mock_pool(mock_session),
-            create=True,
+            async def run(self):
+                return SimpleNamespace(final_answer="Tentative answer", confidence=0.2)
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("demo", "demo")],
+            ),
+            patch("aragora.agents.base.create_agent", side_effect=[MagicMock()]),
+            patch("aragora.debate.orchestrator.Arena", FakeArena),
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
                 "Some important question here", "https://hooks.slack.com/resp", "U1", "C1"
             )
-            slack_handler._post_to_response_url.assert_called_once()
+            payload = slack_handler._post_to_response_url.call_args[0][1]
+            blocks_text = json.dumps(payload.get("blocks", []))
+            assert "wasn't able to reach a confident answer" in blocks_text
 
     @pytest.mark.asyncio
-    async def test_network_error_posts_failure(self, slack_handler):
-        mock_pool = MagicMock()
-        mock_pool.get_session.return_value.__aenter__ = AsyncMock(
-            side_effect=OSError("network error")
-        )
-        mock_pool.get_session.return_value.__aexit__ = AsyncMock(return_value=None)
+    async def test_debate_timeout_posts_failure(self, slack_handler):
+        class FakeArena:
+            def __init__(self, env, agents, protocol):
+                self.env = env
+                self.agents = agents
+                self.protocol = protocol
 
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=mock_pool,
-            create=True,
+            async def run(self):
+                raise asyncio.TimeoutError("timed out")
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("demo", "demo")],
+            ),
+            patch("aragora.agents.base.create_agent", side_effect=[MagicMock()]),
+            patch("aragora.debate.orchestrator.Arena", FakeArena),
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
@@ -1628,29 +1645,20 @@ class TestAnswerQuestionAsync:
             assert "failed" in payload["text"].lower()
 
     @pytest.mark.asyncio
-    async def test_debate_fallback_also_fails(self, slack_handler):
-        """When both quick-answer and debate API fail, posts generic answer."""
-        mock_session = AsyncMock()
-        resp1 = MagicMock()
-        resp1.status_code = 200
-        resp1.json.return_value = {"answer": None}
-        resp2 = MagicMock()
-        resp2.status_code = 500
-        resp2.json.return_value = {"error": "internal"}
-        mock_session.post.side_effect = [resp1, resp2]
-
-        with patch(
-            "aragora.server.http_client_pool.get_http_pool",
-            return_value=self._make_mock_pool(mock_session),
-            create=True,
+    async def test_create_agent_value_error_posts_failure(self, slack_handler):
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("demo", "demo")],
+            ),
+            patch("aragora.agents.base.create_agent", side_effect=ValueError("bad config")),
         ):
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
                 "Some question here", "https://hooks.slack.com/resp", "U1", "C1"
             )
             payload = slack_handler._post_to_response_url.call_args[0][1]
-            blocks_text = json.dumps(payload.get("blocks", []))
-            assert "Unable to generate answer" in blocks_text
+            assert "failed" in payload["text"].lower()
 
 
 # ---------------------------------------------------------------------------
