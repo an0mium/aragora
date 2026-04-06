@@ -12,6 +12,7 @@ All endpoints require admin or owner role.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -142,6 +143,8 @@ class SecurityHandler(SecureHandler):
                     code="PERMISSION_DENIED",
                 )
 
+        if path in ("/api/v1/admin/security/keys", "/api/admin/security/keys"):
+            return self._create_key(data, handler)
         if path in ("/api/v1/admin/security/rotate-key", "/api/admin/security/rotate-key"):
             return self._rotate_key(data, handler)
         return None
@@ -203,6 +206,99 @@ class SecurityHandler(SecureHandler):
             return error_response("Internal server error", 500)
         except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("Security status error: %s", e)
+            return error_response("Internal server error", 500)
+
+    @admin_secure_endpoint(
+        permission="admin.security.keys",
+        audit=True,
+        audit_action="key_created",
+    )
+    def _create_key(self, data: dict[str, Any], handler: Any) -> HandlerResult:
+        """
+        Create a new encryption key.
+
+        Request body:
+            name (str): Human-friendly key name (required)
+            algorithm (str): Encryption algorithm (default: AES-256-GCM)
+            expires_in_days (int): Optional expiration window in days
+            metadata (dict): Optional metadata echoed in the response
+
+        Returns:
+            201: Created key details
+            400: Invalid request
+            500: Key creation failed
+        """
+        try:
+            from aragora.security.encryption import get_encryption_service, CRYPTO_AVAILABLE
+
+            if not CRYPTO_AVAILABLE:
+                return error_response("Cryptography library not available", 400)
+
+            name = str(data.get("name", "")).strip()
+            if not name:
+                return error_response("name is required", 400)
+
+            service = get_encryption_service()
+            supported_algorithm = getattr(
+                getattr(service, "config", None), "algorithm", "aes-256-gcm"
+            )
+            if hasattr(supported_algorithm, "value"):
+                supported_algorithm = supported_algorithm.value
+
+            algorithm = str(data.get("algorithm") or supported_algorithm).strip().lower()
+            if algorithm != str(supported_algorithm).lower():
+                return error_response(
+                    f"Unsupported algorithm '{algorithm}'. Only {supported_algorithm} is supported.",
+                    400,
+                )
+
+            expires_in_days = data.get("expires_in_days")
+            if expires_in_days is not None:
+                if isinstance(expires_in_days, bool):
+                    return error_response("expires_in_days must be an integer", 400)
+                if isinstance(expires_in_days, str):
+                    try:
+                        expires_in_days = int(expires_in_days)
+                    except ValueError:
+                        return error_response("expires_in_days must be an integer", 400)
+                if not isinstance(expires_in_days, int):
+                    return error_response("expires_in_days must be an integer", 400)
+                if expires_in_days <= 0:
+                    return error_response("expires_in_days must be greater than 0", 400)
+
+            metadata = data.get("metadata")
+            if metadata is None:
+                metadata = {}
+            elif not isinstance(metadata, dict):
+                return error_response("metadata must be an object", 400)
+
+            key_id = re.sub(r"[^A-Za-z0-9_.:-]+", "_", name).strip("_") or None
+            key = service.generate_key(key_id=key_id, ttl_days=expires_in_days)
+            key_info = key.to_dict() if hasattr(key, "to_dict") else {}
+
+            emit_handler_event(
+                "admin", COMPLETED, {"action": "key_created", "key_id": key_info.get("key_id")}
+            )
+            return json_response(
+                {
+                    "id": key_info.get("key_id"),
+                    "key_id": key_info.get("key_id"),
+                    "name": name,
+                    "status": "active" if key_info.get("is_active", True) else "inactive",
+                    "algorithm": key_info.get("algorithm", algorithm),
+                    "version": key_info.get("version"),
+                    "created_at": key_info.get("created_at"),
+                    "expires_at": key_info.get("expires_at"),
+                    "metadata": metadata,
+                },
+                status=201,
+            )
+
+        except ImportError as e:
+            logger.error("Create key import error: %s", e)
+            return error_response("Internal server error", 500)
+        except (RuntimeError, ValueError, TypeError, AttributeError, OSError) as e:
+            logger.error("Create key error: %s", e)
             return error_response("Internal server error", 500)
 
     @admin_secure_endpoint(

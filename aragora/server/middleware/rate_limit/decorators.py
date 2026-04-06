@@ -16,6 +16,7 @@ from functools import wraps
 from typing import TYPE_CHECKING, Any
 from collections.abc import Callable
 
+from .base import normalize_rate_limit_path
 from .limiter import RateLimiter, RateLimitResult
 from .registry import get_rate_limiter, RedisRateLimiter
 from .user_limiter import check_user_rate_limit
@@ -117,6 +118,8 @@ def rate_limit(
 
     def decorator(func: Callable) -> Callable:
         name = limiter_name or func.__name__
+        endpoint_key = normalize_rate_limit_path(f"/{name}")
+        effective_key_type = "combined" if should_use_distributed and key_type == "ip" else key_type
 
         # Get appropriate limiter based on configuration
         limiter: RateLimiter | RedisRateLimiter | Any
@@ -125,8 +128,7 @@ def rate_limit(
 
             limiter = get_distributed_limiter()
             # Configure endpoint on distributed limiter
-            endpoint_key = f"/{name}"
-            limiter.configure_endpoint(endpoint_key, effective_rpm, burst, key_type)
+            limiter.configure_endpoint(endpoint_key, effective_rpm, burst, effective_key_type)
         else:
             limiter = get_rate_limiter(name, effective_rpm, burst)
 
@@ -140,7 +142,9 @@ def rate_limit(
             # Extract endpoint path if available
             endpoint = None
             if args and len(args) > 1 and isinstance(args[1], str):
-                endpoint = args[1]  # path is usually second arg
+                endpoint = normalize_rate_limit_path(args[1])  # path is usually second arg
+
+            rate_limit_endpoint = endpoint_key if limiter_name else (endpoint or endpoint_key)
 
             # Extract tenant_id if tenant_aware
             tenant_id = None
@@ -149,13 +153,20 @@ def rate_limit(
 
             # Check rate limit
             if should_use_distributed:
+                if rate_limit_endpoint != endpoint_key:
+                    limiter.configure_endpoint(
+                        rate_limit_endpoint,
+                        effective_rpm,
+                        burst,
+                        effective_key_type,
+                    )
                 result = limiter.allow(
                     client_ip=client_key,
-                    endpoint=endpoint,
+                    endpoint=rate_limit_endpoint,
                     tenant_id=tenant_id,
                 )
             else:
-                result = limiter.allow(client_key, endpoint=endpoint)
+                result = limiter.allow(client_key, endpoint=rate_limit_endpoint)
 
             if not result.allowed:
                 logger.warning("Rate limit exceeded for %s on %s", client_key, func.__name__)

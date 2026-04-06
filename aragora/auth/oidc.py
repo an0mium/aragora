@@ -26,6 +26,7 @@ Usage:
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -36,6 +37,7 @@ from dataclasses import dataclass, field
 from types import ModuleType
 from typing import Any
 from urllib.parse import urlencode, urljoin
+import urllib.request
 
 from .sso import (
     SSOAuthenticationError,
@@ -64,6 +66,39 @@ try:
     HAS_HTTPX = True
 except ImportError:
     HAS_HTTPX = False
+
+
+async def _urlopen_json(
+    url: str,
+    *,
+    method: str = "GET",
+    data: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: float = 10.0,
+) -> dict[str, Any]:
+    """Fetch JSON via urllib in a worker thread when httpx is unavailable."""
+
+    def _request() -> dict[str, Any]:
+        request_headers = dict(headers or {})
+        payload: bytes | None = None
+        if data is not None:
+            if request_headers.get("Content-Type") == "application/x-www-form-urlencoded":
+                payload = urlencode(data).encode("utf-8")
+            else:
+                payload = json.dumps(data).encode("utf-8")
+                request_headers.setdefault("Content-Type", "application/json")
+
+        request = urllib.request.Request(
+            url,
+            data=payload,
+            headers=request_headers,
+            method=method,
+        )
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read()
+        return json.loads(raw.decode("utf-8"))
+
+    return await asyncio.to_thread(_request)
 
 
 def _is_production_mode() -> bool:
@@ -399,18 +434,17 @@ class OIDCProvider(SSOProvider):
         try:
             if HAS_HTTPX:
                 if httpx is None:
-                    raise RuntimeError("httpx unavailable despite HAS_HTTPX")
-                from aragora.server.http_client_pool import get_http_pool
+                    self._discovery_cache = await _urlopen_json(discovery_url, timeout=10.0)
+                else:
+                    from aragora.server.http_client_pool import get_http_pool
 
-                pool = get_http_pool()
-                async with pool.get_session("oidc") as client:
-                    response = await client.get(discovery_url, timeout=10.0)
-                    response.raise_for_status()
-                    self._discovery_cache = response.json()
+                    pool = get_http_pool()
+                    async with pool.get_session("oidc") as client:
+                        response = await client.get(discovery_url, timeout=10.0)
+                        response.raise_for_status()
+                        self._discovery_cache = response.json()
             else:
-                raise SSOConfigurationError(
-                    "httpx library required for OIDC. Install with: pip install httpx"
-                )
+                self._discovery_cache = await _urlopen_json(discovery_url, timeout=10.0)
 
             self._discovery_cached_at = time.time()
             logger.debug("OIDC discovery successful for %s", self.config.issuer_url)
@@ -631,20 +665,31 @@ class OIDCProvider(SSOProvider):
         try:
             if HAS_HTTPX:
                 if httpx is None:
-                    raise RuntimeError("httpx unavailable despite HAS_HTTPX")
-                from aragora.server.http_client_pool import get_http_pool
-
-                pool = get_http_pool()
-                async with pool.get_session("oidc") as client:
-                    response = await client.post(
-                        token_endpoint, data=data, headers=headers, timeout=30.0
+                    return await _urlopen_json(
+                        token_endpoint,
+                        method="POST",
+                        data=data,
+                        headers=headers,
+                        timeout=30.0,
                     )
-                    response.raise_for_status()
-                    result: dict[str, Any] = response.json()
-                    return result
+                else:
+                    from aragora.server.http_client_pool import get_http_pool
+
+                    pool = get_http_pool()
+                    async with pool.get_session("oidc") as client:
+                        response = await client.post(
+                            token_endpoint, data=data, headers=headers, timeout=30.0
+                        )
+                        response.raise_for_status()
+                        result: dict[str, Any] = response.json()
+                        return result
             else:
-                raise SSOConfigurationError(
-                    "httpx library required for OIDC. Install with: pip install httpx"
+                return await _urlopen_json(
+                    token_endpoint,
+                    method="POST",
+                    data=data,
+                    headers=headers,
+                    timeout=30.0,
                 )
 
         except json.JSONDecodeError as e:
@@ -842,17 +887,26 @@ class OIDCProvider(SSOProvider):
         try:
             if HAS_HTTPX:
                 if httpx is None:
-                    raise RuntimeError("httpx unavailable despite HAS_HTTPX")
-                from aragora.server.http_client_pool import get_http_pool
+                    return await _urlopen_json(
+                        userinfo_endpoint,
+                        headers=headers,
+                        timeout=10.0,
+                    )
+                else:
+                    from aragora.server.http_client_pool import get_http_pool
 
-                pool = get_http_pool()
-                async with pool.get_session("oidc") as client:
-                    response = await client.get(userinfo_endpoint, headers=headers, timeout=10.0)
-                    response.raise_for_status()
-                    return response.json()
+                    pool = get_http_pool()
+                    async with pool.get_session("oidc") as client:
+                        response = await client.get(
+                            userinfo_endpoint, headers=headers, timeout=10.0
+                        )
+                        response.raise_for_status()
+                        return response.json()
             else:
-                raise SSOConfigurationError(
-                    "httpx library required for OIDC. Install with: pip install httpx"
+                return await _urlopen_json(
+                    userinfo_endpoint,
+                    headers=headers,
+                    timeout=10.0,
                 )
 
         except json.JSONDecodeError as e:
@@ -951,17 +1005,28 @@ class OIDCProvider(SSOProvider):
         try:
             if HAS_HTTPX:
                 if httpx is None:
-                    raise RuntimeError("httpx unavailable despite HAS_HTTPX")
-                from aragora.server.http_client_pool import get_http_pool
+                    tokens = await _urlopen_json(
+                        token_endpoint,
+                        method="POST",
+                        data=data,
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                        timeout=30.0,
+                    )
+                else:
+                    from aragora.server.http_client_pool import get_http_pool
 
-                pool = get_http_pool()
-                async with pool.get_session("oidc") as client:
-                    response = await client.post(token_endpoint, data=data, timeout=30.0)
-                    response.raise_for_status()
-                    tokens = response.json()
+                    pool = get_http_pool()
+                    async with pool.get_session("oidc") as client:
+                        response = await client.post(token_endpoint, data=data, timeout=30.0)
+                        response.raise_for_status()
+                        tokens = response.json()
             else:
-                raise SSOConfigurationError(
-                    "httpx library required for OIDC. Install with: pip install httpx"
+                tokens = await _urlopen_json(
+                    token_endpoint,
+                    method="POST",
+                    data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=30.0,
                 )
 
             # Update user with new tokens

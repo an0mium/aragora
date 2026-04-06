@@ -286,6 +286,49 @@ class TestBuildCommand:
         assert cmd[idx + 1] == str(parent_git.resolve())
         assert "--full-auto" in cmd
 
+    def test_is_admin_approved_rejects_malformed_truthy_values(self):
+        assert WorkerLauncher._is_admin_approved({"admin_approved": "true"}, {}) is False
+        assert WorkerLauncher._is_admin_approved({}, {"admin_approved": 1}) is False
+        assert WorkerLauncher._is_admin_approved({"admin_approved": True}, {}) is True
+
+    @pytest.mark.asyncio
+    async def test_launch_rejects_string_admin_approved_for_codex_git_access(self, tmp_path: Path):
+        launcher = WorkerLauncher(
+            LaunchConfig(
+                detach=False,
+                use_managed_session_script=False,
+                allow_codex_full_auto=True,
+                require_explicit_approval=False,
+            )
+        )
+        mock_proc = AsyncMock()
+        mock_proc.pid = 104
+        mock_proc.stdin = None
+        worktree = tmp_path / "wt"
+        worktree.mkdir()
+        parent_git = tmp_path / "repo" / ".git"
+        real_gitdir = parent_git / "worktrees" / "wt"
+        real_gitdir.mkdir(parents=True)
+        (real_gitdir / "commondir").write_text("../..\n", encoding="utf-8")
+        (worktree / ".git").write_text(f"gitdir: {real_gitdir}\n", encoding="utf-8")
+
+        work_order = {
+            "work_order_id": "wo-admin-bypass",
+            "target_agent": "codex",
+            "title": "Reject malformed admin approval",
+            "metadata": {"admin_approved": "true"},
+        }
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/codex"),
+            patch.object(WorkerLauncher, "_git_output", return_value=""),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+        ):
+            await launcher.launch(work_order, worktree_path=str(worktree), branch="feat")
+
+        launched_cmd = list(mock_exec.call_args.args)
+        assert "--add-dir" not in launched_cmd
+
     def test_codex_no_add_dir_for_regular_repo(self, tmp_path: Path):
         """Regular repos (.git is a directory) should NOT get --add-dir."""
         wt = tmp_path / "repo"
@@ -1812,6 +1855,106 @@ class TestCollectFinishedSync:
         mock_wait_pid.assert_called_once_with(919)
         assert worker.work_order_id not in launcher._processes
 
+    def test_collect_finished_sync_rejects_float_session_exit_code(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        worker = WorkerProcess(
+            work_order_id="wo-sync-float-exit-code",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-float-exit-code",
+            branch="main",
+            pid=919,
+            initial_head="def456",
+            expected_tests=[expected_test],
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        session_meta = {
+            "pid": 919,
+            "exit_code": 0.0,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push_sync") as mock_push,
+            patch.object(WorkerLauncher, "_run_verification_commands_sync") as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync") as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_called()
+        mock_verify.assert_not_called()
+        mock_wait_pid.assert_called_once_with(919)
+        assert worker.work_order_id not in launcher._processes
+
+    def test_collect_finished_sync_rejects_nonstring_session_ended_at(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        worker = WorkerProcess(
+            work_order_id="wo-sync-bad-ended-at",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-bad-ended-at",
+            branch="main",
+            pid=919,
+            initial_head="def456",
+            expected_tests=[expected_test],
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        session_meta = {
+            "pid": 919,
+            "exit_code": 0,
+            "ended_at": {"when": "2026-03-31T12:34:56+00:00"},
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push_sync") as mock_push,
+            patch.object(WorkerLauncher, "_run_verification_commands_sync") as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync") as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.completed_at is not None
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_called()
+        mock_verify.assert_not_called()
+        mock_wait_pid.assert_called_once_with(919)
+        assert worker.work_order_id not in launcher._processes
+
 
 class TestCollectDetachedResult:
     @pytest.mark.asyncio
@@ -1984,6 +2127,100 @@ class TestCollectDetachedResult:
         assert result is not None
         assert result.exit_code == 1
         assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_awaited()
+        mock_verify.assert_not_awaited()
+        mock_wait.assert_awaited_once_with(24680)
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_rejects_float_session_exit_code(self):
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        session_meta = {
+            "pid": 24680,
+            "exit_code": 0.0,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push", new_callable=AsyncMock) as mock_push,
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-detached-float-exit-code",
+                agent="codex",
+                worktree_path="/tmp/wt-detached-float-exit-code",
+                branch="main",
+                pid=24680,
+                initial_head="def456",
+                expected_tests=[expected_test],
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_awaited()
+        mock_verify.assert_not_awaited()
+        mock_wait.assert_awaited_once_with(24680)
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_rejects_nonstring_session_ended_at(self):
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        session_meta = {
+            "pid": 24680,
+            "exit_code": 0,
+            "ended_at": {"when": "2026-03-31T12:34:56+00:00"},
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push", new_callable=AsyncMock) as mock_push,
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-detached-bad-ended-at",
+                agent="codex",
+                worktree_path="/tmp/wt-detached-bad-ended-at",
+                branch="main",
+                pid=24680,
+                initial_head="def456",
+                expected_tests=[expected_test],
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert result.completed_at is not None
         assert result.commit_shas == ["abc123"]
         assert result.changed_paths == ["file.py"]
         assert result.tests_run == []
@@ -2564,6 +2801,27 @@ class TestSnapshotProgress:
 
         with (
             patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": True}),
+            patch.object(WorkerLauncher, "_is_pid_running") as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        mock_running.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_ignores_float_session_meta_pid(self, tmp_path: Path):
+        launcher = WorkerLauncher()
+        work_order = {
+            "pid": "oops",
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": 24680.0}),
             patch.object(WorkerLauncher, "_is_pid_running") as mock_running,
             patch.object(WorkerLauncher, "_git_output", return_value="def456"),
             patch.object(WorkerLauncher, "_collect_diff", return_value=""),
