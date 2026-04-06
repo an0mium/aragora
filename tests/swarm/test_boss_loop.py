@@ -1239,6 +1239,107 @@ class TestRunnerFreshness:
         assert result.details["probe"]["passed"] == 1
         assert result.details["probe"]["verified_target"] == 1
 
+    def test_runner_freshness_probes_fallback_selected_runner_type_when_requested_type_full(
+        self, tmp_path, monkeypatch
+    ):
+        registry_path = tmp_path / "runners.json"
+        now = datetime.now(UTC).isoformat()
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "codex-runner-1",
+                            "runner_type": "codex",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "chatgpt_login",
+                            "owner_binding": {"user_id": "user-1", "workspace_id": "ws-1"},
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 1},
+                            "updated_at": now,
+                            "heartbeat_at": now,
+                            "freshness_status": "fresh",
+                        },
+                        {
+                            "runner_id": "claude-runner-1",
+                            "runner_type": "claude",
+                            "profile": "max-01",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "owner_binding": {"user_id": "user-1", "workspace_id": "ws-1"},
+                            "capabilities": {"max_parallel_lanes": 1},
+                            "updated_at": now,
+                            "heartbeat_at": now,
+                            "freshness_status": "fresh",
+                        },
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        probe = SimpleNamespace(
+            status="passed",
+            to_runner_fields=lambda: {
+                "probe_status": "passed",
+                "probe_checked_at": now,
+                "probe_detail": "Live prompt probe succeeded.",
+                "probe_latency_seconds": 1.0,
+                "probe_ttl_seconds": 3600,
+            },
+            to_dict=lambda: {
+                "runner_id": "claude-runner-1",
+                "runner_type": "claude",
+                "probe_status": "passed",
+            },
+        )
+
+        class _Inspector:
+            def inspect(self) -> MagicMock:
+                inspected = MagicMock()
+                inspected.available = True
+                inspected.auth_mode = "subscription"
+                inspected.runner_id = "claude-runner-1"
+                inspected.profile = "max-01"
+                inspected.runner_type = "claude"
+                inspected.to_dict.return_value = {
+                    "runner_id": "claude-runner-1",
+                    "available": True,
+                    "auth_mode": "subscription",
+                }
+                return inspected
+
+        with (
+            patch(
+                "aragora.swarm.runner_registry.refresh_discovered_runners",
+                return_value=[],
+            ),
+            patch(
+                "aragora.swarm.runner_registry.prioritized_probe_candidates",
+                side_effect=lambda **kwargs: list(kwargs["discovered_inspections"]),
+            ) as prioritized_probe_candidates_mock,
+            patch("aragora.swarm.runner_registry.probe_runner_execution", return_value=probe),
+            patch("aragora.swarm.runner_registry.make_runner_inspector", return_value=_Inspector()),
+        ):
+            result = check_runner_freshness(
+                freshness_ttl_seconds=3600.0,
+                registry_path=str(registry_path),
+                env={"ARAGORA_USER_ID": "user-1", "ARAGORA_WORKSPACE_ID": "ws-1"},
+                requested_runner_type="codex",
+            )
+
+        assert result.fresh is True
+        assert result.details["routing"]["fallback_reason"] == "requested_runner_type_unavailable"
+        assert result.details["probe"]["verification_runner_type"] == "claude"
+        prioritized_probe_candidates_mock.assert_called_once()
+        assert prioritized_probe_candidates_mock.call_args.kwargs["runner_type"] == "claude"
+        discovered_inspections = prioritized_probe_candidates_mock.call_args.kwargs[
+            "discovered_inspections"
+        ]
+        assert [item.runner_id for item in discovered_inspections] == ["claude-runner-1"]
+
 
 # ---------------------------------------------------------------------------
 # BossLoop core tests
