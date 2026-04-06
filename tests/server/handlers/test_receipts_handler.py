@@ -737,6 +737,20 @@ class TestReceiptsHandlerBatchVerify:
     """Tests for batch verification endpoint."""
 
     @pytest.mark.asyncio
+    async def test_batch_verify_alias_normalizes(self, receipts_handler, mock_receipt_store):
+        """The FastAPI batch-verify path should work through the legacy handler too."""
+        mock_receipt_store.save({"receipt_id": "r1", "gauntlet_id": "g1"})
+
+        result = await receipts_handler.handle(
+            "POST", "/api/v2/receipts/batch-verify", body={"receipt_ids": ["r1"]}
+        )
+
+        assert result.status_code == 200
+        data = parse_handler_response(result)
+        assert len(data["results"]) == 1
+        assert data["summary"]["total"] == 1
+
+    @pytest.mark.asyncio
     async def test_verify_batch_empty(self, receipts_handler):
         """Test batch verify with empty list."""
         result = await receipts_handler.handle(

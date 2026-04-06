@@ -17,6 +17,7 @@ Endpoints:
     POST /api/v2/receipts/:receipt_id/verify           - Verify integrity checksum
     POST /api/v2/receipts/:receipt_id/verify-signature - Verify cryptographic signature
     POST /api/v2/receipts/verify-batch                 - Batch signature verification
+    POST /api/v2/receipts/batch-verify                 - Batch signature verification alias
     POST /api/v2/receipts/sign-batch                   - Batch signing
     POST /api/v2/receipts/batch-export                 - Batch export to ZIP
     GET  /api/v2/receipts/stats                        - Receipt statistics
@@ -345,6 +346,8 @@ class ReceiptsHandler(BaseHandler):
             return "/api/v1/receipts/deliveries"
         if path == "/api/v2/receipts/":
             return "/api/v2/receipts"
+        if path == "/api/v2/receipts/batch-verify":
+            return "/api/v2/receipts/verify-batch"
         return path
 
     @rate_limit(requests_per_minute=60)

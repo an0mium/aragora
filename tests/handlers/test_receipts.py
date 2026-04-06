@@ -803,6 +803,21 @@ class TestVerifyBatch:
     """Tests for batch signature verification."""
 
     @pytest.mark.asyncio
+    async def test_batch_verify_alias_matches_fastapi_route(self, handler, mock_store):
+        mock_results = [MockSignatureResult(valid=True)]
+        mock_store.verify_batch.return_value = (mock_results, {"total": 1, "valid": 1})
+
+        result = await handler.handle(
+            "POST",
+            "/api/v2/receipts/batch-verify",
+            body={"receipt_ids": ["rcpt-001"]},
+        )
+        body = _body(result)
+        assert _status(result) == 200
+        assert len(body["results"]) == 1
+        assert body["summary"]["total"] == 1
+
+    @pytest.mark.asyncio
     async def test_verify_batch_success(self, handler, mock_store):
         mock_results = [MockSignatureResult(valid=True)]
         mock_store.verify_batch.return_value = (mock_results, {"total": 1, "valid": 1})
