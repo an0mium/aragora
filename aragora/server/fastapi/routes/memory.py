@@ -305,7 +305,10 @@ async def store_memory(
                     "user_id": auth.user_id,
                 },
             )
-            memory_id = getattr(result, "id", None) or getattr(result, "memory_id", None)
+            if isinstance(result, dict):
+                memory_id = result.get("id") or result.get("memory_id")
+            else:
+                memory_id = getattr(result, "id", None) or getattr(result, "memory_id", None)
             if isinstance(result, str):
                 memory_id = result
         elif hasattr(continuum, "add"):
@@ -319,7 +322,12 @@ async def store_memory(
                     "user_id": auth.user_id,
                 },
             )
-            memory_id = getattr(result, "id", None) or str(result) if result else None
+            if isinstance(result, dict):
+                memory_id = result.get("id") or result.get("memory_id")
+            else:
+                memory_id = getattr(result, "id", None) or getattr(result, "memory_id", None)
+            if memory_id is None and result:
+                memory_id = str(result)
         else:
             raise HTTPException(status_code=503, detail="Memory storage method not available")
 
