@@ -628,7 +628,21 @@ class AuthorizationAuditor:
             ) as e:
                 logger.error("Error in audit handler: %s", e)
                 # Continue to next handler
-            except Exception as e:  # noqa: BLE001 - catch-all ensures all audit handlers run even if one fails unexpectedly
+            except (
+                ArithmeticError,
+                AssertionError,
+                BufferError,
+                EOFError,
+                ImportError,
+                LookupError,
+                NameError,
+                RecursionError,
+                ReferenceError,
+                StopAsyncIteration,
+                StopIteration,
+                SyntaxError,
+                SystemError,
+            ) as e:
                 logger.error("Unexpected error in audit handler: %s", e)
 
         # Buffer for batch processing
@@ -1183,7 +1197,15 @@ def compute_endpoint_coverage() -> dict[str, Any]:
 
     try:
         result = _compute_endpoint_coverage_uncached()
-    except Exception as exc:  # noqa: BLE001 — broad catch intentional for safety
+    except (
+        AttributeError,
+        OSError,
+        RecursionError,
+        RuntimeError,
+        SyntaxError,
+        TypeError,
+        ValueError,
+    ) as exc:
         logger.debug("Endpoint coverage scan failed: %s", exc)
         result = {"covered_endpoints": 0, "total_endpoints": 0, "coverage_pct": 0.0}
 
