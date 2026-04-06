@@ -84,6 +84,8 @@ BLOCKCHAIN_ENDPOINTS: list[tuple[str, str]] = [
     ("GET", "/api/v1/blockchain/health"),
 ]
 
+SPECTATE_STREAM_ENDPOINT = ("GET", "/api/v1/spectate/stream")
+
 
 def _normalize_path(path: str) -> str:
     """Normalize a path by replacing specific IDs with {id}."""
@@ -257,6 +259,28 @@ class TestOpenclawContractParity:
             f"TypeScript SDK openclaw missing {len(missing)} endpoints:\n"
             + "\n".join(f"  {m} {p}" for m, p in sorted(missing))
         )
+
+
+class TestSpectateContractParity:
+    """Verify SDK spectate helpers keep using the canonical stream endpoint."""
+
+    def test_openapi_exposes_canonical_stream_path(self):
+        spec_file = ROOT / "docs/api/openapi.json"
+        spec = spec_file.read_text()
+        assert SPECTATE_STREAM_ENDPOINT[1] in spec
+        assert "/api/v1/spectate/{debate_id}/stream" not in spec
+
+    def test_python_sdk_connect_sse_uses_canonical_path(self):
+        sdk_file = ROOT / "sdk/python/aragora_sdk/namespaces/spectate.py"
+        sdk_paths = set(_extract_python_sdk_paths(sdk_file))
+        assert SPECTATE_STREAM_ENDPOINT in sdk_paths
+        assert ("GET", "/api/v1/spectate/{id}/stream") not in sdk_paths
+
+    def test_typescript_sdk_connect_sse_uses_canonical_path(self):
+        ts_file = ROOT / "sdk/typescript/src/namespaces/spectate.ts"
+        ts_paths = set(_extract_ts_paths(ts_file))
+        assert SPECTATE_STREAM_ENDPOINT in ts_paths
+        assert ("GET", "/api/v1/spectate/{id}/stream") not in ts_paths
 
     def test_python_client_covers_all_endpoints(self):
         """Python client resource covers every server OpenClaw endpoint."""

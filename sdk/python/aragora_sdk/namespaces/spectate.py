@@ -1,8 +1,7 @@
 """
 Spectate Namespace API
 
-Provides methods for real-time debate observation:
-- Connect to Server-Sent Events (SSE) stream for a debate
+Provides methods for debate spectating via the canonical public endpoints.
 """
 
 from __future__ import annotations
@@ -27,12 +26,13 @@ class SpectateAPI:
 
     def connect_sse(self, debate_id: str) -> dict[str, Any]:
         """
-        Connect to SSE stream for a debate.
-
-        Returns connection details including the stream URL.
-        Use the stream URL with an SSE client for real-time events.
+        Request the spectate stream endpoint scoped to a single debate.
         """
-        return self._client.request("GET", f"/api/v1/spectate/{debate_id}/stream")
+        return self._client.request(
+            "GET",
+            "/api/v1/spectate/stream",
+            params={"debate_id": debate_id},
+        )
 
     def get_recent(self, *, count: int = 50, debate_id: str | None = None) -> dict[str, Any]:
         """Get recent buffered spectate events."""
@@ -67,11 +67,13 @@ class AsyncSpectateAPI:
 
     async def connect_sse(self, debate_id: str) -> dict[str, Any]:
         """
-        Connect to SSE stream for a debate.
-
-        Returns connection details including the stream URL.
+        Request the spectate stream endpoint scoped to a single debate.
         """
-        return await self._client.request("GET", f"/api/v1/spectate/{debate_id}/stream")
+        return await self._client.request(
+            "GET",
+            "/api/v1/spectate/stream",
+            params={"debate_id": debate_id},
+        )
 
     async def get_recent(self, *, count: int = 50, debate_id: str | None = None) -> dict[str, Any]:
         """Get recent buffered spectate events."""

@@ -1,7 +1,7 @@
 /**
  * Spectate Namespace API
  *
- * Real-time debate observation via Server-Sent Events (SSE).
+ * Debate spectating via the canonical public stream endpoints.
  */
 
 interface SpectateClientInterface {
@@ -16,13 +16,12 @@ export class SpectateAPI {
   constructor(private client: SpectateClientInterface) {}
 
   /**
-   * Connect to SSE stream for a debate.
-   *
-   * Returns connection details including the stream URL.
-   * Use the stream URL with an EventSource client for real-time events.
+   * Request the spectate stream endpoint scoped to a single debate.
    */
   async connectSSE(debateId: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/spectate/${encodeURIComponent(debateId)}/stream`);
+    return this.client.request('GET', '/api/v1/spectate/stream', {
+      params: { debate_id: debateId },
+    });
   }
 
   async getRecent(options?: { count?: number; debateId?: string }): Promise<Record<string, unknown>> {
