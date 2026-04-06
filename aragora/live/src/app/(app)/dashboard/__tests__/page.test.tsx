@@ -13,6 +13,24 @@ jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
 
+jest.mock('next/link', () => {
+  return function MockLink({
+    children,
+    href,
+    className,
+  }: {
+    children: React.ReactNode;
+    href: string;
+    className?: string;
+  }) {
+    return (
+      <a href={href} className={className}>
+        {children}
+      </a>
+    );
+  };
+});
+
 jest.mock('@/context/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
 }));
@@ -108,5 +126,65 @@ describe('DashboardPage', () => {
     expect(mockUseDashboardEvents).toHaveBeenCalled();
     expect(mockUseActiveDebates).toHaveBeenCalled();
     expect(mockUseSWRFetch).toHaveBeenCalled();
+  });
+
+  it('routes live and recent debate cards to the authenticated detail page', async () => {
+    mockUseAuth.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      organization: { tier: 'starter' },
+    });
+
+    mockUseActiveDebates.mockReturnValue({
+      data: {
+        debates: [
+          {
+            id: 'debate-live-123',
+            topic: 'Keep internal debates on the private route',
+            agents: ['claude', 'codex'],
+            round: 1,
+            total_rounds: 3,
+            status: 'running',
+            elapsed_seconds: 42,
+          },
+        ],
+      },
+      isLoading: false,
+    });
+
+    mockUseSWRFetch.mockImplementation((endpoint?: string) => {
+      if (endpoint === '/api/v1/debates?limit=5&sort=created_at:desc') {
+        return {
+          data: {
+            debates: [
+              {
+                id: 'debate-recent-456',
+                task: 'Recent debate should stay inside the app shell',
+                agents: ['gemini', 'gpt-4'],
+                consensus_reached: true,
+                confidence: 0.91,
+                created_at: '2026-04-06T12:00:00Z',
+              },
+            ],
+          },
+          error: null,
+          isLoading: false,
+        };
+      }
+
+      return { data: {}, error: null, isLoading: false };
+    });
+
+    render(<DashboardPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('link', { name: /Keep internal debates on the private route/i })
+      ).toHaveAttribute('href', '/debates/debate-live-123');
+    });
+
+    expect(
+      screen.getByRole('link', { name: /Recent debate should stay inside the app shell/i })
+    ).toHaveAttribute('href', '/debates/debate-recent-456');
   });
 });

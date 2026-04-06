@@ -223,7 +223,7 @@ function LiveDebatesPanel() {
           {debates.map((debate) => (
             <Link
               key={debate.id}
-              href={`/debate/${debate.id}`}
+              href={`/debates/${debate.id}`}
               className="block p-4 hover:bg-[var(--bg)] transition-colors"
             >
               <div className="flex items-start justify-between gap-3">
@@ -466,7 +466,7 @@ function DashboardContent() {
                     {recentDebates.map((debate) => (
                       <Link
                         key={debate.id}
-                        href={`/debate/${debate.id}`}
+                        href={`/debates/${debate.id}`}
                         className="block p-4 hover:bg-[var(--bg)] transition-colors"
                       >
                         <div className="flex items-start justify-between gap-3">
