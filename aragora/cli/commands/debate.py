@@ -1254,6 +1254,11 @@ async def run_debate(
             }
         )
     _coalesce_grouped_arena_configs(arena_kwargs)
+    # Strip kwargs that Arena doesn't accept (passed through from CLI/preset parsing)
+    import inspect
+
+    _arena_params = set(inspect.signature(Arena.__init__).parameters.keys()) - {"self"}
+    arena_kwargs = {k: v for k, v in arena_kwargs.items() if k in _arena_params}
 
     arena = Arena(
         env,

@@ -26,19 +26,19 @@ export function AISuggestionsPanel({ suggestions, onAddToDAG, onRefresh, loading
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span>{'\u2728'}</span>
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">AI Suggestions</h4>
+          <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">AI Suggestions</h4>
         </div>
         <button
           onClick={onRefresh}
           disabled={loading}
-          className="text-[10px] font-mono text-acid-green hover:underline disabled:opacity-50"
+          className="text-[10px] font-theme-data text-[var(--accent)] hover:underline disabled:opacity-50"
         >
           {loading ? 'Loading...' : 'Refresh'}
         </button>
       </div>
 
       {suggestions.length === 0 ? (
-        <div className="text-xs font-mono text-text-muted/50 bg-bg p-3 rounded border border-border text-center">
+        <div className="text-xs font-theme-data text-text-muted/50 bg-bg p-3 rounded border border-border text-center">
           {loading ? 'Generating suggestions...' : 'No suggestions available'}
         </div>
       ) : (
@@ -46,16 +46,16 @@ export function AISuggestionsPanel({ suggestions, onAddToDAG, onRefresh, loading
           {suggestions.map(s => (
             <div key={s.id} className="px-2.5 py-2 bg-bg rounded border border-border">
               <div className="flex items-center gap-2 mb-1">
-                <span className={`px-1.5 py-0.5 text-[9px] font-mono rounded border ${PRIORITY_COLORS[s.priority]}`}>
+                <span className={`px-1.5 py-0.5 text-[9px] font-theme-data rounded border ${PRIORITY_COLORS[s.priority]}`}>
                   {s.priority.toUpperCase()}
                 </span>
-                <span className="text-xs font-mono text-text truncate flex-1">{s.title}</span>
+                <span className="text-xs font-theme-data text-text truncate flex-1">{s.title}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono text-text-muted">~{s.estimatedDuration}</span>
+                <span className="text-[10px] font-theme-data text-text-muted">~{s.estimatedDuration}</span>
                 <button
                   onClick={() => onAddToDAG(s.id)}
-                  className="text-[10px] font-mono text-acid-green hover:underline"
+                  className="text-[10px] font-theme-data text-[var(--accent)] hover:underline"
                 >
                   + Add to DAG
                 </button>

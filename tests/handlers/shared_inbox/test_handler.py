@@ -135,11 +135,10 @@ class TestCanHandle:
 class TestHandle:
     """Tests for SharedInboxHandler.handle() sync method."""
 
-    def test_missing_workspace_id_returns_400(self, handler: SharedInboxHandler):
+    def test_dispatches_get_shared_inboxes_for_exact_route(self, handler: SharedInboxHandler):
         result = handler.handle("/api/v1/inbox/shared", {}, MagicMock())
-        assert result is not None
-        assert result.status_code == 400
-        assert b"workspace_id required" in result.body
+        assert _status(result) == 400
+        assert _body(result) == {"error": "workspace_id required"}
 
 
 # ===========================================================================

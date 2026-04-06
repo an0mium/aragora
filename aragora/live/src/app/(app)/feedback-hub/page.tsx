@@ -46,7 +46,7 @@ function PriorityBadge({ priority }: { priority: string }) {
   const style = colors[priority.toLowerCase()] || colors.low;
 
   return (
-    <span className={`px-2 py-0.5 text-[10px] font-mono uppercase rounded border ${style}`}>
+    <span className={`px-2 py-0.5 text-[10px] font-theme-data uppercase rounded border ${style}`}>
       {priority}
     </span>
   );
@@ -64,7 +64,7 @@ function StatusDot({ status }: { status: string }) {
   return (
     <div className="flex items-center gap-1.5">
       <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
-      <span className="text-xs font-mono text-[var(--text-muted)]">{status}</span>
+      <span className="text-xs font-theme-data text-[var(--text-muted)]">{status}</span>
     </div>
   );
 }
@@ -73,7 +73,7 @@ function BarChart({ data, colorFn }: {
   data: [string, number][];
   colorFn?: (key: string) => string;
 }) {
-  if (data.length === 0) return <p className="text-xs font-mono text-[var(--text-muted)]">No data</p>;
+  if (data.length === 0) return <p className="text-xs font-theme-data text-[var(--text-muted)]">No data</p>;
 
   const maxValue = Math.max(...data.map(([, v]) => v));
 
@@ -81,7 +81,7 @@ function BarChart({ data, colorFn }: {
     <div className="space-y-2">
       {data.map(([label, count]) => (
         <div key={label} className="flex items-center gap-3">
-          <span className="text-[10px] font-mono text-[var(--text-muted)] w-28 truncate text-right" title={label}>
+          <span className="text-[10px] font-theme-data text-[var(--text-muted)] w-28 truncate text-right" title={label}>
             {label}
           </span>
           <div className="flex-1 h-3 bg-[var(--bg)] rounded-full overflow-hidden">
@@ -90,7 +90,7 @@ function BarChart({ data, colorFn }: {
               style={{ width: `${maxValue > 0 ? (count / maxValue) * 100 : 0}%` }}
             />
           </div>
-          <span className="text-[10px] font-mono text-[var(--text)] w-10 text-right">{count}</span>
+          <span className="text-[10px] font-theme-data text-[var(--text)] w-10 text-right">{count}</span>
         </div>
       ))}
     </div>
@@ -155,17 +155,17 @@ export default function FeedbackHubPage() {
             <div className="flex items-center gap-2 mb-2">
               <Link
                 href="/self-improve"
-                className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
               >
                 Self-Improve
               </Link>
               <span className="text-[var(--text-muted)]">/</span>
-              <span className="text-xs font-mono text-[var(--acid-green)]">Feedback Hub</span>
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">Feedback Hub</span>
             </div>
-            <h1 className="text-xl font-mono text-[var(--acid-green)]">
+            <h1 className="text-xl font-theme-data text-[var(--acid-green)]">
               {'>'} FEEDBACK HUB
             </h1>
-            <p className="text-xs text-[var(--text-muted)] font-mono mt-1">
+            <p className="text-xs text-[var(--text-muted)] font-theme-data mt-1">
               Unified feedback routing hub connecting all self-improvement loops.
               Outcome feedback, calibration signals, and Nomic Loop goals flow through here.
             </p>
@@ -173,7 +173,7 @@ export default function FeedbackHubPage() {
 
           {/* Error State */}
           {statsError && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-sm">
               Failed to load feedback hub data. The feedback hub module may not be available.
             </div>
           )}
@@ -187,7 +187,7 @@ export default function FeedbackHubPage() {
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`px-4 py-2 font-mono text-sm border transition-colors ${
+                className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                   activeTab === key
                     ? 'border-[var(--acid-green)] bg-[var(--acid-green)]/10 text-[var(--acid-green)]'
                     : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -205,13 +205,13 @@ export default function FeedbackHubPage() {
                 {/* Summary Stats */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                    <div className="text-2xl font-mono text-[var(--acid-green)]">
+                    <div className="text-2xl font-theme-data text-[var(--acid-green)]">
                       {statsLoading ? '-' : stats?.total_routed ?? 0}
                     </div>
-                    <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Total Routed</div>
+                    <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Total Routed</div>
                   </div>
                   <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                    <div className={`text-2xl font-mono ${
+                    <div className={`text-2xl font-theme-data ${
                       (stats?.success_rate ?? 0) >= 0.95
                         ? 'text-[var(--acid-green)]'
                         : (stats?.success_rate ?? 0) >= 0.8
@@ -222,21 +222,21 @@ export default function FeedbackHubPage() {
                         ? `${(stats.success_rate * 100).toFixed(1)}%`
                         : '--'}
                     </div>
-                    <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Success Rate</div>
+                    <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Success Rate</div>
                   </div>
                   <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                    <div className="text-2xl font-mono text-[var(--acid-cyan)]">
+                    <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
                       {statsLoading ? '-' : stats?.avg_latency_ms != null
                         ? `${Math.round(stats.avg_latency_ms)}ms`
                         : '--'}
                     </div>
-                    <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Avg Latency</div>
+                    <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Avg Latency</div>
                   </div>
                   <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-                    <div className={`text-2xl font-mono ${(stats?.error_count ?? 0) > 0 ? 'text-red-400' : 'text-[var(--acid-green)]'}`}>
+                    <div className={`text-2xl font-theme-data ${(stats?.error_count ?? 0) > 0 ? 'text-red-400' : 'text-[var(--acid-green)]'}`}>
                       {statsLoading ? '-' : stats?.error_count ?? 0}
                     </div>
-                    <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Errors</div>
+                    <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Errors</div>
                   </div>
                 </div>
 
@@ -244,9 +244,9 @@ export default function FeedbackHubPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* By Source */}
                   <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-                    <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-4">By Source</h3>
+                    <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-4">By Source</h3>
                     {statsLoading ? (
-                      <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-mono animate-pulse">
+                      <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-theme-data animate-pulse">
                         Loading...
                       </div>
                     ) : (
@@ -259,9 +259,9 @@ export default function FeedbackHubPage() {
 
                   {/* By Destination */}
                   <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-                    <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-4">By Destination</h3>
+                    <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-4">By Destination</h3>
                     {statsLoading ? (
-                      <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-mono animate-pulse">
+                      <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-theme-data animate-pulse">
                         Loading...
                       </div>
                     ) : (
@@ -274,9 +274,9 @@ export default function FeedbackHubPage() {
 
                   {/* By Priority */}
                   <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-                    <h3 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-4">By Priority</h3>
+                    <h3 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-4">By Priority</h3>
                     {statsLoading ? (
-                      <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-mono animate-pulse">
+                      <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-theme-data animate-pulse">
                         Loading...
                       </div>
                     ) : (
@@ -302,14 +302,14 @@ export default function FeedbackHubPage() {
                   <select
                     value={historyLimit}
                     onChange={(e) => setHistoryLimit(Number(e.target.value))}
-                    className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+                    className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
                   >
                     <option value={20}>Last 20</option>
                     <option value={50}>Last 50</option>
                     <option value={100}>Last 100</option>
                     <option value={200}>Last 200</option>
                   </select>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     {history.length} entries
                   </span>
                 </div>
@@ -318,7 +318,7 @@ export default function FeedbackHubPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-[10px] font-mono text-[var(--text-muted)] uppercase border-b border-[var(--border)]">
+                        <tr className="text-left text-[10px] font-theme-data text-[var(--text-muted)] uppercase border-b border-[var(--border)]">
                           <th className="px-4 py-3">Time</th>
                           <th className="px-4 py-3">Source</th>
                           <th className="px-4 py-3">Destination</th>
@@ -331,13 +331,13 @@ export default function FeedbackHubPage() {
                       <tbody>
                         {historyLoading ? (
                           <tr>
-                            <td colSpan={7} className="px-4 py-12 text-center text-[var(--text-muted)] font-mono animate-pulse">
+                            <td colSpan={7} className="px-4 py-12 text-center text-[var(--text-muted)] font-theme-data animate-pulse">
                               Loading routing history...
                             </td>
                           </tr>
                         ) : history.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="px-4 py-12 text-center text-[var(--text-muted)] font-mono">
+                            <td colSpan={7} className="px-4 py-12 text-center text-[var(--text-muted)] font-theme-data">
                               No routing history available. Run debates with feedback loops enabled.
                             </td>
                           </tr>
@@ -347,14 +347,14 @@ export default function FeedbackHubPage() {
                               key={entry.id}
                               className="border-b border-[var(--border)]/50 hover:bg-[var(--acid-green)]/5 transition-colors"
                             >
-                              <td className="px-4 py-3 text-xs font-mono text-[var(--text-muted)]">
+                              <td className="px-4 py-3 text-xs font-theme-data text-[var(--text-muted)]">
                                 {formatTimestamp(entry.timestamp)}
                               </td>
                               <td className="px-4 py-3">
-                                <span className="text-xs font-mono text-[var(--acid-cyan)]">{entry.source}</span>
+                                <span className="text-xs font-theme-data text-[var(--acid-cyan)]">{entry.source}</span>
                               </td>
                               <td className="px-4 py-3">
-                                <span className="text-xs font-mono text-purple-400">{entry.destination}</span>
+                                <span className="text-xs font-theme-data text-purple-400">{entry.destination}</span>
                               </td>
                               <td className="px-4 py-3">
                                 <PriorityBadge priority={entry.priority} />
@@ -362,10 +362,10 @@ export default function FeedbackHubPage() {
                               <td className="px-4 py-3">
                                 <StatusDot status={entry.status} />
                               </td>
-                              <td className="px-4 py-3 text-xs font-mono text-[var(--text-muted)]">
+                              <td className="px-4 py-3 text-xs font-theme-data text-[var(--text-muted)]">
                                 {entry.latency_ms}ms
                               </td>
-                              <td className="px-4 py-3 text-xs font-mono text-[var(--text-muted)] max-w-[200px] truncate">
+                              <td className="px-4 py-3 text-xs font-theme-data text-[var(--text-muted)] max-w-[200px] truncate">
                                 {entry.content_preview}
                               </td>
                             </tr>
@@ -383,19 +383,19 @@ export default function FeedbackHubPage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/self-improve"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Self-Improve
             </Link>
             <Link
               href="/nomic-control"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Nomic Control
             </Link>
             <Link
               href="/calibration"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Calibration
             </Link>
@@ -403,7 +403,7 @@ export default function FeedbackHubPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
           <div className="text-[var(--acid-green)]/50 mb-2" aria-hidden="true">
             {'='.repeat(40)}
           </div>

@@ -18,9 +18,9 @@ export function ToggleSwitch({
   return (
     <label className={`flex items-center justify-between ${disabled ? 'opacity-50' : 'cursor-pointer'}`}>
       <div>
-        <div className="font-mono text-sm text-text">{label}</div>
+        <div className="font-theme-data text-sm text-text">{label}</div>
         {description && (
-          <div className="font-mono text-xs text-text-muted">{description}</div>
+          <div className="font-theme-data text-xs text-text-muted">{description}</div>
         )}
       </div>
       <button
@@ -30,7 +30,7 @@ export function ToggleSwitch({
         onClick={onChange}
         disabled={disabled}
         className={`w-12 h-6 rounded-full transition-colors ${
-          checked ? 'bg-acid-green' : 'bg-surface'
+          checked ? 'bg-[var(--accent)]' : 'bg-surface'
         } ${disabled ? 'cursor-not-allowed' : ''}`}
       >
         <div

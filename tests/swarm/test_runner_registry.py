@@ -16,6 +16,7 @@ from aragora.swarm.runner_registry import (
     authorization_context_with_defaults,
     configured_claude_runner_profiles,
     discover_runner_inspections,
+    probe_runner_execution,
 )
 
 UTC = timezone.utc
@@ -203,6 +204,42 @@ class TestCodexRunnerInspector:
 
         assert inspection.auth_mode == "unknown"
         assert inspection.freshness_status == "unknown"
+
+    def test_codex_exec_probe_uses_stdin_and_can_pass(self, monkeypatch, tmp_path: Path) -> None:
+        inspection = CodexRunnerInspection(
+            runner_id="codex-runner-1",
+            runner_type="codex",
+            availability="available",
+            available=True,
+            auth_mode="chatgpt_login",
+            command_path="/opt/homebrew/bin/codex",
+            codex_path="/opt/homebrew/bin/codex",
+            capabilities={"supports_exec": True},
+            owner_binding={},
+            freshness_status="fresh",
+        )
+        observed: dict[str, object] = {}
+
+        def _run(command: list[str], **kwargs):
+            observed["command"] = command
+            observed["input"] = kwargs.get("input")
+            return type(
+                "_Proc",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": "ARAGORA_RUNNER_PROBE_OK\n",
+                    "stderr": "",
+                },
+            )()
+
+        monkeypatch.setattr("aragora.swarm.runner_registry.subprocess.run", _run)
+
+        probe = probe_runner_execution(inspection, repo_root=tmp_path)
+
+        assert probe.status == "passed"
+        assert observed["command"] == ["/opt/homebrew/bin/codex", "exec", "-"]
+        assert observed["input"] == "Reply with exactly: ARAGORA_RUNNER_PROBE_OK\n"
 
 
 class TestClaudeRunnerInspector:

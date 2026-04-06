@@ -78,23 +78,23 @@ interface RoutingRule {
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-acid-blue/20 text-acid-blue border-acid-blue/40',
   assigned: 'bg-acid-purple/20 text-acid-purple border-acid-purple/40',
-  in_progress: 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40',
-  waiting: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
-  resolved: 'bg-acid-green/20 text-acid-green border-acid-green/40',
+  in_progress: 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/40',
+  waiting: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
+  resolved: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
   closed: 'bg-muted/20 text-muted border-muted/40',
 };
 
 const RECEIPT_STATE_COLORS: Record<string, string> = {
   created: 'bg-acid-orange/15 text-acid-orange border-acid-orange/30',
-  approved: 'bg-acid-cyan/15 text-acid-cyan border-acid-cyan/30',
-  executed: 'bg-acid-green/15 text-acid-green border-acid-green/30',
+  approved: 'bg-[var(--acid-cyan)]/15 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30',
+  executed: 'bg-[var(--accent)]/15 text-[var(--accent)] border-[var(--accent)]/30',
   expired: 'bg-acid-red/15 text-acid-red border-acid-red/30',
 };
 
 function StatusBadge({ status }: { status: string }) {
   return (
     <span
-      className={`px-2 py-0.5 text-xs font-mono rounded border ${
+      className={`px-2 py-0.5 text-xs font-theme-data rounded border ${
         STATUS_COLORS[status] || STATUS_COLORS.open
       }`}
     >
@@ -106,7 +106,7 @@ function StatusBadge({ status }: { status: string }) {
 function ReceiptStateBadge({ state }: { state: string }) {
   return (
     <span
-      className={`px-2 py-0.5 text-xs font-mono rounded border ${
+      className={`px-2 py-0.5 text-xs font-theme-data rounded border ${
         RECEIPT_STATE_COLORS[state] || RECEIPT_STATE_COLORS.created
       }`}
     >
@@ -120,8 +120,8 @@ function PriorityIndicator({ priority }: { priority?: string }) {
   const colors: Record<string, string> = {
     critical: 'text-acid-red',
     high: 'text-acid-orange',
-    medium: 'text-acid-yellow',
-    low: 'text-acid-cyan',
+    medium: 'text-[var(--acid-yellow)]',
+    low: 'text-[var(--acid-cyan)]',
   };
   const icons: Record<string, string> = {
     critical: '!!!',
@@ -130,7 +130,7 @@ function PriorityIndicator({ priority }: { priority?: string }) {
     low: '-',
   };
   return (
-    <span className={`text-xs font-mono ${colors[priority] || 'text-muted'}`}>
+    <span className={`text-xs font-theme-data ${colors[priority] || 'text-muted'}`}>
       {icons[priority] || ''}
     </span>
   );
@@ -521,10 +521,10 @@ export default function SharedInboxPage() {
             <Link href="/" className="hover:text-accent">
               <AsciiBannerCompact />
             </Link>
-            <span className="text-muted font-mono text-sm">{'//'} SHARED INBOX</span>
+            <span className="text-muted font-theme-data text-sm">{'//'} SHARED INBOX</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/inbox" className="text-xs font-mono text-muted hover:text-accent">
+            <Link href="/inbox" className="text-xs font-theme-data text-muted hover:text-accent">
               Personal Inbox
             </Link>
             <BackendSelector />
@@ -537,8 +537,8 @@ export default function SharedInboxPage() {
         {/* Page Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-mono mb-1">SHARED INBOX</h1>
-            <p className="text-muted text-sm font-mono">Team collaboration email management</p>
+            <h1 className="text-2xl font-theme-data mb-1">SHARED INBOX</h1>
+            <p className="text-muted text-sm font-theme-data">Team collaboration email management</p>
           </div>
           <button
             onClick={() => setShowCreateInbox(true)}
@@ -559,7 +559,7 @@ export default function SharedInboxPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveView(tab.id)}
-                className={`px-4 py-2 font-mono text-sm transition-colors flex items-center gap-2 ${
+                className={`px-4 py-2 font-theme-data text-sm transition-colors flex items-center gap-2 ${
                   activeView === tab.id
                     ? 'text-accent border-b-2 border-accent'
                     : 'text-muted hover:text-foreground'
@@ -586,7 +586,7 @@ export default function SharedInboxPage() {
               ) : inboxes.length === 0 ? (
                 <div className="col-span-full card p-12 text-center">
                   <div className="text-4xl mb-4">📬</div>
-                  <div className="text-muted font-mono mb-4">No shared inboxes yet</div>
+                  <div className="text-muted font-theme-data mb-4">No shared inboxes yet</div>
                   <button
                     onClick={() => setShowCreateInbox(true)}
                     className="btn btn-primary"
@@ -607,9 +607,9 @@ export default function SharedInboxPage() {
                     }`}
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-mono font-medium">{inbox.name}</h3>
+                      <h3 className="font-theme-data font-medium">{inbox.name}</h3>
                       {inbox.unread_count > 0 && (
-                        <span className="px-2 py-0.5 bg-accent/20 text-accent text-xs font-mono rounded">
+                        <span className="px-2 py-0.5 bg-accent/20 text-accent text-xs font-theme-data rounded">
                           {inbox.unread_count} new
                         </span>
                       )}
@@ -617,12 +617,12 @@ export default function SharedInboxPage() {
                     {inbox.description && (
                       <p className="text-sm text-muted mb-3">{inbox.description}</p>
                     )}
-                    <div className="flex items-center justify-between text-xs font-mono text-muted">
+                    <div className="flex items-center justify-between text-xs font-theme-data text-muted">
                       <span>{inbox.message_count} messages</span>
                       <span>{inbox.team_members.length} members</span>
                     </div>
                     {inbox.email_address && (
-                      <div className="mt-2 text-xs font-mono text-accent/70 truncate">
+                      <div className="mt-2 text-xs font-theme-data text-accent/70 truncate">
                         {inbox.email_address}
                       </div>
                     )}
@@ -669,12 +669,12 @@ export default function SharedInboxPage() {
               {/* Messages List */}
               {!selectedInbox ? (
                 <div className="card p-12 text-center">
-                  <div className="text-muted font-mono">Select an inbox to view messages</div>
+                  <div className="text-muted font-theme-data">Select an inbox to view messages</div>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="card p-12 text-center">
                   <div className="text-4xl mb-4">📭</div>
-                  <div className="text-muted font-mono">No messages in this inbox</div>
+                  <div className="text-muted font-theme-data">No messages in this inbox</div>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -687,7 +687,7 @@ export default function SharedInboxPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <PriorityIndicator priority={message.priority} />
-                            <span className="font-mono text-sm truncate">
+                            <span className="font-theme-data text-sm truncate">
                               {message.subject}
                             </span>
                           </div>
@@ -699,7 +699,7 @@ export default function SharedInboxPage() {
                             {message.tags.map((tag) => (
                               <span
                                 key={tag}
-                                className="px-1.5 py-0.5 bg-surface text-xs font-mono rounded"
+                                className="px-1.5 py-0.5 bg-surface text-xs font-theme-data rounded"
                               >
                                 {tag}
                               </span>
@@ -725,7 +725,7 @@ export default function SharedInboxPage() {
                         {message.status === 'open' && (
                           <button
                             onClick={() => handleAssign(message.id, 'me')}
-                            className="px-2 py-1 text-xs font-mono bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors"
+                            className="px-2 py-1 text-xs font-theme-data bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors"
                           >
                             Claim
                           </button>
@@ -733,15 +733,15 @@ export default function SharedInboxPage() {
                         {message.status !== 'resolved' && (
                           <button
                             onClick={() => handleStatusChange(message.id, 'resolved')}
-                            className="px-2 py-1 text-xs font-mono bg-acid-green/10 text-acid-green hover:bg-acid-green/20 rounded transition-colors"
+                            className="px-2 py-1 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 rounded transition-colors"
                           >
                             Resolve
                           </button>
                         )}
-                        <button className="px-2 py-1 text-xs font-mono bg-surface hover:bg-accent/10 rounded transition-colors">
+                        <button className="px-2 py-1 text-xs font-theme-data bg-surface hover:bg-accent/10 rounded transition-colors">
                           View
                         </button>
-                        <button className="px-2 py-1 text-xs font-mono bg-surface hover:bg-accent/10 rounded transition-colors">
+                        <button className="px-2 py-1 text-xs font-theme-data bg-surface hover:bg-accent/10 rounded transition-colors">
                           Reply
                         </button>
                         {(message.priority === 'critical' || message.priority === 'high') &&
@@ -750,7 +750,7 @@ export default function SharedInboxPage() {
                           <button
                             onClick={() => handleStartDebate(message.id)}
                             disabled={debatingMessageId === message.id}
-                            className="px-2 py-1 text-xs font-mono bg-acid-purple/10 text-acid-purple hover:bg-acid-purple/20 rounded transition-colors disabled:opacity-50"
+                            className="px-2 py-1 text-xs font-theme-data bg-acid-purple/10 text-acid-purple hover:bg-acid-purple/20 rounded transition-colors disabled:opacity-50"
                           >
                             {debatingMessageId === message.id ? 'Staging...' : 'Stage Review'}
                           </button>
@@ -758,18 +758,18 @@ export default function SharedInboxPage() {
                       </div>
 
                       {message.trust_wedge?.decision?.final_action && (
-                        <div className="mt-2 text-xs font-mono text-muted">
+                        <div className="mt-2 text-xs font-theme-data text-muted">
                           Canonical action: {message.trust_wedge.decision.final_action.toUpperCase()}
                         </div>
                       )}
 
                       {/* Debate Result */}
                       {debateResults[message.id] && (
-                        <div className="mt-2 p-2 bg-acid-purple/5 border border-acid-purple/20 rounded text-xs font-mono">
+                        <div className="mt-2 p-2 bg-acid-purple/5 border border-acid-purple/20 rounded text-xs font-theme-data">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-acid-purple font-medium">TRUST WEDGE</span>
                             {debateResults[message.id].consensus_reached && (
-                              <span className="px-1.5 py-0.5 bg-acid-green/20 text-acid-green rounded">
+                              <span className="px-1.5 py-0.5 bg-[var(--accent)]/20 text-[var(--accent)] rounded">
                                 CONSENSUS
                               </span>
                             )}
@@ -800,21 +800,21 @@ export default function SharedInboxPage() {
                                   <button
                                     onClick={() => handleReceiptReview(message.id, 'approve', false)}
                                     disabled={receiptActionMessageId === message.id}
-                                    className="px-2 py-1 text-xs font-mono bg-acid-green/10 text-acid-green hover:bg-acid-green/20 rounded transition-colors disabled:opacity-50"
+                                    className="px-2 py-1 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 rounded transition-colors disabled:opacity-50"
                                   >
                                     Approve
                                   </button>
                                   <button
                                     onClick={() => handleReceiptReview(message.id, 'approve', true)}
                                     disabled={receiptActionMessageId === message.id}
-                                    className="px-2 py-1 text-xs font-mono bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors disabled:opacity-50"
+                                    className="px-2 py-1 text-xs font-theme-data bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors disabled:opacity-50"
                                   >
                                     Approve + Execute
                                   </button>
                                   <button
                                     onClick={() => handleReceiptReview(message.id, 'reject', false)}
                                     disabled={receiptActionMessageId === message.id}
-                                    className="px-2 py-1 text-xs font-mono bg-acid-red/10 text-acid-red hover:bg-acid-red/20 rounded transition-colors disabled:opacity-50"
+                                    className="px-2 py-1 text-xs font-theme-data bg-acid-red/10 text-acid-red hover:bg-acid-red/20 rounded transition-colors disabled:opacity-50"
                                   >
                                     Reject
                                   </button>
@@ -824,13 +824,13 @@ export default function SharedInboxPage() {
                                 <button
                                   onClick={() => handleReceiptExecute(message.id)}
                                   disabled={receiptActionMessageId === message.id}
-                                  className="px-2 py-1 text-xs font-mono bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors disabled:opacity-50"
+                                  className="px-2 py-1 text-xs font-theme-data bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors disabled:opacity-50"
                                 >
                                   Execute
                                 </button>
                               )}
                               {debateResults[message.id].executed && (
-                                <span className="text-acid-green">Action executed with receipt.</span>
+                                <span className="text-[var(--accent)]">Action executed with receipt.</span>
                               )}
                             </div>
                           )}
@@ -847,7 +847,7 @@ export default function SharedInboxPage() {
           {activeView === 'rules' && (
             <div>
               <div className="flex items-center justify-between mb-4">
-                <span className="text-sm text-muted font-mono">
+                <span className="text-sm text-muted font-theme-data">
                   {rules.length} routing rule{rules.length !== 1 ? 's' : ''}
                 </span>
                 <button
@@ -861,7 +861,7 @@ export default function SharedInboxPage() {
               {rules.length === 0 ? (
                 <div className="card p-12 text-center">
                   <div className="text-4xl mb-4">🔀</div>
-                  <div className="text-muted font-mono mb-4">No routing rules configured</div>
+                  <div className="text-muted font-theme-data mb-4">No routing rules configured</div>
                   <button
                     onClick={() => setShowCreateRule(true)}
                     className="btn btn-primary"
@@ -879,7 +879,7 @@ export default function SharedInboxPage() {
                       <div className="flex items-start justify-between">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="font-mono font-medium">{rule.name}</span>
+                            <span className="font-theme-data font-medium">{rule.name}</span>
                             <span className="text-xs text-muted">Priority: {rule.priority}</span>
                             {!rule.enabled && (
                               <span className="px-1.5 py-0.5 bg-muted/20 text-muted text-xs rounded">
@@ -899,7 +899,7 @@ export default function SharedInboxPage() {
                             {rule.actions.map((a, i) => (
                               <span
                                 key={i}
-                                className="px-1.5 py-0.5 bg-accent/10 text-accent text-xs font-mono rounded"
+                                className="px-1.5 py-0.5 bg-accent/10 text-accent text-xs font-theme-data rounded"
                               >
                                 {a.type}
                                 {a.target && `: ${a.target}`}
@@ -912,10 +912,10 @@ export default function SharedInboxPage() {
                             {rule.stats.total_matches} matches
                           </div>
                           <div className="flex items-center gap-1 mt-2">
-                            <button className="px-2 py-1 text-xs font-mono bg-surface hover:bg-accent/10 rounded transition-colors">
+                            <button className="px-2 py-1 text-xs font-theme-data bg-surface hover:bg-accent/10 rounded transition-colors">
                               Edit
                             </button>
-                            <button className="px-2 py-1 text-xs font-mono bg-surface hover:bg-accent/10 rounded transition-colors">
+                            <button className="px-2 py-1 text-xs font-theme-data bg-surface hover:bg-accent/10 rounded transition-colors">
                               Test
                             </button>
                           </div>
@@ -933,10 +933,10 @@ export default function SharedInboxPage() {
         {showCreateInbox && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="card p-6 max-w-md w-full mx-4">
-              <h2 className="text-lg font-mono mb-4">Create Shared Inbox</h2>
+              <h2 className="text-lg font-theme-data mb-4">Create Shared Inbox</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-mono text-muted mb-1">Name *</label>
+                  <label className="block text-sm font-theme-data text-muted mb-1">Name *</label>
                   <input
                     type="text"
                     value={newInboxName}
@@ -946,7 +946,7 @@ export default function SharedInboxPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-mono text-muted mb-1">Description</label>
+                  <label className="block text-sm font-theme-data text-muted mb-1">Description</label>
                   <input
                     type="text"
                     value={newInboxDescription}
@@ -956,7 +956,7 @@ export default function SharedInboxPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-mono text-muted mb-1">Email Address</label>
+                  <label className="block text-sm font-theme-data text-muted mb-1">Email Address</label>
                   <input
                     type="email"
                     value={newInboxEmail}
@@ -989,7 +989,7 @@ export default function SharedInboxPage() {
         {showCreateRule && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="card p-6 max-w-lg w-full mx-4">
-              <h2 className="text-lg font-mono mb-4">Create Routing Rule</h2>
+              <h2 className="text-lg font-theme-data mb-4">Create Routing Rule</h2>
               <p className="text-muted text-sm mb-4">
                 Configure conditions and actions for automatic message routing.
               </p>
@@ -1010,7 +1010,7 @@ export default function SharedInboxPage() {
       </main>
 
       <footer className="border-t border-border bg-surface/50 py-4 mt-8">
-        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-muted font-mono">
+        <div className="container mx-auto px-4 flex items-center justify-between text-xs text-muted font-theme-data">
           <span>ARAGORA SHARED INBOX</span>
           <div className="flex items-center gap-4">
             <Link href="/inbox" className="hover:text-accent">

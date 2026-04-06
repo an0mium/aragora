@@ -25,28 +25,28 @@ function formatCurrency(cents: number): string {
 function TierBar({ tier, data }: { tier: string; data: TierRevenue }) {
   const tierColors: Record<string, string> = {
     free: 'bg-text-muted',
-    starter: 'bg-acid-cyan',
-    professional: 'bg-acid-green',
+    starter: 'bg-[var(--acid-cyan)]',
+    professional: 'bg-[var(--accent)]',
     enterprise: 'bg-acid-yellow',
   };
 
   return (
     <div className="flex items-center gap-4 py-2">
-      <div className="w-32 font-mono text-sm text-text">
+      <div className="w-32 font-theme-data text-sm text-text">
         {tier.replace('_', ' ').toUpperCase()}
       </div>
       <div className="flex-1">
         <div className="h-6 bg-bg rounded overflow-hidden flex items-center">
           <div
-            className={`h-full ${tierColors[tier] || 'bg-acid-green'} transition-all duration-500`}
+            className={`h-full ${tierColors[tier] || 'bg-[var(--accent)]'} transition-all duration-500`}
             style={{ width: `${Math.min(100, data.count * 10)}%` }}
           />
         </div>
       </div>
-      <div className="w-16 text-right font-mono text-sm text-acid-cyan">
+      <div className="w-16 text-right font-theme-data text-sm text-[var(--acid-cyan)]">
         {data.count}
       </div>
-      <div className="w-24 text-right font-mono text-sm text-acid-green">
+      <div className="w-24 text-right font-theme-data text-sm text-[var(--accent)]">
         {formatCurrency(data.mrr_cents)}
       </div>
     </div>
@@ -109,7 +109,7 @@ export default function RevenueAdminPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -117,7 +117,7 @@ export default function RevenueAdminPage() {
             <div className="flex items-center gap-4">
               <Link
                 href="/admin"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
               >
                 [ADMIN]
               </Link>
@@ -128,48 +128,48 @@ export default function RevenueAdminPage() {
         </header>
 
         {/* Sub Navigation */}
-        <div className="border-b border-acid-green/20 bg-surface/40">
+        <div className="border-b border-[var(--accent)]/20 bg-surface/40">
           <div className="container mx-auto px-4">
             <div className="flex gap-4 overflow-x-auto">
               <Link
                 href="/admin"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 SYSTEM
               </Link>
               <Link
                 href="/admin/organizations"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 ORGANIZATIONS
               </Link>
               <Link
                 href="/admin/users"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 USERS
               </Link>
               <Link
                 href="/admin/personas"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 PERSONAS
               </Link>
               <Link
                 href="/admin/audit"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 AUDIT
               </Link>
               <Link
                 href="/admin/revenue"
-                className="px-4 py-2 font-mono text-sm text-acid-green border-b-2 border-acid-green"
+                className="px-4 py-2 font-theme-data text-sm text-[var(--accent)] border-b-2 border-[var(--accent)]"
               >
                 REVENUE
               </Link>
               <Link
                 href="/admin/training"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 TRAINING
               </Link>
@@ -181,17 +181,17 @@ export default function RevenueAdminPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                 Revenue Dashboard
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Monthly recurring revenue and subscription metrics.
               </p>
             </div>
             <button
               onClick={fetchData}
               disabled={loading}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Loading...' : 'Refresh'}
             </button>
@@ -199,7 +199,7 @@ export default function RevenueAdminPage() {
 
           {!isAdmin && (
             <div className="card p-6 mb-6 border-acid-yellow/40">
-              <div className="flex items-center gap-2 text-acid-yellow font-mono text-sm">
+              <div className="flex items-center gap-2 text-[var(--acid-yellow)] font-theme-data text-sm">
                 <span>!</span>
                 <span>Admin access required. Please sign in with an admin account.</span>
               </div>
@@ -208,61 +208,61 @@ export default function RevenueAdminPage() {
 
           {error && (
             <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
-              <p className="text-acid-red font-mono text-sm">{error}</p>
+              <p className="text-acid-red font-theme-data text-sm">{error}</p>
             </div>
           )}
 
           {loading ? (
             <div className="card p-8 text-center">
-              <div className="font-mono text-text-muted animate-pulse">Loading revenue data...</div>
+              <div className="font-theme-data text-text-muted animate-pulse">Loading revenue data...</div>
             </div>
           ) : revenue && (
             <>
               {/* Key Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="card p-6">
-                  <div className="font-mono text-xs text-text-muted mb-2">Monthly Recurring Revenue</div>
-                  <div className="font-mono text-3xl text-acid-green">
+                  <div className="font-theme-data text-xs text-text-muted mb-2">Monthly Recurring Revenue</div>
+                  <div className="font-theme-data text-3xl text-[var(--accent)]">
                     ${revenue.mrr_dollars.toLocaleString()}
                   </div>
-                  <div className="font-mono text-xs text-text-muted mt-1">MRR</div>
+                  <div className="font-theme-data text-xs text-text-muted mt-1">MRR</div>
                 </div>
                 <div className="card p-6">
-                  <div className="font-mono text-xs text-text-muted mb-2">Annual Recurring Revenue</div>
-                  <div className="font-mono text-3xl text-acid-cyan">
+                  <div className="font-theme-data text-xs text-text-muted mb-2">Annual Recurring Revenue</div>
+                  <div className="font-theme-data text-3xl text-[var(--acid-cyan)]">
                     ${revenue.arr_dollars.toLocaleString()}
                   </div>
-                  <div className="font-mono text-xs text-text-muted mt-1">ARR</div>
+                  <div className="font-theme-data text-xs text-text-muted mt-1">ARR</div>
                 </div>
                 <div className="card p-6">
-                  <div className="font-mono text-xs text-text-muted mb-2">Paying Organizations</div>
-                  <div className="font-mono text-3xl text-acid-yellow">
+                  <div className="font-theme-data text-xs text-text-muted mb-2">Paying Organizations</div>
+                  <div className="font-theme-data text-3xl text-[var(--acid-yellow)]">
                     {revenue.paying_organizations}
                   </div>
-                  <div className="font-mono text-xs text-text-muted mt-1">
+                  <div className="font-theme-data text-xs text-text-muted mt-1">
                     of {revenue.total_organizations} total
                   </div>
                 </div>
                 <div className="card p-6">
-                  <div className="font-mono text-xs text-text-muted mb-2">Conversion Rate</div>
-                  <div className="font-mono text-3xl text-acid-magenta">
+                  <div className="font-theme-data text-xs text-text-muted mb-2">Conversion Rate</div>
+                  <div className="font-theme-data text-3xl text-[var(--acid-magenta)]">
                     {revenue.total_organizations > 0
                       ? ((revenue.paying_organizations / revenue.total_organizations) * 100).toFixed(1)
                       : 0}%
                   </div>
-                  <div className="font-mono text-xs text-text-muted mt-1">paying</div>
+                  <div className="font-theme-data text-xs text-text-muted mt-1">paying</div>
                 </div>
               </div>
 
               {/* Revenue by Tier */}
               <div className="card p-6 mb-6">
-                <h2 className="font-mono text-acid-green mb-4">Revenue by Tier</h2>
+                <h2 className="font-theme-data text-[var(--accent)] mb-4">Revenue by Tier</h2>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-4 py-2 border-b border-acid-green/20">
-                    <div className="w-32 font-mono text-xs text-text-muted">TIER</div>
-                    <div className="flex-1 font-mono text-xs text-text-muted">SUBSCRIBERS</div>
-                    <div className="w-16 text-right font-mono text-xs text-text-muted">COUNT</div>
-                    <div className="w-24 text-right font-mono text-xs text-text-muted">MRR</div>
+                  <div className="flex items-center gap-4 py-2 border-b border-[var(--accent)]/20">
+                    <div className="w-32 font-theme-data text-xs text-text-muted">TIER</div>
+                    <div className="flex-1 font-theme-data text-xs text-text-muted">SUBSCRIBERS</div>
+                    <div className="w-16 text-right font-theme-data text-xs text-text-muted">COUNT</div>
+                    <div className="w-24 text-right font-theme-data text-xs text-text-muted">MRR</div>
                   </div>
                   {Object.entries(revenue.tier_breakdown)
                     .sort(([, a], [, b]) => b.mrr_cents - a.mrr_cents)
@@ -270,9 +270,9 @@ export default function RevenueAdminPage() {
                       <TierBar key={tier} tier={tier} data={data} />
                     ))}
                 </div>
-                <div className="flex items-center justify-end gap-4 mt-4 pt-4 border-t border-acid-green/20">
-                  <div className="font-mono text-sm text-text-muted">Total MRR:</div>
-                  <div className="font-mono text-lg text-acid-green">
+                <div className="flex items-center justify-end gap-4 mt-4 pt-4 border-t border-[var(--accent)]/20">
+                  <div className="font-theme-data text-sm text-text-muted">Total MRR:</div>
+                  <div className="font-theme-data text-lg text-[var(--accent)]">
                     {formatCurrency(revenue.mrr_cents)}
                   </div>
                 </div>
@@ -282,20 +282,20 @@ export default function RevenueAdminPage() {
               {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="card p-4">
-                    <div className="font-mono text-xs text-text-muted">Total Users</div>
-                    <div className="font-mono text-2xl text-acid-green">{stats.total_users}</div>
+                    <div className="font-theme-data text-xs text-text-muted">Total Users</div>
+                    <div className="font-theme-data text-2xl text-[var(--accent)]">{stats.total_users}</div>
                   </div>
                   <div className="card p-4">
-                    <div className="font-mono text-xs text-text-muted">Active (24h)</div>
-                    <div className="font-mono text-2xl text-acid-cyan">{stats.users_active_24h}</div>
+                    <div className="font-theme-data text-xs text-text-muted">Active (24h)</div>
+                    <div className="font-theme-data text-2xl text-[var(--acid-cyan)]">{stats.users_active_24h}</div>
                   </div>
                   <div className="card p-4">
-                    <div className="font-mono text-xs text-text-muted">New Users (7d)</div>
-                    <div className="font-mono text-2xl text-acid-yellow">{stats.new_users_7d}</div>
+                    <div className="font-theme-data text-xs text-text-muted">New Users (7d)</div>
+                    <div className="font-theme-data text-2xl text-[var(--acid-yellow)]">{stats.new_users_7d}</div>
                   </div>
                   <div className="card p-4">
-                    <div className="font-mono text-xs text-text-muted">Debates This Month</div>
-                    <div className="font-mono text-2xl text-text">{stats.total_debates_this_month}</div>
+                    <div className="font-theme-data text-xs text-text-muted">Debates This Month</div>
+                    <div className="font-theme-data text-2xl text-text">{stats.total_debates_this_month}</div>
                   </div>
                 </div>
               )}

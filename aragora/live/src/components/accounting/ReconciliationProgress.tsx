@@ -133,7 +133,7 @@ export function ReconciliationProgress() {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
         <div>
-          <h3 className="text-sm font-mono text-[var(--acid-green)]">
+          <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
             {'>'} BANK RECONCILIATION
           </h3>
           {status?.lastRun && (
@@ -145,7 +145,7 @@ export function ReconciliationProgress() {
         <button
           onClick={handleRunReconciliation}
           disabled={running || status?.status === 'running'}
-          className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)]/10 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50"
+          className="px-4 py-2 text-xs font-theme-data bg-[var(--acid-green)]/10 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50"
         >
           {running || status?.status === 'running' ? 'Running...' : 'Run Reconciliation'}
         </button>
@@ -171,25 +171,25 @@ export function ReconciliationProgress() {
       {status?.status === 'completed' && (
         <div className="grid grid-cols-4 gap-4 p-4 border-b border-[var(--border)]">
           <div className="text-center">
-            <div className="text-2xl font-mono text-[var(--acid-green)]">
+            <div className="text-2xl font-theme-data text-[var(--acid-green)]">
               {status.matchedTransactions}
             </div>
             <div className="text-xs text-[var(--text-muted)]">Matched</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-mono text-yellow-400">
+            <div className="text-2xl font-theme-data text-yellow-400">
               {status.unmatchedBank}
             </div>
             <div className="text-xs text-[var(--text-muted)]">Bank Only</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-mono text-yellow-400">
+            <div className="text-2xl font-theme-data text-yellow-400">
               {status.unmatchedBook}
             </div>
             <div className="text-xs text-[var(--text-muted)]">Book Only</div>
           </div>
           <div className="text-center">
-            <div className="text-2xl font-mono text-red-400">
+            <div className="text-2xl font-theme-data text-red-400">
               {status.discrepancies}
             </div>
             <div className="text-xs text-[var(--text-muted)]">Discrepancies</div>
@@ -202,7 +202,7 @@ export function ReconciliationProgress() {
         {summaries.map(summary => (
           <div key={summary.period} className="p-4 flex items-center justify-between">
             <div>
-              <div className="text-sm font-mono">{summary.period}</div>
+              <div className="text-sm font-theme-data">{summary.period}</div>
               <div className="text-xs text-[var(--text-muted)] mt-1">
                 Match rate: {summary.matchRate.toFixed(1)}%
               </div>
@@ -210,15 +210,15 @@ export function ReconciliationProgress() {
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <div className="text-xs text-[var(--text-muted)]">Bank</div>
-                <div className="text-sm font-mono">${summary.bankBalance.toLocaleString()}</div>
+                <div className="text-sm font-theme-data">${summary.bankBalance.toLocaleString()}</div>
               </div>
               <div className="text-right">
                 <div className="text-xs text-[var(--text-muted)]">Book</div>
-                <div className="text-sm font-mono">${summary.bookBalance.toLocaleString()}</div>
+                <div className="text-sm font-theme-data">${summary.bookBalance.toLocaleString()}</div>
               </div>
               <div className="text-right min-w-[80px]">
                 <div className="text-xs text-[var(--text-muted)]">Difference</div>
-                <div className={`text-sm font-mono ${
+                <div className={`text-sm font-theme-data ${
                   summary.difference === 0 ? 'text-green-400' :
                   Math.abs(summary.difference) < 10 ? 'text-yellow-400' : 'text-red-400'
                 }`}>
@@ -227,17 +227,17 @@ export function ReconciliationProgress() {
               </div>
               <div>
                 {summary.status === 'reconciled' && (
-                  <span className="px-2 py-1 text-xs font-mono bg-green-500/10 border border-green-500/30 rounded text-green-400">
+                  <span className="px-2 py-1 text-xs font-theme-data bg-green-500/10 border border-green-500/30 rounded text-green-400">
                     Reconciled
                   </span>
                 )}
                 {summary.status === 'pending' && (
-                  <span className="px-2 py-1 text-xs font-mono bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400">
+                  <span className="px-2 py-1 text-xs font-theme-data bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-400">
                     Pending
                   </span>
                 )}
                 {summary.status === 'issues' && (
-                  <span className="px-2 py-1 text-xs font-mono bg-red-500/10 border border-red-500/30 rounded text-red-400">
+                  <span className="px-2 py-1 text-xs font-theme-data bg-red-500/10 border border-red-500/30 rounded text-red-400">
                     Issues
                   </span>
                 )}
@@ -253,12 +253,12 @@ export function ReconciliationProgress() {
           <div className="flex items-center gap-3">
             <span className="text-xl">🤖</span>
             <div className="flex-1">
-              <div className="text-sm font-mono text-[var(--acid-green)]">AI Resolution Available</div>
+              <div className="text-sm font-theme-data text-[var(--acid-green)]">AI Resolution Available</div>
               <p className="text-xs text-[var(--text-muted)]">
                 {status.discrepancies} discrepancies can be analyzed by multi-agent debate
               </p>
             </div>
-            <button className="px-4 py-2 text-xs font-mono bg-[var(--acid-green)]/10 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/20 transition-colors">
+            <button className="px-4 py-2 text-xs font-theme-data bg-[var(--acid-green)]/10 border border-[var(--acid-green)]/40 text-[var(--acid-green)] rounded hover:bg-[var(--acid-green)]/20 transition-colors">
               Analyze Discrepancies
             </button>
           </div>

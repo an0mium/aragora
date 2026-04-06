@@ -188,7 +188,7 @@ export default function OnboardingPage() {
       {/* Minimal nav */}
       <nav className="border-b border-border bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="font-mono text-acid-green font-bold text-sm tracking-wider">
+          <Link href="/" className="font-theme-data text-[var(--accent)] font-bold text-sm tracking-wider">
             ARAGORA
           </Link>
           <div className="flex items-center gap-3">
@@ -196,13 +196,13 @@ export default function OnboardingPage() {
               <>
                 <Link
                   href="/login"
-                  className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                  className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
                 >
                   LOG IN
                 </Link>
                 <Link
                   href="/signup"
-                  className="text-xs font-mono px-3 py-1.5 bg-acid-green text-bg hover:bg-acid-green/80 transition-colors font-bold"
+                  className="text-xs font-theme-data px-3 py-1.5 bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors font-bold"
                 >
                   SIGN UP
                 </Link>
@@ -221,24 +221,24 @@ export default function OnboardingPage() {
                 key={s}
                 className={`h-2 rounded-full transition-all ${
                   s === step
-                    ? 'w-8 bg-acid-green'
+                    ? 'w-8 bg-[var(--accent)]'
                     : i < ['role', 'question', 'launch'].indexOf(step)
-                    ? 'w-2 bg-acid-green/60'
+                    ? 'w-2 bg-[var(--accent)]/60'
                     : 'w-2 bg-border'
                 }`}
               />
             ))}
           </div>
 
-          <div className="border border-acid-green/30 bg-surface/50 p-8">
+          <div className="border border-[var(--accent)]/30 bg-surface/50 p-8">
             {/* ── STEP 1: Role ── */}
             {step === 'role' && (
               <div className="space-y-6">
                 <div className="text-center">
-                  <h1 className="text-xl font-mono text-acid-green mb-2">
+                  <h1 className="text-xl font-theme-data text-[var(--accent)] mb-2">
                     Welcome to Aragora
                   </h1>
-                  <p className="text-sm font-mono text-text-muted">
+                  <p className="text-sm font-theme-data text-text-muted">
                     What is your role? This helps us tailor suggestions for you.
                   </p>
                 </div>
@@ -250,13 +250,13 @@ export default function OnboardingPage() {
                       onClick={() => handleRoleSelect(role.value)}
                       className={`text-left p-4 border transition-colors ${
                         selectedRole === role.value
-                          ? 'border-acid-green bg-acid-green/10'
-                          : 'border-border bg-surface hover:border-acid-green/50'
+                          ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                          : 'border-border bg-surface hover:border-[var(--accent)]/50'
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-acid-cyan text-lg">{role.icon}</span>
-                        <span className="font-mono text-sm text-text">{role.label}</span>
+                        <span className="font-theme-data text-[var(--acid-cyan)] text-lg">{role.icon}</span>
+                        <span className="font-theme-data text-sm text-text">{role.label}</span>
                       </div>
                     </button>
                   ))}
@@ -265,7 +265,7 @@ export default function OnboardingPage() {
                 <div className="text-center">
                   <button
                     onClick={handleSkip}
-                    className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                    className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
                   >
                     [SKIP TO DASHBOARD]
                   </button>
@@ -277,10 +277,10 @@ export default function OnboardingPage() {
             {step === 'question' && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-xl font-mono text-acid-green mb-2">
+                  <h2 className="text-xl font-theme-data text-[var(--accent)] mb-2">
                     What decision do you need help with?
                   </h2>
-                  <p className="text-sm font-mono text-text-muted">
+                  <p className="text-sm font-theme-data text-text-muted">
                     Type a question or pick one of our suggestions. AI agents will debate it from every angle.
                   </p>
                 </div>
@@ -291,14 +291,14 @@ export default function OnboardingPage() {
                     onChange={(e) => setQuestion(e.target.value)}
                     placeholder="e.g., Should we migrate to microservices?"
                     rows={3}
-                    className="w-full bg-bg border border-acid-green/30 text-text px-4 py-3 font-mono text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-acid-green transition-colors resize-none"
+                    className="w-full bg-bg border border-[var(--accent)]/30 text-text px-4 py-3 font-theme-data text-sm placeholder:text-text-muted/50 focus:outline-none focus:border-[var(--accent)] transition-colors resize-none"
                     autoFocus
                   />
                 </div>
 
                 {/* Suggestions */}
                 <div>
-                  <span className="text-xs font-mono text-text-muted block mb-2">
+                  <span className="text-xs font-theme-data text-text-muted block mb-2">
                     SUGGESTED QUESTIONS:
                   </span>
                   <div className="flex flex-col gap-2">
@@ -306,7 +306,7 @@ export default function OnboardingPage() {
                       <button
                         key={s}
                         onClick={() => setQuestion(s)}
-                        className="text-left px-3 py-2 text-xs font-mono border border-acid-cyan/20 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                        className="text-left px-3 py-2 text-xs font-theme-data border border-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                       >
                         {s}
                       </button>
@@ -317,14 +317,14 @@ export default function OnboardingPage() {
                 <div className="flex items-center justify-between">
                   <button
                     onClick={() => setStep('role')}
-                    className="text-sm font-mono text-text-muted hover:text-acid-green transition-colors"
+                    className="text-sm font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
                   >
                     &larr; BACK
                   </button>
                   <button
                     onClick={handleQuestionNext}
                     disabled={question.trim().length < 5}
-                    className="px-6 py-2.5 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-2.5 bg-[var(--accent)] text-bg font-theme-data text-sm font-bold hover:bg-[var(--accent)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     CONTINUE &rarr;
                   </button>
@@ -336,10 +336,10 @@ export default function OnboardingPage() {
             {step === 'launch' && (
               <div className="space-y-6">
                 <div className="text-center">
-                  <h2 className="text-xl font-mono text-acid-green mb-2">
+                  <h2 className="text-xl font-theme-data text-[var(--accent)] mb-2">
                     Launch Your First Debate
                   </h2>
-                  <p className="text-sm font-mono text-text-muted">
+                  <p className="text-sm font-theme-data text-text-muted">
                     Three AI agents will debate your question from different angles,
                     then deliver a verdict with evidence.
                   </p>
@@ -347,21 +347,21 @@ export default function OnboardingPage() {
 
                 {/* Preview */}
                 <div className="border border-border bg-bg p-4">
-                  <div className="text-[10px] font-mono text-text-muted uppercase mb-1">YOUR QUESTION</div>
-                  <p className="text-sm font-mono text-text">{question}</p>
+                  <div className="text-[10px] font-theme-data text-text-muted uppercase mb-1">YOUR QUESTION</div>
+                  <p className="text-sm font-theme-data text-text">{question}</p>
                 </div>
 
                 {/* What happens next */}
                 <div className="space-y-2">
-                  <div className="text-xs font-mono text-text-muted uppercase mb-1">WHAT HAPPENS NEXT:</div>
+                  <div className="text-xs font-theme-data text-text-muted uppercase mb-1">WHAT HAPPENS NEXT:</div>
                   {[
                     'Claude, GPT, and Mistral will each propose an answer',
                     'They will critique and red-team each other',
                     'A consensus verdict will be generated with confidence scores',
                     'You will receive an audit-ready decision receipt',
                   ].map((s, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs font-mono">
-                      <span className="text-acid-green mt-0.5">{i + 1}.</span>
+                    <div key={i} className="flex items-start gap-2 text-xs font-theme-data">
+                      <span className="text-[var(--accent)] mt-0.5">{i + 1}.</span>
                       <span className="text-text-muted">{s}</span>
                     </div>
                   ))}
@@ -369,8 +369,8 @@ export default function OnboardingPage() {
 
                 {/* Auth prompt for unauthenticated users */}
                 {!isAuthenticated && (
-                  <div className="border border-acid-cyan/30 bg-acid-cyan/5 p-3">
-                    <p className="text-xs font-mono text-acid-cyan">
+                  <div className="border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 p-3">
+                    <p className="text-xs font-theme-data text-[var(--acid-cyan)]">
                       You will need to sign up (free) to launch the debate. Your question will be saved.
                     </p>
                   </div>
@@ -378,7 +378,7 @@ export default function OnboardingPage() {
 
                 {/* Error */}
                 {error && (
-                  <div className="border border-crimson/50 bg-crimson/10 p-3 text-sm font-mono text-crimson">
+                  <div className="border border-[var(--crimson)]/50 bg-[var(--crimson)]/10 p-3 text-sm font-theme-data text-[var(--crimson)]">
                     {error}
                   </div>
                 )}
@@ -387,14 +387,14 @@ export default function OnboardingPage() {
                   <button
                     onClick={() => setStep('question')}
                     disabled={isLaunching}
-                    className="text-sm font-mono text-text-muted hover:text-acid-green transition-colors disabled:opacity-50"
+                    className="text-sm font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors disabled:opacity-50"
                   >
                     &larr; EDIT QUESTION
                   </button>
                   <button
                     onClick={handleLaunchDebate}
                     disabled={isLaunching}
-                    className="px-8 py-3 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-3 bg-[var(--accent)] text-bg font-theme-data text-sm font-bold hover:bg-[var(--accent)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLaunching
                       ? 'LAUNCHING...'

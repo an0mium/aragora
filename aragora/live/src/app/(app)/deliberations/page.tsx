@@ -159,25 +159,25 @@ export default function DeliberationsPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <div className="border-b border-acid-green/20 bg-surface/40">
+        <div className="border-b border-[var(--accent)]/20 bg-surface/40">
           <div className="container mx-auto px-4 py-6">
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-2xl font-mono text-acid-green mb-2">
+                <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                   Debate Dashboard
                 </h1>
-                <p className="text-text-muted font-mono text-sm">
+                <p className="text-text-muted font-theme-data text-sm">
                   Real-time view of AI debate sessions across your organization
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 {wsConnected ? (
-                  <span className="flex items-center gap-2 px-3 py-1 bg-success/10 border border-success/30 text-success text-xs font-mono">
+                  <span className="flex items-center gap-2 px-3 py-1 bg-success/10 border border-success/30 text-success text-xs font-theme-data">
                     <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
                     LIVE
                   </span>
                 ) : (
-                  <span className="flex items-center gap-2 px-3 py-1 bg-acid-yellow/10 border border-acid-yellow/30 text-acid-yellow text-xs font-mono">
+                  <span className="flex items-center gap-2 px-3 py-1 bg-acid-yellow/10 border border-acid-yellow/30 text-[var(--acid-yellow)] text-xs font-theme-data">
                     <span className="w-2 h-2 rounded-full bg-acid-yellow" />
                     POLLING
                   </span>
@@ -199,21 +199,21 @@ export default function DeliberationsPage() {
             </div>
 
             {/* Filter tabs */}
-            <div className="flex items-center gap-4 border-b border-acid-green/20 pb-4">
-              <span className="text-xs font-mono text-text-muted uppercase">Filter:</span>
+            <div className="flex items-center gap-4 border-b border-[var(--accent)]/20 pb-4">
+              <span className="text-xs font-theme-data text-text-muted uppercase">Filter:</span>
               {(['all', 'active', 'complete'] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-3 py-1 text-xs font-mono uppercase transition-colors ${
+                  className={`px-3 py-1 text-xs font-theme-data uppercase transition-colors ${
                     filter === f
-                      ? 'bg-acid-green/20 text-acid-green border border-acid-green/40'
+                      ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40'
                       : 'text-text-muted hover:text-text border border-transparent'
                   }`}
                 >
                   {f}
                   {f === 'active' && (
-                    <span className="ml-1 text-acid-cyan">
+                    <span className="ml-1 text-[var(--acid-cyan)]">
                       ({deliberations.filter(d => d.status === 'active' || d.status === 'consensus_forming').length})
                     </span>
                   )}
@@ -231,8 +231,8 @@ export default function DeliberationsPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

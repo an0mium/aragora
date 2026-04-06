@@ -13,7 +13,7 @@ export interface JobMonitorProps {
 const STATUS_COLORS: Record<FineTuningJob['status'], { bg: string; text: string }> = {
   queued: { bg: 'bg-yellow-900/30', text: 'text-yellow-400' },
   preparing: { bg: 'bg-cyan-900/30', text: 'text-cyan-400' },
-  training: { bg: 'bg-acid-green/20', text: 'text-acid-green' },
+  training: { bg: 'bg-[var(--accent)]/20', text: 'text-[var(--accent)]' },
   completed: { bg: 'bg-green-900/30', text: 'text-green-400' },
   failed: { bg: 'bg-red-900/30', text: 'text-red-400' },
   cancelled: { bg: 'bg-gray-900/30', text: 'text-gray-400' },
@@ -65,9 +65,9 @@ export function JobMonitor({
           <button
             key={status}
             onClick={() => setStatusFilter(status)}
-            className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
+            className={`px-2 py-1 text-xs font-theme-data rounded transition-colors ${
               statusFilter === status
-                ? 'bg-acid-green text-bg'
+                ? 'bg-[var(--accent)] text-bg'
                 : 'bg-surface text-text-muted hover:text-text'
             }`}
           >
@@ -91,7 +91,7 @@ export function JobMonitor({
               <div
                 key={job.id}
                 className={`bg-bg border rounded-lg overflow-hidden transition-all ${
-                  isExpanded ? 'border-acid-green' : 'border-border'
+                  isExpanded ? 'border-[var(--accent)]' : 'border-border'
                 }`}
               >
                 {/* Job Header */}
@@ -106,12 +106,12 @@ export function JobMonitor({
                         dangerouslySetInnerHTML={{ __html: VERTICAL_ICONS[job.vertical] || '&#x1F4BB;' }}
                       />
                       <div>
-                        <h4 className="font-mono font-bold text-text">{job.name}</h4>
+                        <h4 className="font-theme-data font-bold text-text">{job.name}</h4>
                         <p className="text-xs text-text-muted mt-0.5">{job.baseModel}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className={`px-2 py-1 text-xs font-mono uppercase rounded ${colors.bg} ${colors.text}`}>
+                      <span className={`px-2 py-1 text-xs font-theme-data uppercase rounded ${colors.bg} ${colors.text}`}>
                         {job.status}
                       </span>
                     </div>
@@ -125,19 +125,19 @@ export function JobMonitor({
                           Epoch {job.currentEpoch || 1}/{job.totalEpochs || 3}
                           {job.currentStep && ` | Step ${job.currentStep}/${job.totalSteps}`}
                         </span>
-                        <span className="font-mono text-acid-green">
+                        <span className="font-theme-data text-[var(--accent)]">
                           {Math.round(job.progress * 100)}%
                         </span>
                       </div>
                       <div className="h-2 bg-surface rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-acid-green transition-all duration-500"
+                          className="h-full bg-[var(--accent)] transition-all duration-500"
                           style={{ width: `${job.progress * 100}%` }}
                         />
                       </div>
                       {job.loss !== undefined && (
                         <div className="text-xs text-text-muted mt-1">
-                          Loss: <span className="font-mono text-cyan-400">{job.loss.toFixed(4)}</span>
+                          Loss: <span className="font-theme-data text-cyan-400">{job.loss.toFixed(4)}</span>
                         </div>
                       )}
                     </div>
@@ -150,35 +150,35 @@ export function JobMonitor({
                     <div className="grid grid-cols-2 gap-4 text-xs">
                       <div>
                         <span className="text-text-muted">Training Examples:</span>
-                        <span className="font-mono text-text ml-2">{job.trainingExamples.toLocaleString()}</span>
+                        <span className="font-theme-data text-text ml-2">{job.trainingExamples.toLocaleString()}</span>
                       </div>
                       <div>
                         <span className="text-text-muted">Duration:</span>
-                        <span className="font-mono text-text ml-2">
+                        <span className="font-theme-data text-text ml-2">
                           {formatDuration(job.startedAt, job.completedAt)}
                         </span>
                       </div>
                       <div>
                         <span className="text-text-muted">Started:</span>
-                        <span className="font-mono text-text ml-2">{formatDate(job.startedAt)}</span>
+                        <span className="font-theme-data text-text ml-2">{formatDate(job.startedAt)}</span>
                       </div>
                       <div>
                         <span className="text-text-muted">Completed:</span>
-                        <span className="font-mono text-text ml-2">{formatDate(job.completedAt)}</span>
+                        <span className="font-theme-data text-text ml-2">{formatDate(job.completedAt)}</span>
                       </div>
                     </div>
 
                     {job.outputPath && (
                       <div className="mt-3 p-2 bg-surface border border-border rounded">
                         <span className="text-xs text-text-muted">Output:</span>
-                        <code className="block text-xs font-mono text-acid-cyan mt-1">{job.outputPath}</code>
+                        <code className="block text-xs font-theme-data text-[var(--acid-cyan)] mt-1">{job.outputPath}</code>
                       </div>
                     )}
 
                     {job.error && (
                       <div className="mt-3 p-2 bg-red-900/20 border border-red-800/30 rounded">
                         <span className="text-xs text-red-400">Error:</span>
-                        <code className="block text-xs font-mono text-red-300 mt-1">{job.error}</code>
+                        <code className="block text-xs font-theme-data text-red-300 mt-1">{job.error}</code>
                       </div>
                     )}
 
@@ -187,7 +187,7 @@ export function JobMonitor({
                       {(job.status === 'training' || job.status === 'preparing' || job.status === 'queued') && (
                         <button
                           onClick={() => onCancelJob?.(job.id)}
-                          className="px-3 py-1.5 text-xs font-mono bg-red-900/30 text-red-400 border border-red-800/30 rounded hover:bg-red-900/50 transition-colors"
+                          className="px-3 py-1.5 text-xs font-theme-data bg-red-900/30 text-red-400 border border-red-800/30 rounded hover:bg-red-900/50 transition-colors"
                         >
                           Cancel
                         </button>
@@ -195,14 +195,14 @@ export function JobMonitor({
                       {job.status === 'completed' && job.outputPath && (
                         <button
                           onClick={() => onViewJob?.(job)}
-                          className="px-3 py-1.5 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/30 rounded hover:bg-acid-green/30 transition-colors"
+                          className="px-3 py-1.5 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30 rounded hover:bg-[var(--accent)]/30 transition-colors"
                         >
                           Load Adapter
                         </button>
                       )}
                       <button
                         onClick={() => onViewJob?.(job)}
-                        className="px-3 py-1.5 text-xs font-mono bg-surface border border-border rounded hover:border-text-muted transition-colors"
+                        className="px-3 py-1.5 text-xs font-theme-data bg-surface border border-border rounded hover:border-text-muted transition-colors"
                       >
                         View Details
                       </button>

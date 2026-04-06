@@ -31,7 +31,7 @@ import { useRightSidebar } from '@/context/RightSidebarContext';
 import { useLayout } from '@/context/LayoutContext';
 import { useTheme } from '@/context/ThemeContext';
 import { HeroSection } from '@/components/landing/HeroSection';
-import { LandingPage } from '@/components/LandingPage';
+import { LandingPage } from '@/components/landing/LandingPage';
 import { DebateResultPreview, type DebateResponse } from '@/components/DebateResultPreview';
 import { RecentReceipts } from '@/components/RecentReceipts';
 import { DebateThisButton } from '@/components/DebateThisButton';
@@ -40,7 +40,6 @@ import { DashboardFooter } from './components';
 import { useAuth } from '@/context/AuthContext';
 import { DEFAULT_AGENTS } from '@/config';
 import { ArgumentGraph } from '@/components/debate/ArgumentGraph';
-import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 // Dynamic imports - code-split for bundle size optimization
 import {
@@ -396,34 +395,12 @@ export default function Home() {
   // If authLoading is still true (first render before useEffect), show landing page
   // rather than a blank spinner. Once auth resolves, the appropriate view renders.
   if (authLoading && !isAuthenticated) {
-    return (
-      <LandingPage
-        apiBase={apiBase}
-        wsUrl={wsUrl}
-        onEnterDashboard={() => router.push('/auth/login')}
-      />
-    );
+    return <LandingPage />;
   }
 
   // Show marketing landing page for unauthenticated visitors (skip in demo mode)
   if (!isAuthenticated && !isDemoMode) {
-    // Store the current path so the user is redirected back after login
-    const currentPath = typeof window !== 'undefined'
-      ? normalizeReturnUrl(window.location.pathname + window.location.search)
-      : '/';
-    const handleEnterDashboard = () => {
-      if (currentPath && currentPath !== '/' && currentPath !== '/auth/login') {
-        sessionStorage.setItem(RETURN_URL_STORAGE_KEY, currentPath);
-      }
-      router.push('/auth/login');
-    };
-    return (
-      <LandingPage
-        apiBase={apiBase}
-        wsUrl={wsUrl}
-        onEnterDashboard={handleEnterDashboard}
-      />
-    );
+    return <LandingPage />;
   }
 
   // Simple mode: clean dashboard with just debate input + recent debates
@@ -435,7 +412,7 @@ export default function Home() {
           <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
             {isNewUser && (
               <div className="border border-[var(--acid-green)]/30 bg-[var(--surface)]/50 p-4 rounded-[var(--radius-sm)] flex items-start justify-between gap-3">
-                <p className="font-mono text-sm text-[var(--text-muted)]">
+                <p className="font-theme-data text-sm text-[var(--text-muted)]">
                   Welcome to Aragora. Start your first decision below — agents will debate and deliver a verdict.
                 </p>
                 <button
@@ -458,7 +435,7 @@ export default function Home() {
             />
             {/* Quick Debate shortcut */}
             <div className="flex items-center gap-3 px-1 flex-wrap">
-              <span className="text-xs font-mono text-[var(--text-muted)]">Try:</span>
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">Try:</span>
               <DebateThisButton question="Should we build or buy our analytics platform?" source="dashboard" variant="button" />
               <DebateThisButton question="Is remote work better than hybrid for a 50-person team?" source="dashboard" variant="button" />
             </div>
@@ -466,7 +443,7 @@ export default function Home() {
             {pendingDebateResult && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h2 className="font-mono text-sm text-[var(--acid-green)]">Your debate result</h2>
+                  <h2 className="font-theme-data text-sm text-[var(--acid-green)]">Your debate result</h2>
                   <button
                     onClick={() => setPendingDebateResult(null)}
                     className="w-6 h-6 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--acid-green)] hover:bg-[var(--surface-elevated)] rounded transition-colors shrink-0"
@@ -533,8 +510,8 @@ export default function Home() {
         <div className="border-b border-[var(--border)] bg-[var(--surface)]/50 px-4 py-2">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-[var(--text-muted)]">VIEW:</span>
-              <div className="flex items-center gap-0.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-sm)] p-0.5 font-mono text-xs">
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">VIEW:</span>
+              <div className="flex items-center gap-0.5 bg-[var(--bg)] border border-[var(--border)] rounded-[var(--radius-sm)] p-0.5 font-theme-data text-xs">
                 <button
                   onClick={() => setViewMode('tabs')}
                   className={`px-2.5 py-1 rounded-[3px] transition-colors ${
@@ -582,7 +559,7 @@ export default function Home() {
                 <select
                   value={selectedLoopId || ''}
                   onChange={(e) => selectLoop(e.target.value)}
-                  className="text-xs font-mono bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] px-2 py-1 rounded"
+                  className="text-xs font-theme-data bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] px-2 py-1 rounded"
                 >
                   <option value="">Select loop...</option>
                   {activeLoops.map((loop) => (
@@ -594,11 +571,11 @@ export default function Home() {
               )}
               <button
                 onClick={() => setShowCompare(true)}
-                className="text-xs font-mono text-[var(--acid-cyan)] hover:text-[var(--acid-green)] transition-colors"
+                className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--acid-green)] transition-colors"
               >
                 [COMPARE]
               </button>
-              <span className={`text-xs font-mono ${connected ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
+              <span className={`text-xs font-theme-data ${connected ? 'text-[var(--acid-green)]' : 'text-[var(--text-muted)]'}`}>
                 {connected ? '● LIVE' : '○ OFFLINE'}
               </span>
             </div>
@@ -621,13 +598,13 @@ export default function Home() {
 
         {/* Show login prompt for unauthenticated users */}
         {!isAuthenticated && (
-          <div className="bg-surface/50 border border-acid-green/30 rounded-lg p-6 text-center">
-            <p className="text-text-muted font-mono text-sm mb-4">
+          <div className="bg-surface/50 border border-[var(--accent)]/30 rounded-lg p-6 text-center">
+            <p className="text-text-muted font-theme-data text-sm mb-4">
               Log in to access the full dashboard with debate history, analytics, and agent rankings.
             </p>
             <a
               href="/auth/login"
-              className="inline-block px-4 py-2 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/80 transition-colors"
+              className="inline-block px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm hover:bg-[var(--accent)]/80 transition-colors"
             >
               LOG IN
             </a>
@@ -658,17 +635,17 @@ export default function Home() {
 
             {/* Self-Improvement Quick Launch */}
             {isFeatureVisible('standard') && (
-              <div className="border border-acid-cyan/30 bg-acid-cyan/5 rounded-lg p-4">
+              <div className="border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h2 className="font-mono text-sm font-bold text-acid-cyan">SELF-IMPROVEMENT</h2>
-                    <p className="text-xs text-text-muted font-mono mt-0.5">
+                    <h2 className="font-theme-data text-sm font-bold text-[var(--acid-cyan)]">SELF-IMPROVEMENT</h2>
+                    <p className="text-xs text-text-muted font-theme-data mt-0.5">
                       Debates feed back into system learning
                     </p>
                   </div>
                   <button
                     onClick={() => router.push('/self-improve')}
-                    className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                    className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
                   >
                     [VIEW]
                   </button>
@@ -676,14 +653,14 @@ export default function Home() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => router.push('/self-improve')}
-                    className="px-3 py-2 bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan text-xs font-mono rounded hover:bg-acid-cyan/20 transition-colors"
+                    className="px-3 py-2 bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] text-xs font-theme-data rounded hover:bg-[var(--acid-cyan)]/20 transition-colors"
                   >
                     View Learning Feed
                   </button>
                   {currentDebateId && (
                     <button
                       onClick={() => router.push(`/self-improve?from=debate&id=${currentDebateId}`)}
-                      className="px-3 py-2 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs font-mono rounded hover:bg-violet-600/30 transition-colors"
+                      className="px-3 py-2 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs font-theme-data rounded hover:bg-violet-600/30 transition-colors"
                     >
                       Improve from Current Debate
                     </button>
@@ -697,14 +674,14 @@ export default function Home() {
               <div className="border border-border bg-surface/50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <h2 className="font-mono text-sm font-bold text-text">PIPELINE</h2>
-                    <p className="text-xs text-text-muted font-mono mt-0.5">
+                    <h2 className="font-theme-data text-sm font-bold text-text">PIPELINE</h2>
+                    <p className="text-xs text-text-muted font-theme-data mt-0.5">
                       Ideas &rarr; Goals &rarr; Actions &rarr; Orchestration
                     </p>
                   </div>
                   <button
                     onClick={() => router.push('/pipeline')}
-                    className="text-xs font-mono text-acid-green hover:text-acid-cyan transition-colors"
+                    className="text-xs font-theme-data text-[var(--accent)] hover:text-[var(--acid-cyan)] transition-colors"
                   >
                     [VIEW ALL]
                   </button>
@@ -712,20 +689,20 @@ export default function Home() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => router.push('/pipeline')}
-                    className="px-3 py-2 bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-mono rounded hover:bg-indigo-600/30 transition-colors"
+                    className="px-3 py-2 bg-indigo-600/20 border border-indigo-500/30 text-indigo-300 text-xs font-theme-data rounded hover:bg-indigo-600/30 transition-colors"
                   >
                     New Pipeline
                   </button>
                   <button
                     onClick={() => router.push('/pipeline?demo=true')}
-                    className="px-3 py-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs font-mono rounded hover:bg-emerald-600/30 transition-colors"
+                    className="px-3 py-2 bg-emerald-600/20 border border-emerald-500/30 text-emerald-300 text-xs font-theme-data rounded hover:bg-emerald-600/30 transition-colors"
                   >
                     Try Demo
                   </button>
                   {currentDebateId && (
                     <button
                       onClick={() => router.push(`/pipeline?from=debate&id=${currentDebateId}`)}
-                      className="px-3 py-2 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs font-mono rounded hover:bg-violet-600/30 transition-colors"
+                      className="px-3 py-2 bg-violet-600/20 border border-violet-500/30 text-violet-300 text-xs font-theme-data rounded hover:bg-violet-600/30 transition-colors"
                     >
                       From Current Debate
                     </button>
@@ -1102,22 +1079,22 @@ export default function Home() {
 
             {/* Mode Hints */}
             {(isFocusMode || progressiveMode !== 'expert') && (
-              <div className="mt-4 p-3 border border-acid-green/20 rounded-lg bg-surface/20 text-center space-y-2">
+              <div className="mt-4 p-3 border border-[var(--accent)]/20 rounded-lg bg-surface/20 text-center space-y-2">
                 {isFocusMode && (
                   <>
-                    <p className="text-xs font-mono text-text-muted">
+                    <p className="text-xs font-theme-data text-text-muted">
                       Some sections are collapsed in Focus Mode
                     </p>
                     <button
                       onClick={() => setMode('explorer')}
-                      className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                      className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
                     >
                       [SWITCH TO EXPLORER MODE]
                     </button>
                   </>
                 )}
                 {progressiveMode !== 'expert' && (
-                  <p className="text-xs font-mono text-text-muted/60">
+                  <p className="text-xs font-theme-data text-text-muted/60">
                     Mode: {progressiveMode.toUpperCase()} - Use mode selector for more features
                   </p>
                 )}

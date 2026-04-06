@@ -620,6 +620,7 @@ class TestGetInboxMessages:
             store=store,
             signer=signer,
         )
+        sample_message.email_id = f"test-{sample_message.email_id}"
 
         service.create_receipt(
             ActionIntent.create(

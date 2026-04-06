@@ -122,16 +122,16 @@ export function ChannelSelector({
             disabled={!channel.configured}
             className={`p-4 rounded-lg border text-left transition-all ${
               selectedChannel === channel.type
-                ? 'border-acid-green bg-acid-green/10'
+                ? 'border-[var(--accent)] bg-[var(--accent)]/10'
                 : channel.configured
-                  ? 'border-border hover:border-acid-green/50 bg-surface'
+                  ? 'border-border hover:border-[var(--accent)]/50 bg-surface'
                   : 'border-border bg-surface opacity-50 cursor-not-allowed'
             }`}
           >
             <div className="flex items-center gap-3">
               <span className="text-2xl">{channel.icon}</span>
               <div>
-                <div className="font-mono text-sm font-medium">
+                <div className="font-theme-data text-sm font-medium">
                   {channel.name}
                 </div>
                 <div className="text-xs text-text-muted">
@@ -151,7 +151,7 @@ export function ChannelSelector({
       {/* Destination Selector */}
       {showDestinations && selectedChannelData?.destinations && (
         <div className="p-4 bg-surface rounded-lg border border-border">
-          <div className="text-sm font-mono font-medium mb-3">
+          <div className="text-sm font-theme-data font-medium mb-3">
             Select Destination
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -161,7 +161,7 @@ export function ChannelSelector({
                 onClick={() => onDestinationSelect(dest.id)}
                 className={`w-full p-3 rounded text-left transition-colors ${
                   selectedDestination === dest.id
-                    ? 'bg-acid-green/20 border border-acid-green'
+                    ? 'bg-[var(--accent)]/20 border border-[var(--accent)]'
                     : 'bg-bg hover:bg-surface-lighter'
                 }`}
               >
@@ -169,7 +169,7 @@ export function ChannelSelector({
                   <span className="text-xs text-text-muted">
                     {dest.type === 'channel' ? '#' : dest.type === 'user' ? '@' : '@'}
                   </span>
-                  <span className="font-mono text-sm">{dest.name}</span>
+                  <span className="font-theme-data text-sm">{dest.name}</span>
                 </div>
               </button>
             ))}
@@ -182,7 +182,7 @@ export function ChannelSelector({
         <div className="p-4 bg-surface rounded-lg border border-border">
           <label
             htmlFor="manual-destination-input"
-            className="block text-sm font-mono font-medium mb-2"
+            className="block text-sm font-theme-data font-medium mb-2"
           >
             {manualDestinationConfig.label}
           </label>
@@ -193,7 +193,7 @@ export function ChannelSelector({
             placeholder={manualDestinationConfig.placeholder}
             onChange={(e) => onDestinationSelect(e.target.value)}
             className="w-full px-3 py-2 text-sm bg-bg border border-border rounded
-                       focus:border-acid-green focus:outline-none font-mono"
+                       focus:border-[var(--accent)] focus:outline-none font-theme-data"
           />
           <p className="mt-2 text-xs text-text-muted">{manualDestinationConfig.helper}</p>
         </div>

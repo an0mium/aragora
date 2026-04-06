@@ -20,20 +20,20 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
   return (
     <div className="space-y-6">
       {/* Debate Header */}
-      <div className="bg-surface border border-acid-green/30 p-6">
+      <div className="bg-surface border border-[var(--accent)]/30 p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-xs text-text-muted font-mono mb-2">
+            <div className="text-xs text-text-muted font-theme-data mb-2">
               DEBATE {'// '}CYCLE {debate.cycle_number} {'// '}{debate.phase.toUpperCase()}
             </div>
-            <h1 className="text-lg font-mono text-acid-green mb-4">{debate.task}</h1>
+            <h1 className="text-lg font-theme-data text-[var(--accent)] mb-4">{debate.task}</h1>
             <div className="flex flex-wrap gap-2">
               {debate.agents.map((agent) => {
                 const colors = getAgentColors(agent);
                 return (
                   <span
                     key={agent}
-                    className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
+                    className={`px-2 py-1 text-xs font-theme-data ${colors.bg} ${colors.text} ${colors.border} border`}
                   >
                     {agent}
                   </span>
@@ -46,7 +46,7 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
             <div className="flex gap-2">
               <button
                 onClick={() => setShowForkPanel(!showForkPanel)}
-                className={`px-3 py-1 text-xs font-mono transition-colors ${
+                className={`px-3 py-1 text-xs font-theme-data transition-colors ${
                   showForkPanel
                     ? 'bg-accent text-bg hover:bg-accent/80'
                     : 'bg-surface border border-accent/50 text-accent hover:bg-accent/10'
@@ -56,32 +56,32 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
               </button>
               <button
                 onClick={onShare}
-                className="px-3 py-1 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+                className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors"
               >
                 {copied ? '[COPIED!]' : '[SHARE LINK]'}
               </button>
             </div>
-            <div className="text-xs text-text-muted font-mono">
+            <div className="text-xs text-text-muted font-theme-data">
               {new Date(debate.created_at).toLocaleString()}
             </div>
           </div>
         </div>
 
         {/* Consensus Status */}
-        <div className="mt-4 pt-4 border-t border-acid-green/20 flex items-center gap-4">
+        <div className="mt-4 pt-4 border-t border-[var(--accent)]/20 flex items-center gap-4">
           <div className="flex items-center gap-2">
             <span
               className={`w-2 h-2 rounded-full ${debate.consensus_reached ? 'bg-green-400' : 'bg-yellow-400'}`}
             />
-            <span className="text-xs font-mono text-text-muted">
+            <span className="text-xs font-theme-data text-text-muted">
               {debate.consensus_reached ? 'CONSENSUS REACHED' : 'NO CONSENSUS'}
             </span>
           </div>
-          <div className="text-xs font-mono text-text-muted">
+          <div className="text-xs font-theme-data text-text-muted">
             CONFIDENCE: {Math.round(debate.confidence * 100)}%
           </div>
           {debate.vote_tally && Object.keys(debate.vote_tally).length > 0 && (
-            <div className="text-xs font-mono text-text-muted">
+            <div className="text-xs font-theme-data text-text-muted">
               VOTES: {Object.entries(debate.vote_tally).map(([k, v]) => `${k}:${v}`).join(' ')}
             </div>
           )}
@@ -107,8 +107,8 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
       {/* Winning Proposal */}
       {debate.winning_proposal && (
         <div className="bg-gradient-to-br from-accent/10 to-purple-500/10 border-2 border-accent/50 p-6">
-          <div className="text-xs text-accent font-mono mb-2 uppercase tracking-wider">Winning Proposal</div>
-          <div className="text-text whitespace-pre-wrap font-mono text-sm">{debate.winning_proposal}</div>
+          <div className="text-xs text-accent font-theme-data mb-2 uppercase tracking-wider">Winning Proposal</div>
+          <div className="text-text whitespace-pre-wrap font-theme-data text-sm">{debate.winning_proposal}</div>
         </div>
       )}
 
@@ -118,9 +118,9 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
       <EvidenceLinkGraph debateId={debate.id} />
 
       {/* Transcript */}
-      <div className="bg-surface border border-acid-green/30">
-        <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
-          <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+      <div className="bg-surface border border-[var(--accent)]/30">
+        <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50">
+          <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
             {'>'} DEBATE TRANSCRIPT
           </span>
         </div>
@@ -132,9 +132,9 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
       </div>
 
       {/* Download Section */}
-      <div className="bg-surface border border-acid-green/30">
-        <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
-          <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+      <div className="bg-surface border border-[var(--accent)]/30">
+        <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50">
+          <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
             {'>'} DOWNLOAD TRANSCRIPT
           </span>
         </div>
@@ -147,7 +147,7 @@ export function ArchivedDebateView({ debate, onShare, copied }: ArchivedDebateVi
       <BroadcastPanel debateId={debate.id} debateTitle={debate.task} />
 
       {/* Metadata */}
-      <div className="text-center text-xs font-mono text-text-muted py-4 border-t border-acid-green/20">
+      <div className="text-center text-xs font-theme-data text-text-muted py-4 border-t border-[var(--accent)]/20">
         <div>DEBATE ID: {debate.id}</div>
         <div>LOOP: {debate.loop_id}</div>
       </div>

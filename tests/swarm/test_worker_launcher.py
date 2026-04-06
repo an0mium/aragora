@@ -537,6 +537,14 @@ class TestWait:
         ]
 
         with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "exit_code": 0,
+                    "ended_at": "2026-04-04T12:34:56+00:00",
+                },
+            ),
             patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/file"),
             patch.object(
                 WorkerLauncher,
@@ -587,6 +595,14 @@ class TestWait:
         launcher._start_live_log_capture("wo-live-logs", str(worktree), mock_proc)
 
         with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "exit_code": 0,
+                    "ended_at": "2026-04-04T12:34:56+00:00",
+                },
+            ),
             patch.object(WorkerLauncher, "_collect_diff", return_value=""),
             patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
             patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
@@ -754,6 +770,14 @@ class TestWait:
         ]
 
         with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "exit_code": 0,
+                    "ended_at": "2026-04-04T12:34:56+00:00",
+                },
+            ),
             patch.object(WorkerLauncher, "_collect_diff", return_value=""),
             patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
             patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
@@ -768,6 +792,183 @@ class TestWait:
 
         assert result.tests_run == ["python -m pytest tests/swarm/test_worker_launcher.py -q"]
         assert result.verification_results == verification_results
+
+    @pytest.mark.asyncio
+    async def test_wait_prefers_session_exit_code_over_returncode(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+
+        worker = WorkerProcess(
+            work_order_id="wo-session-exit-code",
+            agent="codex",
+            worktree_path="/tmp/wt",
+            branch="main",
+            pid=100,
+            expected_tests=["python -m pytest tests/swarm/test_worker_launcher.py -q"],
+        )
+        launcher._workers["wo-session-exit-code"] = worker
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"worker output", b""))
+        mock_proc.returncode = 0
+        launcher._processes["wo-session-exit-code"] = mock_proc
+
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "exit_code": 42,
+                    "ended_at": "2026-04-04T12:34:56+00:00",
+                },
+            ),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push", new_callable=AsyncMock) as mock_push,
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+        ):
+            result = await launcher.wait("wo-session-exit-code")
+
+        assert result.exit_code == 42
+        assert result.completed_at == "2026-04-04T12:34:56+00:00"
+        mock_verify.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_wait_skips_auto_push_and_verification_without_terminal_marker(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=True))
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+
+        worker = WorkerProcess(
+            work_order_id="wo-wait-no-terminal-marker",
+            agent="codex",
+            worktree_path="/tmp/wt",
+            branch="main",
+            pid=100,
+            initial_head="def456",
+            expected_tests=[expected_test],
+        )
+        launcher._workers["wo-wait-no-terminal-marker"] = worker
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"worker output", b""))
+        mock_proc.returncode = 0
+        launcher._processes["wo-wait-no-terminal-marker"] = mock_proc
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/x"),
+            patch.object(
+                WorkerLauncher,
+                "_has_working_tree_changes",
+                new=AsyncMock(return_value=True),
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_commit", new_callable=AsyncMock) as mock_commit,
+            patch.object(WorkerLauncher, "_auto_push", new_callable=AsyncMock) as mock_push,
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+        ):
+            result = await launcher.wait("wo-wait-no-terminal-marker")
+
+        assert result.exit_code == 1
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_commit.assert_not_awaited()
+        mock_push.assert_not_awaited()
+        mock_verify.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_wait_uses_session_meta_pid_for_cleanup(self, tmp_path: Path):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+
+        worker = WorkerProcess(
+            work_order_id="wo-wait-session-meta-cleanup-pid",
+            agent="codex",
+            worktree_path=str(tmp_path),
+            branch="main",
+            pid=11111,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"worker output", b""))
+        mock_proc.returncode = 0
+        launcher._processes[worker.work_order_id] = mock_proc
+
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "pid": 24680,
+                    "exit_code": 0,
+                    "ended_at": "2026-04-04T12:34:56+00:00",
+                },
+            ),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="worker output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await launcher.wait(worker.work_order_id)
+
+        assert result.exit_code == 0
+        mock_wait.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+
+    @pytest.mark.asyncio
+    async def test_wait_uses_active_lock_pid_for_cleanup_when_session_meta_missing(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        (tmp_path / ".codex_session_active").write_text("pid=24680\nppid=13579\n", encoding="utf-8")
+
+        worker = WorkerProcess(
+            work_order_id="wo-wait-lock-cleanup-pid",
+            agent="codex",
+            worktree_path=str(tmp_path),
+            branch="main",
+            pid=11111,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+
+        mock_proc = AsyncMock()
+        mock_proc.communicate = AsyncMock(return_value=(b"worker output", b""))
+        mock_proc.returncode = 0
+        launcher._processes[worker.work_order_id] = mock_proc
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="worker output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await launcher.wait(worker.work_order_id)
+
+        assert result.exit_code == 1
+        mock_wait.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
 
 
 class TestLaunchAndWait:
@@ -795,6 +996,14 @@ class TestLaunchAndWait:
             patch("shutil.which", return_value="/usr/bin/claude"),
             patch.object(WorkerLauncher, "_git_output", return_value=""),
             patch("asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "exit_code": 0,
+                    "ended_at": "2026-04-04T12:34:56+00:00",
+                },
+            ),
             patch.object(WorkerLauncher, "_collect_diff", return_value=""),
         ):
             result = await launcher.launch_and_wait(wo, worktree_path=str(worktree))
@@ -960,6 +1169,14 @@ class TestWaitDetached:
         launcher._processes["wo-detach"] = mock_proc
 
         with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "exit_code": 0,
+                    "ended_at": "2026-04-04T12:34:56+00:00",
+                },
+            ),
             patch.object(WorkerLauncher, "_collect_diff", return_value=""),
             patch.object(WorkerLauncher, "_read_log_file", return_value="log output"),
         ):
@@ -1001,6 +1218,15 @@ class TestCollectFinishedSync:
         launcher._processes["wo-sync-finished"] = proc
 
         with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "pid": 222,
+                    "exit_code": 0,
+                    "ended_at": "2026-03-31T12:34:56+00:00",
+                },
+            ),
             patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
             patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
             patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
@@ -1091,6 +1317,47 @@ class TestCollectFinishedSync:
         mock_wait_pid.assert_called_once_with(333)
         assert "wo-sync-meta-finished" not in launcher._processes
 
+    def test_collect_finished_sync_prefers_session_exit_code_over_returncode(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        worker = WorkerProcess(
+            work_order_id="wo-sync-prefers-session-exit",
+            agent="codex",
+            worktree_path="/tmp/wt-meta-prefers-session-exit",
+            branch="main",
+            pid=333,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        session_meta = {
+            "pid": 333,
+            "exit_code": 143,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync"),
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 143
+        assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert worker.work_order_id not in launcher._processes
+
     def test_collect_finished_sync_ignores_invalid_session_meta_pid_for_cleanup(self):
         launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
         worker = WorkerProcess(
@@ -1165,6 +1432,486 @@ class TestCollectFinishedSync:
         mock_diff.assert_not_called()
         assert "wo-sync-active-lock" in launcher._processes
 
+    def test_collect_finished_sync_defers_on_active_lock_even_after_returncode_set(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+        worker = WorkerProcess(
+            work_order_id="wo-sync-active-lock-returncode",
+            agent="codex",
+            worktree_path=str(tmp_path),
+            branch="main",
+            pid=333,
+            initial_head="def456",
+        )
+        launcher._workers["wo-sync-active-lock-returncode"] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes["wo-sync-active-lock-returncode"] = proc
+
+        session_meta = {
+            "pid": 333,
+            "exit_code": 0,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=True) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff_sync") as mock_diff,
+        ):
+            completed = launcher.collect_finished_sync(
+                work_order_ids=["wo-sync-active-lock-returncode"]
+            )
+
+        assert completed == []
+        mock_running.assert_called_once_with(333)
+        mock_diff.assert_not_called()
+        assert "wo-sync-active-lock-returncode" in launcher._processes
+
+    def test_collect_finished_sync_prefers_live_session_meta_pid_when_worker_pid_is_stale(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+        worker = WorkerProcess(
+            work_order_id="wo-sync-stale-worker-pid",
+            agent="codex",
+            worktree_path=str(tmp_path),
+            branch="main",
+            pid=11111,
+            initial_head="def456",
+        )
+        launcher._workers["wo-sync-stale-worker-pid"] = worker
+        proc = MagicMock()
+        proc.returncode = None
+        launcher._processes["wo-sync-stale-worker-pid"] = proc
+
+        session_meta = {
+            "pid": 24680,
+            "exit_code": 143,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 24680
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff_sync") as mock_diff,
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=["wo-sync-stale-worker-pid"])
+
+        assert completed == []
+        mock_running.assert_called_once_with(24680)
+        mock_diff.assert_not_called()
+        assert "wo-sync-stale-worker-pid" in launcher._processes
+
+    def test_collect_finished_sync_ignores_live_stale_worker_pid_when_session_meta_pid_is_dead(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+        worker = WorkerProcess(
+            work_order_id="wo-sync-stale-live-worker-pid",
+            agent="codex",
+            worktree_path=str(tmp_path),
+            branch="main",
+            pid=11111,
+            initial_head="def456",
+        )
+        launcher._workers["wo-sync-stale-live-worker-pid"] = worker
+        proc = MagicMock()
+        proc.returncode = None
+        launcher._processes["wo-sync-stale-live-worker-pid"] = proc
+
+        session_meta = {
+            "pid": 24680,
+            "exit_code": 143,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 11111
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value=""),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=[]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync") as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(
+                work_order_ids=["wo-sync-stale-live-worker-pid"]
+            )
+
+        assert len(completed) == 1
+        assert completed[0].exit_code == 143
+        mock_running.assert_called_once_with(24680)
+        mock_wait_pid.assert_called_once_with(24680)
+        assert "wo-sync-stale-live-worker-pid" not in launcher._processes
+
+    def test_collect_finished_sync_ignores_live_ppid_when_session_pid_is_dead(self, tmp_path: Path):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        (tmp_path / ".codex_session_active").write_text("pid=24680\nppid=13579\n", encoding="utf-8")
+        worker = WorkerProcess(
+            work_order_id="wo-sync-live-ppid-only",
+            agent="codex",
+            worktree_path=str(tmp_path),
+            branch="main",
+            pid=11111,
+            initial_head="def456",
+        )
+        launcher._workers["wo-sync-live-ppid-only"] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes["wo-sync-live-ppid-only"] = proc
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 13579
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value=""),
+            patch.object(
+                WorkerLauncher,
+                "_has_working_tree_changes_sync",
+                return_value=False,
+            ),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync") as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=["wo-sync-live-ppid-only"])
+
+        assert len(completed) == 1
+        assert completed[0].exit_code == 1
+        assert mock_running.call_args_list
+        assert all(call.args == (24680,) for call in mock_running.call_args_list)
+        mock_wait_pid.assert_called_once_with(24680)
+        assert "wo-sync-live-ppid-only" not in launcher._processes
+
+    def test_collect_finished_sync_downgrades_missing_terminal_marker_with_deliverable(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        worker = WorkerProcess(
+            work_order_id="wo-sync-no-terminal-marker-deliverable",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-no-terminal-marker-deliverable",
+            branch="main",
+            pid=444,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.completed_at
+        assert worker.work_order_id not in launcher._processes
+
+    def test_collect_finished_sync_downgrades_missing_terminal_marker_without_deliverable(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        worker = WorkerProcess(
+            work_order_id="wo-sync-no-terminal-marker-no-deliverable",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-no-terminal-marker-no-deliverable",
+            branch="main",
+            pid=555,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value=""),
+            patch.object(
+                WorkerLauncher,
+                "_has_working_tree_changes_sync",
+                return_value=False,
+            ),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="stderr evidence"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=[]),
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.commit_shas == []
+        assert result.changed_paths == []
+        assert result.stdout == "stderr evidence"
+        assert result.stderr == "stderr evidence"
+        assert worker.work_order_id not in launcher._processes
+
+    def test_collect_finished_sync_skips_auto_commit_without_terminal_marker(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=True))
+        worker = WorkerProcess(
+            work_order_id="wo-sync-no-terminal-marker-no-autocommit",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-no-terminal-marker-no-autocommit",
+            branch="main",
+            pid=777,
+            initial_head="def456",
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value=""),
+            patch.object(
+                WorkerLauncher,
+                "_has_working_tree_changes_sync",
+                return_value=True,
+            ),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_auto_commit_sync") as mock_commit,
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.commit_shas == []
+        assert result.changed_paths == ["file.py"]
+        mock_commit.assert_not_called()
+        assert worker.work_order_id not in launcher._processes
+
+    def test_collect_finished_sync_skips_auto_push_and_verification_without_terminal_marker(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        worker = WorkerProcess(
+            work_order_id="wo-sync-no-terminal-marker-no-publish",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-no-terminal-marker-no-publish",
+            branch="main",
+            pid=888,
+            initial_head="def456",
+            expected_tests=[expected_test],
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push_sync") as mock_push,
+            patch.object(WorkerLauncher, "_run_verification_commands_sync") as mock_verify,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_called()
+        mock_verify.assert_not_called()
+        assert worker.work_order_id not in launcher._processes
+
+    def test_collect_finished_sync_rejects_boolean_session_exit_code(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        worker = WorkerProcess(
+            work_order_id="wo-sync-bool-exit-code",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-bool-exit-code",
+            branch="main",
+            pid=919,
+            initial_head="def456",
+            expected_tests=[expected_test],
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        session_meta = {
+            "pid": 919,
+            "exit_code": False,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push_sync") as mock_push,
+            patch.object(WorkerLauncher, "_run_verification_commands_sync") as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync") as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_called()
+        mock_verify.assert_not_called()
+        mock_wait_pid.assert_called_once_with(919)
+        assert worker.work_order_id not in launcher._processes
+
+    def test_collect_finished_sync_rejects_float_session_exit_code(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        worker = WorkerProcess(
+            work_order_id="wo-sync-float-exit-code",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-float-exit-code",
+            branch="main",
+            pid=919,
+            initial_head="def456",
+            expected_tests=[expected_test],
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        session_meta = {
+            "pid": 919,
+            "exit_code": 0.0,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push_sync") as mock_push,
+            patch.object(WorkerLauncher, "_run_verification_commands_sync") as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync") as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_called()
+        mock_verify.assert_not_called()
+        mock_wait_pid.assert_called_once_with(919)
+        assert worker.work_order_id not in launcher._processes
+
+    def test_collect_finished_sync_rejects_nonstring_session_ended_at(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        worker = WorkerProcess(
+            work_order_id="wo-sync-bad-ended-at",
+            agent="codex",
+            worktree_path="/tmp/wt-sync-bad-ended-at",
+            branch="main",
+            pid=919,
+            initial_head="def456",
+            expected_tests=[expected_test],
+        )
+        launcher._workers[worker.work_order_id] = worker
+        proc = MagicMock()
+        proc.returncode = 0
+        launcher._processes[worker.work_order_id] = proc
+
+        session_meta = {
+            "pid": 919,
+            "exit_code": 0,
+            "ended_at": {"when": "2026-03-31T12:34:56+00:00"},
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_collect_diff_sync", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output_sync", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas_sync", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths_sync", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push_sync") as mock_push,
+            patch.object(WorkerLauncher, "_run_verification_commands_sync") as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit_sync") as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            completed = launcher.collect_finished_sync(work_order_ids=[worker.work_order_id])
+
+        assert len(completed) == 1
+        result = completed[0]
+        assert result.exit_code == 1
+        assert result.completed_at is not None
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_called()
+        mock_verify.assert_not_called()
+        mock_wait_pid.assert_called_once_with(919)
+        assert worker.work_order_id not in launcher._processes
+
 
 class TestCollectDetachedResult:
     @pytest.mark.asyncio
@@ -1221,10 +1968,223 @@ class TestCollectDetachedResult:
         assert result.head_sha == "abc123"
         assert result.commit_shas == ["abc123"]
         assert result.changed_paths == ["file.py"]
-        assert result.tests_run == [expected_test]
-        assert result.verification_results == verification_results
+        assert result.tests_run == []
+        assert result.verification_results == []
         assert result.stdout == "some output"
-        mock_verify.assert_awaited_once_with("/tmp/wt", [expected_test])
+        mock_verify.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_skips_auto_commit_without_terminal_marker(self):
+        with (
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher,
+                "_has_working_tree_changes",
+                new=AsyncMock(return_value=True),
+            ),
+            patch.object(WorkerLauncher, "_auto_commit", new_callable=AsyncMock) as mock_commit,
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-no-marker-no-autocommit",
+                agent="codex",
+                worktree_path="/tmp/wt",
+                branch="main",
+                pid=99999,
+                initial_head="def456",
+                auto_commit=True,
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert result.commit_shas == []
+        assert result.changed_paths == ["file.py"]
+        mock_commit.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_skips_auto_push_and_verification_without_terminal_marker(
+        self,
+    ):
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        with (
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push", new_callable=AsyncMock) as mock_push,
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-no-marker-no-publish",
+                agent="codex",
+                worktree_path="/tmp/wt",
+                branch="main",
+                pid=99999,
+                initial_head="def456",
+                expected_tests=[expected_test],
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_awaited()
+        mock_verify.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_rejects_boolean_session_exit_code(self):
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        session_meta = {
+            "pid": 24680,
+            "exit_code": False,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push", new_callable=AsyncMock) as mock_push,
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-detached-bool-exit-code",
+                agent="codex",
+                worktree_path="/tmp/wt-detached-bool-exit-code",
+                branch="main",
+                pid=24680,
+                initial_head="def456",
+                expected_tests=[expected_test],
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_awaited()
+        mock_verify.assert_not_awaited()
+        mock_wait.assert_awaited_once_with(24680)
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_rejects_float_session_exit_code(self):
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        session_meta = {
+            "pid": 24680,
+            "exit_code": 0.0,
+            "ended_at": "2026-03-31T12:34:56+00:00",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push", new_callable=AsyncMock) as mock_push,
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-detached-float-exit-code",
+                agent="codex",
+                worktree_path="/tmp/wt-detached-float-exit-code",
+                branch="main",
+                pid=24680,
+                initial_head="def456",
+                expected_tests=[expected_test],
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert result.completed_at == "2026-03-31T12:34:56+00:00"
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_awaited()
+        mock_verify.assert_not_awaited()
+        mock_wait.assert_awaited_once_with(24680)
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_rejects_nonstring_session_ended_at(self):
+        expected_test = "python -m pytest tests/swarm/test_worker_launcher.py -q"
+        session_meta = {
+            "pid": 24680,
+            "exit_code": 0,
+            "ended_at": {"when": "2026-03-31T12:34:56+00:00"},
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value="diff --git a/x"),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_auto_push", new_callable=AsyncMock) as mock_push,
+            patch.object(
+                WorkerLauncher,
+                "_run_verification_commands",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-detached-bad-ended-at",
+                agent="codex",
+                worktree_path="/tmp/wt-detached-bad-ended-at",
+                branch="main",
+                pid=24680,
+                initial_head="def456",
+                expected_tests=[expected_test],
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert result.completed_at is not None
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert result.tests_run == []
+        assert result.verification_results == []
+        mock_push.assert_not_awaited()
+        mock_verify.assert_not_awaited()
+        mock_wait.assert_awaited_once_with(24680)
 
     @pytest.mark.asyncio
     async def test_returns_none_if_pid_dead_without_terminal_marker_or_deliverable(self):
@@ -1251,6 +2211,42 @@ class TestCollectDetachedResult:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_collect_detached_result_ignores_boolean_session_meta_pid_for_cleanup(self):
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "pid": True,
+                    "exit_code": 0,
+                    "ended_at": "2026-03-31T12:34:56+00:00",
+                },
+            ),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-bool-meta-pid",
+                agent="codex",
+                worktree_path="/tmp/wt-bool-meta-pid",
+                branch="main",
+                pid=None,
+                initial_head="def456",
+            )
+
+        assert result is not None
+        assert result.exit_code == 0
+        mock_wait.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_returns_none_without_pid_or_terminal_marker_and_no_deliverable(self):
         with (
             patch.object(WorkerLauncher, "_collect_diff", return_value=""),
@@ -1267,6 +2263,41 @@ class TestCollectDetachedResult:
             )
 
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_preserves_logs_when_dead_pid_has_no_terminal_marker_or_deliverable(
+        self, tmp_path: Path
+    ):
+        stdout_log = tmp_path / ".swarm_worker_stdout.log"
+        stderr_log = tmp_path / ".swarm_worker_stderr.log"
+        stdout_log.write_text("worker stdout\n", encoding="utf-8")
+        stderr_log.write_text("worker stderr\n", encoding="utf-8")
+
+        with (
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-no-marker-logs",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=99999,
+                initial_head="def456",
+                auto_commit=False,
+            )
+
+        assert result is None
+        assert stdout_log.exists()
+        assert stderr_log.exists()
+        assert stdout_log.read_text(encoding="utf-8") == "worker stdout\n"
+        assert stderr_log.read_text(encoding="utf-8") == "worker stderr\n"
 
     @pytest.mark.asyncio
     async def test_returns_none_if_active_lock_exists_without_usable_pid(self, tmp_path: Path):
@@ -1352,6 +2383,288 @@ class TestCollectDetachedResult:
         mock_diff.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_returns_none_if_active_lock_exists_with_stale_pid_but_live_session_meta_pid(
+        self, tmp_path: Path
+    ):
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 24680
+
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "pid": 24680,
+                    "ended_at": "2026-04-02T01:23:45+00:00",
+                    "exit_code": 0,
+                },
+            ),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff") as mock_diff,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-active-lock-stale-pid",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=11111,
+            )
+
+        assert result is None
+        mock_running.assert_called_once_with(24680)
+        mock_diff.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_collects_when_session_meta_pid_is_dead_even_if_worker_pid_was_reused(
+        self, tmp_path: Path
+    ):
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 11111
+
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={
+                    "pid": 24680,
+                    "ended_at": "2026-04-02T01:23:45+00:00",
+                    "exit_code": 0,
+                },
+            ),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new=AsyncMock()) as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-active-lock-reused-worker-pid",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=11111,
+                initial_head="def456",
+                auto_commit=False,
+            )
+
+        assert result is not None
+        assert result.exit_code == 0
+        mock_running.assert_called_once_with(24680)
+        mock_wait_pid.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+
+    @pytest.mark.asyncio
+    async def test_collects_when_active_lock_pid_is_dead_even_if_worker_pid_was_reused_without_session_meta(
+        self, tmp_path: Path
+    ):
+        (tmp_path / ".codex_session_active").write_text("pid=24680\nppid=13579\n", encoding="utf-8")
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 11111
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new=AsyncMock()) as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-active-lock-stale-worker-pid-no-meta",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=11111,
+                initial_head="def456",
+                auto_commit=False,
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        assert mock_running.call_args_list
+        assert all(call.args[0] in {24680, 13579} for call in mock_running.call_args_list)
+        mock_wait_pid.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_uses_legacy_lock_pid_when_worker_pid_is_stale(
+        self, tmp_path: Path
+    ):
+        (tmp_path / ".codex_session_active").write_text("24680\n", encoding="utf-8")
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 11111
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new=AsyncMock()) as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-active-lock-legacy-pid",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=11111,
+                initial_head="def456",
+                auto_commit=False,
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert mock_running.call_args_list
+        assert all(call.args == (24680,) for call in mock_running.call_args_list)
+        mock_wait_pid.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_prefers_pid_entry_when_lock_lists_ppid_first(
+        self, tmp_path: Path
+    ):
+        (tmp_path / ".codex_session_active").write_text("ppid=13579\npid=24680\n", encoding="utf-8")
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new=AsyncMock()) as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-active-lock-ppid-first",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=11111,
+                initial_head="def456",
+                auto_commit=False,
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        mock_wait_pid.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+
+    @pytest.mark.asyncio
+    async def test_collect_detached_result_ignores_live_ppid_when_session_pid_is_dead(
+        self, tmp_path: Path
+    ):
+        (tmp_path / ".codex_session_active").write_text("pid=24680\nppid=13579\n", encoding="utf-8")
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 13579
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new=AsyncMock()) as mock_wait_pid,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-detached-live-ppid-only",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=11111,
+                initial_head="def456",
+                auto_commit=False,
+            )
+
+        assert result is not None
+        assert result.exit_code == 1
+        assert mock_running.call_args_list
+        assert all(call.args == (24680,) for call in mock_running.call_args_list)
+        mock_wait_pid.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
+
+    @pytest.mark.asyncio
+    async def test_skips_session_meta_pid_fallback_when_disabled(self, tmp_path: Path):
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+
+        with (
+            patch.object(
+                WorkerLauncher,
+                "_read_session_meta",
+                return_value={"pid": 24680},
+            ),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=True) as mock_running,
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher, "_has_working_tree_changes", new=AsyncMock(return_value=False)
+            ),
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-ignore-stale-meta-pid",
+                agent="codex",
+                worktree_path=str(tmp_path),
+                branch="main",
+                pid=None,
+                allow_session_meta_pid_fallback=False,
+            )
+
+        assert result is None
+        mock_running.assert_not_called()
+        mock_cleanup.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_uses_session_meta_pid_to_defer_when_marker_missing(self):
         with (
             patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": 24680}),
@@ -1431,7 +2744,249 @@ class TestSnapshotProgress:
             snapshot = await launcher.snapshot_progress(work_order)
 
         assert snapshot["pid_alive"] is True
-        mock_running.assert_called_once_with(24680)
+        assert mock_running.call_args_list
+        assert all(call.args == (24680,) for call in mock_running.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_ignores_boolean_session_meta_pid(self, tmp_path: Path):
+        launcher = WorkerLauncher()
+        work_order = {
+            "pid": "oops",
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": True}),
+            patch.object(WorkerLauncher, "_is_pid_running") as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        mock_running.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_ignores_float_session_meta_pid(self, tmp_path: Path):
+        launcher = WorkerLauncher()
+        work_order = {
+            "pid": "oops",
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": 24680.0}),
+            patch.object(WorkerLauncher, "_is_pid_running") as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        mock_running.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_treats_active_lock_without_usable_pid_as_alive(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher()
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+        work_order = {
+            "pid": "oops",
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": "oops"}),
+            patch.object(WorkerLauncher, "_is_pid_running") as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is True
+        mock_running.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_prefers_live_session_meta_pid_when_worker_pid_is_stale(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher()
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+        work_order = {
+            "pid": 11111,
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 24680
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": 24680}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is True
+        assert mock_running.call_args_list
+        assert all(call.args == (24680,) for call in mock_running.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_ignores_live_stale_worker_pid_when_session_meta_pid_is_dead(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher()
+        (tmp_path / ".codex_session_active").write_text("1\n", encoding="utf-8")
+        work_order = {
+            "pid": 11111,
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 11111
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": 24680}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        assert mock_running.call_args_list
+        assert all(call.args == (24680,) for call in mock_running.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_uses_active_lock_pid_when_session_meta_missing_and_worker_pid_is_stale(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher()
+        (tmp_path / ".codex_session_active").write_text("pid=24680\nppid=13579\n", encoding="utf-8")
+        work_order = {
+            "pid": 11111,
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 11111
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        assert mock_running.call_args_list
+        assert all(call.args[0] in {24680, 13579} for call in mock_running.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_uses_legacy_lock_pid_when_worker_pid_is_stale(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher()
+        (tmp_path / ".codex_session_active").write_text("24680\n", encoding="utf-8")
+        work_order = {
+            "pid": 11111,
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 11111
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        assert mock_running.call_args_list
+        assert all(call.args == (24680,) for call in mock_running.call_args_list)
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_prefers_pid_entry_when_lock_lists_ppid_first(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher()
+        (tmp_path / ".codex_session_active").write_text("ppid=13579\npid=24680\n", encoding="utf-8")
+        work_order = {
+            "pid": 11111,
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False) as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        assert mock_running.call_args_list
+        assert mock_running.call_args_list[0].args == (24680,)
+
+    @pytest.mark.asyncio
+    async def test_snapshot_progress_ignores_live_ppid_when_session_pid_is_dead(
+        self, tmp_path: Path
+    ):
+        launcher = WorkerLauncher()
+        (tmp_path / ".codex_session_active").write_text("pid=24680\nppid=13579\n", encoding="utf-8")
+        work_order = {
+            "pid": 11111,
+            "worktree_path": str(tmp_path),
+            "initial_head": "abc123",
+        }
+
+        def _pid_running(pid: int | None) -> bool:
+            return pid == 13579
+
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value={}),
+            patch.object(
+                WorkerLauncher, "_is_pid_running", side_effect=_pid_running
+            ) as mock_running,
+            patch.object(WorkerLauncher, "_git_output", return_value="def456"),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+        ):
+            snapshot = await launcher.snapshot_progress(work_order)
+
+        assert snapshot["pid_alive"] is False
+        assert mock_running.call_args_list
+        assert all(call.args == (24680,) for call in mock_running.call_args_list)
 
     @pytest.mark.asyncio
     async def test_includes_log_tails(self, tmp_path: Path):
@@ -1463,6 +3018,26 @@ class TestSnapshotProgress:
 
 
 class TestCollectChangedPaths:
+    @pytest.mark.asyncio
+    async def test_skips_origin_main_fallback_when_initial_head_is_missing(self):
+        calls: list[tuple[str, ...]] = []
+
+        async def _git_output(_worktree_path: str, *args: str) -> str:
+            calls.append(tuple(args))
+            if args[:2] == ("status", "--porcelain"):
+                return ""
+            return "aragora/swarm/boss_loop.py\n"
+
+        with patch.object(WorkerLauncher, "_git_output", side_effect=_git_output):
+            changed = await WorkerLauncher._collect_changed_paths(
+                "/tmp/wt",
+                initial_head="",
+                head_sha="def456",
+            )
+
+        assert changed == []
+        assert ("diff", "--name-only", "origin/main..HEAD") not in calls
+
     @pytest.mark.asyncio
     async def test_skips_origin_main_fallback_when_initial_head_matches_head_sha(self):
         calls: list[tuple[str, ...]] = []
@@ -1503,6 +3078,80 @@ class TestCollectChangedPaths:
 
         assert changed == ["real.py"]
         assert ("diff", "--name-only", "abc123..def456") in calls
+
+
+class TestCollectCommitShas:
+    @pytest.mark.asyncio
+    async def test_returns_empty_without_initial_head_instead_of_falling_back_to_origin_main(self):
+        calls: list[tuple[str, ...]] = []
+
+        async def _git_output(_worktree_path: str, *args: str) -> str:
+            calls.append(tuple(args))
+            return "abc123\n"
+
+        with patch.object(WorkerLauncher, "_git_output", side_effect=_git_output):
+            shas = await WorkerLauncher._collect_commit_shas(
+                "/tmp/wt",
+                initial_head="",
+                head_sha="def456",
+            )
+
+        assert shas == []
+        assert ("rev-list", "--reverse", "origin/main..HEAD") not in calls
+
+    @pytest.mark.asyncio
+    async def test_skips_origin_main_fallback_when_initial_head_matches_head_sha(self):
+        calls: list[tuple[str, ...]] = []
+
+        async def _git_output(_worktree_path: str, *args: str) -> str:
+            calls.append(tuple(args))
+            return "568aa6da5e5f997439bc09a9fc97b88ad6b6ab1f\n"
+
+        with patch.object(WorkerLauncher, "_git_output", side_effect=_git_output):
+            shas = await WorkerLauncher._collect_commit_shas(
+                "/tmp/wt",
+                initial_head="abc123",
+                head_sha="abc123",
+            )
+
+        assert shas == []
+        assert ("rev-list", "--reverse", "origin/main..HEAD") not in calls
+
+    def test_returns_empty_sync_without_initial_head_instead_of_falling_back_to_origin_main(self):
+        calls: list[tuple[str, ...]] = []
+
+        def _git_output_sync(_worktree_path: str, *args: str) -> str:
+            calls.append(tuple(args))
+            return "abc123\n"
+
+        with patch.object(WorkerLauncher, "_git_output_sync", side_effect=_git_output_sync):
+            shas = WorkerLauncher._collect_commit_shas_sync(
+                "/tmp/wt",
+                initial_head="",
+                head_sha="def456",
+            )
+
+        assert shas == []
+        assert ("rev-list", "--reverse", "origin/main..HEAD") not in calls
+
+    def test_collect_commit_shas_sync_skips_origin_main_fallback_when_initial_head_matches_head_sha(
+        self,
+    ):
+        calls: list[tuple[str, ...]] = []
+
+        def _git_output_sync(_worktree_path: str, *args: str) -> str:
+            calls.append(tuple(args))
+            return "568aa6da5e5f997439bc09a9fc97b88ad6b6ab1f\n"
+
+        with patch.object(WorkerLauncher, "_git_output_sync", side_effect=_git_output_sync):
+            shas = WorkerLauncher._collect_commit_shas_sync(
+                "/tmp/wt",
+                initial_head="abc123",
+                head_sha="abc123",
+            )
+
+        assert shas == []
+        assert ("rev-list", "--reverse", "origin/main..HEAD") not in calls
 
 
 class TestIsPidRunning:

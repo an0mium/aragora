@@ -166,17 +166,17 @@ export default function ApiDocsPage() {
             <div className="flex items-center gap-3 mb-2">
               <Link
                 href="/dashboard"
-                className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
               >
                 DASHBOARD
               </Link>
-              <span className="text-xs font-mono text-[var(--text-muted)]">/</span>
-              <span className="text-xs font-mono text-[var(--acid-green)]">API DOCS</span>
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">/</span>
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">API DOCS</span>
             </div>
-            <h1 className="text-xl font-mono text-[var(--acid-green)] mb-1">
+            <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-1">
               {'>'} API REFERENCE
             </h1>
-            <p className="text-xs text-[var(--text-muted)] font-mono">
+            <p className="text-xs text-[var(--text-muted)] font-theme-data">
               {spec
                 ? `OpenAPI ${spec.openapi} // ${spec.info.title} v${spec.info.version} // ${totalEndpoints} endpoints`
                 : 'Loading API specification...'}
@@ -186,7 +186,7 @@ export default function ApiDocsPage() {
           {/* Loading / Error */}
           {loading && (
             <div className="card p-8 text-center">
-              <div className="text-[var(--acid-green)] font-mono animate-pulse">
+              <div className="text-[var(--acid-green)] font-theme-data animate-pulse">
                 Loading OpenAPI spec...
               </div>
             </div>
@@ -194,9 +194,9 @@ export default function ApiDocsPage() {
 
           {error && (
             <div className="card p-6 border-red-500/40">
-              <p className="font-mono text-sm text-red-400 mb-2">Failed to load API spec</p>
-              <p className="font-mono text-xs text-[var(--text-muted)]">{error}</p>
-              <p className="font-mono text-xs text-[var(--text-muted)] mt-2">
+              <p className="font-theme-data text-sm text-red-400 mb-2">Failed to load API spec</p>
+              <p className="font-theme-data text-xs text-[var(--text-muted)]">{error}</p>
+              <p className="font-theme-data text-xs text-[var(--text-muted)] mt-2">
                 Ensure the backend is running at {API_BASE_URL}
               </p>
             </div>
@@ -212,7 +212,7 @@ export default function ApiDocsPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search endpoints..."
-                  className="flex-1 min-w-[200px] max-w-md px-3 py-2 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]/50"
+                  className="flex-1 min-w-[200px] max-w-md px-3 py-2 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)]/50"
                 />
 
                 {/* Method filter */}
@@ -221,7 +221,7 @@ export default function ApiDocsPage() {
                     <button
                       key={m}
                       onClick={() => setSelectedMethod(selectedMethod === m ? null : m)}
-                      className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                      className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                         selectedMethod === m
                           ? METHOD_COLORS[m] || 'bg-[var(--surface)] text-[var(--text)]'
                           : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/30'
@@ -236,7 +236,7 @@ export default function ApiDocsPage() {
                 <select
                   value={selectedTag || ''}
                   onChange={(e) => setSelectedTag(e.target.value || null)}
-                  className="px-2 py-1.5 text-xs font-mono bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] focus:outline-none focus:border-[var(--acid-green)]/50"
+                  className="px-2 py-1.5 text-xs font-theme-data bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] focus:outline-none focus:border-[var(--acid-green)]/50"
                 >
                   <option value="">All tags ({tags.length})</option>
                   {tags.map((t) => (
@@ -247,7 +247,7 @@ export default function ApiDocsPage() {
                 </select>
 
                 {/* Stats */}
-                <div className="text-xs font-mono text-[var(--text-muted)] ml-auto flex gap-3">
+                <div className="text-xs font-theme-data text-[var(--text-muted)] ml-auto flex gap-3">
                   {Object.entries(methodCounts).sort().map(([m, c]) => (
                     <span key={m} className={METHOD_COLORS[m]?.split(' ')[1] || ''}>
                       {m}: {c}
@@ -265,15 +265,15 @@ export default function ApiDocsPage() {
                       {/* Tag header */}
                       <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--surface)]">
                         <div className="flex items-center justify-between">
-                          <h2 className="text-sm font-mono text-[var(--acid-green)] font-bold">
+                          <h2 className="text-sm font-theme-data text-[var(--acid-green)] font-bold">
                             {tag}
                           </h2>
-                          <span className="text-xs font-mono text-[var(--text-muted)]">
+                          <span className="text-xs font-theme-data text-[var(--text-muted)]">
                             {endpoints.length} endpoint{endpoints.length !== 1 ? 's' : ''}
                           </span>
                         </div>
                         {tagDescriptions[tag] && (
-                          <p className="text-xs font-mono text-[var(--text-muted)] mt-1">
+                          <p className="text-xs font-theme-data text-[var(--text-muted)] mt-1">
                             {tagDescriptions[tag]}
                           </p>
                         )}
@@ -293,7 +293,7 @@ export default function ApiDocsPage() {
                               >
                                 {/* Method badge */}
                                 <span
-                                  className={`inline-block w-16 text-center px-2 py-0.5 text-[10px] font-mono font-bold border ${
+                                  className={`inline-block w-16 text-center px-2 py-0.5 text-[10px] font-theme-data font-bold border ${
                                     METHOD_COLORS[method] || 'bg-gray-500/20 text-gray-400 border-gray-500/40'
                                   }`}
                                 >
@@ -301,20 +301,20 @@ export default function ApiDocsPage() {
                                 </span>
 
                                 {/* Path */}
-                                <code className="text-xs font-mono text-[var(--text)] flex-1 truncate">
+                                <code className="text-xs font-theme-data text-[var(--text)] flex-1 truncate">
                                   {path}
                                 </code>
 
                                 {/* Badges */}
                                 {operation.deprecated && (
-                                  <span className="px-1.5 py-0.5 text-[10px] font-mono bg-yellow-500/20 text-yellow-400 border border-yellow-500/40">
+                                  <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-yellow-500/20 text-yellow-400 border border-yellow-500/40">
                                     DEPRECATED
                                   </span>
                                 )}
 
                                 {/* Summary */}
                                 {operation.summary && (
-                                  <span className="text-xs font-mono text-[var(--text-muted)] max-w-xs truncate hidden md:inline">
+                                  <span className="text-xs font-theme-data text-[var(--text-muted)] max-w-xs truncate hidden md:inline">
                                     {operation.summary}
                                   </span>
                                 )}
@@ -341,7 +341,7 @@ export default function ApiDocsPage() {
               {/* Empty state */}
               {tags.length === 0 && (
                 <div className="card p-8 text-center">
-                  <p className="font-mono text-sm text-[var(--text-muted)]">
+                  <p className="font-theme-data text-sm text-[var(--text-muted)]">
                     No endpoints match your filters.
                   </p>
                 </div>
@@ -351,7 +351,7 @@ export default function ApiDocsPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
           <div className="text-[var(--acid-green)]/50 mb-2" aria-hidden="true">
             {'='.repeat(40)}
           </div>
@@ -380,17 +380,17 @@ function EndpointDetails({
       {/* Description */}
       {operation.description && (
         <div>
-          <p className="text-xs font-mono text-[var(--text-muted)]">{operation.description}</p>
+          <p className="text-xs font-theme-data text-[var(--text-muted)]">{operation.description}</p>
         </div>
       )}
 
       {/* Operation ID */}
       {operation.operationId && (
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+          <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">
             Operation ID:
           </span>
-          <code className="text-xs font-mono text-[var(--acid-cyan)]">
+          <code className="text-xs font-theme-data text-[var(--acid-cyan)]">
             {operation.operationId}
           </code>
         </div>
@@ -399,12 +399,12 @@ function EndpointDetails({
       {/* Parameters */}
       {operation.parameters && operation.parameters.length > 0 && (
         <div>
-          <h4 className="text-[10px] font-mono text-[var(--text-muted)] uppercase mb-2">
+          <h4 className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase mb-2">
             Parameters
           </h4>
           <div className="border border-[var(--border)]/50 divide-y divide-[var(--border)]/30">
             {operation.parameters.map((param, i) => (
-              <div key={i} className="px-3 py-2 flex items-start gap-3 text-xs font-mono">
+              <div key={i} className="px-3 py-2 flex items-start gap-3 text-xs font-theme-data">
                 <code className="text-[var(--acid-green)] min-w-[100px]">{param.name}</code>
                 <span className="text-[var(--text-muted)] min-w-[50px]">{param.in}</span>
                 <span className="text-[var(--text-muted)]">{param.schema?.type || 'string'}</span>
@@ -425,7 +425,7 @@ function EndpointDetails({
       {/* Request Body */}
       {operation.requestBody && (
         <div>
-          <h4 className="text-[10px] font-mono text-[var(--text-muted)] uppercase mb-2">
+          <h4 className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase mb-2">
             Request Body
             {operation.requestBody.required && (
               <span className="text-red-400 ml-2">required</span>
@@ -435,11 +435,11 @@ function EndpointDetails({
             <div className="border border-[var(--border)]/50">
               {Object.entries(operation.requestBody.content).map(([contentType, media]) => (
                 <div key={contentType} className="px-3 py-2">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     {contentType}
                   </span>
                   {media.schema && (
-                    <pre className="mt-1 text-[11px] font-mono text-[var(--text-muted)] overflow-x-auto max-h-40 overflow-y-auto">
+                    <pre className="mt-1 text-[11px] font-theme-data text-[var(--text-muted)] overflow-x-auto max-h-40 overflow-y-auto">
                       {JSON.stringify(media.schema, null, 2)}
                     </pre>
                   )}
@@ -453,7 +453,7 @@ function EndpointDetails({
       {/* Responses */}
       {operation.responses && Object.keys(operation.responses).length > 0 && (
         <div>
-          <h4 className="text-[10px] font-mono text-[var(--text-muted)] uppercase mb-2">
+          <h4 className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase mb-2">
             Responses
           </h4>
           <div className="border border-[var(--border)]/50 divide-y divide-[var(--border)]/30">
@@ -461,7 +461,7 @@ function EndpointDetails({
               <div key={status} className="px-3 py-2">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`text-xs font-mono font-bold ${
+                    className={`text-xs font-theme-data font-bold ${
                       status.startsWith('2')
                         ? 'text-emerald-400'
                         : status.startsWith('4')
@@ -473,7 +473,7 @@ function EndpointDetails({
                   >
                     {status}
                   </span>
-                  <span className="text-xs font-mono text-[var(--text-muted)]">
+                  <span className="text-xs font-theme-data text-[var(--text-muted)]">
                     {response.description}
                   </span>
                 </div>
@@ -483,7 +483,7 @@ function EndpointDetails({
                       media.schema ? (
                         <pre
                           key={ct}
-                          className="text-[11px] font-mono text-[var(--text-muted)] overflow-x-auto max-h-32 overflow-y-auto"
+                          className="text-[11px] font-theme-data text-[var(--text-muted)] overflow-x-auto max-h-32 overflow-y-auto"
                         >
                           {JSON.stringify(media.schema, null, 2)}
                         </pre>

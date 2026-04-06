@@ -35,6 +35,8 @@ from aragora.cli.commands.quickstart import (
 )
 from aragora.cli.parser import build_parser
 from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
+from aragora.core import DebateResult
+from scripts.check_epistemic_hygiene import validate_receipt
 
 
 # =============================================================================
@@ -111,6 +113,13 @@ class TestQuickstartParser:
         add_quickstart_parser(subparsers)
         args = parser.parse_args(["quickstart", "--json"])
         assert args.json is True
+
+    def test_parser_spec_first_flag(self):
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        add_quickstart_parser(subparsers)
+        args = parser.parse_args(["quickstart", "--spec-first"])
+        assert args.spec_first is True
 
     def test_build_parser_registers_quickstart_json_flag(self):
         parser = build_parser()
@@ -464,6 +473,40 @@ class TestLiveQuickstartHelpers:
         assert receipt["confidence"] == 1.0
         assert receipt["receipt"]["confidence"] == 1.0
         assert receipt["consensus_proof"]["confidence"] == 1.0
+
+    def test_build_live_receipt_caps_settlement_confidence_for_sparse_debate_result(self):
+        result = DebateResult(
+            confidence=0.91,
+            consensus_reached=True,
+            dissenting_views=[],
+            final_answer="Proceed with a phased rollout.",
+            participants=["proposer", "critic", "synthesizer"],
+            rounds_used=1,
+        )
+
+        receipt = _build_live_receipt(
+            result,
+            "Should we proceed?",
+            1,
+            [
+                {"name": "proposer", "provider": "openai-api"},
+                {"name": "critic", "provider": "openai-api"},
+                {"name": "synthesizer", "provider": "openai-api"},
+            ],
+        )
+
+        strict_hygiene = validate_receipt(receipt, strict=True)
+        assert strict_hygiene.passed_strict() is True
+        assert receipt["confidence"] == pytest.approx(0.91)
+        assert receipt["settlement"]["status"] == "needs_definition"
+        assert receipt["settlement"]["claim"] == "Should we proceed?"
+        assert receipt["settlement"]["review_horizon_days"] == 30
+        assert receipt["settlement_metadata"]["confidence"] == pytest.approx(0.79)
+        assert receipt["settlement_metadata"]["falsifiers"] == []
+        assert any(
+            "Quickstart could not derive explicit falsifiers" in note
+            for note in receipt["settlement_metadata"]["review_notes"]
+        )
 
     @pytest.mark.asyncio
     async def test_can_reach_provider_tls_normalizes_wrapped_cert_errors(self):
@@ -895,6 +938,15 @@ class TestCmdQuickstart:
 
         artifact_path = tmp_path / ".aragora" / "receipts" / "quickstart-demo-receipt.json"
         assert artifact_path.exists()
+        saved = json.loads(artifact_path.read_text())
+        strict_hygiene = validate_receipt(saved, strict=True)
+        assert strict_hygiene.passed_strict() is True
+        assert saved["settlement_metadata"]["confidence"] == pytest.approx(0.79)
+        assert saved["settlement_metadata"]["falsifiers"] == []
+        assert any(
+            "Quickstart could not derive explicit falsifiers" in note
+            for note in saved["settlement_metadata"]["review_notes"]
+        )
 
         capsys.readouterr()
         with pytest.raises(SystemExit) as excinfo:
@@ -903,6 +955,24 @@ class TestCmdQuickstart:
         assert excinfo.value.code == 0
         output = capsys.readouterr().out
         assert "Result: VALID" in output
+        saved = json.loads(artifact_path.read_text())
+        strict_hygiene = validate_receipt(saved, strict=True)
+        assert strict_hygiene.passed_strict() is True
+        assert saved["settlement"]["status"] == "needs_definition"
+        assert saved["settlement"]["claim"] == "Should we verify the saved quickstart receipt?"
+        assert saved["settlement"]["falsifier"] == (
+            "Define an objective falsifier for the primary claim."
+        )
+        assert saved["settlement"]["metric"] == (
+            "Define a measurable metric for decision settlement."
+        )
+        assert saved["settlement"]["review_horizon_days"] == 30
+        assert saved["settlement_metadata"]["confidence"] == pytest.approx(0.79)
+        assert saved["settlement_metadata"]["falsifiers"] == []
+        assert any(
+            "Quickstart could not derive explicit falsifiers" in note
+            for note in saved["settlement_metadata"]["review_notes"]
+        )
 
     def test_live_mode_saves_default_receipt_artifact(self, tmp_path, monkeypatch, capsys):
         """Test live quickstart saves a deterministic default artifact."""
@@ -927,6 +997,9 @@ class TestCmdQuickstart:
             "agents": ["openai-api"],
             "summary": "Ship the truthful quickstart flow.",
             "dissent": [],
+            "verification_criteria": [
+                "Saved quickstart receipts continue to pass the strict epistemic hygiene gate."
+            ],
             "mode": "live",
         }
 
@@ -946,6 +1019,18 @@ class TestCmdQuickstart:
         assert artifact_path.exists()
         saved = json.loads(artifact_path.read_text())
         assert saved["mode"] == "live"
+        strict_hygiene = validate_receipt(saved, strict=True)
+        assert strict_hygiene.passed_strict() is True
+        assert saved["confidence"] == pytest.approx(0.91)
+        assert saved["settlement"]["status"] == "needs_definition"
+        assert saved["settlement"]["claim"] == "Should we ship the CLI quickstart?"
+        assert saved["settlement"]["review_horizon_days"] == 30
+        assert saved["settlement_metadata"]["confidence"] == pytest.approx(0.79)
+        assert saved["settlement_metadata"]["falsifiers"] == []
+        assert any(
+            "Quickstart could not derive explicit falsifiers" in note
+            for note in saved["settlement_metadata"]["review_notes"]
+        )
 
         output = capsys.readouterr().out
         assert "Run mode: live" in output
@@ -1297,3 +1382,77 @@ class TestCmdQuickstart:
         payload = json.loads(output.out)
         assert payload["question"] == "Should JSON prompts stay off stdout?"
         assert "> " in output.err
+
+    def test_spec_first_writes_spec_artifact_and_skips_debate_execution(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should quickstart generate a spec first?",
+            demo=False,
+            spec_first=True,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="md",
+            json=False,
+            rounds=None,
+            no_browser=True,
+        )
+        spec_result = {
+            "spec_bundle": {
+                "title": "Spec-first quickstart",
+                "problem_statement": "Create a spec before running debate.",
+                "acceptance_criteria": ["save an artifact", "show the next command"],
+                "rollback_plan": ["fall back to direct debate if spec generation fails"],
+            },
+            "pipeline": "orchestrator",
+            "run_id": "run-spec-1",
+        }
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._run_quickstart_spec_first",
+                new=AsyncMock(return_value=spec_result),
+            ) as run_spec_first,
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                side_effect=AssertionError("spec-first should return before agent detection"),
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_live_debate",
+                side_effect=AssertionError("spec-first should not launch a live debate"),
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_demo_debate",
+                side_effect=AssertionError("spec-first should not launch a demo debate"),
+            ),
+        ):
+            cmd_quickstart(args)
+
+        artifact_path = tmp_path / ".aragora" / "specs" / "quickstart-spec.json"
+        assert artifact_path.exists()
+
+        saved_payload = json.loads(artifact_path.read_text())
+        assert saved_payload["question"] == "Should quickstart generate a spec first?"
+        assert saved_payload["mode"] == "quickstart-spec"
+        assert saved_payload["pipeline"] == "orchestrator"
+        assert saved_payload["run_id"] == "run-spec-1"
+        assert saved_payload["spec_bundle"]["acceptance_criteria"] == [
+            "save an artifact",
+            "show the next command",
+        ]
+
+        run_spec_first.assert_awaited_once_with("Should quickstart generate a spec first?")
+
+        output = capsys.readouterr().out
+        assert "Run mode: spec-first" in output
+        assert "Spec-first quickstart always saves JSON artifacts" in output
+        assert "Pipeline:   orchestrator" in output
+        assert "Run:        run-spec-1" in output
+        assert str(artifact_path) in output
+        assert (
+            f"aragora decide 'Should quickstart generate a spec first?' --spec {artifact_path}"
+            in output
+        )

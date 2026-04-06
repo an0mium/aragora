@@ -411,7 +411,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
     <div className="mb-3">
       <label className="block text-xs text-text-muted mb-1">{label}</label>
-      <p className="text-sm text-text font-mono bg-bg border border-border rounded px-2 py-1.5 opacity-70">
+      <p className="text-sm text-text font-theme-data bg-bg border border-border rounded px-2 py-1.5 opacity-70">
         {value || <span className="text-text-muted italic">--</span>}
       </p>
     </div>
@@ -434,7 +434,7 @@ function ProvenanceTab({
   if (provenanceLinks.length === 0 && transitions.length === 0) {
     return (
       <div className="text-center text-text-muted py-6">
-        <p className="text-sm font-mono">No provenance data for this node.</p>
+        <p className="text-sm font-theme-data">No provenance data for this node.</p>
       </div>
     );
   }
@@ -472,7 +472,7 @@ function ProvenanceTab({
             );
           })}
         </div>
-        <p className="text-xs text-text-muted font-mono mt-1">
+        <p className="text-xs text-text-muted font-theme-data mt-1">
           {chainDepth} stage{chainDepth !== 1 ? 's' : ''} in provenance chain
         </p>
       </div>
@@ -481,7 +481,7 @@ function ProvenanceTab({
       {relevantTransition && (
         <div className="mb-4 p-3 bg-bg border border-border rounded">
           <label className="block text-xs text-text-muted mb-2 uppercase font-bold">Transition</label>
-          <div className="space-y-1 text-xs font-mono">
+          <div className="space-y-1 text-xs font-theme-data">
             <div className="flex justify-between">
               <span className="text-text-muted">From</span>
               <span className={STAGE_COLOR_CLASSES[relevantTransition.from_stage]?.text}>
@@ -522,7 +522,7 @@ function ProvenanceTab({
           const targetColors = STAGE_COLOR_CLASSES[link.target_stage];
           return (
             <div key={i} className="p-2 bg-bg rounded border border-border" data-testid="provenance-link">
-              <div className="flex items-center gap-1 text-xs font-mono mb-1">
+              <div className="flex items-center gap-1 text-xs font-theme-data mb-1">
                 <span className={`px-1 py-0.5 rounded ${sourceColors?.bg} ${sourceColors?.text}`}>
                   {link.source_stage}
                 </span>
@@ -533,7 +533,7 @@ function ProvenanceTab({
                   {link.target_stage}
                 </span>
               </div>
-              <div className="text-xs font-mono text-text-muted space-y-0.5">
+              <div className="text-xs font-theme-data text-text-muted space-y-0.5">
                 <p className="truncate">Source: <span className="text-text">{link.source_node_id}</span></p>
                 <p className="truncate">Target: <span className="text-text">{link.target_node_id}</span></p>
                 <div className="flex gap-3 mt-1">
@@ -580,7 +580,7 @@ export const PipelinePropertyEditor = memo(function PipelinePropertyEditor({
     return (
       <div className="w-72 flex-shrink-0 bg-surface border-l border-border h-full overflow-y-auto p-4">
         <div className="text-center text-text-muted py-8">
-          <p className="text-sm font-mono">Select a node to edit its properties.</p>
+          <p className="text-sm font-theme-data">Select a node to edit its properties.</p>
         </div>
       </div>
     );
@@ -601,10 +601,10 @@ export const PipelinePropertyEditor = memo(function PipelinePropertyEditor({
           style={{ backgroundColor: stageConfig.primary }}
         />
         <div>
-          <h3 className="text-sm font-mono font-bold text-text uppercase">
+          <h3 className="text-sm font-theme-data font-bold text-text uppercase">
             {stageConfig.label} Properties
           </h3>
-          <p className="text-xs text-text-muted font-mono">
+          <p className="text-xs text-text-muted font-theme-data">
             Stage: <span style={{ color: stageConfig.primary }}>{stage}</span>
           </p>
         </div>
@@ -614,7 +614,7 @@ export const PipelinePropertyEditor = memo(function PipelinePropertyEditor({
       <div className="flex gap-1 mb-4">
         <button
           onClick={() => setActiveTab('properties')}
-          className={`flex-1 px-2 py-1.5 text-xs font-mono font-bold uppercase rounded transition-colors ${
+          className={`flex-1 px-2 py-1.5 text-xs font-theme-data font-bold uppercase rounded transition-colors ${
             activeTab === 'properties'
               ? 'bg-bg text-text border border-border'
               : 'text-text-muted hover:text-text'
@@ -625,7 +625,7 @@ export const PipelinePropertyEditor = memo(function PipelinePropertyEditor({
         </button>
         <button
           onClick={() => setActiveTab('provenance')}
-          className={`flex-1 px-2 py-1.5 text-xs font-mono font-bold uppercase rounded transition-colors flex items-center justify-center gap-1 ${
+          className={`flex-1 px-2 py-1.5 text-xs font-theme-data font-bold uppercase rounded transition-colors flex items-center justify-center gap-1 ${
             activeTab === 'provenance'
               ? 'bg-bg text-text border border-border'
               : 'text-text-muted hover:text-text'
@@ -686,7 +686,7 @@ export const PipelinePropertyEditor = memo(function PipelinePropertyEditor({
         {onShowProvenance && activeTab === 'properties' && (
           <button
             onClick={onShowProvenance}
-            className="w-full px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:bg-bg transition-colors rounded"
+            className="w-full px-4 py-2 bg-surface border border-border text-text font-theme-data text-sm hover:bg-bg transition-colors rounded"
           >
             View Provenance
           </button>
@@ -694,7 +694,7 @@ export const PipelinePropertyEditor = memo(function PipelinePropertyEditor({
         {!readOnly && (
           <button
             onClick={onDelete}
-            className="w-full px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-mono text-sm hover:bg-red-500/30 transition-colors rounded"
+            className="w-full px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-theme-data text-sm hover:bg-red-500/30 transition-colors rounded"
           >
             Delete Node
           </button>

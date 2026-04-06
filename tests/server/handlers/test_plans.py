@@ -19,7 +19,7 @@ import json
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -35,6 +35,12 @@ from aragora.server.handlers.utils.responses import HandlerResult
 def _parse_body(result: HandlerResult) -> dict[str, Any]:
     """Parse JSON body from HandlerResult."""
     return json.loads(result.body)
+
+
+def _close_scheduled_coroutine(coro, *args, **kwargs):
+    """Close scheduled coroutines in tests to avoid background execution."""
+    coro.close()
+    return None
 
 
 class MockPlanStatus(str, Enum):
@@ -497,6 +503,14 @@ class TestExecutePlan:
     def test_execute_approved_plan(self, handler, mock_store):
         plan = MockPlan(status="approved")
         mock_store.get.return_value = plan
+        launch = {
+            "plan_id": "plan-001",
+            "run_id": "run-001",
+            "execution_id": "exec-001",
+            "correlation_id": "corr-001",
+            "execution_mode": "interactive",
+            "status": "queued",
+        }
 
         with (
             patch(
@@ -510,27 +524,28 @@ class TestExecutePlan:
             patch.object(handler, "get_json_body", return_value={}),
             patch(
                 "aragora.pipeline.canonical_execution.queue_plan_execution",
-                return_value={
-                    "run_id": "run-001",
-                    "execution_id": "exec-001",
-                    "correlation_id": "corr-001",
-                    "status": "queued",
-                    "execution_mode": "autonomous",
-                },
-            ),
+                return_value=launch,
+            ) as mock_queue,
             patch(
                 "aragora.pipeline.canonical_execution.execute_queued_plan",
-                new=MagicMock(return_value="queued-task"),
-            ),
+                new=AsyncMock(),
+            ) as mock_execute,
             patch(
                 "aragora.pipeline.canonical_execution.schedule_coroutine",
-            ),
+                side_effect=_close_scheduled_coroutine,
+            ) as mock_schedule,
             patch(
                 "aragora.server.handlers.plans._fire_plan_notification",
             ),
         ):
             result = handler._execute_plan({"plan_id": "plan-001"}, {})
             assert result.status_code == 202
+            body = _parse_body(result)
+            assert body["run_id"] == "run-001"
+            assert body["execution_id"] == "exec-001"
+            mock_queue.assert_called_once()
+            mock_execute.assert_called_once()
+            mock_schedule.assert_called_once()
 
     def test_execute_unapproved_plan(self, handler, mock_store):
         plan = MockPlan(status="awaiting_approval")

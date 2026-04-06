@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from scripts.check_execution_gate_policy_control import (
@@ -9,6 +10,27 @@ from scripts.check_execution_gate_policy_control import (
     compute_defaults_checksum,
     validate_policy_document,
 )
+
+
+def _valid_post_debate_source() -> str:
+    return """
+from dataclasses import dataclass
+
+@dataclass
+class PostDebateConfig:
+    enforce_execution_safety_gate: bool = True
+    execution_gate_require_verified_signed_receipt: bool = True
+    execution_gate_enforce_receipt_signer_allowlist: bool = False
+    execution_gate_allowed_receipt_signer_keys: tuple[str, ...] = ()
+    execution_gate_require_signed_receipt_timestamp: bool = True
+    execution_gate_receipt_max_age_seconds: int = 86400
+    execution_gate_receipt_max_future_skew_seconds: int = 120
+    execution_gate_min_provider_diversity: int = 2
+    execution_gate_min_model_family_diversity: int = 2
+    execution_gate_block_on_context_taint: bool = True
+    execution_gate_block_on_high_severity_dissent: bool = True
+    execution_gate_high_severity_dissent_threshold: float = 0.7
+"""
 
 
 def _source_defaults() -> dict[str, object]:
@@ -53,6 +75,20 @@ def _valid_policy() -> dict[str, object]:
     }
 
 
+def _write_repo_layout(
+    repo_root: Path,
+    *,
+    config_relpath: str,
+) -> None:
+    config_path = repo_root / config_relpath
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(_valid_post_debate_source(), encoding="utf-8")
+
+    policy_path = repo_root / "security/policies/execution_gate_defaults_policy.json"
+    policy_path.parent.mkdir(parents=True, exist_ok=True)
+    policy_path.write_text(json.dumps(_valid_policy()), encoding="utf-8")
+
+
 def test_validate_policy_document_accepts_valid_payload() -> None:
     policy = _valid_policy()
     errors = validate_policy_document(policy, _source_defaults())
@@ -87,4 +123,16 @@ def test_validate_policy_document_rejects_missing_tracked_key() -> None:
 def test_repo_policy_control_passes_for_current_tree() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     violations = check_repo(repo_root)
+    assert violations == []
+
+
+def test_repo_policy_control_supports_extracted_config_module(tmp_path: Path) -> None:
+    _write_repo_layout(tmp_path, config_relpath="aragora/debate/post_debate_config.py")
+    violations = check_repo(tmp_path)
+    assert violations == []
+
+
+def test_repo_policy_control_falls_back_to_legacy_coordinator_path(tmp_path: Path) -> None:
+    _write_repo_layout(tmp_path, config_relpath="aragora/debate/post_debate_coordinator.py")
+    violations = check_repo(tmp_path)
     assert violations == []

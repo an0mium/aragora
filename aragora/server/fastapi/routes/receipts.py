@@ -49,6 +49,7 @@ class ExportFormat(str, Enum):
     html = "html"
     markdown = "markdown"
     md = "md"
+    pdf = "pdf"
     sarif = "sarif"
 
 
@@ -240,6 +241,46 @@ class SharedReceiptResponse(BaseModel):
     access_count: int
 
 
+class SignatureVerifyResponse(BaseModel):
+    """Response for receipt signature verification."""
+
+    receipt_id: str
+    signature_valid: bool
+    algorithm: str | None = None
+    key_id: str | None = None
+    signed_at: float | None = None
+    verification_timestamp: str
+    error: str | None = None
+
+
+class FormattedReceiptResponse(BaseModel):
+    """Response for receipt channel formatting."""
+
+    receipt_id: str
+    channel_type: str
+    formatted: dict[str, Any]
+
+
+class SendToChannelRequest(BaseModel):
+    """Request body for POST /receipts/{receipt_id}/send-to-channel."""
+
+    channel_type: str = Field(..., min_length=1)
+    channel_id: str = Field(..., min_length=1)
+    workspace_id: str | None = None
+    options: dict[str, Any] = Field(default_factory=dict)
+
+
+class SendToChannelResponse(BaseModel):
+    """Response for receipt delivery requests."""
+
+    sent: bool
+    receipt_id: str
+    channel_type: str
+    channel_id: str
+
+    model_config = {"extra": "allow"}
+
+
 # =============================================================================
 # Dependencies
 # =============================================================================
@@ -299,6 +340,24 @@ async def _call_store_method(store: Any, method_name: str, *args: Any, **kwargs:
     return result
 
 
+def _store_accepts_keyword_argument(store: Any, method_name: str, keyword: str) -> bool:
+    """Return whether a store method accepts a named keyword or arbitrary kwargs."""
+
+    method = getattr(store, method_name, None)
+    if method is None:
+        return False
+
+    try:
+        parameters = inspect.signature(method).parameters.values()
+    except (TypeError, ValueError):
+        return True
+
+    return any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD or parameter.name == keyword
+        for parameter in parameters
+    )
+
+
 async def _consume_share_access(share_store: Any, token: str) -> tuple[str, dict[str, Any] | None]:
     """Consume one receipt-share access, preferring atomic store support."""
     consume_result = None
@@ -325,6 +384,16 @@ async def _consume_share_access(share_store: Any, token: str) -> tuple[str, dict
     updated_share_info = dict(share_info)
     updated_share_info["access_count"] = access_count + 1
     return "ok", updated_share_info
+
+
+def _build_decision_receipt(receipt: Any) -> Any:
+    """Reconstruct a DecisionReceipt from stored receipt payloads."""
+    from aragora.export.decision_receipt import DecisionReceipt
+
+    payload = _extract_decision_receipt_payload(receipt)
+    if not payload:
+        raise ValueError("Cannot reconstruct receipt payload")
+    return DecisionReceipt.from_dict(payload)
 
 
 # =============================================================================
@@ -504,6 +573,7 @@ async def list_receipts(
     limit: int = Query(50, ge=1, le=100, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     verdict: str | None = Query(None, description="Filter by verdict"),
+    debate_id: str | None = Query(None, description="Filter by debate ID"),
     store=Depends(get_receipt_store),
 ) -> ReceiptListResponse:
     """List all receipts with pagination."""
@@ -511,15 +581,29 @@ async def list_receipts(
         filter_kwargs: dict[str, Any] = {}
         if verdict:
             filter_kwargs["verdict"] = verdict
+        if debate_id:
+            filter_kwargs["debate_id"] = debate_id
 
         if hasattr(store, "list_recent"):
+            list_recent_kwargs: dict[str, Any] = {
+                "limit": limit,
+                "offset": offset,
+                "verdict": verdict,
+            }
+            if debate_id and _store_accepts_keyword_argument(store, "list_recent", "debate_id"):
+                list_recent_kwargs["debate_id"] = debate_id
+
             results = await _call_store_method(
                 store,
                 "list_recent",
-                limit=limit,
-                offset=offset,
-                verdict=verdict,
+                **list_recent_kwargs,
             )
+            if debate_id and "debate_id" not in list_recent_kwargs:
+                results = [
+                    receipt
+                    for receipt in results
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                ]
         elif hasattr(store, "list"):
             results = await _call_store_method(
                 store, "list", limit=limit, offset=offset, **filter_kwargs
@@ -533,12 +617,29 @@ async def list_receipts(
                     if (r.get("verdict") if isinstance(r, dict) else getattr(r, "verdict", ""))
                     == verdict
                 ]
+            if debate_id:
+                all_receipts = [
+                    receipt
+                    for receipt in all_receipts
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                ]
             results = all_receipts[offset : offset + limit]
         else:
             results = []
 
         if hasattr(store, "count"):
-            total = await _call_store_method(store, "count", verdict=verdict)
+            count_kwargs: dict[str, Any] = {"verdict": verdict}
+            if debate_id and _store_accepts_keyword_argument(store, "count", "debate_id"):
+                count_kwargs["debate_id"] = debate_id
+            total = await _call_store_method(store, "count", **count_kwargs)
+            if debate_id and "debate_id" not in count_kwargs and hasattr(store, "list_all"):
+                all_receipts = await _call_store_method(store, "list_all")
+                total = sum(
+                    1
+                    for receipt in all_receipts
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                    and (not verdict or _extract_receipt_payload(receipt).get("verdict") == verdict)
+                )
         else:
             total = len(results)
 
@@ -971,6 +1072,162 @@ async def share_receipt(
         raise HTTPException(status_code=500, detail="Failed to share receipt")
 
 
+@router.get(
+    "/receipts/{receipt_id}/formatted/{channel_type}",
+    response_model=FormattedReceiptResponse,
+)
+async def get_formatted_receipt(
+    receipt_id: str,
+    channel_type: str,
+    compact: bool = Query(False, description="Return a compact formatter payload"),
+    store=Depends(get_receipt_store),
+) -> FormattedReceiptResponse:
+    """Return the receipt payload formatted for a specific channel."""
+    try:
+        receipt_data = None
+        if hasattr(store, "get"):
+            receipt_data = await _call_store_method(store, "get", receipt_id)
+        elif hasattr(store, "get_by_id"):
+            receipt_data = await _call_store_method(store, "get_by_id", receipt_id)
+
+        if not receipt_data:
+            raise NotFoundError(f"Receipt {receipt_id} not found")
+
+        from aragora.channels.formatter import format_receipt_for_channel
+
+        formatted = format_receipt_for_channel(
+            _build_decision_receipt(receipt_data),
+            channel_type,
+            {"compact": compact},
+        )
+        return FormattedReceiptResponse(
+            receipt_id=receipt_id,
+            channel_type=channel_type,
+            formatted=formatted,
+        )
+    except NotFoundError:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except (ImportError, RuntimeError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error formatting receipt %s for %s: %s", receipt_id, channel_type, e)
+        raise HTTPException(status_code=500, detail="Failed to format receipt")
+
+
+@router.post(
+    "/receipts/{receipt_id}/send-to-channel",
+    response_model=SendToChannelResponse,
+    openapi_extra={"security": [{"bearerAuth": []}]},
+)
+async def send_receipt_to_channel(
+    receipt_id: str,
+    body: SendToChannelRequest,
+    request: Request,
+    _auth: Any = Depends(require_permission("receipts:share")),
+    store=Depends(get_receipt_store),
+) -> SendToChannelResponse:
+    """Send a receipt to a configured channel using the legacy delivery adapters."""
+    try:
+        receipt_data = None
+        if hasattr(store, "get"):
+            receipt_data = await _call_store_method(store, "get", receipt_id)
+        elif hasattr(store, "get_by_id"):
+            receipt_data = await _call_store_method(store, "get_by_id", receipt_id)
+
+        if not receipt_data:
+            raise NotFoundError(f"Receipt {receipt_id} not found")
+
+        from aragora.channels.formatter import format_receipt_for_channel
+        from aragora.server.handlers.receipts import ReceiptsHandler
+
+        supported_channels = {"slack", "teams", "email", "discord"}
+        if body.channel_type not in supported_channels:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Unsupported channel type: {body.channel_type}. "
+                    "Supported: slack, teams, email, discord"
+                ),
+            )
+
+        formatted = format_receipt_for_channel(
+            _build_decision_receipt(receipt_data),
+            body.channel_type,
+            body.options,
+        )
+
+        handler = ReceiptsHandler(getattr(request.app.state, "context", {}) or {})
+        if body.channel_type == "slack":
+            result = await handler._send_to_slack(formatted, body.channel_id, body.workspace_id)
+        elif body.channel_type == "teams":
+            result = await handler._send_to_teams(formatted, body.channel_id, body.workspace_id)
+        elif body.channel_type == "email":
+            result = await handler._send_to_email(formatted, body.channel_id, body.options)
+        else:
+            result = await handler._send_to_discord(formatted, body.channel_id, body.options)
+
+        handler._record_delivery_history(
+            receipt_id=receipt_id,
+            channel_type=body.channel_type,
+            channel_id=body.channel_id,
+            workspace_id=body.workspace_id,
+            status="success",
+            result=result,
+        )
+        return SendToChannelResponse(
+            sent=True,
+            receipt_id=receipt_id,
+            channel_type=body.channel_type,
+            channel_id=body.channel_id,
+            **result,
+        )
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise
+    except ImportError as e:
+        logger.exception("Missing dependency for receipt delivery to %s: %s", body.channel_type, e)
+        raise HTTPException(status_code=501, detail=f"Delivery backend unavailable: {e}") from e
+    except (ConnectionError, TimeoutError, ValueError, OSError) as e:
+        logger.exception("Failed to send receipt %s to %s: %s", receipt_id, body.channel_type, e)
+        raise HTTPException(status_code=500, detail=f"Failed to send receipt: {e}") from e
+
+
+@router.post("/receipts/{receipt_id}/verify-signature", response_model=SignatureVerifyResponse)
+async def verify_receipt_signature(
+    receipt_id: str,
+    store=Depends(get_receipt_store),
+) -> SignatureVerifyResponse:
+    """Verify a stored receipt's cryptographic signature."""
+    try:
+        if not hasattr(store, "verify_signature"):
+            raise HTTPException(
+                status_code=501, detail="Receipt signature verification unavailable"
+            )
+
+        result = await _call_store_method(store, "verify_signature", receipt_id)
+        if hasattr(result, "to_dict"):
+            payload = result.to_dict()
+            error = getattr(result, "error", None)
+        elif isinstance(result, dict):
+            payload = result
+            error = result.get("error")
+        else:
+            raise TypeError("Unexpected signature verification result")
+
+        if isinstance(error, str) and "not found" in error.lower():
+            raise NotFoundError(f"Receipt {receipt_id} not found")
+
+        return SignatureVerifyResponse(**payload)
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise
+    except (RuntimeError, ValueError, TypeError, OSError, KeyError, AttributeError) as e:
+        logger.exception("Error verifying receipt signature %s: %s", receipt_id, e)
+        raise HTTPException(status_code=500, detail="Failed to verify receipt signature")
+
+
 @router.post("/receipts/{receipt_id}/verify", response_model=VerifyResponse)
 async def verify_receipt_post(
     receipt_id: str,
@@ -1054,9 +1311,13 @@ async def verify_receipt(
 async def export_receipt(
     receipt_id: str,
     format: ExportFormat = Query(ExportFormat.json, description="Export format"),
+    raw: bool = Query(
+        False,
+        description="Return the exported bytes directly instead of a JSON wrapper.",
+    ),
     store=Depends(get_receipt_store),
-) -> ExportResponse:
-    """Export receipt in the specified format (json, html, markdown, sarif)."""
+) -> ExportResponse | Response:
+    """Export receipt in the specified format."""
     try:
         receipt_data = None
 
@@ -1077,18 +1338,61 @@ async def export_receipt(
             else:
                 raise ValueError("Cannot reconstruct receipt for export")
 
+            if format == ExportFormat.pdf:
+                try:
+                    return Response(
+                        content=receipt.to_pdf(),
+                        media_type="application/pdf",
+                    )
+                except ImportError:
+                    logger.info("PDF export unavailable, falling back to printable HTML")
+                    printable_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Receipt {receipt_id}</title>
+    <style>
+        @media print {{
+            body {{ font-size: 12pt; }}
+            .no-print {{ display: none; }}
+        }}
+        body {{ font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+        .print-notice {{ background: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-bottom: 20px; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class="print-notice no-print">
+        <strong>Note:</strong> PDF export is unavailable. Use your browser's Print function (Ctrl+P / Cmd+P) to save as PDF.
+    </div>
+    {receipt.to_html()}
+</body>
+</html>"""
+                    return Response(
+                        content=printable_html.encode("utf-8"),
+                        media_type="text/html",
+                        headers={"X-PDF-Fallback": "true"},
+                    )
+
             if format in (ExportFormat.markdown, ExportFormat.md):
                 content = receipt.to_markdown()
                 response_format = "markdown"
+                media_type = "text/markdown"
             elif format == ExportFormat.html:
                 content = receipt.to_html()
                 response_format = "html"
+                media_type = "text/html"
             elif format == ExportFormat.sarif:
                 content = receipt.to_sarif_json()
                 response_format = "sarif"
+                media_type = "application/sarif+json"
             else:
                 content = receipt.to_json()
                 response_format = "json"
+                media_type = "application/json"
+
+            if raw:
+                body = content if isinstance(content, bytes) else content.encode("utf-8")
+                return Response(content=body, media_type=media_type)
 
             return ExportResponse(
                 receipt_id=receipt_id,

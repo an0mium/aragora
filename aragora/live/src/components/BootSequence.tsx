@@ -157,21 +157,21 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
   const getLineStyle = (style: string) => {
     switch (style) {
       case 'title':
-        return 'text-acid-green font-bold text-lg glow-text';
+        return 'text-[var(--accent)] font-bold text-lg glow-text';
       case 'divider':
-        return 'text-acid-green/50';
+        return 'text-[var(--accent)]/50';
       case 'system':
-        return 'text-acid-cyan';
+        return 'text-[var(--acid-cyan)]';
       case 'success':
-        return 'text-acid-green';
+        return 'text-[var(--accent)]';
       case 'provider':
-        return 'text-acid-cyan/70';
+        return 'text-[var(--acid-cyan)]/70';
       case 'agent':
         return 'text-text/80';
       case 'ready':
-        return 'text-acid-green font-bold glow-text animate-pulse';
+        return 'text-[var(--accent)] font-bold glow-text animate-pulse';
       case 'prompt':
-        return 'text-acid-yellow';
+        return 'text-[var(--acid-yellow)]';
       default:
         return 'text-text';
     }
@@ -191,9 +191,9 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
         }
       }}
     >
-      <div className="max-w-2xl w-full p-8 font-mono text-sm">
+      <div className="max-w-2xl w-full p-8 font-theme-data text-sm">
         {/* Skip hint at top */}
-        <div className="text-center mb-4 text-acid-yellow/60 text-xs animate-pulse" aria-hidden="true">
+        <div className="text-center mb-4 text-[var(--acid-yellow)]/60 text-xs animate-pulse" aria-hidden="true">
           Press any key or click to skip...
         </div>
 
@@ -212,7 +212,7 @@ export function BootSequence({ onComplete, skip = false }: BootSequenceProps) {
 
         {isComplete && (
           <div className="mt-4">
-            <span className="text-acid-green">
+            <span className="text-[var(--accent)]">
               {'>'}
               <span className={showCursor ? 'opacity-100' : 'opacity-0'}>_</span>
             </span>
@@ -249,7 +249,7 @@ export function MiniLoader({ text = 'Loading' }: { text?: string }) {
   }, []);
 
   return (
-    <div className="flex items-center gap-2 font-mono text-sm text-acid-green">
+    <div className="flex items-center gap-2 font-theme-data text-sm text-[var(--accent)]">
       <span className="animate-pulse">{'>'}</span>
       <span>{text}</span>
       <span className="w-6">{'.'.repeat(dots)}</span>

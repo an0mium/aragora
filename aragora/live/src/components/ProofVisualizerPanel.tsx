@@ -75,9 +75,9 @@ interface ProofVisualizerPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 const STATUS_COLORS: Record<string, { text: string; bg: string }> = {
-  proof_found: { text: 'text-acid-green', bg: 'bg-acid-green/20' },
+  proof_found: { text: 'text-[var(--accent)]', bg: 'bg-[var(--accent)]/20' },
   translation_failed: { text: 'text-acid-red', bg: 'bg-acid-red/20' },
-  proof_failed: { text: 'text-acid-yellow', bg: 'bg-acid-yellow/20' },
+  proof_failed: { text: 'text-[var(--acid-yellow)]', bg: 'bg-acid-yellow/20' },
   timeout: { text: 'text-text-muted', bg: 'bg-surface' },
   error: { text: 'text-acid-red', bg: 'bg-acid-red/20' },
 };
@@ -285,7 +285,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
   const renderStatusBadge = (status: string) => {
     const style = STATUS_COLORS[status] || STATUS_COLORS.error;
     return (
-      <span className={`px-2 py-0.5 rounded text-xs font-mono ${style.bg} ${style.text}`}>
+      <span className={`px-2 py-0.5 rounded text-xs font-theme-data ${style.bg} ${style.text}`}>
         {status.replace('_', ' ').toUpperCase()}
       </span>
     );
@@ -297,21 +297,21 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
       <div className="card p-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-mono text-acid-green text-lg">VERIFICATION BACKENDS</h3>
-            <p className="text-xs font-mono text-text-muted mt-1">
+            <h3 className="font-theme-data text-[var(--accent)] text-lg">VERIFICATION BACKENDS</h3>
+            <p className="text-xs font-theme-data text-text-muted mt-1">
               Available proof backends for formal verification
             </p>
           </div>
           <button
             onClick={fetchStatus}
-            className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/30 rounded hover:border-acid-green/50 transition-colors"
+            className="px-3 py-1 text-xs font-theme-data bg-surface border border-[var(--accent)]/30 rounded hover:border-[var(--accent)]/50 transition-colors"
           >
             [REFRESH]
           </button>
         </div>
 
         {statusLoading ? (
-          <div className="text-acid-green font-mono animate-pulse">Loading status...</div>
+          <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading status...</div>
         ) : backendStatus ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {backendStatus.backends.map((backend) => (
@@ -319,16 +319,16 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                 key={backend.language}
                 className={`p-3 rounded border ${
                   backend.available
-                    ? 'border-acid-green/40 bg-acid-green/10'
+                    ? 'border-[var(--accent)]/40 bg-[var(--accent)]/10'
                     : 'border-acid-red/40 bg-acid-red/10'
                 }`}
               >
-                <div className="font-mono text-sm mb-1">
+                <div className="font-theme-data text-sm mb-1">
                   {backend.language.toUpperCase()}
                 </div>
                 <div
-                  className={`text-xs font-mono ${
-                    backend.available ? 'text-acid-green' : 'text-acid-red'
+                  className={`text-xs font-theme-data ${
+                    backend.available ? 'text-[var(--accent)]' : 'text-acid-red'
                   }`}
                 >
                   {backend.available ? 'ONLINE' : 'OFFLINE'}
@@ -338,14 +338,14 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
             <div
               className={`p-3 rounded border ${
                 backendStatus.deepseek_prover_available
-                  ? 'border-acid-cyan/40 bg-acid-cyan/10'
+                  ? 'border-[var(--acid-cyan)]/40 bg-[var(--acid-cyan)]/10'
                   : 'border-text-muted/40 bg-surface'
               }`}
             >
-              <div className="font-mono text-sm mb-1">DEEPSEEK-PROVER</div>
+              <div className="font-theme-data text-sm mb-1">DEEPSEEK-PROVER</div>
               <div
-                className={`text-xs font-mono ${
-                  backendStatus.deepseek_prover_available ? 'text-acid-cyan' : 'text-text-muted'
+                className={`text-xs font-theme-data ${
+                  backendStatus.deepseek_prover_available ? 'text-[var(--acid-cyan)]' : 'text-text-muted'
                 }`}
               >
                 {backendStatus.deepseek_prover_available ? 'ONLINE' : 'OFFLINE'}
@@ -353,19 +353,19 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
             </div>
           </div>
         ) : (
-          <div className="text-text-muted font-mono">Failed to load status</div>
+          <div className="text-text-muted font-theme-data">Failed to load status</div>
         )}
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-acid-green/20 pb-2">
+      <div className="flex gap-2 border-b border-[var(--accent)]/20 pb-2">
         {(['single', 'batch', 'translate', 'history'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 font-mono text-sm rounded-t transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm rounded-t transition-colors ${
               activeTab === tab
-                ? 'bg-acid-green/20 text-acid-green border-b-2 border-acid-green'
+                ? 'bg-[var(--accent)]/20 text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -378,26 +378,26 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
       {activeTab === 'single' && (
         <div className="space-y-4">
           <div className="card p-4">
-            <h4 className="font-mono text-acid-cyan mb-4">VERIFY SINGLE CLAIM</h4>
+            <h4 className="font-theme-data text-[var(--acid-cyan)] mb-4">VERIFY SINGLE CLAIM</h4>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-2">CLAIM</label>
+                <label className="block text-xs font-theme-data text-text-muted mb-2">CLAIM</label>
                 <textarea
                   value={claim}
                   onChange={(e) => setClaim(e.target.value)}
                   placeholder="Enter a claim to verify, e.g., 'For all natural numbers n, n + 0 = n'"
-                  className="w-full h-24 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green resize-none"
+                  className="w-full h-24 bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] resize-none"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-mono text-text-muted mb-2">CLAIM TYPE (optional)</label>
+                  <label className="block text-xs font-theme-data text-text-muted mb-2">CLAIM TYPE (optional)</label>
                   <select
                     value={claimType}
                     onChange={(e) => setClaimType(e.target.value)}
-                    className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                    className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                   >
                     <option value="">Auto-detect</option>
                     <option value="MATHEMATICAL">Mathematical</option>
@@ -407,14 +407,14 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-text-muted mb-2">TIMEOUT (seconds)</label>
+                  <label className="block text-xs font-theme-data text-text-muted mb-2">TIMEOUT (seconds)</label>
                   <input
                     type="number"
                     value={timeout}
                     onChange={(e) => setTimeout(Number(e.target.value))}
                     min={5}
                     max={300}
-                    className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                    className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                   />
                 </div>
 
@@ -422,7 +422,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                   <button
                     onClick={handleVerifyClaim}
                     disabled={loading || !claim.trim()}
-                    className="w-full px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? '[VERIFYING...]' : '[VERIFY CLAIM]'}
                   </button>
@@ -430,13 +430,13 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
               </div>
 
               <div>
-                <label className="block text-xs font-mono text-text-muted mb-2">CONTEXT (optional)</label>
+                <label className="block text-xs font-theme-data text-text-muted mb-2">CONTEXT (optional)</label>
                 <input
                   type="text"
                   value={context}
                   onChange={(e) => setContext(e.target.value)}
                   placeholder="Additional context for the claim"
-                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 />
               </div>
             </div>
@@ -446,42 +446,42 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
           {singleResult && (
             <div className="card p-4">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="font-mono text-acid-cyan">VERIFICATION RESULT</h4>
+                <h4 className="font-theme-data text-[var(--acid-cyan)]">VERIFICATION RESULT</h4>
                 {renderStatusBadge(singleResult.status)}
               </div>
 
               <div className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div className="p-2 bg-surface rounded">
-                    <div className={`text-lg font-mono ${singleResult.is_verified ? 'text-acid-green' : 'text-acid-red'}`}>
+                    <div className={`text-lg font-theme-data ${singleResult.is_verified ? 'text-[var(--accent)]' : 'text-acid-red'}`}>
                       {singleResult.is_verified ? 'YES' : 'NO'}
                     </div>
-                    <div className="text-xs font-mono text-text-muted">verified</div>
+                    <div className="text-xs font-theme-data text-text-muted">verified</div>
                   </div>
                   <div className="p-2 bg-surface rounded">
-                    <div className="text-lg font-mono text-acid-cyan">
+                    <div className="text-lg font-theme-data text-[var(--acid-cyan)]">
                       {singleResult.language?.toUpperCase() || 'N/A'}
                     </div>
-                    <div className="text-xs font-mono text-text-muted">language</div>
+                    <div className="text-xs font-theme-data text-text-muted">language</div>
                   </div>
                   <div className="p-2 bg-surface rounded">
-                    <div className="text-lg font-mono text-text">
+                    <div className="text-lg font-theme-data text-text">
                       {singleResult.translation_time_ms?.toFixed(0) || '0'}ms
                     </div>
-                    <div className="text-xs font-mono text-text-muted">translation</div>
+                    <div className="text-xs font-theme-data text-text-muted">translation</div>
                   </div>
                   <div className="p-2 bg-surface rounded">
-                    <div className="text-lg font-mono text-text">
+                    <div className="text-lg font-theme-data text-text">
                       {singleResult.proof_search_time_ms?.toFixed(0) || '0'}ms
                     </div>
-                    <div className="text-xs font-mono text-text-muted">proof search</div>
+                    <div className="text-xs font-theme-data text-text-muted">proof search</div>
                   </div>
                 </div>
 
                 {singleResult.formal_statement && (
                   <div>
-                    <label className="block text-xs font-mono text-text-muted mb-2">FORMAL STATEMENT</label>
-                    <pre className="bg-surface p-3 rounded font-mono text-sm overflow-x-auto border border-acid-green/20">
+                    <label className="block text-xs font-theme-data text-text-muted mb-2">FORMAL STATEMENT</label>
+                    <pre className="bg-surface p-3 rounded font-theme-data text-sm overflow-x-auto border border-[var(--accent)]/20">
                       {singleResult.formal_statement}
                     </pre>
                   </div>
@@ -489,22 +489,22 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
 
                 {singleResult.error_message && (
                   <div>
-                    <label className="block text-xs font-mono text-acid-red mb-2">ERROR</label>
-                    <pre className="bg-acid-red/10 p-3 rounded font-mono text-sm text-acid-red border border-acid-red/30">
+                    <label className="block text-xs font-theme-data text-acid-red mb-2">ERROR</label>
+                    <pre className="bg-acid-red/10 p-3 rounded font-theme-data text-sm text-acid-red border border-acid-red/30">
                       {singleResult.error_message}
                     </pre>
                   </div>
                 )}
 
                 {singleResult.proof_hash && (
-                  <div className="text-xs font-mono text-text-muted">
+                  <div className="text-xs font-theme-data text-text-muted">
                     Proof hash: {singleResult.proof_hash}
                   </div>
                 )}
 
                 {/* Proof Tree Visualization */}
                 {singleResult.history_id && singleResult.is_verified && (
-                  <div className="mt-6 pt-4 border-t border-acid-green/20">
+                  <div className="mt-6 pt-4 border-t border-[var(--accent)]/20">
                     <ProofTreeVisualization
                       historyId={singleResult.history_id}
                       apiBase={apiBase}
@@ -521,8 +521,8 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
       {activeTab === 'batch' && (
         <div className="space-y-4">
           <div className="card p-4">
-            <h4 className="font-mono text-acid-cyan mb-4">BATCH VERIFICATION</h4>
-            <p className="text-xs font-mono text-text-muted mb-4">
+            <h4 className="font-theme-data text-[var(--acid-cyan)] mb-4">BATCH VERIFICATION</h4>
+            <p className="text-xs font-theme-data text-text-muted mb-4">
               Enter one claim per line (max 20 claims)
             </p>
 
@@ -530,13 +530,13 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
               value={batchClaims}
               onChange={(e) => setBatchClaims(e.target.value)}
               placeholder="1 + 1 = 2&#10;For all x, x = x&#10;If A implies B and B implies C, then A implies C"
-              className="w-full h-40 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green resize-none mb-4"
+              className="w-full h-40 bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] resize-none mb-4"
             />
 
             <button
               onClick={handleBatchVerify}
               disabled={loading || !batchClaims.trim()}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? '[VERIFYING...]' : '[VERIFY BATCH]'}
             </button>
@@ -545,7 +545,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
           {/* Batch Results */}
           {batchResult && (
             <div className="card p-4">
-              <h4 className="font-mono text-acid-cyan mb-4">BATCH RESULTS</h4>
+              <h4 className="font-theme-data text-[var(--acid-cyan)] mb-4">BATCH RESULTS</h4>
 
               {/* Error state */}
               {batchResult.status === 'error' && batchResult.error && (
@@ -556,20 +556,20 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
               {batchResult.summary && (
               <div className="grid grid-cols-4 gap-4 mb-6 text-center">
                 <div className="p-2 bg-surface rounded">
-                  <div className="text-lg font-mono text-text">{batchResult.summary.total}</div>
-                  <div className="text-xs font-mono text-text-muted">total</div>
+                  <div className="text-lg font-theme-data text-text">{batchResult.summary.total}</div>
+                  <div className="text-xs font-theme-data text-text-muted">total</div>
                 </div>
                 <div className="p-2 bg-surface rounded">
-                  <div className="text-lg font-mono text-acid-green">{batchResult.summary.verified}</div>
-                  <div className="text-xs font-mono text-text-muted">verified</div>
+                  <div className="text-lg font-theme-data text-[var(--accent)]">{batchResult.summary.verified}</div>
+                  <div className="text-xs font-theme-data text-text-muted">verified</div>
                 </div>
                 <div className="p-2 bg-surface rounded">
-                  <div className="text-lg font-mono text-acid-red">{batchResult.summary.failed}</div>
-                  <div className="text-xs font-mono text-text-muted">failed</div>
+                  <div className="text-lg font-theme-data text-acid-red">{batchResult.summary.failed}</div>
+                  <div className="text-xs font-theme-data text-text-muted">failed</div>
                 </div>
                 <div className="p-2 bg-surface rounded">
-                  <div className="text-lg font-mono text-acid-yellow">{batchResult.summary.timeout}</div>
-                  <div className="text-xs font-mono text-text-muted">timeout</div>
+                  <div className="text-lg font-theme-data text-[var(--acid-yellow)]">{batchResult.summary.timeout}</div>
+                  <div className="text-xs font-theme-data text-text-muted">timeout</div>
                 </div>
               </div>
               )}
@@ -578,7 +578,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
               <div className="space-y-2">
                 {batchResult.results.map((result, index) => (
                   <div key={index} className="flex items-center justify-between p-2 bg-surface rounded">
-                    <span className="font-mono text-sm text-text-muted">Claim {index + 1}</span>
+                    <span className="font-theme-data text-sm text-text-muted">Claim {index + 1}</span>
                     {renderStatusBadge(result.status)}
                   </div>
                 ))}
@@ -592,8 +592,8 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
       {activeTab === 'translate' && (
         <div className="space-y-4">
           <div className="card p-4">
-            <h4 className="font-mono text-acid-cyan mb-4">TRANSLATE TO FORMAL LANGUAGE</h4>
-            <p className="text-xs font-mono text-text-muted mb-4">
+            <h4 className="font-theme-data text-[var(--acid-cyan)] mb-4">TRANSLATE TO FORMAL LANGUAGE</h4>
+            <p className="text-xs font-theme-data text-text-muted mb-4">
               Convert natural language claims to formal notation without verification
             </p>
 
@@ -602,16 +602,16 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                 value={translateClaim}
                 onChange={(e) => setTranslateClaim(e.target.value)}
                 placeholder="Enter a claim to translate..."
-                className="w-full h-24 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green resize-none"
+                className="w-full h-24 bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] resize-none"
               />
 
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-xs font-mono text-text-muted mb-2">TARGET LANGUAGE</label>
+                  <label className="block text-xs font-theme-data text-text-muted mb-2">TARGET LANGUAGE</label>
                   <select
                     value={targetLanguage}
                     onChange={(e) => setTargetLanguage(e.target.value as 'lean4' | 'z3_smt')}
-                    className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                    className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                   >
                     <option value="lean4">Lean 4</option>
                     <option value="z3_smt">Z3 SMT</option>
@@ -622,7 +622,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                   <button
                     onClick={handleTranslate}
                     disabled={loading || !translateClaim.trim()}
-                    className="px-4 py-2 bg-acid-cyan/20 border border-acid-cyan/40 text-acid-cyan font-mono text-sm rounded hover:bg-acid-cyan/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)]/40 text-[var(--acid-cyan)] font-theme-data text-sm rounded hover:bg-[var(--acid-cyan)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? '[TRANSLATING...]' : '[TRANSLATE]'}
                   </button>
@@ -635,11 +635,11 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
           {translationResult && (
             <div className="card p-4">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="font-mono text-acid-cyan">TRANSLATION RESULT</h4>
-                <span className={`px-2 py-0.5 rounded text-xs font-mono ${
+                <h4 className="font-theme-data text-[var(--acid-cyan)]">TRANSLATION RESULT</h4>
+                <span className={`px-2 py-0.5 rounded text-xs font-theme-data ${
                   translationResult.status === 'error' || !translationResult.success
                     ? 'bg-acid-red/20 text-acid-red'
-                    : 'bg-acid-green/20 text-acid-green'
+                    : 'bg-[var(--accent)]/20 text-[var(--accent)]'
                 }`}>
                   {translationResult.status === 'error' ? 'ERROR' : translationResult.success ? 'SUCCESS' : 'FAILED'}
                 </span>
@@ -652,8 +652,8 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
 
               {translationResult.formal_statement && (
                 <div className="mb-4">
-                  <label className="block text-xs font-mono text-text-muted mb-2">FORMAL STATEMENT</label>
-                  <pre className="bg-surface p-3 rounded font-mono text-sm overflow-x-auto border border-acid-green/20">
+                  <label className="block text-xs font-theme-data text-text-muted mb-2">FORMAL STATEMENT</label>
+                  <pre className="bg-surface p-3 rounded font-theme-data text-sm overflow-x-auto border border-[var(--accent)]/20">
                     {translationResult.formal_statement}
                   </pre>
                 </div>
@@ -663,29 +663,29 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
               {translationResult.language && (
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div className="p-2 bg-surface rounded">
-                  <div className="text-sm font-mono text-acid-cyan">
+                  <div className="text-sm font-theme-data text-[var(--acid-cyan)]">
                     {translationResult.language.toUpperCase()}
                   </div>
-                  <div className="text-xs font-mono text-text-muted">language</div>
+                  <div className="text-xs font-theme-data text-text-muted">language</div>
                 </div>
                 <div className="p-2 bg-surface rounded">
-                  <div className="text-sm font-mono text-text">
+                  <div className="text-sm font-theme-data text-text">
                     {((translationResult.confidence ?? 0) * 100).toFixed(0)}%
                   </div>
-                  <div className="text-xs font-mono text-text-muted">confidence</div>
+                  <div className="text-xs font-theme-data text-text-muted">confidence</div>
                 </div>
                 <div className="p-2 bg-surface rounded">
-                  <div className="text-sm font-mono text-text">
+                  <div className="text-sm font-theme-data text-text">
                     {(translationResult.translation_time_ms ?? 0).toFixed(0)}ms
                   </div>
-                  <div className="text-xs font-mono text-text-muted">time</div>
+                  <div className="text-xs font-theme-data text-text-muted">time</div>
                 </div>
               </div>
               )}
 
               {translationResult.error_message && (
                 <div className="mt-4">
-                  <pre className="bg-acid-red/10 p-3 rounded font-mono text-sm text-acid-red border border-acid-red/30">
+                  <pre className="bg-acid-red/10 p-3 rounded font-theme-data text-sm text-acid-red border border-acid-red/30">
                     {translationResult.error_message}
                   </pre>
                 </div>
@@ -700,7 +700,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
         <div className="space-y-4">
           <div className="card p-4">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-mono text-acid-cyan">VERIFICATION HISTORY</h4>
+              <h4 className="font-theme-data text-[var(--acid-cyan)]">VERIFICATION HISTORY</h4>
               <div className="flex items-center gap-3">
                 <select
                   value={historyFilter}
@@ -708,7 +708,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                     setHistoryFilter(e.target.value);
                     setHistoryPage(0);
                   }}
-                  className="bg-surface border border-acid-green/30 rounded px-2 py-1 font-mono text-xs focus:outline-none focus:border-acid-green"
+                  className="bg-surface border border-[var(--accent)]/30 rounded px-2 py-1 font-theme-data text-xs focus:outline-none focus:border-[var(--accent)]"
                 >
                   <option value="">All statuses</option>
                   <option value="proof_found">Proof Found</option>
@@ -718,7 +718,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                 </select>
                 <button
                   onClick={fetchHistory}
-                  className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/30 rounded hover:border-acid-green/50 transition-colors"
+                  className="px-3 py-1 text-xs font-theme-data bg-surface border border-[var(--accent)]/30 rounded hover:border-[var(--accent)]/50 transition-colors"
                 >
                   [REFRESH]
                 </button>
@@ -726,11 +726,11 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
             </div>
 
             {historyLoading ? (
-              <div className="text-acid-green font-mono animate-pulse py-8 text-center">
+              <div className="text-[var(--accent)] font-theme-data animate-pulse py-8 text-center">
                 Loading history...
               </div>
             ) : history.length === 0 ? (
-              <div className="text-center py-8 text-text-muted font-mono">
+              <div className="text-center py-8 text-text-muted font-theme-data">
                 No verification history yet. Run some verifications to see them here.
               </div>
             ) : (
@@ -739,15 +739,15 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                   {history.map((entry) => (
                     <div
                       key={entry.id}
-                      className="flex items-center justify-between p-3 bg-surface rounded border border-acid-green/20 hover:border-acid-green/40 cursor-pointer transition-colors"
+                      className="flex items-center justify-between p-3 bg-surface rounded border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 cursor-pointer transition-colors"
                       onClick={() => fetchHistoryEntry(entry.id)}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="font-mono text-sm text-text truncate">
+                        <div className="font-theme-data text-sm text-text truncate">
                           {entry.claim.slice(0, 80) || 'No claim'}
                           {entry.claim.length > 80 ? '...' : ''}
                         </div>
-                        <div className="text-xs font-mono text-text-muted mt-1 flex items-center gap-2">
+                        <div className="text-xs font-theme-data text-text-muted mt-1 flex items-center gap-2">
                           <span>{entry.result.language?.toUpperCase() || 'N/A'}</span>
                           <span>|</span>
                           <span>{new Date(entry.timestamp * 1000).toLocaleString()}</span>
@@ -759,22 +759,22 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                 </div>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-acid-green/20">
-                  <div className="text-xs font-mono text-text-muted">
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--accent)]/20">
+                  <div className="text-xs font-theme-data text-text-muted">
                     Showing {historyPage * 20 + 1} - {Math.min((historyPage + 1) * 20, historyTotal)} of {historyTotal}
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setHistoryPage(Math.max(0, historyPage - 1))}
                       disabled={historyPage === 0}
-                      className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/30 rounded hover:border-acid-green/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1 text-xs font-theme-data bg-surface border border-[var(--accent)]/30 rounded hover:border-[var(--accent)]/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       [PREV]
                     </button>
                     <button
                       onClick={() => setHistoryPage(historyPage + 1)}
                       disabled={(historyPage + 1) * 20 >= historyTotal}
-                      className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/30 rounded hover:border-acid-green/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1 text-xs font-theme-data bg-surface border border-[var(--accent)]/30 rounded hover:border-[var(--accent)]/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       [NEXT]
                     </button>
@@ -788,15 +788,15 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
           {selectedHistoryEntry && (
             <div className="card p-4">
               <div className="flex items-center justify-between mb-4">
-                <h4 className="font-mono text-acid-cyan">ENTRY DETAILS</h4>
+                <h4 className="font-theme-data text-[var(--acid-cyan)]">ENTRY DETAILS</h4>
                 <div className="flex items-center gap-2">
                   {selectedHistoryEntry.result.is_verified && (
                     <button
                       onClick={() => setShowProofTree(!showProofTree)}
-                      className={`px-3 py-1 text-xs font-mono border rounded transition-colors ${
+                      className={`px-3 py-1 text-xs font-theme-data border rounded transition-colors ${
                         showProofTree
-                          ? 'bg-acid-cyan/20 border-acid-cyan text-acid-cyan'
-                          : 'border-acid-cyan/30 text-acid-cyan hover:border-acid-cyan/50'
+                          ? 'bg-[var(--acid-cyan)]/20 border-[var(--acid-cyan)] text-[var(--acid-cyan)]'
+                          : 'border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:border-[var(--acid-cyan)]/50'
                       }`}
                     >
                       {showProofTree ? '[HIDE PROOF TREE]' : '[VIEW PROOF TREE]'}
@@ -804,7 +804,7 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                   )}
                   <button
                     onClick={() => setSelectedHistoryEntry(null)}
-                    className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/30 rounded hover:border-acid-green/50 transition-colors"
+                    className="px-3 py-1 text-xs font-theme-data bg-surface border border-[var(--accent)]/30 rounded hover:border-[var(--accent)]/50 transition-colors"
                   >
                     [CLOSE]
                   </button>
@@ -814,8 +814,8 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
               <div className="space-y-4">
                 {/* Claim */}
                 <div>
-                  <label className="block text-xs font-mono text-text-muted mb-2">ORIGINAL CLAIM</label>
-                  <div className="bg-surface p-3 rounded font-mono text-sm border border-acid-green/20">
+                  <label className="block text-xs font-theme-data text-text-muted mb-2">ORIGINAL CLAIM</label>
+                  <div className="bg-surface p-3 rounded font-theme-data text-sm border border-[var(--accent)]/20">
                     {selectedHistoryEntry.claim}
                   </div>
                 </div>
@@ -823,36 +823,36 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                 {/* Result status and metrics */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div className="p-2 bg-surface rounded">
-                    <div className={`text-lg font-mono ${selectedHistoryEntry.result.is_verified ? 'text-acid-green' : 'text-acid-red'}`}>
+                    <div className={`text-lg font-theme-data ${selectedHistoryEntry.result.is_verified ? 'text-[var(--accent)]' : 'text-acid-red'}`}>
                       {selectedHistoryEntry.result.is_verified ? 'YES' : 'NO'}
                     </div>
-                    <div className="text-xs font-mono text-text-muted">verified</div>
+                    <div className="text-xs font-theme-data text-text-muted">verified</div>
                   </div>
                   <div className="p-2 bg-surface rounded">
-                    <div className="text-lg font-mono text-acid-cyan">
+                    <div className="text-lg font-theme-data text-[var(--acid-cyan)]">
                       {selectedHistoryEntry.result.language?.toUpperCase() || 'N/A'}
                     </div>
-                    <div className="text-xs font-mono text-text-muted">language</div>
+                    <div className="text-xs font-theme-data text-text-muted">language</div>
                   </div>
                   <div className="p-2 bg-surface rounded">
-                    <div className="text-lg font-mono text-text">
+                    <div className="text-lg font-theme-data text-text">
                       {selectedHistoryEntry.result.translation_time_ms?.toFixed(0) || '0'}ms
                     </div>
-                    <div className="text-xs font-mono text-text-muted">translation</div>
+                    <div className="text-xs font-theme-data text-text-muted">translation</div>
                   </div>
                   <div className="p-2 bg-surface rounded">
-                    <div className="text-lg font-mono text-text">
+                    <div className="text-lg font-theme-data text-text">
                       {selectedHistoryEntry.result.proof_search_time_ms?.toFixed(0) || '0'}ms
                     </div>
-                    <div className="text-xs font-mono text-text-muted">proof search</div>
+                    <div className="text-xs font-theme-data text-text-muted">proof search</div>
                   </div>
                 </div>
 
                 {/* Formal statement */}
                 {selectedHistoryEntry.result.formal_statement && (
                   <div>
-                    <label className="block text-xs font-mono text-text-muted mb-2">FORMAL STATEMENT</label>
-                    <pre className="bg-surface p-3 rounded font-mono text-sm overflow-x-auto border border-acid-green/20">
+                    <label className="block text-xs font-theme-data text-text-muted mb-2">FORMAL STATEMENT</label>
+                    <pre className="bg-surface p-3 rounded font-theme-data text-sm overflow-x-auto border border-[var(--accent)]/20">
                       {selectedHistoryEntry.result.formal_statement}
                     </pre>
                   </div>
@@ -861,8 +861,8 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
                 {/* Error message */}
                 {selectedHistoryEntry.result.error_message && (
                   <div>
-                    <label className="block text-xs font-mono text-acid-red mb-2">ERROR</label>
-                    <pre className="bg-acid-red/10 p-3 rounded font-mono text-sm text-acid-red border border-acid-red/30">
+                    <label className="block text-xs font-theme-data text-acid-red mb-2">ERROR</label>
+                    <pre className="bg-acid-red/10 p-3 rounded font-theme-data text-sm text-acid-red border border-acid-red/30">
                       {selectedHistoryEntry.result.error_message}
                     </pre>
                   </div>
@@ -870,20 +870,20 @@ export function ProofVisualizerPanel({ backendConfig, debateId: _debateId }: Pro
 
                 {/* Proof hash */}
                 {selectedHistoryEntry.result.proof_hash && (
-                  <div className="text-xs font-mono text-text-muted">
+                  <div className="text-xs font-theme-data text-text-muted">
                     Proof hash: {selectedHistoryEntry.result.proof_hash}
                   </div>
                 )}
 
                 {/* Timestamp */}
-                <div className="text-xs font-mono text-text-muted">
+                <div className="text-xs font-theme-data text-text-muted">
                   Verified at: {new Date(selectedHistoryEntry.timestamp * 1000).toLocaleString()}
                 </div>
               </div>
 
               {/* Proof Tree Visualization */}
               {showProofTree && selectedHistoryEntry.id && (
-                <div className="mt-6 pt-4 border-t border-acid-green/20">
+                <div className="mt-6 pt-4 border-t border-[var(--accent)]/20">
                   <ProofTreeVisualization
                     historyId={selectedHistoryEntry.id}
                     apiBase={apiBase}

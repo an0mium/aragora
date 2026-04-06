@@ -96,7 +96,7 @@ export function PhaseIndicator({
 
   if (compact) {
     return (
-      <div className="flex items-center gap-2 text-xs font-mono">
+      <div className="flex items-center gap-2 text-xs font-theme-data">
         <span className="text-lg">{phase.emoji}</span>
         <span className="text-text-muted">
           R{currentRound}: {phase.name}
@@ -114,29 +114,29 @@ export function PhaseIndicator({
       <div className="flex items-center gap-3">
         <span className="text-2xl">{phase.emoji}</span>
         <div>
-          <div className="text-sm font-mono text-text">
+          <div className="text-sm font-theme-data text-text">
             Round {currentRound}: {phase.name}
           </div>
-          <div className="text-xs font-mono text-text-muted">
+          <div className="text-xs font-theme-data text-text-muted">
             {phase.cognitiveMode} Mode
           </div>
         </div>
         {isComplete && (
-          <span className="ml-auto px-2 py-1 text-xs font-mono bg-green-900/30 text-green-400 border border-green-500/30">
+          <span className="ml-auto px-2 py-1 text-xs font-theme-data bg-green-900/30 text-green-400 border border-green-500/30">
             COMPLETE
           </span>
         )}
       </div>
 
       {/* Phase Description */}
-      <div className="text-xs font-mono text-text-muted pl-10">
+      <div className="text-xs font-theme-data text-text-muted pl-10">
         {phase.description}
       </div>
 
       {/* Progress Bar */}
       {showProgress && (
         <div className="mt-3">
-          <div className="flex justify-between text-xs font-mono text-text-muted mb-1">
+          <div className="flex justify-between text-xs font-theme-data text-text-muted mb-1">
             <span>Progress</span>
             <span>{Math.round(progress)}%</span>
           </div>
@@ -175,7 +175,7 @@ export function PhaseChip({ round }: { round: number }) {
   const phase = DEBATE_PHASES[Math.min(round, DEBATE_PHASES.length - 1)];
   return (
     <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono bg-bg border border-border text-text-muted"
+      className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-theme-data bg-bg border border-border text-text-muted"
       title={phase.description}
     >
       {phase.emoji} R{round}

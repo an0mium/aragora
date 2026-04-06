@@ -44,6 +44,15 @@ from enum import Enum
 from pathlib import Path
 
 
+def _is_within_root(path: Path, root: Path) -> bool:
+    """Return whether path resolves inside root."""
+    try:
+        path.resolve().relative_to(root.resolve())
+    except ValueError:
+        return False
+    return True
+
+
 def _find_repo_root(start: Path) -> Path | None:
     """Return the nearest parent that contains a Git marker."""
     current = start.resolve()
@@ -75,7 +84,11 @@ def _read_worktree_gitdir(repo_root: Path) -> Path | None:
 
 
 def _linked_worktree_data_dir(start: Path | None = None) -> Path | None:
-    """Return a stable runtime data dir for a linked worktree, if applicable."""
+    """Return a stable runtime data dir for a linked worktree, if applicable.
+
+    The path stays rooted inside the linked worktree so sandboxed worker lanes
+    can create SQLite artifacts without escaping back to the shared gitdir.
+    """
     repo_root = _find_repo_root(start or Path.cwd())
     if repo_root is None:
         return None
@@ -84,8 +97,17 @@ def _linked_worktree_data_dir(start: Path | None = None) -> Path | None:
     if gitdir is None or gitdir.parent.name != "worktrees":
         return None
 
-    common_git_dir = gitdir.parent.parent
-    return common_git_dir / "aragora" / "data" / gitdir.name
+    worktree_nomic = repo_root / ".nomic"
+    if worktree_nomic.exists() and _is_within_root(worktree_nomic, repo_root):
+        return worktree_nomic
+
+    worktree_data = repo_root / "data"
+    if worktree_data.exists() and _is_within_root(worktree_data, repo_root):
+        return worktree_data
+
+    if _is_within_root(worktree_nomic, repo_root):
+        return worktree_nomic
+    return None
 
 
 class DatabaseType(Enum):

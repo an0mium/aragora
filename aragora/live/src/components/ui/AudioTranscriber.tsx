@@ -179,8 +179,8 @@ export function AudioTranscriber({
           maxFiles={1}
           multiple={false}
         >
-          <div className="text-3xl mb-2 text-acid-green/70">~</div>
-          <div className="font-mono text-sm text-text">
+          <div className="text-3xl mb-2 text-[var(--accent)]/70">~</div>
+          <div className="font-theme-data text-sm text-text">
             UPLOAD AUDIO OR VIDEO FILE
           </div>
           <div className="text-xs text-text-muted mt-1">
@@ -191,9 +191,9 @@ export function AudioTranscriber({
 
       {/* Processing indicator */}
       {(state === 'uploading' || state === 'transcribing') && (
-        <div className="p-6 border-2 border-dashed border-acid-cyan/50 rounded-lg text-center">
-          <div className="animate-spin text-3xl mb-3 text-acid-cyan">*</div>
-          <div className="font-mono text-sm text-acid-cyan">
+        <div className="p-6 border-2 border-dashed border-[var(--acid-cyan)]/50 rounded-lg text-center">
+          <div className="animate-spin text-3xl mb-3 text-[var(--acid-cyan)]">*</div>
+          <div className="font-theme-data text-sm text-[var(--acid-cyan)]">
             {state === 'uploading' ? 'UPLOADING...' : 'TRANSCRIBING...'}
           </div>
           {fileName && (
@@ -206,15 +206,15 @@ export function AudioTranscriber({
 
       {/* Error display */}
       {state === 'error' && error && (
-        <div className="p-4 bg-crimson/10 border border-crimson/30 rounded-lg">
-          <div className="font-mono text-sm text-crimson mb-2">
+        <div className="p-4 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded-lg">
+          <div className="font-theme-data text-sm text-[var(--crimson)] mb-2">
             TRANSCRIPTION FAILED
           </div>
-          <div className="text-xs text-crimson/80">{error}</div>
+          <div className="text-xs text-[var(--crimson)]/80">{error}</div>
           <button
             onClick={reset}
             aria-label="Try transcription again"
-            className="mt-3 px-3 py-1 text-xs font-mono border border-crimson/50 text-crimson hover:bg-crimson/10 transition-colors"
+            className="mt-3 px-3 py-1 text-xs font-theme-data border border-[var(--crimson)]/50 text-[var(--crimson)] hover:bg-[var(--crimson)]/10 transition-colors"
           >
             Try Again
           </button>
@@ -227,7 +227,7 @@ export function AudioTranscriber({
           {/* Header with stats */}
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-mono text-sm text-acid-green">
+              <div className="font-theme-data text-sm text-[var(--accent)]">
                 TRANSCRIPTION COMPLETE
               </div>
               <div className="text-xs text-text-muted mt-1">
@@ -239,7 +239,7 @@ export function AudioTranscriber({
             <button
               onClick={reset}
               aria-label="Start new transcription"
-              className="text-xs font-mono text-acid-green/70 hover:text-acid-green"
+              className="text-xs font-theme-data text-[var(--accent)]/70 hover:text-[var(--accent)]"
             >
               New File
             </button>
@@ -250,38 +250,38 @@ export function AudioTranscriber({
             <button
               onClick={() => exportTranscript('txt')}
               aria-label="Export as plain text"
-              className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+              className="px-3 py-1.5 text-xs font-theme-data border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
             >
               Export TXT
             </button>
             <button
               onClick={() => exportTranscript('srt')}
               aria-label="Export as SRT subtitles"
-              className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+              className="px-3 py-1.5 text-xs font-theme-data border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
             >
               Export SRT
             </button>
             <button
               onClick={() => exportTranscript('vtt')}
               aria-label="Export as WebVTT subtitles"
-              className="px-3 py-1.5 text-xs font-mono border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors"
+              className="px-3 py-1.5 text-xs font-theme-data border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
             >
               Export VTT
             </button>
           </div>
 
           {/* Transcript content */}
-          <div className="bg-surface border border-acid-green/20 rounded-lg overflow-hidden">
+          <div className="bg-surface border border-[var(--accent)]/20 rounded-lg overflow-hidden">
             {/* Toggle between full text and segments */}
-            <div className="flex border-b border-acid-green/20" role="tablist" aria-label="Transcript view">
+            <div className="flex border-b border-[var(--accent)]/20" role="tablist" aria-label="Transcript view">
               <button
                 onClick={() => setShowSegments(false)}
                 role="tab"
                 aria-selected={!showSegments}
                 aria-controls="transcript-content"
-                className={`flex-1 px-3 py-2 text-xs font-mono ${
+                className={`flex-1 px-3 py-2 text-xs font-theme-data ${
                   !showSegments
-                    ? 'bg-acid-green/10 text-acid-green'
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
                     : 'text-text-muted hover:text-text'
                 }`}
               >
@@ -292,9 +292,9 @@ export function AudioTranscriber({
                 role="tab"
                 aria-selected={showSegments}
                 aria-controls="transcript-content"
-                className={`flex-1 px-3 py-2 text-xs font-mono ${
+                className={`flex-1 px-3 py-2 text-xs font-theme-data ${
                   showSegments
-                    ? 'bg-acid-green/10 text-acid-green'
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
                     : 'text-text-muted hover:text-text'
                 }`}
               >
@@ -307,7 +307,7 @@ export function AudioTranscriber({
                 <div className="space-y-2">
                   {result.segments.map((seg) => (
                     <div key={seg.id} className="flex gap-3 text-sm">
-                      <span className="text-acid-cyan/70 font-mono text-xs shrink-0 w-20">
+                      <span className="text-[var(--acid-cyan)]/70 font-theme-data text-xs shrink-0 w-20">
                         {formatTime(seg.start)}
                       </span>
                       <span className="text-text">{seg.text}</span>

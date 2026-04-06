@@ -129,7 +129,7 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
   if (loading) {
     return (
       <div className="card p-6">
-        <div className="text-center text-text-muted font-mono">
+        <div className="text-center text-text-muted font-theme-data">
           <span className="animate-pulse">Loading receipts...</span>
         </div>
       </div>
@@ -139,11 +139,11 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
   if (error) {
     return (
       <div className="card p-6">
-        <div className="text-center text-red-400 font-mono">
+        <div className="text-center text-red-400 font-theme-data">
           <p>Error: {error}</p>
           <button
             onClick={fetchReceipts}
-            className="mt-4 px-4 py-2 border border-acid-green/50 text-acid-green hover:bg-acid-green/10"
+            className="mt-4 px-4 py-2 border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10"
           >
             [RETRY]
           </button>
@@ -156,10 +156,10 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="font-mono text-acid-green text-xl">
+        <h2 className="font-theme-data text-[var(--accent)] text-xl">
           {'>'} DECISION RECEIPTS
         </h2>
-        <div className="text-xs font-mono text-text-muted">
+        <div className="text-xs font-theme-data text-text-muted">
           {receipts.length} receipts
         </div>
       </div>
@@ -170,10 +170,10 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
           <button
             key={verdict}
             onClick={() => setVerdictFilter(verdict === 'ALL' ? null : verdict)}
-            className={`px-3 py-1 text-xs font-mono border transition-colors ${
+            className={`px-3 py-1 text-xs font-theme-data border transition-colors ${
               (verdict === 'ALL' && !verdictFilter) || verdictFilter === verdict
-                ? 'border-acid-green bg-acid-green/20 text-acid-green'
-                : 'border-acid-green/30 text-text-muted hover:border-acid-green/60'
+                ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+                : 'border-[var(--accent)]/30 text-text-muted hover:border-[var(--accent)]/60'
             }`}
           >
             [{verdict}]
@@ -186,22 +186,22 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
         {receipts.map((receipt) => (
           <div
             key={receipt.id}
-            className="card p-4 hover:border-acid-green/60 transition-colors cursor-pointer"
+            className="card p-4 hover:border-[var(--accent)]/60 transition-colors cursor-pointer"
             onClick={() => setSelectedReceipt(receipt)}
           >
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className={`px-2 py-0.5 text-xs font-mono ${getVerdictColor(receipt.verdict)}`}>
+                  <span className={`px-2 py-0.5 text-xs font-theme-data ${getVerdictColor(receipt.verdict)}`}>
                     {receipt.verdict}
                   </span>
-                  <span className="font-mono text-sm text-text-muted">
+                  <span className="font-theme-data text-sm text-text-muted">
                     {receipt.id.slice(0, 8)}...
                   </span>
                 </div>
 
                 {/* Findings Summary */}
-                <div className="flex gap-4 text-xs font-mono">
+                <div className="flex gap-4 text-xs font-theme-data">
                   {receipt.findings_by_severity.critical > 0 && (
                     <span className="text-red-500">
                       {receipt.findings_by_severity.critical} critical
@@ -228,7 +228,7 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
                 </div>
               </div>
 
-              <div className="text-xs font-mono text-text-muted text-right">
+              <div className="text-xs font-theme-data text-text-muted text-right">
                 <div>{new Date(receipt.created_at).toLocaleDateString()}</div>
                 <div>{new Date(receipt.created_at).toLocaleTimeString()}</div>
               </div>
@@ -239,20 +239,20 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
 
       {receipts.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-text-muted font-mono">No receipts found.</p>
+          <p className="text-text-muted font-theme-data">No receipts found.</p>
         </div>
       )}
 
       {/* Receipt Detail Modal */}
       {selectedReceipt && (
         <div className="fixed inset-0 z-[100] bg-bg/95 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-3xl w-full border border-acid-green/50 bg-surface p-6 max-h-[90vh] overflow-y-auto">
+          <div className="max-w-3xl w-full border border-[var(--accent)]/50 bg-surface p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <span className={`px-2 py-0.5 text-xs font-mono ${getVerdictColor(selectedReceipt.verdict)}`}>
+                <span className={`px-2 py-0.5 text-xs font-theme-data ${getVerdictColor(selectedReceipt.verdict)}`}>
                   {selectedReceipt.verdict}
                 </span>
-                <h2 className="text-lg font-mono text-acid-green mt-2">
+                <h2 className="text-lg font-theme-data text-[var(--accent)] mt-2">
                   Receipt: {selectedReceipt.id.slice(0, 16)}...
                 </h2>
               </div>
@@ -261,16 +261,16 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
                   setSelectedReceipt(null);
                   setVerifyResult(null);
                 }}
-                className="text-text-muted hover:text-acid-green transition-colors"
+                className="text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [X]
               </button>
             </div>
 
             {/* Artifact Hash */}
-            <div className="p-4 bg-bg border border-acid-green/20 mb-6">
-              <div className="text-xs font-mono text-text-muted mb-1">ARTIFACT HASH (SHA-256)</div>
-              <code className="font-mono text-xs text-acid-cyan break-all">
+            <div className="p-4 bg-bg border border-[var(--accent)]/20 mb-6">
+              <div className="text-xs font-theme-data text-text-muted mb-1">ARTIFACT HASH (SHA-256)</div>
+              <code className="font-theme-data text-xs text-[var(--acid-cyan)] break-all">
                 {selectedReceipt.artifact_hash}
               </code>
             </div>
@@ -280,13 +280,13 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
               <button
                 onClick={() => handleVerify(selectedReceipt.id)}
                 disabled={verifyingId === selectedReceipt.id}
-                className="px-4 py-2 text-sm font-mono border border-acid-cyan text-acid-cyan
-                         hover:bg-acid-cyan/10 disabled:opacity-50 transition-colors"
+                className="px-4 py-2 text-sm font-theme-data border border-[var(--acid-cyan)] text-[var(--acid-cyan)]
+                         hover:bg-[var(--acid-cyan)]/10 disabled:opacity-50 transition-colors"
               >
                 {verifyingId === selectedReceipt.id ? '[VERIFYING...]' : '[VERIFY INTEGRITY]'}
               </button>
               {verifyResult && (
-                <div className={`mt-2 text-sm font-mono ${verifyResult.valid ? 'text-green-400' : 'text-red-400'}`}>
+                <div className={`mt-2 text-sm font-theme-data ${verifyResult.valid ? 'text-green-400' : 'text-red-400'}`}>
                   {verifyResult.valid ? '✓' : '✗'} {verifyResult.message}
                 </div>
               )}
@@ -294,23 +294,23 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
 
             {/* Findings */}
             <div className="mb-6">
-              <h3 className="text-sm font-mono text-text-muted mb-4">
+              <h3 className="text-sm font-theme-data text-text-muted mb-4">
                 FINDINGS ({selectedReceipt.findings_count})
               </h3>
               <div className="space-y-3">
                 {selectedReceipt.findings.map((finding) => (
-                  <div key={finding.id} className="border border-acid-green/20 p-3">
+                  <div key={finding.id} className="border border-[var(--accent)]/20 p-3">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs font-mono ${getSeverityColor(finding.severity)}`}>
+                      <span className={`text-xs font-theme-data ${getSeverityColor(finding.severity)}`}>
                         [{finding.severity.toUpperCase()}]
                       </span>
-                      <span className="text-xs font-mono text-acid-cyan">{finding.category}</span>
+                      <span className="text-xs font-theme-data text-[var(--acid-cyan)]">{finding.category}</span>
                     </div>
-                    <p className="text-sm font-mono text-text">{finding.description}</p>
+                    <p className="text-sm font-theme-data text-text">{finding.description}</p>
                   </div>
                 ))}
                 {selectedReceipt.findings.length === 0 && (
-                  <p className="text-sm font-mono text-text-muted">No findings in this receipt.</p>
+                  <p className="text-sm font-theme-data text-text-muted">No findings in this receipt.</p>
                 )}
               </div>
             </div>
@@ -319,15 +319,15 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
             <div className="flex gap-3">
               <button
                 onClick={() => handleExport(selectedReceipt.id, 'json')}
-                className="px-4 py-2 font-mono text-sm border border-acid-green/30
-                         text-text-muted hover:border-acid-green hover:text-acid-green transition-colors"
+                className="px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/30
+                         text-text-muted hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
               >
                 [EXPORT JSON]
               </button>
               <button
                 onClick={() => handleExport(selectedReceipt.id, 'html')}
-                className="px-4 py-2 font-mono text-sm border border-acid-green/30
-                         text-text-muted hover:border-acid-green hover:text-acid-green transition-colors"
+                className="px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/30
+                         text-text-muted hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
               >
                 [EXPORT HTML]
               </button>
@@ -336,8 +336,8 @@ export function ReceiptsBrowser({ runId }: ReceiptsBrowserProps) {
                   setSelectedReceipt(null);
                   setVerifyResult(null);
                 }}
-                className="ml-auto px-4 py-2 font-mono text-sm border border-acid-green/30
-                         text-text-muted hover:border-acid-green hover:text-acid-green transition-colors"
+                className="ml-auto px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/30
+                         text-text-muted hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
               >
                 [CLOSE]
               </button>

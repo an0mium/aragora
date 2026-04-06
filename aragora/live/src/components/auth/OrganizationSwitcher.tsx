@@ -88,7 +88,7 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
   if (organizations.length <= 1) {
     if (compact && organization) {
       return (
-        <div className="text-xs font-mono text-text-muted">
+        <div className="text-xs font-theme-data text-text-muted">
           {organization.name}
         </div>
       );
@@ -99,8 +99,8 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
   const getTierColor = (tier: string) => {
     switch (tier) {
       case 'free': return 'text-text-muted';
-      case 'starter': return 'text-acid-cyan';
-      case 'professional': return 'text-acid-green';
+      case 'starter': return 'text-[var(--acid-cyan)]';
+      case 'professional': return 'text-[var(--accent)]';
       case 'enterprise': return 'text-warning';
       default: return 'text-text-muted';
     }
@@ -109,7 +109,7 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
   const getRoleBadge = (role: 'member' | 'admin' | 'owner') => {
     switch (role) {
       case 'owner': return 'border-warning/30 text-warning';
-      case 'admin': return 'border-acid-cyan/30 text-acid-cyan';
+      case 'admin': return 'border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)]';
       default: return 'border-text-muted/30 text-text-muted';
     }
   };
@@ -120,18 +120,18 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
         <button
           ref={buttonRef}
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-1 text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+          className="flex items-center gap-1 text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
           aria-label="Switch organization"
           aria-haspopup="listbox"
           aria-expanded={isOpen}
         >
           <span className="truncate max-w-[120px]">{organization?.name || 'Select org'}</span>
-          <span className="text-acid-green/50">{isOpen ? '^' : 'v'}</span>
+          <span className="text-[var(--accent)]/50">{isOpen ? '^' : 'v'}</span>
         </button>
 
         {isOpen && (
           <div
-            className="absolute left-0 top-full mt-1 w-56 bg-surface border border-acid-green/30 shadow-lg z-50"
+            className="absolute left-0 top-full mt-1 w-56 bg-surface border border-[var(--accent)]/30 shadow-lg z-50"
             role="listbox"
             aria-label="Organizations"
           >
@@ -142,16 +142,16 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
                 disabled={switching === userOrg.org_id}
                 role="option"
                 aria-selected={userOrg.org_id === organization?.id}
-                className={`w-full px-3 py-2 text-left text-xs font-mono transition-colors ${
+                className={`w-full px-3 py-2 text-left text-xs font-theme-data transition-colors ${
                   userOrg.org_id === organization?.id
-                    ? 'bg-acid-green/10 text-acid-green'
-                    : 'text-text-muted hover:bg-acid-green/5 hover:text-text'
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
+                    : 'text-text-muted hover:bg-[var(--accent)]/5 hover:text-text'
                 } ${switching === userOrg.org_id ? 'opacity-50' : ''}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="truncate">{userOrg.organization.name}</span>
                   {userOrg.org_id === organization?.id && (
-                    <span className="text-acid-green">*</span>
+                    <span className="text-[var(--accent)]">*</span>
                   )}
                 </div>
               </button>
@@ -167,12 +167,12 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
       <button
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 bg-surface border border-acid-green/30 text-xs font-mono text-text hover:border-acid-green/50 transition-colors"
+        className="flex items-center gap-2 px-3 py-2 bg-surface border border-[var(--accent)]/30 text-xs font-theme-data text-text hover:border-[var(--accent)]/50 transition-colors"
         aria-label="Switch organization"
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        <span className="w-5 h-5 rounded bg-acid-green/20 flex items-center justify-center text-acid-green text-[10px]">
+        <span className="w-5 h-5 rounded bg-[var(--accent)]/20 flex items-center justify-center text-[var(--accent)] text-[10px]">
           {organization?.name?.[0]?.toUpperCase() || '?'}
         </span>
         <div className="flex flex-col items-start">
@@ -183,22 +183,22 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
             </span>
           )}
         </div>
-        <span className="ml-auto text-acid-green/50">{isOpen ? '[^]' : '[v]'}</span>
+        <span className="ml-auto text-[var(--accent)]/50">{isOpen ? '[^]' : '[v]'}</span>
       </button>
 
       {isOpen && (
         <div
-          className="absolute left-0 top-full mt-2 w-72 bg-surface border border-acid-green/30 shadow-lg z-50"
+          className="absolute left-0 top-full mt-2 w-72 bg-surface border border-[var(--accent)]/30 shadow-lg z-50"
           role="listbox"
           aria-label="Organizations"
         >
           {/* Header */}
-          <div className="px-4 py-2 border-b border-acid-green/20 flex items-center justify-between">
-            <span className="text-xs font-mono text-text-muted">YOUR ORGANIZATIONS</span>
+          <div className="px-4 py-2 border-b border-[var(--accent)]/20 flex items-center justify-between">
+            <span className="text-xs font-theme-data text-text-muted">YOUR ORGANIZATIONS</span>
             <button
               onClick={() => refreshOrganizations()}
               disabled={isLoadingOrganizations}
-              className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors disabled:opacity-50"
+              className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors disabled:opacity-50"
             >
               {isLoadingOrganizations ? '[...]' : '[REFRESH]'}
             </button>
@@ -206,7 +206,7 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
 
           {/* Error message */}
           {error && (
-            <div className="px-4 py-2 bg-warning/10 border-b border-warning/20 text-xs font-mono text-warning">
+            <div className="px-4 py-2 bg-warning/10 border-b border-warning/20 text-xs font-theme-data text-warning">
               {error}
             </div>
           )}
@@ -222,31 +222,31 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
                 aria-selected={userOrg.org_id === organization?.id}
                 className={`w-full px-4 py-3 text-left transition-colors ${
                   userOrg.org_id === organization?.id
-                    ? 'bg-acid-green/10'
+                    ? 'bg-[var(--accent)]/10'
                     : 'hover:bg-surface-hover'
                 } ${switching === userOrg.org_id ? 'opacity-50' : ''}`}
               >
                 <div className="flex items-start gap-3">
-                  <span className="w-8 h-8 rounded bg-acid-green/20 flex items-center justify-center text-acid-green text-sm flex-shrink-0">
+                  <span className="w-8 h-8 rounded bg-[var(--accent)]/20 flex items-center justify-center text-[var(--accent)] text-sm flex-shrink-0">
                     {userOrg.organization.name[0].toUpperCase()}
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono text-text truncate">
+                      <span className="text-sm font-theme-data text-text truncate">
                         {userOrg.organization.name}
                       </span>
                       {userOrg.is_default && (
-                        <span className="text-[10px] font-mono text-acid-cyan">(default)</span>
+                        <span className="text-[10px] font-theme-data text-[var(--acid-cyan)]">(default)</span>
                       )}
                       {userOrg.org_id === organization?.id && (
-                        <span className="text-acid-green">*</span>
+                        <span className="text-[var(--accent)]">*</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-[10px] font-mono uppercase ${getTierColor(userOrg.organization.tier)}`}>
+                      <span className={`text-[10px] font-theme-data uppercase ${getTierColor(userOrg.organization.tier)}`}>
                         {userOrg.organization.tier}
                       </span>
-                      <span className={`text-[10px] font-mono px-1 border rounded ${getRoleBadge(userOrg.role)}`}>
+                      <span className={`text-[10px] font-theme-data px-1 border rounded ${getRoleBadge(userOrg.role)}`}>
                         {userOrg.role}
                       </span>
                     </div>
@@ -254,7 +254,7 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
                   {userOrg.org_id !== organization?.id && !userOrg.is_default && (
                     <button
                       onClick={(e) => handleSetDefault(userOrg.org_id, e)}
-                      className="text-[10px] font-mono text-text-muted hover:text-acid-cyan transition-colors"
+                      className="text-[10px] font-theme-data text-text-muted hover:text-[var(--acid-cyan)] transition-colors"
                       title="Set as default"
                     >
                       [SET DEFAULT]
@@ -266,8 +266,8 @@ export function OrganizationSwitcher({ compact = false, onSwitch }: Organization
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2 border-t border-acid-green/20">
-            <span className="text-[10px] font-mono text-text-muted">
+          <div className="px-4 py-2 border-t border-[var(--accent)]/20">
+            <span className="text-[10px] font-theme-data text-text-muted">
               {organizations.length} organization{organizations.length !== 1 ? 's' : ''}
             </span>
           </div>

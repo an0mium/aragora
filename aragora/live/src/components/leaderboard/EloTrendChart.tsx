@@ -106,8 +106,8 @@ function EloTrendChartComponent({ maxPoints = 30, height = 240 }: EloTrendChartP
   if (error) {
     return (
       <div className="card p-4">
-        <h4 className="font-mono text-xs text-acid-green mb-2">ELO Rating Trends</h4>
-        <p className="text-text-muted font-mono text-xs">
+        <h4 className="font-theme-data text-xs text-[var(--accent)] mb-2">ELO Rating Trends</h4>
+        <p className="text-text-muted font-theme-data text-xs">
           Unable to load trend data. The analytics endpoint may be unavailable.
         </p>
       </div>
@@ -117,8 +117,8 @@ function EloTrendChartComponent({ maxPoints = 30, height = 240 }: EloTrendChartP
   if (!chartData) {
     return (
       <div className="card p-4">
-        <h4 className="font-mono text-xs text-acid-green mb-2">ELO Rating Trends</h4>
-        <p className="text-text-muted font-mono text-xs">
+        <h4 className="font-theme-data text-xs text-[var(--accent)] mb-2">ELO Rating Trends</h4>
+        <p className="text-text-muted font-theme-data text-xs">
           Not enough data points to render trends. Run more debate cycles to generate history.
         </p>
       </div>
@@ -154,8 +154,8 @@ function EloTrendChartComponent({ maxPoints = 30, height = 240 }: EloTrendChartP
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="font-mono text-xs text-acid-green">ELO Rating Trends</h4>
-        <span className="font-mono text-[10px] text-text-muted">
+        <h4 className="font-theme-data text-xs text-[var(--accent)]">ELO Rating Trends</h4>
+        <span className="font-theme-data text-[10px] text-text-muted">
           Top {series.length} agents | Last {periods.length} data points
         </span>
       </div>
@@ -267,7 +267,7 @@ function EloTrendChartComponent({ maxPoints = 30, height = 240 }: EloTrendChartP
               className="w-2.5 h-2.5 rounded-full inline-block"
               style={{ backgroundColor: color }}
             />
-            <span className="font-mono text-[10px] text-text">{agent}</span>
+            <span className="font-theme-data text-[10px] text-text">{agent}</span>
           </div>
         ))}
       </div>

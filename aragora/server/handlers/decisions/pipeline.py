@@ -25,7 +25,12 @@ __all__ = ["DecisionPipelineHandler"]
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
+from aragora.pipeline.backbone_errors import (
+    BackbonePersistenceError,
+    FAIL_CLOSED_BACKBONE_MESSAGE,
+)
 from aragora.pipeline.decision_plan.factory import normalize_execution_mode
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
 from aragora.resilience import get_circuit_breaker
 from aragora.server.decision_integrity_utils import (
     ensure_decision_plan_backbone_run,
@@ -719,11 +724,15 @@ class DecisionPipelineHandler(SecureHandler):
                     executor=executor,
                     auth_context=auth_context,
                     execution_mode=execution_mode_typed,
+                    safety_mode=SafetyMode.INTERACTIVE,
                 )
             )
         except PermissionError as e:
             logger.warning("Handler error: %s", e)
             return error_response("Permission denied", 403)
+        except BackbonePersistenceError as exc:
+            logger.warning("Interactive execution blocked for plan %s: %s", plan_id, exc)
+            return error_response(FAIL_CLOSED_BACKBONE_MESSAGE, 503)
         except ValueError:
             return error_response("Conflict", 409)
 

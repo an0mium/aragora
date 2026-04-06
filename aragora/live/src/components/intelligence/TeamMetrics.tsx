@@ -75,7 +75,7 @@ export function TeamMetrics({ backendUrl }: TeamMetricsProps) {
   if (error) {
     return (
       <div className="card p-6 border-red-500/50">
-        <p className="text-red-500 font-mono text-sm">Error: {error}</p>
+        <p className="text-red-500 font-theme-data text-sm">Error: {error}</p>
       </div>
     );
   }
@@ -95,25 +95,25 @@ export function TeamMetrics({ backendUrl }: TeamMetricsProps) {
 
   return (
     <div className="card p-6">
-      <h2 className="text-lg font-mono text-acid-green mb-4">Team Performance</h2>
+      <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">Team Performance</h2>
 
       {/* Team list */}
       <div className="space-y-3">
         {data.teams.map((team) => (
           <div
             key={team.team_id}
-            className="bg-surface/50 rounded-lg p-4 border border-acid-green/20"
+            className="bg-surface/50 rounded-lg p-4 border border-[var(--accent)]/20"
           >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="font-mono font-medium">{team.team_name}</span>
+                <span className="font-theme-data font-medium">{team.team_name}</span>
                 <span className="text-xs text-text-muted">({team.member_count} members)</span>
                 {getTrendIcon(team.trend)}
               </div>
-              <span className="text-sm font-mono text-acid-green">${team.cost_usd}</span>
+              <span className="text-sm font-theme-data text-[var(--accent)]">${team.cost_usd}</span>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 text-xs font-mono">
+            <div className="grid grid-cols-4 gap-4 text-xs font-theme-data">
               <div>
                 <p className="text-text-muted">Debates</p>
                 <p>{team.debates_completed}</p>
@@ -135,7 +135,7 @@ export function TeamMetrics({ backendUrl }: TeamMetricsProps) {
             {/* Cost bar */}
             <div className="mt-2 h-1 bg-bg rounded-full overflow-hidden">
               <div
-                className="h-full bg-acid-green"
+                className="h-full bg-[var(--accent)]"
                 style={{ width: `${team.cost_percent_of_total}%` }}
               ></div>
             </div>
@@ -147,7 +147,7 @@ export function TeamMetrics({ backendUrl }: TeamMetricsProps) {
       </div>
 
       {/* Summary footer */}
-      <div className="mt-4 pt-4 border-t border-acid-green/20 text-xs font-mono">
+      <div className="mt-4 pt-4 border-t border-[var(--accent)]/20 text-xs font-theme-data">
         <div className="flex justify-between text-text-muted">
           <span>Top performer: {data.summary.top_performing_team}</span>
           <span>Most efficient: {data.summary.most_efficient_team}</span>

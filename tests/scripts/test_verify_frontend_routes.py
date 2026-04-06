@@ -1,22 +1,26 @@
 from __future__ import annotations
 
 import os
+import stat
 import subprocess
-import threading
-from contextlib import contextmanager
-from http.server import BaseHTTPRequestHandler
 from pathlib import Path
-from socketserver import TCPServer
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "verify_frontend_routes.sh"
+EXPECTED_HEADER = "x-vercel-protection-bypass: token"
 
 
 def _run_verify(
-    base_url: str, *routes: str, env: dict[str, str] | None = None
+    tmp_path: Path,
+    base_url: str,
+    *routes: str,
+    env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    bin_dir = _write_curl_stub(tmp_path)
     merged_env = os.environ.copy()
+    merged_env["PATH"] = f"{bin_dir}:{merged_env['PATH']}"
+    merged_env["VERIFY_FRONTEND_TEST_EXPECTED_HEADER"] = EXPECTED_HEADER
     if env:
         merged_env.update(env)
 
@@ -30,70 +34,74 @@ def _run_verify(
     )
 
 
-def _handler(expected_header: tuple[str, str] | None = None) -> type[BaseHTTPRequestHandler]:
-    class _Handler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:  # noqa: N802
-            if expected_header is not None:
-                name, value = expected_header
-                if self.headers.get(name) != value:
-                    self.send_response(401)
-                    self.end_headers()
-                    self.wfile.write(b"unauthorized")
-                    return
+def _write_curl_stub(tmp_path: Path) -> Path:
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    stub = bin_dir / "curl"
+    stub.write_text(
+        """#!/usr/bin/env python3
+import os
+import sys
+from pathlib import Path
 
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"<html><body>ok</body></html>")
+args = sys.argv[1:]
+headers = []
+output_path = None
 
-        def log_message(self, format: str, *args: object) -> None:  # noqa: A003
-            return
+for index, arg in enumerate(args):
+    if arg == "-H" and index + 1 < len(args):
+        headers.append(args[index + 1])
+    if arg == "-o" and index + 1 < len(args):
+        output_path = args[index + 1]
 
-    return _Handler
+expected_header = os.environ.get("VERIFY_FRONTEND_TEST_EXPECTED_HEADER")
+if expected_header and expected_header not in headers:
+    status = "401"
+    body = "unauthorized"
+else:
+    status = "200"
+    body = "<html><body>ok</body></html>"
+
+if output_path is not None:
+    Path(output_path).write_text(body, encoding="utf-8")
+
+sys.stdout.write(status)
+""",
+        encoding="utf-8",
+    )
+    stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
+    return bin_dir
 
 
-@contextmanager
-def _serve(handler_cls: type[BaseHTTPRequestHandler]):
-    with TCPServer(("127.0.0.1", 0), handler_cls) as server:
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        try:
-            host, port = server.server_address
-            yield f"http://{host}:{port}"
-        finally:
-            server.shutdown()
-            thread.join(timeout=2)
-
-
-def test_verify_frontend_routes_fails_on_401_by_default() -> None:
-    with _serve(_handler(expected_header=("x-vercel-protection-bypass", "token"))) as base_url:
-        result = _run_verify(base_url, "/")
+def test_verify_frontend_routes_fails_on_401_by_default(tmp_path: Path) -> None:
+    result = _run_verify(tmp_path, "https://aragora.test", "/")
 
     assert result.returncode != 0
     assert "status 401" in result.stdout
 
 
-def test_verify_frontend_routes_uses_auth_header_when_configured() -> None:
-    with _serve(_handler(expected_header=("x-vercel-protection-bypass", "token"))) as base_url:
-        result = _run_verify(
-            base_url,
-            "/",
-            env={"VERIFY_FRONTEND_AUTH_HEADER": "x-vercel-protection-bypass: token"},
-        )
+def test_verify_frontend_routes_uses_auth_header_when_configured(tmp_path: Path) -> None:
+    result = _run_verify(
+        tmp_path,
+        "https://aragora.test",
+        "/",
+        env={"VERIFY_FRONTEND_AUTH_HEADER": EXPECTED_HEADER},
+    )
 
     assert result.returncode == 0
     assert "OK" in result.stdout
 
 
-def test_verify_frontend_routes_soft_fail_is_non_blocking() -> None:
-    with _serve(_handler(expected_header=("x-vercel-protection-bypass", "token"))) as base_url:
-        result = _run_verify(
-            base_url,
-            "/",
-            env={
-                "VERIFY_FRONTEND_SOFT_FAIL": "1",
-                "VERIFY_FRONTEND_ANNOTATION_LEVEL": "warning",
-            },
-        )
+def test_verify_frontend_routes_soft_fail_is_non_blocking(tmp_path: Path) -> None:
+    result = _run_verify(
+        tmp_path,
+        "https://aragora.test",
+        "/",
+        env={
+            "VERIFY_FRONTEND_SOFT_FAIL": "1",
+            "VERIFY_FRONTEND_ANNOTATION_LEVEL": "warning",
+        },
+    )
 
     assert result.returncode == 0
     assert "::warning::Route check failed" in result.stdout

@@ -55,7 +55,7 @@ export function ReviewInput({
         <div className="flex items-center gap-4 mb-4">
           <button
             onClick={() => setInputMode('pr')}
-            className={`px-4 py-2 text-sm font-mono rounded transition-colors ${
+            className={`px-4 py-2 text-sm font-theme-data rounded transition-colors ${
               inputMode === 'pr'
                 ? 'bg-[var(--acid-green)] text-black'
                 : 'bg-[var(--bg)] text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -65,7 +65,7 @@ export function ReviewInput({
           </button>
           <button
             onClick={() => setInputMode('diff')}
-            className={`px-4 py-2 text-sm font-mono rounded transition-colors ${
+            className={`px-4 py-2 text-sm font-theme-data rounded transition-colors ${
               inputMode === 'diff'
                 ? 'bg-[var(--acid-green)] text-black'
                 : 'bg-[var(--bg)] text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -85,7 +85,7 @@ export function ReviewInput({
               value={prUrl}
               onChange={(e) => setPrUrl(e.target.value)}
               placeholder="https://github.com/owner/repo/pull/123"
-              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] placeholder:text-[var(--text-muted)]/50 focus:border-[var(--acid-green)] focus:outline-none"
+              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] placeholder:text-[var(--text-muted)]/50 focus:border-[var(--acid-green)] focus:outline-none"
             />
             <p className="text-xs text-[var(--text-muted)] mt-2">
               Enter a GitHub, GitLab, or Bitbucket pull request URL
@@ -103,7 +103,7 @@ export function ReviewInput({
 
 $ git diff main..feature-branch"
               rows={12}
-              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] placeholder:text-[var(--text-muted)]/50 focus:border-[var(--acid-green)] focus:outline-none resize-none"
+              className="w-full px-4 py-3 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] placeholder:text-[var(--text-muted)]/50 focus:border-[var(--acid-green)] focus:outline-none resize-none"
             />
             <p className="text-xs text-[var(--text-muted)] mt-2">
               Paste output from: git diff, git show, or unified diff format
@@ -114,7 +114,7 @@ $ git diff main..feature-branch"
 
       {/* Review Focus */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} REVIEW FOCUS
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -128,7 +128,7 @@ $ git diff main..feature-branch"
                   : 'bg-[var(--bg)] border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)]/50'
               }`}
             >
-              <div className="text-lg font-mono font-bold mb-1">{option.icon}</div>
+              <div className="text-lg font-theme-data font-bold mb-1">{option.icon}</div>
               <div className="text-xs">{option.label}</div>
             </button>
           ))}
@@ -138,7 +138,7 @@ $ git diff main..feature-branch"
       {/* Agent Selection */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-mono text-[var(--acid-green)]">
+          <h3 className="text-sm font-theme-data text-[var(--acid-green)]">
             {'>'} REVIEW AGENTS
           </h3>
           <span className="text-xs text-[var(--text-muted)]">
@@ -158,7 +158,7 @@ $ git diff main..feature-branch"
             >
               <span className="text-2xl">{agent.icon}</span>
               <div className="flex-1">
-                <div className={`font-mono text-sm ${agent.enabled ? 'text-[var(--text)]' : 'text-[var(--text-muted)]'}`}>
+                <div className={`font-theme-data text-sm ${agent.enabled ? 'text-[var(--text)]' : 'text-[var(--text-muted)]'}`}>
                   {agent.name}
                 </div>
                 <div className="text-xs text-[var(--text-muted)]">{agent.specialty}</div>
@@ -183,7 +183,7 @@ $ git diff main..feature-branch"
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded overflow-hidden">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full px-4 py-3 flex items-center justify-between text-sm font-mono text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+          className="w-full px-4 py-3 flex items-center justify-between text-sm font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
         >
           <span>Advanced Options</span>
           <span className="transition-transform" style={{ transform: showAdvanced ? 'rotate(180deg)' : 'rotate(0)' }}>
@@ -197,7 +197,7 @@ $ git diff main..feature-branch"
                 <label className="block text-xs text-[var(--text-muted)] mb-2">
                   Debate Rounds
                 </label>
-                <select className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)]">
+                <select className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)]">
                   <option value="2">2 rounds (faster)</option>
                   <option value="3" selected>3 rounds (balanced)</option>
                   <option value="5">5 rounds (thorough)</option>
@@ -207,7 +207,7 @@ $ git diff main..feature-branch"
                 <label className="block text-xs text-[var(--text-muted)] mb-2">
                   Consensus Threshold
                 </label>
-                <select className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)]">
+                <select className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)]">
                   <option value="0.6">60% (lenient)</option>
                   <option value="0.75" selected>75% (standard)</option>
                   <option value="0.9">90% (strict)</option>
@@ -233,7 +233,7 @@ $ git diff main..feature-branch"
         <button
           onClick={onStartReview}
           disabled={!canStart}
-          className={`px-6 py-3 font-mono text-sm rounded transition-all ${
+          className={`px-6 py-3 font-theme-data text-sm rounded transition-all ${
             canStart
               ? 'bg-[var(--acid-green)] text-black hover:bg-[var(--acid-green)]/90'
               : 'bg-[var(--surface)] text-[var(--text-muted)] cursor-not-allowed'

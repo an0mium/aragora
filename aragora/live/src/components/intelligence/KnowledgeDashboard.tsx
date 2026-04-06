@@ -56,15 +56,15 @@ export function KnowledgeDashboard({ stats, loading = false }: KnowledgeDashboar
       {/* Top Queries */}
       {stats.top_queries && stats.top_queries.length > 0 && (
         <div className="card p-4">
-          <h3 className="font-mono text-sm text-acid-green mb-3">{'>'} TOP QUERIES</h3>
+          <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">{'>'} TOP QUERIES</h3>
           <div className="space-y-1">
             {stats.top_queries.map((query, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 p-2 border border-acid-green/10 rounded hover:bg-acid-green/5 transition-colors"
+                className="flex items-center gap-2 p-2 border border-[var(--accent)]/10 rounded hover:bg-[var(--accent)]/5 transition-colors"
               >
-                <span className="text-acid-cyan font-mono text-xs w-6">{i + 1}.</span>
-                <span className="text-text font-mono text-sm truncate">{query}</span>
+                <span className="text-[var(--acid-cyan)] font-theme-data text-xs w-6">{i + 1}.</span>
+                <span className="text-text font-theme-data text-sm truncate">{query}</span>
               </div>
             ))}
           </div>
@@ -74,15 +74,15 @@ export function KnowledgeDashboard({ stats, loading = false }: KnowledgeDashboar
       {/* Recommendations */}
       {stats.recommendations && stats.recommendations.length > 0 && (
         <div className="card p-4">
-          <h3 className="font-mono text-sm text-acid-yellow mb-3">{'>'} RECOMMENDATIONS</h3>
+          <h3 className="font-theme-data text-sm text-[var(--acid-yellow)] mb-3">{'>'} RECOMMENDATIONS</h3>
           <div className="space-y-2">
             {stats.recommendations.map((rec, i) => (
               <div
                 key={i}
                 className="flex items-start gap-2 p-2 border border-acid-yellow/10 rounded"
               >
-                <span className="text-acid-yellow font-mono text-xs mt-0.5">-</span>
-                <span className="text-text-muted font-mono text-xs">{rec}</span>
+                <span className="text-[var(--acid-yellow)] font-theme-data text-xs mt-0.5">-</span>
+                <span className="text-text-muted font-theme-data text-xs">{rec}</span>
               </div>
             ))}
           </div>

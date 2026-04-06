@@ -90,8 +90,8 @@ export function RhetoricalPanel({ debateId }: RhetoricalPanelProps) {
 
   if (loading) {
     return (
-      <div className="bg-surface border border-acid-green/30 p-4">
-        <div className="text-xs font-mono text-text-muted animate-pulse">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
+        <div className="text-xs font-theme-data text-text-muted animate-pulse">
           Loading rhetorical analysis...
         </div>
       </div>
@@ -101,7 +101,7 @@ export function RhetoricalPanel({ debateId }: RhetoricalPanelProps) {
   if (error || !data) {
     return (
       <div className="bg-surface border border-yellow-500/30 p-4">
-        <div className="text-xs font-mono text-yellow-500">
+        <div className="text-xs font-theme-data text-yellow-500">
           {error || 'No rhetorical data available'}
         </div>
       </div>
@@ -113,21 +113,21 @@ export function RhetoricalPanel({ debateId }: RhetoricalPanelProps) {
     : data.observations;
 
   return (
-    <div className="bg-surface border border-acid-green/30">
+    <div className="bg-surface border border-[var(--accent)]/30">
       {/* Header */}
       <div
-        className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 cursor-pointer flex items-center justify-between"
+        className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 cursor-pointer flex items-center justify-between"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+          <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
             {'>'} RHETORICAL ANALYSIS
           </span>
-          <span className="text-xs font-mono text-text-muted">
+          <span className="text-xs font-theme-data text-text-muted">
             ({data.total_observations} patterns detected)
           </span>
         </div>
-        <span className="text-xs font-mono text-acid-green">
+        <span className="text-xs font-theme-data text-[var(--accent)]">
           {expanded ? '[-]' : '[+]'}
         </span>
       </div>
@@ -145,7 +145,7 @@ export function RhetoricalPanel({ debateId }: RhetoricalPanelProps) {
                   onClick={() =>
                     setSelectedPattern(selectedPattern === pattern ? null : pattern)
                   }
-                  className={`px-2 py-1 text-xs font-mono border rounded transition-all ${
+                  className={`px-2 py-1 text-xs font-theme-data border rounded transition-all ${
                     selectedPattern === pattern
                       ? PATTERN_COLORS[pattern] + ' ring-1 ring-current'
                       : 'border-border text-text-muted hover:border-text'
@@ -159,10 +159,10 @@ export function RhetoricalPanel({ debateId }: RhetoricalPanelProps) {
           {/* Debate Dynamics */}
           {data.dynamics && (
             <div className="bg-bg/50 border border-border rounded p-3">
-              <div className="text-xs font-mono text-text-muted uppercase mb-2">
+              <div className="text-xs font-theme-data text-text-muted uppercase mb-2">
                 Debate Dynamics
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+              <div className="grid grid-cols-2 gap-2 text-xs font-theme-data">
                 <div>
                   <span className="text-text-muted">Tenor: </span>
                   <span className="text-text">{data.dynamics.debate_tenor || 'Unknown'}</span>
@@ -190,25 +190,25 @@ export function RhetoricalPanel({ debateId }: RhetoricalPanelProps) {
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm">{PATTERN_ICONS[obs.pattern] || '?'}</span>
-                    <span className="text-xs font-mono font-bold uppercase">
+                    <span className="text-xs font-theme-data font-bold uppercase">
                       {obs.pattern.replace(/_/g, ' ')}
                     </span>
                   </div>
-                  <div className="text-xs font-mono text-text-muted">
+                  <div className="text-xs font-theme-data text-text-muted">
                     {obs.agent} | Round {obs.round_num} |{' '}
                     {Math.round(obs.confidence * 100)}% confidence
                   </div>
                 </div>
-                <div className="text-xs font-mono text-text mb-2 italic">
+                <div className="text-xs font-theme-data text-text mb-2 italic">
                   &ldquo;{obs.audience_commentary}&rdquo;
                 </div>
-                <div className="text-xs font-mono text-text-muted bg-bg/50 p-2 rounded">
+                <div className="text-xs font-theme-data text-text-muted bg-bg/50 p-2 rounded">
                   &ldquo;{obs.excerpt}&rdquo;
                 </div>
               </div>
             ))}
             {filteredObservations.length > 20 && (
-              <div className="text-xs font-mono text-text-muted text-center py-2">
+              <div className="text-xs font-theme-data text-text-muted text-center py-2">
                 + {filteredObservations.length - 20} more observations
               </div>
             )}

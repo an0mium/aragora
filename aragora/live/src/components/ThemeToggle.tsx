@@ -82,9 +82,9 @@ export function ThemeSelector() {
         role="radio"
         aria-checked={preference === 'dark'}
         onClick={() => setTheme('dark')}
-        className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+        className={`px-3 py-1.5 text-xs font-theme-data rounded transition-colors ${
           preference === 'dark'
-            ? 'bg-acid-green/20 text-acid-green'
+            ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
             : 'text-text-muted hover:text-text'
         }`}
       >
@@ -94,9 +94,9 @@ export function ThemeSelector() {
         role="radio"
         aria-checked={preference === 'light'}
         onClick={() => setTheme('light')}
-        className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+        className={`px-3 py-1.5 text-xs font-theme-data rounded transition-colors ${
           preference === 'light'
-            ? 'bg-acid-green/20 text-acid-green'
+            ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
             : 'text-text-muted hover:text-text'
         }`}
       >
@@ -106,9 +106,9 @@ export function ThemeSelector() {
         role="radio"
         aria-checked={preference === 'system'}
         onClick={() => setTheme('system')}
-        className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+        className={`px-3 py-1.5 text-xs font-theme-data rounded transition-colors ${
           preference === 'system'
-            ? 'bg-acid-green/20 text-acid-green'
+            ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
             : 'text-text-muted hover:text-text'
         }`}
       >

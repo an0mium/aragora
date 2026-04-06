@@ -66,7 +66,7 @@ export function DownloadSection({ debateId, isCompleted = true }: DownloadSectio
 
   if (!isCompleted) {
     return (
-      <div className="text-xs font-mono text-text-muted">
+      <div className="text-xs font-theme-data text-text-muted">
         [EXPORTS AVAILABLE AFTER DEBATE COMPLETES]
       </div>
     );
@@ -75,13 +75,13 @@ export function DownloadSection({ debateId, isCompleted = true }: DownloadSectio
   return (
     <div className="space-y-3">
       {/* Section Header */}
-      <div className="text-xs font-mono text-text-muted uppercase tracking-wider">
+      <div className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
         Download Transcript
       </div>
 
       {/* Error Display */}
       {error && (
-        <div className="text-xs font-mono text-red-400 bg-red-900/20 px-2 py-1 border border-red-500/30">
+        <div className="text-xs font-theme-data text-red-400 bg-red-900/20 px-2 py-1 border border-red-500/30">
           {error}
         </div>
       )}
@@ -95,7 +95,7 @@ export function DownloadSection({ debateId, isCompleted = true }: DownloadSectio
               onClick={() => downloadFormat(format)}
               disabled={downloading !== null}
               className={`
-                px-3 py-1.5 text-xs font-mono border transition-colors
+                px-3 py-1.5 text-xs font-theme-data border transition-colors
                 ${downloading === format
                   ? 'bg-accent/20 border-accent text-accent animate-pulse'
                   : 'bg-bg border-border text-text-muted hover:border-accent/40 hover:text-accent'
@@ -111,7 +111,7 @@ export function DownloadSection({ debateId, isCompleted = true }: DownloadSectio
 
       {/* Audio Section Divider */}
       <div className="border-t border-border/50 pt-3">
-        <div className="text-xs font-mono text-text-muted uppercase tracking-wider mb-2">
+        <div className="text-xs font-theme-data text-text-muted uppercase tracking-wider mb-2">
           Audio Podcast
         </div>
         <AudioDownloadSection debateId={debateId} />

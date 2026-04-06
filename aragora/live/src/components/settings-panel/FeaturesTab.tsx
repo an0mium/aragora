@@ -38,7 +38,7 @@ export function FeaturesTab({
   return (
     <div className="space-y-6" role="tabpanel" id="panel-features" aria-labelledby="tab-features">
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Analysis Features</h3>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Analysis Features</h3>
         <div className="space-y-4">
           <ToggleSwitch
             label="Calibration Tracking"
@@ -68,7 +68,7 @@ export function FeaturesTab({
       </div>
 
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Learning & Memory</h3>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Learning & Memory</h3>
         <div className="space-y-4">
           <ToggleSwitch
             label="Continuum Memory"
@@ -102,7 +102,7 @@ export function FeaturesTab({
       </div>
 
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Panels & UI</h3>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Panels & UI</h3>
         <div className="space-y-4">
           <ToggleSwitch
             label="Insights Panel"

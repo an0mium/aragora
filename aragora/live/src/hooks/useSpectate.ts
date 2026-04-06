@@ -54,7 +54,7 @@ interface UseSpectateOptions {
 interface UseSpectateReturn {
   /** Array of spectate events, newest last */
   events: SpectateEvent[];
-  /** Whether the polling endpoints are currently reachable */
+  /** Whether the live stream or polling fallback is currently reachable */
   connected: boolean;
   /** Whether the hook has completed its first fetch cycle */
   loaded: boolean;
@@ -64,11 +64,73 @@ interface UseSpectateReturn {
   refresh: () => Promise<void>;
 }
 
+const SPECTATE_STREAM_EVENT_TYPES = [
+  'spectate',
+  'debate_start',
+  'debate_end',
+  'round_start',
+  'round_end',
+  'proposal',
+  'critique',
+  'refine',
+  'vote',
+  'judge',
+  'consensus',
+  'convergence',
+  'converged',
+  'memory_recall',
+  'breakpoint',
+  'breakpoint_resolved',
+  'system',
+  'error',
+] as const;
+
+function buildSpectateParams(
+  debateId?: string,
+  pipelineId?: string,
+  maxEvents = 50,
+): URLSearchParams {
+  const params = new URLSearchParams({ count: String(maxEvents) });
+  if (debateId) params.set('debate_id', debateId);
+  if (pipelineId) params.set('pipeline_id', pipelineId);
+  return params;
+}
+
+function spectateEventKey(event: SpectateEvent): string {
+  return JSON.stringify([
+    event.event_type,
+    event.timestamp,
+    event.debate_id,
+    event.pipeline_id,
+    event.agent_name,
+    event.round_number,
+    event.data,
+  ]);
+}
+
+function appendSpectateEvent(
+  currentEvents: SpectateEvent[],
+  nextEvent: SpectateEvent,
+  maxEvents: number,
+): SpectateEvent[] {
+  const deduped = new Map(
+    currentEvents.map((event) => [spectateEventKey(event), event] as const),
+  );
+  deduped.set(spectateEventKey(nextEvent), nextEvent);
+  return Array.from(deduped.values()).slice(-maxEvents);
+}
+
+function isSpectateEvent(value: unknown): value is SpectateEvent {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<SpectateEvent>;
+  return typeof candidate.event_type === 'string' && typeof candidate.timestamp === 'string';
+}
+
 /**
  * React hook for real-time spectate events from the SpectatorStream bridge.
  *
- * Polls the /api/v1/spectate/recent endpoint at a configurable interval
- * and optionally filters events by debate or pipeline ID.
+ * Prefers the /api/v1/spectate/stream SSE endpoint for live delivery and
+ * falls back to polling /api/v1/spectate/recent when streaming is unavailable.
  *
  * @example
  * ```tsx
@@ -101,14 +163,14 @@ export function useSpectate(
   const [connected, setConnected] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<SpectateStatus | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const fallbackPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const statusPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const usingFallbackRef = useRef(false);
 
   const fetchRecent = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ count: String(maxEvents) });
-      if (debateId) params.set('debate_id', debateId);
-      if (pipelineId) params.set('pipeline_id', pipelineId);
-
+      const params = buildSpectateParams(debateId, pipelineId, maxEvents);
       const res = await fetch(
         `${API_BASE_URL}/api/v1/spectate/recent?${params.toString()}`,
       );
@@ -151,18 +213,142 @@ export function useSpectate(
     setLoaded(true);
   }, [fetchRecent, fetchStatus]);
 
-  useEffect(() => {
-    if (!enabled) return;
+  const stopFallbackPolling = useCallback(() => {
+    if (fallbackPollRef.current) {
+      clearInterval(fallbackPollRef.current);
+      fallbackPollRef.current = null;
+    }
+    usingFallbackRef.current = false;
+  }, []);
 
+  const startFallbackPolling = useCallback(() => {
+    stopFallbackPolling();
+    usingFallbackRef.current = true;
     void refresh();
-    intervalRef.current = setInterval(() => {
+    fallbackPollRef.current = setInterval(() => {
       void refresh();
     }, pollInterval);
+  }, [pollInterval, refresh, stopFallbackPolling]);
+
+  const closeEventSource = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+  }, []);
+
+  const connectEventSource = useCallback(() => {
+    if (typeof EventSource === 'undefined') {
+      startFallbackPolling();
+      return;
+    }
+
+    const params = buildSpectateParams(debateId, pipelineId, maxEvents);
+    const source = new EventSource(
+      `${API_BASE_URL}/api/v1/spectate/stream?${params.toString()}`,
+    );
+    eventSourceRef.current = source;
+
+    const handleConnected = () => {
+      if (eventSourceRef.current !== source) return;
+      setConnected(true);
+      setLoaded(true);
+      stopFallbackPolling();
+    };
+
+    const handleSpectateMessage = (event: MessageEvent<string>) => {
+      if (eventSourceRef.current !== source) return;
+
+      try {
+        const parsed = JSON.parse(event.data) as unknown;
+        if (!isSpectateEvent(parsed)) return;
+
+        setEvents((currentEvents) =>
+          appendSpectateEvent(currentEvents, parsed, maxEvents),
+        );
+        setConnected(true);
+        setLoaded(true);
+      } catch {
+        // Ignore malformed frames and keep the stream alive.
+      }
+    };
+
+    const handleResyncRequired = () => {
+      if (eventSourceRef.current !== source) return;
+      setConnected(false);
+      closeEventSource();
+      startFallbackPolling();
+    };
+
+    source.onopen = handleConnected;
+    source.addEventListener('connected', handleConnected as EventListener);
+    source.addEventListener('snapshot_complete', handleConnected as EventListener);
+    SPECTATE_STREAM_EVENT_TYPES.forEach((eventType) => {
+      source.addEventListener(eventType, handleSpectateMessage as EventListener);
+    });
+    source.addEventListener('resync_required', handleResyncRequired as EventListener);
+    source.onerror = () => {
+      if (eventSourceRef.current !== source) return;
+      setConnected(false);
+      closeEventSource();
+      startFallbackPolling();
+    };
+  }, [
+    closeEventSource,
+    debateId,
+    maxEvents,
+    pipelineId,
+    startFallbackPolling,
+    stopFallbackPolling,
+  ]);
+
+  useEffect(() => {
+    if (!enabled) {
+      stopFallbackPolling();
+      closeEventSource();
+      if (statusPollRef.current) {
+        clearInterval(statusPollRef.current);
+        statusPollRef.current = null;
+      }
+      return;
+    }
+
+    setEvents([]);
+    setConnected(false);
+    setLoaded(false);
+
+    void fetchStatus();
+    statusPollRef.current = setInterval(() => {
+      void fetchStatus();
+    }, pollInterval);
+    connectEventSource();
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      stopFallbackPolling();
+      closeEventSource();
+      if (statusPollRef.current) {
+        clearInterval(statusPollRef.current);
+        statusPollRef.current = null;
+      }
     };
-  }, [refresh, pollInterval, enabled]);
+  }, [
+    closeEventSource,
+    connectEventSource,
+    enabled,
+    fetchStatus,
+    pollInterval,
+    stopFallbackPolling,
+  ]);
 
-  return { events, connected, loaded, status, refresh };
+  const manualRefresh = useCallback(async () => {
+    if (usingFallbackRef.current) {
+      await refresh();
+      return;
+    }
+
+    await fetchStatus();
+    setLoaded(true);
+  }, [fetchStatus, refresh]);
+
+  return { events, connected, loaded, status, refresh: manualRefresh };
 }

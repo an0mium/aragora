@@ -69,7 +69,7 @@ function StepIndicator({ current }: { current: OnboardingStep }) {
             )}
             <div className="flex items-center gap-2">
               <span
-                className={`flex items-center justify-center w-6 h-6 font-mono text-xs font-bold border transition-colors ${
+                className={`flex items-center justify-center w-6 h-6 font-theme-data text-xs font-bold border transition-colors ${
                   isActive
                     ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/60'
                     : isCompleted
@@ -80,7 +80,7 @@ function StepIndicator({ current }: { current: OnboardingStep }) {
                 {isCompleted ? '\u2713' : step.num}
               </span>
               <span
-                className={`text-[10px] font-mono uppercase tracking-wider hidden sm:inline ${
+                className={`text-[10px] font-theme-data uppercase tracking-wider hidden sm:inline ${
                   isActive
                     ? 'text-[var(--acid-green)]'
                     : isCompleted
@@ -172,7 +172,7 @@ function DebateProgress({ elapsed }: { elapsed: number }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
+      <div className="flex justify-between text-[10px] font-theme-data text-[var(--text-muted)]">
         <span>{currentPhase}...</span>
         <span>{Math.round(pct)}%</span>
       </div>
@@ -182,7 +182,7 @@ function DebateProgress({ elapsed }: { elapsed: number }) {
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-[10px] font-mono text-[var(--text-muted)]">
+      <p className="text-[10px] font-theme-data text-[var(--text-muted)]">
         Elapsed: {elapsed}s — AI agents are debating your question
       </p>
     </div>
@@ -398,24 +398,24 @@ export default function GetStartedPage() {
           <div className="flex items-center gap-3 mb-2">
             <Link
               href="/dashboard"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+              className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
             >
               DASHBOARD
             </Link>
-            <span className="text-xs font-mono text-[var(--text-muted)]">
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">
               /
             </span>
-            <span className="text-xs font-mono text-[var(--acid-green)]">
+            <span className="text-xs font-theme-data text-[var(--acid-green)]">
               GET STARTED
             </span>
           </div>
 
           {/* Page header */}
           <div className="mb-2">
-            <h1 className="text-2xl font-mono text-[var(--acid-green)] mb-1">
+            <h1 className="text-2xl font-theme-data text-[var(--acid-green)] mb-1">
               {'>'} GET STARTED
             </h1>
-            <p className="text-sm font-mono text-[var(--text-muted)] max-w-2xl">
+            <p className="text-sm font-theme-data text-[var(--text-muted)] max-w-2xl">
               Connect to the backend, run your first AI debate, and see the
               results. Three steps to experience the Decision Integrity Platform.
             </p>
@@ -436,7 +436,7 @@ export default function GetStartedPage() {
           >
             <div className="flex items-center gap-3 mb-4">
               <span
-                className={`flex items-center justify-center w-7 h-7 font-mono text-sm font-bold border ${
+                className={`flex items-center justify-center w-7 h-7 font-theme-data text-sm font-bold border ${
                   currentStep > 1
                     ? 'bg-[var(--acid-green)] text-[var(--bg)] border-[var(--acid-green)]'
                     : 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/40'
@@ -444,7 +444,7 @@ export default function GetStartedPage() {
               >
                 {currentStep > 1 ? '\u2713' : '1'}
               </span>
-              <h2 className="text-sm font-mono text-[var(--acid-green)] uppercase tracking-wider">
+              <h2 className="text-sm font-theme-data text-[var(--acid-green)] uppercase tracking-wider">
                 Check Connection
               </h2>
             </div>
@@ -463,16 +463,16 @@ export default function GetStartedPage() {
                     }
                   />
                   <div>
-                    <span className="text-xs font-mono text-[var(--text)]">
+                    <span className="text-xs font-theme-data text-[var(--text)]">
                       Backend Server
                     </span>
-                    <span className="text-[10px] font-mono text-[var(--text-muted)] ml-2">
+                    <span className="text-[10px] font-theme-data text-[var(--text-muted)] ml-2">
                       {API_BASE_URL || 'localhost:8080'}
                     </span>
                   </div>
                 </div>
                 <span
-                  className={`text-xs font-mono font-bold ${
+                  className={`text-xs font-theme-data font-bold ${
                     health.status === 'checking'
                       ? 'text-amber-400'
                       : health.status === 'online'
@@ -491,7 +491,7 @@ export default function GetStartedPage() {
               {/* Provider status */}
               {!providersLoading && providers.length > 0 && (
                 <div className="bg-[var(--bg)] border border-[var(--border)] p-3">
-                  <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase mb-2">
+                  <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase mb-2">
                     AI Providers
                     {hasAnyProvider && (
                       <span className="text-[var(--acid-green)] ml-2">
@@ -509,7 +509,7 @@ export default function GetStartedPage() {
                           status={provider.configured ? 'ok' : 'error'}
                         />
                         <span
-                          className={`text-xs font-mono ${
+                          className={`text-xs font-theme-data ${
                             provider.configured
                               ? 'text-[var(--text)]'
                               : 'text-[var(--text-muted)]'
@@ -522,16 +522,16 @@ export default function GetStartedPage() {
                   </div>
                   {!hasAnyProvider && health.status === 'online' && (
                     <div className="mt-2 space-y-1.5">
-                      <p className="text-[10px] font-mono text-amber-400">
+                      <p className="text-[10px] font-theme-data text-amber-400">
                         No API keys detected. The playground will be used for
                         your first debate.
                       </p>
-                      <p className="text-[10px] font-mono text-[var(--text-muted)]">
+                      <p className="text-[10px] font-theme-data text-[var(--text-muted)]">
                         To use real AI providers, add keys to your{' '}
                         <code className="text-[var(--acid-cyan)]">.env</code>{' '}
                         file:
                       </p>
-                      <code className="block text-[10px] font-mono bg-[var(--surface)] text-[var(--text-muted)] p-2 border border-[var(--border)]">
+                      <code className="block text-[10px] font-theme-data bg-[var(--surface)] text-[var(--text-muted)] p-2 border border-[var(--border)]">
                         ANTHROPIC_API_KEY=sk-...{'\n'}
                         OPENAI_API_KEY=sk-...
                       </code>
@@ -543,10 +543,10 @@ export default function GetStartedPage() {
               {/* Offline instructions */}
               {health.status === 'offline' && (
                 <div className="bg-red-500/5 border border-red-500/20 p-3">
-                  <p className="text-xs font-mono text-red-400 mb-2">
+                  <p className="text-xs font-theme-data text-red-400 mb-2">
                     Cannot reach the Aragora backend. Make sure it is running:
                   </p>
-                  <code className="block text-[10px] font-mono bg-[var(--bg)] text-[var(--text-muted)] p-2 border border-[var(--border)]">
+                  <code className="block text-[10px] font-theme-data bg-[var(--bg)] text-[var(--text-muted)] p-2 border border-[var(--border)]">
                     aragora serve --api-port 8080 --ws-port 8765
                   </code>
                   <button
@@ -554,7 +554,7 @@ export default function GetStartedPage() {
                       checkHealth();
                       checkProviders();
                     }}
-                    className="mt-3 px-3 py-1.5 text-xs font-mono font-bold bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
+                    className="mt-3 px-3 py-1.5 text-xs font-theme-data font-bold bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
                   >
                     RETRY CONNECTION
                   </button>
@@ -565,7 +565,7 @@ export default function GetStartedPage() {
               {health.status === 'online' && currentStep === 1 && (
                 <button
                   onClick={() => setCurrentStep(2)}
-                  className="mt-2 px-4 py-2 text-xs font-mono font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
+                  className="mt-2 px-4 py-2 text-xs font-theme-data font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
                 >
                   CONTINUE
                 </button>
@@ -587,7 +587,7 @@ export default function GetStartedPage() {
           >
             <div className="flex items-center gap-3 mb-4">
               <span
-                className={`flex items-center justify-center w-7 h-7 font-mono text-sm font-bold border ${
+                className={`flex items-center justify-center w-7 h-7 font-theme-data text-sm font-bold border ${
                   currentStep > 2
                     ? 'bg-[var(--acid-green)] text-[var(--bg)] border-[var(--acid-green)]'
                     : currentStep === 2
@@ -598,7 +598,7 @@ export default function GetStartedPage() {
                 {currentStep > 2 ? '\u2713' : '2'}
               </span>
               <h2
-                className={`text-sm font-mono uppercase tracking-wider ${
+                className={`text-sm font-theme-data uppercase tracking-wider ${
                   currentStep >= 2
                     ? 'text-[var(--acid-green)]'
                     : 'text-[var(--text-muted)]'
@@ -610,7 +610,7 @@ export default function GetStartedPage() {
 
             {currentStep >= 2 && (
               <div className="space-y-4">
-                <p className="text-xs font-mono text-[var(--text-muted)] max-w-2xl">
+                <p className="text-xs font-theme-data text-[var(--text-muted)] max-w-2xl">
                   Launch a multi-agent debate where AI models propose, critique,
                   and synthesize a decision. Enter your own question or use the
                   suggestion below.
@@ -621,7 +621,7 @@ export default function GetStartedPage() {
                   <div className="mb-3">
                     <label
                       htmlFor="debate-question"
-                      className="text-[10px] font-mono text-[var(--text-muted)] uppercase block mb-1"
+                      className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block mb-1"
                     >
                       Your Question
                     </label>
@@ -632,13 +632,13 @@ export default function GetStartedPage() {
                       disabled={debateLoading}
                       rows={2}
                       placeholder="e.g. Should we adopt TypeScript for our backend?"
-                      className="w-full bg-[var(--surface)] text-sm font-mono text-[var(--text)] border border-[var(--border)] focus:border-[var(--acid-green)]/60 focus:outline-none p-2 resize-none placeholder:text-[var(--text-muted)]/50 disabled:opacity-50"
+                      className="w-full bg-[var(--surface)] text-sm font-theme-data text-[var(--text)] border border-[var(--border)] focus:border-[var(--acid-green)]/60 focus:outline-none p-2 resize-none placeholder:text-[var(--text-muted)]/50 disabled:opacity-50"
                     />
                     {userQuestion !== TEMPLATE_QUESTION && userQuestion.trim() !== '' && (
                       <button
                         type="button"
                         onClick={() => setUserQuestion(TEMPLATE_QUESTION)}
-                        className="text-[10px] font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors mt-1"
+                        className="text-[10px] font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors mt-1"
                       >
                         Reset to suggestion
                       </button>
@@ -646,7 +646,7 @@ export default function GetStartedPage() {
                   </div>
 
                   {/* Configuration */}
-                  <div className="flex items-center gap-4 mb-4 text-[10px] font-mono text-[var(--text-muted)]">
+                  <div className="flex items-center gap-4 mb-4 text-[10px] font-theme-data text-[var(--text-muted)]">
                     <span>Format: Quick (4 rounds)</span>
                     <span>Agent selection: Auto</span>
                     <span>Consensus: Majority</span>
@@ -658,7 +658,7 @@ export default function GetStartedPage() {
                   {/* Error state */}
                   {debateError && (
                     <div className="bg-red-500/5 border border-red-500/20 p-3 mb-3">
-                      <p className="text-xs font-mono text-red-400">
+                      <p className="text-xs font-theme-data text-red-400">
                         {debateError}
                       </p>
                     </div>
@@ -669,7 +669,7 @@ export default function GetStartedPage() {
                     <button
                       onClick={runFirstDebate}
                       disabled={!canStartDebate || !userQuestion.trim()}
-                      className="inline-flex items-center gap-2 px-4 py-2 text-xs font-mono font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-2 px-4 py-2 text-xs font-theme-data font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {debateError ? 'RETRY DEBATE' : 'START DEBATE'}
                     </button>
@@ -691,7 +691,7 @@ export default function GetStartedPage() {
           >
             <div className="flex items-center gap-3 mb-4">
               <span
-                className={`flex items-center justify-center w-7 h-7 font-mono text-sm font-bold border ${
+                className={`flex items-center justify-center w-7 h-7 font-theme-data text-sm font-bold border ${
                   currentStep === 3
                     ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/40'
                     : 'bg-transparent text-[var(--text-muted)] border-[var(--border)]'
@@ -700,7 +700,7 @@ export default function GetStartedPage() {
                 3
               </span>
               <h2
-                className={`text-sm font-mono uppercase tracking-wider ${
+                className={`text-sm font-theme-data uppercase tracking-wider ${
                   currentStep === 3
                     ? 'text-[var(--acid-green)]'
                     : 'text-[var(--text-muted)]'
@@ -716,7 +716,7 @@ export default function GetStartedPage() {
                 <div className="bg-[var(--acid-green)]/5 border border-[var(--acid-green)]/30 p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <StatusDot status="ok" />
-                    <span className="text-xs font-mono font-bold text-[var(--acid-green)]">
+                    <span className="text-xs font-theme-data font-bold text-[var(--acid-green)]">
                       DEBATE COMPLETED
                     </span>
                   </div>
@@ -724,10 +724,10 @@ export default function GetStartedPage() {
                   <div className="space-y-3">
                     {/* Question */}
                     <div>
-                      <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+                      <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">
                         Question
                       </span>
-                      <p className="text-xs font-mono text-[var(--text)] mt-0.5">
+                      <p className="text-xs font-theme-data text-[var(--text)] mt-0.5">
                         {debateResult.question}
                       </p>
                     </div>
@@ -735,20 +735,20 @@ export default function GetStartedPage() {
                     {/* Result stats */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       <div className="bg-[var(--bg)] border border-[var(--border)] p-2.5">
-                        <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">
+                        <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block">
                           Debate ID
                         </span>
-                        <span className="text-xs font-mono text-[var(--acid-cyan)] font-bold">
+                        <span className="text-xs font-theme-data text-[var(--acid-cyan)] font-bold">
                           {debateResult.debateId.slice(0, 8)}...
                         </span>
                       </div>
 
                       {debateResult.consensus && (
                         <div className="bg-[var(--bg)] border border-[var(--border)] p-2.5">
-                          <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">
+                          <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block">
                             Consensus
                           </span>
-                          <span className="text-xs font-mono text-[var(--acid-green)] font-bold">
+                          <span className="text-xs font-theme-data text-[var(--acid-green)] font-bold">
                             {debateResult.consensus}
                           </span>
                         </div>
@@ -756,10 +756,10 @@ export default function GetStartedPage() {
 
                       {debateResult.confidence != null && (
                         <div className="bg-[var(--bg)] border border-[var(--border)] p-2.5">
-                          <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase block">
+                          <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase block">
                             Confidence
                           </span>
-                          <span className="text-xs font-mono text-amber-400 font-bold">
+                          <span className="text-xs font-theme-data text-amber-400 font-bold">
                             {(debateResult.confidence * 100).toFixed(0)}%
                           </span>
                         </div>
@@ -769,10 +769,10 @@ export default function GetStartedPage() {
                     {/* Winning proposal preview */}
                     {debateResult.winningProposal && (
                       <div>
-                        <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+                        <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">
                           Winning Proposal
                         </span>
-                        <p className="text-xs font-mono text-[var(--text)] mt-0.5 line-clamp-3">
+                        <p className="text-xs font-theme-data text-[var(--text)] mt-0.5 line-clamp-3">
                           {debateResult.winningProposal}
                         </p>
                       </div>
@@ -781,14 +781,14 @@ export default function GetStartedPage() {
                     {/* Agents */}
                     {debateResult.agents && debateResult.agents.length > 0 && (
                       <div>
-                        <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+                        <span className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">
                           Participating Agents
                         </span>
                         <div className="flex flex-wrap gap-1.5 mt-1">
                           {debateResult.agents.map((agent) => (
                             <span
                               key={agent}
-                              className="px-2 py-0.5 text-[10px] font-mono bg-[var(--bg)] text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30"
+                              className="px-2 py-0.5 text-[10px] font-theme-data bg-[var(--bg)] text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30"
                             >
                               {agent}
                             </span>
@@ -803,19 +803,19 @@ export default function GetStartedPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
                     href={`/debates/${debateResult.debateId}`}
-                    className="px-4 py-2 text-xs font-mono font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
+                    className="px-4 py-2 text-xs font-theme-data font-bold bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
                   >
                     VIEW FULL DEBATE
                   </Link>
                   <Link
                     href="/receipts"
-                    className="px-4 py-2 text-xs font-mono font-bold bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40 hover:bg-[var(--acid-cyan)]/30 transition-colors"
+                    className="px-4 py-2 text-xs font-theme-data font-bold bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40 hover:bg-[var(--acid-cyan)]/30 transition-colors"
                   >
                     VIEW RECEIPTS
                   </Link>
                   <Link
                     href="/arena"
-                    className="px-4 py-2 text-xs font-mono font-bold bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
+                    className="px-4 py-2 text-xs font-theme-data font-bold bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 hover:text-[var(--text)] transition-colors"
                   >
                     START ANOTHER DEBATE
                   </Link>
@@ -829,7 +829,7 @@ export default function GetStartedPage() {
           {/* ============================================================ */}
           {currentStep === 3 && (
             <section className="bg-[var(--surface)] border border-[var(--border)] p-5 transition-colors hover:border-[var(--acid-green)]/40">
-              <h2 className="text-sm font-mono text-[var(--acid-green)] uppercase tracking-wider mb-4">
+              <h2 className="text-sm font-theme-data text-[var(--acid-green)] uppercase tracking-wider mb-4">
                 What&apos;s Next?
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -837,13 +837,13 @@ export default function GetStartedPage() {
                   href="/arena"
                   className="bg-[var(--bg)] border border-[var(--border)] p-4 hover:border-[var(--acid-green)]/40 transition-colors group"
                 >
-                  <div className="text-[var(--acid-green)] font-mono text-sm mb-1 group-hover:text-[var(--acid-green)]">
+                  <div className="text-[var(--acid-green)] font-theme-data text-sm mb-1 group-hover:text-[var(--acid-green)]">
                     {'>'}
                   </div>
-                  <h3 className="text-xs font-mono text-[var(--text)] font-bold mb-1">
+                  <h3 className="text-xs font-theme-data text-[var(--text)] font-bold mb-1">
                     Debate Arena
                   </h3>
-                  <p className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <p className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     Ask your own question and customize agents, rounds, and
                     debate format.
                   </p>
@@ -853,13 +853,13 @@ export default function GetStartedPage() {
                   href="/self-improve"
                   className="bg-[var(--bg)] border border-[var(--border)] p-4 hover:border-[var(--acid-cyan)]/40 transition-colors group"
                 >
-                  <div className="text-[var(--acid-cyan)] font-mono text-sm mb-1 group-hover:text-[var(--acid-cyan)]">
+                  <div className="text-[var(--acid-cyan)] font-theme-data text-sm mb-1 group-hover:text-[var(--acid-cyan)]">
                     {'@'}
                   </div>
-                  <h3 className="text-xs font-mono text-[var(--text)] font-bold mb-1">
+                  <h3 className="text-xs font-theme-data text-[var(--text)] font-bold mb-1">
                     Self-Improvement
                   </h3>
-                  <p className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <p className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     Use the Nomic Loop to let agents autonomously improve the
                     platform.
                   </p>
@@ -869,13 +869,13 @@ export default function GetStartedPage() {
                   href="/pipeline"
                   className="bg-[var(--bg)] border border-[var(--border)] p-4 hover:border-amber-400/40 transition-colors group"
                 >
-                  <div className="text-amber-400 font-mono text-sm mb-1 group-hover:text-amber-400">
+                  <div className="text-amber-400 font-theme-data text-sm mb-1 group-hover:text-amber-400">
                     {'^'}
                   </div>
-                  <h3 className="text-xs font-mono text-[var(--text)] font-bold mb-1">
+                  <h3 className="text-xs font-theme-data text-[var(--text)] font-bold mb-1">
                     Pipeline Canvas
                   </h3>
-                  <p className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <p className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     Transform ideas into goals, actions, and orchestrated agent
                     workflows.
                   </p>
@@ -886,24 +886,24 @@ export default function GetStartedPage() {
 
           {/* Footer navigation */}
           <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
-            <span className="text-xs font-mono text-[var(--text-muted)]">
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">
               Navigate:
             </span>
             <Link
               href="/dashboard"
-              className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               DASHBOARD
             </Link>
             <Link
               href="/arena"
-              className="px-3 py-1 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
             >
               NEW DEBATE
             </Link>
             <Link
               href="/marketplace"
-              className="px-3 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               MARKETPLACE
             </Link>

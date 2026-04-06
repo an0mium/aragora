@@ -43,7 +43,7 @@ export function EvolutionTab({ evolution, genesisEvents, genomes }: EvolutionTab
 
   if (!evolution) {
     return (
-      <div className="text-sm font-mono text-text-muted">
+      <div className="text-sm font-theme-data text-text-muted">
         No evolution data available.
       </div>
     );
@@ -56,7 +56,7 @@ export function EvolutionTab({ evolution, genesisEvents, genomes }: EvolutionTab
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1 text-xs font-mono border border-border ${
+            className={`px-3 py-1 text-xs font-theme-data border border-border ${
               activeTab === tab ? 'bg-accent text-bg' : 'bg-bg text-text-muted'
             }`}
           >
@@ -66,7 +66,7 @@ export function EvolutionTab({ evolution, genesisEvents, genomes }: EvolutionTab
       </div>
 
       {activeTab === 'stats' && (
-        <div className="grid gap-3 text-sm font-mono">
+        <div className="grid gap-3 text-sm font-theme-data">
           <div className="flex items-center justify-between">
             <span>Current Generation</span>
             <span>{evolution.current_generation}</span>
@@ -83,7 +83,7 @@ export function EvolutionTab({ evolution, genesisEvents, genomes }: EvolutionTab
       )}
 
       {activeTab === 'events' && (
-        <div className="space-y-2 text-sm font-mono">
+        <div className="space-y-2 text-sm font-theme-data">
           {genesisEvents.length === 0 ? (
             <div className="text-text-muted">No genesis events available.</div>
           ) : (
@@ -92,7 +92,7 @@ export function EvolutionTab({ evolution, genesisEvents, genomes }: EvolutionTab
                 <div className="flex items-center justify-between">
                   <span>{event.event_type}</span>
                   {typeof event.fitness_change === 'number' && (
-                    <span className={event.fitness_change >= 0 ? 'text-acid-green' : 'text-crimson'}>
+                    <span className={event.fitness_change >= 0 ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'}>
                       {event.fitness_change >= 0 ? '+' : ''}
                       {event.fitness_change.toFixed(2)}
                     </span>
@@ -106,7 +106,7 @@ export function EvolutionTab({ evolution, genesisEvents, genomes }: EvolutionTab
       )}
 
       {activeTab === 'genomes' && (
-        <div className="space-y-2 text-sm font-mono">
+        <div className="space-y-2 text-sm font-theme-data">
           {genomes.length === 0 ? (
             <div className="text-text-muted">No genomes available.</div>
           ) : (

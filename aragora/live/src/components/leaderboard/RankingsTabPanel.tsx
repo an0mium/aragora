@@ -39,7 +39,7 @@ function RankingsTabPanelComponent({
               <ul className="mt-2 space-y-1 text-red-200">
                 {Object.entries(endpointErrors).map(([endpoint, msg]) => (
                   <li key={endpoint}>
-                    <span className="font-mono">{endpoint}:</span> {msg}
+                    <span className="font-theme-data">{endpoint}:</span> {msg}
                   </li>
                 ))}
               </ul>
@@ -76,7 +76,7 @@ function RankingsTabPanelComponent({
               >
                 {agent.name}
               </Link>
-              <span className={`text-sm font-mono font-bold ${getEloColor(agent.elo)}`}>
+              <span className={`text-sm font-theme-data font-bold ${getEloColor(agent.elo)}`}>
                 {agent.elo}
               </span>
               {agent.consistency !== undefined && (

@@ -25,8 +25,8 @@ const TOAST_STYLES: Record<ToastType, { bg: string; border: string; icon: string
     icon: '⚠',
   },
   info: {
-    bg: 'bg-acid-cyan/10',
-    border: 'border-acid-cyan/50',
+    bg: 'bg-[var(--acid-cyan)]/10',
+    border: 'border-[var(--acid-cyan)]/50',
     icon: 'ℹ',
   },
 };
@@ -80,7 +80,7 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
       aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
       className={`
         ${styles.bg} ${styles.border} border
-        p-3 rounded font-mono text-sm text-text
+        p-3 rounded font-theme-data text-sm text-text
         shadow-lg backdrop-blur-sm
         transition-all duration-200
         ${isExiting ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'}

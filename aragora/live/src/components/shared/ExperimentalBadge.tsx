@@ -14,17 +14,17 @@ interface ExperimentalBadgeProps {
 const STATUS_CONFIG: Record<FeatureStatus, { label: string; colors: string; tooltip: string }> = {
   stable: {
     label: 'STABLE',
-    colors: 'bg-acid-green/20 text-acid-green border-acid-green/40',
+    colors: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
     tooltip: 'This feature is production-ready and fully supported.',
   },
   beta: {
     label: 'BETA',
-    colors: 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/40',
+    colors: 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/40',
     tooltip: 'This feature is mostly complete but may have minor issues. Feedback welcome!',
   },
   alpha: {
     label: 'ALPHA',
-    colors: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+    colors: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
     tooltip: 'This feature is experimental and may change significantly. Use with caution.',
   },
   deprecated: {
@@ -55,7 +55,7 @@ export function ExperimentalBadge({ status, size = 'md', className = '' }: Exper
 
   return (
     <span
-      className={`inline-flex items-center font-mono font-bold border rounded ${config.colors} ${sizeClasses} ${className}`}
+      className={`inline-flex items-center font-theme-data font-bold border rounded ${config.colors} ${sizeClasses} ${className}`}
       title={config.tooltip}
     >
       {config.label}
@@ -72,7 +72,7 @@ export function ExperimentalTag({ status }: { status: FeatureStatus }) {
   const config = STATUS_CONFIG[status];
 
   return (
-    <span className={`text-[10px] font-mono ${config.colors.split(' ')[1]} ml-1`} title={config.tooltip}>
+    <span className={`text-[10px] font-theme-data ${config.colors.split(' ')[1]} ml-1`} title={config.tooltip}>
       [{config.label}]
     </span>
   );
@@ -96,9 +96,9 @@ export function ExperimentalBanner({
     <div className={`px-3 py-2 border ${config.colors} mb-4`}>
       <div className="flex items-center gap-2">
         <ExperimentalBadge status={status} size="sm" />
-        <span className="text-xs font-mono">{featureName}</span>
+        <span className="text-xs font-theme-data">{featureName}</span>
       </div>
-      <p className="text-[10px] font-mono text-text-muted mt-1">{config.tooltip}</p>
+      <p className="text-[10px] font-theme-data text-text-muted mt-1">{config.tooltip}</p>
     </div>
   );
 }

@@ -37,6 +37,7 @@ function ConnectorCard({
   onViewDetails: () => void;
   syncing: boolean;
 }) {
+  const schedule = connector.schedule ?? { interval_minutes: 60, enabled: false };
   const connectorType = connector.type || connector.id.split(':')[0] || 'unknown';
   const connectorId = connector.name || connector.id.split(':').pop() || connector.id;
   const isRunning = connector.is_running || connector.status === 'syncing';
@@ -53,8 +54,8 @@ function ConnectorCard({
         <div className="flex items-center gap-3">
           <span className="text-3xl">{CONNECTOR_TYPE_ICONS[connectorType] || '🔗'}</span>
           <div>
-            <h3 className="font-mono font-bold text-text">{connectorId}</h3>
-            <span className="text-xs text-text-muted font-mono uppercase">
+            <h3 className="font-theme-data font-bold text-text">{connectorId}</h3>
+            <span className="text-xs text-text-muted font-theme-data uppercase">
               {connectorType}
             </span>
           </div>
@@ -62,17 +63,17 @@ function ConnectorCard({
 
         <div className="flex items-center gap-2">
           {isRunning && (
-            <span className="px-2 py-1 text-xs bg-acid-green/20 text-acid-green border border-acid-green/50 rounded font-mono animate-pulse">
+            <span className="px-2 py-1 text-xs bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/50 rounded font-theme-data animate-pulse">
               SYNCING {connector.sync_progress ? `${Math.round(connector.sync_progress * 100)}%` : ''}
             </span>
           )}
           {connector.status === 'error' && (
-            <span className="px-2 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/50 rounded font-mono">
+            <span className="px-2 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/50 rounded font-theme-data">
               ERROR
             </span>
           )}
           {connector.consecutive_failures > 0 && !connector.status?.includes('error') && (
-            <span className="px-2 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/50 rounded font-mono">
+            <span className="px-2 py-1 text-xs bg-red-500/20 text-red-400 border border-red-500/50 rounded font-theme-data">
               {connector.consecutive_failures} FAILURES
             </span>
           )}
@@ -84,7 +85,7 @@ function ConnectorCard({
         <div className="mb-4">
           <div className="h-2 bg-bg rounded-full overflow-hidden">
             <div
-              className="h-full bg-acid-green transition-all duration-300"
+              className="h-full bg-[var(--accent)] transition-all duration-300"
               style={{ width: `${connector.sync_progress * 100}%` }}
             />
           </div>
@@ -93,22 +94,17 @@ function ConnectorCard({
 
       {/* Stats & Schedule Info */}
       <div className="mb-4 p-3 bg-bg/50 rounded">
-        <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+        <div className="grid grid-cols-2 gap-2 text-xs font-theme-data">
           <div>
             <span className="text-text-muted">Schedule:</span>
             <span className="ml-2 text-text">
-              {connector.schedule.cron_expression ||
-                `Every ${connector.schedule.interval_minutes || 60}m`}
+              {schedule.cron_expression || `Every ${schedule.interval_minutes || 60}m`}
             </span>
           </div>
           <div>
             <span className="text-text-muted">Status:</span>
-            <span
-              className={`ml-2 ${
-                connector.schedule.enabled ? 'text-acid-green' : 'text-text-muted'
-              }`}
-            >
-              {connector.schedule.enabled ? 'ENABLED' : 'DISABLED'}
+            <span className={`ml-2 ${schedule.enabled ? 'text-[var(--accent)]' : 'text-text-muted'}`}>
+              {schedule.enabled ? 'ENABLED' : 'DISABLED'}
             </span>
           </div>
           {connector.last_run && (
@@ -135,7 +131,7 @@ function ConnectorCard({
         {isRunning ? (
           <button
             onClick={onCancelSync}
-            className="flex-1 px-3 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-mono text-sm hover:bg-red-500/30 transition-colors rounded"
+            className="flex-1 px-3 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-theme-data text-sm hover:bg-red-500/30 transition-colors rounded"
           >
             CANCEL SYNC
           </button>
@@ -143,20 +139,20 @@ function ConnectorCard({
           <button
             onClick={onSync}
             disabled={syncing}
-            className="flex-1 px-3 py-2 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
+            className="flex-1 px-3 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded"
           >
             {syncing ? 'SYNCING...' : 'SYNC NOW'}
           </button>
         )}
         <button
           onClick={onEdit}
-          className="px-3 py-2 bg-blue-500/20 border border-blue-500/50 text-blue-400 font-mono text-sm hover:bg-blue-500/30 transition-colors rounded"
+          className="px-3 py-2 bg-blue-500/20 border border-blue-500/50 text-blue-400 font-theme-data text-sm hover:bg-blue-500/30 transition-colors rounded"
         >
           EDIT
         </button>
         <button
           onClick={onDelete}
-          className="px-3 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-mono text-sm hover:bg-red-500/30 transition-colors rounded"
+          className="px-3 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-theme-data text-sm hover:bg-red-500/30 transition-colors rounded"
         >
           DELETE
         </button>
@@ -174,14 +170,11 @@ function EditConnectorModal({
   onClose: () => void;
   onSave: (updates: { schedule: Connector['schedule'] }) => void;
 }) {
-  const [intervalMinutes, setIntervalMinutes] = useState(
-    connector.schedule.interval_minutes || 60
-  );
-  const [cronExpression, setCronExpression] = useState(
-    connector.schedule.cron_expression || ''
-  );
-  const [enabled, setEnabled] = useState(connector.schedule.enabled);
-  const [useCron, setUseCron] = useState(!!connector.schedule.cron_expression);
+  const schedule = connector.schedule ?? { interval_minutes: 60, enabled: false };
+  const [intervalMinutes, setIntervalMinutes] = useState(schedule.interval_minutes || 60);
+  const [cronExpression, setCronExpression] = useState(schedule.cron_expression || '');
+  const [enabled, setEnabled] = useState(schedule.enabled);
+  const [useCron, setUseCron] = useState(!!schedule.cron_expression);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,8 +197,8 @@ function EditConnectorModal({
           <div className="flex items-center gap-3">
             <span className="text-2xl">{CONNECTOR_TYPE_ICONS[connectorType] || '🔗'}</span>
             <div>
-              <h2 className="text-lg font-mono font-bold text-text">Edit Connector</h2>
-              <span className="text-xs text-text-muted font-mono">{connectorId}</span>
+              <h2 className="text-lg font-theme-data font-bold text-text">Edit Connector</h2>
+              <span className="text-xs text-text-muted font-theme-data">{connectorId}</span>
             </div>
           </div>
           <button onClick={onClose} className="text-text-muted hover:text-text">
@@ -216,16 +209,16 @@ function EditConnectorModal({
         <form onSubmit={handleSubmit} className="p-4">
           {/* Schedule Type Toggle */}
           <div className="mb-4">
-            <label className="block text-xs font-mono text-text-muted uppercase mb-2">
+            <label className="block text-xs font-theme-data text-text-muted uppercase mb-2">
               Schedule Type
             </label>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setUseCron(false)}
-                className={`flex-1 px-3 py-2 rounded border-2 transition-all text-sm font-mono ${
+                className={`flex-1 px-3 py-2 rounded border-2 transition-all text-sm font-theme-data ${
                   !useCron
-                    ? 'border-acid-green bg-acid-green/20 text-acid-green'
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
                     : 'border-border text-text-muted hover:border-text'
                 }`}
               >
@@ -234,9 +227,9 @@ function EditConnectorModal({
               <button
                 type="button"
                 onClick={() => setUseCron(true)}
-                className={`flex-1 px-3 py-2 rounded border-2 transition-all text-sm font-mono ${
+                className={`flex-1 px-3 py-2 rounded border-2 transition-all text-sm font-theme-data ${
                   useCron
-                    ? 'border-acid-green bg-acid-green/20 text-acid-green'
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
                     : 'border-border text-text-muted hover:border-text'
                 }`}
               >
@@ -248,7 +241,7 @@ function EditConnectorModal({
           {/* Interval or Cron Input */}
           {useCron ? (
             <div className="mb-4">
-              <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+              <label className="block text-xs font-theme-data text-text-muted uppercase mb-1">
                 Cron Expression
               </label>
               <input
@@ -256,7 +249,7 @@ function EditConnectorModal({
                 value={cronExpression}
                 onChange={(e) => setCronExpression(e.target.value)}
                 placeholder="0 * * * *"
-                className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
               />
               <p className="text-xs text-text-muted mt-1">
                 Example: 0 */6 * * * (every 6 hours)
@@ -264,7 +257,7 @@ function EditConnectorModal({
             </div>
           ) : (
             <div className="mb-4">
-              <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+              <label className="block text-xs font-theme-data text-text-muted uppercase mb-1">
                 Interval (minutes)
               </label>
               <input
@@ -273,7 +266,7 @@ function EditConnectorModal({
                 onChange={(e) => setIntervalMinutes(parseInt(e.target.value) || 60)}
                 min={1}
                 max={1440}
-                className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
               />
               <p className="text-xs text-text-muted mt-1">
                 Sync every {intervalMinutes} minutes
@@ -290,7 +283,7 @@ function EditConnectorModal({
                 onChange={(e) => setEnabled(e.target.checked)}
                 className="w-4 h-4 accent-acid-green"
               />
-              <span className="text-sm font-mono text-text">
+              <span className="text-sm font-theme-data text-text">
                 Enable automatic sync
               </span>
             </label>
@@ -301,13 +294,13 @@ function EditConnectorModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-text transition-colors rounded"
+              className="flex-1 px-4 py-2 bg-surface border border-border text-text font-theme-data text-sm hover:border-text transition-colors rounded"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/80 transition-colors rounded"
+              className="flex-1 px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm font-bold hover:bg-[var(--accent)]/80 transition-colors rounded"
             >
               Save Changes
             </button>
@@ -364,7 +357,7 @@ function AddConnectorModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
       <div className="w-full max-w-lg bg-surface border border-border rounded-lg shadow-2xl">
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-mono font-bold text-text">Add Connector</h2>
+          <h2 className="text-lg font-theme-data font-bold text-text">Add Connector</h2>
           <button onClick={onClose} className="text-text-muted hover:text-text">
             ✕
           </button>
@@ -373,7 +366,7 @@ function AddConnectorModal({
         <form onSubmit={handleSubmit} className="p-4">
           {/* Connector Type */}
           <div className="mb-4">
-            <label className="block text-xs font-mono text-text-muted uppercase mb-2">
+            <label className="block text-xs font-theme-data text-text-muted uppercase mb-2">
               Connector Type
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
@@ -389,13 +382,13 @@ function AddConnectorModal({
                     p-3 rounded border-2 transition-all text-center
                     ${
                       type === t
-                        ? 'border-acid-green bg-acid-green/20'
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/20'
                         : 'border-border hover:border-text'
                     }
                   `}
                 >
                   <span className="text-2xl">{icon}</span>
-                  <span className="block text-xs font-mono mt-1 capitalize">{t}</span>
+                  <span className="block text-xs font-theme-data mt-1 capitalize">{t}</span>
                 </button>
               ))}
             </div>
@@ -405,7 +398,7 @@ function AddConnectorModal({
           <div className="space-y-3 mb-6">
             {configFields[type]?.map((field) => (
               <div key={field.label}>
-                <label className="block text-xs font-mono text-text-muted uppercase mb-1">
+                <label className="block text-xs font-theme-data text-text-muted uppercase mb-1">
                   {field.label}
                   {field.required && <span className="text-red-400 ml-1">*</span>}
                 </label>
@@ -417,7 +410,7 @@ function AddConnectorModal({
                   }
                   placeholder={field.placeholder}
                   required={field.required}
-                  className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                  className="w-full px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
                 />
               </div>
             ))}
@@ -428,13 +421,13 @@ function AddConnectorModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-text transition-colors rounded"
+              className="flex-1 px-4 py-2 bg-surface border border-border text-text font-theme-data text-sm hover:border-text transition-colors rounded"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-acid-green text-bg font-mono text-sm font-bold hover:bg-acid-green/80 transition-colors rounded"
+              className="flex-1 px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm font-bold hover:bg-[var(--accent)]/80 transition-colors rounded"
             >
               Add Connector
             </button>
@@ -483,7 +476,7 @@ function ConnectorDetailsModal({
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-        <div className="text-text-muted font-mono animate-pulse">Loading...</div>
+        <div className="text-text-muted font-theme-data animate-pulse">Loading...</div>
       </div>
     );
   }
@@ -493,6 +486,7 @@ function ConnectorDetailsModal({
   }
 
   const connectorType = details.type || details.id.split(':')[0] || 'unknown';
+  const schedule = details.schedule ?? { interval_minutes: 60, enabled: false };
   const isRunning = details.is_running || details.status === 'syncing';
 
   return (
@@ -503,13 +497,13 @@ function ConnectorDetailsModal({
           <div className="flex items-center gap-3">
             <span className="text-3xl">{CONNECTOR_TYPE_ICONS[connectorType] || '🔗'}</span>
             <div>
-              <h2 className="text-lg font-mono font-bold text-text">
+              <h2 className="text-lg font-theme-data font-bold text-text">
                 {details.name || details.id.split(':').pop()}
               </h2>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-text-muted font-mono uppercase">{connectorType}</span>
+                <span className="text-xs text-text-muted font-theme-data uppercase">{connectorType}</span>
                 {details.category && (
-                  <span className={`text-xs px-2 py-0.5 rounded font-mono ${CONNECTOR_CATEGORIES[details.category]?.color || 'bg-gray-500/20 text-gray-400'}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded font-theme-data ${CONNECTOR_CATEGORIES[details.category]?.color || 'bg-gray-500/20 text-gray-400'}`}>
                     {details.category}
                   </span>
                 )}
@@ -527,9 +521,9 @@ function ConnectorDetailsModal({
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 px-4 py-3 font-mono text-sm uppercase transition-colors ${
+              className={`flex-1 px-4 py-3 font-theme-data text-sm uppercase transition-colors ${
                 activeTab === tab
-                  ? 'text-acid-green border-b-2 border-acid-green bg-acid-green/5'
+                  ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-[var(--accent)]/5'
                   : 'text-text-muted hover:text-text'
               }`}
             >
@@ -544,12 +538,12 @@ function ConnectorDetailsModal({
             <div className="space-y-4">
               {/* Status Card */}
               <div className="p-4 bg-bg rounded-lg border border-border">
-                <h3 className="text-sm font-mono font-bold text-text mb-3">STATUS</h3>
+                <h3 className="text-sm font-theme-data font-bold text-text mb-3">STATUS</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <div className="text-xs text-text-muted font-mono">Status</div>
-                    <div className={`font-mono font-bold ${
-                      details.status === 'connected' || details.status === 'configured' ? 'text-acid-green' :
+                    <div className="text-xs text-text-muted font-theme-data">Status</div>
+                    <div className={`font-theme-data font-bold ${
+                      details.status === 'connected' || details.status === 'configured' ? 'text-[var(--accent)]' :
                       details.status === 'error' ? 'text-red-400' :
                       details.status === 'syncing' ? 'text-yellow-400' :
                       'text-text-muted'
@@ -558,28 +552,28 @@ function ConnectorDetailsModal({
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-text-muted font-mono">Items Synced</div>
-                    <div className="font-mono font-bold text-text">
+                    <div className="text-xs text-text-muted font-theme-data">Items Synced</div>
+                    <div className="font-theme-data font-bold text-text">
                       {(details.items_synced || 0).toLocaleString()}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-text-muted font-mono">Last Run</div>
-                    <div className="font-mono text-text">
+                    <div className="text-xs text-text-muted font-theme-data">Last Run</div>
+                    <div className="font-theme-data text-text">
                       {details.last_run ? formatRelativeTime(details.last_run) : 'Never'}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-text-muted font-mono">Failures</div>
-                    <div className={`font-mono font-bold ${
-                      details.consecutive_failures > 0 ? 'text-red-400' : 'text-acid-green'
+                    <div className="text-xs text-text-muted font-theme-data">Failures</div>
+                    <div className={`font-theme-data font-bold ${
+                      details.consecutive_failures > 0 ? 'text-red-400' : 'text-[var(--accent)]'
                     }`}>
                       {details.consecutive_failures}
                     </div>
                   </div>
                 </div>
                 {details.error_message && (
-                  <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-sm text-red-400 font-mono">
+                  <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-sm text-red-400 font-theme-data">
                     {details.error_message}
                   </div>
                 )}
@@ -587,24 +581,24 @@ function ConnectorDetailsModal({
 
               {/* Schedule Card */}
               <div className="p-4 bg-bg rounded-lg border border-border">
-                <h3 className="text-sm font-mono font-bold text-text mb-3">SCHEDULE</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm font-mono">
+                <h3 className="text-sm font-theme-data font-bold text-text mb-3">SCHEDULE</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm font-theme-data">
                   <div>
                     <span className="text-text-muted">Type:</span>
                     <span className="ml-2 text-text">
-                      {details.schedule.cron_expression ? 'Cron' : 'Interval'}
+                      {schedule.cron_expression ? 'Cron' : 'Interval'}
                     </span>
                   </div>
                   <div>
                     <span className="text-text-muted">Value:</span>
                     <span className="ml-2 text-text">
-                      {details.schedule.cron_expression || `${details.schedule.interval_minutes || 60}m`}
+                      {schedule.cron_expression || `${schedule.interval_minutes || 60}m`}
                     </span>
                   </div>
                   <div>
                     <span className="text-text-muted">Enabled:</span>
-                    <span className={`ml-2 ${details.schedule.enabled ? 'text-acid-green' : 'text-red-400'}`}>
-                      {details.schedule.enabled ? 'YES' : 'NO'}
+                    <span className={`ml-2 ${schedule.enabled ? 'text-[var(--accent)]' : 'text-red-400'}`}>
+                      {schedule.enabled ? 'YES' : 'NO'}
                     </span>
                   </div>
                   <div>
@@ -621,14 +615,14 @@ function ConnectorDetailsModal({
                 {isRunning ? (
                   <button
                     onClick={() => details.current_run_id && onCancelSync(details.current_run_id)}
-                    className="flex-1 px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-mono hover:bg-red-500/30 transition-colors rounded"
+                    className="flex-1 px-4 py-2 bg-red-500/20 border border-red-500/50 text-red-400 font-theme-data hover:bg-red-500/30 transition-colors rounded"
                   >
                     Cancel Current Sync
                   </button>
                 ) : (
                   <button
                     onClick={onSync}
-                    className="flex-1 px-4 py-2 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono hover:bg-acid-green/30 transition-colors rounded"
+                    className="flex-1 px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data hover:bg-[var(--accent)]/30 transition-colors rounded"
                   >
                     Sync Now
                   </button>
@@ -639,7 +633,7 @@ function ConnectorDetailsModal({
 
           {activeTab === 'logs' && (
             <div className="space-y-2">
-              <h3 className="text-sm font-mono font-bold text-text mb-3">SYNC HISTORY</h3>
+              <h3 className="text-sm font-theme-data font-bold text-text mb-3">SYNC HISTORY</h3>
               {details.recent_syncs && details.recent_syncs.length > 0 ? (
                 details.recent_syncs.map((sync, idx) => (
                   <div
@@ -647,7 +641,7 @@ function ConnectorDetailsModal({
                     className="p-3 bg-bg rounded-lg border border-border"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`text-xs font-mono px-2 py-0.5 rounded ${
+                      <span className={`text-xs font-theme-data px-2 py-0.5 rounded ${
                         sync.status === 'completed' ? 'bg-green-500/20 text-green-400' :
                         sync.status === 'failed' ? 'bg-red-500/20 text-red-400' :
                         sync.status === 'running' ? 'bg-yellow-500/20 text-yellow-400' :
@@ -655,11 +649,11 @@ function ConnectorDetailsModal({
                       }`}>
                         {sync.status.toUpperCase()}
                       </span>
-                      <span className="text-xs text-text-muted font-mono">
+                      <span className="text-xs text-text-muted font-theme-data">
                         {new Date(sync.started_at).toLocaleString()}
                       </span>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-theme-data">
                       <div>
                         <span className="text-text-muted">Items:</span>
                         <span className="ml-1 text-text">{sync.items_synced || sync.items_processed || 0}</span>
@@ -676,14 +670,14 @@ function ConnectorDetailsModal({
                       </div>
                     </div>
                     {(sync.error || sync.error_message) && (
-                      <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-400 font-mono">
+                      <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-400 font-theme-data">
                         {sync.error || sync.error_message}
                       </div>
                     )}
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8 text-text-muted font-mono">
+                <div className="text-center py-8 text-text-muted font-theme-data">
                   No sync history yet
                 </div>
               )}
@@ -692,15 +686,15 @@ function ConnectorDetailsModal({
 
           {activeTab === 'config' && (
             <div className="space-y-4">
-              <h3 className="text-sm font-mono font-bold text-text mb-3">CONFIGURATION</h3>
+              <h3 className="text-sm font-theme-data font-bold text-text mb-3">CONFIGURATION</h3>
               <div className="p-4 bg-bg rounded-lg border border-border">
-                <pre className="text-sm font-mono text-text whitespace-pre-wrap">
+                <pre className="text-sm font-theme-data text-text whitespace-pre-wrap">
                   {JSON.stringify(details.config || {}, null, 2)}
                 </pre>
               </div>
               <div className="p-4 bg-bg rounded-lg border border-border">
-                <h4 className="text-xs font-mono font-bold text-text-muted mb-2">METADATA</h4>
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <h4 className="text-xs font-theme-data font-bold text-text-muted mb-2">METADATA</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs font-theme-data">
                   <div>
                     <span className="text-text-muted">ID:</span>
                     <span className="ml-2 text-text">{details.id}</span>
@@ -922,7 +916,7 @@ export default function ConnectorsPage() {
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-mono font-bold text-text mb-2">
+            <h1 className="text-3xl font-theme-data font-bold text-text mb-2">
               Enterprise Connectors
             </h1>
             <p className="text-text-muted">
@@ -930,8 +924,8 @@ export default function ConnectorsPage() {
             </p>
             {wsConnected && (
               <div className="flex items-center gap-2 mt-1">
-                <span className="w-2 h-2 rounded-full bg-acid-green animate-pulse" />
-                <span className="text-xs font-mono text-acid-green">
+                <span className="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse" />
+                <span className="text-xs font-theme-data text-[var(--accent)]">
                   Live sync stream connected
                   {activeSyncs.length > 0 && ` -- ${activeSyncs.length} active`}
                 </span>
@@ -941,7 +935,7 @@ export default function ConnectorsPage() {
 
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-6 py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded flex items-center gap-2"
+            className="px-6 py-3 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors rounded flex items-center gap-2"
           >
             <span>+</span>
             <span>Add Connector</span>
@@ -955,42 +949,42 @@ export default function ConnectorsPage() {
           <div className="max-w-7xl mx-auto mb-8">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="p-4 bg-surface border border-border rounded-lg">
-                <div className="text-2xl font-mono font-bold text-text">
+                <div className="text-2xl font-theme-data font-bold text-text">
                   {stats.total_jobs}
                 </div>
-                <div className="text-xs text-text-muted font-mono uppercase">
+                <div className="text-xs text-text-muted font-theme-data uppercase">
                   Total Connectors
                 </div>
               </div>
               <div className="p-4 bg-surface border border-border rounded-lg">
-                <div className="text-2xl font-mono font-bold text-acid-green">
+                <div className="text-2xl font-theme-data font-bold text-[var(--accent)]">
                   {stats.running_syncs}
                 </div>
-                <div className="text-xs text-text-muted font-mono uppercase">
+                <div className="text-xs text-text-muted font-theme-data uppercase">
                   Running Syncs
                 </div>
               </div>
               <div className="p-4 bg-surface border border-border rounded-lg">
-                <div className="text-2xl font-mono font-bold text-text">
+                <div className="text-2xl font-theme-data font-bold text-text">
                   {stats.completed_syncs}
                 </div>
-                <div className="text-xs text-text-muted font-mono uppercase">
+                <div className="text-xs text-text-muted font-theme-data uppercase">
                   Completed
                 </div>
               </div>
               <div className="p-4 bg-surface border border-border rounded-lg">
-                <div className="text-2xl font-mono font-bold text-red-400">
+                <div className="text-2xl font-theme-data font-bold text-red-400">
                   {stats.failed_syncs}
                 </div>
-                <div className="text-xs text-text-muted font-mono uppercase">
+                <div className="text-xs text-text-muted font-theme-data uppercase">
                   Failed
                 </div>
               </div>
               <div className="p-4 bg-surface border border-border rounded-lg">
-                <div className="text-2xl font-mono font-bold text-text">
+                <div className="text-2xl font-theme-data font-bold text-text">
                   {(stats.success_rate * 100).toFixed(1)}%
                 </div>
-                <div className="text-xs text-text-muted font-mono uppercase">
+                <div className="text-xs text-text-muted font-theme-data uppercase">
                   Success Rate
                 </div>
               </div>
@@ -1004,13 +998,13 @@ export default function ConnectorsPage() {
         {/* Connectors Grid */}
         <PanelErrorBoundary panelName="Connectors Grid">
           <div className="lg:col-span-2">
-            <h2 className="text-lg font-mono font-bold text-text mb-4">
+            <h2 className="text-lg font-theme-data font-bold text-text mb-4">
               Active Connectors
             </h2>
 
             {loading && (
               <div className="flex items-center justify-center py-12">
-                <div className="animate-pulse text-text-muted font-mono">
+                <div className="animate-pulse text-text-muted font-theme-data">
                   Loading connectors...
                 </div>
               </div>
@@ -1019,7 +1013,7 @@ export default function ConnectorsPage() {
             {!loading && connectors.length === 0 && (
               <div className="text-center py-12 bg-surface border border-border rounded-lg">
                 <div className="text-4xl mb-4">🔌</div>
-                <h3 className="text-lg font-mono font-bold text-text mb-2">
+                <h3 className="text-lg font-theme-data font-bold text-text mb-2">
                   No connectors configured
                 </h3>
                 <p className="text-text-muted mb-4">
@@ -1027,7 +1021,7 @@ export default function ConnectorsPage() {
                 </p>
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors rounded"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors rounded"
                 >
                   Add Connector
                 </button>
@@ -1057,10 +1051,10 @@ export default function ConnectorsPage() {
           {/* Rate Limit Warnings */}
           {rateLimitWarnings.length > 0 && (
             <div>
-              <h3 className="text-sm font-mono font-bold text-red-400 mb-2">Rate Limit Warnings</h3>
+              <h3 className="text-sm font-theme-data font-bold text-red-400 mb-2">Rate Limit Warnings</h3>
               <div className="space-y-2">
                 {rateLimitWarnings.map((w, i) => (
-                  <div key={`${w.connector_id}-${i}`} className="p-2 bg-red-500/10 border border-red-500/30 rounded text-xs font-mono text-red-400">
+                  <div key={`${w.connector_id}-${i}`} className="p-2 bg-red-500/10 border border-red-500/30 rounded text-xs font-theme-data text-red-400">
                     {w.message}
                   </div>
                 ))}
@@ -1071,13 +1065,13 @@ export default function ConnectorsPage() {
           {/* Recent Document Ingestion */}
           {recentDocuments.length > 0 && (
             <div>
-              <h3 className="text-sm font-mono font-bold text-text mb-2">
+              <h3 className="text-sm font-theme-data font-bold text-text mb-2">
                 Recent Documents ({recentDocuments.length})
               </h3>
               <div className="bg-surface border border-border rounded-lg overflow-hidden max-h-[200px] overflow-y-auto">
                 <div className="divide-y divide-border">
                   {recentDocuments.slice(0, 10).map((doc, i) => (
-                    <div key={`${doc.document_id}-${i}`} className="px-3 py-2 flex items-center justify-between text-xs font-mono">
+                    <div key={`${doc.document_id}-${i}`} className="px-3 py-2 flex items-center justify-between text-xs font-theme-data">
                       <span className="truncate text-text">{doc.document_name}</span>
                       <span className={doc.status === 'success' ? 'text-green-400' : doc.status === 'failed' ? 'text-red-400' : 'text-text-muted'}>
                         {doc.status.toUpperCase()}
@@ -1090,7 +1084,7 @@ export default function ConnectorsPage() {
           )}
 
           {/* Sync History */}
-          <h2 className="text-lg font-mono font-bold text-text mb-4">
+          <h2 className="text-lg font-theme-data font-bold text-text mb-4">
             Recent Syncs
           </h2>
 
@@ -1104,11 +1098,11 @@ export default function ConnectorsPage() {
                 {history.map((entry) => (
                   <div key={entry.run_id} className="p-3">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-mono text-text truncate">
+                      <span className="text-sm font-theme-data text-text truncate">
                         {entry.job_id?.split(':').pop() || entry.run_id}
                       </span>
                       <span
-                        className={`text-xs font-mono px-2 py-0.5 rounded ${
+                        className={`text-xs font-theme-data px-2 py-0.5 rounded ${
                           entry.status === 'completed'
                             ? 'bg-green-500/20 text-green-400'
                             : entry.status === 'failed'
@@ -1119,7 +1113,7 @@ export default function ConnectorsPage() {
                         {entry.status.toUpperCase()}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-text-muted font-mono">
+                    <div className="flex items-center justify-between text-xs text-text-muted font-theme-data">
                       <span>
                         {new Date(entry.started_at).toLocaleTimeString()}
                       </span>

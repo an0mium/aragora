@@ -203,7 +203,7 @@ export function DeliveryModal({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
-            <h2 className="text-lg font-mono font-bold text-acid-green">
+            <h2 className="text-lg font-theme-data font-bold text-[var(--accent)]">
               Deliver Receipt
             </h2>
             {receiptSummary && (
@@ -224,9 +224,9 @@ export function DeliveryModal({
         <div className="p-4 space-y-4">
           {/* Success Message */}
           {success && (
-            <div className="p-4 bg-acid-green/20 border border-acid-green rounded-lg text-center">
+            <div className="p-4 bg-[var(--accent)]/20 border border-[var(--accent)] rounded-lg text-center">
               <div className="text-2xl mb-2">?</div>
-              <div className="text-acid-green font-mono">
+              <div className="text-[var(--accent)] font-theme-data">
                 Receipt delivered successfully!
               </div>
             </div>
@@ -243,7 +243,7 @@ export function DeliveryModal({
             <>
               {/* Channel Selector */}
               <div>
-                <h3 className="text-sm font-mono font-medium mb-3">
+                <h3 className="text-sm font-theme-data font-medium mb-3">
                   Select Channel
                 </h3>
                 <ChannelSelector
@@ -261,7 +261,7 @@ export function DeliveryModal({
 
               {/* Delivery Options */}
               <div className="p-4 bg-surface rounded-lg border border-border">
-                <h3 className="text-sm font-mono font-medium mb-3">
+                <h3 className="text-sm font-theme-data font-medium mb-3">
                   Delivery Options
                 </h3>
                 <div className="space-y-3">
@@ -313,7 +313,7 @@ export function DeliveryModal({
 
                 {/* Custom Message */}
                 <div className="mt-4">
-                  <label className="block text-sm font-mono mb-2">
+                  <label className="block text-sm font-theme-data mb-2">
                     Custom Message (optional)
                   </label>
                   <textarea
@@ -323,7 +323,7 @@ export function DeliveryModal({
                     }
                     placeholder="Add a note to include with the delivery..."
                     className="w-full px-3 py-2 text-sm bg-bg border border-border rounded
-                               focus:border-acid-green focus:outline-none resize-none h-20"
+                               focus:border-[var(--accent)] focus:outline-none resize-none h-20"
                   />
                 </div>
               </div>
@@ -336,16 +336,16 @@ export function DeliveryModal({
           <div className="flex items-center justify-end gap-3 p-4 border-t border-border">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-mono border border-border rounded
-                         hover:border-acid-green/50 transition-colors"
+              className="px-4 py-2 text-sm font-theme-data border border-border rounded
+                         hover:border-[var(--accent)]/50 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleDeliver}
               disabled={loading || !selectedChannel || !selectedDestination?.trim()}
-              className="px-4 py-2 text-sm font-mono bg-acid-green text-bg rounded
-                         hover:bg-acid-green/80 transition-colors
+              className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)] text-bg rounded
+                         hover:bg-[var(--accent)]/80 transition-colors
                          disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Delivering...' : 'Deliver Receipt'}

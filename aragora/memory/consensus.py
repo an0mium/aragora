@@ -1177,6 +1177,37 @@ class ConsensusMemory(SQLiteStore):
 
         return result
 
+    def get_relevant_context(self, task: str) -> str:
+        """Return formatted institutional knowledge for a debate topic.
+
+        This method enables ConsensusMemory to be used directly as the
+        ``cross_debate_memory`` source in :class:`ContextInitPhase`.  It
+        queries past debates for the given *task* and returns a human-readable
+        summary of conclusions and dissents that can be injected into a new
+        debate's context.
+
+        Args:
+            task: The topic / task description for the upcoming debate.
+
+        Returns:
+            A formatted string with conclusions from similar past debates,
+            or an empty string when nothing relevant is found.
+        """
+        similar = self.find_similar_debates(topic=task, min_confidence=0.3, limit=5)
+        if not similar:
+            return ""
+
+        lines: list[str] = []
+        for s in similar:
+            conclusion_preview = s.consensus.conclusion[:200]
+            lines.append(
+                f"- [{s.consensus.strength.value}] {s.consensus.topic}: {conclusion_preview}"
+            )
+            for d in s.dissents[:2]:
+                lines.append(f"  * Dissent ({d.dissent_type.value}): {d.content[:120]}")
+
+        return "\n".join(lines)
+
     def get_statistics(self) -> dict[str, Any]:
         """Get statistics about stored consensus."""
 

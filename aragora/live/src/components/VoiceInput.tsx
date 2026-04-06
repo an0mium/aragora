@@ -405,13 +405,13 @@ export function VoiceInput({
         <h3 className="panel-title-sm flex items-center gap-2">
           <span>Voice Input</span>
           {status === 'recording' && (
-            <span className="flex items-center gap-1 text-crimson text-xs">
-              <span className="w-2 h-2 bg-crimson rounded-full animate-pulse" />
+            <span className="flex items-center gap-1 text-[var(--crimson)] text-xs">
+              <span className="w-2 h-2 bg-[var(--crimson)] rounded-full animate-pulse" />
               {formatDuration(duration)}
             </span>
           )}
           {ttsStatus === 'playing' && (
-            <span className="flex items-center gap-1 text-acid-green text-xs">
+            <span className="flex items-center gap-1 text-[var(--accent)] text-xs">
               <svg className="w-3 h-3 animate-pulse" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
               </svg>
@@ -485,7 +485,7 @@ export function VoiceInput({
           ) : (
             <button
               onClick={stopRecording}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-crimson hover:bg-crimson/80 text-white transition-all"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-[var(--crimson)] hover:bg-[var(--crimson)]/80 text-white transition-all"
               aria-label="Stop recording"
             >
               <svg
@@ -521,7 +521,7 @@ export function VoiceInput({
 
         {/* Error message */}
         {error && (
-          <div className="bg-crimson/10 border border-crimson/30 rounded p-3 text-sm text-crimson">
+          <div className="bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded p-3 text-sm text-[var(--crimson)]">
             {error}
           </div>
         )}
@@ -534,7 +534,7 @@ export function VoiceInput({
                 Transcript
               </div>
               {autoSubmitSuggestion && sendSuggestion && (
-                <div className="text-xs text-acid-green">
+                <div className="text-xs text-[var(--accent)]">
                   Auto-submitting to debate
                 </div>
               )}
@@ -589,7 +589,7 @@ export function VoiceInput({
                 <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
               </svg>
               {ttsAvailable ? (
-                <span className="text-acid-green">Voice responses enabled</span>
+                <span className="text-[var(--accent)]">Voice responses enabled</span>
               ) : (
                 <span>Voice responses unavailable</span>
               )}

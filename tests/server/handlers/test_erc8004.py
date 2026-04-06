@@ -19,12 +19,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from aragora.blockchain.action_store import ChainActionRecord, ChainActionStatus, ChainActionType
 from aragora.server.handlers import erc8004
 
 
@@ -691,10 +691,13 @@ class TestListAndRegisterAgents:
 
     @pytest.mark.asyncio
     async def test_register_agent_success(self, mock_provider, mock_circuit_breaker):
-        """Should queue an agent registration and return 202."""
-        queued_action = SimpleNamespace(
-            action_id="chain-123",
-            status=SimpleNamespace(value="queued"),
+        """Should enqueue agent registration and return 202."""
+        mock_contract = MagicMock()
+        queued_action = ChainActionRecord(
+            action_id="chain-test123",
+            action_type=ChainActionType.REGISTER_AGENT,
+            requested_by="system",
+            status=ChainActionStatus.QUEUED,
         )
 
         with (
@@ -702,12 +705,10 @@ class TestListAndRegisterAgents:
             patch.object(erc8004, "_get_circuit_breaker", return_value=mock_circuit_breaker),
             patch(
                 "aragora.blockchain.contracts.identity.IdentityRegistryContract",
-                return_value=MagicMock(),
+                return_value=mock_contract,
             ),
             patch.object(
-                erc8004,
-                "enqueue_register_agent_action",
-                return_value=queued_action,
+                erc8004, "enqueue_register_agent_action", return_value=queued_action
             ) as mock_enqueue,
         ):
             result = await erc8004.handle_register_agent(
@@ -717,10 +718,10 @@ class TestListAndRegisterAgents:
 
         assert result["status"] == 202
         data = json.loads(result["body"])
-        assert data["action_id"] == "chain-123"
+        assert data["action_id"] == "chain-test123"
         assert data["status"] == "queued"
         assert data["agent_uri"] == "ipfs://QmAgent"
-        assert data["chain_id"] == 1
+        assert data["chain_id"] == mock_provider.get_config().chain_id
         assert data["requires_approval"] is True
         mock_enqueue.assert_called_once_with(
             agent_uri="ipfs://QmAgent",
@@ -729,28 +730,44 @@ class TestListAndRegisterAgents:
             approval_id="",
             receipt_id="",
         )
+        mock_contract.register_agent.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_register_agent_rejects_invalid_metadata(
+    async def test_register_agent_does_not_require_wallet_credentials(
         self,
         mock_provider,
         mock_circuit_breaker,
     ):
-        """Should return 400 when metadata contains unsupported values."""
+        """Should queue registration without loading wallet credentials in-request."""
+        mock_contract = MagicMock()
+        queued_action = ChainActionRecord(
+            action_id="chain-test456",
+            action_type=ChainActionType.REGISTER_AGENT,
+            requested_by="system",
+            status=ChainActionStatus.QUEUED,
+        )
+
         with (
             patch.object(erc8004, "_get_provider", return_value=mock_provider),
             patch.object(erc8004, "_get_circuit_breaker", return_value=mock_circuit_breaker),
             patch(
                 "aragora.blockchain.contracts.identity.IdentityRegistryContract",
-                return_value=MagicMock(),
+                return_value=mock_contract,
             ),
+            patch(
+                "aragora.blockchain.wallet.WalletSigner.from_env",
+                side_effect=ValueError("No wallet credentials configured"),
+            ) as mock_signer,
+            patch.object(erc8004, "enqueue_register_agent_action", return_value=queued_action),
         ):
-            result = await erc8004.handle_register_agent(
-                agent_uri="ipfs://QmAgent",
-                metadata={"bad": ["unsupported"]},
-            )
+            result = await erc8004.handle_register_agent(agent_uri="ipfs://QmAgent")
 
-        assert result["status"] == 400
+        assert result["status"] == 202
+        data = json.loads(result["body"])
+        assert data["status"] == "queued"
+        assert data["requires_approval"] is True
+        mock_contract.register_agent.assert_not_called()
+        mock_signer.assert_not_called()
 
 
 # =============================================================================
@@ -860,7 +877,7 @@ class TestERC8004HandlerRouting:
             ),
             patch.object(erc8004, "handle_register_agent") as mock_fn,
         ):
-            mock_fn.return_value = {"status": 202, "body": "{}"}
+            mock_fn.return_value = {"status": 201, "body": "{}"}
             handler_instance.handle("/api/v1/blockchain/agents", {}, post_handler)
             mock_fn.assert_called_once_with(
                 agent_uri="ipfs://QmAgent",

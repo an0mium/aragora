@@ -587,6 +587,7 @@ class ExecuteWorkflowResponse(BaseModel):
 
     workflow_id: str
     pipeline_id: str
+    execution_id: str | None = None
     steps_count: int
     transitions_count: int
     status: str
@@ -603,10 +604,11 @@ async def execute_workflow_from_pipeline(
     store: dict[str, dict[str, Any]] = Depends(get_pipeline_store),
 ) -> ExecuteWorkflowResponse:
     """
-    Create and start a workflow from a pipeline's goal graph.
+    Create, persist, and start a workflow from a pipeline's goal graph.
 
     Converts the pipeline result's goal graph into a WorkflowDefinition
-    via ``canvas_to_workflow()`` and starts it with the WorkflowEngine.
+    via ``canvas_to_workflow()``, stores it through the workflow subsystem,
+    and starts a real execution record.
     Requires ``pipeline:create`` permission.
     """
     run_data = store.get(run_id)
@@ -659,32 +661,55 @@ async def execute_workflow_from_pipeline(
             )
 
         workflow_def = canvas_to_workflow(pipeline_result)
+        if not workflow_def.steps:
+            raise HTTPException(
+                status_code=400,
+                detail="Pipeline result has no executable workflow steps",
+            )
 
-        # Attempt to start the workflow via the engine
-        workflow_status = "created"
-        try:
-            from aragora.workflow.engine import WorkflowEngine
+        from aragora.server.handlers.workflows.crud import create_workflow
+        from aragora.server.handlers.workflows.execution import execute_workflow
 
-            if WorkflowEngine:
-                workflow_status = "started"
-        except ImportError:
-            logger.debug("WorkflowEngine not available, workflow created but not started")
+        tenant_id = str(
+            getattr(auth, "workspace_id", None) or getattr(auth, "org_id", None) or "default"
+        )
+        created_workflow = await create_workflow(
+            workflow_def.to_dict(),
+            tenant_id=tenant_id,
+            created_by=str(getattr(auth, "user_id", "") or ""),
+        )
+        workflow_id = str(created_workflow.get("id") or workflow_def.id)
+
+        execution_result = await execute_workflow(
+            workflow_id,
+            inputs={"pipeline_id": run_id},
+            tenant_id=tenant_id,
+            user_id=str(getattr(auth, "user_id", "") or "") or None,
+            org_id=str(getattr(auth, "org_id", "") or "") or None,
+        )
+        execution_id = (
+            str(execution_result.get("execution_id") or execution_result.get("id") or "") or None
+        )
+        workflow_status = str(execution_result.get("status") or "running")
 
         # Persist workflow reference in the run data
-        run_data["workflow_id"] = workflow_def.id
+        run_data["workflow_id"] = workflow_id
+        run_data["execution_id"] = execution_id
+        run_data["workflow_status"] = workflow_status
         run_data["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
 
         logger.info(
-            "Workflow %s created from pipeline %s (%d steps, %d transitions)",
-            workflow_def.id,
+            "Workflow %s created and executed from pipeline %s (%d steps, %d transitions)",
+            workflow_id,
             run_id,
             len(workflow_def.steps),
             len(workflow_def.transitions),
         )
 
         return ExecuteWorkflowResponse(
-            workflow_id=workflow_def.id,
+            workflow_id=workflow_id,
             pipeline_id=run_id,
+            execution_id=execution_id,
             steps_count=len(workflow_def.steps),
             transitions_count=len(workflow_def.transitions),
             status=workflow_status,

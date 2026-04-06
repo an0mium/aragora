@@ -152,7 +152,6 @@ class TestCrossDebateConfig:
     def test_config_defaults(self):
         """Test CrossDebateConfig default values."""
         from aragora.memory.cross_debate_rlm import CrossDebateConfig
-        from aragora.persistence.db_config import get_nomic_dir
 
         config = CrossDebateConfig()
 
@@ -168,6 +167,9 @@ class TestCrossDebateConfig:
         assert config.cold_token_budget == 500
         assert config.enable_rlm is True
         assert config.persist_to_disk is True
+        # storage_path defaults to get_nomic_dir()/cross_debate_memory.json when enabled
+        from aragora.persistence.db_config import get_nomic_dir
+
         assert config.storage_path == get_nomic_dir() / "cross_debate_memory.json"
 
     def test_config_custom_values(self):

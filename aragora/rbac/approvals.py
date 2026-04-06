@@ -337,14 +337,14 @@ class ApprovalWorkflow:
         if approver_id not in request.approvers:
             raise ValueError(f"User {approver_id} is not an approver for this request")
 
+        # Check status
+        if request.status != ApprovalStatus.PENDING:
+            raise ValueError(f"Request is not pending: {request.status.value}")
+
         # Check if already decided
         existing = [d for d in request.decisions if d.approver_id == approver_id]
         if existing:
             raise ValueError(f"User {approver_id} has already made a decision")
-
-        # Check status
-        if request.status != ApprovalStatus.PENDING:
-            raise ValueError(f"Request is not pending: {request.status.value}")
 
         # Check expiration
         if request.is_expired:
@@ -414,6 +414,16 @@ class ApprovalWorkflow:
         # Check status
         if request.status != ApprovalStatus.PENDING:
             raise ValueError(f"Request is not pending: {request.status.value}")
+
+        # Check if already decided
+        existing = [d for d in request.decisions if d.approver_id == approver_id]
+        if existing:
+            raise ValueError(f"User {approver_id} has already made a decision")
+
+        # Check expiration
+        if request.is_expired:
+            request.status = ApprovalStatus.EXPIRED
+            raise ValueError("Request has expired")
 
         # Record decision
         decision = ApprovalDecision(
@@ -731,6 +741,10 @@ class ApprovalWorkflow:
             # Map resource type string to enum
             resource_type_enum = ResourceType(request.resource_type)
 
+            metadata = {"approval_request_id": request.id}
+            if request.workspace_id is not None:
+                metadata["workspace_id"] = request.workspace_id
+
             store.grant_permission(
                 user_id=request.requester_id,
                 permission_id=request.permission,
@@ -738,7 +752,8 @@ class ApprovalWorkflow:
                 resource_id=request.resource_id or "*",
                 granted_by="approval_workflow",
                 expires_at=expires_at,
-                conditions={"approval_request_id": request.id},
+                org_id=request.org_id,
+                metadata=metadata,
             )
 
             logger.info(

@@ -3,7 +3,7 @@ import Link from 'next/link';
 export default function NotFound() {
   return (
     <div className="min-h-screen bg-bg flex items-center justify-center p-4">
-      <div className="max-w-md w-full border border-warning bg-surface p-6 font-mono">
+      <div className="max-w-md w-full border border-warning bg-surface p-6 font-theme-data">
         <div className="text-center mb-6">
           <div className="text-warning text-4xl mb-3">404</div>
           <h1 className="text-warning font-bold text-lg mb-2">
@@ -20,22 +20,22 @@ export default function NotFound() {
           </div>
           <ul className="space-y-2">
             <li>
-              <Link href="/" className="text-acid-green hover:underline">
+              <Link href="/" className="text-[var(--accent)] hover:underline">
                 Home — Run a free debate
               </Link>
             </li>
             <li>
-              <Link href="/oracle" className="text-acid-green hover:underline">
+              <Link href="/oracle" className="text-[var(--accent)] hover:underline">
                 Oracle — Live streaming mode
               </Link>
             </li>
             <li>
-              <Link href="/debates" className="text-acid-green hover:underline">
+              <Link href="/debates" className="text-[var(--accent)] hover:underline">
                 Debates — Past decisions
               </Link>
             </li>
             <li>
-              <Link href="/dashboard" className="text-acid-green hover:underline">
+              <Link href="/dashboard" className="text-[var(--accent)] hover:underline">
                 Dashboard — Your account
               </Link>
             </li>
@@ -44,7 +44,7 @@ export default function NotFound() {
 
         <Link
           href="/"
-          className="block w-full border border-acid-green text-acid-green py-2 px-4 hover:bg-acid-green hover:text-bg transition-colors font-bold text-center text-sm"
+          className="block w-full border border-[var(--accent)] text-[var(--accent)] py-2 px-4 hover:bg-[var(--accent)] hover:text-bg transition-colors font-bold text-center text-sm"
         >
           GO HOME
         </Link>

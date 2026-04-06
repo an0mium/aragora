@@ -33,7 +33,7 @@ export function ConnectOpenRouterButton({ compact = false, className = '' }: Con
     if (isConnected) {
       return (
         <span
-          className={`inline-flex items-center gap-1.5 font-mono text-xs ${className}`}
+          className={`inline-flex items-center gap-1.5 font-theme-data text-xs ${className}`}
           style={{ color: 'var(--accent)' }}
         >
           <span style={{
@@ -56,7 +56,7 @@ export function ConnectOpenRouterButton({ compact = false, className = '' }: Con
     return (
       <button
         onClick={connect}
-        className={`inline-flex items-center gap-1.5 font-mono text-xs cursor-pointer transition-opacity hover:opacity-80 ${className}`}
+        className={`inline-flex items-center gap-1.5 font-theme-data text-xs cursor-pointer transition-opacity hover:opacity-80 ${className}`}
         style={{ color: 'var(--accent)', background: 'none', border: 'none', padding: 0 }}
       >
         <OpenRouterIcon />
@@ -83,11 +83,11 @@ export function ConnectOpenRouterButton({ compact = false, className = '' }: Con
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <span className="font-mono text-sm font-medium" style={{ color: 'var(--text)' }}>
+              <span className="font-theme-data text-sm font-medium" style={{ color: 'var(--text)' }}>
                 OpenRouter
               </span>
               <span
-                className="px-1.5 py-0.5 text-[10px] font-mono rounded"
+                className="px-1.5 py-0.5 text-[10px] font-theme-data rounded"
                 style={{
                   backgroundColor: 'color-mix(in srgb, var(--accent) 10%, transparent)',
                   color: 'var(--accent)',
@@ -99,14 +99,14 @@ export function ConnectOpenRouterButton({ compact = false, className = '' }: Con
             </div>
             {maskedKey && (
               <code
-                className="font-mono text-xs rounded px-1.5 py-0.5"
+                className="font-theme-data text-xs rounded px-1.5 py-0.5"
                 style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg)' }}
               >
                 {maskedKey}
               </code>
             )}
             {keyInfo?.limitRemaining != null && (
-              <div className="mt-2 font-mono text-xs" style={{ color: 'var(--text-muted)' }}>
+              <div className="mt-2 font-theme-data text-xs" style={{ color: 'var(--text-muted)' }}>
                 {formatCredits(keyInfo.limitRemaining)} credit remaining
                 {keyInfo.limit != null && (
                   <span> of {formatCredits(keyInfo.limit)} limit</span>
@@ -116,7 +116,7 @@ export function ConnectOpenRouterButton({ compact = false, className = '' }: Con
           </div>
           <button
             onClick={disconnect}
-            className="px-2 py-1 text-[10px] font-mono rounded transition-colors cursor-pointer"
+            className="px-2 py-1 text-[10px] font-theme-data rounded transition-colors cursor-pointer"
             style={{ color: 'var(--crimson, #ff0040)' }}
             onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--crimson, #ff0040) 10%, transparent)')}
             onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
@@ -138,16 +138,16 @@ export function ConnectOpenRouterButton({ compact = false, className = '' }: Con
     >
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="min-w-0">
-          <div className="font-mono text-sm font-medium" style={{ color: 'var(--text)' }}>
+          <div className="font-theme-data text-sm font-medium" style={{ color: 'var(--text)' }}>
             One-click setup via OpenRouter
           </div>
-          <div className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <div className="font-theme-data text-[10px] mt-0.5" style={{ color: 'var(--text-muted)' }}>
             Connect your account and set a budget — no key pasting needed.
           </div>
         </div>
         <button
           onClick={connect}
-          className="inline-flex items-center gap-2 px-4 py-2 font-mono text-xs rounded transition-colors cursor-pointer shrink-0"
+          className="inline-flex items-center gap-2 px-4 py-2 font-theme-data text-xs rounded transition-colors cursor-pointer shrink-0"
           style={{
             color: 'var(--accent)',
             border: '1px solid color-mix(in srgb, var(--accent) 40%, transparent)',

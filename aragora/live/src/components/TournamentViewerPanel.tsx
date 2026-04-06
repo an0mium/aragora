@@ -64,9 +64,9 @@ const DEFAULT_API_BASE = API_BASE_URL;
 
 const ELO_TIERS: Record<string, { color: string; bg: string; label: string }> = {
   grandmaster: { color: 'text-acid-red', bg: 'bg-acid-red/20', label: 'Grandmaster' },
-  master: { color: 'text-acid-yellow', bg: 'bg-acid-yellow/20', label: 'Master' },
-  expert: { color: 'text-acid-cyan', bg: 'bg-acid-cyan/20', label: 'Expert' },
-  intermediate: { color: 'text-acid-green', bg: 'bg-acid-green/20', label: 'Intermediate' },
+  master: { color: 'text-[var(--acid-yellow)]', bg: 'bg-acid-yellow/20', label: 'Master' },
+  expert: { color: 'text-[var(--acid-cyan)]', bg: 'bg-[var(--acid-cyan)]/20', label: 'Expert' },
+  intermediate: { color: 'text-[var(--accent)]', bg: 'bg-[var(--accent)]/20', label: 'Intermediate' },
   novice: { color: 'text-text-muted', bg: 'bg-surface', label: 'Novice' },
 };
 
@@ -170,8 +170,8 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
     return (
       <div className="card p-6">
         <div className="flex items-center gap-3">
-          <div className="animate-spin w-5 h-5 border-2 border-acid-green border-t-transparent rounded-full" />
-          <span className="font-mono text-text-muted">Loading tournament data...</span>
+          <div className="animate-spin w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+          <span className="font-theme-data text-text-muted">Loading tournament data...</span>
         </div>
       </div>
     );
@@ -191,34 +191,34 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
       {/* Stats Overview */}
       {stats && (
         <div className="card p-4">
-          <h3 className="font-mono text-acid-green mb-4">System Overview</h3>
+          <h3 className="font-theme-data text-[var(--accent)] mb-4">System Overview</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-3xl font-mono text-acid-green">{stats.total_agents}</div>
-              <div className="text-xs font-mono text-text-muted">Total Agents</div>
+              <div className="text-3xl font-theme-data text-[var(--accent)]">{stats.total_agents}</div>
+              <div className="text-xs font-theme-data text-text-muted">Total Agents</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-mono text-acid-cyan">{stats.total_matches}</div>
-              <div className="text-xs font-mono text-text-muted">Total Matches</div>
+              <div className="text-3xl font-theme-data text-[var(--acid-cyan)]">{stats.total_matches}</div>
+              <div className="text-xs font-theme-data text-text-muted">Total Matches</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-mono text-acid-yellow">{Math.round(stats.mean_elo)}</div>
-              <div className="text-xs font-mono text-text-muted">Mean ELO</div>
+              <div className="text-3xl font-theme-data text-[var(--acid-yellow)]">{Math.round(stats.mean_elo)}</div>
+              <div className="text-xs font-theme-data text-text-muted">Mean ELO</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-mono text-acid-red">{tournaments.length}</div>
-              <div className="text-xs font-mono text-text-muted">Tournaments</div>
+              <div className="text-3xl font-theme-data text-acid-red">{tournaments.length}</div>
+              <div className="text-xs font-theme-data text-text-muted">Tournaments</div>
             </div>
           </div>
 
           {/* Trending */}
           {(stats.trending_up.length > 0 || stats.trending_down.length > 0) && (
-            <div className="mt-4 pt-4 border-t border-acid-green/20 flex gap-6 flex-wrap">
+            <div className="mt-4 pt-4 border-t border-[var(--accent)]/20 flex gap-6 flex-wrap">
               {stats.trending_up.length > 0 && (
                 <div>
-                  <span className="text-xs font-mono text-text-muted">Trending Up: </span>
+                  <span className="text-xs font-theme-data text-text-muted">Trending Up: </span>
                   {stats.trending_up.slice(0, 3).map((agent, i) => (
-                    <span key={agent} className="text-xs font-mono text-acid-green">
+                    <span key={agent} className="text-xs font-theme-data text-[var(--accent)]">
                       {agent}{i < Math.min(stats.trending_up.length, 3) - 1 ? ', ' : ''}
                     </span>
                   ))}
@@ -226,9 +226,9 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
               )}
               {stats.trending_down.length > 0 && (
                 <div>
-                  <span className="text-xs font-mono text-text-muted">Trending Down: </span>
+                  <span className="text-xs font-theme-data text-text-muted">Trending Down: </span>
                   {stats.trending_down.slice(0, 3).map((agent, i) => (
-                    <span key={agent} className="text-xs font-mono text-acid-red">
+                    <span key={agent} className="text-xs font-theme-data text-acid-red">
                       {agent}{i < Math.min(stats.trending_down.length, 3) - 1 ? ', ' : ''}
                     </span>
                   ))}
@@ -240,14 +240,14 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
       )}
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-acid-green/20 pb-2">
+      <div className="flex gap-2 border-b border-[var(--accent)]/20 pb-2">
         {(['leaderboard', 'tournaments', 'matches'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 font-mono text-sm transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm transition-colors ${
               activeTab === tab
-                ? 'text-acid-green border-b-2 border-acid-green'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -259,16 +259,16 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
       {/* Leaderboard Tab */}
       {activeTab === 'leaderboard' && (
         <div className="card p-4">
-          <h3 className="font-mono text-acid-green mb-4">Agent Leaderboard</h3>
+          <h3 className="font-theme-data text-[var(--accent)] mb-4">Agent Leaderboard</h3>
           {rankings.length === 0 ? (
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               No agents ranked yet. Run some debates to populate the leaderboard.
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full font-mono text-sm">
+              <table className="w-full font-theme-data text-sm">
                 <thead>
-                  <tr className="text-text-muted border-b border-acid-green/20">
+                  <tr className="text-text-muted border-b border-[var(--accent)]/20">
                     <th className="text-left py-2 px-2">#</th>
                     <th className="text-left py-2 px-2">Agent</th>
                     <th className="text-right py-2 px-2">ELO</th>
@@ -299,9 +299,9 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
                         <td className="py-2 px-2 text-right">
                           <span className={tierInfo.color}>{Math.round(agent.elo)}</span>
                         </td>
-                        <td className="py-2 px-2 text-right text-acid-green">{agent.wins}</td>
+                        <td className="py-2 px-2 text-right text-[var(--accent)]">{agent.wins}</td>
                         <td className="py-2 px-2 text-right text-acid-red">{agent.losses}</td>
-                        <td className="py-2 px-2 text-right text-acid-yellow">{agent.draws}</td>
+                        <td className="py-2 px-2 text-right text-[var(--acid-yellow)]">{agent.draws}</td>
                         <td className="py-2 px-2 text-right">
                           {((agent.win_rate || 0) * 100).toFixed(1)}%
                         </td>
@@ -320,9 +320,9 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
         <div className="space-y-4">
           {/* Tournament List */}
           <div className="card p-4">
-            <h3 className="font-mono text-acid-green mb-4">Available Tournaments</h3>
+            <h3 className="font-theme-data text-[var(--accent)] mb-4">Available Tournaments</h3>
             {tournaments.length === 0 ? (
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 No tournaments found. Tournaments are created when running competitive evaluations.
               </p>
             ) : (
@@ -333,14 +333,14 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
                     onClick={() => fetchTournamentStandings(tournament.tournament_id)}
                     className={`p-4 rounded border text-left transition-colors ${
                       selectedTournament === tournament.tournament_id
-                        ? 'border-acid-green bg-acid-green/10'
-                        : 'border-acid-green/30 hover:border-acid-green/60 bg-surface'
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                        : 'border-[var(--accent)]/30 hover:border-[var(--accent)]/60 bg-surface'
                     }`}
                   >
-                    <div className="font-mono text-acid-cyan text-sm mb-2">
+                    <div className="font-theme-data text-[var(--acid-cyan)] text-sm mb-2">
                       {tournament.tournament_id}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                    <div className="grid grid-cols-2 gap-2 text-xs font-theme-data">
                       <div>
                         <span className="text-text-muted">Participants:</span>
                         <span className="text-text ml-1">{tournament.participants}</span>
@@ -351,9 +351,9 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
                       </div>
                     </div>
                     {tournament.top_agent && (
-                      <div className="mt-2 text-xs font-mono">
+                      <div className="mt-2 text-xs font-theme-data">
                         <span className="text-text-muted">Leader:</span>
-                        <span className="text-acid-green ml-1">{tournament.top_agent}</span>
+                        <span className="text-[var(--accent)] ml-1">{tournament.top_agent}</span>
                       </div>
                     )}
                   </button>
@@ -365,13 +365,13 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
           {/* Selected Tournament Standings */}
           {selectedTournament && standings.length > 0 && (
             <div className="card p-4">
-              <h3 className="font-mono text-acid-green mb-4">
+              <h3 className="font-theme-data text-[var(--accent)] mb-4">
                 Standings: {selectedTournament}
               </h3>
               <div className="overflow-x-auto">
-                <table className="w-full font-mono text-sm">
+                <table className="w-full font-theme-data text-sm">
                   <thead>
-                    <tr className="text-text-muted border-b border-acid-green/20">
+                    <tr className="text-text-muted border-b border-[var(--accent)]/20">
                       <th className="text-left py-2 px-2">#</th>
                       <th className="text-left py-2 px-2">Agent</th>
                       <th className="text-right py-2 px-2">Pts</th>
@@ -387,27 +387,27 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
                       <tr
                         key={standing.agent}
                         className={`border-b border-surface ${
-                          idx === 0 ? 'bg-acid-green/5' : ''
+                          idx === 0 ? 'bg-[var(--accent)]/5' : ''
                         }`}
                       >
                         <td className="py-2 px-2 text-text-muted">
                           {idx === 0 ? '🏆' : idx + 1}
                         </td>
                         <td className="py-2 px-2">
-                          <span className={idx === 0 ? 'text-acid-green' : 'text-text'}>
+                          <span className={idx === 0 ? 'text-[var(--accent)]' : 'text-text'}>
                             {standing.agent}
                           </span>
                         </td>
-                        <td className="py-2 px-2 text-right text-acid-cyan">
+                        <td className="py-2 px-2 text-right text-[var(--acid-cyan)]">
                           {standing.points}
                         </td>
-                        <td className="py-2 px-2 text-right text-acid-green">
+                        <td className="py-2 px-2 text-right text-[var(--accent)]">
                           {standing.wins}
                         </td>
                         <td className="py-2 px-2 text-right text-acid-red">
                           {standing.losses}
                         </td>
-                        <td className="py-2 px-2 text-right text-acid-yellow">
+                        <td className="py-2 px-2 text-right text-[var(--acid-yellow)]">
                           {standing.draws}
                         </td>
                         <td className="py-2 px-2 text-right">
@@ -429,9 +429,9 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
       {/* Matches Tab */}
       {activeTab === 'matches' && (
         <div className="card p-4">
-          <h3 className="font-mono text-acid-green mb-4">Recent Matches</h3>
+          <h3 className="font-theme-data text-[var(--accent)] mb-4">Recent Matches</h3>
           {matches.length === 0 ? (
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               No matches recorded yet. Run debates to see match history here.
             </p>
           ) : (
@@ -439,28 +439,28 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
               {matches.map((match, idx) => (
                 <div
                   key={match.debate_id || idx}
-                  className="p-3 bg-surface rounded border border-acid-green/20"
+                  className="p-3 bg-surface rounded border border-[var(--accent)]/20"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-xs text-acid-cyan">
+                    <span className="font-theme-data text-xs text-[var(--acid-cyan)]">
                       {match.debate_id?.slice(0, 8) || `match-${idx}`}
                     </span>
                     {match.created_at && (
-                      <span className="font-mono text-xs text-text-muted">
+                      <span className="font-theme-data text-xs text-text-muted">
                         {new Date(match.created_at).toLocaleDateString()}
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2 font-mono text-sm">
+                  <div className="flex items-center gap-2 font-theme-data text-sm">
                     {match.participants?.map((agent, i) => (
                       <span key={agent}>
                         <span
                           className={
                             match.winner === agent
-                              ? 'text-acid-green font-bold'
+                              ? 'text-[var(--accent)] font-bold'
                               : match.winner === null
-                              ? 'text-acid-yellow'
+                              ? 'text-[var(--acid-yellow)]'
                               : 'text-text-muted'
                           }
                         >
@@ -475,13 +475,13 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
                   </div>
 
                   {match.domain && (
-                    <div className="mt-2 text-xs font-mono text-text-muted">
+                    <div className="mt-2 text-xs font-theme-data text-text-muted">
                       Domain: {match.domain}
                     </div>
                   )}
 
                   {match.winner === null && (
-                    <div className="mt-1 text-xs font-mono text-acid-yellow">
+                    <div className="mt-1 text-xs font-theme-data text-[var(--acid-yellow)]">
                       Draw
                     </div>
                   )}
@@ -497,7 +497,7 @@ export function TournamentViewerPanel({ backendConfig }: TournamentViewerPanelPr
         <button
           onClick={fetchData}
           disabled={loading}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
         >
           {loading ? 'Refreshing...' : 'Refresh Data'}
         </button>

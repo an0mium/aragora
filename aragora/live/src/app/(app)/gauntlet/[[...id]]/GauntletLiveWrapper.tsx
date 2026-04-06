@@ -32,10 +32,10 @@ function GauntletListView() {
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2 flex items-center gap-3">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2 flex items-center gap-3">
               <span>&#x2694;</span> Gauntlet
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Adversarial stress-testing results. Find vulnerabilities before they find you.
             </p>
           </div>
@@ -47,18 +47,18 @@ function GauntletListView() {
 
             {/* Usage hints */}
             <div className="bg-surface border border-border rounded-lg p-4">
-              <h3 className="text-sm font-mono text-acid-green mb-3">Quick Start</h3>
-              <ul className="text-xs text-text-muted space-y-2 font-mono">
+              <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">Quick Start</h3>
+              <ul className="text-xs text-text-muted space-y-2 font-theme-data">
                 <li className="flex items-start gap-2">
-                  <span className="text-acid-cyan">&gt;</span>
+                  <span className="text-[var(--acid-cyan)]">&gt;</span>
                   <code className="bg-bg px-2 py-0.5">aragora gauntlet spec.md --profile quick</code>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-acid-cyan">&gt;</span>
+                  <span className="text-[var(--acid-cyan)]">&gt;</span>
                   <code className="bg-bg px-2 py-0.5">aragora gauntlet policy.yaml --persona gdpr</code>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-acid-cyan">&gt;</span>
+                  <span className="text-[var(--acid-cyan)]">&gt;</span>
                   <code className="bg-bg px-2 py-0.5">aragora gauntlet arch.md --profile thorough --output report.html</code>
                 </li>
               </ul>
@@ -67,7 +67,7 @@ function GauntletListView() {
                   See{' '}
                   <a
                     href="/about"
-                    className="text-acid-cyan hover:text-acid-green"
+                    className="text-[var(--acid-cyan)] hover:text-[var(--accent)]"
                   >
                     the documentation
                   </a>{' '}
@@ -79,8 +79,8 @@ function GauntletListView() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">
@@ -121,16 +121,16 @@ function GauntletDetailView({ gauntletId }: { gauntletId: string }) {
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-2 flex items-center gap-3">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2 flex items-center gap-3">
                 <span className="animate-pulse">&#x2694;</span> Live Gauntlet
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Real-time adversarial stress-testing in progress.
               </p>
             </div>
             <button
               onClick={handleCopy}
-              className="px-3 py-1 text-xs font-mono bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+              className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors"
             >
               {copied ? '[COPIED!]' : '[SHARE LINK]'}
             </button>
@@ -146,25 +146,25 @@ function GauntletDetailView({ gauntletId }: { gauntletId: string }) {
 
           {/* Post-completion actions */}
           {verdict && (
-            <div className="mt-6 bg-surface border border-acid-green/30 p-4 rounded">
-              <h3 className="text-sm font-mono text-acid-green mb-3">Next Steps</h3>
+            <div className="mt-6 bg-surface border border-[var(--accent)]/30 p-4 rounded">
+              <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">Next Steps</h3>
               <div className="flex flex-wrap gap-3">
                 <Link
                   href={`/api/gauntlet/${gauntletId}/receipt?format=html`}
                   target="_blank"
-                  className="px-4 py-2 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/40 hover:bg-acid-green/30 transition-colors rounded"
+                  className="px-4 py-2 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40 hover:bg-[var(--accent)]/30 transition-colors rounded"
                 >
                   [DOWNLOAD RECEIPT]
                 </Link>
                 <Link
                   href="/gauntlet"
-                  className="px-4 py-2 text-xs font-mono bg-surface text-acid-cyan border border-acid-cyan/40 hover:bg-acid-cyan/10 transition-colors rounded"
+                  className="px-4 py-2 text-xs font-theme-data bg-surface text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40 hover:bg-[var(--acid-cyan)]/10 transition-colors rounded"
                 >
                   [VIEW ALL RESULTS]
                 </Link>
                 <button
                   onClick={() => router.push('/gauntlet')}
-                  className="px-4 py-2 text-xs font-mono bg-surface text-text-muted border border-border hover:border-acid-cyan/40 transition-colors rounded"
+                  className="px-4 py-2 text-xs font-theme-data bg-surface text-text-muted border border-border hover:border-[var(--acid-cyan)]/40 transition-colors rounded"
                 >
                   [RUN NEW GAUNTLET]
                 </button>
@@ -174,8 +174,8 @@ function GauntletDetailView({ gauntletId }: { gauntletId: string }) {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

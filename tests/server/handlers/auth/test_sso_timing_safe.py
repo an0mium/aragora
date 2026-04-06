@@ -195,8 +195,6 @@ class TestJWTStoreTimingSafeComparison:
         signatures in a timing-safe manner. The implementation uses
         hmac.compare_digest() internally (verified by code inspection).
         """
-        import hmac as hmac_module
-
         # Generate a valid state
         state = jwt_state_store.generate(ttl_seconds=3600)
 
@@ -210,8 +208,7 @@ class TestJWTStoreTimingSafeComparison:
         fake_sig = "A" * len(signature)
         forged_state = f"{payload}.{fake_sig}"
 
-        # Both should be validated consistently - the forged one should fail
-        # This demonstrates that signature comparison is happening correctly
+        # Both should be validated consistently - the forged one should fail.
         valid_result = jwt_state_store.validate_and_consume(state)
         assert valid_result is not None, "Valid state should pass validation"
 
@@ -227,9 +224,9 @@ class TestJWTStoreTimingSafeComparison:
         # Verify the implementation uses compare_digest by examining the source
         import inspect
 
-        source = inspect.getsource(jwt_state_store.validate_and_consume)
+        source = inspect.getsource(jwt_state_store._validate_token)
         assert "compare_digest" in source, (
-            "JWTOAuthStateStore.validate_and_consume should use compare_digest"
+            "JWTOAuthStateStore._validate_token should use compare_digest"
         )
 
 

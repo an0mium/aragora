@@ -65,6 +65,14 @@ class MockHandler:
         return self._nomic_dir
 
 
+def _make_mock_psutil_module(**attrs: Any) -> _types_mod.ModuleType:
+    """Build a lightweight psutil stub for environments without the package."""
+    module = _types_mod.ModuleType("psutil")
+    for key, value in attrs.items():
+        setattr(module, key, value)
+    return module
+
+
 @pytest.fixture(autouse=True)
 def clear_module_state():
     """Clear any module-level state between tests."""
@@ -424,7 +432,14 @@ class TestDetailedHealthCheck:
         mock_process.memory_info.return_value = MagicMock(rss=100 * 1024 * 1024)
         mock_process.memory_percent.return_value = 5.0
 
-        with patch("psutil.Process", return_value=mock_process):
+        with patch.dict(
+            "sys.modules",
+            {
+                "psutil": _make_mock_psutil_module(
+                    Process=MagicMock(return_value=mock_process),
+                )
+            },
+        ):
             result = detailed_health_check(handler)
 
         body = json.loads(result.body.decode("utf-8"))
@@ -498,12 +513,15 @@ class TestDeepHealthCheck:
         mock_disk = MagicMock()
         mock_disk.percent = 60.0
         mock_disk.free = 100 * 1024**3
+        mock_psutil = _make_mock_psutil_module(
+            virtual_memory=MagicMock(return_value=mock_memory),
+            cpu_percent=MagicMock(return_value=30.0),
+            cpu_count=MagicMock(return_value=8),
+            disk_usage=MagicMock(return_value=mock_disk),
+        )
 
         with (
-            patch("psutil.virtual_memory", return_value=mock_memory),
-            patch("psutil.cpu_percent", return_value=30.0),
-            patch("psutil.cpu_count", return_value=8),
-            patch("psutil.disk_usage", return_value=mock_disk),
+            patch.dict("sys.modules", {"psutil": mock_psutil}),
             patch(
                 "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},
@@ -542,12 +560,15 @@ class TestDeepHealthCheck:
         mock_memory = MagicMock()
         mock_memory.percent = 92.0
         mock_memory.available = 1 * 1024**3
+        mock_psutil = _make_mock_psutil_module(
+            virtual_memory=MagicMock(return_value=mock_memory),
+            cpu_percent=MagicMock(return_value=30.0),
+            cpu_count=MagicMock(return_value=8),
+            disk_usage=MagicMock(return_value=MagicMock(percent=50.0, free=100 * 1024**3)),
+        )
 
         with (
-            patch("psutil.virtual_memory", return_value=mock_memory),
-            patch("psutil.cpu_percent", return_value=30.0),
-            patch("psutil.cpu_count", return_value=8),
-            patch("psutil.disk_usage", return_value=MagicMock(percent=50.0, free=100 * 1024**3)),
+            patch.dict("sys.modules", {"psutil": mock_psutil}),
             patch(
                 "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},
@@ -584,14 +605,15 @@ class TestDeepHealthCheck:
         mock_disk = MagicMock()
         mock_disk.percent = 95.0
         mock_disk.free = 10 * 1024**3
+        mock_psutil = _make_mock_psutil_module(
+            virtual_memory=MagicMock(return_value=MagicMock(percent=50.0, available=8 * 1024**3)),
+            cpu_percent=MagicMock(return_value=30.0),
+            cpu_count=MagicMock(return_value=8),
+            disk_usage=MagicMock(return_value=mock_disk),
+        )
 
         with (
-            patch(
-                "psutil.virtual_memory", return_value=MagicMock(percent=50.0, available=8 * 1024**3)
-            ),
-            patch("psutil.cpu_percent", return_value=30.0),
-            patch("psutil.cpu_count", return_value=8),
-            patch("psutil.disk_usage", return_value=mock_disk),
+            patch.dict("sys.modules", {"psutil": mock_psutil}),
             patch(
                 "aragora.server.handlers.admin.health_utils.check_filesystem_health",
                 return_value={"healthy": True},

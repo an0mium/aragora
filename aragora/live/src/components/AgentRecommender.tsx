@@ -12,7 +12,7 @@ import {
 // Score Bar Component
 // ============================================================================
 
-function ScoreBar({ score, maxScore = 1, color = 'bg-acid-green' }: {
+function ScoreBar({ score, maxScore = 1, color = 'bg-[var(--accent)]' }: {
   score: number;
   maxScore?: number;
   color?: string;
@@ -26,7 +26,7 @@ function ScoreBar({ score, maxScore = 1, color = 'bg-acid-green' }: {
           style={{ width: `${percentage}%` }}
         />
       </div>
-      <span className="text-xs font-mono text-text-muted w-8 text-right">
+      <span className="text-xs font-theme-data text-text-muted w-8 text-right">
         {percentage}%
       </span>
     </div>
@@ -55,7 +55,7 @@ function TopicAnalyzer({ onAnalyze, loading }: TopicAnalyzerProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div>
-        <label className="block text-xs font-mono text-text-muted mb-1">
+        <label className="block text-xs font-theme-data text-text-muted mb-1">
           Enter your debate topic or question
         </label>
         <textarea
@@ -63,13 +63,13 @@ function TopicAnalyzer({ onAnalyze, loading }: TopicAnalyzerProps) {
           onChange={(e) => setTask(e.target.value)}
           rows={3}
           placeholder="e.g., Should we migrate to microservices?"
-          className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:border-acid-green focus:outline-none resize-none"
+          className="w-full px-3 py-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:border-[var(--accent)] focus:outline-none resize-none"
         />
       </div>
       <button
         type="submit"
         disabled={loading || !task.trim()}
-        className="w-full py-2 bg-acid-green/10 border border-acid-green text-acid-green font-mono text-xs hover:bg-acid-green/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full py-2 bg-[var(--accent)]/10 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-xs hover:bg-[var(--accent)]/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? 'ANALYZING...' : 'ANALYZE & RECOMMEND AGENTS'}
       </button>
@@ -99,13 +99,13 @@ function TeamPreview({
   onSelect,
 }: TeamPreviewProps) {
   return (
-    <div className="p-4 bg-surface border border-acid-green/30">
+    <div className="p-4 bg-surface border border-[var(--accent)]/30">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-mono text-acid-green uppercase">RECOMMENDED TEAM</span>
+        <span className="text-xs font-theme-data text-[var(--accent)] uppercase">RECOMMENDED TEAM</span>
         {onSelect && (
           <button
             onClick={() => onSelect(agents)}
-            className="px-3 py-1 text-xs font-mono border border-acid-cyan text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+            className="px-3 py-1 text-xs font-theme-data border border-[var(--acid-cyan)] text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
           >
             USE TEAM
           </button>
@@ -117,7 +117,7 @@ function TeamPreview({
         {agents.map((agent) => (
           <div
             key={agent}
-            className="px-3 py-1.5 bg-bg border border-acid-green/40 text-sm font-mono text-acid-green"
+            className="px-3 py-1.5 bg-bg border border-[var(--accent)]/40 text-sm font-theme-data text-[var(--accent)]"
           >
             {agent}
             {roles[agent] && (
@@ -130,17 +130,17 @@ function TeamPreview({
       {/* Scores */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <div className="text-xs font-mono text-text-muted mb-1">Expected Quality</div>
+          <div className="text-xs font-theme-data text-text-muted mb-1">Expected Quality</div>
           <ScoreBar score={expectedQuality} />
         </div>
         <div>
-          <div className="text-xs font-mono text-text-muted mb-1">Diversity</div>
-          <ScoreBar score={diversityScore} color="bg-acid-cyan" />
+          <div className="text-xs font-theme-data text-text-muted mb-1">Diversity</div>
+          <ScoreBar score={diversityScore} color="bg-[var(--acid-cyan)]" />
         </div>
       </div>
 
       {/* Rationale */}
-      <div className="p-2 bg-bg/50 rounded text-xs font-mono text-text-muted">
+      <div className="p-2 bg-bg/50 rounded text-xs font-theme-data text-text-muted">
         {rationale}
       </div>
     </div>
@@ -154,7 +154,7 @@ function TeamPreview({
 function RecommendationsList({ recommendations }: { recommendations: AgentRecommendation[] }) {
   if (recommendations.length === 0) {
     return (
-      <div className="p-4 text-center text-xs font-mono text-text-muted">
+      <div className="p-4 text-center text-xs font-theme-data text-text-muted">
         No recommendations available
       </div>
     );
@@ -165,14 +165,14 @@ function RecommendationsList({ recommendations }: { recommendations: AgentRecomm
       {recommendations.map((rec, idx) => (
         <div
           key={rec.agent}
-          className="p-3 bg-surface border border-acid-green/20 hover:border-acid-green/40 transition-colors"
+          className="p-3 bg-surface border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 transition-colors"
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-text-muted">#{idx + 1}</span>
-              <span className="font-mono text-sm text-acid-green">{rec.agent}</span>
+              <span className="text-xs font-theme-data text-text-muted">#{idx + 1}</span>
+              <span className="font-theme-data text-sm text-[var(--accent)]">{rec.agent}</span>
             </div>
-            <span className="text-xs font-mono text-acid-cyan">
+            <span className="text-xs font-theme-data text-[var(--acid-cyan)]">
               {Math.round(rec.score * 100)}%
             </span>
           </div>
@@ -182,7 +182,7 @@ function RecommendationsList({ recommendations }: { recommendations: AgentRecomm
               {rec.traits.slice(0, 3).map((trait) => (
                 <span
                   key={trait}
-                  className="px-1.5 py-0.5 text-xs font-mono text-text-muted bg-bg rounded"
+                  className="px-1.5 py-0.5 text-xs font-theme-data text-text-muted bg-bg rounded"
                 >
                   {trait}
                 </span>
@@ -230,10 +230,10 @@ function DomainLeaderboard({
           <button
             key={d}
             onClick={() => onDomainChange(d)}
-            className={`px-2 py-1 text-xs font-mono border transition-colors ${
+            className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
               domain === d
-                ? 'border-acid-green text-acid-green bg-acid-green/10'
-                : 'border-acid-green/30 text-text-muted hover:text-text'
+                ? 'border-[var(--accent)] text-[var(--accent)] bg-[var(--accent)]/10'
+                : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
             }`}
           >
             {d.toUpperCase()}
@@ -243,11 +243,11 @@ function DomainLeaderboard({
 
       {/* Leaderboard */}
       {loading ? (
-        <div className="p-4 text-center text-xs font-mono text-text-muted animate-pulse">
+        <div className="p-4 text-center text-xs font-theme-data text-text-muted animate-pulse">
           Loading leaderboard...
         </div>
       ) : leaderboard.length === 0 ? (
-        <div className="p-4 text-center text-xs font-mono text-text-muted">
+        <div className="p-4 text-center text-xs font-theme-data text-text-muted">
           No data for {domain} domain
         </div>
       ) : (
@@ -255,16 +255,16 @@ function DomainLeaderboard({
           {leaderboard.map((entry, idx) => (
             <div
               key={entry.agent}
-              className="flex items-center gap-3 p-2 bg-surface/50 border border-acid-green/10"
+              className="flex items-center gap-3 p-2 bg-surface/50 border border-[var(--accent)]/10"
             >
-              <span className="w-6 text-center text-xs font-mono text-text-muted">
+              <span className="w-6 text-center text-xs font-theme-data text-text-muted">
                 {idx + 1}
               </span>
-              <span className="flex-1 font-mono text-sm text-text">{entry.agent}</span>
-              <span className="text-xs font-mono text-acid-green">
+              <span className="flex-1 font-theme-data text-sm text-text">{entry.agent}</span>
+              <span className="text-xs font-theme-data text-[var(--accent)]">
                 {Math.round(entry.score * 100)}%
               </span>
-              <span className="text-xs font-mono text-text-muted">
+              <span className="text-xs font-theme-data text-text-muted">
                 {entry.wins}W/{entry.losses}L
               </span>
             </div>
@@ -293,31 +293,31 @@ function BestTeamsPanel({
       <button
         onClick={onRefresh}
         disabled={loading}
-        className="w-full py-1 text-xs font-mono text-text-muted hover:text-acid-green border border-acid-green/20 hover:border-acid-green/40 transition-colors disabled:opacity-50"
+        className="w-full py-1 text-xs font-theme-data text-text-muted hover:text-[var(--accent)] border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 transition-colors disabled:opacity-50"
       >
         {loading ? 'Loading...' : 'Refresh Best Teams'}
       </button>
 
       {teams.length === 0 ? (
-        <div className="p-4 text-center text-xs font-mono text-text-muted">
+        <div className="p-4 text-center text-xs font-theme-data text-text-muted">
           No team data available
         </div>
       ) : (
         <div className="space-y-2">
           {teams.map((team, idx) => (
-            <div key={idx} className="p-3 bg-surface border border-acid-green/20">
+            <div key={idx} className="p-3 bg-surface border border-[var(--accent)]/20">
               <div className="flex flex-wrap gap-1 mb-2">
                 {team.agents.map((agent) => (
                   <span
                     key={agent}
-                    className="px-2 py-0.5 text-xs font-mono text-acid-green bg-acid-green/10 rounded"
+                    className="px-2 py-0.5 text-xs font-theme-data text-[var(--accent)] bg-[var(--accent)]/10 rounded"
                   >
                     {agent}
                   </span>
                 ))}
               </div>
-              <div className="flex items-center gap-4 text-xs font-mono text-text-muted">
-                <span>Win Rate: <span className="text-acid-cyan">{Math.round(team.win_rate * 100)}%</span></span>
+              <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted">
+                <span>Win Rate: <span className="text-[var(--acid-cyan)]">{Math.round(team.win_rate * 100)}%</span></span>
                 <span>Debates: {team.debates}</span>
               </div>
             </div>
@@ -366,16 +366,16 @@ export function AgentRecommender({ onTeamSelect }: AgentRecommenderProps) {
   }, []);
 
   return (
-    <div className="border border-acid-green/30 bg-surface/50">
+    <div className="border border-[var(--accent)]/30 bg-surface/50">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
-        <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50">
+        <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
           {'>'} AGENT RECOMMENDER
         </span>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-acid-green/10" role="tablist" aria-label="Agent recommender views">
+      <div className="flex border-b border-[var(--accent)]/10" role="tablist" aria-label="Agent recommender views">
         {(['analyze', 'leaderboard', 'teams'] as const).map((tab) => (
           <button
             key={tab}
@@ -384,9 +384,9 @@ export function AgentRecommender({ onTeamSelect }: AgentRecommenderProps) {
             aria-controls={`tabpanel-${tab}`}
             id={`tab-${tab}`}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 px-4 py-2 text-xs font-mono uppercase transition-colors ${
+            className={`flex-1 px-4 py-2 text-xs font-theme-data uppercase transition-colors ${
               activeTab === tab
-                ? 'text-acid-green border-b-2 border-acid-green bg-acid-green/5'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-[var(--accent)]/5'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -398,7 +398,7 @@ export function AgentRecommender({ onTeamSelect }: AgentRecommenderProps) {
       {/* Error Display */}
       {(routing.autoRouteError || routing.leaderboardError || routing.bestTeamsError) && (
         <div className="px-4 py-2 border-b border-acid-red/30">
-          <div className="p-2 text-xs font-mono text-acid-red bg-acid-red/10 border border-acid-red/30">
+          <div className="p-2 text-xs font-theme-data text-acid-red bg-acid-red/10 border border-acid-red/30">
             {'>'} {routing.autoRouteError || routing.leaderboardError || routing.bestTeamsError}
           </div>
         </div>
@@ -416,13 +416,13 @@ export function AgentRecommender({ onTeamSelect }: AgentRecommenderProps) {
             {routing.autoRouteResult && (
               <>
                 {/* Detected Domains */}
-                <div className="p-3 bg-bg/50 border border-acid-green/20">
-                  <div className="text-xs font-mono text-text-muted mb-2">DETECTED DOMAIN</div>
+                <div className="p-3 bg-bg/50 border border-[var(--accent)]/20">
+                  <div className="text-xs font-theme-data text-text-muted mb-2">DETECTED DOMAIN</div>
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(routing.autoRouteResult.detected_domain).map(([domain, score]) => (
                       <span
                         key={domain}
-                        className="px-2 py-1 text-xs font-mono bg-surface border border-acid-cyan/30 text-acid-cyan"
+                        className="px-2 py-1 text-xs font-theme-data bg-surface border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)]"
                       >
                         {domain}: {Math.round((score as number) * 100)}%
                       </span>
@@ -444,7 +444,7 @@ export function AgentRecommender({ onTeamSelect }: AgentRecommenderProps) {
 
             {routing.recommendations.length > 0 && (
               <div>
-                <div className="text-xs font-mono text-text-muted mb-2">INDIVIDUAL RECOMMENDATIONS</div>
+                <div className="text-xs font-theme-data text-text-muted mb-2">INDIVIDUAL RECOMMENDATIONS</div>
                 <RecommendationsList recommendations={routing.recommendations} />
               </div>
             )}

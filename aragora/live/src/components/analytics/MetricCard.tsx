@@ -25,33 +25,33 @@ export interface MetricCardProps {
 
 const colorClasses = {
   green: {
-    border: 'border-acid-green/30',
-    bg: 'bg-acid-green/5',
-    text: 'text-acid-green',
+    border: 'border-[var(--accent)]/30',
+    bg: 'bg-[var(--accent)]/5',
+    text: 'text-[var(--accent)]',
     glow: 'shadow-[0_0_10px_rgba(57,255,20,0.1)]',
   },
   cyan: {
-    border: 'border-acid-cyan/30',
-    bg: 'bg-acid-cyan/5',
-    text: 'text-acid-cyan',
+    border: 'border-[var(--acid-cyan)]/30',
+    bg: 'bg-[var(--acid-cyan)]/5',
+    text: 'text-[var(--acid-cyan)]',
     glow: 'shadow-[0_0_10px_rgba(0,255,255,0.1)]',
   },
   yellow: {
     border: 'border-acid-yellow/30',
     bg: 'bg-acid-yellow/5',
-    text: 'text-acid-yellow',
+    text: 'text-[var(--acid-yellow)]',
     glow: 'shadow-[0_0_10px_rgba(255,255,0,0.1)]',
   },
   magenta: {
     border: 'border-acid-magenta/30',
     bg: 'bg-acid-magenta/5',
-    text: 'text-acid-magenta',
+    text: 'text-[var(--acid-magenta)]',
     glow: 'shadow-[0_0_10px_rgba(255,0,255,0.1)]',
   },
   red: {
-    border: 'border-crimson/30',
-    bg: 'bg-crimson/5',
-    text: 'text-crimson',
+    border: 'border-[var(--crimson)]/30',
+    bg: 'bg-[var(--crimson)]/5',
+    text: 'text-[var(--crimson)]',
     glow: 'shadow-[0_0_10px_rgba(220,20,60,0.1)]',
   },
   purple: {
@@ -81,7 +81,7 @@ export function MetricCard({
   };
 
   const changeColor = change !== undefined
-    ? change >= 0 ? 'text-acid-green' : 'text-crimson'
+    ? change >= 0 ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'
     : '';
 
   if (loading) {
@@ -102,27 +102,27 @@ export function MetricCard({
     >
       {/* Title */}
       <div className="flex items-center gap-2 mb-2">
-        {icon && <span className={`${colors.text} font-mono`}>{icon}</span>}
-        <span className="text-text-muted font-mono text-xs uppercase tracking-wider">
+        {icon && <span className={`${colors.text} font-theme-data`}>{icon}</span>}
+        <span className="text-text-muted font-theme-data text-xs uppercase tracking-wider">
           {title}
         </span>
       </div>
 
       {/* Value */}
-      <div className={`text-2xl font-mono ${colors.text} mb-1`}>
+      <div className={`text-2xl font-theme-data ${colors.text} mb-1`}>
         {value}
       </div>
 
       {/* Subtitle and Change */}
       <div className="flex items-center justify-between">
         {subtitle && (
-          <span className="text-text-muted text-xs font-mono">
+          <span className="text-text-muted text-xs font-theme-data">
             {subtitle}
           </span>
         )}
         {change !== undefined && (
           <div className="flex items-center gap-1">
-            <span className={`text-xs font-mono ${changeColor}`}>
+            <span className={`text-xs font-theme-data ${changeColor}`}>
               {formatChange(change)}
             </span>
             {changePeriod && (

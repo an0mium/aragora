@@ -71,7 +71,7 @@ export function ConditionBuilder({
       <select
         value={condition.field}
         onChange={(e) => handleFieldChange(e.target.value)}
-        className="px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-acid-green focus:outline-none min-w-[140px]"
+        className="px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-[var(--accent)] focus:outline-none min-w-[140px]"
       >
         {CONDITION_FIELDS.map((field) => (
           <option key={field.value} value={field.value}>
@@ -84,7 +84,7 @@ export function ConditionBuilder({
       <select
         value={condition.operator}
         onChange={(e) => handleOperatorChange(e.target.value as ConditionOperator)}
-        className="px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-acid-green focus:outline-none min-w-[140px]"
+        className="px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-[var(--accent)] focus:outline-none min-w-[140px]"
       >
         {operators.map((op) => (
           <option key={op.value} value={op.value}>
@@ -101,7 +101,7 @@ export function ConditionBuilder({
           onChange={(e) => handleValueChange(e.target.value)}
           placeholder={fieldType === 'number' ? '0' : 'value'}
           step={fieldType === 'number' ? '0.01' : undefined}
-          className="flex-1 px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-acid-green focus:outline-none min-w-[100px]"
+          className="flex-1 px-2 py-1.5 text-sm bg-bg border border-border rounded focus:border-[var(--accent)] focus:outline-none min-w-[100px]"
         />
       )}
 
@@ -170,11 +170,11 @@ export function ConditionListBuilder({
       {/* Header with match mode */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono text-cyan-400">IF</span>
+          <span className="text-sm font-theme-data text-cyan-400">IF</span>
           <select
             value={matchMode}
             onChange={(e) => onMatchModeChange(e.target.value as 'all' | 'any')}
-            className="px-2 py-1 text-xs bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+            className="px-2 py-1 text-xs bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
           >
             <option value="all">ALL conditions match</option>
             <option value="any">ANY condition matches</option>
@@ -182,7 +182,7 @@ export function ConditionListBuilder({
         </div>
         <button
           onClick={handleAddCondition}
-          className="px-2 py-1 text-xs font-mono bg-acid-green/20 text-acid-green rounded hover:bg-acid-green/30 transition-colors"
+          className="px-2 py-1 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] rounded hover:bg-[var(--accent)]/30 transition-colors"
         >
           + Add Condition
         </button>

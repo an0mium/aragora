@@ -16,6 +16,11 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.pipeline.backbone_errors import (
+    BackbonePersistenceError,
+    FAIL_CLOSED_BACKBONE_MESSAGE,
+)
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
 from aragora.server.versioning.compat import strip_version_prefix
 
 from ..base import (
@@ -173,7 +178,17 @@ class PipelineExecuteHandler(BaseHandler):
             execution_mode="workflow",
             require_task_approval=require_approval,
         )
-        launch = queue_plan_execution(plan, execution_mode="workflow")
+        try:
+            launch = queue_plan_execution(
+                plan,
+                execution_mode="workflow",
+                safety_mode=SafetyMode.INTERACTIVE,
+            )
+        except BackbonePersistenceError as exc:
+            _executions.pop(pipeline_id, None)
+            _execution_tasks.pop(pipeline_id, None)
+            logger.warning("Pipeline execution blocked for %s: %s", pipeline_id, exc)
+            return error_response(FAIL_CLOSED_BACKBONE_MESSAGE, 503)
         _executions[pipeline_id].update(
             {
                 "status": "started",
@@ -318,7 +333,11 @@ class PipelineExecuteHandler(BaseHandler):
                     execution_mode="workflow",
                     require_task_approval=require_approval,
                 )
-                launch = queue_plan_execution(plan, execution_mode="workflow")
+                launch = queue_plan_execution(
+                    plan,
+                    execution_mode="workflow",
+                    safety_mode=SafetyMode.INTERACTIVE,
+                )
                 execution_state.update(
                     {
                         "runtime": "decision_plan",

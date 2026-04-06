@@ -10,7 +10,7 @@ export function ExpandToggle({ expanded, onToggle, className = '' }: ExpandToggl
   return (
     <button
       onClick={onToggle}
-      className={`text-xs font-mono text-text-muted hover:text-text transition-colors ${className}`}
+      className={`text-xs font-theme-data text-text-muted hover:text-text transition-colors ${className}`}
       aria-expanded={expanded}
       aria-label={expanded ? 'Collapse' : 'Expand'}
     >

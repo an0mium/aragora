@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import sys
+import types
 from unittest.mock import MagicMock, patch
 from typing import Any
 
 import pytest
 
+from aragora.pipeline.backbone_errors import BackbonePersistenceError, FAIL_CLOSED_BACKBONE_MESSAGE
 from aragora.server.handlers.orchestration_canvas import OrchestrationCanvasHandler
 
 
@@ -385,6 +388,48 @@ class TestExecutePipeline:
                 ctx = MagicMock()
                 result = handler._execute_pipeline(ctx, "orch-1", {}, "u1")
                 assert result is not None
+
+    @patch("aragora.canvas.orchestration_store.get_orchestration_canvas_store")
+    def test_execute_backbone_failure_returns_503(self, mock_get_store, handler):
+        mock_store = MagicMock()
+        mock_store.load_canvas.return_value = {
+            "id": "orch-1",
+            "name": "Pipeline",
+            "metadata": {"stage": "orchestration"},
+        }
+        mock_get_store.return_value = mock_store
+
+        fake_execution = types.ModuleType("aragora.pipeline.canonical_execution")
+        fake_execution.build_decision_plan_from_orchestration = lambda **_: (
+            types.SimpleNamespace(id="plan-orch"),
+            [{"id": "t1"}],
+        )
+
+        def _raise_backbone(*_, **__):
+            raise BackbonePersistenceError("run ledger unavailable")
+
+        fake_execution.queue_plan_execution = _raise_backbone
+        fake_execution.execute_queued_plan = MagicMock()
+        fake_execution.schedule_coroutine = MagicMock()
+
+        with (
+            patch.object(handler, "_get_canvas_manager"),
+            patch.object(handler, "_run_async") as mock_run,
+            patch.dict(sys.modules, {"aragora.pipeline.canonical_execution": fake_execution}),
+        ):
+            canvas_mock = MagicMock()
+            canvas_mock.nodes = {}
+            canvas_mock.edges = {}
+            mock_run.return_value = canvas_mock
+
+            ctx = MagicMock()
+            result = handler._execute_pipeline(ctx, "orch-1", {}, "u1")
+
+        assert result is not None
+        status = getattr(result, "status_code", getattr(result, "status", None))
+        assert status == 503
+        body = json.loads(result.body.decode() if isinstance(result.body, bytes) else result.body)
+        assert body["error"] == FAIL_CLOSED_BACKBONE_MESSAGE
 
 
 # ---------------------------------------------------------------------------

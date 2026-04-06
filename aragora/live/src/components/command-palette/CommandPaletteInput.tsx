@@ -36,9 +36,9 @@ export function CommandPaletteInput({
   }, []);
 
   return (
-    <div className="flex items-center gap-2 px-4 py-3 border-b border-acid-green/20 bg-bg/50">
+    <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50">
       {/* Search icon / prompt */}
-      <span className="text-acid-green font-mono text-sm flex-shrink-0">
+      <span className="text-[var(--accent)] font-theme-data text-sm flex-shrink-0">
         {isSearching ? '...' : '>'}
       </span>
 
@@ -58,7 +58,7 @@ export function CommandPaletteInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
-        className="flex-1 bg-transparent border-none outline-none text-text font-mono text-sm placeholder:text-text-muted"
+        className="flex-1 bg-transparent border-none outline-none text-text font-theme-data text-sm placeholder:text-text-muted"
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="off"
@@ -66,7 +66,7 @@ export function CommandPaletteInput({
       />
 
       {/* Keyboard hint */}
-      <kbd className="px-2 py-0.5 text-xs font-mono text-text-muted border border-acid-green/30 rounded flex-shrink-0">
+      <kbd className="px-2 py-0.5 text-xs font-theme-data text-text-muted border border-[var(--accent)]/30 rounded flex-shrink-0">
         esc
       </kbd>
     </div>

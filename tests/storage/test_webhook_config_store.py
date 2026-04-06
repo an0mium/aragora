@@ -18,7 +18,7 @@ import time
 import pytest
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import patch, MagicMock, PropertyMock, AsyncMock
 
 from aragora.storage.webhook_config_store import (
     WebhookConfig,
@@ -1079,6 +1079,47 @@ class TestSQLiteWebhookConfigStore:
         updated = sqlite_store.update(webhook.id, name="Changed")
         assert updated.updated_at > original_updated_at
 
+    def test_update_keeps_returned_revision_in_sync_with_durable_row(self, sqlite_store):
+        """Returned updated_at should match the durable revision used by Redis validation."""
+        webhook = sqlite_store.register(url="https://example.com", events=["debate_end"])
+        revised_at = webhook.updated_at + 10
+
+        with patch(
+            "aragora.storage.webhook_config_store.time.time",
+            side_effect=[revised_at, revised_at + 1],
+        ):
+            updated = sqlite_store.update(webhook.id, name="Changed")
+
+        assert updated is not None
+        assert updated.updated_at == revised_at
+        assert sqlite_store.get_cache_revision(webhook.id) == revised_at
+
+    def test_update_returns_none_when_row_is_deleted_before_write(self, sqlite_store):
+        """A concurrent delete must not surface a phantom successful SQLite update."""
+        original = WebhookConfig(
+            id="webhook-123",
+            url="https://example.com/hook",
+            events=["debate_end"],
+            secret="secret",
+            updated_at=100.0,
+        )
+        cursor = MagicMock()
+        cursor.rowcount = 0
+        conn = MagicMock()
+        conn.execute.return_value = cursor
+
+        with (
+            patch.object(sqlite_store, "get", return_value=original),
+            patch.object(sqlite_store, "_get_conn", return_value=conn),
+            patch("aragora.storage.webhook_config_store.time.time", return_value=200.0),
+        ):
+            updated = sqlite_store.update("webhook-123", url="https://example.com/new")
+
+        assert updated is None
+        query, params = conn.execute.call_args.args
+        assert "updated_at = ?" in query
+        assert params == ["https://example.com/new", 200.0, "webhook-123"]
+
     def test_record_delivery_success(self, sqlite_store):
         """Test recording successful delivery."""
         webhook = sqlite_store.register(url="https://a.com", events=["debate_end"])
@@ -1087,6 +1128,18 @@ class TestSQLiteWebhookConfigStore:
         assert updated.last_delivery_status == 200
         assert updated.delivery_count == 1
         assert updated.failure_count == 0
+
+    def test_record_delivery_updates_revision(self, sqlite_store):
+        """Delivery metadata updates must advance the durable cache revision."""
+        webhook = sqlite_store.register(url="https://a.com", events=["debate_end"])
+        revised_at = webhook.updated_at + 10
+
+        with patch("aragora.storage.webhook_config_store.time.time", return_value=revised_at):
+            sqlite_store.record_delivery(webhook.id, 200, success=True)
+
+        updated = sqlite_store.get(webhook.id)
+        assert updated.updated_at == revised_at
+        assert sqlite_store.get_cache_revision(webhook.id) == revised_at
 
     def test_record_delivery_failure(self, sqlite_store):
         """Test recording failed delivery."""
@@ -1311,6 +1364,103 @@ class TestRedisWebhookConfigStore:
         mock_decrypt.assert_called_once_with("ENCRYPTED-SECRET")
         store.close()
 
+    def test_with_mocked_redis_get_cache_hit_bypasses_deleted_sqlite_row(self, tmp_path):
+        """A stale Redis hit must not resurrect a webhook deleted by another instance."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        webhook = store._sqlite.register(url="https://example.com", events=["debate_end"])
+        mock_redis.get.return_value = webhook.to_json()
+        assert store._sqlite.delete(webhook.id) is True
+
+        retrieved = store.get(webhook.id)
+
+        assert retrieved is None
+        mock_redis.get.assert_called_once_with(f"aragora:webhook_configs:{webhook.id}")
+        mock_redis.delete.assert_called_once_with(f"aragora:webhook_configs:{webhook.id}")
+        store.close()
+
+    def test_with_mocked_redis_get_cache_hit_refreshes_stale_delivery_state(self, tmp_path):
+        """A stale Redis hit must refresh from SQLite when delivery metadata changed elsewhere."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        webhook = store._sqlite.register(url="https://example.com", events=["debate_end"])
+        mock_redis.get.return_value = webhook.to_json()
+        store._sqlite.record_delivery(webhook.id, 500, success=False)
+
+        retrieved = store.get(webhook.id)
+
+        assert retrieved is not None
+        assert retrieved.last_delivery_status == 500
+        assert retrieved.delivery_count == 1
+        assert retrieved.failure_count == 1
+        mock_redis.get.assert_called_once_with(f"aragora:webhook_configs:{webhook.id}")
+        mock_redis.setex.assert_called_once()
+        store.close()
+
+    def test_with_mocked_redis_get_rejects_boolean_cached_revision(self, tmp_path):
+        """Boolean cache revisions must not satisfy the durable revision trust gate."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        webhook = store._sqlite.register(url="https://example.com", events=["debate_end"])
+
+        cached_payload = webhook.to_dict(include_secret=True)
+        cached_payload["url"] = "https://stale.example.com"
+        cached_payload["updated_at"] = True
+        mock_redis.get.return_value = json.dumps(cached_payload)
+
+        with patch.object(store._sqlite, "get_cache_revision", return_value=1.0):
+            retrieved = store.get(webhook.id)
+
+        assert retrieved is not None
+        assert retrieved.url == "https://example.com"
+        mock_redis.get.assert_called_once_with(f"aragora:webhook_configs:{webhook.id}")
+        mock_redis.setex.assert_called_once()
+        store.close()
+
+    def test_with_mocked_redis_get_rejects_nonboolean_cached_active_flag(self, tmp_path):
+        """Malformed cached activity flags must not override SQLite truth."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        webhook = store._sqlite.register(url="https://example.com", events=["debate_end"])
+        inactive = store._sqlite.update(webhook.id, active=False)
+        assert inactive is not None
+
+        cached_payload = inactive.to_dict(include_secret=True)
+        cached_payload["active"] = "false"
+        mock_redis.get.return_value = json.dumps(cached_payload)
+
+        retrieved = store.get(webhook.id)
+
+        assert retrieved is not None
+        assert retrieved.active is False
+        mock_redis.get.assert_called_once_with(f"aragora:webhook_configs:{webhook.id}")
+        mock_redis.setex.assert_called_once()
+        store.close()
+
     def test_with_mocked_redis_get_cache_miss(self, tmp_path):
         """Test get falls back to SQLite on cache miss and populates cache."""
         db_path = tmp_path / "test.db"
@@ -1414,6 +1564,38 @@ class TestRedisWebhookConfigStore:
 
         # Redis cache should be updated
         mock_redis.setex.assert_called_once()
+        store.close()
+
+    def test_with_mocked_redis_update_keeps_cached_revision_trusted(self, tmp_path):
+        """An updated cache entry should be immediately reusable without SQLite repair."""
+        db_path = tmp_path / "test.db"
+        store = RedisWebhookConfigStore(db_path)
+
+        mock_redis = MagicMock()
+        mock_redis.ping.return_value = True
+        store._redis = mock_redis
+        store._redis_checked = True
+
+        webhook = store._sqlite.register(url="https://old.com", events=["debate_end"])
+        revised_at = webhook.updated_at + 10
+
+        with patch(
+            "aragora.storage.webhook_config_store.time.time",
+            side_effect=[revised_at, revised_at + 1],
+        ):
+            updated = store.update(webhook.id, url="https://new.com")
+
+        assert updated is not None
+        cached_payload = mock_redis.setex.call_args[0][2]
+        mock_redis.reset_mock()
+        mock_redis.get.return_value = cached_payload
+
+        retrieved = store.get(webhook.id)
+
+        assert retrieved is not None
+        assert retrieved.url == "https://new.com"
+        mock_redis.get.assert_called_once_with(f"aragora:webhook_configs:{webhook.id}")
+        mock_redis.setex.assert_not_called()
         store.close()
 
     def test_with_mocked_redis_update_failure_bypasses_stale_cache(self, tmp_path):
@@ -1616,6 +1798,148 @@ class TestPostgresWebhookConfigStoreSyncWrappers:
 
         assert result is None
         mock_run.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_record_delivery_async_updates_revision_timestamp(self) -> None:
+        """Postgres delivery updates should advance updated_at like SQLite does."""
+        conn = AsyncMock()
+        acquire_cm = AsyncMock()
+        acquire_cm.__aenter__.return_value = conn
+        acquire_cm.__aexit__.return_value = False
+        pool = MagicMock()
+        pool.acquire.return_value = acquire_cm
+        store = PostgresWebhookConfigStore(pool)
+
+        await store.record_delivery_async("webhook-123", 200, success=True)
+
+        query = conn.execute.await_args.args[0]
+        assert "updated_at = NOW()" in query
+
+        conn.reset_mock()
+        await store.record_delivery_async("webhook-123", 500, success=False)
+
+        query = conn.execute.await_args.args[0]
+        assert "updated_at = NOW()" in query
+
+    @pytest.mark.asyncio
+    async def test_update_async_returns_durable_revision_timestamp(self) -> None:
+        """Returned updated_at should match the durable revision written to Postgres."""
+        conn = AsyncMock()
+        conn.execute.return_value = "UPDATE 1"
+        acquire_cm = AsyncMock()
+        acquire_cm.__aenter__.return_value = conn
+        acquire_cm.__aexit__.return_value = False
+        pool = MagicMock()
+        pool.acquire.return_value = acquire_cm
+        store = PostgresWebhookConfigStore(pool)
+
+        original = WebhookConfig(
+            id="webhook-123",
+            url="https://example.com/hook",
+            events=["debate_end"],
+            secret="secret",
+            updated_at=100.0,
+        )
+        revised_at = 200.0
+        durable = WebhookConfig(
+            id="webhook-123",
+            url="https://example.com/new",
+            events=["debate_end"],
+            secret="secret",
+            updated_at=revised_at,
+        )
+        get_async = AsyncMock(side_effect=[original, durable])
+
+        with (
+            patch.object(store, "get_async", get_async),
+            patch("aragora.storage.webhook_config_store.time.time", return_value=revised_at),
+        ):
+            updated = await store.update_async("webhook-123", url="https://example.com/new")
+
+        assert updated is not None
+        assert updated.url == "https://example.com/new"
+        assert updated.updated_at == revised_at
+        assert get_async.await_count == 2
+        query, *params = conn.execute.await_args.args
+        assert "updated_at = to_timestamp($2)" in query
+        assert params == ["https://example.com/new", revised_at, "webhook-123"]
+
+    @pytest.mark.asyncio
+    async def test_update_async_returns_durable_boolean_state_after_postgres_coercion(self) -> None:
+        """Returned active flag should reflect durable Postgres truth, not the input payload type."""
+        conn = AsyncMock()
+        conn.execute.return_value = "UPDATE 1"
+        acquire_cm = AsyncMock()
+        acquire_cm.__aenter__.return_value = conn
+        acquire_cm.__aexit__.return_value = False
+        pool = MagicMock()
+        pool.acquire.return_value = acquire_cm
+        store = PostgresWebhookConfigStore(pool)
+
+        original = WebhookConfig(
+            id="webhook-123",
+            url="https://example.com/hook",
+            events=["debate_end"],
+            secret="secret",
+            active=True,
+            updated_at=100.0,
+        )
+        revised_at = 200.0
+        durable = WebhookConfig(
+            id="webhook-123",
+            url="https://example.com/hook",
+            events=["debate_end"],
+            secret="secret",
+            active=False,
+            updated_at=revised_at,
+        )
+        get_async = AsyncMock(side_effect=[original, durable])
+
+        with (
+            patch.object(store, "get_async", get_async),
+            patch("aragora.storage.webhook_config_store.time.time", return_value=revised_at),
+        ):
+            updated = await store.update_async("webhook-123", active="false")
+
+        assert updated is not None
+        assert updated.active is False
+        assert updated.updated_at == revised_at
+        assert get_async.await_count == 2
+        query, *params = conn.execute.await_args.args
+        assert "active = $1" in query
+        assert params == ["false", revised_at, "webhook-123"]
+
+    @pytest.mark.asyncio
+    async def test_update_async_returns_none_when_row_is_deleted_before_write(self) -> None:
+        """A concurrent delete must not surface a phantom successful Postgres update."""
+        conn = AsyncMock()
+        conn.execute.return_value = "UPDATE 0"
+        acquire_cm = AsyncMock()
+        acquire_cm.__aenter__.return_value = conn
+        acquire_cm.__aexit__.return_value = False
+        pool = MagicMock()
+        pool.acquire.return_value = acquire_cm
+        store = PostgresWebhookConfigStore(pool)
+
+        original = WebhookConfig(
+            id="webhook-123",
+            url="https://example.com/hook",
+            events=["debate_end"],
+            secret="secret",
+            updated_at=100.0,
+        )
+        revised_at = 200.0
+
+        with (
+            patch.object(store, "get_async", AsyncMock(return_value=original)),
+            patch("aragora.storage.webhook_config_store.time.time", return_value=revised_at),
+        ):
+            updated = await store.update_async("webhook-123", url="https://example.com/new")
+
+        assert updated is None
+        query, *params = conn.execute.await_args.args
+        assert "updated_at = to_timestamp($2)" in query
+        assert params == ["https://example.com/new", revised_at, "webhook-123"]
 
     def test_row_to_config_accepts_native_jsonb_sequence(self, postgres_store) -> None:
         """Postgres JSONB rows may already be decoded into Python sequences."""

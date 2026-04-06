@@ -17,7 +17,12 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from aragora.pipeline.decision_plan.core import DecisionPlan
 
+from aragora.pipeline.backbone_errors import (
+    BackbonePersistenceError,
+    FAIL_CLOSED_BACKBONE_MESSAGE,
+)
 from aragora.pipeline.backbone_runtime import BackboneRuntime
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -349,6 +354,7 @@ class PlansHandler(BaseHandler):
         auto_execute = body.get("auto_execute", False)
         execution_scheduled = False
         launch: dict[str, Any] | None = None
+        execution_error = ""
         if auto_execute:
             try:
                 from aragora.pipeline.canonical_execution import (
@@ -361,6 +367,7 @@ class PlansHandler(BaseHandler):
                     plan,
                     auth_context=user,
                     execution_mode=body.get("execution_mode"),
+                    safety_mode=SafetyMode.INTERACTIVE,
                 )
                 schedule_coroutine(
                     execute_queued_plan(
@@ -379,8 +386,12 @@ class PlansHandler(BaseHandler):
                     launch.get("execution_id"),
                 )
                 _fire_plan_notification("execution_started", plan)
+            except BackbonePersistenceError as exc:
+                logger.warning("Auto-execution blocked for plan %s: %s", plan_id, exc)
+                execution_error = FAIL_CLOSED_BACKBONE_MESSAGE
             except (ImportError, RuntimeError, AttributeError, ValueError, TypeError) as exc:
                 logger.warning("Auto-execution scheduling failed for plan %s: %s", plan_id, exc)
+                execution_error = str(exc)
 
         response: dict[str, Any] = {
             "plan_id": plan_id,
@@ -398,6 +409,8 @@ class PlansHandler(BaseHandler):
                     "record_status": launch.get("status"),
                 }
             )
+        if execution_error:
+            response["execution_error"] = execution_error
         return json_response(response)
 
     # -------------------------------------------------------------------------
@@ -507,6 +520,7 @@ class PlansHandler(BaseHandler):
                 plan,
                 auth_context=user,
                 execution_mode=execution_mode,
+                safety_mode=SafetyMode.INTERACTIVE,
             )
             schedule_coroutine(
                 execute_queued_plan(
@@ -518,6 +532,9 @@ class PlansHandler(BaseHandler):
                 ),
                 name=f"plan-execute-{plan_id[:8]}",
             )
+        except BackbonePersistenceError as exc:
+            logger.warning("Interactive execution blocked for plan %s: %s", plan_id, exc)
+            return error_response(FAIL_CLOSED_BACKBONE_MESSAGE, 503)
         except (ImportError, RuntimeError, AttributeError, ValueError, TypeError) as exc:
             logger.error("Failed to schedule execution for plan %s: %s", plan_id, exc)
             return error_response(f"Failed to schedule execution: {exc}", 500)

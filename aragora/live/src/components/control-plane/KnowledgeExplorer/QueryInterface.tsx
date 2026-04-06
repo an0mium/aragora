@@ -122,7 +122,7 @@ export function QueryInterface({
               w-full pl-10 pr-20 py-3
               bg-surface border border-border rounded-lg
               text-text placeholder:text-text-muted
-              focus:border-acid-green focus:outline-none focus:ring-1 focus:ring-acid-green/30
+              focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-acid-green/30
               disabled:opacity-50
               transition-colors
             `}
@@ -134,12 +134,12 @@ export function QueryInterface({
             disabled={loading || !value.trim()}
             className={`
               absolute right-2 top-1/2 -translate-y-1/2
-              px-3 py-1.5 text-sm font-mono rounded
+              px-3 py-1.5 text-sm font-theme-data rounded
               transition-colors
               ${
                 loading || !value.trim()
                   ? 'bg-surface text-text-muted cursor-not-allowed'
-                  : 'bg-acid-green text-bg hover:bg-acid-green/90'
+                  : 'bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/90'
               }
             `}
           >
@@ -162,7 +162,7 @@ export function QueryInterface({
               <button
                 key={index}
                 onClick={() => handleSuggestionClick(query)}
-                className="w-full text-left px-3 py-2 text-sm text-text hover:bg-acid-green/10 transition-colors"
+                className="w-full text-left px-3 py-2 text-sm text-text hover:bg-[var(--accent)]/10 transition-colors"
               >
                 <span className="text-text-muted mr-2">↻</span>
                 {query}

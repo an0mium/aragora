@@ -29,7 +29,7 @@ export function ApiError({
   if (compact) {
     return (
       <div
-        className={`bg-warning/10 border border-warning/30 p-2 text-warning text-xs font-mono ${className}`}
+        className={`bg-warning/10 border border-warning/30 p-2 text-warning text-xs font-theme-data ${className}`}
         role="alert"
         aria-live="assertive"
       >
@@ -50,7 +50,7 @@ export function ApiError({
 
   return (
     <div
-      className={`bg-warning/10 border border-warning/30 p-4 font-mono ${className}`}
+      className={`bg-warning/10 border border-warning/30 p-4 font-theme-data ${className}`}
       role="alert"
       aria-live="assertive"
     >

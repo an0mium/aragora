@@ -107,14 +107,23 @@ def check_runner_freshness(
         "verified_target": 0,
         "results": [],
     }
-    if requested_runner_type == "claude":
+    if requested_runner_type in {"claude", "codex"}:
         if verified_runner_target is None:
+            default_verified_target = 2 if requested_runner_type == "claude" else 1
             try:
                 verified_target = max(
-                    0, int(str((env or os.environ).get("ARAGORA_BOSS_VERIFIED_RUNNER_TARGET", "2")))
+                    0,
+                    int(
+                        str(
+                            (env or os.environ).get(
+                                "ARAGORA_BOSS_VERIFIED_RUNNER_TARGET",
+                                str(default_verified_target),
+                            )
+                        )
+                    ),
                 )
             except ValueError:
-                verified_target = 2
+                verified_target = default_verified_target
         else:
             verified_target = max(0, int(verified_runner_target))
         if runner_probe_limit is None:

@@ -236,7 +236,7 @@ export function DebateViewer({ debateId, wsUrl = DEFAULT_WS_URL }: DebateViewerP
 
 function Header() {
   return (
-    <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+    <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/">
           <AsciiBannerCompact connected={true} />
@@ -244,7 +244,7 @@ function Header() {
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+            className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
           >
             [BACK TO LIVE]
           </Link>
@@ -258,7 +258,7 @@ function Header() {
 function LoadingState() {
   return (
     <div className="flex items-center justify-center py-20">
-      <div className="text-acid-green font-mono animate-pulse">{'>'} LOADING DEBATE...</div>
+      <div className="text-[var(--accent)] font-theme-data animate-pulse">{'>'} LOADING DEBATE...</div>
     </div>
   );
 }
@@ -268,7 +268,7 @@ function ErrorState({ error }: { error: string }) {
     <div className="bg-warning/10 border border-warning/30 rounded-lg p-6 text-center">
       <div className="text-warning text-2xl mb-2">{'>'} ERROR</div>
       <div className="text-text-muted">{error}</div>
-      <Link href="/" className="inline-block mt-4 text-acid-green hover:underline font-mono">
+      <Link href="/" className="inline-block mt-4 text-[var(--accent)] hover:underline font-theme-data">
         [RETURN HOME]
       </Link>
     </div>
@@ -277,20 +277,20 @@ function ErrorState({ error }: { error: string }) {
 
 function Footer() {
   return (
-    <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-      <div className="text-acid-green/50 mb-2">{'═'.repeat(40)}</div>
+    <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+      <div className="text-[var(--accent)]/50 mb-2">{'═'.repeat(40)}</div>
       <p className="text-text-muted">{'>'} AGORA DEBATE VIEWER // PERMALINK</p>
-      <p className="text-acid-cyan mt-2">
+      <p className="text-[var(--acid-cyan)] mt-2">
         <a
           href="https://aragora.ai"
-          className="hover:text-acid-green transition-colors"
+          className="hover:text-[var(--accent)] transition-colors"
           target="_blank"
           rel="noopener noreferrer"
         >
           [ ARAGORA.AI ]
         </a>
       </p>
-      <div className="text-acid-green/50 mt-4">{'═'.repeat(40)}</div>
+      <div className="text-[var(--accent)]/50 mt-4">{'═'.repeat(40)}</div>
     </footer>
   );
 }

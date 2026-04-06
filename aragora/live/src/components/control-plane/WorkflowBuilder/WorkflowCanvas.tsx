@@ -464,7 +464,7 @@ export function WorkflowCanvas({
         >
           +
         </button>
-        <span className="text-xs font-mono text-text-muted w-12 text-center">
+        <span className="text-xs font-theme-data text-text-muted w-12 text-center">
           {Math.round(zoom * 100)}%
         </span>
         <button

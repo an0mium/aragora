@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
+import { apiPost } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // Types matching backend audit_trail.py response shapes
@@ -54,6 +55,59 @@ interface VerifyResult {
   computed_checksum: string;
   match: boolean;
   error?: string;
+  request_failed?: boolean;
+}
+
+type VerifyResultState = 'valid' | 'invalid' | 'error' | 'unavailable';
+
+const VERIFY_RESULT_STYLES: Record<VerifyResultState, string> = {
+  valid: 'bg-[var(--acid-green)]/5 border-[var(--acid-green)]/30 text-[var(--acid-green)]',
+  invalid: 'bg-red-500/5 border-red-500/30 text-red-400',
+  error: 'bg-red-500/5 border-red-500/30 text-red-400',
+  unavailable: 'bg-yellow-500/5 border-yellow-500/30 text-yellow-300',
+};
+
+const VERIFY_RESULT_LABELS: Record<VerifyResultState, string> = {
+  valid: '[VALID]',
+  invalid: '[INVALID]',
+  error: '[ERROR]',
+  unavailable: '[UNAVAILABLE]',
+};
+
+function getVerifyResultState(result: VerifyResult): VerifyResultState {
+  if (result.request_failed) {
+    return 'unavailable';
+  }
+  if (!result.valid && result.error && !result.stored_checksum && !result.computed_checksum) {
+    return 'error';
+  }
+  return result.valid ? 'valid' : 'invalid';
+}
+
+function getVerifyErrorMessage(error: unknown): { message: string; requestFailed: boolean } {
+  if (error instanceof Error && error.message) {
+    const apiErrorMatch = error.message.match(/^API Error \((\d+)\):\s*([\s\S]*)$/);
+    if (apiErrorMatch) {
+      const [, , rawPayload] = apiErrorMatch;
+      const trimmedPayload = rawPayload.trim();
+      if (!trimmedPayload) {
+        return { message: error.message, requestFailed: false };
+      }
+      try {
+        const parsed = JSON.parse(trimmedPayload) as { error?: unknown };
+        if (typeof parsed.error === 'string' && parsed.error.trim()) {
+          return { message: parsed.error, requestFailed: false };
+        }
+      } catch {
+        // Fall back to the raw response body when it is not JSON.
+      }
+      return { message: trimmedPayload, requestFailed: false };
+    }
+
+    return { message: error.message, requestFailed: true };
+  }
+
+  return { message: 'Verification failed. Please retry.', requestFailed: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -61,7 +115,7 @@ interface VerifyResult {
 // ---------------------------------------------------------------------------
 
 function VerdictBadge({ verdict }: { verdict: string | null }) {
-  if (!verdict) return <span className="text-[var(--text-muted)] text-xs font-mono">--</span>;
+  if (!verdict) return <span className="text-[var(--text-muted)] text-xs font-theme-data">--</span>;
 
   const colors: Record<string, string> = {
     approved: 'text-[var(--acid-green)] bg-[var(--acid-green)]/10 border-[var(--acid-green)]/30',
@@ -73,7 +127,7 @@ function VerdictBadge({ verdict }: { verdict: string | null }) {
   const style = colors[verdict.toLowerCase()] || colors.inconclusive;
 
   return (
-    <span className={`px-2 py-0.5 text-[10px] font-mono uppercase rounded border ${style}`}>
+    <span className={`px-2 py-0.5 text-[10px] font-theme-data uppercase rounded border ${style}`}>
       {verdict}
     </span>
   );
@@ -89,14 +143,14 @@ function RiskBadge({ level }: { level: string | null }) {
   };
 
   return (
-    <span className={`px-1.5 py-0.5 text-[10px] font-mono rounded ${colors[level.toLowerCase()] || 'text-[var(--text-muted)] bg-[var(--surface)]'}`}>
+    <span className={`px-1.5 py-0.5 text-[10px] font-theme-data rounded ${colors[level.toLowerCase()] || 'text-[var(--text-muted)] bg-[var(--surface)]'}`}>
       {level.toUpperCase()}
     </span>
   );
 }
 
 function ConfidenceBar({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-[var(--text-muted)] text-xs font-mono">--</span>;
+  if (value == null) return <span className="text-[var(--text-muted)] text-xs font-theme-data">--</span>;
 
   const pct = Math.round(value * 100);
   const color = pct >= 80 ? 'bg-[var(--acid-green)]' : pct >= 50 ? 'bg-yellow-400' : 'bg-red-400';
@@ -106,15 +160,15 @@ function ConfidenceBar({ value }: { value: number | null }) {
       <div className="w-16 h-1.5 bg-[var(--bg)] rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className="text-xs font-mono text-[var(--text-muted)]">{pct}%</span>
+      <span className="text-xs font-theme-data text-[var(--text-muted)]">{pct}%</span>
     </div>
   );
 }
 
 function ChecksumDisplay({ checksum }: { checksum: string | null }) {
-  if (!checksum) return <span className="text-[var(--text-muted)] text-xs font-mono">--</span>;
+  if (!checksum) return <span className="text-[var(--text-muted)] text-xs font-theme-data">--</span>;
   return (
-    <span className="text-[10px] font-mono text-purple-400" title={checksum}>
+    <span className="text-[10px] font-theme-data text-purple-400" title={checksum}>
       {checksum.substring(0, 12)}...
     </span>
   );
@@ -183,13 +237,24 @@ export default function AuditTrailPage() {
       const endpoint = type === 'trail'
         ? `/api/v1/audit-trails/${id}/verify`
         : `/api/v1/receipts/${id}/verify`;
-      const response = await fetch(endpoint, { method: 'POST' });
-      if (response.ok) {
-        const data = await response.json();
-        setVerifyResult(data);
+      const data = await apiPost<VerifyResult>(endpoint);
+      setVerifyResult(data);
+    } catch (error) {
+      const { message, requestFailed } = getVerifyErrorMessage(error);
+      const failureResult: VerifyResult = {
+        valid: false,
+        request_failed: requestFailed,
+        stored_checksum: '',
+        computed_checksum: '',
+        match: false,
+        error: message,
+      };
+      if (type === 'trail') {
+        failureResult.trail_id = id;
+      } else {
+        failureResult.receipt_id = id;
       }
-    } catch {
-      // verification failed silently
+      setVerifyResult(failureResult);
     } finally {
       setVerifying(null);
     }
@@ -197,6 +262,10 @@ export default function AuditTrailPage() {
 
   const isLoading = activeTab === 'trails' ? trailsLoading : receiptsLoading;
   const error = activeTab === 'trails' ? trailsError : receiptsError;
+  const verifyState = verifyResult ? getVerifyResultState(verifyResult) : null;
+  const showChecksumComparison = Boolean(
+    verifyResult && (verifyResult.stored_checksum || verifyResult.computed_checksum),
+  );
 
   return (
     <>
@@ -210,17 +279,17 @@ export default function AuditTrailPage() {
             <div className="flex items-center gap-2 mb-2">
               <Link
                 href="/audit"
-                className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
               >
                 Audit
               </Link>
               <span className="text-[var(--text-muted)]">/</span>
-              <span className="text-xs font-mono text-[var(--acid-green)]">Trail</span>
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">Trail</span>
             </div>
-            <h1 className="text-xl font-mono text-[var(--acid-green)]">
+            <h1 className="text-xl font-theme-data text-[var(--acid-green)]">
               {'>'} AUDIT TRAIL & DECISION RECEIPTS
             </h1>
-            <p className="text-xs text-[var(--text-muted)] font-mono mt-1">
+            <p className="text-xs text-[var(--text-muted)] font-theme-data mt-1">
               Cryptographically verified audit trails and decision receipts.
               Full provenance for compliance documentation with SHA-256 integrity checks.
             </p>
@@ -235,7 +304,7 @@ export default function AuditTrailPage() {
               <button
                 key={key}
                 onClick={() => { setActiveTab(key); setVerifyResult(null); }}
-                className={`px-4 py-2 font-mono text-sm border transition-colors ${
+                className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                   activeTab === key
                     ? 'border-[var(--acid-green)] bg-[var(--acid-green)]/10 text-[var(--acid-green)]'
                     : 'border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -248,36 +317,41 @@ export default function AuditTrailPage() {
 
           {/* Error State */}
           {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-sm">
               Failed to load data. The server may be unreachable.
             </div>
           )}
 
           {/* Verification Result */}
           {verifyResult && (
-            <div className={`mb-6 p-4 border font-mono text-sm ${
-              verifyResult.valid
-                ? 'bg-[var(--acid-green)]/5 border-[var(--acid-green)]/30 text-[var(--acid-green)]'
-                : 'bg-red-500/5 border-red-500/30 text-red-400'
-            }`}>
+            <div className={`mb-6 p-4 border font-theme-data text-sm ${VERIFY_RESULT_STYLES[verifyState!]}`}>
               <div className="flex items-center gap-3 mb-2">
-                <span className="text-lg">{verifyResult.valid ? '[VALID]' : '[INVALID]'}</span>
+                <span className="text-lg">{VERIFY_RESULT_LABELS[verifyState!]}</span>
                 <span className="text-xs text-[var(--text-muted)]">
                   {verifyResult.trail_id || verifyResult.receipt_id}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-[var(--text-muted)]">Stored: </span>
-                  <span className="text-purple-400">{verifyResult.stored_checksum || '--'}</span>
+              {showChecksumComparison && (
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[var(--text-muted)]">Stored: </span>
+                    <span className="text-purple-400">{verifyResult.stored_checksum || '--'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">Computed: </span>
+                    <span className="text-purple-400">{verifyResult.computed_checksum || '--'}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[var(--text-muted)]">Computed: </span>
-                  <span className="text-purple-400">{verifyResult.computed_checksum || '--'}</span>
+              )}
+              {verifyResult.request_failed && (
+                <div className="mt-2 text-xs text-[var(--text-muted)]">
+                  Verification could not reach the backend, so no checksum comparison was performed.
                 </div>
-              </div>
+              )}
               {verifyResult.error && (
-                <div className="mt-2 text-xs text-red-400">{verifyResult.error}</div>
+                <div className={`mt-2 text-xs ${verifyResult.request_failed ? 'text-yellow-200' : 'text-red-400'}`}>
+                  {verifyResult.error}
+                </div>
               )}
               <button
                 onClick={() => setVerifyResult(null)}
@@ -297,7 +371,7 @@ export default function AuditTrailPage() {
                   <select
                     value={verdictFilter}
                     onChange={(e) => { setVerdictFilter(e.target.value); setTrailOffset(0); }}
-                    className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+                    className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
                   >
                     <option value="">All Verdicts</option>
                     <option value="approved">Approved</option>
@@ -305,7 +379,7 @@ export default function AuditTrailPage() {
                     <option value="conditional">Conditional</option>
                     <option value="inconclusive">Inconclusive</option>
                   </select>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     {trailsTotal} trail{trailsTotal !== 1 ? 's' : ''} total
                   </span>
                 </div>
@@ -315,7 +389,7 @@ export default function AuditTrailPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-[10px] font-mono text-[var(--text-muted)] uppercase border-b border-[var(--border)]">
+                        <tr className="text-left text-[10px] font-theme-data text-[var(--text-muted)] uppercase border-b border-[var(--border)]">
                           <th className="px-4 py-3">Trail ID</th>
                           <th className="px-4 py-3">Created</th>
                           <th className="px-4 py-3">Verdict</th>
@@ -329,13 +403,13 @@ export default function AuditTrailPage() {
                       <tbody>
                         {isLoading ? (
                           <tr>
-                            <td colSpan={8} className="px-4 py-12 text-center text-[var(--text-muted)] font-mono animate-pulse">
+                            <td colSpan={8} className="px-4 py-12 text-center text-[var(--text-muted)] font-theme-data animate-pulse">
                               Loading audit trails...
                             </td>
                           </tr>
                         ) : trails.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="px-4 py-12 text-center text-[var(--text-muted)] font-mono">
+                            <td colSpan={8} className="px-4 py-12 text-center text-[var(--text-muted)] font-theme-data">
                               No audit trails found. Run a Gauntlet to generate trails.
                             </td>
                           </tr>
@@ -346,11 +420,11 @@ export default function AuditTrailPage() {
                               className="border-b border-[var(--border)]/50 hover:bg-[var(--acid-green)]/5 transition-colors"
                             >
                               <td className="px-4 py-3">
-                                <span className="font-mono text-xs text-[var(--acid-cyan)]">
+                                <span className="font-theme-data text-xs text-[var(--acid-cyan)]">
                                   {trail.trail_id.substring(0, 20)}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-xs font-mono text-[var(--text-muted)]">
+                              <td className="px-4 py-3 text-xs font-theme-data text-[var(--text-muted)]">
                                 {formatTimestamp(trail.created_at)}
                               </td>
                               <td className="px-4 py-3">
@@ -359,10 +433,10 @@ export default function AuditTrailPage() {
                               <td className="px-4 py-3">
                                 <ConfidenceBar value={trail.confidence} />
                               </td>
-                              <td className="px-4 py-3 font-mono text-xs text-[var(--text)]">
+                              <td className="px-4 py-3 font-theme-data text-xs text-[var(--text)]">
                                 {trail.total_findings ?? '--'}
                               </td>
-                              <td className="px-4 py-3 text-xs font-mono text-[var(--text-muted)]">
+                              <td className="px-4 py-3 text-xs font-theme-data text-[var(--text-muted)]">
                                 {trail.duration_seconds != null
                                   ? `${trail.duration_seconds.toFixed(1)}s`
                                   : '--'}
@@ -374,7 +448,7 @@ export default function AuditTrailPage() {
                                 <button
                                   onClick={() => handleVerify('trail', trail.trail_id)}
                                   disabled={verifying === trail.trail_id}
-                                  className="px-2 py-1 text-[10px] font-mono text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-50"
+                                  className="px-2 py-1 text-[10px] font-theme-data text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-50"
                                 >
                                   {verifying === trail.trail_id ? 'VERIFYING...' : 'VERIFY'}
                                 </button>
@@ -393,17 +467,17 @@ export default function AuditTrailPage() {
                     <button
                       onClick={() => setTrailOffset(Math.max(0, trailOffset - PAGE_SIZE))}
                       disabled={trailOffset === 0}
-                      className="px-3 py-1.5 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
+                      className="px-3 py-1.5 text-xs font-theme-data text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
                     >
                       PREV
                     </button>
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                    <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                       {trailOffset + 1}-{Math.min(trailOffset + PAGE_SIZE, trailsTotal)} of {trailsTotal}
                     </span>
                     <button
                       onClick={() => setTrailOffset(trailOffset + PAGE_SIZE)}
                       disabled={trailOffset + PAGE_SIZE >= trailsTotal}
-                      className="px-3 py-1.5 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
+                      className="px-3 py-1.5 text-xs font-theme-data text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
                     >
                       NEXT
                     </button>
@@ -416,7 +490,7 @@ export default function AuditTrailPage() {
             {activeTab === 'receipts' && (
               <div>
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                  <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                     {receiptsTotal} receipt{receiptsTotal !== 1 ? 's' : ''} total
                   </span>
                 </div>
@@ -425,7 +499,7 @@ export default function AuditTrailPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="text-left text-[10px] font-mono text-[var(--text-muted)] uppercase border-b border-[var(--border)]">
+                        <tr className="text-left text-[10px] font-theme-data text-[var(--text-muted)] uppercase border-b border-[var(--border)]">
                           <th className="px-4 py-3">Receipt ID</th>
                           <th className="px-4 py-3">Timestamp</th>
                           <th className="px-4 py-3">Verdict</th>
@@ -439,13 +513,13 @@ export default function AuditTrailPage() {
                       <tbody>
                         {receiptsLoading ? (
                           <tr>
-                            <td colSpan={8} className="px-4 py-12 text-center text-[var(--text-muted)] font-mono animate-pulse">
+                            <td colSpan={8} className="px-4 py-12 text-center text-[var(--text-muted)] font-theme-data animate-pulse">
                               Loading receipts...
                             </td>
                           </tr>
                         ) : receipts.length === 0 ? (
                           <tr>
-                            <td colSpan={8} className="px-4 py-12 text-center text-[var(--text-muted)] font-mono">
+                            <td colSpan={8} className="px-4 py-12 text-center text-[var(--text-muted)] font-theme-data">
                               No decision receipts found. Run a Gauntlet to generate receipts.
                             </td>
                           </tr>
@@ -456,11 +530,11 @@ export default function AuditTrailPage() {
                               className="border-b border-[var(--border)]/50 hover:bg-[var(--acid-green)]/5 transition-colors"
                             >
                               <td className="px-4 py-3">
-                                <span className="font-mono text-xs text-[var(--acid-cyan)]">
+                                <span className="font-theme-data text-xs text-[var(--acid-cyan)]">
                                   {receipt.receipt_id.substring(0, 20)}
                                 </span>
                               </td>
-                              <td className="px-4 py-3 text-xs font-mono text-[var(--text-muted)]">
+                              <td className="px-4 py-3 text-xs font-theme-data text-[var(--text-muted)]">
                                 {formatTimestamp(receipt.timestamp)}
                               </td>
                               <td className="px-4 py-3">
@@ -472,7 +546,7 @@ export default function AuditTrailPage() {
                               <td className="px-4 py-3">
                                 <RiskBadge level={receipt.risk_level} />
                               </td>
-                              <td className="px-4 py-3 font-mono text-xs text-[var(--text)]">
+                              <td className="px-4 py-3 font-theme-data text-xs text-[var(--text)]">
                                 {receipt.findings_count ?? '--'}
                               </td>
                               <td className="px-4 py-3">
@@ -482,7 +556,7 @@ export default function AuditTrailPage() {
                                 <button
                                   onClick={() => handleVerify('receipt', receipt.receipt_id)}
                                   disabled={verifying === receipt.receipt_id}
-                                  className="px-2 py-1 text-[10px] font-mono text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-50"
+                                  className="px-2 py-1 text-[10px] font-theme-data text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/10 transition-colors disabled:opacity-50"
                                 >
                                   {verifying === receipt.receipt_id ? 'VERIFYING...' : 'VERIFY'}
                                 </button>
@@ -501,17 +575,17 @@ export default function AuditTrailPage() {
                     <button
                       onClick={() => setReceiptOffset(Math.max(0, receiptOffset - PAGE_SIZE))}
                       disabled={receiptOffset === 0}
-                      className="px-3 py-1.5 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
+                      className="px-3 py-1.5 text-xs font-theme-data text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
                     >
                       PREV
                     </button>
-                    <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                    <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                       {receiptOffset + 1}-{Math.min(receiptOffset + PAGE_SIZE, receiptsTotal)} of {receiptsTotal}
                     </span>
                     <button
                       onClick={() => setReceiptOffset(receiptOffset + PAGE_SIZE)}
                       disabled={receiptOffset + PAGE_SIZE >= receiptsTotal}
-                      className="px-3 py-1.5 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
+                      className="px-3 py-1.5 text-xs font-theme-data text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 disabled:opacity-30 transition-colors"
                     >
                       NEXT
                     </button>
@@ -525,25 +599,25 @@ export default function AuditTrailPage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/audit"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Audit Dashboard
             </Link>
             <Link
               href="/gauntlet"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Run Gauntlet
             </Link>
             <Link
               href="/receipts"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Receipt Viewer
             </Link>
             <Link
               href="/compliance"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Compliance
             </Link>
@@ -551,7 +625,7 @@ export default function AuditTrailPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
           <div className="text-[var(--acid-green)]/50 mb-2" aria-hidden="true">
             {'='.repeat(40)}
           </div>

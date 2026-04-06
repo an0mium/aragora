@@ -124,13 +124,13 @@ export function GauntletDashboard({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="font-mono text-acid-green text-lg flex items-center gap-2">
+        <h2 className="font-theme-data text-[var(--accent)] text-lg flex items-center gap-2">
           <span className="text-xl">{'\u2694\uFE0F'}</span> GAUNTLET DASHBOARD
         </h2>
         <button
           onClick={fetchResults}
           disabled={loading}
-          className="px-4 py-2 text-sm font-mono border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+          className="px-4 py-2 text-sm font-theme-data border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
         >
           {loading ? 'LOADING...' : 'REFRESH'}
         </button>
@@ -154,15 +154,15 @@ export function GauntletDashboard({
 
       {/* Filters */}
       <div className="flex items-center gap-2">
-        <span className="text-xs font-mono text-text-muted">FILTER:</span>
+        <span className="text-xs font-theme-data text-text-muted">FILTER:</span>
         {['PASS', 'CONDITIONAL', 'FAIL'].map(verdict => (
           <button
             key={verdict}
             onClick={() => setVerdictFilter(verdictFilter === verdict ? null : verdict)}
-            className={`px-2 py-1 text-xs font-mono border rounded transition-colors ${
+            className={`px-2 py-1 text-xs font-theme-data border rounded transition-colors ${
               verdictFilter === verdict
                 ? `${VERDICT_CONFIG[verdict]?.bg} ${VERDICT_CONFIG[verdict]?.border} ${VERDICT_CONFIG[verdict]?.text}`
-                : 'bg-surface border-border text-text-muted hover:border-acid-green/30'
+                : 'bg-surface border-border text-text-muted hover:border-[var(--accent)]/30'
             }`}
           >
             {verdict}
@@ -171,7 +171,7 @@ export function GauntletDashboard({
         {verdictFilter && (
           <button
             onClick={() => setVerdictFilter(null)}
-            className="text-xs font-mono text-text-muted hover:text-acid-green"
+            className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)]"
           >
             [CLEAR]
           </button>
@@ -179,7 +179,7 @@ export function GauntletDashboard({
         <div className="flex-1" />
         <button
           onClick={() => setShowCompare(!showCompare)}
-          className={`px-3 py-1 text-xs font-mono border rounded transition-colors ${
+          className={`px-3 py-1 text-xs font-theme-data border rounded transition-colors ${
             showCompare
               ? 'bg-accent/20 border-accent text-accent'
               : 'border-border text-text-muted hover:border-accent/30'
@@ -192,7 +192,7 @@ export function GauntletDashboard({
       {/* Error */}
       {error && (
         <div className="p-4 bg-warning/10 border border-warning/30 rounded-lg">
-          <div className="text-warning font-mono text-sm">{error}</div>
+          <div className="text-warning font-theme-data text-sm">{error}</div>
         </div>
       )}
 
@@ -214,23 +214,23 @@ export function GauntletDashboard({
         {/* Results List */}
         <div className="lg:col-span-2 bg-surface border border-border rounded-lg overflow-hidden">
           <div className="px-4 py-3 border-b border-border bg-bg/50">
-            <span className="text-xs font-mono text-acid-green uppercase">
+            <span className="text-xs font-theme-data text-[var(--accent)] uppercase">
               {'>'} RECENT GAUNTLET RUNS ({results.length})
             </span>
             {showCompare && selectedResult && !compareResult && (
-              <span className="ml-4 text-xs font-mono text-accent animate-pulse">
+              <span className="ml-4 text-xs font-theme-data text-accent animate-pulse">
                 Select another run to compare...
               </span>
             )}
           </div>
           <div className="max-h-[500px] overflow-y-auto divide-y divide-border">
             {loading && results.length === 0 && (
-              <div className="p-8 text-center text-acid-green font-mono animate-pulse">
+              <div className="p-8 text-center text-[var(--accent)] font-theme-data animate-pulse">
                 Loading results...
               </div>
             )}
             {!loading && results.length === 0 && (
-              <div className="p-8 text-center text-text-muted font-mono">
+              <div className="p-8 text-center text-text-muted font-theme-data">
                 No gauntlet runs found
               </div>
             )}
@@ -250,31 +250,31 @@ export function GauntletDashboard({
         {/* Detail Panel */}
         <div className="space-y-4">
           {/* Selected Result Details */}
-          <div className="bg-surface border border-acid-cyan/30 rounded-lg p-4">
-            <h3 className="font-mono text-acid-cyan text-sm mb-4">RESULT DETAILS</h3>
+          <div className="bg-surface border border-[var(--acid-cyan)]/30 rounded-lg p-4">
+            <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-4">RESULT DETAILS</h3>
             {selectedResult ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <VerdictBadge verdict={selectedResult.verdict} />
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     {selectedResult.gauntlet_id.slice(-12)}
                   </span>
                 </div>
 
-                <div className="p-3 bg-bg/50 rounded text-xs font-mono text-text">
+                <div className="p-3 bg-bg/50 rounded text-xs font-theme-data text-text">
                   {selectedResult.input_summary}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-2 bg-bg/50 rounded">
                     <div className="text-xs text-text-muted">Confidence</div>
-                    <div className="text-lg font-mono text-acid-green">
+                    <div className="text-lg font-theme-data text-[var(--accent)]">
                       {(selectedResult.confidence * 100).toFixed(0)}%
                     </div>
                   </div>
                   <div className="p-2 bg-bg/50 rounded">
                     <div className="text-xs text-text-muted">Robustness</div>
-                    <div className="text-lg font-mono text-acid-cyan">
+                    <div className="text-lg font-theme-data text-[var(--acid-cyan)]">
                       {(selectedResult.robustness_score * 100).toFixed(0)}%
                     </div>
                   </div>
@@ -282,22 +282,22 @@ export function GauntletDashboard({
 
                 <div className="flex flex-wrap gap-2">
                   {selectedResult.critical_count > 0 && (
-                    <span className="px-2 py-1 bg-acid-red/20 text-acid-red text-xs font-mono rounded">
+                    <span className="px-2 py-1 bg-acid-red/20 text-acid-red text-xs font-theme-data rounded">
                       {selectedResult.critical_count} Critical
                     </span>
                   )}
                   {selectedResult.high_count > 0 && (
-                    <span className="px-2 py-1 bg-warning/20 text-warning text-xs font-mono rounded">
+                    <span className="px-2 py-1 bg-warning/20 text-warning text-xs font-theme-data rounded">
                       {selectedResult.high_count} High
                     </span>
                   )}
                   {(selectedResult.medium_count || 0) > 0 && (
-                    <span className="px-2 py-1 bg-acid-yellow/20 text-acid-yellow text-xs font-mono rounded">
+                    <span className="px-2 py-1 bg-acid-yellow/20 text-[var(--acid-yellow)] text-xs font-theme-data rounded">
                       {selectedResult.medium_count} Medium
                     </span>
                   )}
                   {(selectedResult.low_count || 0) > 0 && (
-                    <span className="px-2 py-1 bg-acid-cyan/20 text-acid-cyan text-xs font-mono rounded">
+                    <span className="px-2 py-1 bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] text-xs font-theme-data rounded">
                       {selectedResult.low_count} Low
                     </span>
                   )}
@@ -308,7 +308,7 @@ export function GauntletDashboard({
                     href={`${apiBase}/api/gauntlet/${selectedResult.gauntlet_id}/receipt?format=html`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 py-2 text-center text-xs font-mono bg-acid-green/10 border border-acid-green/30 text-acid-green hover:bg-acid-green/20 rounded transition-colors"
+                    className="flex-1 py-2 text-center text-xs font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/20 rounded transition-colors"
                   >
                     VIEW RECEIPT
                   </a>
@@ -316,14 +316,14 @@ export function GauntletDashboard({
                     href={`${apiBase}/api/gauntlet/${selectedResult.gauntlet_id}/heatmap?format=svg`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 py-2 text-center text-xs font-mono bg-acid-cyan/10 border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/20 rounded transition-colors"
+                    className="flex-1 py-2 text-center text-xs font-theme-data bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/20 rounded transition-colors"
                   >
                     SVG HEATMAP
                   </a>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8 text-text-muted font-mono text-sm">
+              <div className="text-center py-8 text-text-muted font-theme-data text-sm">
                 Select a result to view details
               </div>
             )}
@@ -332,9 +332,9 @@ export function GauntletDashboard({
           {/* Heatmap */}
           {selectedResult && (heatmapData || heatmapError) && (
             <div className="bg-surface border border-acid-yellow/30 rounded-lg p-4">
-              <h3 className="font-mono text-acid-yellow text-sm mb-4">RISK HEATMAP</h3>
+              <h3 className="font-theme-data text-[var(--acid-yellow)] text-sm mb-4">RISK HEATMAP</h3>
               {heatmapError ? (
-                <div className="p-3 bg-warning/10 border border-warning/30 rounded text-warning font-mono text-sm">
+                <div className="p-3 bg-warning/10 border border-warning/30 rounded text-warning font-theme-data text-sm">
                   {heatmapError}
                 </div>
               ) : heatmapData ? (
@@ -346,7 +346,7 @@ export function GauntletDashboard({
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-xs font-mono pt-4 border-t border-border">
+      <div className="flex flex-wrap gap-4 text-xs font-theme-data pt-4 border-t border-border">
         {Object.entries(VERDICT_CONFIG).slice(0, 5).map(([verdict, config]) => (
           <div key={verdict} className="flex items-center gap-2">
             <div className={`w-4 h-4 rounded ${config.bg} ${config.border} border flex items-center justify-center`}>

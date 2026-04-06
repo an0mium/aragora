@@ -213,18 +213,18 @@ export function ForceGraph({ nodes, width = 800, height = 500, onNodeClick }: Fo
         ref={svgRef}
         width={width}
         height={height}
-        className="bg-bg/50 rounded border border-acid-green/20"
+        className="bg-bg/50 rounded border border-[var(--accent)]/20"
         style={{ minHeight: '400px' }}
       />
 
       {/* Selected Node Details */}
       {selectedNode && (
-        <div className="absolute top-2 right-2 w-72 p-3 bg-surface border border-acid-green/30 rounded shadow-lg">
+        <div className="absolute top-2 right-2 w-72 p-3 bg-surface border border-[var(--accent)]/30 rounded shadow-lg">
           <div className="flex items-center justify-between mb-2">
-            <span className={`px-2 py-0.5 rounded text-xs font-mono ${
-              selectedNode.type === 'argument' ? 'bg-acid-green/20 text-acid-green' :
+            <span className={`px-2 py-0.5 rounded text-xs font-theme-data ${
+              selectedNode.type === 'argument' ? 'bg-[var(--accent)]/20 text-[var(--accent)]' :
               selectedNode.type === 'rebuttal' ? 'bg-acid-red/20 text-acid-red' :
-              selectedNode.type === 'synthesis' ? 'bg-acid-cyan/20 text-acid-cyan' :
+              selectedNode.type === 'synthesis' ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]' :
               'bg-surface text-text-muted'
             }`}>
               {selectedNode.type}
@@ -236,14 +236,14 @@ export function ForceGraph({ nodes, width = 800, height = 500, onNodeClick }: Fo
               [X]
             </button>
           </div>
-          <div className="font-mono text-xs text-acid-yellow mb-2">
+          <div className="font-theme-data text-xs text-[var(--acid-yellow)] mb-2">
             {selectedNode.agent}
           </div>
-          <p className="font-mono text-xs text-text leading-relaxed">
+          <p className="font-theme-data text-xs text-text leading-relaxed">
             {selectedNode.content}
           </p>
           {selectedNode.confidence !== undefined && (
-            <div className="mt-2 text-xs font-mono text-text-muted">
+            <div className="mt-2 text-xs font-theme-data text-text-muted">
               Confidence: {Math.round(selectedNode.confidence * 100)}%
             </div>
           )}
@@ -252,7 +252,7 @@ export function ForceGraph({ nodes, width = 800, height = 500, onNodeClick }: Fo
 
       {/* Controls */}
       <div className="absolute bottom-2 left-2 flex gap-2">
-        <div className="px-2 py-1 bg-surface/80 rounded text-xs font-mono text-text-muted">
+        <div className="px-2 py-1 bg-surface/80 rounded text-xs font-theme-data text-text-muted">
           Scroll to zoom | Drag nodes | Click for details
         </div>
       </div>

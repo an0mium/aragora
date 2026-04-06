@@ -282,9 +282,11 @@ class SlackWorkspaceStore:
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+        encryption_key = self._current_encryption_key()
+
         # Use SHA-256 of key as deterministic salt (16 bytes)
         # This provides domain separation while remaining deterministic
-        salt = hashlib.sha256(b"aragora-slack-token-salt:" + ENCRYPTION_KEY.encode()).digest()[:16]
+        salt = hashlib.sha256(b"aragora-slack-token-salt:" + encryption_key.encode()).digest()[:16]
 
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -292,14 +294,25 @@ class SlackWorkspaceStore:
             salt=salt,
             iterations=480000,  # OWASP recommended minimum for PBKDF2-SHA256
         )
-        return base64.urlsafe_b64encode(kdf.derive(ENCRYPTION_KEY.encode()))
+        return base64.urlsafe_b64encode(kdf.derive(encryption_key.encode()))
 
     def _derive_key_v1(self) -> bytes:
         """Derive key using legacy SHA-256 method (for backward compatibility)."""
         import base64
         import hashlib
 
-        return base64.urlsafe_b64encode(hashlib.sha256(ENCRYPTION_KEY.encode()).digest())
+        encryption_key = self._current_encryption_key()
+        return base64.urlsafe_b64encode(hashlib.sha256(encryption_key.encode()).digest())
+
+    @staticmethod
+    def _current_encryption_key() -> str:
+        """Resolve the active encryption key at call time.
+
+        This avoids stale import-time snapshots when the environment is loaded
+        after module import, while still preserving explicit test monkeypatches
+        of the module-level constant when no env override is present.
+        """
+        return os.environ.get("ARAGORA_ENCRYPTION_KEY", ENCRYPTION_KEY)
 
     def _encrypt_token(self, token: str) -> str:
         """Encrypt token using PBKDF2-derived key.
@@ -308,7 +321,7 @@ class SlackWorkspaceStore:
         - v2: PBKDF2HMAC with 480k iterations
         - (no prefix): Legacy SHA-256 single-pass
         """
-        if not ENCRYPTION_KEY:
+        if not self._current_encryption_key():
             return token
 
         try:
@@ -334,7 +347,7 @@ class SlackWorkspaceStore:
         - v2: prefix - PBKDF2HMAC derived key
         - No prefix - Legacy SHA-256 derived key
         """
-        if not ENCRYPTION_KEY:
+        if not self._current_encryption_key():
             return encrypted
 
         # Check if it looks like an unencrypted or revoked token
@@ -692,18 +705,30 @@ class SlackWorkspaceStore:
                     self.deactivate(workspace_id)
                 return None
 
-            # Update workspace with new tokens
-            workspace.access_token = result.get("access_token", workspace.access_token)
+            new_access_token = str(result.get("access_token") or "").strip()
+            if not new_access_token:
+                logger.error(
+                    "Token refresh returned no access token for workspace: %s",
+                    workspace_id,
+                )
+                return None
 
             # Handle new refresh token (rotation)
             new_refresh = result.get("refresh_token")
-            if new_refresh:
-                workspace.refresh_token = new_refresh
+            new_refresh_token = (
+                str(new_refresh).strip()
+                if str(new_refresh or "").strip()
+                else workspace.refresh_token
+            )
 
             # Calculate expiration time
             expires_in = result.get("expires_in")
-            if expires_in:
-                workspace.token_expires_at = time.time() + expires_in
+            new_expires_at = time.time() + expires_in if expires_in else workspace.token_expires_at
+
+            # Update workspace with validated tokens
+            workspace.access_token = new_access_token
+            workspace.refresh_token = new_refresh_token
+            workspace.token_expires_at = new_expires_at
 
             # Save updated workspace
             if self.save(workspace):

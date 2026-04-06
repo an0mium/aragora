@@ -43,7 +43,7 @@ export function OrgSetupStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-mono text-acid-green mb-2">
+        <h3 className="text-lg font-theme-data text-[var(--accent)] mb-2">
           Set Up Your Workspace
         </h3>
         <p className="text-sm text-text-muted">
@@ -53,7 +53,7 @@ export function OrgSetupStep() {
 
       {/* Organization Name */}
       <div>
-        <label className="block text-sm font-mono text-text mb-2">
+        <label className="block text-sm font-theme-data text-text mb-2">
           Organization Name *
         </label>
         <input
@@ -61,7 +61,7 @@ export function OrgSetupStep() {
           value={organizationName}
           onChange={(e) => handleNameChange(e.target.value)}
           placeholder="Acme Corp"
-          className="w-full px-4 py-2 bg-bg border border-acid-green/30 rounded text-text font-mono focus:border-acid-green focus:outline-none"
+          className="w-full px-4 py-2 bg-bg border border-[var(--accent)]/30 rounded text-text font-theme-data focus:border-[var(--accent)] focus:outline-none"
         />
         {organizationSlug && (
           <p className="text-xs text-text-muted mt-1">
@@ -72,7 +72,7 @@ export function OrgSetupStep() {
 
       {/* Team Size */}
       <div>
-        <label className="block text-sm font-mono text-text mb-2">
+        <label className="block text-sm font-theme-data text-text mb-2">
           Team Size *
         </label>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -80,10 +80,10 @@ export function OrgSetupStep() {
             <button
               key={size.value}
               onClick={() => setTeamSize(size.value)}
-              className={`px-3 py-2 border rounded text-sm font-mono transition-colors ${
+              className={`px-3 py-2 border rounded text-sm font-theme-data transition-colors ${
                 teamSize === size.value
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:border-acid-green/50'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:border-[var(--accent)]/50'
               }`}
             >
               {size.label}
@@ -94,7 +94,7 @@ export function OrgSetupStep() {
 
       {/* Use Case */}
       <div>
-        <label className="block text-sm font-mono text-text mb-2">
+        <label className="block text-sm font-theme-data text-text mb-2">
           Primary Use Case
         </label>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -104,11 +104,11 @@ export function OrgSetupStep() {
               onClick={() => setUseCase(uc.value)}
               className={`px-3 py-2 border rounded text-left transition-colors ${
                 useCase === uc.value
-                  ? 'border-acid-green bg-acid-green/10'
-                  : 'border-acid-green/30 hover:border-acid-green/50'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                  : 'border-[var(--accent)]/30 hover:border-[var(--accent)]/50'
               }`}
             >
-              <div className={`text-sm font-mono ${useCase === uc.value ? 'text-acid-green' : 'text-text'}`}>
+              <div className={`text-sm font-theme-data ${useCase === uc.value ? 'text-[var(--accent)]' : 'text-text'}`}>
                 {uc.label}
               </div>
               <div className="text-xs text-text-muted">{uc.description}</div>

@@ -208,11 +208,11 @@ export function ReportBuilder({
       <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
         <div className="flex items-center gap-2">
           <span className="text-lg"></span>
-          <h3 className="text-sm font-mono font-bold text-[var(--text)] uppercase">
+          <h3 className="text-sm font-theme-data font-bold text-[var(--text)] uppercase">
             Compliance Report Builder
           </h3>
         </div>
-        <div className="text-xs font-mono text-[var(--text-muted)]">
+        <div className="text-xs font-theme-data text-[var(--text-muted)]">
           Debate: {debateId.slice(0, 8)}...
         </div>
       </div>
@@ -222,7 +222,7 @@ export function ReportBuilder({
         <div className="p-4 space-y-4">
           {/* Framework Selection */}
           <div>
-            <label className="block text-xs font-mono text-[var(--text-muted)] mb-2 uppercase">
+            <label className="block text-xs font-theme-data text-[var(--text-muted)] mb-2 uppercase">
               Compliance Framework
             </label>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
@@ -237,8 +237,8 @@ export function ReportBuilder({
                   }`}
                 >
                   <div className="text-lg mb-1">{fw.icon}</div>
-                  <div className="text-xs font-mono font-bold">{fw.name}</div>
-                  <div className="text-[10px] font-mono opacity-70 mt-1">
+                  <div className="text-xs font-theme-data font-bold">{fw.name}</div>
+                  <div className="text-[10px] font-theme-data opacity-70 mt-1">
                     {fw.description.slice(0, 20)}...
                   </div>
                 </button>
@@ -255,7 +255,7 @@ export function ReportBuilder({
                 onChange={(e) => setIncludeEvidence(e.target.checked)}
                 className="accent-[var(--acid-green)]"
               />
-              <span className="text-xs font-mono text-[var(--text)]">
+              <span className="text-xs font-theme-data text-[var(--text)]">
                 Include Evidence Citations
               </span>
             </label>
@@ -266,7 +266,7 @@ export function ReportBuilder({
                 onChange={(e) => setIncludeChain(e.target.checked)}
                 className="accent-[var(--acid-green)]"
               />
-              <span className="text-xs font-mono text-[var(--text)]">
+              <span className="text-xs font-theme-data text-[var(--text)]">
                 Include Provenance Chain
               </span>
             </label>
@@ -277,7 +277,7 @@ export function ReportBuilder({
                 onChange={(e) => setIncludeTranscript(e.target.checked)}
                 className="accent-[var(--acid-green)]"
               />
-              <span className="text-xs font-mono text-[var(--text)]">
+              <span className="text-xs font-theme-data text-[var(--text)]">
                 Include Full Transcript
               </span>
             </label>
@@ -287,7 +287,7 @@ export function ReportBuilder({
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="w-full px-4 py-3 text-sm font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-3 text-sm font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {generating ? (
               <span className="animate-pulse">GENERATING REPORT...</span>
@@ -297,7 +297,7 @@ export function ReportBuilder({
           </button>
 
           {error && (
-            <div className="text-xs font-mono text-yellow-400 p-2 bg-yellow-500/10 border border-yellow-500/30">
+            <div className="text-xs font-theme-data text-yellow-400 p-2 bg-yellow-500/10 border border-yellow-500/30">
                Using demo data: {error}
             </div>
           )}
@@ -310,16 +310,16 @@ export function ReportBuilder({
           {/* Report Header */}
           <div className="flex items-center justify-between p-3 bg-[var(--bg)] border border-[var(--acid-green)]/30">
             <div>
-              <div className="text-sm font-mono text-[var(--acid-green)] font-bold">
+              <div className="text-sm font-theme-data text-[var(--acid-green)] font-bold">
                 {report.report_id}
               </div>
-              <div className="text-xs font-mono text-[var(--text-muted)]">
+              <div className="text-xs font-theme-data text-[var(--text-muted)]">
                 {report.framework.toUpperCase()} |{' '}
                 {new Date(report.generated_at).toLocaleString()}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="px-2 py-1 text-xs font-mono bg-green-500/20 text-green-400 border border-green-500/30">
+              <span className="px-2 py-1 text-xs font-theme-data bg-green-500/20 text-green-400 border border-green-500/30">
                  GENERATED
               </span>
             </div>
@@ -327,17 +327,17 @@ export function ReportBuilder({
 
           {/* Summary */}
           <div className="p-3 bg-[var(--bg)] border border-[var(--border)]">
-            <h4 className="text-xs font-mono text-[var(--text-muted)] mb-2 uppercase">
+            <h4 className="text-xs font-theme-data text-[var(--text-muted)] mb-2 uppercase">
               Summary
             </h4>
-            <p className="text-sm font-mono text-[var(--text)] leading-relaxed">
+            <p className="text-sm font-theme-data text-[var(--text)] leading-relaxed">
               {report.summary}
             </p>
           </div>
 
           {/* Sections Preview */}
           <div className="space-y-2">
-            <h4 className="text-xs font-mono text-[var(--text-muted)] uppercase">
+            <h4 className="text-xs font-theme-data text-[var(--text-muted)] uppercase">
               Report Sections
             </h4>
             {report.sections.map((section, i) => (
@@ -345,10 +345,10 @@ export function ReportBuilder({
                 key={i}
                 className="bg-[var(--bg)] border border-[var(--border)]"
               >
-                <summary className="px-3 py-2 text-xs font-mono text-[var(--text)] cursor-pointer hover:bg-[var(--surface)]">
+                <summary className="px-3 py-2 text-xs font-theme-data text-[var(--text)] cursor-pointer hover:bg-[var(--surface)]">
                   {section.title}
                 </summary>
-                <div className="px-3 py-2 border-t border-[var(--border)] text-xs font-mono text-[var(--text-muted)] whitespace-pre-wrap">
+                <div className="px-3 py-2 border-t border-[var(--border)] text-xs font-theme-data text-[var(--text-muted)] whitespace-pre-wrap">
                   {section.content}
                 </div>
               </details>
@@ -357,13 +357,13 @@ export function ReportBuilder({
 
           {/* Export Options */}
           <div className="flex items-center gap-4 pt-4 border-t border-[var(--border)]">
-            <span className="text-xs font-mono text-[var(--text-muted)]">Export as:</span>
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">Export as:</span>
             <div className="flex items-center gap-2">
               {(['markdown', 'json', 'pdf'] as ReportFormat[]).map((format) => (
                 <button
                   key={format}
                   onClick={() => setExportFormat(format)}
-                  className={`px-2 py-1 text-xs font-mono border transition-colors uppercase ${
+                  className={`px-2 py-1 text-xs font-theme-data border transition-colors uppercase ${
                     exportFormat === format
                       ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/50'
                       : 'bg-[var(--bg)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-cyan)]/30'
@@ -375,7 +375,7 @@ export function ReportBuilder({
             </div>
             <button
               onClick={handleExport}
-              className="ml-auto px-4 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+              className="ml-auto px-4 py-2 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
             >
                DOWNLOAD
             </button>
@@ -384,7 +384,7 @@ export function ReportBuilder({
           {/* New Report Button */}
           <button
             onClick={() => setReport(null)}
-            className="w-full px-3 py-2 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="w-full px-3 py-2 text-xs font-theme-data text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
              GENERATE NEW REPORT
           </button>
@@ -392,7 +392,7 @@ export function ReportBuilder({
       )}
 
       {/* Footer */}
-      <div className="px-4 py-2 border-t border-[var(--border)] text-[10px] font-mono text-[var(--text-muted)]">
+      <div className="px-4 py-2 border-t border-[var(--border)] text-[10px] font-theme-data text-[var(--text-muted)]">
         Reports include cryptographic attestation for audit purposes
       </div>
     </div>

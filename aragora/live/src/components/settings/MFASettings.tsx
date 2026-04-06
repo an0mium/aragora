@@ -184,13 +184,13 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="font-mono text-sm text-text">Two-Factor Authentication (2FA)</h4>
-          <p className="font-mono text-xs text-text-muted mt-1">
+          <h4 className="font-theme-data text-sm text-text">Two-Factor Authentication (2FA)</h4>
+          <p className="font-theme-data text-xs text-text-muted mt-1">
             Add an extra layer of security to your account using an authenticator app.
           </p>
         </div>
-        <div className={`px-2 py-1 rounded text-xs font-mono ${
-          mfaEnabled ? 'bg-acid-green/20 text-acid-green' : 'bg-surface text-text-muted'
+        <div className={`px-2 py-1 rounded text-xs font-theme-data ${
+          mfaEnabled ? 'bg-[var(--accent)]/20 text-[var(--accent)]' : 'bg-surface text-text-muted'
         }`}>
           {mfaEnabled ? 'ENABLED' : 'DISABLED'}
         </div>
@@ -198,7 +198,7 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
 
       {error && (
         <div className="p-3 bg-acid-red/10 border border-acid-red/30 rounded">
-          <p className="font-mono text-xs text-acid-red">{error}</p>
+          <p className="font-theme-data text-xs text-acid-red">{error}</p>
         </div>
       )}
 
@@ -209,7 +209,7 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
             <button
               onClick={handleStartSetup}
               disabled={loading}
-              className="w-full px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="w-full px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Setting up...' : 'Enable 2FA'}
             </button>
@@ -217,14 +217,14 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
             <>
               <button
                 onClick={() => setShowRegenerate(!showRegenerate)}
-                className="w-full px-4 py-2 border border-acid-cyan/40 text-acid-cyan font-mono text-sm rounded hover:bg-acid-cyan/10 transition-colors"
+                className="w-full px-4 py-2 border border-[var(--acid-cyan)]/40 text-[var(--acid-cyan)] font-theme-data text-sm rounded hover:bg-[var(--acid-cyan)]/10 transition-colors"
               >
                 {showRegenerate ? 'Cancel' : 'Regenerate Backup Codes'}
               </button>
 
               {showRegenerate && (
-                <div className="p-4 bg-surface rounded border border-acid-cyan/30 space-y-3">
-                  <p className="font-mono text-xs text-text-muted">
+                <div className="p-4 bg-surface rounded border border-[var(--acid-cyan)]/30 space-y-3">
+                  <p className="font-theme-data text-xs text-text-muted">
                     Enter your current 2FA code to generate new backup codes.
                     Old backup codes will be invalidated.
                   </p>
@@ -233,13 +233,13 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
                     value={regenerateCode}
                     onChange={(e) => setRegenerateCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                     placeholder="6-digit code"
-                    className="w-full bg-bg border border-acid-green/30 rounded px-3 py-2 font-mono text-sm text-center tracking-widest focus:outline-none focus:border-acid-green"
+                    className="w-full bg-bg border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm text-center tracking-widest focus:outline-none focus:border-[var(--accent)]"
                     maxLength={6}
                   />
                   <button
                     onClick={handleRegenerateBackupCodes}
                     disabled={loading || regenerateCode.length !== 6}
-                    className="w-full px-4 py-2 bg-acid-cyan/20 border border-acid-cyan/40 text-acid-cyan font-mono text-sm rounded hover:bg-acid-cyan/30 transition-colors disabled:opacity-50"
+                    className="w-full px-4 py-2 bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)]/40 text-[var(--acid-cyan)] font-theme-data text-sm rounded hover:bg-[var(--acid-cyan)]/30 transition-colors disabled:opacity-50"
                   >
                     {loading ? 'Generating...' : 'Generate New Codes'}
                   </button>
@@ -248,7 +248,7 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
 
               <button
                 onClick={() => setStep('disable')}
-                className="w-full px-4 py-2 border border-acid-red/40 text-acid-red font-mono text-sm rounded hover:bg-acid-red/10 transition-colors"
+                className="w-full px-4 py-2 border border-acid-red/40 text-acid-red font-theme-data text-sm rounded hover:bg-acid-red/10 transition-colors"
               >
                 Disable 2FA
               </button>
@@ -259,9 +259,9 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
 
       {/* Setup step - show QR code and secret */}
       {step === 'setup' && (
-        <div className="space-y-4 p-4 bg-surface rounded border border-acid-green/30">
-          <h5 className="font-mono text-sm text-acid-green">Step 1: Scan QR Code</h5>
-          <p className="font-mono text-xs text-text-muted">
+        <div className="space-y-4 p-4 bg-surface rounded border border-[var(--accent)]/30">
+          <h5 className="font-theme-data text-sm text-[var(--accent)]">Step 1: Scan QR Code</h5>
+          <p className="font-theme-data text-xs text-text-muted">
             Scan this QR code with your authenticator app (Google Authenticator, Authy, 1Password, etc.)
           </p>
 
@@ -278,24 +278,24 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
           )}
 
           <div className="space-y-2">
-            <p className="font-mono text-xs text-text-muted">
+            <p className="font-theme-data text-xs text-text-muted">
               Or manually enter this secret key:
             </p>
             <div className="flex gap-2">
-              <code className="flex-1 bg-bg p-2 rounded font-mono text-sm text-text text-center tracking-wider">
+              <code className="flex-1 bg-bg p-2 rounded font-theme-data text-sm text-text text-center tracking-wider">
                 {secret}
               </code>
               <button
                 onClick={() => navigator.clipboard.writeText(secret || '')}
-                className="px-3 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-xs rounded hover:bg-acid-green/30"
+                className="px-3 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-xs rounded hover:bg-[var(--accent)]/30"
               >
                 Copy
               </button>
             </div>
           </div>
 
-          <h5 className="font-mono text-sm text-acid-green mt-6">Step 2: Verify Code</h5>
-          <p className="font-mono text-xs text-text-muted">
+          <h5 className="font-theme-data text-sm text-[var(--accent)] mt-6">Step 2: Verify Code</h5>
+          <p className="font-theme-data text-xs text-text-muted">
             Enter the 6-digit code from your authenticator app to complete setup.
           </p>
 
@@ -304,7 +304,7 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
             value={verificationCode}
             onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             placeholder="000000"
-            className="w-full bg-bg border border-acid-green/30 rounded px-3 py-3 font-mono text-lg text-center tracking-[0.5em] focus:outline-none focus:border-acid-green"
+            className="w-full bg-bg border border-[var(--accent)]/30 rounded px-3 py-3 font-theme-data text-lg text-center tracking-[0.5em] focus:outline-none focus:border-[var(--accent)]"
             maxLength={6}
             autoComplete="one-time-code"
           />
@@ -312,14 +312,14 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
           <div className="flex gap-2">
             <button
               onClick={resetState}
-              className="flex-1 px-4 py-2 border border-acid-green/40 text-text-muted font-mono text-sm rounded hover:text-text transition-colors"
+              className="flex-1 px-4 py-2 border border-[var(--accent)]/40 text-text-muted font-theme-data text-sm rounded hover:text-text transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleVerifyAndEnable}
               disabled={loading || verificationCode.length !== 6}
-              className="flex-1 px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Verifying...' : 'Enable 2FA'}
             </button>
@@ -331,10 +331,10 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
       {step === 'backup' && (
         <div className="space-y-4 p-4 bg-surface rounded border border-acid-yellow/30">
           <div className="flex items-start gap-2">
-            <span className="text-acid-yellow">!</span>
+            <span className="text-[var(--acid-yellow)]">!</span>
             <div>
-              <h5 className="font-mono text-sm text-acid-yellow">Save Your Backup Codes</h5>
-              <p className="font-mono text-xs text-text-muted mt-1">
+              <h5 className="font-theme-data text-sm text-[var(--acid-yellow)]">Save Your Backup Codes</h5>
+              <p className="font-theme-data text-xs text-text-muted mt-1">
                 These codes can be used to access your account if you lose your authenticator.
                 Each code can only be used once. Store them securely.
               </p>
@@ -343,7 +343,7 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
 
           <div className="grid grid-cols-2 gap-2 p-3 bg-bg rounded">
             {backupCodes.map((code, i) => (
-              <code key={i} className="font-mono text-sm text-text text-center py-1">
+              <code key={i} className="font-theme-data text-sm text-text text-center py-1">
                 {code}
               </code>
             ))}
@@ -355,7 +355,7 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
                 const text = backupCodes.join('\n');
                 navigator.clipboard.writeText(text);
               }}
-              className="flex-1 px-4 py-2 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/10 transition-colors"
+              className="flex-1 px-4 py-2 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/10 transition-colors"
             >
               Copy Codes
             </button>
@@ -370,7 +370,7 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
                 a.click();
                 URL.revokeObjectURL(url);
               }}
-              className="flex-1 px-4 py-2 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/10 transition-colors"
+              className="flex-1 px-4 py-2 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/10 transition-colors"
             >
               Download
             </button>
@@ -378,7 +378,7 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
 
           <button
             onClick={resetState}
-            className="w-full px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors"
+            className="w-full px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors"
           >
             I&apos;ve Saved My Codes
           </button>
@@ -388,38 +388,38 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
       {/* Disable step */}
       {step === 'disable' && (
         <div className="space-y-4 p-4 bg-surface rounded border border-acid-red/30">
-          <h5 className="font-mono text-sm text-acid-red">Disable Two-Factor Authentication</h5>
-          <p className="font-mono text-xs text-text-muted">
+          <h5 className="font-theme-data text-sm text-acid-red">Disable Two-Factor Authentication</h5>
+          <p className="font-theme-data text-xs text-text-muted">
             Enter your current 2FA code OR your account password to disable 2FA.
           </p>
 
           <div className="space-y-3">
             <div>
-              <label className="font-mono text-xs text-text-muted block mb-1">2FA Code</label>
+              <label className="font-theme-data text-xs text-text-muted block mb-1">2FA Code</label>
               <input
                 type="text"
                 value={disableCode}
                 onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="6-digit code"
-                className="w-full bg-bg border border-acid-green/30 rounded px-3 py-2 font-mono text-sm text-center tracking-widest focus:outline-none focus:border-acid-green"
+                className="w-full bg-bg border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm text-center tracking-widest focus:outline-none focus:border-[var(--accent)]"
                 maxLength={6}
               />
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="flex-1 h-px bg-acid-green/20" />
-              <span className="font-mono text-xs text-text-muted">OR</span>
-              <div className="flex-1 h-px bg-acid-green/20" />
+              <div className="flex-1 h-px bg-[var(--accent)]/20" />
+              <span className="font-theme-data text-xs text-text-muted">OR</span>
+              <div className="flex-1 h-px bg-[var(--accent)]/20" />
             </div>
 
             <div>
-              <label className="font-mono text-xs text-text-muted block mb-1">Password</label>
+              <label className="font-theme-data text-xs text-text-muted block mb-1">Password</label>
               <input
                 type="password"
                 value={disablePassword}
                 onChange={(e) => setDisablePassword(e.target.value)}
                 placeholder="Your account password"
-                className="w-full bg-bg border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full bg-bg border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
           </div>
@@ -427,14 +427,14 @@ export function MFASettings({ user, onMFAStatusChange }: MFASettingsProps) {
           <div className="flex gap-2">
             <button
               onClick={resetState}
-              className="flex-1 px-4 py-2 border border-acid-green/40 text-text-muted font-mono text-sm rounded hover:text-text transition-colors"
+              className="flex-1 px-4 py-2 border border-[var(--accent)]/40 text-text-muted font-theme-data text-sm rounded hover:text-text transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleDisable}
               disabled={loading || (!disableCode && !disablePassword)}
-              className="flex-1 px-4 py-2 bg-acid-red/20 border border-acid-red/40 text-acid-red font-mono text-sm rounded hover:bg-acid-red/30 transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-2 bg-acid-red/20 border border-acid-red/40 text-acid-red font-theme-data text-sm rounded hover:bg-acid-red/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Disabling...' : 'Disable 2FA'}
             </button>

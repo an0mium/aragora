@@ -65,20 +65,20 @@ const PHASES = ['context', 'debate', 'design', 'implement', 'verify', 'commit'] 
 function PhaseBadge({ phase, current, paused }: { phase: string; current: boolean; paused: boolean }) {
   if (current && paused) {
     return (
-      <span className="px-3 py-1.5 text-sm font-mono rounded border bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40 animate-pulse">
+      <span className="px-3 py-1.5 text-sm font-theme-data rounded border bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40 animate-pulse">
         {phase.toUpperCase()} (PAUSED)
       </span>
     );
   }
   if (current) {
     return (
-      <span className="px-3 py-1.5 text-sm font-mono rounded border bg-acid-green/20 text-acid-green border-acid-green/40 animate-pulse">
+      <span className="px-3 py-1.5 text-sm font-theme-data rounded border bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40 animate-pulse">
         {phase.toUpperCase()} (ACTIVE)
       </span>
     );
   }
   return (
-    <span className="px-3 py-1.5 text-sm font-mono rounded border bg-surface text-text-muted border-border">
+    <span className="px-3 py-1.5 text-sm font-theme-data rounded border bg-surface text-text-muted border-border">
       {phase.toUpperCase()}
     </span>
   );
@@ -86,13 +86,13 @@ function PhaseBadge({ phase, current, paused }: { phase: string; current: boolea
 
 function CircuitBreakerBadge({ state }: { state: string }) {
   const colors: Record<string, string> = {
-    closed: 'bg-acid-green/20 text-acid-green border-acid-green/40',
+    closed: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
     open: 'bg-acid-red/20 text-acid-red border-acid-red/40',
-    half_open: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+    half_open: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[state] || colors.closed}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[state] || colors.closed}`}>
       {state.toUpperCase().replace('_', '-')}
     </span>
   );
@@ -298,7 +298,7 @@ export default function NomicAdminPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-acid-green font-mono animate-pulse">Loading Nomic Control Panel...</div>
+        <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading Nomic Control Panel...</div>
       </div>
     );
   }
@@ -315,14 +315,14 @@ export default function NomicAdminPage() {
             <Link href="/admin" className="text-text-muted hover:text-text mb-2 inline-block text-sm">
               &larr; Back to Admin
             </Link>
-            <h1 className="text-2xl font-mono text-acid-green">Nomic Control Panel</h1>
-            <p className="text-sm text-text-muted font-mono">Self-improvement loop monitoring and control</p>
+            <h1 className="text-2xl font-theme-data text-[var(--accent)]">Nomic Control Panel</h1>
+            <p className="text-sm text-text-muted font-theme-data">Self-improvement loop monitoring and control</p>
           </div>
           <div className="flex items-center gap-4">
             <select
               value={refreshInterval}
               onChange={(e) => setRefreshInterval(Number(e.target.value))}
-              className="bg-surface border border-border rounded px-2 py-1 text-sm font-mono text-text"
+              className="bg-surface border border-border rounded px-2 py-1 text-sm font-theme-data text-text"
             >
               <option value={2000}>2s</option>
               <option value={5000}>5s</option>
@@ -338,7 +338,7 @@ export default function NomicAdminPage() {
         {error && (
           <div className="card p-4 border-acid-red/40 bg-acid-red/10">
             <div className="flex items-center justify-between">
-              <span className="text-acid-red font-mono text-sm">{error}</span>
+              <span className="text-acid-red font-theme-data text-sm">{error}</span>
               <button onClick={() => setError(null)} className="text-text-muted hover:text-text">
                 &times;
               </button>
@@ -349,26 +349,26 @@ export default function NomicAdminPage() {
         {/* Status Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">Status</div>
-            <div className={`text-xl font-mono ${status?.running ? (status.paused ? 'text-acid-yellow' : 'text-acid-green') : 'text-text-muted'}`}>
+            <div className="text-xs font-theme-data text-text-muted mb-1">Status</div>
+            <div className={`text-xl font-theme-data ${status?.running ? (status.paused ? 'text-[var(--acid-yellow)]' : 'text-[var(--accent)]') : 'text-text-muted'}`}>
               {status?.running ? (status.paused ? 'PAUSED' : 'RUNNING') : 'STOPPED'}
             </div>
           </div>
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">Current Phase</div>
-            <div className="text-xl font-mono text-acid-cyan">
+            <div className="text-xs font-theme-data text-text-muted mb-1">Current Phase</div>
+            <div className="text-xl font-theme-data text-[var(--acid-cyan)]">
               {(status?.current_phase || 'idle').toUpperCase()}
             </div>
           </div>
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">Cycle Count</div>
-            <div className="text-xl font-mono text-acid-green">
+            <div className="text-xs font-theme-data text-text-muted mb-1">Cycle Count</div>
+            <div className="text-xl font-theme-data text-[var(--accent)]">
               {status?.cycle_count || 0}
             </div>
           </div>
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">Last Cycle</div>
-            <div className="text-xl font-mono text-text">
+            <div className="text-xs font-theme-data text-text-muted mb-1">Last Cycle</div>
+            <div className="text-xl font-theme-data text-text">
               {formatTimeAgo(status?.last_cycle_at)}
             </div>
           </div>
@@ -376,7 +376,7 @@ export default function NomicAdminPage() {
 
         {/* Phase Progress */}
         <div className="card p-4">
-          <h2 className="text-lg font-mono text-text mb-4">Phase Progress</h2>
+          <h2 className="text-lg font-theme-data text-text mb-4">Phase Progress</h2>
           <div className="flex flex-wrap gap-2 items-center">
             {PHASES.map((phase, index) => (
               <div key={phase} className="flex items-center">
@@ -393,24 +393,24 @@ export default function NomicAdminPage() {
           </div>
           {status?.error && (
             <div className="mt-4 p-3 bg-acid-red/10 border border-acid-red/40 rounded">
-              <div className="text-xs font-mono text-text-muted mb-1">Last Error</div>
-              <div className="text-sm font-mono text-acid-red">{status.error}</div>
+              <div className="text-xs font-theme-data text-text-muted mb-1">Last Error</div>
+              <div className="text-sm font-theme-data text-acid-red">{status.error}</div>
             </div>
           )}
         </div>
 
         {/* Control Actions */}
         <div className="card p-4">
-          <h2 className="text-lg font-mono text-text mb-4">Controls</h2>
+          <h2 className="text-lg font-theme-data text-text mb-4">Controls</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Pause/Resume */}
             <div className="space-y-2">
-              <div className="text-xs font-mono text-text-muted">Execution Control</div>
+              <div className="text-xs font-theme-data text-text-muted">Execution Control</div>
               {status?.paused ? (
                 <button
                   onClick={handleResume}
                   disabled={actionLoading !== null}
-                  className="w-full px-4 py-2 font-mono text-sm rounded border border-acid-green/40 bg-acid-green/10 text-acid-green hover:bg-acid-green/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2 font-theme-data text-sm rounded border border-[var(--accent)]/40 bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {actionLoading === 'resume' ? 'Resuming...' : 'Resume Loop'}
                 </button>
@@ -418,7 +418,7 @@ export default function NomicAdminPage() {
                 <button
                   onClick={handlePause}
                   disabled={actionLoading !== null || !status?.running}
-                  className="w-full px-4 py-2 font-mono text-sm rounded border border-acid-yellow/40 bg-acid-yellow/10 text-acid-yellow hover:bg-acid-yellow/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2 font-theme-data text-sm rounded border border-acid-yellow/40 bg-acid-yellow/10 text-[var(--acid-yellow)] hover:bg-acid-yellow/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {actionLoading === 'pause' ? 'Pausing...' : 'Pause Loop'}
                 </button>
@@ -427,12 +427,12 @@ export default function NomicAdminPage() {
 
             {/* Reset Phase */}
             <div className="space-y-2">
-              <div className="text-xs font-mono text-text-muted">Reset to Phase</div>
+              <div className="text-xs font-theme-data text-text-muted">Reset to Phase</div>
               <div className="flex gap-2">
                 <select
                   value={resetPhase}
                   onChange={(e) => setResetPhase(e.target.value)}
-                  className="flex-1 bg-surface border border-border rounded px-2 py-2 text-sm font-mono text-text"
+                  className="flex-1 bg-surface border border-border rounded px-2 py-2 text-sm font-theme-data text-text"
                 >
                   {PHASES.map((phase) => (
                     <option key={phase} value={phase}>
@@ -443,7 +443,7 @@ export default function NomicAdminPage() {
                 <button
                   onClick={handleReset}
                   disabled={actionLoading !== null}
-                  className="px-4 py-2 font-mono text-sm rounded border border-acid-red/40 bg-acid-red/10 text-acid-red hover:bg-acid-red/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 font-theme-data text-sm rounded border border-acid-red/40 bg-acid-red/10 text-acid-red hover:bg-acid-red/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {actionLoading === 'reset' ? '...' : 'Reset'}
                 </button>
@@ -452,11 +452,11 @@ export default function NomicAdminPage() {
 
             {/* Reset Circuit Breakers */}
             <div className="space-y-2">
-              <div className="text-xs font-mono text-text-muted">Circuit Breakers</div>
+              <div className="text-xs font-theme-data text-text-muted">Circuit Breakers</div>
               <button
                 onClick={handleResetCircuitBreakers}
                 disabled={actionLoading !== null}
-                className="w-full px-4 py-2 font-mono text-sm rounded border border-acid-magenta/40 bg-acid-magenta/10 text-acid-magenta hover:bg-acid-magenta/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-2 font-theme-data text-sm rounded border border-acid-magenta/40 bg-acid-magenta/10 text-[var(--acid-magenta)] hover:bg-acid-magenta/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {actionLoading === 'reset-cb' ? 'Resetting...' : 'Reset All Breakers'}
               </button>
@@ -466,12 +466,12 @@ export default function NomicAdminPage() {
 
         {/* Circuit Breakers */}
         <div className="card p-4">
-          <h2 className="text-lg font-mono text-text mb-4">Circuit Breakers</h2>
+          <h2 className="text-lg font-theme-data text-text mb-4">Circuit Breakers</h2>
           {circuitBreakers.length === 0 ? (
-            <div className="text-sm font-mono text-text-muted">No circuit breakers registered</div>
+            <div className="text-sm font-theme-data text-text-muted">No circuit breakers registered</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm font-mono">
+              <table className="w-full text-sm font-theme-data">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-2 text-text-muted font-normal">Name</th>
@@ -504,11 +504,11 @@ export default function NomicAdminPage() {
         {/* State Machine Info */}
         {status?.state_machine && (
           <div className="card p-4">
-            <h2 className="text-lg font-mono text-text mb-4">State Machine</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm font-mono">
+            <h2 className="text-lg font-theme-data text-text mb-4">State Machine</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm font-theme-data">
               <div>
                 <span className="text-text-muted">Current State:</span>{' '}
-                <span className="text-acid-cyan">{status.state_machine.state}</span>
+                <span className="text-[var(--acid-cyan)]">{status.state_machine.state}</span>
               </div>
               <div>
                 <span className="text-text-muted">Transitions:</span>{' '}
@@ -524,37 +524,37 @@ export default function NomicAdminPage() {
 
         {/* Self-Improvement Metrics */}
         <div className="card p-4">
-          <h2 className="text-lg font-mono text-text mb-4">Self-Improvement Metrics</h2>
+          <h2 className="text-lg font-theme-data text-text mb-4">Self-Improvement Metrics</h2>
           {improvements.length === 0 ? (
-            <div className="text-sm font-mono text-text-muted">No improvement cycles recorded yet</div>
+            <div className="text-sm font-theme-data text-text-muted">No improvement cycles recorded yet</div>
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                 <div className="p-3 bg-surface rounded border border-border">
-                  <div className="text-xs font-mono text-text-muted mb-1">Total Cycles</div>
-                  <div className="text-2xl font-mono text-acid-green">{improvements.length}</div>
+                  <div className="text-xs font-theme-data text-text-muted mb-1">Total Cycles</div>
+                  <div className="text-2xl font-theme-data text-[var(--accent)]">{improvements.length}</div>
                 </div>
                 <div className="p-3 bg-surface rounded border border-border">
-                  <div className="text-xs font-mono text-text-muted mb-1">Avg Improvement</div>
-                  <div className="text-2xl font-mono text-acid-cyan">
+                  <div className="text-xs font-theme-data text-text-muted mb-1">Avg Improvement</div>
+                  <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
                     {(improvements.reduce((sum, m) => sum + m.improvement_score, 0) / improvements.length * 100).toFixed(1)}%
                   </div>
                 </div>
                 <div className="p-3 bg-surface rounded border border-border">
-                  <div className="text-xs font-mono text-text-muted mb-1">Success Rate</div>
-                  <div className="text-2xl font-mono text-acid-green">
+                  <div className="text-xs font-theme-data text-text-muted mb-1">Success Rate</div>
+                  <div className="text-2xl font-theme-data text-[var(--accent)]">
                     {(improvements.filter(m => m.success_criteria_met).length / improvements.length * 100).toFixed(0)}%
                   </div>
                 </div>
                 <div className="p-3 bg-surface rounded border border-border">
-                  <div className="text-xs font-mono text-text-muted mb-1">Net Tests Added</div>
-                  <div className="text-2xl font-mono text-acid-magenta">
+                  <div className="text-xs font-theme-data text-text-muted mb-1">Net Tests Added</div>
+                  <div className="text-2xl font-theme-data text-[var(--acid-magenta)]">
                     +{improvements.reduce((sum, m) => sum + m.tests_passed_delta, 0)}
                   </div>
                 </div>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm font-mono">
+                <table className="w-full text-sm font-theme-data">
                   <thead>
                     <tr className="border-b border-border">
                       <th className="text-left py-2 text-text-muted font-normal">Goal</th>
@@ -570,23 +570,23 @@ export default function NomicAdminPage() {
                       <tr key={m.cycle_id} className="border-b border-border/50 hover:bg-surface/50">
                         <td className="py-2 text-text max-w-xs truncate">{m.goal}</td>
                         <td className="py-2">
-                          <span className={m.improvement_score > 0.5 ? 'text-acid-green' : m.improvement_score > 0 ? 'text-acid-yellow' : 'text-acid-red'}>
+                          <span className={m.improvement_score > 0.5 ? 'text-[var(--accent)]' : m.improvement_score > 0 ? 'text-[var(--acid-yellow)]' : 'text-acid-red'}>
                             {(m.improvement_score * 100).toFixed(0)}%
                           </span>
                         </td>
                         <td className="py-2 text-text">
-                          <span className={m.tests_passed_delta >= 0 ? 'text-acid-green' : 'text-acid-red'}>
+                          <span className={m.tests_passed_delta >= 0 ? 'text-[var(--accent)]' : 'text-acid-red'}>
                             {m.tests_passed_delta >= 0 ? '+' : ''}{m.tests_passed_delta}
                           </span>
                         </td>
                         <td className="py-2">
-                          <span className={m.lint_errors_delta <= 0 ? 'text-acid-green' : 'text-acid-red'}>
+                          <span className={m.lint_errors_delta <= 0 ? 'text-[var(--accent)]' : 'text-acid-red'}>
                             {m.lint_errors_delta <= 0 ? '' : '+'}{m.lint_errors_delta}
                           </span>
                         </td>
                         <td className="py-2">
                           {m.success_criteria_met ? (
-                            <span className="text-acid-green">MET</span>
+                            <span className="text-[var(--accent)]">MET</span>
                           ) : (
                             <span className="text-acid-red">MISS</span>
                           )}
@@ -603,23 +603,23 @@ export default function NomicAdminPage() {
 
         {/* Specialist Registry */}
         <div className="card p-4">
-          <h2 className="text-lg font-mono text-text mb-4">Domain Specialists</h2>
+          <h2 className="text-lg font-theme-data text-text mb-4">Domain Specialists</h2>
           {specialists.length === 0 ? (
-            <div className="text-sm font-mono text-text-muted">No specialists promoted yet. Agents are promoted after 5+ domain matches with ELO 150+ above baseline.</div>
+            <div className="text-sm font-theme-data text-text-muted">No specialists promoted yet. Agents are promoted after 5+ domain matches with ELO 150+ above baseline.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {specialists.map((s) => (
                 <div key={`${s.agent_name}-${s.domain}`} className="p-3 bg-surface rounded border border-border">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-mono text-acid-cyan text-sm">{s.agent_name}</span>
-                    <span className="px-2 py-0.5 text-xs font-mono rounded border bg-acid-magenta/20 text-acid-magenta border-acid-magenta/40">
+                    <span className="font-theme-data text-[var(--acid-cyan)] text-sm">{s.agent_name}</span>
+                    <span className="px-2 py-0.5 text-xs font-theme-data rounded border bg-acid-magenta/20 text-[var(--acid-magenta)] border-acid-magenta/40">
                       {s.domain}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                  <div className="grid grid-cols-3 gap-2 text-xs font-theme-data">
                     <div>
                       <span className="text-text-muted">ELO</span>
-                      <div className="text-acid-green">{Math.round(s.elo_rating)}</div>
+                      <div className="text-[var(--accent)]">{Math.round(s.elo_rating)}</div>
                     </div>
                     <div>
                       <span className="text-text-muted">Matches</span>
@@ -639,34 +639,34 @@ export default function NomicAdminPage() {
         {/* Epistemic Graph */}
         {epistemicStats && (
           <div className="card p-4">
-            <h2 className="text-lg font-mono text-text mb-4">Epistemic Graph</h2>
+            <h2 className="text-lg font-theme-data text-text mb-4">Epistemic Graph</h2>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="p-3 bg-surface rounded border border-border">
-                <div className="text-xs font-mono text-text-muted mb-1">Total Beliefs</div>
-                <div className="text-xl font-mono text-acid-green">{epistemicStats.total_beliefs}</div>
+                <div className="text-xs font-theme-data text-text-muted mb-1">Total Beliefs</div>
+                <div className="text-xl font-theme-data text-[var(--accent)]">{epistemicStats.total_beliefs}</div>
               </div>
               <div className="p-3 bg-surface rounded border border-border">
-                <div className="text-xs font-mono text-text-muted mb-1">Edges</div>
-                <div className="text-xl font-mono text-acid-cyan">{epistemicStats.total_edges}</div>
+                <div className="text-xs font-theme-data text-text-muted mb-1">Edges</div>
+                <div className="text-xl font-theme-data text-[var(--acid-cyan)]">{epistemicStats.total_edges}</div>
               </div>
               <div className="p-3 bg-surface rounded border border-border">
-                <div className="text-xs font-mono text-text-muted mb-1">Avg Confidence</div>
-                <div className="text-xl font-mono text-acid-yellow">{(epistemicStats.avg_confidence * 100).toFixed(0)}%</div>
+                <div className="text-xs font-theme-data text-text-muted mb-1">Avg Confidence</div>
+                <div className="text-xl font-theme-data text-[var(--acid-yellow)]">{(epistemicStats.avg_confidence * 100).toFixed(0)}%</div>
               </div>
               <div className="p-3 bg-surface rounded border border-border">
-                <div className="text-xs font-mono text-text-muted mb-1">Consensus</div>
-                <div className="text-xl font-mono text-acid-green">{epistemicStats.by_type.consensus}</div>
+                <div className="text-xs font-theme-data text-text-muted mb-1">Consensus</div>
+                <div className="text-xl font-theme-data text-[var(--accent)]">{epistemicStats.by_type.consensus}</div>
               </div>
               <div className="p-3 bg-surface rounded border border-border">
-                <div className="text-xs font-mono text-text-muted mb-1">Dissent</div>
-                <div className="text-xl font-mono text-acid-red">{epistemicStats.by_type.dissent}</div>
+                <div className="text-xs font-theme-data text-text-muted mb-1">Dissent</div>
+                <div className="text-xl font-theme-data text-acid-red">{epistemicStats.by_type.dissent}</div>
               </div>
             </div>
             {epistemicStats.domains.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
-                <span className="text-xs font-mono text-text-muted">Domains:</span>
+                <span className="text-xs font-theme-data text-text-muted">Domains:</span>
                 {epistemicStats.domains.map((d) => (
-                  <span key={d} className="px-2 py-0.5 text-xs font-mono rounded border bg-surface text-text border-border">
+                  <span key={d} className="px-2 py-0.5 text-xs font-theme-data rounded border bg-surface text-text border-border">
                     {d}
                   </span>
                 ))}

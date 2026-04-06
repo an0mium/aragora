@@ -75,7 +75,7 @@ export function OraclePhaseProgress({ currentPhase }: OraclePhaseProgressProps) 
                 <div
                   className={[
                     'w-8 h-8 rounded-full border-2 flex items-center justify-center',
-                    'text-xs font-mono font-bold transition-all duration-500',
+                    'text-xs font-theme-data font-bold transition-all duration-500',
                     isComplete
                       ? 'border-[var(--acid-green)] bg-[var(--acid-green)]/20 text-[var(--acid-green)]'
                       : isActive
@@ -91,7 +91,7 @@ export function OraclePhaseProgress({ currentPhase }: OraclePhaseProgressProps) 
                 </div>
                 <span
                   className={[
-                    'text-[9px] font-mono mt-1.5 tracking-wider transition-colors duration-500',
+                    'text-[9px] font-theme-data mt-1.5 tracking-wider transition-colors duration-500',
                     isActive
                       ? 'text-[var(--acid-magenta)]'
                       : isComplete

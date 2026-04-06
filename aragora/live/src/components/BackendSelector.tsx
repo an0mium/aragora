@@ -106,13 +106,13 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
 
   if (compact) {
     return (
-      <div className="flex items-center gap-1 font-mono text-xs">
+      <div className="flex items-center gap-1 font-theme-data text-xs">
         <button
           onClick={() => handleSelect('production')}
           className={`px-2 py-1 border transition-colors ${
             selected === 'production'
-              ? 'bg-acid-green text-bg border-acid-green'
-              : 'text-text-muted border-border hover:text-acid-green hover:border-acid-green/50'
+              ? 'bg-[var(--accent)] text-bg border-[var(--accent)]'
+              : 'text-text-muted border-border hover:text-[var(--accent)] hover:border-[var(--accent)]/50'
           }`}
           title={BACKENDS.production.description}
         >
@@ -123,10 +123,10 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
           disabled={devAvailable === false}
           className={`px-2 py-1 border transition-colors ${
             selected === 'development'
-              ? 'bg-acid-cyan text-bg border-acid-cyan'
+              ? 'bg-[var(--acid-cyan)] text-bg border-[var(--acid-cyan)]'
               : devAvailable === false
               ? 'text-text-muted/30 border-border/30 cursor-not-allowed'
-              : 'text-text-muted border-border hover:text-acid-cyan hover:border-acid-cyan/50'
+              : 'text-text-muted border-border hover:text-[var(--acid-cyan)] hover:border-[var(--acid-cyan)]/50'
           }`}
           title={
             devAvailable === false
@@ -145,8 +145,8 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
   }
 
   return (
-    <div className="border border-acid-green/30 p-3 bg-surface/50">
-      <div className="text-xs text-text-muted mb-2 font-mono">API BACKEND</div>
+    <div className="border border-[var(--accent)]/30 p-3 bg-surface/50">
+      <div className="text-xs text-text-muted mb-2 font-theme-data">API BACKEND</div>
       <div className="flex gap-2">
         {(Object.entries(BACKENDS) as [BackendType, BackendConfig][]).map(([key, config]) => {
           const isSelected = selected === key;
@@ -157,14 +157,14 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
               key={key}
               onClick={() => !isDisabled && handleSelect(key)}
               disabled={isDisabled}
-              className={`flex-1 p-2 border font-mono text-left transition-colors ${
+              className={`flex-1 p-2 border font-theme-data text-left transition-colors ${
                 isSelected
                   ? key === 'production'
-                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
-                    : 'bg-acid-cyan/20 border-acid-cyan text-acid-cyan'
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-[var(--acid-cyan)]/20 border-[var(--acid-cyan)] text-[var(--acid-cyan)]'
                   : isDisabled
                   ? 'border-border/30 text-text-muted/30 cursor-not-allowed'
-                  : 'border-border text-text-muted hover:border-acid-green/50'
+                  : 'border-border text-text-muted hover:border-[var(--accent)]/50'
               }`}
             >
               <div className="text-sm font-bold flex items-center gap-2">
@@ -177,7 +177,7 @@ export function BackendSelector({ onChange, compact = false }: BackendSelectorPr
                   <span className="text-success text-xs">●</span>
                 )}
                 {key === 'development' && devSource === 'localhost' && (
-                  <span className="text-acid-cyan text-xs">LOCAL</span>
+                  <span className="text-[var(--acid-cyan)] text-xs">LOCAL</span>
                 )}
               </div>
               <div className="text-[10px] opacity-70">

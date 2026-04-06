@@ -351,7 +351,14 @@ class PlanStore:
         implement_plan_json = (
             json.dumps(plan.implement_plan.to_dict()) if plan.implement_plan else None
         )
-        metadata_json = json.dumps(plan.metadata) if plan.metadata else "{}"
+        metadata_json = (
+            json.dumps(
+                plan.metadata,
+                default=lambda o: o.to_dict() if hasattr(o, "to_dict") else str(o),
+            )
+            if plan.metadata
+            else "{}"
+        )
 
         conn = self._connect()
         try:
@@ -419,7 +426,14 @@ class PlanStore:
         implement_plan_json = (
             json.dumps(plan.implement_plan.to_dict()) if plan.implement_plan else None
         )
-        metadata_json = json.dumps(plan.metadata) if plan.metadata else "{}"
+        metadata_json = (
+            json.dumps(
+                plan.metadata,
+                default=lambda o: o.to_dict() if hasattr(o, "to_dict") else str(o),
+            )
+            if plan.metadata
+            else "{}"
+        )
         approved_by = plan.approval_record.approver_id if plan.approval_record else None
         rejection_reason = (
             plan.approval_record.reason

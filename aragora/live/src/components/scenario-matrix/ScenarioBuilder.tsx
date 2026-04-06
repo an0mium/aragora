@@ -18,7 +18,7 @@ export function ScenarioBuilder({
   return (
     <div className="space-y-3">
       {scenarios.map((scenario, idx) => (
-        <div key={idx} className="bg-bg/50 border border-acid-green/20 p-3">
+        <div key={idx} className="bg-bg/50 border border-[var(--accent)]/20 p-3">
           <div className="flex items-center gap-2 mb-3">
             <input
               type="text"
@@ -27,9 +27,9 @@ export function ScenarioBuilder({
                 onUpdate(idx, { ...scenario, name: e.target.value })
               }
               placeholder="Scenario name..."
-              className="flex-1 px-2 py-1 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="flex-1 px-2 py-1 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             />
-            <label className="flex items-center gap-1 text-xs font-mono text-text-muted">
+            <label className="flex items-center gap-1 text-xs font-theme-data text-text-muted">
               <input
                 type="checkbox"
                 checked={scenario.is_baseline}
@@ -42,7 +42,7 @@ export function ScenarioBuilder({
             </label>
             <button
               onClick={() => onRemove(idx)}
-              className="px-2 py-1 text-xs font-mono text-crimson hover:bg-crimson/10"
+              className="px-2 py-1 text-xs font-theme-data text-[var(--crimson)] hover:bg-[var(--crimson)]/10"
               aria-label={`Remove scenario ${scenario.name}`}
             >
               [X]
@@ -51,7 +51,7 @@ export function ScenarioBuilder({
 
           {/* Parameters */}
           <div className="mb-2">
-            <div className="text-[10px] font-mono text-text-muted mb-1">
+            <div className="text-[10px] font-theme-data text-text-muted mb-1">
               PARAMETERS (key=value, comma separated)
             </div>
             <input
@@ -68,13 +68,13 @@ export function ScenarioBuilder({
                 onUpdate(idx, { ...scenario, parameters: params });
               }}
               placeholder="e.g., budget=high, timeline=short"
-              className="w-full px-2 py-1 bg-bg border border-acid-cyan/30 text-text font-mono text-xs focus:outline-none focus:border-acid-cyan"
+              className="w-full px-2 py-1 bg-bg border border-[var(--acid-cyan)]/30 text-text font-theme-data text-xs focus:outline-none focus:border-[var(--acid-cyan)]"
             />
           </div>
 
           {/* Constraints */}
           <div>
-            <div className="text-[10px] font-mono text-text-muted mb-1">
+            <div className="text-[10px] font-theme-data text-text-muted mb-1">
               CONSTRAINTS (comma separated)
             </div>
             <input
@@ -87,7 +87,7 @@ export function ScenarioBuilder({
                 })
               }
               placeholder="e.g., must be scalable, no external deps"
-              className="w-full px-2 py-1 bg-bg border border-gold/30 text-text font-mono text-xs focus:outline-none focus:border-gold"
+              className="w-full px-2 py-1 bg-bg border border-gold/30 text-text font-theme-data text-xs focus:outline-none focus:border-gold"
             />
           </div>
         </div>
@@ -95,7 +95,7 @@ export function ScenarioBuilder({
 
       <button
         onClick={onAdd}
-        className="w-full py-2 border border-dashed border-acid-green/40 text-acid-green text-xs font-mono hover:bg-acid-green/10 transition-colors"
+        className="w-full py-2 border border-dashed border-[var(--accent)]/40 text-[var(--accent)] text-xs font-theme-data hover:bg-[var(--accent)]/10 transition-colors"
       >
         + ADD SCENARIO
       </button>

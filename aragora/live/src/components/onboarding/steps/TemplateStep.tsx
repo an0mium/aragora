@@ -95,10 +95,10 @@ export function TemplateStep({ onNext, onBack }: TemplateStepProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-mono text-acid-green mb-2">
+        <h2 className="text-xl font-theme-data text-[var(--accent)] mb-2">
           Choose a template to start
         </h2>
-        <p className="font-mono text-text-muted text-sm">
+        <p className="font-theme-data text-text-muted text-sm">
           Templates are pre-configured for common use cases
         </p>
       </div>
@@ -110,31 +110,31 @@ export function TemplateStep({ onNext, onBack }: TemplateStepProps) {
             onClick={() => handleSelect(template)}
             className={`w-full p-4 text-left border transition-colors ${
               selected?.id === template.id
-                ? 'border-acid-green bg-acid-green/10'
-                : 'border-acid-green/20 hover:border-acid-green/50 bg-surface'
+                ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/50 bg-surface'
             }`}
           >
             <div className="flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm text-acid-green">
+                  <span className="font-theme-data text-sm text-[var(--accent)]">
                     {template.name}
                   </span>
                   {idx === 0 && (
-                    <span className="px-2 py-0.5 bg-acid-cyan/10 border border-acid-cyan/30 font-mono text-xs text-acid-cyan">
+                    <span className="px-2 py-0.5 bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/30 font-theme-data text-xs text-[var(--acid-cyan)]">
                       Recommended
                     </span>
                   )}
                 </div>
-                <p className="font-mono text-xs text-text-muted mt-1">
+                <p className="font-theme-data text-xs text-text-muted mt-1">
                   {template.description}
                 </p>
               </div>
               <div className="text-right shrink-0 ml-4">
-                <div className="font-mono text-xs text-acid-cyan">
+                <div className="font-theme-data text-xs text-[var(--acid-cyan)]">
                   ~{template.estimatedDurationMinutes} min
                 </div>
-                <div className="font-mono text-xs text-text-muted">
+                <div className="font-theme-data text-xs text-text-muted">
                   {template.agentsCount} agents, {template.rounds} rounds
                 </div>
               </div>
@@ -146,7 +146,7 @@ export function TemplateStep({ onNext, onBack }: TemplateStepProps) {
       <div className="flex gap-3 pt-4">
         <button
           onClick={onBack}
-          className="px-4 py-2 font-mono text-sm border border-acid-green/30 text-text-muted hover:border-acid-green hover:text-acid-green transition-colors"
+          className="px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/30 text-text-muted hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
         >
           Back
         </button>
@@ -154,10 +154,10 @@ export function TemplateStep({ onNext, onBack }: TemplateStepProps) {
         <button
           onClick={handleNext}
           disabled={!selected}
-          className={`px-6 py-2 font-mono text-sm transition-colors ${
+          className={`px-6 py-2 font-theme-data text-sm transition-colors ${
             selected
-              ? 'bg-acid-green text-bg hover:bg-acid-green/80'
-              : 'bg-surface text-text-muted border border-acid-green/20 cursor-not-allowed'
+              ? 'bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80'
+              : 'bg-surface text-text-muted border border-[var(--accent)]/20 cursor-not-allowed'
           }`}
         >
           Start debate

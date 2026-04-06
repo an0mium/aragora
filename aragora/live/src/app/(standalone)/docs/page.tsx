@@ -20,7 +20,7 @@ export default function DocsPage() {
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link
             href="/"
-            className="font-mono text-[var(--acid-green)] font-bold text-sm tracking-wider"
+            className="font-theme-data text-[var(--acid-green)] font-bold text-sm tracking-wider"
           >
             ARAGORA
           </Link>
@@ -29,7 +29,7 @@ export default function DocsPage() {
               <button
                 key={v}
                 onClick={() => setView(v)}
-                className={`px-3 py-1.5 text-xs font-mono font-bold transition-colors ${
+                className={`px-3 py-1.5 text-xs font-theme-data font-bold transition-colors ${
                   view === v
                     ? 'bg-[var(--acid-green)] text-[var(--bg)]'
                     : 'text-[var(--text-muted)] hover:text-[var(--acid-green)]'
@@ -42,13 +42,13 @@ export default function DocsPage() {
           <div className="flex items-center gap-4">
             <Link
               href="/playground"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+              className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
             >
               PLAYGROUND
             </Link>
             <Link
               href="/signup"
-              className="text-xs font-mono px-3 py-1.5 bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors font-bold"
+              className="text-xs font-theme-data px-3 py-1.5 bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors font-bold"
             >
               SIGN UP FREE
             </Link>
@@ -60,11 +60,11 @@ export default function DocsPage() {
         {!apiUrl && (
           <div className="absolute inset-0 flex items-center justify-center bg-[var(--bg)]">
             <div className="text-center space-y-4 max-w-md px-4">
-              <p className="font-mono text-sm text-[var(--text-muted)]">
+              <p className="font-theme-data text-sm text-[var(--text-muted)]">
                 Set <code className="text-[var(--acid-green)]">NEXT_PUBLIC_API_URL</code> to load
                 live API documentation.
               </p>
-              <p className="font-mono text-xs text-[var(--text-muted)]">
+              <p className="font-theme-data text-xs text-[var(--text-muted)]">
                 Example: <code>NEXT_PUBLIC_API_URL=http://localhost:8080</code>
               </p>
             </div>

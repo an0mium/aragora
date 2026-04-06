@@ -57,7 +57,7 @@ function StarRating({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'lg
   const starSize = size === 'sm' ? 'text-xs' : 'text-lg';
 
   return (
-    <span className={`font-mono ${starSize} text-acid-yellow`}>
+    <span className={`font-theme-data ${starSize} text-[var(--acid-yellow)]`}>
       {'★'.repeat(fullStars)}
       {hasHalf && '☆'}
       <span className="text-text-muted/30">{'☆'.repeat(emptyStars)}</span>
@@ -250,28 +250,28 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
         setSelectedTemplate(template);
         fetchTemplateDetails(template.id);
       }}
-      className={`card p-4 text-left transition-all hover:border-acid-green/60 ${
-        selectedTemplate?.id === template.id ? 'border-acid-green bg-acid-green/5' : ''
+      className={`card p-4 text-left transition-all hover:border-[var(--accent)]/60 ${
+        selectedTemplate?.id === template.id ? 'border-[var(--accent)] bg-[var(--accent)]/5' : ''
       }`}
     >
       {/* Category Badge */}
       <div className="flex items-center justify-between mb-2">
-        <span className="px-2 py-0.5 text-xs font-mono bg-acid-cyan/20 text-acid-cyan">
+        <span className="px-2 py-0.5 text-xs font-theme-data bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]">
           [{template.category.toUpperCase()}]
         </span>
         <StarRating rating={template.rating} />
       </div>
 
       {/* Name */}
-      <h3 className="font-mono text-acid-green font-bold mb-1">{template.name}</h3>
+      <h3 className="font-theme-data text-[var(--accent)] font-bold mb-1">{template.name}</h3>
 
       {/* Author */}
-      <p className="text-xs font-mono text-text-muted mb-2">
+      <p className="text-xs font-theme-data text-text-muted mb-2">
         by {template.author_name}
       </p>
 
       {/* Description */}
-      <p className="text-sm font-mono text-text-muted mb-3 line-clamp-2">
+      <p className="text-sm font-theme-data text-text-muted mb-3 line-clamp-2">
         {template.description}
       </p>
 
@@ -280,20 +280,20 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
         {template.tags.slice(0, 3).map((tag) => (
           <span
             key={tag}
-            className="px-2 py-0.5 text-xs font-mono bg-surface border border-acid-green/20 text-text-muted"
+            className="px-2 py-0.5 text-xs font-theme-data bg-surface border border-[var(--accent)]/20 text-text-muted"
           >
             {tag}
           </span>
         ))}
         {template.tags.length > 3 && (
-          <span className="px-2 py-0.5 text-xs font-mono text-text-muted">
+          <span className="px-2 py-0.5 text-xs font-theme-data text-text-muted">
             +{template.tags.length - 3}
           </span>
         )}
       </div>
 
       {/* Stats */}
-      <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+      <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
         <span>{template.download_count} downloads</span>
         <span>{template.rating_count} ratings</span>
       </div>
@@ -304,8 +304,8 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
     return (
       <div className="card p-6">
         <div className="flex items-center gap-3">
-          <div className="animate-spin w-5 h-5 border-2 border-acid-green border-t-transparent rounded-full" />
-          <span className="font-mono text-text-muted">Loading marketplace...</span>
+          <div className="animate-spin w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+          <span className="font-theme-data text-text-muted">Loading marketplace...</span>
         </div>
       </div>
     );
@@ -315,17 +315,17 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="font-mono text-acid-green text-xl">
+        <h2 className="font-theme-data text-[var(--accent)] text-xl">
           {'>'} TEMPLATE MARKETPLACE
         </h2>
-        <div className="text-xs font-mono text-text-muted">
+        <div className="text-xs font-theme-data text-text-muted">
           {templates.length} templates available
         </div>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="p-4 bg-red-500/20 border border-red-500/50 rounded text-red-400 text-sm font-mono">
+        <div className="p-4 bg-red-500/20 border border-red-500/50 rounded text-red-400 text-sm font-theme-data">
           {error}
           <button onClick={fetchTemplates} className="ml-4 underline">
             [RETRY]
@@ -334,33 +334,33 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-acid-green/20 pb-2">
+      <div className="flex gap-2 border-b border-[var(--accent)]/20 pb-2">
         <button
           onClick={() => setActiveTab('browse')}
-          className={`px-4 py-2 text-sm font-mono transition-colors ${
+          className={`px-4 py-2 text-sm font-theme-data transition-colors ${
             activeTab === 'browse'
-              ? 'border border-acid-green bg-acid-green/20 text-acid-green'
-              : 'border border-transparent text-text-muted hover:text-acid-green'
+              ? 'border border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+              : 'border border-transparent text-text-muted hover:text-[var(--accent)]'
           }`}
         >
           [BROWSE]
         </button>
         <button
           onClick={() => setActiveTab('featured')}
-          className={`px-4 py-2 text-sm font-mono transition-colors ${
+          className={`px-4 py-2 text-sm font-theme-data transition-colors ${
             activeTab === 'featured'
-              ? 'border border-acid-green bg-acid-green/20 text-acid-green'
-              : 'border border-transparent text-text-muted hover:text-acid-green'
+              ? 'border border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+              : 'border border-transparent text-text-muted hover:text-[var(--accent)]'
           }`}
         >
           [FEATURED]
         </button>
         <button
           onClick={() => setActiveTab('trending')}
-          className={`px-4 py-2 text-sm font-mono transition-colors ${
+          className={`px-4 py-2 text-sm font-theme-data transition-colors ${
             activeTab === 'trending'
-              ? 'border border-acid-green bg-acid-green/20 text-acid-green'
-              : 'border border-transparent text-text-muted hover:text-acid-green'
+              ? 'border border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+              : 'border border-transparent text-text-muted hover:text-[var(--accent)]'
           }`}
         >
           [TRENDING]
@@ -374,7 +374,7 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Search */}
               <div>
-                <label className="block font-mono text-xs text-text-muted mb-2">
+                <label className="block font-theme-data text-xs text-text-muted mb-2">
                   Search
                 </label>
                 <input
@@ -382,19 +382,19 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search templates..."
-                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 />
               </div>
 
               {/* Category */}
               <div>
-                <label className="block font-mono text-xs text-text-muted mb-2">
+                <label className="block font-theme-data text-xs text-text-muted mb-2">
                   Category
                 </label>
                 <select
                   value={selectedCategory || ''}
                   onChange={(e) => setSelectedCategory(e.target.value || null)}
-                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 >
                   <option value="">All Categories</option>
                   {categories.map((cat) => (
@@ -407,13 +407,13 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
 
               {/* Sort */}
               <div>
-                <label className="block font-mono text-xs text-text-muted mb-2">
+                <label className="block font-theme-data text-xs text-text-muted mb-2">
                   Sort By
                 </label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 >
                   {SORT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -432,7 +432,7 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
 
           {templates.length === 0 && !loading && (
             <div className="card p-8 text-center">
-              <p className="text-text-muted font-mono">
+              <p className="text-text-muted font-theme-data">
                 No templates match your search criteria.
               </p>
             </div>
@@ -446,7 +446,7 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
             featured.map(renderTemplateCard)
           ) : (
             <div className="col-span-3 card p-8 text-center">
-              <p className="text-text-muted font-mono">No featured templates available.</p>
+              <p className="text-text-muted font-theme-data">No featured templates available.</p>
             </div>
           )}
         </div>
@@ -458,7 +458,7 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
             trending.map(renderTemplateCard)
           ) : (
             <div className="col-span-3 card p-8 text-center">
-              <p className="text-text-muted font-mono">No trending templates available.</p>
+              <p className="text-text-muted font-theme-data">No trending templates available.</p>
             </div>
           )}
         </div>
@@ -467,56 +467,56 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
       {/* Template Detail Modal */}
       {selectedTemplate && (
         <div className="fixed inset-0 z-[100] bg-bg/95 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-3xl w-full border border-acid-green/50 bg-surface p-6 max-h-[90vh] overflow-y-auto">
+          <div className="max-w-3xl w-full border border-[var(--accent)]/50 bg-surface p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="px-2 py-0.5 text-xs font-mono bg-acid-cyan/20 text-acid-cyan">
+                  <span className="px-2 py-0.5 text-xs font-theme-data bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]">
                     [{selectedTemplate.category.toUpperCase()}]
                   </span>
                   <StarRating rating={selectedTemplate.rating} size="lg" />
-                  <span className="text-sm font-mono text-text-muted">
+                  <span className="text-sm font-theme-data text-text-muted">
                     ({selectedTemplate.rating_count} ratings)
                   </span>
                 </div>
-                <h2 className="text-xl font-mono text-acid-green">
+                <h2 className="text-xl font-theme-data text-[var(--accent)]">
                   {selectedTemplate.name}
                 </h2>
-                <p className="text-sm font-mono text-text-muted mt-1">
+                <p className="text-sm font-theme-data text-text-muted mt-1">
                   by {selectedTemplate.author_name}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedTemplate(null)}
-                className="text-text-muted hover:text-acid-green transition-colors"
+                className="text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [X]
               </button>
             </div>
 
-            <p className="font-mono text-sm text-text-muted mb-6">
+            <p className="font-theme-data text-sm text-text-muted mb-6">
               {selectedTemplate.description}
             </p>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 p-4 bg-bg border border-acid-green/20 mb-6">
+            <div className="grid grid-cols-3 gap-4 p-4 bg-bg border border-[var(--accent)]/20 mb-6">
               <div className="text-center">
-                <div className="text-2xl font-mono text-acid-green">
+                <div className="text-2xl font-theme-data text-[var(--accent)]">
                   {selectedTemplate.download_count}
                 </div>
-                <div className="text-xs font-mono text-text-muted">Downloads</div>
+                <div className="text-xs font-theme-data text-text-muted">Downloads</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-mono text-acid-yellow">
+                <div className="text-2xl font-theme-data text-[var(--acid-yellow)]">
                   {(Number(selectedTemplate.rating) || 0).toFixed(1)}
                 </div>
-                <div className="text-xs font-mono text-text-muted">Rating</div>
+                <div className="text-xs font-theme-data text-text-muted">Rating</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-mono text-acid-cyan">
+                <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
                   {selectedTemplate.pattern || 'N/A'}
                 </div>
-                <div className="text-xs font-mono text-text-muted">Pattern</div>
+                <div className="text-xs font-theme-data text-text-muted">Pattern</div>
               </div>
             </div>
 
@@ -525,7 +525,7 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
               {selectedTemplate.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="px-3 py-1 text-xs font-mono bg-surface border border-acid-green/20 text-text-muted"
+                  className="px-3 py-1 text-xs font-theme-data bg-surface border border-[var(--accent)]/20 text-text-muted"
                 >
                   {tag}
                 </span>
@@ -536,23 +536,23 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
             <div className="flex gap-3">
               <button
                 onClick={() => setSelectedTemplate(null)}
-                className="px-4 py-2 font-mono text-sm border border-acid-green/30
-                         text-text-muted hover:border-acid-green hover:text-acid-green transition-colors"
+                className="px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/30
+                         text-text-muted hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
               >
                 [CLOSE]
               </button>
               <button
                 onClick={() => setShowRatingModal(true)}
-                className="px-4 py-2 font-mono text-sm border border-acid-yellow/30
-                         text-acid-yellow hover:bg-acid-yellow/10 transition-colors"
+                className="px-4 py-2 font-theme-data text-sm border border-acid-yellow/30
+                         text-[var(--acid-yellow)] hover:bg-acid-yellow/10 transition-colors"
               >
                 [RATE]
               </button>
               <button
                 onClick={() => handleImportTemplate(selectedTemplate.id)}
                 disabled={importingTemplate === selectedTemplate.id}
-                className="flex-1 px-6 py-2 font-mono text-sm bg-acid-green text-bg
-                         hover:bg-acid-green/80 transition-colors disabled:opacity-50"
+                className="flex-1 px-6 py-2 font-theme-data text-sm bg-[var(--accent)] text-bg
+                         hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50"
               >
                 {importingTemplate === selectedTemplate.id
                   ? '[IMPORTING...]'
@@ -567,13 +567,13 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
       {showRatingModal && selectedTemplate && (
         <div className="fixed inset-0 z-[110] bg-bg/95 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="max-w-md w-full border border-acid-yellow/50 bg-surface p-6">
-            <h3 className="text-lg font-mono text-acid-yellow mb-4">
+            <h3 className="text-lg font-theme-data text-[var(--acid-yellow)] mb-4">
               Rate {selectedTemplate.name}
             </h3>
 
             {/* Star Rating Input */}
             <div className="mb-4">
-              <label className="block font-mono text-xs text-text-muted mb-2">
+              <label className="block font-theme-data text-xs text-text-muted mb-2">
                 Rating
               </label>
               <div className="flex gap-2">
@@ -582,7 +582,7 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
                     key={star}
                     onClick={() => setRatingValue(star)}
                     className={`text-2xl ${
-                      star <= ratingValue ? 'text-acid-yellow' : 'text-text-muted/30'
+                      star <= ratingValue ? 'text-[var(--acid-yellow)]' : 'text-text-muted/30'
                     }`}
                   >
                     ★
@@ -593,7 +593,7 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
 
             {/* Review Title (Optional) */}
             <div className="mb-4">
-              <label className="block font-mono text-xs text-text-muted mb-2">
+              <label className="block font-theme-data text-xs text-text-muted mb-2">
                 Review Title (Optional)
               </label>
               <input
@@ -601,13 +601,13 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
                 value={reviewTitle}
                 onChange={(e) => setReviewTitle(e.target.value)}
                 placeholder="Great template!"
-                className="w-full bg-bg border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-yellow"
+                className="w-full bg-bg border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-acid-yellow"
               />
             </div>
 
             {/* Review Content (Optional) */}
             <div className="mb-6">
-              <label className="block font-mono text-xs text-text-muted mb-2">
+              <label className="block font-theme-data text-xs text-text-muted mb-2">
                 Review (Optional)
               </label>
               <textarea
@@ -615,22 +615,22 @@ export function TemplateMarketplace({ onImport }: TemplateMarketplaceProps) {
                 onChange={(e) => setReviewContent(e.target.value)}
                 placeholder="Share your experience..."
                 rows={3}
-                className="w-full bg-bg border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-yellow resize-none"
+                className="w-full bg-bg border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-acid-yellow resize-none"
               />
             </div>
 
             <div className="flex gap-3">
               <button
                 onClick={() => setShowRatingModal(false)}
-                className="px-4 py-2 font-mono text-sm border border-acid-green/30
-                         text-text-muted hover:border-acid-green transition-colors"
+                className="px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/30
+                         text-text-muted hover:border-[var(--accent)] transition-colors"
               >
                 [CANCEL]
               </button>
               <button
                 onClick={handleRateTemplate}
                 disabled={submittingRating}
-                className="flex-1 px-4 py-2 font-mono text-sm bg-acid-yellow text-bg
+                className="flex-1 px-4 py-2 font-theme-data text-sm bg-acid-yellow text-bg
                          hover:bg-acid-yellow/80 transition-colors disabled:opacity-50"
               >
                 {submittingRating ? '[SUBMITTING...]' : '[SUBMIT RATING]'}

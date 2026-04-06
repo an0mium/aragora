@@ -216,8 +216,8 @@ export function BeliefNetworkGraph({
     return (
       <div className="p-4 bg-bg border border-border rounded-lg">
         <div className="flex items-center justify-center" style={{ height }}>
-          <div className="animate-spin text-acid-green text-xl">⟳</div>
-          <span className="ml-2 text-text-muted text-sm font-mono">
+          <div className="animate-spin text-[var(--accent)] text-xl">⟳</div>
+          <span className="ml-2 text-text-muted text-sm font-theme-data">
             Loading belief network...
           </span>
         </div>
@@ -228,7 +228,7 @@ export function BeliefNetworkGraph({
   if (error) {
     return (
       <div className="p-4 bg-bg border border-red-500/30 rounded-lg">
-        <div className="text-red-400 text-sm font-mono">{error}</div>
+        <div className="text-red-400 text-sm font-theme-data">{error}</div>
       </div>
     );
   }
@@ -236,7 +236,7 @@ export function BeliefNetworkGraph({
   if (!data || simulation.length === 0) {
     return (
       <div className="p-4 bg-bg border border-border rounded-lg">
-        <div className="text-center text-text-muted text-sm font-mono py-8">
+        <div className="text-center text-text-muted text-sm font-theme-data py-8">
           No belief network data available for this debate
         </div>
       </div>
@@ -249,17 +249,17 @@ export function BeliefNetworkGraph({
       <div className="flex items-center justify-between p-3 border-b border-border">
         <div className="flex items-center gap-2">
           <span className="text-lg">🧠</span>
-          <h3 className="text-sm font-mono font-bold text-text uppercase">
+          <h3 className="text-sm font-theme-data font-bold text-text uppercase">
             Belief Network
           </h3>
         </div>
-        <div className="text-xs text-text-muted font-mono">
+        <div className="text-xs text-text-muted font-theme-data">
           {data.metadata.total_claims} claims | {data.metadata.crux_count} cruxes
         </div>
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 px-3 py-2 bg-surface/50 border-b border-border text-xs font-mono">
+      <div className="flex items-center gap-4 px-3 py-2 bg-surface/50 border-b border-border text-xs font-theme-data">
         <span className="text-text-muted">Authors:</span>
         {Object.entries(authorColors).slice(0, 5).map(([author, color]) => (
           <span key={author} className="flex items-center gap-1">
@@ -370,7 +370,7 @@ export function BeliefNetworkGraph({
                 <text
                   y={radius + 12}
                   textAnchor="middle"
-                  className="text-xs font-mono fill-text"
+                  className="text-xs font-theme-data fill-text"
                 >
                   {node.author}
                 </text>
@@ -386,11 +386,11 @@ export function BeliefNetworkGraph({
           <div className="flex items-start justify-between mb-2">
             <div className="flex items-center gap-2">
               {selectedNode.is_crux && (
-                <span className="px-2 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 rounded font-mono">
+                <span className="px-2 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 border border-yellow-500/50 rounded font-theme-data">
                   CRUX
                 </span>
               )}
-              <span className="text-sm font-mono text-text">{selectedNode.author}</span>
+              <span className="text-sm font-theme-data text-text">{selectedNode.author}</span>
             </div>
             <button
               onClick={() => setSelectedNode(null)}
@@ -404,7 +404,7 @@ export function BeliefNetworkGraph({
             {selectedNode.statement}
           </p>
 
-          <div className="flex items-center gap-4 text-xs font-mono text-text-muted">
+          <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted">
             <span>
               Centrality:{' '}
               <span className="text-text">
@@ -438,7 +438,7 @@ export function BeliefNetworkGraph({
           </div>
 
           {selectedNode.belief && (
-            <div className="mt-2 flex gap-2 text-xs font-mono">
+            <div className="mt-2 flex gap-2 text-xs font-theme-data">
               <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
                 T: {(selectedNode.belief.true_prob * 100).toFixed(0)}%
               </span>
@@ -454,7 +454,7 @@ export function BeliefNetworkGraph({
       )}
 
       {/* Help text */}
-      <div className="px-3 py-2 border-t border-border text-xs text-text-muted font-mono">
+      <div className="px-3 py-2 border-t border-border text-xs text-text-muted font-theme-data">
         <span className="text-yellow-400">★ Cruxes</span> = High-impact claims |
         Node size = centrality | Click nodes for details
       </div>

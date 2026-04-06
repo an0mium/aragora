@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 from unittest.mock import AsyncMock
 
@@ -153,6 +154,21 @@ async def test_duplicate_execution_is_blocked(wedge):
         await service.execute_receipt(envelope.receipt.receipt_id)
 
     connector.archive_message.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_missing_message_id_blocks_execution(wedge):
+    _, service, connector = wedge
+    envelope = service.create_receipt(
+        replace(_build_intent(), message_id=""),
+        _build_decision(),
+    )
+    service.review_receipt(envelope.receipt.receipt_id, choice="approve")
+
+    with pytest.raises(ValueError, match="receipt missing message_id"):
+        await service.execute_receipt(envelope.receipt.receipt_id)
+
+    connector.archive_message.assert_not_called()
 
 
 def test_intent_hash_mismatch_blocks_approval(wedge):

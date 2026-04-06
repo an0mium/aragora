@@ -123,7 +123,7 @@ export default function Playground() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-mono">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] font-theme-data">
       {/* Header */}
       <header className="border-b border-[var(--border)] px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
@@ -159,7 +159,7 @@ export default function Playground() {
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder="Should we use microservices or a monolith?"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-mono text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors"
+            className="w-full bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-4 py-3 font-theme-data text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors"
             disabled={loading}
           />
 
@@ -177,7 +177,7 @@ export default function Playground() {
                 value={rounds}
                 onChange={(e) => setRounds(Number(e.target.value))}
                 disabled={loading}
-                className="bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-2 py-1 text-sm font-mono focus:outline-none focus:border-[var(--acid-green)]"
+                className="bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-2 py-1 text-sm font-theme-data focus:outline-none focus:border-[var(--acid-green)]"
               >
                 <option value={1}>1</option>
                 <option value={2}>2</option>
@@ -195,7 +195,7 @@ export default function Playground() {
                 value={agents}
                 onChange={(e) => setAgents(Number(e.target.value))}
                 disabled={loading}
-                className="bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-2 py-1 text-sm font-mono focus:outline-none focus:border-[var(--acid-green)]"
+                className="bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] px-2 py-1 text-sm font-theme-data focus:outline-none focus:border-[var(--acid-green)]"
               >
                 <option value={2}>2</option>
                 <option value={3}>3</option>

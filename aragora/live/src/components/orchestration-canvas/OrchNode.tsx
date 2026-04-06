@@ -27,21 +27,21 @@ export const OrchNode = memo(function OrchNode({ data, selected }: OrchNodeProps
 
       <div className="flex items-center gap-2 mb-2">
         <span className="w-5 h-5 flex items-center justify-center text-xs font-bold rounded bg-pink-500/30 text-pink-200">{config.icon}</span>
-        <span className="px-1.5 py-0.5 text-xs bg-pink-500/30 text-pink-200 rounded font-mono uppercase">{config.label}</span>
-        <span className={`px-1.5 py-0.5 text-xs rounded font-mono ${statusClass}`}>{status.replace('_', ' ')}</span>
+        <span className="px-1.5 py-0.5 text-xs bg-pink-500/30 text-pink-200 rounded font-theme-data uppercase">{config.label}</span>
+        <span className={`px-1.5 py-0.5 text-xs rounded font-theme-data ${statusClass}`}>{status.replace('_', ' ')}</span>
       </div>
 
       <div className="text-sm font-medium text-text mb-1 line-clamp-2">{label}</div>
       {description && <div className="text-xs text-text-muted mb-1 line-clamp-2">{description}</div>}
       {assignedAgent && <div className="text-xs text-pink-300/80 mb-1">agent: {assignedAgent}</div>}
-      {agentType && <div className="text-xs text-pink-300 font-mono mb-1">{agentType}</div>}
+      {agentType && <div className="text-xs text-pink-300 font-theme-data mb-1">{agentType}</div>}
 
       {capabilities && capabilities.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1">
           {capabilities.slice(0, 3).map((cap) => (
-            <span key={cap} className="px-1 py-0.5 text-xs bg-pink-500/20 text-pink-200 rounded font-mono">{cap}</span>
+            <span key={cap} className="px-1 py-0.5 text-xs bg-pink-500/20 text-pink-200 rounded font-theme-data">{cap}</span>
           ))}
-          {capabilities.length > 3 && <span className="text-xs text-pink-300 font-mono">+{capabilities.length - 3}</span>}
+          {capabilities.length > 3 && <span className="text-xs text-pink-300 font-theme-data">+{capabilities.length - 3}</span>}
         </div>
       )}
 

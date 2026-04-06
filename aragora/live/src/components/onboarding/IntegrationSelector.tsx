@@ -83,10 +83,10 @@ export function IntegrationSelector({ onComplete, onSkip, onBack }: IntegrationS
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-mono text-[var(--acid-green)] mb-2">
+        <h2 className="text-xl font-theme-data text-[var(--acid-green)] mb-2">
           Connect Your Tools
         </h2>
-        <p className="font-mono text-[var(--text-muted)] text-sm">
+        <p className="font-theme-data text-[var(--text-muted)] text-sm">
           Aragora works best with multiple AI providers for diverse debate perspectives.
           At least one AI provider is required.
         </p>
@@ -104,7 +104,7 @@ export function IntegrationSelector({ onComplete, onSkip, onBack }: IntegrationS
             const catProviders = providers.filter((p) => p.category === cat);
             return (
               <div key={cat}>
-                <h3 className="text-xs font-mono text-[var(--acid-cyan)] mb-2 flex items-center gap-2">
+                <h3 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-2 flex items-center gap-2">
                   <span>{cat === 'ai' ? '>' : cat === 'channel' ? '#' : '$'}</span>
                   {CATEGORY_LABELS[cat]}
                 </h3>
@@ -119,7 +119,7 @@ export function IntegrationSelector({ onComplete, onSkip, onBack }: IntegrationS
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className={`w-6 h-6 flex items-center justify-center text-xs font-mono font-bold ${
+                        <span className={`w-6 h-6 flex items-center justify-center text-xs font-theme-data font-bold ${
                           provider.connected
                             ? 'bg-green-500/20 text-green-400'
                             : 'bg-[var(--border)] text-[var(--text-muted)]'
@@ -127,13 +127,13 @@ export function IntegrationSelector({ onComplete, onSkip, onBack }: IntegrationS
                           {provider.icon}
                         </span>
                         <div>
-                          <span className="text-sm font-mono text-[var(--text)]">{provider.name}</span>
+                          <span className="text-sm font-theme-data text-[var(--text)]">{provider.name}</span>
                           {provider.required && (
-                            <span className="ml-2 text-[10px] font-mono text-yellow-400">REQUIRED</span>
+                            <span className="ml-2 text-[10px] font-theme-data text-yellow-400">REQUIRED</span>
                           )}
                         </div>
                       </div>
-                      <span className={`text-xs font-mono px-2 py-0.5 ${
+                      <span className={`text-xs font-theme-data px-2 py-0.5 ${
                         provider.connected
                           ? 'bg-green-500/20 text-green-400'
                           : 'bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)]'
@@ -150,7 +150,7 @@ export function IntegrationSelector({ onComplete, onSkip, onBack }: IntegrationS
       )}
 
       {/* Status summary */}
-      <div className={`p-3 border text-xs font-mono ${
+      <div className={`p-3 border text-xs font-theme-data ${
         hasRequiredProvider
           ? 'border-green-500/30 bg-green-500/5 text-green-400'
           : 'border-yellow-500/30 bg-yellow-500/5 text-yellow-400'
@@ -165,7 +165,7 @@ export function IntegrationSelector({ onComplete, onSkip, onBack }: IntegrationS
         {onBack && (
           <button
             onClick={onBack}
-            className="px-4 py-2 font-mono text-sm border border-[var(--acid-green)]/30 text-[var(--text-muted)] hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
+            className="px-4 py-2 font-theme-data text-sm border border-[var(--acid-green)]/30 text-[var(--text-muted)] hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
           >
             Back
           </button>
@@ -174,14 +174,14 @@ export function IntegrationSelector({ onComplete, onSkip, onBack }: IntegrationS
         {onSkip && (
           <button
             onClick={onSkip}
-            className="px-4 py-2 font-mono text-sm text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+            className="px-4 py-2 font-theme-data text-sm text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
           >
             Skip for now
           </button>
         )}
         <button
           onClick={handleComplete}
-          className="px-6 py-2 font-mono text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
+          className="px-6 py-2 font-theme-data text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
         >
           Continue
         </button>

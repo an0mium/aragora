@@ -74,18 +74,18 @@ function ApiKeyCard({
 
   return (
     <div className={`p-4 bg-surface rounded border ${
-      expiration.isExpired ? 'border-crimson/40' :
+      expiration.isExpired ? 'border-[var(--crimson)]/40' :
       expiration.isExpiringSoon ? 'border-acid-yellow/40' :
-      'border-acid-green/20'
+      'border-[var(--accent)]/20'
     }`}>
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div>
-          <div className="font-mono text-sm text-text font-medium">
+          <div className="font-theme-data text-sm text-text font-medium">
             {apiKey.name || 'Active key'}
           </div>
           <div className="flex items-center gap-2 mt-1">
-            <code className="font-mono text-xs text-text-muted bg-bg px-1.5 py-0.5 rounded">
+            <code className="font-theme-data text-xs text-text-muted bg-bg px-1.5 py-0.5 rounded">
               {apiKey.prefix}...
             </code>
             <span className="text-text-muted text-[10px]">
@@ -96,7 +96,7 @@ function ApiKeyCard({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowCurl(!showCurl)}
-            className="px-2 py-1 text-[10px] font-mono text-acid-cyan hover:bg-acid-cyan/10 rounded transition-colors"
+            className="px-2 py-1 text-[10px] font-theme-data text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 rounded transition-colors"
             title="Show cURL example"
           >
             {showCurl ? 'Hide' : 'cURL'}
@@ -104,7 +104,7 @@ function ApiKeyCard({
           <button
             onClick={handleRevoke}
             disabled={isRevoking}
-            className="px-2 py-1 text-[10px] font-mono text-crimson hover:bg-crimson/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-2 py-1 text-[10px] font-theme-data text-[var(--crimson)] hover:bg-[var(--crimson)]/10 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isRevoking ? 'Revoking...' : 'Revoke'}
           </button>
@@ -113,24 +113,24 @@ function ApiKeyCard({
 
       <div className="grid gap-3 mb-3 sm:grid-cols-2">
         <div className="rounded border border-border bg-bg/60 p-3">
-          <div className="text-[10px] font-mono text-text-muted uppercase tracking-wide">
+          <div className="text-[10px] font-theme-data text-text-muted uppercase tracking-wide">
             Status
           </div>
-          <div className={`mt-1 font-mono text-sm ${
-            expiration.isExpired ? 'text-crimson' : 'text-acid-green'
+          <div className={`mt-1 font-theme-data text-sm ${
+            expiration.isExpired ? 'text-[var(--crimson)]' : 'text-[var(--accent)]'
           }`}>
             {expiration.isExpired ? 'Expired' : 'Active'}
           </div>
         </div>
         <div className="rounded border border-border bg-bg/60 p-3">
-          <div className="text-[10px] font-mono text-text-muted uppercase tracking-wide">
+          <div className="text-[10px] font-theme-data text-text-muted uppercase tracking-wide">
             Expiration
           </div>
-          <div className={`mt-1 font-mono text-sm ${
+          <div className={`mt-1 font-theme-data text-sm ${
             expiration.isExpired
-              ? 'text-crimson'
+              ? 'text-[var(--crimson)]'
               : expiration.isExpiringSoon
-              ? 'text-acid-yellow'
+              ? 'text-[var(--acid-yellow)]'
               : 'text-text'
           }`}>
             {expiration.text}
@@ -140,8 +140,8 @@ function ApiKeyCard({
 
       {/* Expiration Warning */}
       {(expiration.isExpired || expiration.isExpiringSoon) && (
-        <div className={`text-xs font-mono px-2 py-1 rounded mb-3 ${
-          expiration.isExpired ? 'bg-crimson/10 text-crimson' : 'bg-acid-yellow/10 text-acid-yellow'
+        <div className={`text-xs font-theme-data px-2 py-1 rounded mb-3 ${
+          expiration.isExpired ? 'bg-[var(--crimson)]/10 text-[var(--crimson)]' : 'bg-acid-yellow/10 text-[var(--acid-yellow)]'
         }`}>
           {expiration.text}
         </div>
@@ -151,19 +151,19 @@ function ApiKeyCard({
       {showCurl && (
         <div className="mt-3 pt-3 border-t border-border">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-mono text-text-muted">cURL Example</span>
+            <span className="text-[10px] font-theme-data text-text-muted">cURL Example</span>
             <button
               onClick={() => handleCopy(curlExample, 'curl')}
-              className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors ${
+              className={`px-2 py-0.5 text-[10px] font-theme-data rounded transition-colors ${
                 copied === 'curl'
-                  ? 'bg-acid-green/20 text-acid-green'
-                  : 'text-acid-cyan hover:bg-acid-cyan/10'
+                  ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
+                  : 'text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10'
               }`}
             >
               {copied === 'curl' ? 'Copied!' : 'Copy'}
             </button>
           </div>
-          <pre className="bg-bg p-3 rounded font-mono text-[10px] text-text overflow-x-auto whitespace-pre-wrap">
+          <pre className="bg-bg p-3 rounded font-theme-data text-[10px] text-text overflow-x-auto whitespace-pre-wrap">
             {curlExample}
           </pre>
         </div>
@@ -216,25 +216,25 @@ function ProviderKeyRow({
   };
 
   return (
-    <div className="p-4 bg-surface rounded border border-border hover:border-acid-green/20 transition-colors">
+    <div className="p-4 bg-surface rounded border border-border hover:border-[var(--accent)]/20 transition-colors">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono text-sm text-text font-medium">
+            <span className="font-theme-data text-sm text-text font-medium">
               {provider.label}
             </span>
             {hasSaved && (
-              <span className="px-1.5 py-0.5 text-[10px] font-mono bg-acid-green/10 text-acid-green border border-acid-green/30 rounded">
+              <span className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30 rounded">
                 SET
               </span>
             )}
           </div>
-          <code className="font-mono text-[10px] text-text-muted">
+          <code className="font-theme-data text-[10px] text-text-muted">
             {provider.envVar}
           </code>
           {hasSaved && !editing && (
             <div className="mt-2">
-              <code className="font-mono text-xs text-text-muted bg-bg px-1.5 py-0.5 rounded">
+              <code className="font-theme-data text-xs text-text-muted bg-bg px-1.5 py-0.5 rounded">
                 {maskKey(savedValue)}
               </code>
             </div>
@@ -247,7 +247,7 @@ function ProviderKeyRow({
               href={provider.docsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-2 py-1 text-[10px] font-mono text-acid-cyan hover:bg-acid-cyan/10 rounded transition-colors"
+              className="px-2 py-1 text-[10px] font-theme-data text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 rounded transition-colors"
               title={`Get ${provider.label} API key`}
             >
               Get key
@@ -256,7 +256,7 @@ function ProviderKeyRow({
           {!editing && (
             <button
               onClick={() => setEditing(true)}
-              className="px-2 py-1 text-[10px] font-mono text-acid-green hover:bg-acid-green/10 rounded transition-colors"
+              className="px-2 py-1 text-[10px] font-theme-data text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded transition-colors"
             >
               {hasSaved ? 'Update' : 'Set'}
             </button>
@@ -264,7 +264,7 @@ function ProviderKeyRow({
           {hasSaved && !editing && (
             <button
               onClick={onClear}
-              className="px-2 py-1 text-[10px] font-mono text-crimson hover:bg-crimson/10 rounded transition-colors"
+              className="px-2 py-1 text-[10px] font-theme-data text-[var(--crimson)] hover:bg-[var(--crimson)]/10 rounded transition-colors"
             >
               Clear
             </button>
@@ -282,24 +282,24 @@ function ProviderKeyRow({
               onKeyDown={handleKeyDown}
               placeholder={provider.placeholder}
               autoFocus
-              className="flex-1 bg-bg border border-acid-green/30 rounded px-3 py-2 font-mono text-sm text-text focus:outline-none focus:border-acid-green placeholder:text-text-muted/40"
+              className="flex-1 bg-bg border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm text-text focus:outline-none focus:border-[var(--accent)] placeholder:text-text-muted/40"
               aria-label={`${provider.label} API key`}
             />
             <button
               onClick={handleSave}
               disabled={!inputValue.trim()}
-              className="px-3 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-xs rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-xs rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Save
             </button>
             <button
               onClick={handleCancel}
-              className="px-3 py-2 bg-surface border border-border text-text-muted font-mono text-xs rounded hover:border-text-muted transition-colors"
+              className="px-3 py-2 bg-surface border border-border text-text-muted font-theme-data text-xs rounded hover:border-text-muted transition-colors"
             >
               Cancel
             </button>
           </div>
-          <p className="mt-2 font-mono text-[10px] text-text-muted">
+          <p className="mt-2 font-theme-data text-[10px] text-text-muted">
             Stored locally in your browser. Never sent to Aragora servers.
           </p>
         </div>
@@ -336,20 +336,20 @@ function ProviderKeysSection() {
   return (
     <div className="card p-6">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="font-mono text-acid-green">LLM Provider Keys</h3>
+        <h3 className="font-theme-data text-[var(--accent)]">LLM Provider Keys</h3>
         {configuredCount > 0 && (
-          <span className="font-mono text-xs text-text-muted">
+          <span className="font-theme-data text-xs text-text-muted">
             {configuredCount} / {LLM_PROVIDERS.length} configured
           </span>
         )}
       </div>
-      <p className="mb-2 font-mono text-sm text-text-muted">
+      <p className="mb-2 font-theme-data text-sm text-text-muted">
         Enter your own LLM provider API keys so Aragora can run debates using
         your accounts. Keys are stored in your browser only and passed to the
         backend per-request.
       </p>
-      <div className="mb-4 p-3 bg-acid-cyan/5 border border-acid-cyan/20 rounded">
-        <p className="font-mono text-[10px] text-acid-cyan">
+      <div className="mb-4 p-3 bg-[var(--acid-cyan)]/5 border border-[var(--acid-cyan)]/20 rounded">
+        <p className="font-theme-data text-[10px] text-[var(--acid-cyan)]">
           At least one key (Anthropic or OpenAI) is required. OpenRouter is
           recommended as an automatic fallback when primary providers hit rate
           limits.
@@ -371,7 +371,7 @@ function ProviderKeysSection() {
       </div>
 
       {saveFlash && (
-        <div className="mt-3 font-mono text-xs text-acid-green">
+        <div className="mt-3 font-theme-data text-xs text-[var(--accent)]">
           Key saved successfully.
         </div>
       )}
@@ -414,15 +414,15 @@ export function ApiKeysTab({
   return (
     <div className="space-y-6" role="tabpanel" id="panel-api" aria-labelledby="tab-api">
       {error && (
-        <div className="rounded border border-crimson/40 bg-crimson/10 px-4 py-3 font-mono text-sm text-crimson">
+        <div className="rounded border border-[var(--crimson)]/40 bg-[var(--crimson)]/10 px-4 py-3 font-theme-data text-sm text-[var(--crimson)]">
           {error}
         </div>
       )}
 
       {/* Generate Key */}
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-2">Personal API Key</h3>
-        <p className="mb-4 font-mono text-sm text-text-muted">
+        <h3 className="font-theme-data text-[var(--accent)] mb-2">Personal API Key</h3>
+        <p className="mb-4 font-theme-data text-sm text-text-muted">
           {singleKeyMode
             ? 'This backend currently supports one active personal API key per account. Generating a new key rotates the current key, and the full value is only shown once.'
             : 'Generate an API key for authenticated requests to the Aragora API.'}
@@ -431,12 +431,12 @@ export function ApiKeysTab({
           <button
             onClick={handleGenerateKey}
             disabled={isGenerating || loading}
-            className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? 'Generating...' : hasExistingKey ? 'Rotate key' : 'Generate key'}
           </button>
           {singleKeyMode && (
-            <span className="font-mono text-xs text-text-muted">
+            <span className="font-theme-data text-xs text-text-muted">
               Active keys: {activeKeys} / 1
             </span>
           )}
@@ -444,11 +444,11 @@ export function ApiKeysTab({
 
         {generatedKey && (
           <div className="mt-4 p-4 bg-acid-yellow/10 border border-acid-yellow/30 rounded">
-            <div className="font-mono text-xs text-acid-yellow mb-2">
+            <div className="font-theme-data text-xs text-[var(--acid-yellow)] mb-2">
               Copy this key now - it won&apos;t be shown again!
             </div>
             <div className="flex gap-2">
-              <code className="flex-1 bg-surface p-2 rounded font-mono text-sm text-text break-all">
+              <code className="flex-1 bg-surface p-2 rounded font-theme-data text-sm text-text break-all">
                 {generatedKey}
               </code>
               <button
@@ -456,7 +456,7 @@ export function ApiKeysTab({
                   navigator.clipboard.writeText(generatedKey);
                   setGeneratedKey(null);
                 }}
-                className="px-3 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30"
+                className="px-3 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30"
               >
                 Copy
               </button>
@@ -467,15 +467,15 @@ export function ApiKeysTab({
 
       {/* Keys List */}
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">
           {singleKeyMode ? 'Active API Key' : `Your API Keys (${preferences.api_keys.length})`}
         </h3>
         {loading ? (
-          <p className="font-mono text-sm text-text-muted">
+          <p className="font-theme-data text-sm text-text-muted">
             Loading API keys...
           </p>
         ) : preferences.api_keys.length === 0 ? (
-          <p className="font-mono text-sm text-text-muted">
+          <p className="font-theme-data text-sm text-text-muted">
             No API key generated yet. Create one to access the Aragora API programmatically.
           </p>
         ) : (
@@ -497,24 +497,24 @@ export function ApiKeysTab({
 
       {/* Documentation */}
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-2">API Documentation</h3>
-        <p className="font-mono text-sm text-text-muted mb-4">
+        <h3 className="font-theme-data text-[var(--accent)] mb-2">API Documentation</h3>
+        <p className="font-theme-data text-sm text-text-muted mb-4">
           Use your API key to authenticate requests to the Aragora API.
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <a
             href="/docs/api"
-            className="flex items-center gap-2 p-3 bg-surface border border-acid-green/20 rounded hover:border-acid-green/40 transition-colors"
+            className="flex items-center gap-2 p-3 bg-surface border border-[var(--accent)]/20 rounded hover:border-[var(--accent)]/40 transition-colors"
           >
-            <span className="text-acid-green">{">"}</span>
-            <span className="font-mono text-sm text-text">Full API Reference</span>
+            <span className="text-[var(--accent)]">{">"}</span>
+            <span className="font-theme-data text-sm text-text">Full API Reference</span>
           </a>
           <a
             href="/docs/api#rate-limits"
-            className="flex items-center gap-2 p-3 bg-surface border border-acid-green/20 rounded hover:border-acid-green/40 transition-colors"
+            className="flex items-center gap-2 p-3 bg-surface border border-[var(--accent)]/20 rounded hover:border-[var(--accent)]/40 transition-colors"
           >
-            <span className="text-acid-green">{">"}</span>
-            <span className="font-mono text-sm text-text">Rate Limits & Quotas</span>
+            <span className="text-[var(--accent)]">{">"}</span>
+            <span className="font-theme-data text-sm text-text">Rate Limits & Quotas</span>
           </a>
         </div>
       </div>

@@ -4,6 +4,8 @@ import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
+import { Header } from '@/components/landing/Header';
 import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
@@ -236,47 +238,17 @@ function LoginForm() {
  * Wrapped in Suspense for static export compatibility with useSearchParams.
  */
 export default function LoginPage() {
-  return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      {/* Minimal nav — links back to landing */}
-      <nav
-        className="border-b sticky top-0 z-50 backdrop-blur-sm"
-        style={{
-          borderColor: 'var(--border)',
-          backgroundColor: 'color-mix(in srgb, var(--surface) 80%, transparent)',
-        }}
-      >
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link
-            href="/landing"
-            style={{
-              fontFamily: 'var(--font-landing)',
-              fontWeight: 700,
-              fontSize: '14px',
-              letterSpacing: '0.05em',
-              color: 'var(--accent)',
-            }}
-          >
-            ARAGORA
-          </Link>
-          <Link
-            href="/signup"
-            style={{
-              fontFamily: 'var(--font-landing)',
-              fontSize: '13px',
-              fontWeight: 600,
-              padding: '6px 16px',
-              backgroundColor: 'var(--accent)',
-              color: 'var(--bg)',
-              borderRadius: 'var(--radius-button, 0)',
-            }}
-          >
-            Sign up free
-          </Link>
-        </div>
-      </nav>
+  const { theme } = useTheme();
 
-      <main className="flex-1 flex items-center justify-center px-4 py-16" style={{ minHeight: 'calc(100vh - 49px)' }}>
+  return (
+    <div
+      className="min-h-screen"
+      style={{ backgroundColor: 'var(--bg)', color: 'var(--text)' }}
+      data-landing-theme={theme}
+    >
+      <Header />
+
+      <main className="flex-1 flex items-center justify-center px-4 py-16" style={{ minHeight: 'calc(100vh - 60px)' }}>
         <Suspense fallback={
           <div style={{ color: 'var(--accent)', fontFamily: 'var(--font-landing)' }} className="animate-pulse">
             Loading...

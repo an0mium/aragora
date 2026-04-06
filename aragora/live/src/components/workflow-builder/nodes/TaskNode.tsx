@@ -38,7 +38,7 @@ export const TaskNode = memo(function TaskNode({
 
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">⚙️</span>
-        <span className="text-sm font-mono font-bold text-blue-300 uppercase tracking-wide">
+        <span className="text-sm font-theme-data font-bold text-blue-300 uppercase tracking-wide">
           Task
         </span>
       </div>
@@ -54,11 +54,11 @@ export const TaskNode = memo(function TaskNode({
       )}
 
       <div className="flex items-center gap-2">
-        <span className="px-2 py-0.5 text-xs bg-blue-500/30 text-blue-200 rounded font-mono">
+        <span className="px-2 py-0.5 text-xs bg-blue-500/30 text-blue-200 rounded font-theme-data">
           {taskTypeLabels[data.taskType] || data.taskType}
         </span>
         {data.functionName && (
-          <span className="text-xs text-blue-300 font-mono truncate">
+          <span className="text-xs text-blue-300 font-theme-data truncate">
             {data.functionName}
           </span>
         )}

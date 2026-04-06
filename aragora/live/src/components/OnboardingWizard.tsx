@@ -65,18 +65,18 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-bg/95 backdrop-blur-sm">
-      <div className="w-full max-w-xl mx-4 border border-acid-green/30 bg-surface rounded-lg overflow-hidden">
+      <div className="w-full max-w-xl mx-4 border border-[var(--accent)]/30 bg-surface rounded-lg overflow-hidden">
         {/* Header */}
-        <div className="border-b border-acid-green/20 px-6 py-4 flex items-center justify-between">
+        <div className="border-b border-[var(--accent)]/20 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-mono text-acid-green">WELCOME TO ARAGORA</h2>
-            <p className="text-xs font-mono text-text-muted mt-1">
+            <h2 className="text-lg font-theme-data text-[var(--accent)]">WELCOME TO ARAGORA</h2>
+            <p className="text-xs font-theme-data text-text-muted mt-1">
               Step {step} of 2
             </p>
           </div>
           <button
             onClick={onSkip}
-            className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+            className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
           >
             [SKIP]
           </button>
@@ -86,10 +86,10 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
         <div className="p-6">
           {step === 1 && (
             <div className="space-y-4">
-              <p className="text-sm font-mono text-text mb-2">
+              <p className="text-sm font-theme-data text-text mb-2">
                 What would you like to stress-test?
               </p>
-              <p className="text-xs font-mono text-text-muted mb-4">
+              <p className="text-xs font-theme-data text-text-muted mb-4">
                 Pick a use case and we&apos;ll run your first AI debate in under 30 seconds.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -97,9 +97,9 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
                   <button
                     key={persona.id}
                     onClick={() => handlePersonaSelect(persona.id)}
-                    className="p-4 border border-acid-green/20 rounded-lg text-left hover:border-acid-green/50 hover:bg-acid-green/5 transition-all group"
+                    className="p-4 border border-[var(--accent)]/20 rounded-lg text-left hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5 transition-all group"
                   >
-                    <div className="font-mono text-sm text-acid-green group-hover:text-acid-green">
+                    <div className="font-theme-data text-sm text-[var(--accent)] group-hover:text-[var(--accent)]">
                       {persona.label}
                     </div>
                     <div className="text-xs text-text-muted mt-1">
@@ -114,11 +114,11 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
           {step === 2 && selectedPersona && (
             <div className="space-y-6">
               <div>
-                <p className="text-sm font-mono text-text mb-2">
+                <p className="text-sm font-theme-data text-text mb-2">
                   Ready to run your first debate:
                 </p>
-                <div className="p-4 border border-acid-cyan/30 rounded-lg bg-acid-cyan/5">
-                  <p className="text-sm font-mono text-acid-cyan">
+                <div className="p-4 border border-[var(--acid-cyan)]/30 rounded-lg bg-[var(--acid-cyan)]/5">
+                  <p className="text-sm font-theme-data text-[var(--acid-cyan)]">
                     &quot;{PERSONAS.find(p => p.id === selectedPersona)?.examplePrompt}&quot;
                   </p>
                 </div>
@@ -127,13 +127,13 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={handleStartWithExample}
-                  className="flex-1 px-4 py-3 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/90 transition-colors"
+                  className="flex-1 px-4 py-3 bg-[var(--accent)] text-bg font-theme-data text-sm hover:bg-[var(--accent)]/90 transition-colors"
                 >
                   RUN THIS DEBATE
                 </button>
                 <button
                   onClick={handleStartBlank}
-                  className="flex-1 px-4 py-3 border border-acid-green/30 text-acid-green font-mono text-sm hover:bg-acid-green/10 transition-colors"
+                  className="flex-1 px-4 py-3 border border-[var(--accent)]/30 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/10 transition-colors"
                 >
                   WRITE MY OWN QUESTION
                 </button>
@@ -141,7 +141,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
 
               <button
                 onClick={() => setStep(1)}
-                className="w-full text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="w-full text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 ← Back to persona selection
               </button>
@@ -150,8 +150,8 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
         </div>
 
         {/* Footer */}
-        <div className="border-t border-acid-green/20 px-6 py-3 bg-surface/50">
-          <p className="text-xs font-mono text-text-muted text-center">
+        <div className="border-t border-[var(--accent)]/20 px-6 py-3 bg-surface/50">
+          <p className="text-xs font-theme-data text-text-muted text-center">
             42 AI agents will debate, critique, and converge on a verdict for you.
           </p>
         </div>

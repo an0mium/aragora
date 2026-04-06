@@ -29,8 +29,8 @@ on:
     - cron: '0 4 * * *'
 
 concurrency:
-  group: tests-${{ github.ref }}${{ startsWith(github.ref, 'refs/heads/dev/') && format('-{0}', github.sha) || '' }}
-  cancel-in-progress: false
+  group: tests-${{ github.event.pull_request.number || github.ref }}${{ startsWith(github.ref, 'refs/heads/dev/') && format('-{0}', github.sha) || '' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # ============================================================
@@ -409,7 +409,7 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Zero Coverage Check
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     needs: baseline-determinism
 
     steps:
@@ -495,7 +495,7 @@ jobs:
   test-fast:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     needs: baseline-determinism
     strategy:
       fail-fast: false
@@ -777,20 +777,11 @@ jobs:
           fi
 
       - name: Check for high-risk path changes
-        uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            high_risk:
-              - 'aragora/server/**'
-              - 'aragora/debate/**'
-              - 'aragora/memory/**'
-              - 'aragora/auth/**'
-              - 'aragora/rbac/**'
-              - 'aragora/storage/**'
+        uses: ./.github/actions/pr-scope-classifier
+        id: scope
 
       - name: Set up Python 3.11
-        if: steps.changes.outputs.high_risk == 'true'
+        if: steps.scope.outputs.integration_high_risk == 'true'
         uses: ./.github/actions/setup-python-safe
         with:
           python-version: "3.11"
@@ -798,14 +789,14 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Install dependencies
-        if: steps.changes.outputs.high_risk == 'true'
+        if: steps.scope.outputs.integration_high_risk == 'true'
         run: |
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras test
           python -m pip install pytest-timeout
 
       - name: Run integration smoke tests
-        if: steps.changes.outputs.high_risk == 'true'
+        if: steps.scope.outputs.integration_high_risk == 'true'
         run: |
           pytest tests/handlers/ tests/debate/test_arena*.py tests/memory/ \
             -x \
@@ -817,7 +808,7 @@ jobs:
           PYTHONPATH: .:aragora-debate/src
 
       - name: Skip (no high-risk changes)
-        if: steps.changes.outputs.high_risk != 'true'
+        if: steps.scope.outputs.integration_high_risk != 'true'
         run: echo "No high-risk path changes detected, skipping integration smoke tests."
 
   test-pollution-randomized:
@@ -1499,7 +1490,7 @@ jobs:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: Frontend E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     services:
       redis:
@@ -1681,15 +1672,11 @@ jobs:
           fi
 
       - name: Check for frontend changes
-        uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            frontend:
-              - 'aragora/live/**'
+        uses: ./.github/actions/pr-scope-classifier
+        id: scope
 
       - name: Set up Node.js
-        if: steps.changes.outputs.frontend == 'true'
+        if: steps.scope.outputs.frontend == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -1697,17 +1684,17 @@ jobs:
           cache-dependency-path: aragora/live/package-lock.json
 
       - name: Install dependencies
-        if: steps.changes.outputs.frontend == 'true'
+        if: steps.scope.outputs.frontend == 'true'
         working-directory: aragora/live
         run: npm ci
 
       - name: TypeScript type check
-        if: steps.changes.outputs.frontend == 'true'
+        if: steps.scope.outputs.frontend == 'true'
         working-directory: aragora/live
         run: npx tsc --noEmit
 
       - name: Skip (no frontend changes)
-        if: steps.changes.outputs.frontend != 'true'
+        if: steps.scope.outputs.frontend != 'true'
         run: echo "No frontend file changes detected, skipping TypeScript type check."
 
   security:
@@ -2099,7 +2086,7 @@ jobs:
   test-analytics:
     name: Test Analytics
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     needs: [test-fast]
     if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (always() && github.event_name == 'pull_request')
 

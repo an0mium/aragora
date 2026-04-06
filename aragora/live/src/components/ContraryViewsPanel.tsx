@@ -56,7 +56,7 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
   if (!isExpanded) {
     return (
       <div
-        className="panel panel-compact cursor-pointer hover:border-acid-green/30 transition-colors"
+        className="panel panel-compact cursor-pointer hover:border-[var(--accent)]/30 transition-colors"
         onClick={() => setIsExpanded(true)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -71,7 +71,7 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
       >
         <div className="flex items-center justify-between">
           <h3 className="panel-title-sm flex items-center gap-2">
-            <span className="text-acid-green">{'>'}</span>
+            <span className="text-[var(--accent)]">{'>'}</span>
             CONTRARY_VIEWS
             {views.length > 0 && <span className="panel-badge">{views.length}</span>}
           </h3>
@@ -85,30 +85,30 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
     <div className="panel">
       <div className="panel-header">
         <h3 className="panel-title-sm flex items-center gap-2">
-          <span className="text-acid-green">{'>'}</span>
+          <span className="text-[var(--accent)]">{'>'}</span>
           CONTRARY_VIEWS
         </h3>
         <button
           onClick={() => setIsExpanded(false)}
           aria-label="Collapse contrary views panel"
-          className="panel-toggle hover:text-acid-green transition-colors"
+          className="panel-toggle hover:text-[var(--accent)] transition-colors"
         >
           [COLLAPSE]
         </button>
       </div>
 
       {loading && (
-        <div className="text-xs text-text-muted font-mono animate-pulse">
+        <div className="text-xs text-text-muted font-theme-data animate-pulse">
           Loading dissenting opinions...
         </div>
       )}
 
       {error && (
-        <div className="text-xs text-warning font-mono">{error}</div>
+        <div className="text-xs text-warning font-theme-data">{error}</div>
       )}
 
       {!loading && !error && views.length === 0 && (
-        <div className="text-xs text-text-muted font-mono">
+        <div className="text-xs text-text-muted font-theme-data">
           No contrary views recorded yet.
         </div>
       )}
@@ -120,10 +120,10 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
             className="border border-warning/30 bg-warning/5 p-3 space-y-2"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono text-warning">
+              <span className="text-xs font-theme-data text-warning">
                 {view.agent}
               </span>
-              <span className="text-xs font-mono text-text-muted">
+              <span className="text-xs font-theme-data text-text-muted">
                 {Math.round(view.confidence * 100)}% confident
               </span>
             </div>
@@ -139,7 +139,7 @@ export function ContraryViewsPanel({ apiBase }: ContraryViewsPanelProps) {
         ))}
       </div>
 
-      <div className="mt-3 text-[10px] text-text-muted font-mono">
+      <div className="mt-3 text-[10px] text-text-muted font-theme-data">
         Dissenting opinions that didn&apos;t achieve consensus
       </div>
     </div>

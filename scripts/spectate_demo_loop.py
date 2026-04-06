@@ -99,7 +99,9 @@ def main():
 
     debate_count = 0
     while True:
-        question = QUESTIONS[debate_count % len(QUESTIONS)]
+        # Append timestamp to bypass debate cache — each debate must be unique
+        base_question = QUESTIONS[debate_count % len(QUESTIONS)]
+        question = f"{base_question} (run {debate_count + 1}, {time.strftime('%H:%M')})"
         debate_count += 1
         logger.info("Debate %d: %s", debate_count, question[:60])
 

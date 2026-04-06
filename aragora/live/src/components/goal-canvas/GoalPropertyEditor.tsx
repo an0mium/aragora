@@ -28,7 +28,7 @@ export function GoalPropertyEditor({ data, onChange, onAdvance, onDelete }: Goal
 
   return (
     <div className="w-64 border-l border-[var(--border)] bg-[var(--surface)] p-4 overflow-y-auto space-y-4">
-      <h3 className="text-xs font-mono uppercase text-text-muted tracking-wider">
+      <h3 className="text-xs font-theme-data uppercase text-text-muted tracking-wider">
         Goal Properties
       </h3>
 
@@ -139,7 +139,7 @@ export function GoalPropertyEditor({ data, onChange, onAdvance, onDelete }: Goal
         {onAdvance && (
           <button
             onClick={onAdvance}
-            className="w-full px-3 py-1.5 text-xs font-mono rounded bg-amber-500/20 border border-amber-500 text-amber-200 hover:bg-amber-500/30 transition-colors"
+            className="w-full px-3 py-1.5 text-xs font-theme-data rounded bg-amber-500/20 border border-amber-500 text-amber-200 hover:bg-amber-500/30 transition-colors"
           >
             Advance to Actions
           </button>
@@ -147,7 +147,7 @@ export function GoalPropertyEditor({ data, onChange, onAdvance, onDelete }: Goal
         {onDelete && (
           <button
             onClick={onDelete}
-            className="w-full px-3 py-1.5 text-xs font-mono rounded bg-red-500/20 border border-red-500 text-red-200 hover:bg-red-500/30 transition-colors"
+            className="w-full px-3 py-1.5 text-xs font-theme-data rounded bg-red-500/20 border border-red-500 text-red-200 hover:bg-red-500/30 transition-colors"
           >
             Delete Goal
           </button>

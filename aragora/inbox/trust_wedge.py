@@ -196,6 +196,10 @@ class ActionIntent:
     debate_id: str | None = None
     label_id: str | None = None
     user_id: str | None = None
+    # Email display metadata — populated by triage runner for auditability.
+    email_subject: str = ""
+    email_from: str = ""
+    email_snippet: str = ""
 
     @classmethod
     def create(
@@ -599,12 +603,21 @@ class InboxTrustWedgeStore:
             verdict = "FAIL"
         else:
             verdict = "CONDITIONAL"
+        # Include email metadata for auditability — set by
+        # _attach_display_metadata in triage_runner.py on the dataclass fields.
+        email_subject = intent.email_subject or ""
+        email_from = intent.email_from or ""
+        email_snippet = intent.email_snippet or ""
+
         return {
             "receipt_id": receipt_id,
             "gauntlet_id": receipt_id,
             "intent_hash": intent.intent_hash(),
             "action_intent": intent.to_dict(),
             "triage_decision": decision.to_dict(),
+            "email_subject": str(email_subject),
+            "email_from": str(email_from),
+            "email_snippet": str(email_snippet)[:200],
             "timestamp": created_at.isoformat(),
             "verdict": verdict,
             "confidence": float(decision.confidence),
@@ -612,6 +625,37 @@ class InboxTrustWedgeStore:
             "created_at": created_at.isoformat(),
             "expires_at": _isoformat(expires_at),
         }
+
+    def get_receipt_by_message_id(
+        self,
+        message_id: str,
+        *,
+        provider: str | None = None,
+        user_id: str | None = None,
+    ) -> StoredInboxTrustEnvelope | None:
+        """Return the most recent receipt for a message, optionally scoped by provider/user."""
+        conditions = ["message_id = ?"]
+        params: list[Any] = [message_id]
+
+        if provider is not None and str(provider).strip():
+            conditions.append("provider = ?")
+            params.append(str(provider).strip().lower())
+
+        if user_id is not None and str(user_id).strip():
+            conditions.append("user_id = ?")
+            params.append(str(user_id).strip())
+
+        with self._cursor() as cursor:
+            cursor.execute(
+                f"SELECT receipt_id FROM inbox_trust_receipts "
+                f"WHERE {' AND '.join(conditions)} "
+                f"ORDER BY created_at DESC LIMIT 1",
+                tuple(params),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            return self.get_receipt(row["receipt_id"])
 
     def create_receipt(
         self,
@@ -621,6 +665,23 @@ class InboxTrustWedgeStore:
         expires_at: datetime | None = None,
         signer: ReceiptSigner | None = None,
     ) -> StoredInboxTrustEnvelope:
+        # Deduplicate only exact repeats for real provider-backed messages.
+        # A later decision for the same message_id must produce a newer receipt so
+        # shared inbox and operator surfaces can show the latest wedge state.
+        msg_id = intent.message_id
+        if msg_id and not msg_id.startswith(("msg-", "test-", "fake-")):
+            existing = self.get_receipt_by_message_id(
+                msg_id,
+                provider=intent.provider,
+                user_id=intent.user_id,
+            )
+            if (
+                existing is not None
+                and existing.receipt.intent_hash == intent.intent_hash()
+                and existing.decision.final_action == decision.final_action
+            ):
+                return existing
+
         receipt_id = str(uuid.uuid4())
         created_at = _utcnow()
         state = ReceiptState.CREATED
@@ -1486,6 +1547,8 @@ class InboxTrustWedgeService:
             provider = envelope.intent.provider
             user_id = envelope.intent.user_id
             message_id = envelope.intent.message_id
+            if not message_id:
+                raise ValueError("receipt missing message_id")
 
             if action == InboxWedgeAction.ARCHIVE:
                 result = await self.email_actions_service.archive(provider, user_id, message_id)

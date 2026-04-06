@@ -15,7 +15,7 @@ export default function SystemHealthPage() {
       <CRTVignette />
 
       <div className="relative z-10">
-        <h1 className="text-xl font-mono text-[var(--acid-green)] mb-6">
+        <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-6">
           System Health Dashboard
         </h1>
 

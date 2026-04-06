@@ -45,7 +45,7 @@ export function QuickActionsBar({
       <div className="flex items-center justify-between flex-wrap gap-3">
         {/* Single Email Actions */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-[var(--text-muted)] mr-2">
+          <span className="text-xs font-theme-data text-[var(--text-muted)] mr-2">
             {selectedEmail ? 'Selected:' : 'Quick Actions:'}
           </span>
 
@@ -105,7 +105,7 @@ export function QuickActionsBar({
         <div className="relative">
           <button
             onClick={() => setShowBulkMenu(!showBulkMenu)}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 rounded hover:bg-[var(--acid-green)]/20 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 rounded hover:bg-[var(--acid-green)]/20 transition-colors"
           >
             <span>⚡</span>
             <span>Bulk Actions</span>
@@ -115,7 +115,7 @@ export function QuickActionsBar({
           {showBulkMenu && (
             <div className="absolute right-0 top-full mt-1 w-64 bg-[var(--surface)] border border-[var(--border)] rounded shadow-lg z-10">
               <div className="p-2 border-b border-[var(--border)]">
-                <span className="text-xs font-mono text-[var(--text-muted)]">
+                <span className="text-xs font-theme-data text-[var(--text-muted)]">
                   Bulk Operations
                 </span>
               </div>
@@ -169,7 +169,7 @@ export function QuickActionsBar({
 
       {/* Processing indicator */}
       {loading && (
-        <div className="mt-2 flex items-center gap-2 text-xs font-mono text-[var(--acid-cyan)]">
+        <div className="mt-2 flex items-center gap-2 text-xs font-theme-data text-[var(--acid-cyan)]">
           <span className="w-2 h-2 bg-[var(--acid-cyan)] rounded-full animate-pulse" />
           <span>Processing...</span>
         </div>
@@ -240,7 +240,7 @@ function BulkActionItem({
     <button
       onClick={onClick}
       disabled={loading}
-      className={`w-full px-3 py-2 text-left text-xs font-mono rounded transition-colors ${
+      className={`w-full px-3 py-2 text-left text-xs font-theme-data rounded transition-colors ${
         variantClasses[variant]
       } ${loading ? 'opacity-50' : ''}`}
     >

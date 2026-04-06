@@ -35,10 +35,10 @@ export function OnboardingChecklist() {
   return (
     <div className="border border-[var(--acid-green)]/20 bg-[var(--surface)] p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-mono font-bold text-[var(--acid-green)]">
+        <h3 className="text-sm font-theme-data font-bold text-[var(--acid-green)]">
           ONBOARDING CHECKLIST
         </h3>
-        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+        <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
           {completedCount}/{totalCount} ({percentage}%)
         </span>
       </div>
@@ -58,7 +58,7 @@ export function OnboardingChecklist() {
           return (
             <div
               key={item.key}
-              className="flex items-center gap-2 text-sm font-mono"
+              className="flex items-center gap-2 text-sm font-theme-data"
             >
               <span
                 className={
@@ -84,7 +84,7 @@ export function OnboardingChecklist() {
       </div>
 
       {completedCount === totalCount && (
-        <div className="mt-3 p-2 border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/5 text-xs font-mono text-[var(--acid-green)] text-center">
+        <div className="mt-3 p-2 border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/5 text-xs font-theme-data text-[var(--acid-green)] text-center">
           All steps complete. You are ready to go.
         </div>
       )}

@@ -44,9 +44,9 @@ interface WebhookMonitorProps {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  delivered: 'text-acid-green border-acid-green/30 bg-acid-green/10',
+  delivered: 'text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10',
   pending: 'text-gold border-gold/30 bg-gold/10',
-  failed: 'text-crimson border-crimson/30 bg-crimson/10',
+  failed: 'text-[var(--crimson)] border-[var(--crimson)]/30 bg-[var(--crimson)]/10',
 };
 
 export function WebhookMonitor({ apiBase = '/api' }: WebhookMonitorProps) {
@@ -128,14 +128,14 @@ export function WebhookMonitor({ apiBase = '/api' }: WebhookMonitorProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-pulse text-acid-cyan">Loading webhooks...</div>
+        <div className="animate-pulse text-[var(--acid-cyan)]">Loading webhooks...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="p-4 bg-crimson/10 border border-crimson/30 rounded-lg text-crimson">
+      <div className="p-4 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded-lg text-[var(--crimson)]">
         Error: {error}
       </div>
     );
@@ -152,7 +152,7 @@ export function WebhookMonitor({ apiBase = '/api' }: WebhookMonitorProps) {
           </span>
           <button
             onClick={() => fetchWebhooks()}
-            className="px-3 py-1.5 bg-acid-cyan/10 border border-acid-cyan/30 rounded text-acid-cyan text-sm hover:bg-acid-cyan/20"
+            className="px-3 py-1.5 bg-[var(--acid-cyan)]/10 border border-[var(--acid-cyan)]/30 rounded text-[var(--acid-cyan)] text-sm hover:bg-[var(--acid-cyan)]/20"
           >
             Refresh
           </button>
@@ -177,12 +177,12 @@ export function WebhookMonitor({ apiBase = '/api' }: WebhookMonitorProps) {
               <tr
                 key={webhook.id}
                 className={`hover:bg-white/5 cursor-pointer ${
-                  selectedWebhook?.id === webhook.id ? 'bg-acid-cyan/10' : ''
+                  selectedWebhook?.id === webhook.id ? 'bg-[var(--acid-cyan)]/10' : ''
                 }`}
                 onClick={() => setSelectedWebhook(webhook)}
               >
                 <td className="px-4 py-3">
-                  <div className="font-mono text-sm text-white truncate max-w-xs">
+                  <div className="font-theme-data text-sm text-white truncate max-w-xs">
                     {webhook.url}
                   </div>
                   {webhook.description && (
@@ -212,7 +212,7 @@ export function WebhookMonitor({ apiBase = '/api' }: WebhookMonitorProps) {
                   <span
                     className={`px-2 py-0.5 rounded text-xs ${
                       webhook.enabled
-                        ? 'bg-acid-green/10 text-acid-green'
+                        ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
                         : 'bg-gray-500/10 text-gray-500'
                     }`}
                   >
@@ -222,7 +222,7 @@ export function WebhookMonitor({ apiBase = '/api' }: WebhookMonitorProps) {
                 <td className="px-4 py-3">
                   <span
                     className={`text-sm ${
-                      webhook.failure_count > 0 ? 'text-crimson' : 'text-gray-400'
+                      webhook.failure_count > 0 ? 'text-[var(--crimson)]' : 'text-gray-400'
                     }`}
                   >
                     {webhook.failure_count}
@@ -240,7 +240,7 @@ export function WebhookMonitor({ apiBase = '/api' }: WebhookMonitorProps) {
                         e.stopPropagation();
                         testWebhook(webhook.id);
                       }}
-                      className="px-2 py-1 text-xs bg-acid-cyan/10 text-acid-cyan rounded hover:bg-acid-cyan/20"
+                      className="px-2 py-1 text-xs bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] rounded hover:bg-[var(--acid-cyan)]/20"
                     >
                       Test
                     </button>
@@ -251,8 +251,8 @@ export function WebhookMonitor({ apiBase = '/api' }: WebhookMonitorProps) {
                       }}
                       className={`px-2 py-1 text-xs rounded ${
                         webhook.enabled
-                          ? 'bg-crimson/10 text-crimson hover:bg-crimson/20'
-                          : 'bg-acid-green/10 text-acid-green hover:bg-acid-green/20'
+                          ? 'bg-[var(--crimson)]/10 text-[var(--crimson)] hover:bg-[var(--crimson)]/20'
+                          : 'bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20'
                       }`}
                     >
                       {webhook.enabled ? 'Disable' : 'Enable'}

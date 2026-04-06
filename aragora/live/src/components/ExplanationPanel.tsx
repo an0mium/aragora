@@ -32,11 +32,11 @@ function Section({
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-4 py-3 bg-[var(--surface)] text-left hover:bg-[var(--acid-green)]/5 transition-colors"
       >
-        <span className="text-xs font-mono text-[var(--acid-green)]">
+        <span className="text-xs font-theme-data text-[var(--acid-green)]">
           {open ? '[-]' : '[+]'} {title}
         </span>
         {count !== undefined && (
-          <span className="text-xs font-mono text-[var(--text-muted)]">
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">
             {count}
           </span>
         )}
@@ -59,33 +59,33 @@ function SummarySection({ data }: { data: ExplanationData }) {
     <Section title="SUMMARY" defaultOpen={true}>
       <div className="space-y-3">
         {data.conclusion && (
-          <p className="text-sm font-mono text-[var(--text)] whitespace-pre-wrap leading-relaxed">
+          <p className="text-sm font-theme-data text-[var(--text)] whitespace-pre-wrap leading-relaxed">
             {data.conclusion}
           </p>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
           <div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">CONFIDENCE</div>
-            <div className="text-sm font-mono text-[var(--acid-green)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">CONFIDENCE</div>
+            <div className="text-sm font-theme-data text-[var(--acid-green)]">
               {Math.round(data.confidence * 100)}%
             </div>
           </div>
           <div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">CONSENSUS</div>
-            <div className="text-sm font-mono text-[var(--text)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">CONSENSUS</div>
+            <div className="text-sm font-theme-data text-[var(--text)]">
               {data.consensus_reached ? 'Yes' : 'No'}{' '}
               <span className="text-[var(--text-muted)]">({data.consensus_type})</span>
             </div>
           </div>
           <div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">EVIDENCE QUALITY</div>
-            <div className="text-sm font-mono text-[var(--acid-cyan)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">EVIDENCE QUALITY</div>
+            <div className="text-sm font-theme-data text-[var(--acid-cyan)]">
               {Math.round(data.evidence_quality_score * 100)}%
             </div>
           </div>
           <div>
-            <div className="text-xs font-mono text-[var(--text-muted)]">AGENT AGREEMENT</div>
-            <div className="text-sm font-mono text-[var(--acid-cyan)]">
+            <div className="text-xs font-theme-data text-[var(--text-muted)]">AGENT AGREEMENT</div>
+            <div className="text-sm font-theme-data text-[var(--acid-cyan)]">
               {Math.round(data.agent_agreement_score * 100)}%
             </div>
           </div>
@@ -104,7 +104,7 @@ function FactorsSection({ factors }: { factors: ConfidenceAttribution[] }) {
         {factors.map((f, i) => (
           <div key={i} className="flex items-center gap-3">
             <div className="flex-shrink-0 w-12 text-right">
-              <span className="text-xs font-mono text-[var(--acid-green)]">
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">
                 {Math.round(f.contribution * 100)}%
               </span>
             </div>
@@ -115,10 +115,10 @@ function FactorsSection({ factors }: { factors: ConfidenceAttribution[] }) {
               />
             </div>
             <div className="flex-1">
-              <div className="text-xs font-mono text-[var(--text)]">
+              <div className="text-xs font-theme-data text-[var(--text)]">
                 {f.factor.replace(/_/g, ' ').toUpperCase()}
               </div>
-              <div className="text-xs font-mono text-[var(--text-muted)]">
+              <div className="text-xs font-theme-data text-[var(--text-muted)]">
                 {f.explanation}
               </div>
             </div>
@@ -144,21 +144,21 @@ function EvidenceSection({ evidence }: { evidence: EvidenceLink[] }) {
             className="bg-[var(--surface)] border border-[var(--border)] p-3"
           >
             <div className="flex items-center gap-2 mb-1">
-              <span className="px-1.5 py-0.5 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)]">
+              <span className="px-1.5 py-0.5 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)]">
                 {e.source}
               </span>
-              <span className="text-xs font-mono text-[var(--text-muted)]">
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">
                 {e.grounding_type}
               </span>
-              <span className="ml-auto text-xs font-mono text-[var(--acid-cyan)]">
+              <span className="ml-auto text-xs font-theme-data text-[var(--acid-cyan)]">
                 {Math.round(e.relevance_score * 100)}% relevant
               </span>
             </div>
-            <p className="text-xs font-mono text-[var(--text)] whitespace-pre-wrap line-clamp-3">
+            <p className="text-xs font-theme-data text-[var(--text)] whitespace-pre-wrap line-clamp-3">
               {e.content}
             </p>
             {e.cited_by.length > 0 && (
-              <div className="mt-1 text-xs font-mono text-[var(--text-muted)]">
+              <div className="mt-1 text-xs font-theme-data text-[var(--text-muted)]">
                 Cited by: {e.cited_by.join(', ')}
               </div>
             )}
@@ -180,13 +180,13 @@ function CounterfactualsSection({ counterfactuals }: { counterfactuals: Counterf
             key={i}
             className="bg-[var(--surface)] border border-[var(--border)] p-3"
           >
-            <div className="text-xs font-mono text-[var(--warning)] mb-1">
+            <div className="text-xs font-theme-data text-[var(--warning)] mb-1">
               {c.condition}
             </div>
-            <div className="text-xs font-mono text-[var(--text)]">
+            <div className="text-xs font-theme-data text-[var(--text)]">
               {c.outcome_change}
             </div>
-            <div className="flex gap-4 mt-2 text-xs font-mono text-[var(--text-muted)]">
+            <div className="flex gap-4 mt-2 text-xs font-theme-data text-[var(--text-muted)]">
               <span>Sensitivity: {Math.round(c.sensitivity * 100)}%</span>
               <span>Likelihood: {Math.round(c.likelihood * 100)}%</span>
             </div>
@@ -195,7 +195,7 @@ function CounterfactualsSection({ counterfactuals }: { counterfactuals: Counterf
                 {c.affected_agents.map((a, j) => (
                   <span
                     key={j}
-                    className="px-1 py-0.5 text-xs font-mono bg-[var(--warning)]/10 text-[var(--warning)] border border-[var(--warning)]/30"
+                    className="px-1 py-0.5 text-xs font-theme-data bg-[var(--warning)]/10 text-[var(--warning)] border border-[var(--warning)]/30"
                   >
                     {a}
                   </span>
@@ -226,7 +226,7 @@ export function ExplanationPanel({ debateId }: ExplanationPanelProps) {
     return (
       <button
         onClick={() => setExpanded(true)}
-        className="w-full px-4 py-3 text-xs font-mono text-[var(--acid-cyan)] bg-[var(--surface)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/10 transition-colors text-left"
+        className="w-full px-4 py-3 text-xs font-theme-data text-[var(--acid-cyan)] bg-[var(--surface)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/10 transition-colors text-left"
       >
         {'>'} WHY THIS DECISION?
         <span className="ml-2 text-[var(--text-muted)]">
@@ -240,21 +240,21 @@ export function ExplanationPanel({ debateId }: ExplanationPanelProps) {
     <div className="space-y-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-[var(--surface)] border border-[var(--acid-cyan)]/40">
-        <div className="text-xs font-mono text-[var(--acid-cyan)]">
+        <div className="text-xs font-theme-data text-[var(--acid-cyan)]">
           {'>'} WHY THIS DECISION?
         </div>
         <div className="flex items-center gap-2">
           {error && (
             <button
               onClick={fetchExplanation}
-              className="text-xs font-mono text-[var(--warning)] hover:text-[var(--acid-green)] transition-colors"
+              className="text-xs font-theme-data text-[var(--warning)] hover:text-[var(--acid-green)] transition-colors"
             >
               RETRY
             </button>
           )}
           <button
             onClick={() => setExpanded(false)}
-            className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+            className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
           >
             COLLAPSE
           </button>
@@ -264,7 +264,7 @@ export function ExplanationPanel({ debateId }: ExplanationPanelProps) {
       {/* Loading */}
       {loading && (
         <div className="flex items-center justify-center py-8 bg-[var(--bg)] border border-t-0 border-[var(--border)]">
-          <div className="text-[var(--acid-cyan)] font-mono text-xs animate-pulse">
+          <div className="text-[var(--acid-cyan)] font-theme-data text-xs animate-pulse">
             {'>'} ANALYZING DECISION...
           </div>
         </div>
@@ -273,10 +273,10 @@ export function ExplanationPanel({ debateId }: ExplanationPanelProps) {
       {/* Error */}
       {error && !loading && (
         <div className="px-4 py-4 bg-[var(--bg)] border border-t-0 border-[var(--border)]">
-          <div className="text-xs font-mono text-[var(--warning)]">
+          <div className="text-xs font-theme-data text-[var(--warning)]">
             {'>'} {error}
           </div>
-          <p className="text-xs font-mono text-[var(--text-muted)] mt-1">
+          <p className="text-xs font-theme-data text-[var(--text-muted)] mt-1">
             Explanation data may not be available for this debate.
           </p>
         </div>

@@ -206,16 +206,16 @@ export function AgentTabs({ events, apiBase = DEFAULT_API_BASE }: AgentTabsProps
           onClick={() => setSelectedAgent(ALL_AGENTS_TAB)}
           className={`
             relative px-4 py-3 text-sm font-medium whitespace-nowrap transition-all
-            ${selectedAgent === ALL_AGENTS_TAB ? 'text-acid-green' : 'text-text-muted hover:text-text'}
+            ${selectedAgent === ALL_AGENTS_TAB ? 'text-[var(--accent)]' : 'text-text-muted hover:text-text'}
           `}
         >
           <span className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-acid-green" />
+            <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
             All Agents
             <span className="text-xs opacity-60">{unifiedTimeline.length}</span>
           </span>
           {selectedAgent === ALL_AGENTS_TAB && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-acid-green" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent)]" />
           )}
         </button>
 

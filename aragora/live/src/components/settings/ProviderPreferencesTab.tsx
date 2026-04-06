@@ -198,12 +198,12 @@ export function ProviderPreferencesTab() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-sm font-mono text-[var(--acid-green)]">{'>'} PROVIDER PREFERENCES</h2>
-          <p className="mt-1 text-xs font-mono text-[var(--text-muted)]">
+          <h2 className="text-sm font-theme-data text-[var(--acid-green)]">{'>'} PROVIDER PREFERENCES</h2>
+          <p className="mt-1 text-xs font-theme-data text-[var(--text-muted)]">
             Inspect which routing providers are configured and whether they are currently reachable.
           </p>
           {lastChecked && (
-            <p className="mt-2 text-[10px] font-mono text-[var(--text-muted)]">
+            <p className="mt-2 text-[10px] font-theme-data text-[var(--text-muted)]">
               Last checked: {lastChecked}
             </p>
           )}
@@ -211,14 +211,14 @@ export function ProviderPreferencesTab() {
         <button
           onClick={() => void mutate()}
           disabled={isValidating}
-          className="px-4 py-2 font-mono text-xs border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] disabled:opacity-50"
+          className="px-4 py-2 font-theme-data text-xs border border-[var(--border)] text-[var(--text-muted)] hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] disabled:opacity-50"
         >
           {isValidating ? 'REFRESHING...' : 'REFRESH'}
         </button>
       </div>
 
       {typeof data?.ready_to_debate === 'boolean' && (
-        <div className={`p-3 border font-mono text-xs ${
+        <div className={`p-3 border font-theme-data text-xs ${
           data.ready_to_debate
             ? 'bg-[var(--acid-green)]/10 border-[var(--acid-green)]/30 text-[var(--acid-green)]'
             : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
@@ -230,32 +230,32 @@ export function ProviderPreferencesTab() {
       )}
 
       {error && providers.length === 0 ? (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
+        <div className="p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-sm">
           Failed to load provider status from /api/v1/routing/providers/status.
         </div>
       ) : (
         <>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-              <div className="text-2xl font-mono text-[var(--acid-green)]">{configuredProviders}</div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)]">Configured Providers</div>
+              <div className="text-2xl font-theme-data text-[var(--acid-green)]">{configuredProviders}</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Configured Providers</div>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-              <div className="text-2xl font-mono text-[var(--acid-cyan)]">{onlineProviders}</div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)]">Online Providers</div>
+              <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">{onlineProviders}</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Online Providers</div>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-              <div className="text-2xl font-mono text-amber-300">{missingRequiredCount}</div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)]">Missing Required Env Vars</div>
+              <div className="text-2xl font-theme-data text-amber-300">{missingRequiredCount}</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Missing Required Env Vars</div>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-              <div className="text-2xl font-mono text-[var(--text)]">{missingOptionalCount}</div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)]">Missing Optional Env Vars</div>
+              <div className="text-2xl font-theme-data text-[var(--text)]">{missingOptionalCount}</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)]">Missing Optional Env Vars</div>
             </div>
           </div>
 
           {providers.length === 0 ? (
-            <div className="p-8 bg-[var(--surface)] border border-[var(--border)] text-center font-mono text-sm text-[var(--text-muted)]">
+            <div className="p-8 bg-[var(--surface)] border border-[var(--border)] text-center font-theme-data text-sm text-[var(--text-muted)]">
               No provider status was returned by the routing API.
             </div>
           ) : (
@@ -273,19 +273,19 @@ export function ProviderPreferencesTab() {
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <h3 className="text-sm font-mono text-[var(--text)]">{provider.displayName}</h3>
-                      <p className="mt-1 text-[10px] font-mono uppercase tracking-wider text-[var(--text-muted)]">
+                      <h3 className="text-sm font-theme-data text-[var(--text)]">{provider.displayName}</h3>
+                      <p className="mt-1 text-[10px] font-theme-data uppercase tracking-wider text-[var(--text-muted)]">
                         {provider.id}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {provider.required && (
-                        <span className="px-2 py-0.5 text-[10px] font-mono bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                        <span className="px-2 py-0.5 text-[10px] font-theme-data bg-amber-500/10 border border-amber-500/30 text-amber-300">
                           CORE
                         </span>
                       )}
                       <span
-                        className={`px-2 py-0.5 text-[10px] font-mono border ${
+                        className={`px-2 py-0.5 text-[10px] font-theme-data border ${
                           provider.configured
                             ? 'bg-[var(--acid-cyan)]/10 border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)]'
                             : 'bg-[var(--bg)] border-[var(--border)] text-[var(--text-muted)]'
@@ -294,7 +294,7 @@ export function ProviderPreferencesTab() {
                         {provider.configurationLabel}
                       </span>
                       <span
-                        className={`px-2 py-0.5 text-[10px] font-mono border ${
+                        className={`px-2 py-0.5 text-[10px] font-theme-data border ${
                           provider.available
                             ? 'bg-[var(--acid-green)]/10 border-[var(--acid-green)]/30 text-[var(--acid-green)]'
                             : 'bg-[var(--bg)] border-[var(--border)] text-[var(--text-muted)]'
@@ -305,7 +305,7 @@ export function ProviderPreferencesTab() {
                     </div>
                   </div>
 
-                  <div className="mt-4 space-y-3 font-mono text-xs">
+                  <div className="mt-4 space-y-3 font-theme-data text-xs">
                     <div className="text-[var(--text-muted)]">
                       Model:{' '}
                       <span className="text-[var(--text)]">

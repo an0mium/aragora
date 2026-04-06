@@ -625,6 +625,18 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
             return WebhookConfig.from_row(row)
         return None
 
+    def get_cache_revision(self, webhook_id: str) -> float | None:
+        """Return the durable row revision used to validate Redis cache hits."""
+        conn = self._get_conn()
+        cursor = conn.execute(
+            "SELECT updated_at FROM webhook_configs WHERE id = ?",
+            (webhook_id,),
+        )
+        row = cursor.fetchone()
+        if row:
+            return float(row[0])
+        return None
+
     def list(
         self,
         user_id: str | None = None,
@@ -700,17 +712,20 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
             webhook.description = description
 
         if updates:
+            now = time.time()
             updates.append("updated_at = ?")
-            params.append(time.time())
+            params.append(now)
             params.append(webhook_id)
 
             conn = self._get_conn()
-            conn.execute(
+            cursor = conn.execute(
                 f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ?",  # noqa: S608 -- dynamic clause from internal state
                 params,
             )
             conn.commit()
-            webhook.updated_at = time.time()
+            if cursor.rowcount <= 0:
+                return None
+            webhook.updated_at = now
 
         return webhook
 
@@ -721,21 +736,24 @@ class SQLiteWebhookConfigStore(WebhookConfigStoreBackend):
         success: bool = True,
     ) -> None:
         conn = self._get_conn()
+        now = time.time()
         if success:
             conn.execute(
                 """UPDATE webhook_configs SET
                    last_delivery_at = ?, last_delivery_status = ?,
-                   delivery_count = delivery_count + 1
+                   delivery_count = delivery_count + 1,
+                   updated_at = ?
                    WHERE id = ?""",
-                (time.time(), status_code, webhook_id),
+                (now, status_code, now, webhook_id),
             )
         else:
             conn.execute(
                 """UPDATE webhook_configs SET
                    last_delivery_at = ?, last_delivery_status = ?,
-                   delivery_count = delivery_count + 1, failure_count = failure_count + 1
+                   delivery_count = delivery_count + 1, failure_count = failure_count + 1,
+                   updated_at = ?
                    WHERE id = ?""",
-                (time.time(), status_code, webhook_id),
+                (now, status_code, now, webhook_id),
             )
         conn.commit()
 
@@ -821,10 +839,26 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
     def _deserialize_from_cache(payload: str) -> WebhookConfig:
         """Deserialize cache entries, decrypting cached secrets when present."""
         data = json.loads(payload)
+        if data.get("active") is not True and data.get("active") is not False:
+            raise ValueError("cached webhook active flag must be boolean")
         secret = str(data.get("secret") or "").strip()
         if secret:
             data["secret"] = _decrypt_secret(secret)
         return WebhookConfig(**data)
+
+    @staticmethod
+    def _trusted_cache_revision(value: Any) -> float | None:
+        """Return a revision usable for cache trust decisions.
+
+        Cache payloads are untyped JSON. Reject booleans explicitly because
+        `True == 1.0` and `False == 0.0`, which can accidentally satisfy the
+        durable revision equality check.
+        """
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        return None
 
     def register(
         self,
@@ -865,7 +899,15 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
             try:
                 data = redis.get(self._redis_key(webhook_id))
                 if data:
-                    return self._deserialize_from_cache(data)
+                    cached_webhook = self._deserialize_from_cache(data)
+                    durable_revision = self._sqlite.get_cache_revision(webhook_id)
+                    cached_revision = self._trusted_cache_revision(cached_webhook.updated_at)
+                    if (
+                        durable_revision is not None
+                        and cached_revision is not None
+                        and cached_revision == durable_revision
+                    ):
+                        return cached_webhook
             except (
                 _RedisError,
                 ConnectionError,
@@ -1277,17 +1319,23 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
             webhook.description = description
 
         if updates:
+            updated_at = time.time()
             updates.append(f"updated_at = to_timestamp(${param_idx})")
-            params.append(time.time())
+            params.append(updated_at)
             param_idx += 1
             params.append(webhook_id)
 
             async with self._pool.acquire() as conn:
-                await conn.execute(
+                result = await conn.execute(
                     f"UPDATE webhook_configs SET {', '.join(updates)} WHERE id = ${param_idx}",  # noqa: S608 -- dynamic clause from internal state
                     *params,
                 )
-            webhook.updated_at = time.time()
+            if result == "UPDATE 0":
+                return None
+            durable = await self.get_async(webhook_id)
+            if durable is None:
+                return None
+            return durable
 
         return webhook
 
@@ -1312,7 +1360,8 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
                 await conn.execute(
                     """UPDATE webhook_configs SET
                        last_delivery_at = NOW(), last_delivery_status = $1,
-                       delivery_count = delivery_count + 1
+                       delivery_count = delivery_count + 1,
+                       updated_at = NOW()
                        WHERE id = $2""",
                     status_code,
                     webhook_id,
@@ -1321,7 +1370,8 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
                 await conn.execute(
                     """UPDATE webhook_configs SET
                        last_delivery_at = NOW(), last_delivery_status = $1,
-                       delivery_count = delivery_count + 1, failure_count = failure_count + 1
+                       delivery_count = delivery_count + 1, failure_count = failure_count + 1,
+                       updated_at = NOW()
                        WHERE id = $2""",
                     status_code,
                     webhook_id,

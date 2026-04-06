@@ -468,7 +468,8 @@ class TestCascadingFailures:
         denied = [0]
 
         def make_request():
-            result = limiter.allow(f"client-{threading.current_thread().name}", "/api/load")
+            # Use a shared client identity so the test exercises overload on one limiter bucket.
+            result = limiter.allow("shared-client", "/api/load")
             with results_lock:
                 if result.allowed:
                     allowed[0] += 1

@@ -38,15 +38,15 @@ function getPatternIcon(pattern: string): string {
 function getPatternColor(pattern: string): string {
   const key = pattern.toLowerCase();
   if (key.includes('fallacy') || key.includes('strawman') || key.includes('ad_hominem')) {
-    return 'text-crimson';
+    return 'text-[var(--crimson)]';
   }
   if (key.includes('evidence') || key.includes('clarification')) {
-    return 'text-acid-green';
+    return 'text-[var(--accent)]';
   }
   if (key.includes('emotion') || key.includes('appeal')) {
     return 'text-yellow-400';
   }
-  return 'text-acid-cyan';
+  return 'text-[var(--acid-cyan)]';
 }
 
 export function RhetoricalObservationsPanel({ events }: RhetoricalObservationsPanelProps) {
@@ -95,14 +95,14 @@ export function RhetoricalObservationsPanel({ events }: RhetoricalObservationsPa
         className="px-4 py-3 border-b border-purple/20 bg-bg/50 flex items-center justify-between cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <span className="text-xs font-mono text-purple uppercase tracking-wider">
+        <span className="text-xs font-theme-data text-purple uppercase tracking-wider">
           {'>'} RHETORICAL ANALYSIS
         </span>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-text-muted">
+          <span className="text-xs font-theme-data text-text-muted">
             {observations.length} observation{observations.length !== 1 ? 's' : ''}
           </span>
-          <span className="text-xs font-mono text-purple">
+          <span className="text-xs font-theme-data text-purple">
             {isExpanded ? '[-]' : '[+]'}
           </span>
         </div>
@@ -116,7 +116,7 @@ export function RhetoricalObservationsPanel({ events }: RhetoricalObservationsPa
               const colors = getAgentColors(agent);
               return (
                 <div key={agent} className="flex items-center gap-1">
-                  <span className={`text-xs font-mono ${colors.text}`}>
+                  <span className={`text-xs font-theme-data ${colors.text}`}>
                     {agent.split('-')[0]}:
                   </span>
                   {Array.from(patterns)
@@ -124,14 +124,14 @@ export function RhetoricalObservationsPanel({ events }: RhetoricalObservationsPa
                     .map((pattern, idx) => (
                       <span
                         key={idx}
-                        className={`text-xs font-mono ${getPatternColor(pattern)}`}
+                        className={`text-xs font-theme-data ${getPatternColor(pattern)}`}
                         title={pattern}
                       >
                         {getPatternIcon(pattern)}
                       </span>
                     ))}
                   {patterns.size > 3 && (
-                    <span className="text-xs font-mono text-text-muted">
+                    <span className="text-xs font-theme-data text-text-muted">
                       +{patterns.size - 3}
                     </span>
                   )}
@@ -153,10 +153,10 @@ export function RhetoricalObservationsPanel({ events }: RhetoricalObservationsPa
                 className={`p-3 border ${colors.border} ${colors.bg}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-xs font-mono ${colors.text}`}>
+                  <span className={`text-xs font-theme-data ${colors.text}`}>
                     {obs.agent}
                   </span>
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     Round {obs.round}
                   </span>
                 </div>
@@ -166,7 +166,7 @@ export function RhetoricalObservationsPanel({ events }: RhetoricalObservationsPa
                   {obs.patterns.map((pattern, pidx) => (
                     <span
                       key={pidx}
-                      className={`px-1.5 py-0.5 text-xs font-mono ${getPatternColor(pattern)} bg-bg/50 border border-current/30`}
+                      className={`px-1.5 py-0.5 text-xs font-theme-data ${getPatternColor(pattern)} bg-bg/50 border border-current/30`}
                     >
                       {pattern}
                     </span>
@@ -175,7 +175,7 @@ export function RhetoricalObservationsPanel({ events }: RhetoricalObservationsPa
 
                 {/* Analysis */}
                 {obs.analysis && (
-                  <div className="text-xs font-mono text-text-muted border-t border-current/20 pt-2 mt-2">
+                  <div className="text-xs font-theme-data text-text-muted border-t border-current/20 pt-2 mt-2">
                     {obs.analysis}
                   </div>
                 )}

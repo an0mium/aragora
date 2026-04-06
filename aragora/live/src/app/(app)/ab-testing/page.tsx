@@ -179,9 +179,9 @@ export default function ABTestingPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <span className="px-2 py-0.5 bg-acid-green/20 text-acid-green text-xs">ACTIVE</span>;
+        return <span className="px-2 py-0.5 bg-[var(--accent)]/20 text-[var(--accent)] text-xs">ACTIVE</span>;
       case 'concluded':
-        return <span className="px-2 py-0.5 bg-acid-cyan/20 text-acid-cyan text-xs">CONCLUDED</span>;
+        return <span className="px-2 py-0.5 bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] text-xs">CONCLUDED</span>;
       case 'cancelled':
         return <span className="px-2 py-0.5 bg-warning/20 text-warning text-xs">CANCELLED</span>;
       default:
@@ -190,8 +190,8 @@ export default function ABTestingPage() {
   };
 
   const getWinRateColor = (rate: number) => {
-    if (rate >= 0.6) return 'text-acid-green';
-    if (rate >= 0.5) return 'text-acid-cyan';
+    if (rate >= 0.6) return 'text-[var(--accent)]';
+    if (rate >= 0.5) return 'text-[var(--acid-cyan)]';
     if (rate >= 0.4) return 'text-warning';
     return 'text-red-400';
   };
@@ -203,14 +203,14 @@ export default function ABTestingPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <Link
               href="/"
-              className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+              className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
             >
               [DASHBOARD]
             </Link>
@@ -221,14 +221,14 @@ export default function ABTestingPage() {
         <div className="max-w-6xl mx-auto px-4 py-8">
           {/* Title and Actions */}
           <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-mono text-acid-green">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)]">
               A/B TESTING LABORATORY
             </h1>
             <div className="flex gap-3">
               {viewMode !== 'list' && (
                 <button
                   onClick={() => { setViewMode('list'); setSelectedTest(null); }}
-                  className="font-mono text-xs px-4 py-2 border border-acid-cyan/50 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                  className="font-theme-data text-xs px-4 py-2 border border-[var(--acid-cyan)]/50 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                 >
                   [BACK TO LIST]
                 </button>
@@ -236,7 +236,7 @@ export default function ABTestingPage() {
               {viewMode === 'list' && (
                 <button
                   onClick={() => setViewMode('create')}
-                  className="font-mono text-xs px-4 py-2 border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors"
+                  className="font-theme-data text-xs px-4 py-2 border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
                 >
                   [NEW TEST]
                 </button>
@@ -245,7 +245,7 @@ export default function ABTestingPage() {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-mono">
+            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-theme-data">
               {error}
               <button
                 onClick={() => setError(null)}
@@ -258,18 +258,18 @@ export default function ABTestingPage() {
 
           {/* Create View */}
           {viewMode === 'create' && (
-            <div className="border border-acid-green/30 bg-surface/30 p-6 max-w-xl">
-              <h2 className="text-lg font-mono text-acid-cyan mb-6">CREATE NEW A/B TEST</h2>
+            <div className="border border-[var(--accent)]/30 bg-surface/30 p-6 max-w-xl">
+              <h2 className="text-lg font-theme-data text-[var(--acid-cyan)] mb-6">CREATE NEW A/B TEST</h2>
 
               {createError && (
-                <div className="mb-4 p-3 border border-warning/50 bg-warning/10 text-warning text-sm font-mono">
+                <div className="mb-4 p-3 border border-warning/50 bg-warning/10 text-warning text-sm font-theme-data">
                   {createError}
                 </div>
               )}
 
               <form onSubmit={handleCreateTest} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-mono text-text-muted mb-1">
+                  <label className="block text-xs font-theme-data text-text-muted mb-1">
                     AGENT NAME
                   </label>
                   <input
@@ -278,13 +278,13 @@ export default function ABTestingPage() {
                     onChange={(e) => setCreateForm({ ...createForm, agent: e.target.value })}
                     required
                     placeholder="e.g., claude-3-opus"
-                    className="w-full bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none"
+                    className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-mono text-text-muted mb-1">
+                    <label className="block text-xs font-theme-data text-text-muted mb-1">
                       BASELINE VERSION
                     </label>
                     <input
@@ -294,11 +294,11 @@ export default function ABTestingPage() {
                       required
                       min="1"
                       placeholder="e.g., 1"
-                      className="w-full bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none"
+                      className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-mono text-text-muted mb-1">
+                    <label className="block text-xs font-theme-data text-text-muted mb-1">
                       EVOLVED VERSION
                     </label>
                     <input
@@ -308,13 +308,13 @@ export default function ABTestingPage() {
                       required
                       min="1"
                       placeholder="e.g., 2"
-                      className="w-full bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none"
+                      className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-text-muted mb-1">
+                  <label className="block text-xs font-theme-data text-text-muted mb-1">
                     DESCRIPTION (OPTIONAL)
                   </label>
                   <textarea
@@ -322,14 +322,14 @@ export default function ABTestingPage() {
                     onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
                     placeholder="What changes are being tested?"
                     rows={3}
-                    className="w-full bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none resize-none"
+                    className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none resize-none"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={createLoading}
-                  className="w-full py-3 font-mono text-sm bg-acid-green/10 border border-acid-green/50 text-acid-green hover:bg-acid-green/20 transition-colors disabled:opacity-50"
+                  className="w-full py-3 font-theme-data text-sm bg-[var(--accent)]/10 border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors disabled:opacity-50"
                 >
                   {createLoading ? 'CREATING...' : 'START A/B TEST'}
                 </button>
@@ -346,7 +346,7 @@ export default function ABTestingPage() {
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   aria-label="Filter by status"
-                  className="bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text focus:border-acid-green focus:outline-none"
+                  className="bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text focus:border-[var(--accent)] focus:outline-none"
                 >
                   <option value="">All Statuses</option>
                   <option value="active">Active</option>
@@ -360,12 +360,12 @@ export default function ABTestingPage() {
                   onChange={(e) => setAgentFilter(e.target.value)}
                   placeholder="Filter by agent..."
                   aria-label="Filter by agent"
-                  className="bg-bg border border-acid-green/30 px-3 py-2 font-mono text-sm text-text placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none flex-1 max-w-xs"
+                  className="bg-bg border border-[var(--accent)]/30 px-3 py-2 font-theme-data text-sm text-text placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none flex-1 max-w-xs"
                 />
 
                 <button
                   onClick={fetchTests}
-                  className="px-4 py-2 font-mono text-xs border border-acid-cyan/50 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                  className="px-4 py-2 font-theme-data text-xs border border-[var(--acid-cyan)]/50 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                 >
                   [REFRESH]
                 </button>
@@ -373,24 +373,24 @@ export default function ABTestingPage() {
 
               {/* Tests Table */}
               {loading ? (
-                <div className="text-center py-12 font-mono text-text-muted">
+                <div className="text-center py-12 font-theme-data text-text-muted">
                   Loading A/B tests...
                 </div>
               ) : tests.length === 0 ? (
-                <div className="text-center py-12 border border-acid-green/20 bg-surface/20">
-                  <div className="font-mono text-text-muted mb-4">No A/B tests found</div>
+                <div className="text-center py-12 border border-[var(--accent)]/20 bg-surface/20">
+                  <div className="font-theme-data text-text-muted mb-4">No A/B tests found</div>
                   <button
                     onClick={() => setViewMode('create')}
-                    className="font-mono text-xs text-acid-green hover:underline"
+                    className="font-theme-data text-xs text-[var(--accent)] hover:underline"
                   >
                     [CREATE YOUR FIRST TEST]
                   </button>
                 </div>
               ) : (
-                <div className="border border-acid-green/30 bg-surface/20 overflow-x-auto">
-                  <table className="w-full font-mono text-sm">
+                <div className="border border-[var(--accent)]/30 bg-surface/20 overflow-x-auto">
+                  <table className="w-full font-theme-data text-sm">
                     <thead>
-                      <tr className="border-b border-acid-green/20 bg-surface/30">
+                      <tr className="border-b border-[var(--accent)]/20 bg-surface/30">
                         <th className="text-left px-4 py-3 text-text-muted">Agent</th>
                         <th className="text-left px-4 py-3 text-text-muted">Versions</th>
                         <th className="text-left px-4 py-3 text-text-muted">Status</th>
@@ -403,10 +403,10 @@ export default function ABTestingPage() {
                       {tests.map((test) => (
                         <tr
                           key={test.id}
-                          className="border-b border-acid-green/10 hover:bg-acid-green/5 cursor-pointer"
+                          className="border-b border-[var(--accent)]/10 hover:bg-[var(--accent)]/5 cursor-pointer"
                           onClick={() => viewTestDetail(test)}
                         >
-                          <td className="px-4 py-3 text-acid-cyan">{test.agent}</td>
+                          <td className="px-4 py-3 text-[var(--acid-cyan)]">{test.agent}</td>
                           <td className="px-4 py-3 text-text-muted">
                             v{test.baseline_prompt_version} vs v{test.evolved_prompt_version}
                           </td>
@@ -414,7 +414,7 @@ export default function ABTestingPage() {
                           <td className="px-4 py-3 text-right text-text">
                             {test.total_debates}
                             {test.is_significant && (
-                              <span className="ml-2 text-acid-green" title="Statistically significant">*</span>
+                              <span className="ml-2 text-[var(--accent)]" title="Statistically significant">*</span>
                             )}
                           </td>
                           <td className={`px-4 py-3 text-right ${getWinRateColor(test.evolved_win_rate)}`}>
@@ -423,7 +423,7 @@ export default function ABTestingPage() {
                           <td className="px-4 py-3 text-right">
                             <button
                               onClick={(e) => { e.stopPropagation(); viewTestDetail(test); }}
-                              className="text-acid-cyan hover:text-acid-green text-xs"
+                              className="text-[var(--acid-cyan)] hover:text-[var(--accent)] text-xs"
                             >
                               [VIEW]
                             </button>
@@ -435,7 +435,7 @@ export default function ABTestingPage() {
                 </div>
               )}
 
-              <div className="mt-4 text-xs font-mono text-text-muted">
+              <div className="mt-4 text-xs font-theme-data text-text-muted">
                 * Statistically significant (20+ samples, {'>'}10% difference)
               </div>
             </>
@@ -445,11 +445,11 @@ export default function ABTestingPage() {
           {viewMode === 'detail' && selectedTest && (
             <div className="space-y-6">
               {/* Test Header */}
-              <div className="border border-acid-green/30 bg-surface/30 p-6">
+              <div className="border border-[var(--accent)]/30 bg-surface/30 p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h2 className="text-xl font-mono text-acid-cyan mb-2">{selectedTest.agent}</h2>
-                    <div className="text-sm font-mono text-text-muted">
+                    <h2 className="text-xl font-theme-data text-[var(--acid-cyan)] mb-2">{selectedTest.agent}</h2>
+                    <div className="text-sm font-theme-data text-text-muted">
                       Test ID: {selectedTest.id.slice(0, 8)}...
                     </div>
                   </div>
@@ -458,22 +458,22 @@ export default function ABTestingPage() {
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                   <div>
-                    <div className="text-xs font-mono text-text-muted mb-1">BASELINE VERSION</div>
-                    <div className="text-lg font-mono text-text">v{selectedTest.baseline_prompt_version}</div>
+                    <div className="text-xs font-theme-data text-text-muted mb-1">BASELINE VERSION</div>
+                    <div className="text-lg font-theme-data text-text">v{selectedTest.baseline_prompt_version}</div>
                   </div>
                   <div>
-                    <div className="text-xs font-mono text-text-muted mb-1">EVOLVED VERSION</div>
-                    <div className="text-lg font-mono text-acid-green">v{selectedTest.evolved_prompt_version}</div>
+                    <div className="text-xs font-theme-data text-text-muted mb-1">EVOLVED VERSION</div>
+                    <div className="text-lg font-theme-data text-[var(--accent)]">v{selectedTest.evolved_prompt_version}</div>
                   </div>
                   <div>
-                    <div className="text-xs font-mono text-text-muted mb-1">STARTED</div>
-                    <div className="text-sm font-mono text-text">
+                    <div className="text-xs font-theme-data text-text-muted mb-1">STARTED</div>
+                    <div className="text-sm font-theme-data text-text">
                       {new Date(selectedTest.started_at).toLocaleDateString()}
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs font-mono text-text-muted mb-1">SIGNIFICANCE</div>
-                    <div className={`text-sm font-mono ${selectedTest.is_significant ? 'text-acid-green' : 'text-text-muted'}`}>
+                    <div className="text-xs font-theme-data text-text-muted mb-1">SIGNIFICANCE</div>
+                    <div className={`text-sm font-theme-data ${selectedTest.is_significant ? 'text-[var(--accent)]' : 'text-text-muted'}`}>
                       {selectedTest.is_significant ? 'SIGNIFICANT' : 'NOT SIGNIFICANT'}
                     </div>
                   </div>
@@ -483,20 +483,20 @@ export default function ABTestingPage() {
               {/* Results Comparison */}
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Baseline Stats */}
-                <div className="border border-acid-cyan/30 bg-surface/20 p-6">
-                  <h3 className="text-sm font-mono text-acid-cyan mb-4">BASELINE (v{selectedTest.baseline_prompt_version})</h3>
+                <div className="border border-[var(--acid-cyan)]/30 bg-surface/20 p-6">
+                  <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-4">BASELINE (v{selectedTest.baseline_prompt_version})</h3>
                   <div className="space-y-4">
                     <div>
-                      <div className="text-xs font-mono text-text-muted mb-1">WIN RATE</div>
-                      <div className={`text-3xl font-mono ${getWinRateColor(selectedTest.baseline_win_rate)}`}>
+                      <div className="text-xs font-theme-data text-text-muted mb-1">WIN RATE</div>
+                      <div className={`text-3xl font-theme-data ${getWinRateColor(selectedTest.baseline_win_rate)}`}>
                         {(selectedTest.baseline_win_rate * 100).toFixed(1)}%
                       </div>
                     </div>
-                    <div className="flex justify-between text-sm font-mono">
+                    <div className="flex justify-between text-sm font-theme-data">
                       <span className="text-text-muted">Wins</span>
                       <span className="text-text">{selectedTest.baseline_wins}</span>
                     </div>
-                    <div className="flex justify-between text-sm font-mono">
+                    <div className="flex justify-between text-sm font-theme-data">
                       <span className="text-text-muted">Debates</span>
                       <span className="text-text">{selectedTest.baseline_debates}</span>
                     </div>
@@ -504,20 +504,20 @@ export default function ABTestingPage() {
                 </div>
 
                 {/* Evolved Stats */}
-                <div className="border border-acid-green/30 bg-surface/20 p-6">
-                  <h3 className="text-sm font-mono text-acid-green mb-4">EVOLVED (v{selectedTest.evolved_prompt_version})</h3>
+                <div className="border border-[var(--accent)]/30 bg-surface/20 p-6">
+                  <h3 className="text-sm font-theme-data text-[var(--accent)] mb-4">EVOLVED (v{selectedTest.evolved_prompt_version})</h3>
                   <div className="space-y-4">
                     <div>
-                      <div className="text-xs font-mono text-text-muted mb-1">WIN RATE</div>
-                      <div className={`text-3xl font-mono ${getWinRateColor(selectedTest.evolved_win_rate)}`}>
+                      <div className="text-xs font-theme-data text-text-muted mb-1">WIN RATE</div>
+                      <div className={`text-3xl font-theme-data ${getWinRateColor(selectedTest.evolved_win_rate)}`}>
                         {(selectedTest.evolved_win_rate * 100).toFixed(1)}%
                       </div>
                     </div>
-                    <div className="flex justify-between text-sm font-mono">
+                    <div className="flex justify-between text-sm font-theme-data">
                       <span className="text-text-muted">Wins</span>
                       <span className="text-text">{selectedTest.evolved_wins}</span>
                     </div>
-                    <div className="flex justify-between text-sm font-mono">
+                    <div className="flex justify-between text-sm font-theme-data">
                       <span className="text-text-muted">Debates</span>
                       <span className="text-text">{selectedTest.evolved_debates}</span>
                     </div>
@@ -526,27 +526,27 @@ export default function ABTestingPage() {
               </div>
 
               {/* Win Rate Comparison Bar */}
-              <div className="border border-acid-green/30 bg-surface/20 p-6">
-                <h3 className="text-sm font-mono text-text-muted mb-4">WIN RATE COMPARISON</h3>
-                <div className="h-8 bg-surface border border-acid-green/20 flex overflow-hidden">
+              <div className="border border-[var(--accent)]/30 bg-surface/20 p-6">
+                <h3 className="text-sm font-theme-data text-text-muted mb-4">WIN RATE COMPARISON</h3>
+                <div className="h-8 bg-surface border border-[var(--accent)]/20 flex overflow-hidden">
                   <div
-                    className="bg-acid-cyan/50 flex items-center justify-center"
+                    className="bg-[var(--acid-cyan)]/50 flex items-center justify-center"
                     style={{ width: `${selectedTest.baseline_win_rate * 100}%` }}
                   >
                     {selectedTest.baseline_win_rate > 0.15 && (
-                      <span className="text-xs font-mono text-bg">BASELINE</span>
+                      <span className="text-xs font-theme-data text-bg">BASELINE</span>
                     )}
                   </div>
                   <div
-                    className="bg-acid-green/50 flex items-center justify-center"
+                    className="bg-[var(--accent)]/50 flex items-center justify-center"
                     style={{ width: `${selectedTest.evolved_win_rate * 100}%` }}
                   >
                     {selectedTest.evolved_win_rate > 0.15 && (
-                      <span className="text-xs font-mono text-bg">EVOLVED</span>
+                      <span className="text-xs font-theme-data text-bg">EVOLVED</span>
                     )}
                   </div>
                 </div>
-                <div className="flex justify-between mt-2 text-xs font-mono text-text-muted">
+                <div className="flex justify-between mt-2 text-xs font-theme-data text-text-muted">
                   <span>Total sample size: {selectedTest.sample_size}</span>
                   <span>Total debates: {selectedTest.total_debates}</span>
                 </div>
@@ -557,13 +557,13 @@ export default function ABTestingPage() {
                 <div className="flex gap-4">
                   <button
                     onClick={() => handleConcludeTest(selectedTest.id)}
-                    className="flex-1 py-3 font-mono text-sm bg-acid-green/10 border border-acid-green/50 text-acid-green hover:bg-acid-green/20 transition-colors"
+                    className="flex-1 py-3 font-theme-data text-sm bg-[var(--accent)]/10 border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors"
                   >
                     CONCLUDE TEST
                   </button>
                   <button
                     onClick={() => handleCancelTest(selectedTest.id)}
-                    className="py-3 px-6 font-mono text-sm border border-warning/50 text-warning hover:bg-warning/10 transition-colors"
+                    className="py-3 px-6 font-theme-data text-sm border border-warning/50 text-warning hover:bg-warning/10 transition-colors"
                   >
                     CANCEL
                   </button>
@@ -572,9 +572,9 @@ export default function ABTestingPage() {
 
               {/* Metadata */}
               {selectedTest.metadata && Object.keys(selectedTest.metadata).length > 0 && (
-                <div className="border border-acid-green/30 bg-surface/20 p-6">
-                  <h3 className="text-sm font-mono text-text-muted mb-4">METADATA</h3>
-                  <pre className="text-xs font-mono text-text overflow-x-auto">
+                <div className="border border-[var(--accent)]/30 bg-surface/20 p-6">
+                  <h3 className="text-sm font-theme-data text-text-muted mb-4">METADATA</h3>
+                  <pre className="text-xs font-theme-data text-text overflow-x-auto">
                     {JSON.stringify(selectedTest.metadata, null, 2)}
                   </pre>
                 </div>

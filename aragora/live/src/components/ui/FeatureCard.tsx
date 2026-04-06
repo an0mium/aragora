@@ -58,18 +58,18 @@ export function FeatureCard({
   return (
     <div
       className={`
-        relative bg-surface border border-acid-green/30
-        hover:border-acid-green/50 transition-colors
+        relative bg-surface border border-[var(--accent)]/30
+        hover:border-[var(--accent)]/50 transition-colors
         ${className}
       `}
     >
       {/* Header */}
-      <div className="border-b border-acid-green/20 px-4 py-3">
+      <div className="border-b border-[var(--accent)]/20 px-4 py-3">
         <div className="flex items-center gap-2">
           {icon && (
-            <span className="text-acid-green font-mono text-lg">{icon}</span>
+            <span className="text-[var(--accent)] font-theme-data text-lg">{icon}</span>
           )}
-          <h3 className="text-text font-bold font-mono">{title}</h3>
+          <h3 className="text-text font-bold font-theme-data">{title}</h3>
         </div>
         {description && (
           <p className="text-text-muted text-sm mt-1">{description}</p>
@@ -86,7 +86,7 @@ export function FeatureCard({
         {hasExpandable && (
           <>
             {expanded && (
-              <div className="mt-2 pt-2 border-t border-acid-green/10">
+              <div className="mt-2 pt-2 border-t border-[var(--accent)]/10">
                 {expandableFeatures.map((feature, idx) => (
                   <FeatureLink key={idx} feature={feature} locked />
                 ))}
@@ -97,8 +97,8 @@ export function FeatureCard({
               onClick={() => setExpanded(!expanded)}
               className="
                 w-full mt-2 px-3 py-1.5
-                text-xs font-mono text-acid-green/70
-                hover:text-acid-green hover:bg-acid-green/5
+                text-xs font-theme-data text-[var(--accent)]/70
+                hover:text-[var(--accent)] hover:bg-[var(--accent)]/5
                 transition-colors text-left
                 flex items-center gap-2
               "
@@ -133,18 +133,18 @@ function FeatureLink({
         flex items-center gap-3 px-3 py-2 rounded
         ${locked
           ? 'opacity-50 cursor-not-allowed'
-          : 'hover:bg-acid-green/10 cursor-pointer'
+          : 'hover:bg-[var(--accent)]/10 cursor-pointer'
         }
         transition-colors
       `}
     >
       {feature.icon && (
-        <span className="w-5 text-center text-acid-green/70 font-mono">
+        <span className="w-5 text-center text-[var(--accent)]/70 font-theme-data">
           {feature.icon}
         </span>
       )}
       <div className="flex-1 min-w-0">
-        <span className={`text-sm font-mono ${locked ? 'text-text-muted' : 'text-text'}`}>
+        <span className={`text-sm font-theme-data ${locked ? 'text-text-muted' : 'text-text'}`}>
           {feature.label}
         </span>
         {feature.description && (
@@ -154,7 +154,7 @@ function FeatureLink({
         )}
       </div>
       {locked && (
-        <span className="text-xs text-acid-cyan/50 font-mono">
+        <span className="text-xs text-[var(--acid-cyan)]/50 font-theme-data">
           [{feature.minMode}]
         </span>
       )}
@@ -186,7 +186,7 @@ export function ModeIndicator({ mode }: { mode: ProgressiveMode }) {
           key={i}
           className={`
             w-1.5 h-1.5 rounded-full
-            ${i < dots ? 'bg-acid-green' : 'bg-acid-green/20'}
+            ${i < dots ? 'bg-[var(--accent)]' : 'bg-[var(--accent)]/20'}
           `}
         />
       ))}
@@ -209,16 +209,16 @@ export function ModeSelector({ compact = false }: { compact?: boolean }) {
 
   if (compact) {
     return (
-      <div className="flex border border-acid-green/30 rounded overflow-hidden">
+      <div className="flex border border-[var(--accent)]/30 rounded overflow-hidden">
         {modes.map(m => (
           <button
             key={m.value}
             onClick={() => setMode(m.value)}
             className={`
-              px-2 py-1 text-xs font-mono
+              px-2 py-1 text-xs font-theme-data
               ${mode === m.value
-                ? 'bg-acid-green text-bg'
-                : 'text-acid-green/70 hover:bg-acid-green/10'
+                ? 'bg-[var(--accent)] text-bg'
+                : 'text-[var(--accent)]/70 hover:bg-[var(--accent)]/10'
               }
               transition-colors
             `}
@@ -238,10 +238,10 @@ export function ModeSelector({ compact = false }: { compact?: boolean }) {
           key={m.value}
           onClick={() => setMode(m.value)}
           className={`
-            px-3 py-1.5 text-sm font-mono border
+            px-3 py-1.5 text-sm font-theme-data border
             ${mode === m.value
-              ? 'bg-acid-green text-bg border-acid-green'
-              : 'border-acid-green/30 text-acid-green/70 hover:border-acid-green/50 hover:text-acid-green'
+              ? 'bg-[var(--accent)] text-bg border-[var(--accent)]'
+              : 'border-[var(--accent)]/30 text-[var(--accent)]/70 hover:border-[var(--accent)]/50 hover:text-[var(--accent)]'
             }
             transition-colors
           `}

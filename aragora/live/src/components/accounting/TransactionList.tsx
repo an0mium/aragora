@@ -105,7 +105,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search transactions..."
-              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-mono text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
+              className="w-full px-3 py-2 bg-[var(--bg)] border border-[var(--border)] rounded font-theme-data text-sm text-[var(--text)] focus:border-[var(--acid-green)] focus:outline-none"
             />
           </div>
 
@@ -115,7 +115,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value as FilterType)}
-              className="px-2 py-1 bg-[var(--bg)] border border-[var(--border)] rounded text-sm font-mono text-[var(--text)]"
+              className="px-2 py-1 bg-[var(--bg)] border border-[var(--border)] rounded text-sm font-theme-data text-[var(--text)]"
             >
               <option value="all">All</option>
               <option value="Invoice">Invoices</option>
@@ -130,7 +130,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="px-2 py-1 bg-[var(--bg)] border border-[var(--border)] rounded text-sm font-mono text-[var(--text)]"
+              className="px-2 py-1 bg-[var(--bg)] border border-[var(--border)] rounded text-sm font-theme-data text-[var(--text)]"
             >
               <option value="all">All</option>
               <option value="Open">Open</option>
@@ -144,13 +144,13 @@ export function TransactionList({ transactions }: TransactionListProps) {
         <div className="flex items-center gap-6 mt-4 pt-4 border-t border-[var(--border)]">
           <div>
             <span className="text-xs text-[var(--text-muted)]">Showing: </span>
-            <span className="text-sm font-mono text-[var(--text)]">{sortedTransactions.length}</span>
+            <span className="text-sm font-theme-data text-[var(--text)]">{sortedTransactions.length}</span>
             <span className="text-xs text-[var(--text-muted)]"> of {transactions.length}</span>
           </div>
           {totalReceivables > 0 && (
             <div>
               <span className="text-xs text-[var(--text-muted)]">Open Receivables: </span>
-              <span className="text-sm font-mono text-[var(--acid-green)]">
+              <span className="text-sm font-theme-data text-[var(--acid-green)]">
                 ${totalReceivables.toLocaleString()}
               </span>
             </div>
@@ -158,7 +158,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
           {totalPayables > 0 && (
             <div>
               <span className="text-xs text-[var(--text-muted)]">Open Payables: </span>
-              <span className="text-sm font-mono text-red-400">
+              <span className="text-sm font-theme-data text-red-400">
                 ${totalPayables.toLocaleString()}
               </span>
             </div>
@@ -169,7 +169,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
       {/* Transaction Table */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-12 gap-4 p-3 bg-[var(--bg)] border-b border-[var(--border)] text-xs font-mono text-[var(--text-muted)]">
+        <div className="grid grid-cols-12 gap-4 p-3 bg-[var(--bg)] border-b border-[var(--border)] text-xs font-theme-data text-[var(--text-muted)]">
           <div className="col-span-1">Type</div>
           <div className="col-span-2">Number</div>
           <div className="col-span-3">Customer/Vendor</div>
@@ -196,7 +196,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
 
         {/* Rows */}
         {sortedTransactions.length === 0 ? (
-          <div className="p-8 text-center text-[var(--text-muted)] font-mono text-sm">
+          <div className="p-8 text-center text-[var(--text-muted)] font-theme-data text-sm">
             No transactions found matching your filters.
           </div>
         ) : (
@@ -208,7 +208,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
               >
                 <div className="col-span-1 text-lg">{getTypeIcon(txn.type)}</div>
                 <div className="col-span-2">
-                  <div className="font-mono text-sm text-[var(--text)]">{txn.docNumber || '-'}</div>
+                  <div className="font-theme-data text-sm text-[var(--text)]">{txn.docNumber || '-'}</div>
                   <div className="text-xs text-[var(--text-muted)]">{txn.type}</div>
                 </div>
                 <div className="col-span-3 truncate">
@@ -223,7 +223,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
                   )}
                 </div>
                 <div className="col-span-2 text-right">
-                  <div className={`font-mono text-sm ${
+                  <div className={`font-theme-data text-sm ${
                     txn.type === 'Invoice' || txn.type === 'Payment' ? 'text-[var(--acid-green)]' : 'text-red-400'
                   }`}>
                     {txn.type === 'Invoice' || txn.type === 'Payment' ? '+' : '-'}
@@ -236,7 +236,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
                   )}
                 </div>
                 <div className="col-span-2 text-right">
-                  <span className={`px-2 py-1 text-xs font-mono rounded ${getStatusColor(txn.status)}`}>
+                  <span className={`px-2 py-1 text-xs font-theme-data rounded ${getStatusColor(txn.status)}`}>
                     {txn.status}
                   </span>
                 </div>

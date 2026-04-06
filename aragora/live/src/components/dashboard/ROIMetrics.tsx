@@ -38,7 +38,7 @@ export function ROIMetrics({ roi, loading = false }: ROIMetricsProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-mono text-[var(--acid-green)] flex items-center gap-2">
+      <h3 className="text-sm font-theme-data text-[var(--acid-green)] flex items-center gap-2">
         <span>$</span> ROI ANALYSIS
       </h3>
 
@@ -87,7 +87,7 @@ export function ROIMetrics({ roi, loading = false }: ROIMetricsProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Trends */}
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-          <h4 className="text-xs font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
+          <h4 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
             <span>~</span> TRENDS
           </h4>
           <div className="space-y-1">
@@ -106,7 +106,7 @@ export function ROIMetrics({ roi, loading = false }: ROIMetricsProps) {
 
         {/* Industry Benchmark */}
         <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-          <h4 className="text-xs font-mono text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
+          <h4 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3 flex items-center gap-2">
             <span>#</span> INDUSTRY BENCHMARK
           </h4>
           <div className="space-y-1">

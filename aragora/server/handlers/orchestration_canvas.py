@@ -27,8 +27,13 @@ import json
 import logging
 import re
 import uuid
+from aragora.pipeline.backbone_errors import (
+    BackbonePersistenceError,
+    FAIL_CLOSED_BACKBONE_MESSAGE,
+)
 from typing import Any
 
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
 from aragora.server.handlers.secure import SecureHandler
 from aragora.server.handlers.base import (
     HandlerResult,
@@ -607,7 +612,16 @@ class OrchestrationCanvasHandler(SecureHandler):
                 },
                 execution_mode="workflow",
             )
-            launch = queue_plan_execution(plan, auth_context=context, execution_mode="workflow")
+            try:
+                launch = queue_plan_execution(
+                    plan,
+                    auth_context=context,
+                    execution_mode="workflow",
+                    safety_mode=SafetyMode.INTERACTIVE,
+                )
+            except BackbonePersistenceError as exc:
+                logger.warning("Orchestration canvas execution blocked for %s: %s", canvas_id, exc)
+                return error_response(FAIL_CLOSED_BACKBONE_MESSAGE, 503)
 
             metadata = dict(canvas_meta.get("metadata", {}) or {})
             metadata["execution"] = {

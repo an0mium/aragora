@@ -68,10 +68,13 @@ LEGACY_CONTROL_PLANE_TEST_EXTRA_DEPS=(
   "weasyprint>=68.0,<70.0"
   "reportlab>=3.6,<5.0"
   "scikit-learn>=1.5.0,<2.0"
-  "sentence-transformers>=3.0.0,<6.0"
   "pydub>=0.25.0,<1.0"
   "duckduckgo-search>=6.0,<9.0"
   "pillow>=12.1.1"
+)
+
+LEGACY_CONTROL_PLANE_HEAVY_ML_TEST_DEPS=(
+  "sentence-transformers>=3.0.0,<6.0"
 )
 
 LEGACY_CONTROL_PLANE_MONITORING_DEPS=(
@@ -216,6 +219,7 @@ install_legacy_control_plane_deps() {
   local extras="$1"
   local -a deps=("${LEGACY_CONTROL_PLANE_BASE_DEPS[@]}")
   local -a requested_extras=()
+  local skip_heavy_ml_test_deps="${ARAGORA_CI_SKIP_HEAVY_ML_TEST_DEPS:-0}"
 
   append_unique_deps() {
     local dep
@@ -258,6 +262,9 @@ install_legacy_control_plane_deps() {
       test)
         append_unique_deps "${LEGACY_CONTROL_PLANE_DEV_DEPS[@]}"
         append_unique_deps "${LEGACY_CONTROL_PLANE_TEST_EXTRA_DEPS[@]}"
+        if [[ "$skip_heavy_ml_test_deps" != "1" ]]; then
+          append_unique_deps "${LEGACY_CONTROL_PLANE_HEAVY_ML_TEST_DEPS[@]}"
+        fi
         ;;
       monitoring)
         append_unique_deps "${LEGACY_CONTROL_PLANE_MONITORING_DEPS[@]}"
@@ -281,6 +288,10 @@ install_legacy_control_plane_deps() {
         ;;
     esac
   done
+
+  if [[ "$skip_heavy_ml_test_deps" == "1" ]]; then
+    echo "[ci-install] skipping heavy ML test deps via ARAGORA_CI_SKIP_HEAVY_ML_TEST_DEPS=1"
+  fi
 
   run_pip_install "${deps[@]}"
 }

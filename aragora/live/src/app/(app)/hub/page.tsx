@@ -232,7 +232,7 @@ export default function HubPage() {
                 href={action.href}
                 className="px-4 py-2 rounded-lg border border-border text-sm text-text-muted hover:text-accent hover:border-accent/50 transition-colors flex items-center gap-2"
               >
-                <span className="text-accent font-mono">{action.icon}</span>
+                <span className="text-accent font-theme-data">{action.icon}</span>
                 {action.label}
               </Link>
             ))}

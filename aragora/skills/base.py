@@ -81,6 +81,25 @@ class SkillCapability(str, Enum):
     NETWORK = "network"  # Network operations
 
 
+class CapabilityLevel(str, Enum):
+    """Coarse capability level for quick tool filtering."""
+
+    READ = "read"  # Only reads data, no side effects
+    WRITE = "write"  # Modifies data (files, databases)
+    EXEC = "exec"  # Executes code or shell commands
+
+    @classmethod
+    def from_capabilities(cls, caps: list["SkillCapability"]) -> "CapabilityLevel":
+        """Derive the highest capability level from a list of capabilities."""
+        exec_caps = {SkillCapability.CODE_EXECUTION, SkillCapability.SHELL_EXECUTION}
+        write_caps = {SkillCapability.WRITE_LOCAL, SkillCapability.WRITE_DATABASE}
+        if exec_caps & set(caps):
+            return cls.EXEC
+        if write_caps & set(caps):
+            return cls.WRITE
+        return cls.READ
+
+
 class SkillStatus(str, Enum):
     """Status of a skill execution."""
 
@@ -124,6 +143,12 @@ class SkillManifest:
     # Execution constraints
     max_execution_time_seconds: float = 60.0
     max_retries: int = 3
+
+    @property
+    def capability_level(self) -> CapabilityLevel:
+        """Coarse capability level derived from declared capabilities."""
+        return CapabilityLevel.from_capabilities(self.capabilities)
+
     rate_limit_per_minute: int | None = None
 
     # Debate integration

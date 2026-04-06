@@ -30,7 +30,7 @@ export default function ProbePage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -38,25 +38,25 @@ export default function ProbePage() {
             <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [DASHBOARD]
               </Link>
               <Link
                 href="/gauntlet"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [GAUNTLET]
               </Link>
               <Link
                 href="/agents"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [AGENTS]
               </Link>
               <Link
                 href="/leaderboard"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [LEADERBOARD]
               </Link>
@@ -69,18 +69,18 @@ export default function ProbePage() {
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} CAPABILITY PROBES
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Test agent capabilities: contradiction detection, hallucination resistance,
               sycophancy testing, confidence calibration, and reasoning depth analysis.
             </p>
           </div>
 
-          <div className="mb-6 p-4 border border-acid-cyan/30 bg-acid-cyan/5 rounded">
-            <h3 className="text-sm font-mono text-acid-cyan mb-2">Available Probe Types</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs font-mono text-text-muted">
+          <div className="mb-6 p-4 border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 rounded">
+            <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-2">Available Probe Types</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs font-theme-data text-text-muted">
               <span>• Contradiction Detection</span>
               <span>• Hallucination Resistance</span>
               <span>• Sycophancy Testing</span>
@@ -99,8 +99,8 @@ export default function ProbePage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

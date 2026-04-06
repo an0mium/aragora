@@ -11,16 +11,17 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.nomic.dev_coordination import DevCoordinationStore
+from aragora.nomic.dev_coordination import DevCoordinationStore, FileScopeViolationError
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.supervisor import (
     CAMPAIGN_OUTCOME_METADATA_KEY,
+    LAUNCHER_CONFIG_METADATA_KEY,
     WORKER_TYPE_CIRCUIT_BREAKERS_KEY,
     WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY,
     SwarmSupervisor,
 )
-from aragora.swarm.worker_launcher import WorkerLauncher, WorkerProcess
+from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
 from aragora.worktree.lifecycle import ManagedWorktreeSession
 
 
@@ -116,6 +117,131 @@ def test_start_run_creates_leased_work_orders(repo: Path, store: DevCoordination
     assert {item["status"] for item in run.work_orders} == {"leased"}
     assert store.status_summary()["counts"]["supervisor_runs"] == 1
     assert store.status_summary()["counts"]["active_leases"] == 2
+
+
+@pytest.mark.asyncio
+async def test_dispatch_workers_reuses_persisted_launcher_profile(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session = ManagedWorktreeSession(
+        session_id="swarm-test",
+        agent="codex",
+        branch="codex/swarm-test",
+        path=repo / "wt-test",
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    session.path.mkdir()
+
+    seed_launcher = MagicMock(spec=WorkerLauncher)
+    seed_launcher.config = LaunchConfig(
+        require_explicit_approval=False,
+        use_managed_session_script=False,
+        detach=True,
+    )
+    seed_supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+        launcher=seed_launcher,
+    )
+    run = seed_supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal="Add a test",
+            refined_goal="Add a test",
+            work_orders=[
+                {
+                    "work_order_id": "micro-1",
+                    "title": "Write the test",
+                    "description": "Add the regression test.",
+                    "file_scope": ["README.md"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                }
+            ],
+        ),
+        refresh_scaling=False,
+    )
+
+    persisted = run.metadata[LAUNCHER_CONFIG_METADATA_KEY]
+    assert persisted["require_explicit_approval"] is False
+    assert persisted["use_managed_session_script"] is False
+    assert persisted["detach"] is True
+
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = session
+    resume_launcher = MagicMock(spec=WorkerLauncher)
+    resume_launcher.config = LaunchConfig()
+    resume_launcher.collect_finished_sync.return_value = []
+    observed: dict[str, bool] = {}
+
+    async def _launch(
+        work_order: dict[str, object],
+        *,
+        worktree_path: str,
+        branch: str = "main",
+    ) -> WorkerProcess:
+        observed["require_explicit_approval"] = resume_launcher.config.require_explicit_approval
+        observed["use_managed_session_script"] = resume_launcher.config.use_managed_session_script
+        observed["detach"] = resume_launcher.config.detach
+        return WorkerProcess(
+            work_order_id=str(work_order["work_order_id"]),
+            agent="codex",
+            worktree_path=worktree_path,
+            branch=branch,
+            pid=1234,
+            initial_head="abc123",
+        )
+
+    resume_launcher.launch = AsyncMock(side_effect=_launch)
+    resume_supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=MagicMock(),
+        launcher=resume_launcher,
+    )
+
+    refreshed = resume_supervisor.refresh_run(run.run_id)
+    assert refreshed.work_orders[0]["status"] == "leased"
+
+    launched = await resume_supervisor.dispatch_workers(run.run_id)
+    assert len(launched) == 1
+    assert observed == {
+        "require_explicit_approval": False,
+        "use_managed_session_script": False,
+        "detach": True,
+    }
+    stored = store.get_supervisor_run(run.run_id)
+    assert stored is not None
+    assert stored["work_orders"][0]["status"] == "dispatched"
+
+
+def test_apply_launcher_snapshot_preserves_null_optional_fields(repo: Path) -> None:
+    supervisor = SwarmSupervisor(repo_root=repo)
+    supervisor.launcher.config = LaunchConfig(
+        claude_model="claude-opus-4-6",
+        codex_model="gpt-4.1-codex",
+        claude_profile="existing-profile",
+        claude_profile_script="/tmp/profile.sh",
+    )
+
+    supervisor._apply_launcher_config_snapshot(
+        {
+            "claude_model": None,
+            "codex_model": "None",
+            "claude_profile": " null ",
+            "claude_profile_script": "",
+        }
+    )
+
+    assert supervisor.launcher.config.claude_model is None
+    assert supervisor.launcher.config.codex_model is None
+    assert supervisor.launcher.config.claude_profile is None
+    assert supervisor.launcher.config.claude_profile_script is None
 
 
 def test_start_run_discards_duplicate_open_non_deliverable_lane(
@@ -394,7 +520,12 @@ def test_start_run_discards_duplicate_open_lane_when_goal_differs_only_by_boiler
                 "work_order_id": "existing",
                 "title": "Results lane",
                 "status": "waiting_conflict",
-                "file_scope": ["aragora/live/**", "tests/e2e/**", "tests/handlers/**", "docs/**"],
+                "file_scope": [
+                    "aragora/live/**",
+                    "tests/e2e/**",
+                    "tests/handlers/**",
+                    "docs/**",
+                ],
             }
         ],
     )
@@ -411,7 +542,12 @@ def test_start_run_discards_duplicate_open_lane_when_goal_differs_only_by_boiler
                 id="subtask_1",
                 title="Results lane",
                 description="Connect the results page to backend endpoints and include empty-state handling.",
-                file_scope=["aragora/live/**", "tests/e2e/**", "tests/handlers/**", "docs/**"],
+                file_scope=[
+                    "aragora/live/**",
+                    "tests/e2e/**",
+                    "tests/handlers/**",
+                    "docs/**",
+                ],
             )
         ],
     )
@@ -509,6 +645,857 @@ def test_start_run_discards_specific_pytest_child_when_broader_explicit_spec_exi
     assert work_order["status"] == "discarded"
     assert work_order["metadata"]["archived_due_to"] == "duplicate_open_work_order"
     assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
+
+
+def test_start_run_preserves_dependent_validation_work_order_in_same_batch(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    goal = "Add codex runner probe parser coverage to swarm CLI tests."
+    spec = SwarmSpec(
+        raw_goal=goal,
+        refined_goal=goal,
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests for parser.py",
+                "description": "Write tests only for codex runner probe parsing.",
+                "file_scope": ["tests/cli/test_swarm_command.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "approval_required": True,
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "description": "Run the acceptance tests and fix any failures.",
+                "file_scope": [
+                    "tests/cli/test_swarm_command.py",
+                    "aragora/cli/parser.py",
+                ],
+                "dependency_ids": ["micro-task-1"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "approval_required": True,
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, refresh_scaling=False)
+
+    assert [item["status"] for item in run.work_orders] == ["queued", "queued"]
+    assert (
+        run.work_orders[1].get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
+    )
+
+
+def test_start_run_preserves_rerun_when_existing_duplicate_chain_was_stale_reaped(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    goal = "[Issue #2007] Add gemini-cli runner probe parser coverage to swarm CLI tests"
+    store.create_supervisor_run(
+        goal=goal,
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="needs_human",
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests for parser.py",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "blocking_question": "Should this stale lane be requeued, recovered, or discarded?",
+                "blocker": {
+                    "reason": "stale_lease_reaped",
+                    "question": "Should this stale lane be requeued, recovered, or discarded?",
+                },
+                "file_scope": ["tests/cli/test_swarm_command.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "status": "queued",
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": [
+                    "tests/cli/test_swarm_command.py",
+                    "aragora/cli/parser.py",
+                ],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal=goal,
+            refined_goal=goal,
+            work_orders=[
+                {
+                    "work_order_id": "micro-1",
+                    "pipeline_task_id": "micro-task-1",
+                    "title": "Write tests for parser.py",
+                    "description": "Write tests only for gemini-cli runner probe parsing.",
+                    "file_scope": ["tests/cli/test_swarm_command.py"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {"source": "explicit_spec_work_order"},
+                },
+                {
+                    "work_order_id": "micro-2",
+                    "pipeline_task_id": "micro-task-2",
+                    "title": "Run validation and fix failures",
+                    "description": "Run the acceptance tests and fix any failures.",
+                    "file_scope": [
+                        "tests/cli/test_swarm_command.py",
+                        "aragora/cli/parser.py",
+                    ],
+                    "dependency_ids": ["micro-task-1"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {"source": "explicit_spec_work_order"},
+                },
+            ],
+        ),
+        refresh_scaling=False,
+    )
+
+    assert [item["status"] for item in run.work_orders] == ["queued", "queued"]
+    for work_order in run.work_orders:
+        assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
+
+
+def test_refresh_run_requeues_stale_reaped_needs_human_lane(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run = store.create_supervisor_run(
+        goal="Requeue stale reaped lane on refresh",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="needs_human",
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Primary lane",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "lease_id": "lease-stale",
+                "file_scope": ["aragora/swarm/worker_launcher.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Dependent test lane",
+                "status": "queued",
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": ["tests/swarm/test_worker_launcher.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+        ],
+    )
+    lifecycle = MagicMock()
+    session_path = repo / "wt-stale-requeue"
+    session_path.mkdir()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-stale-requeue",
+        agent="codex",
+        branch="codex/swarm-stale-requeue",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=MagicMock(),
+    )
+
+    refreshed = supervisor.refresh_run(run["run_id"])
+
+    assert refreshed.status == "active"
+    work_orders = {item["work_order_id"]: item for item in refreshed.work_orders}
+    assert work_orders["micro-1"]["status"] == "leased"
+    assert work_orders["micro-1"].get("failure_reason") in {"", None}
+    assert work_orders["micro-1"].get("lease_id")
+    assert work_orders["micro-2"]["status"] in {"queued", "leased"}
+
+
+def test_refresh_run_salvages_stale_reaped_lane_with_recoverable_commit(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    lease = store.claim_lease(
+        task_id="micro-2",
+        title="Recoverable stale-reaped lane",
+        owner_agent="codex",
+        owner_session_id="swarm-stale-salvage",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["README.md"],
+        metadata={
+            "supervisor_run_id": "pending",
+            "work_order_id": "micro-2",
+            "task_key": "stale-salvage:micro-2",
+            "reviewer_agent": "claude",
+            "risk_level": "review",
+        },
+    )
+
+    (repo / "README.md").write_text("hello\nrecoverable stale reaped change\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "recover stale-reaped lane")
+    expected_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    run = store.create_supervisor_run(
+        goal="Recover stale reaped lane with commit",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="needs_human",
+        work_orders=[
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Recoverable lane",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "lease_id": lease.lease_id,
+                "receipt_id": None,
+                "owner_session_id": lease.owner_session_id,
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "initial_head": initial_head,
+                "file_scope": ["README.md"],
+                "metadata": {"source": "explicit_spec_work_order"},
+            }
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    refreshed = supervisor.refresh_run(run["run_id"])
+
+    assert refreshed.status == "completed"
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "completed"
+    assert work_order["worker_outcome"] == "crash_with_salvage"
+    assert work_order["receipt_id"]
+    assert work_order["head_sha"] == expected_head
+    assert work_order["commit_shas"] == [expected_head]
+    assert work_order["changed_paths"] == ["README.md"]
+    assert work_order.get("failure_reason") in {"", None}
+
+
+def test_refresh_run_salvages_stale_reaped_lane_even_when_changed_paths_were_already_recorded(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    lease = store.claim_lease(
+        task_id="micro-3",
+        title="Recoverable stale-reaped lane with recorded paths",
+        owner_agent="codex",
+        owner_session_id="swarm-stale-salvage-recorded-paths",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["README.md"],
+        metadata={
+            "supervisor_run_id": "pending",
+            "work_order_id": "micro-3",
+            "task_key": "stale-salvage:micro-3",
+            "reviewer_agent": "claude",
+            "risk_level": "review",
+        },
+    )
+
+    (repo / "README.md").write_text("hello\nrecorded changed path salvage\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "recover stale-reaped lane with recorded paths")
+    expected_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    run = store.create_supervisor_run(
+        goal="Recover stale reaped lane with recorded changed paths",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="needs_human",
+        work_orders=[
+            {
+                "work_order_id": "micro-3",
+                "pipeline_task_id": "micro-task-3",
+                "title": "Recoverable lane",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "lease_id": lease.lease_id,
+                "receipt_id": None,
+                "owner_session_id": lease.owner_session_id,
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "initial_head": initial_head,
+                "head_sha": expected_head,
+                "changed_paths": ["README.md"],
+                "file_scope": ["README.md"],
+                "metadata": {"source": "explicit_spec_work_order"},
+            }
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    refreshed = supervisor.refresh_run(run["run_id"])
+
+    assert refreshed.status == "completed"
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "completed"
+    assert work_order["worker_outcome"] == "crash_with_salvage"
+    assert work_order["receipt_id"]
+    assert work_order["head_sha"] == expected_head
+    assert work_order["commit_shas"] == [expected_head]
+    assert work_order["changed_paths"] == ["README.md"]
+    assert work_order.get("failure_reason") in {"", None}
+
+
+def test_refresh_run_does_not_lease_downstream_lane_before_dependencies_complete(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    current_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    run = store.create_supervisor_run(
+        goal="Dependency gate before lease",
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="active",
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Implementation lane",
+                "status": "completed",
+                "branch": "main",
+                "head_sha": current_head,
+                "commit_shas": [current_head],
+                "changed_paths": ["README.md"],
+                "file_scope": ["aragora/swarm/boss_loop.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Test lane",
+                "status": "queued",
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": ["tests/swarm/test_boss_loop.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            },
+            {
+                "work_order_id": "micro-3",
+                "pipeline_task_id": "micro-task-3",
+                "title": "Validation lane",
+                "status": "queued",
+                "dependency_ids": ["micro-task-1", "micro-task-2"],
+                "file_scope": [
+                    "aragora/swarm/boss_loop.py",
+                    "tests/swarm/test_boss_loop.py",
+                ],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            },
+        ],
+        metadata={"max_concurrency": 3},
+    )
+
+    lifecycle = MagicMock()
+    micro_2_path = repo / "wt-dependency-gate-micro-2"
+    micro_3_path = repo / "wt-dependency-gate-micro-3"
+    micro_2_path.mkdir()
+    micro_3_path.mkdir()
+    lifecycle.ensure_managed_worktree.side_effect = [
+        ManagedWorktreeSession(
+            session_id="swarm-dependency-gate-micro-2",
+            agent="codex",
+            branch="codex/swarm-dependency-gate-micro-2",
+            path=micro_2_path,
+            created=True,
+            reconcile_status="up_to_date",
+            payload={},
+        ),
+        ManagedWorktreeSession(
+            session_id="swarm-dependency-gate-micro-3",
+            agent="codex",
+            branch="codex/swarm-dependency-gate-micro-3",
+            path=micro_3_path,
+            created=True,
+            reconcile_status="up_to_date",
+            payload={},
+        ),
+    ]
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=MagicMock(),
+    )
+
+    refreshed = supervisor.refresh_run(run["run_id"])
+
+    work_orders = {item["work_order_id"]: item for item in refreshed.work_orders}
+    assert work_orders["micro-2"]["status"] == "leased"
+    assert work_orders["micro-3"]["status"] == "queued"
+    assert "lease_id" not in work_orders["micro-3"]
+    assert lifecycle.ensure_managed_worktree.call_count == 1
+
+
+def test_start_run_preserves_rerun_when_existing_missing_verification_plan_is_deferred(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    goal = "[Issue #2031] Clear stale retry failure state on successful webhook delivery"
+    store.create_supervisor_run(
+        goal=goal,
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="needs_human",
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Update retry_queue.py",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "worker_outcome": "merge_gate_failed",
+                "failure_reason": "missing_verification_plan",
+                "dispatch_error": "merge gate blocked: missing verification plan or verification command",
+                "branch": "codex/swarm-old-micro-1",
+                "commit_shas": ["deadbeef"],
+                "receipt_id": "receipt-old-micro-1",
+                "changed_paths": ["aragora/webhooks/retry_queue.py"],
+                "file_scope": ["aragora/webhooks/retry_queue.py"],
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "acceptance_criteria": [
+                        "`pytest tests/webhooks/test_retry_queue.py -x -q` passes"
+                    ],
+                },
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Write tests for retry_queue.py",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": ["tests/webhooks/test_retry_queue.py"],
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+            {
+                "work_order_id": "micro-3",
+                "pipeline_task_id": "micro-task-3",
+                "title": "Run validation and fix failures",
+                "status": "queued",
+                "dependency_ids": ["micro-task-1", "micro-task-2"],
+                "expected_tests": ["python -m pytest tests/webhooks/test_retry_queue.py -q"],
+                "file_scope": [
+                    "tests/webhooks/test_retry_queue.py",
+                    "aragora/webhooks/retry_queue.py",
+                ],
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal=goal,
+            refined_goal=goal,
+            work_orders=[
+                {
+                    "work_order_id": "micro-1",
+                    "pipeline_task_id": "micro-task-1",
+                    "title": "Update retry_queue.py",
+                    "description": "Edit retry_queue.py to clear stale retry failure state after success.",
+                    "file_scope": ["aragora/webhooks/retry_queue.py"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {"source": "explicit_spec_work_order"},
+                },
+                {
+                    "work_order_id": "micro-2",
+                    "pipeline_task_id": "micro-task-2",
+                    "title": "Write tests for retry_queue.py",
+                    "description": "Add the regression test in tests/webhooks/test_retry_queue.py.",
+                    "file_scope": ["tests/webhooks/test_retry_queue.py"],
+                    "dependency_ids": ["micro-task-1"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {"source": "explicit_spec_work_order"},
+                },
+                {
+                    "work_order_id": "micro-3",
+                    "pipeline_task_id": "micro-task-3",
+                    "title": "Run validation and fix failures",
+                    "description": "Run the acceptance tests and fix any failures.",
+                    "file_scope": [
+                        "tests/webhooks/test_retry_queue.py",
+                        "aragora/webhooks/retry_queue.py",
+                    ],
+                    "dependency_ids": ["micro-task-1", "micro-task-2"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {"source": "explicit_spec_work_order"},
+                },
+            ],
+        ),
+        refresh_scaling=False,
+    )
+
+    assert [item["status"] for item in run.work_orders] == [
+        "queued",
+        "queued",
+        "queued",
+    ]
+    for work_order in run.work_orders:
+        assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
+
+
+def test_start_run_preserves_rerun_when_existing_failed_validation_lane_has_no_deliverable(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    goal = "[Issue #2031] Clear stale retry failure state on successful webhook delivery"
+    store.create_supervisor_run(
+        goal=goal,
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="needs_human",
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Update retry_queue.py",
+                "status": "completed",
+                "review_status": "pending_heterogeneous_review",
+                "worker_outcome": "completed",
+                "branch": "codex/swarm-old-micro-1",
+                "commit_shas": ["deadbeef"],
+                "receipt_id": "receipt-old-micro-1",
+                "changed_paths": ["aragora/webhooks/retry_queue.py"],
+                "file_scope": ["aragora/webhooks/retry_queue.py"],
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "deferred_verification_to_dependency_ids": ["micro-task-3"],
+                },
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Write tests for retry_queue.py",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": ["tests/webhooks/test_retry_queue.py"],
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+            {
+                "work_order_id": "micro-3",
+                "pipeline_task_id": "micro-task-3",
+                "title": "Run validation and fix failures",
+                "status": "dispatch_failed",
+                "dependency_ids": ["micro-task-1", "micro-task-2"],
+                "expected_tests": ["python -m pytest tests/webhooks/test_retry_queue.py -q"],
+                "file_scope": [
+                    "tests/webhooks/test_retry_queue.py",
+                    "aragora/webhooks/retry_queue.py",
+                ],
+                "dispatch_error": "code_exec requires explicit approval: missing approval record",
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal=goal,
+            refined_goal=goal,
+            work_orders=[
+                {
+                    "work_order_id": "micro-1",
+                    "pipeline_task_id": "micro-task-1",
+                    "title": "Update retry_queue.py",
+                    "description": "Edit retry_queue.py to clear stale retry failure state after success.",
+                    "file_scope": ["aragora/webhooks/retry_queue.py"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {"source": "explicit_spec_work_order"},
+                },
+                {
+                    "work_order_id": "micro-2",
+                    "pipeline_task_id": "micro-task-2",
+                    "title": "Write tests for retry_queue.py",
+                    "description": "Add the regression test in tests/webhooks/test_retry_queue.py.",
+                    "file_scope": ["tests/webhooks/test_retry_queue.py"],
+                    "dependency_ids": ["micro-task-1"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {"source": "explicit_spec_work_order"},
+                },
+                {
+                    "work_order_id": "micro-3",
+                    "pipeline_task_id": "micro-task-3",
+                    "title": "Run validation and fix failures",
+                    "description": "Run the acceptance tests and fix any failures.",
+                    "file_scope": [
+                        "tests/webhooks/test_retry_queue.py",
+                        "aragora/webhooks/retry_queue.py",
+                    ],
+                    "dependency_ids": ["micro-task-1", "micro-task-2"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {"source": "explicit_spec_work_order"},
+                },
+            ],
+        ),
+        refresh_scaling=False,
+    )
+
+    assert [item["status"] for item in run.work_orders] == [
+        "queued",
+        "queued",
+        "queued",
+    ]
+    for work_order in run.work_orders:
+        assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
+
+
+def test_start_run_preserves_rerun_when_existing_clean_exit_no_deliverable_lane_has_no_deliverable(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    goal = "[Issue #2066] Add run-ledger read API for operator visibility"
+    store.create_supervisor_run(
+        goal=goal,
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="needs_human",
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Update runs.py",
+                "status": "needs_human",
+                "worker_outcome": "clean_exit_no_effect",
+                "failure_reason": "clean_exit_no_deliverable",
+                "dispatch_error": "worker exited 0 with no commits and no changed paths",
+                "blocking_question": (
+                    "What concrete branch, commit, or PR should this lane produce before rerunning?"
+                ),
+                "blocker": {
+                    "reason": "clean_exit_no_deliverable",
+                    "question": (
+                        "What concrete branch, commit, or PR should this lane produce before rerunning?"
+                    ),
+                },
+                "file_scope": ["aragora/server/handlers/runs.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "acceptance_criteria": [
+                        "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                    ],
+                    "deferred_verification_to_dependency_ids": ["micro-task-4"],
+                },
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Update runs.py",
+                "status": "needs_human",
+                "failure_reason": "stale_lease_reaped",
+                "file_scope": ["aragora/server/fastapi/routes/runs.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "acceptance_criteria": [
+                        "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                    ],
+                    "deferred_verification_to_dependency_ids": ["micro-task-4"],
+                },
+            },
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal=goal,
+            refined_goal=goal,
+            work_orders=[
+                {
+                    "work_order_id": "micro-1",
+                    "pipeline_task_id": "micro-task-1",
+                    "title": "Update runs.py",
+                    "description": "Add the read-only RunLedger handler.",
+                    "file_scope": ["aragora/server/handlers/runs.py"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {
+                        "source": "explicit_spec_work_order",
+                        "acceptance_criteria": [
+                            "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                        ],
+                        "deferred_verification_to_dependency_ids": ["micro-task-4"],
+                    },
+                },
+                {
+                    "work_order_id": "micro-2",
+                    "pipeline_task_id": "micro-task-2",
+                    "title": "Update runs.py",
+                    "description": "Expose the new read-only route entries.",
+                    "file_scope": ["aragora/server/fastapi/routes/runs.py"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {
+                        "source": "explicit_spec_work_order",
+                        "acceptance_criteria": [
+                            "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                        ],
+                        "deferred_verification_to_dependency_ids": ["micro-task-4"],
+                    },
+                },
+                {
+                    "work_order_id": "micro-3",
+                    "pipeline_task_id": "micro-task-3",
+                    "title": "Write tests for runs.py",
+                    "description": "Add focused coverage for the new read endpoints.",
+                    "file_scope": ["tests/server/handlers/test_runs_handler.py"],
+                    "dependency_ids": ["micro-task-1", "micro-task-2"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {
+                        "source": "explicit_spec_work_order",
+                        "acceptance_criteria": [
+                            "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                        ],
+                        "deferred_verification_to_dependency_ids": ["micro-task-4"],
+                    },
+                },
+                {
+                    "work_order_id": "micro-4",
+                    "pipeline_task_id": "micro-task-4",
+                    "title": "Run validation and fix failures",
+                    "description": "Run the acceptance test and fix anything that breaks.",
+                    "file_scope": [
+                        "aragora/server/handlers/runs.py",
+                        "aragora/server/fastapi/routes/runs.py",
+                        "tests/server/handlers/test_runs_handler.py",
+                    ],
+                    "dependency_ids": ["micro-task-1", "micro-task-2", "micro-task-3"],
+                    "target_agent": "codex",
+                    "reviewer_agent": "claude",
+                    "approval_required": True,
+                    "metadata": {
+                        "source": "explicit_spec_work_order",
+                        "acceptance_criteria": [
+                            "`pytest tests/server/handlers/test_runs_handler.py -x -q` passes"
+                        ],
+                    },
+                },
+            ],
+        ),
+        refresh_scaling=False,
+    )
+
+    assert [item["status"] for item in run.work_orders] == ["queued", "queued", "queued", "queued"]
+    for work_order in run.work_orders:
+        assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
 
 
 def test_start_run_discards_duplicate_scope_less_explicit_lane_by_tranche_lane_id(
@@ -724,7 +1711,10 @@ def test_start_run_passes_acceptance_and_constraints_to_decomposer(
     decomposer.analyze.assert_called_once()
     kwargs = decomposer.analyze.call_args.kwargs
     assert kwargs["acceptance_criteria"] == ["python -m pytest tests/swarm/test_supervisor.py -q"]
-    assert kwargs["constraints"] == ["Keep merge gate enabled", "Human approval required"]
+    assert kwargs["constraints"] == [
+        "Keep merge gate enabled",
+        "Human approval required",
+    ]
 
 
 def test_refresh_run_scales_queued_work_after_completion(
@@ -838,7 +1828,7 @@ def test_refresh_run_requeues_leased_work_order_when_active_lease_is_missing(
                 "worktree_path": str(repo / "missing-worktree"),
                 "file_scope": ["aragora/swarm/supervisor.py"],
                 "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
-                "receipt_id": "receipt-stale",
+                "receipt_id": None,
                 "confidence": 0.91,
                 "worker_outcome": "crash_with_salvage",
                 "completed_at": "2026-03-31T12:34:56+00:00",
@@ -1058,7 +2048,7 @@ def test_refresh_run_rebinds_stale_dispatched_lane_back_to_leased_without_worker
                     "stderr_mtime_ns": 0,
                     "has_output": True,
                 },
-                "receipt_id": "receipt-stale",
+                "receipt_id": None,
                 "worker_outcome": "completed",
                 "completed_at": "2026-03-31T12:02:00+00:00",
                 "exit_code": 143,
@@ -1159,6 +2149,7 @@ def test_refresh_run_rebinds_stale_dispatched_lane_to_active_worker_without_stal
             "supervisor_run_id": "run-rebound-active-dispatched",
             "work_order_id": "wo-rebound-active-dispatched",
             "task_key": "run-rebound-active-dispatched:wo-rebound-active-dispatched",
+            "reviewer_agent": "codex",
             "worker_pid": 67890,
         },
     )
@@ -1231,6 +2222,7 @@ def test_refresh_run_rebinds_stale_dispatched_lane_to_active_worker_without_stal
     assert work_order["lease_id"] == replacement_lease.lease_id
     assert work_order["owner_session_id"] == "swarm-rebound-active-dispatched"
     assert work_order["target_agent"] == "claude"
+    assert work_order["reviewer_agent"] == "codex"
     assert work_order["pid"] == 67890
     assert "exit_code" not in work_order
     assert work_order["review_status"] == "pending"
@@ -1378,7 +2370,10 @@ def test_refresh_run_respects_dispatched_workers_as_active(
         should_decompose=True,
         subtasks=[
             SubTask(
-                id=f"wo-{i}", title=f"Lane {i}", description=f"Lane {i}", file_scope=[f"file{i}.py"]
+                id=f"wo-{i}",
+                title=f"Lane {i}",
+                description=f"Lane {i}",
+                file_scope=[f"file{i}.py"],
             )
             for i in range(3)
         ],
@@ -1537,6 +2532,68 @@ def test_refresh_run_releases_managed_conflicts_without_active_session(
     assert orphaned.lease_id not in active_lease_ids
 
 
+def test_refresh_run_releases_managed_conflicts_with_boolean_session_meta_pid(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    stale_path = repo / ".worktrees" / "codex-auto" / "swarm-bool-meta-docs"
+    stale_path.mkdir(parents=True)
+    (stale_path / ".codex_session_meta.json").write_text('{"pid": true}\n', encoding="utf-8")
+    orphaned = store.claim_lease(
+        task_id="old-docs-lane",
+        title="Old docs lane",
+        owner_agent="codex",
+        owner_session_id="swarm-bool-meta-docs",
+        branch="codex/stale-docs",
+        worktree_path=str(stale_path),
+        claimed_paths=["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+    )
+
+    lifecycle = MagicMock()
+    session_path = repo / "wt-docs-fresh-bool-meta"
+    session_path.mkdir()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="fresh-docs",
+        agent="codex",
+        branch="codex/fresh-docs",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="docs-lane",
+                title="Write operator guide",
+                description="Add operator guide.",
+                file_scope=["docs/guides/SWARM_DOGFOOD_OPERATOR.md"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        decomposer=decomposer,
+    )
+
+    with patch.object(WorkerLauncher, "_is_pid_running", side_effect=lambda pid: pid == 1):
+        run = supervisor.start_run(spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"))
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "leased"
+    assert work_order["lease_id"]
+    active_lease_ids = {lease.lease_id for lease in store.list_active_leases()}
+    assert orphaned.lease_id not in active_lease_ids
+
+
 def test_refresh_run_keeps_conflict_for_live_managed_session(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -1595,7 +2652,7 @@ def test_refresh_run_keeps_conflict_for_live_managed_session(
 
     work_order = run.work_orders[0]
     assert work_order["status"] == "waiting_conflict"
-    assert not work_order["lease_id"]
+    assert not work_order.get("lease_id")
     assert work_order["conflicts"][0]["lease_id"] == blocking.lease_id
     assert work_order["failure_reason"] == "waiting_conflict"
     assert "overlapping lane" in work_order["blocking_question"]
@@ -1642,6 +2699,15 @@ def test_refresh_run_marks_resource_wait_on_disk_full(
     work_order = run.work_orders[0]
     assert work_order["status"] == "waiting_resource"
     assert "No space left on device" in work_order["resource_error"]
+    assert work_order["failure_reason"] == "waiting_resource"
+    assert work_order["blocking_question"] == (
+        "Which capacity or environment constraint must be resolved before this lane can proceed?"
+    )
+    assert work_order["blocker"] == {
+        "reason": "waiting_resource",
+        "question": work_order["blocking_question"],
+    }
+    assert work_order["blockers"] == ["No space left on device"]
 
 
 def test_start_run_prefers_explicit_spec_work_orders(
@@ -1974,7 +3040,12 @@ def test_start_run_drops_explicit_spec_umbrella_lane_when_specific_sibling_exist
                     "empty-state handling, and tests, choosing the smallest verifiable page "
                     "from the issue instead of broad page churn."
                 ),
-                "file_scope": ["aragora/live/**", "tests/e2e/**", "tests/handlers/**", "docs/**"],
+                "file_scope": [
+                    "aragora/live/**",
+                    "tests/e2e/**",
+                    "tests/handlers/**",
+                    "docs/**",
+                ],
             },
             {
                 "work_order_id": "proj-001",
@@ -1982,7 +3053,12 @@ def test_start_run_drops_explicit_spec_umbrella_lane_when_specific_sibling_exist
                 "description": (
                     "Connect the results page to backend endpoints to display debate outcomes."
                 ),
-                "file_scope": ["aragora/live/**", "tests/e2e/**", "tests/handlers/**", "docs/**"],
+                "file_scope": [
+                    "aragora/live/**",
+                    "tests/e2e/**",
+                    "tests/handlers/**",
+                    "docs/**",
+                ],
             },
         ],
     )
@@ -2072,6 +3148,92 @@ def test_start_run_fails_closed_when_work_order_scope_remains_empty(
         == "Work order has no declared file scope; declare scope before dispatch."
     )
     assert work_order["lease_id"] is None
+
+
+def test_refresh_run_invalid_scope_clears_stale_deliverable_state(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-invalid-refresh-scope"
+    session_path.mkdir()
+    (session_path / ".git").write_text("gitdir: /tmp/fake\n", encoding="utf-8")
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-invalid-refresh-scope",
+        agent="codex",
+        branch="codex/swarm-invalid-refresh-scope",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run_record = store.create_supervisor_run(
+        goal="invalid scope clears stale deliverable state",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "invalid scope clears stale deliverable state"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "wo-invalid-refresh-scope",
+                "title": "Invalid scope lane",
+                "description": "Invalid scope lane",
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["src/not-real.py"],
+                "review_status": "pending_heterogeneous_review",
+                "receipt_id": "receipt-stale",
+                "confidence": 0.93,
+                "worker_outcome": "completed",
+                "commit_shas": ["deadbeef"],
+                "changed_paths": ["README.md"],
+                "head_sha": "deadbeef",
+                "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+                "merge_gate": {"checks_passed": True},
+                "verification_missing_reason": "missing_verification_plan",
+                "resource_error": "stale disk full",
+                "conflicts": [{"path": "README.md", "source": "lease"}],
+                "failure_reason": "waiting_resource",
+                "blocking_question": "Old blocker?",
+                "blocker": {"reason": "waiting_resource", "question": "Old blocker?"},
+                "blockers": ["old blocker"],
+            }
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    lifecycle.ensure_managed_worktree.assert_called_once()
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "needs_human"
+    assert work_order["failure_reason"] == "scope_violation"
+    assert work_order["review_status"] == "changes_requested"
+    assert (
+        work_order["dispatch_error"]
+        == "Declared file scope resolved to no valid in-repo paths; declare scope before dispatch."
+    )
+    for key in (
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "commit_shas",
+        "changed_paths",
+        "head_sha",
+        "pr_url",
+        "merge_gate",
+        "verification_missing_reason",
+        "resource_error",
+        "conflicts",
+    ):
+        assert key not in work_order
+    assert work_order["blocking_question"] != "Old blocker?"
+    assert work_order["blocker"] != {"reason": "waiting_resource", "question": "Old blocker?"}
+    assert work_order["blockers"] == [
+        "Declared file scope resolved to no valid in-repo paths; declare scope before dispatch."
+    ]
 
 
 def test_start_run_fails_closed_when_validated_scope_resolves_to_empty(
@@ -2206,13 +3368,19 @@ def test_start_run_collapses_redundant_identical_scope_work_orders(
                 id="wo-cli",
                 title="CLI Changes",
                 description="Update quickstart command output.",
-                file_scope=["aragora/cli/commands/quickstart.py", "tests/cli/test_quickstart.py"],
+                file_scope=[
+                    "aragora/cli/commands/quickstart.py",
+                    "tests/cli/test_quickstart.py",
+                ],
             ),
             SubTask(
                 id="wo-tests",
                 title="Tests Changes",
                 description="Add JSON output regression tests.",
-                file_scope=["aragora/cli/commands/quickstart.py", "tests/cli/test_quickstart.py"],
+                file_scope=[
+                    "aragora/cli/commands/quickstart.py",
+                    "tests/cli/test_quickstart.py",
+                ],
             ),
         ],
     )
@@ -2225,7 +3393,10 @@ def test_start_run_collapses_redundant_identical_scope_work_orders(
     spec = SwarmSpec(
         raw_goal="Add quickstart json output",
         refined_goal="Add --json output to quickstart",
-        file_scope_hints=["aragora/cli/commands/quickstart.py", "tests/cli/test_quickstart.py"],
+        file_scope_hints=[
+            "aragora/cli/commands/quickstart.py",
+            "tests/cli/test_quickstart.py",
+        ],
     )
 
     run = supervisor.start_run(spec=spec, max_concurrency=1)
@@ -2237,7 +3408,10 @@ def test_start_run_collapses_redundant_identical_scope_work_orders(
         "aragora/cli/commands/quickstart.py",
         "tests/cli/test_quickstart.py",
     ]
-    assert work_order["metadata"]["collapsed_redundant_work_orders"] == ["wo-cli", "wo-tests"]
+    assert work_order["metadata"]["collapsed_redundant_work_orders"] == [
+        "wo-cli",
+        "wo-tests",
+    ]
     lifecycle.ensure_managed_worktree.assert_called_once()
 
 
@@ -2554,6 +3728,38 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
     assert wo["stderr_tail"] == "worker stderr\n"
 
 
+def test_verification_results_from_result_rejects_malformed_values() -> None:
+    normalized = SwarmSupervisor._verification_results_from_result(
+        WorkerProcess(
+            work_order_id="wo-malformed-verification",
+            agent="claude",
+            worktree_path="/tmp/wo-malformed-verification",
+            branch="main",
+            verification_results=[
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "exit_code": 0.0,
+                    "passed": "true",
+                    "stdout": {"line": "ok"},
+                    "stderr": ["bad"],
+                    "duration_seconds": True,
+                }
+            ],
+        )
+    )
+
+    assert normalized == [
+        {
+            "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+            "exit_code": -1,
+            "passed": False,
+            "stdout": "{'line': 'ok'}",
+            "stderr": "['bad']",
+            "duration_seconds": 0.0,
+        }
+    ]
+
+
 @pytest.mark.asyncio
 async def test_collect_results_records_passed_merge_gate_checks(
     repo: Path, store: DevCoordinationStore
@@ -2587,6 +3793,14 @@ async def test_collect_results_records_passed_merge_gate_checks(
                 "file_scope": ["aragora/swarm/supervisor.py"],
                 "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
                 "receipt_id": None,
+                "dispatch_error": "old dispatch failure",
+                "resource_error": "old resource error",
+                "failure_reason": "worker_crash",
+                "blocking_question": "Old blocker?",
+                "blocker": {"reason": "worker_crash", "question": "Old blocker?"},
+                "blockers": ["old blocker"],
+                "conflicts": [{"source": "lease", "lease_id": "old-lease"}],
+                "scope_violation": {"violations": [{"path": "old.py"}]},
             }
         ],
         status="active",
@@ -2639,6 +3853,105 @@ async def test_collect_results_records_passed_merge_gate_checks(
     assert store.get_completion_receipt(wo["receipt_id"]) is not None
     assert wo["merge_gate"]["checks_passed"] is True
     assert wo["merge_gate"]["human_approval_required"] is True
+    for cleared_key in (
+        "dispatch_error",
+        "resource_error",
+        "failure_reason",
+        "blocking_question",
+        "blocker",
+        "blockers",
+        "conflicts",
+        "scope_violation",
+    ):
+        assert cleared_key not in wo
+
+
+@pytest.mark.asyncio
+async def test_collect_results_blocks_merge_gate_on_malformed_verification_metadata(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="merge-malformed-verification",
+        title="Merge malformed verification lane",
+        owner_agent="claude",
+        owner_session_id="merge-malformed-verification-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        expected_tests=["python -m pytest tests/swarm/test_supervisor.py -q"],
+    )
+    run_record = store.create_supervisor_run(
+        goal="merge gate malformed verification metadata",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "merge gate malformed verification metadata"},
+        work_orders=[
+            {
+                "work_order_id": "wo-merge-malformed-verification",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "owner_session_id": "merge-malformed-verification-session",
+                "lease_id": lease.lease_id,
+                "review_status": "pending",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    completed_worker = WorkerProcess(
+        work_order_id="wo-merge-malformed-verification",
+        agent="claude",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="merge-malformed-verification-session",
+        pid=100,
+        exit_code=0,
+        completed_at="2026-03-06T20:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        tests_run=["python -m pytest tests/swarm/test_supervisor.py -q"],
+        verification_results=[
+            {
+                "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                "exit_code": 0.0,
+                "passed": "true",
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": True,
+            }
+        ],
+    )
+    mock_launcher.get_worker = MagicMock(return_value=completed_worker)
+    mock_launcher.wait = AsyncMock(return_value=completed_worker)
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        launcher=mock_launcher,
+    )
+
+    results = await supervisor.collect_results(run_id)
+    assert len(results) == 1
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "needs_human"
+    assert wo["review_status"] == "changes_requested"
+    assert wo["worker_outcome"] == "merge_gate_failed"
+    assert wo["merge_gate"]["checks_passed"] is False
+    assert wo["verification_results"][0]["exit_code"] == -1
+    assert wo["verification_results"][0]["passed"] is False
+    assert wo["verification_results"][0]["duration_seconds"] == 0.0
+    assert "exit -1" in wo["dispatch_error"]
 
 
 @pytest.mark.asyncio
@@ -2673,6 +3986,12 @@ async def test_collect_results_blocks_merge_gate_when_required_checks_fail(
                 "review_status": "pending",
                 "file_scope": ["aragora/swarm/supervisor.py"],
                 "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                "receipt_id": "receipt-stale",
+                "confidence": 0.91,
+                "resource_error": "old resource wait",
+                "conflicts": [{"source": "lease", "lease_id": "lease-stale"}],
+                "scope_violation": {"violations": [{"path": "old.py"}]},
+                "blockers": ["old blocker"],
             }
         ],
         status="active",
@@ -2722,9 +4041,13 @@ async def test_collect_results_blocks_merge_gate_when_required_checks_fail(
     assert wo["status"] == "needs_human"
     assert wo["review_status"] == "changes_requested"
     assert wo["receipt_id"] is None
+    assert "confidence" not in wo
     assert wo["worker_outcome"] == "merge_gate_failed"
     assert wo["merge_gate"]["checks_passed"] is False
     assert "merge gate blocked" in wo["dispatch_error"]
+    for cleared_key in ("resource_error", "conflicts", "scope_violation"):
+        assert cleared_key not in wo
+    assert wo["blockers"] == [wo["dispatch_error"]]
 
     summary = store.status_summary()
     assert summary["counts"]["active_leases"] == 0
@@ -2842,6 +4165,14 @@ async def test_collect_results_backfills_receipt_for_salvaged_deliverable(
                 "review_status": "pending",
                 "file_scope": ["aragora/swarm/supervisor.py"],
                 "receipt_id": None,
+                "dispatch_error": "old crash",
+                "failure_reason": "worker_crash",
+                "blocking_question": "Old blocker?",
+                "blocker": {"reason": "worker_crash", "question": "Old blocker?"},
+                "blockers": ["old blocker"],
+                "merge_gate": {"checks_passed": False},
+                "verification_missing_reason": "missing_verification_plan",
+                "scope_violation": {"violations": [{"path": "old.py"}]},
             }
         ],
         status="active",
@@ -2881,6 +4212,17 @@ async def test_collect_results_backfills_receipt_for_salvaged_deliverable(
     receipt = store.get_completion_receipt(wo["receipt_id"])
     assert receipt is not None
     assert receipt.outcome == "deliverable_created"
+    for cleared_key in (
+        "dispatch_error",
+        "failure_reason",
+        "blocking_question",
+        "blocker",
+        "blockers",
+        "merge_gate",
+        "verification_missing_reason",
+        "scope_violation",
+    ):
+        assert cleared_key not in wo
 
 
 def test_merge_gate_state_allows_docs_only_lane_without_verification_plan() -> None:
@@ -2897,6 +4239,26 @@ def test_merge_gate_state_allows_docs_only_lane_without_verification_plan() -> N
     assert state["merge_eligible"] is True
     assert state["verification_missing_reason"] is None
     assert state["blocked_reasons"] == []
+
+
+def test_merge_gate_state_allows_dependency_deferred_verification_lane() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "file_scope": ["aragora/webhooks/retry_queue.py"],
+            "changed_paths": ["aragora/webhooks/retry_queue.py"],
+            "expected_tests": ["python -m pytest tests/webhooks/test_retry_queue.py -q"],
+            "verification_results": [],
+            "metadata": {
+                "deferred_verification_to_dependency_ids": ["micro-task-3"],
+            },
+        }
+    )
+
+    assert state["checks_passed"] is True
+    assert state["merge_eligible"] is True
+    assert state["verification_missing_reason"] is None
+    assert state["blocked_reasons"] == []
+    assert state["verification_deferred_to_dependency_ids"] == ["micro-task-3"]
 
 
 def test_merge_gate_state_normalizes_python_command_equivalence() -> None:
@@ -3049,6 +4411,20 @@ async def test_collect_results_marks_scope_violation_needs_human(
                 "lease_id": lease.lease_id,
                 "file_scope": ["aragora/server/auth_checks.py"],
                 "review_status": "pending",
+                "worker_outcome": "completed",
+                "receipt_id": "receipt-stale",
+                "confidence": 0.88,
+                "head_sha": "deadbeef",
+                "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+                "adopted_pr": "https://github.com/synaptent/aragora/pull/9999",
+                "merge_gate": {"checks_passed": True},
+                "verification_missing_reason": "missing_verification_plan",
+                "commit_shas": ["deadbeef"],
+                "tests_run": ["python -m pytest tests/old_scope.py -q"],
+                "verification_results": [{"command": "pytest", "passed": True}],
+                "resource_error": "old disk pressure",
+                "conflicts": [{"source": "lease", "lease_id": "stale-lease"}],
+                "blockers": ["old blocker"],
             }
         ],
         status="active",
@@ -3090,14 +4466,135 @@ async def test_collect_results_marks_scope_violation_needs_human(
     assert wo["review_status"] == "changes_requested"
     assert "outside permitted scope" in wo["dispatch_error"]
     assert wo["failure_reason"] == "scope_violation"
+    assert wo["worker_outcome"] == "scope_violation"
     assert "stay in scope" in wo["blocking_question"]
     assert wo.get("receipt_id") is None
+    assert "confidence" not in wo
+    assert wo["scope_violation"]["changed_paths"] == ["aragora/server/handlers/playground.py"]
+    assert wo["blockers"] == [wo["dispatch_error"]]
+    for cleared_key in (
+        "head_sha",
+        "commit_shas",
+        "tests_run",
+        "verification_results",
+        "pr_url",
+        "adopted_pr",
+        "merge_gate",
+        "verification_missing_reason",
+        "resource_error",
+        "conflicts",
+    ):
+        assert cleared_key not in wo
     assert wo["lease_id"] == lease.lease_id
     assert wo["scope_violation"]["violations"][0]["type"] == "out_of_scope"
 
     summary = store.status_summary()
     assert summary["counts"]["scope_violations"] == 0
     assert summary["counts"]["active_leases"] == 0
+
+
+@pytest.mark.asyncio
+async def test_collect_results_record_completion_scope_violation_clears_stale_wait_state(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="record-completion-scope-lane",
+        title="Record completion scope lane",
+        owner_agent="claude",
+        owner_session_id="record-completion-scope-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        expected_tests=["python -m pytest tests/swarm/test_supervisor.py -q"],
+    )
+    run_record = store.create_supervisor_run(
+        goal="record completion scope violation",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "record completion scope violation"},
+        work_orders=[
+            {
+                "work_order_id": "wo-record-completion-scope",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "owner_session_id": "record-completion-scope-session",
+                "lease_id": lease.lease_id,
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "review_status": "pending",
+                "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+                "receipt_id": None,
+                "confidence": 0.91,
+                "resource_error": "old resource wait",
+                "conflicts": [{"source": "lease", "lease_id": "lease-stale"}],
+                "blockers": ["old blocker"],
+                "scope_violation": {"violations": [{"path": "old.py"}]},
+                "merge_gate": {"checks_passed": True},
+                "verification_missing_reason": "missing_verification_plan",
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    completed_worker = WorkerProcess(
+        work_order_id="wo-record-completion-scope",
+        agent="claude",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="record-completion-scope-session",
+        pid=100,
+        exit_code=0,
+        completed_at="2026-03-06T20:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        tests_run=["python -m pytest tests/swarm/test_supervisor.py -q"],
+        verification_results=[
+            {
+                "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                "exit_code": 0,
+                "passed": True,
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": 0.4,
+            }
+        ],
+    )
+    mock_launcher.get_worker = MagicMock(return_value=completed_worker)
+    mock_launcher.wait = AsyncMock(return_value=completed_worker)
+
+    scope_violations = [{"path": "aragora/server/handlers/playground.py", "type": "out_of_scope"}]
+    store.record_completion = MagicMock(side_effect=FileScopeViolationError(scope_violations))
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    results = await supervisor.collect_results(run_id)
+    assert len(results) == 1
+    store.record_completion.assert_called_once()
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "needs_human"
+    assert wo["review_status"] == "changes_requested"
+    assert wo["failure_reason"] == "scope_violation"
+    assert wo["worker_outcome"] == "scope_violation"
+    assert wo["scope_violation"]["violations"] == scope_violations
+    assert wo["scope_violation"]["changed_paths"] == ["aragora/swarm/supervisor.py"]
+    assert wo["blockers"] == [wo["dispatch_error"]]
+    assert wo["receipt_id"] is None
+    for cleared_key in (
+        "confidence",
+        "resource_error",
+        "conflicts",
+        "merge_gate",
+        "verification_missing_reason",
+    ):
+        assert cleared_key not in wo
 
 
 @pytest.mark.asyncio
@@ -3563,6 +5060,7 @@ async def test_dispatch_workers_keeps_explicit_target_agent_sticky(repo: Path) -
     assert work_order["metadata"]["fallback_suppressed_reason"] == "sticky_requested_target_agent"
     assert work_order["metadata"]["fallback_suppressed_agent"] == "claude"
     assert "attempted_agents" not in work_order["metadata"]
+    assert all(active.lease_id != lease.lease_id for active in store.list_active_leases())
 
 
 @pytest.mark.asyncio
@@ -3673,6 +5171,25 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
                 "target_agent": "claude",
                 "reviewer_agent": "codex",
                 "lease_id": lease.lease_id,
+                "receipt_id": "receipt-stale",
+                "confidence": 0.97,
+                "worker_outcome": "completed",
+                "completed_at": "2026-04-03T00:00:00+00:00",
+                "exit_code": 0,
+                "head_sha": "abc123",
+                "commit_shas": ["abc123"],
+                "changed_paths": ["docs/notes.md"],
+                "merge_gate": {"checks_passed": True},
+                "verification_missing_reason": "old-state",
+                "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+                "adopted_pr": "https://github.com/synaptent/aragora/pull/9999",
+                "scope_violation": {"violations": []},
+                "resource_error": "stale quota",
+                "conflicts": [{"path": "README.md", "source": "lease"}],
+                "failure_reason": "waiting_conflict",
+                "blocking_question": "Old blocker?",
+                "blocker": {"reason": "waiting_conflict", "question": "Old blocker?"},
+                "blockers": ["old blocker"],
             }
         ],
         status="active",
@@ -3718,9 +5235,327 @@ async def test_dispatch_workers_marks_needs_human_when_all_worker_types_blocked(
     assert "worker dispatch blocked" in work_order["dispatch_error"]
     assert work_order["failure_reason"] == "worker_type_blocked"
     assert "worker type or capacity issue" in work_order["blocking_question"]
+    for key in (
+        "lease_id",
+        "owner_session_id",
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "completed_at",
+        "exit_code",
+        "head_sha",
+        "commit_shas",
+        "changed_paths",
+        "merge_gate",
+        "verification_missing_reason",
+        "pr_url",
+        "adopted_pr",
+        "scope_violation",
+        "resource_error",
+        "conflicts",
+    ):
+        assert key not in work_order
+    assert work_order["blockers"] == [work_order["dispatch_error"]]
     assert updated["status"] == "needs_human"
     assert updated["metadata"][CAMPAIGN_OUTCOME_METADATA_KEY] == "needs_human"
     assert store.status_summary()["counts"]["active_leases"] == 0
+
+
+@pytest.mark.asyncio
+async def test_dispatch_workers_dispatch_failed_clears_stale_deliverable_state(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="dispatch failure clears stale deliverable state",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "dispatch failure clears stale deliverable state"},
+        work_orders=[
+            {
+                "work_order_id": "wo-dispatch-failed-cleanup",
+                "status": "leased",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "review_status": "pending_heterogeneous_review",
+                "receipt_id": "receipt-stale",
+                "confidence": 0.93,
+                "worker_outcome": "completed",
+                "completed_at": "2026-04-02T00:00:00+00:00",
+                "head_sha": "deadbeef",
+                "commit_shas": ["deadbeef"],
+                "changed_paths": ["aragora/swarm/supervisor.py"],
+                "merge_gate": {"checks_passed": True},
+                "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+                "verification_missing_reason": "missing_verification_plan",
+                "resource_error": "stale resource shortage",
+                "conflicts": [{"path": "aragora/swarm/reconciler.py"}],
+                "pid": 4242,
+                "initial_head": "base123",
+                "dispatched_at": "2026-04-02T00:00:00+00:00",
+                "failure_reason": "worker_crash",
+                "blocking_question": "Old blocker?",
+                "blocker": {"reason": "worker_crash", "question": "Old blocker?"},
+                "blockers": ["old blocker"],
+            }
+        ],
+        status="active",
+    )
+    lease = store.claim_lease(
+        task_id="wo-dispatch-failed-cleanup",
+        title="dispatch failure clears stale deliverable state",
+        owner_agent="codex",
+        owner_session_id="stale-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+    )
+    run_record["work_orders"][0]["lease_id"] = lease.lease_id
+    run_record["work_orders"][0]["owner_session_id"] = lease.owner_session_id
+    store.update_supervisor_run(
+        run_record["run_id"],
+        work_orders=run_record["work_orders"],
+        status="active",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.launch = AsyncMock(side_effect=FileNotFoundError("fatal: boom"))
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    launched = await supervisor.dispatch_workers(run_record["run_id"])
+
+    assert launched == []
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "dispatch_failed"
+    assert work_order["review_status"] == "pending"
+    assert work_order["dispatch_error"] == "fatal: boom"
+    for cleared_key in (
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "completed_at",
+        "head_sha",
+        "commit_shas",
+        "changed_paths",
+        "merge_gate",
+        "pr_url",
+        "verification_missing_reason",
+        "resource_error",
+        "conflicts",
+        "pid",
+        "initial_head",
+        "dispatched_at",
+        "lease_id",
+        "owner_session_id",
+        "failure_reason",
+        "blocking_question",
+        "blocker",
+        "blockers",
+    ):
+        assert cleared_key not in work_order
+
+
+def test_apply_worker_result_clean_exit_no_deliverable_clears_stale_deliverable_state(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo, store=store, launcher=MagicMock(spec=WorkerLauncher)
+    )
+
+    work_order = {
+        "work_order_id": "wo-clean-no-deliverable",
+        "status": "dispatched",
+        "branch": "main",
+        "target_agent": "codex",
+        "review_status": "pending_heterogeneous_review",
+        "receipt_id": "receipt-stale",
+        "confidence": 0.99,
+        "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+        "adopted_pr": "https://github.com/synaptent/aragora/pull/9999",
+        "merge_gate": {"checks_passed": True},
+        "verification_missing_reason": "stale",
+        "scope_violation": {"violations": [{"path": "README.md"}]},
+        "resource_error": "old disk pressure",
+        "conflicts": [{"source": "lease", "lease_id": "lease-stale"}],
+        "blockers": ["old blocker"],
+        "lease_id": "lease-123",
+    }
+    result = WorkerProcess(
+        work_order_id="wo-clean-no-deliverable",
+        agent="codex",
+        worktree_path=str(repo),
+        branch="main",
+        exit_code=0,
+        completed_at="2026-04-04T00:00:00+00:00",
+        diff="",
+        initial_head="base123",
+        head_sha="abc123",
+        changed_paths=[".codex_session_meta.json"],
+        commit_shas=["abc123"],
+    )
+
+    with patch.object(supervisor, "_release_terminal_lease") as mock_release:
+        supervisor._apply_worker_result(work_order, result)
+
+    assert work_order["status"] == "needs_human"
+    assert work_order["failure_reason"] == "clean_exit_no_deliverable"
+    assert work_order["worker_outcome"] == "clean_exit_no_effect"
+    assert work_order["commit_shas"] == []
+    for cleared_key in (
+        "receipt_id",
+        "confidence",
+        "pr_url",
+        "adopted_pr",
+        "merge_gate",
+        "verification_missing_reason",
+        "scope_violation",
+        "resource_error",
+        "conflicts",
+    ):
+        assert cleared_key not in work_order
+    assert work_order["blockers"] == [
+        "worker produced only session artifacts, no real deliverables"
+    ]
+    mock_release.assert_called_once_with(work_order)
+
+
+def test_apply_worker_result_accepts_validation_marker_commit_despite_nonzero_exit(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo, store=store, launcher=MagicMock(spec=WorkerLauncher)
+    )
+
+    base_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    _run(
+        repo,
+        "git",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "test: validation passed — tests/webhooks/test_retry_queue.py (50 passed, 1 xfailed)",
+    )
+    marker_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    work_order = {
+        "work_order_id": "micro-2",
+        "pipeline_task_id": "micro-task-2",
+        "title": "Run validation and fix failures",
+        "status": "dispatched",
+        "branch": "main",
+        "target_agent": "claude",
+        "reviewer_agent": "codex",
+        "dependency_ids": ["micro-task-1"],
+        "expected_tests": ["python -m pytest tests/webhooks/test_retry_queue.py -q"],
+        "file_scope": ["tests/webhooks/test_retry_queue.py"],
+        "metadata": {"source": "explicit_spec_work_order"},
+        "resource_error": "old disk pressure",
+        "conflicts": [{"source": "lease", "lease_id": "lease-stale"}],
+        "scope_violation": {"violations": [{"path": "README.md"}]},
+        "merge_gate": {"checks_passed": False},
+        "verification_missing_reason": "missing_verification_plan",
+        "blockers": ["old blocker"],
+    }
+    result = WorkerProcess(
+        work_order_id="micro-2",
+        agent="claude",
+        worktree_path=str(repo),
+        branch="main",
+        exit_code=1,
+        completed_at="2026-04-04T23:33:37.068860+00:00",
+        stdout=(
+            "Lane complete. All tests in `tests/webhooks/test_retry_queue.py` passed "
+            "(50 passed, 1 xfailed). Empty commit marker created.\n"
+        ),
+        stderr="",
+        diff="",
+        initial_head=base_head,
+        head_sha=marker_head,
+        changed_paths=[],
+        commit_shas=[marker_head],
+    )
+
+    supervisor._apply_worker_result(work_order, result)
+
+    assert work_order["status"] == "completed"
+    assert work_order["review_status"] == "pending_heterogeneous_review"
+    assert work_order["worker_outcome"] == "completed"
+    assert work_order["changed_paths"] == []
+    assert work_order["commit_shas"] == [marker_head]
+    assert work_order["tests_run"] == ["python -m pytest tests/webhooks/test_retry_queue.py -q"]
+    assert work_order["merge_gate"]["checks_passed"] is True
+    assert work_order["verification_results"][0]["passed"] is True
+    assert work_order["verification_results"][0]["inferred_from"] == "validation_marker_commit"
+    assert "failure_reason" not in work_order
+    assert "blocking_question" not in work_order
+    assert "blocker" not in work_order
+    assert "dispatch_error" not in work_order
+    assert work_order["metadata"]["validation_marker_original_exit_code"] == 1
+
+
+def test_apply_worker_result_preserves_non_validation_empty_commit_crash(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo, store=store, launcher=MagicMock(spec=WorkerLauncher)
+    )
+
+    base_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    _run(repo, "git", "commit", "--allow-empty", "-m", "test: partial progress marker")
+    marker_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    work_order = {
+        "work_order_id": "micro-2",
+        "pipeline_task_id": "micro-task-2",
+        "title": "Run validation and fix failures",
+        "status": "dispatched",
+        "branch": "main",
+        "target_agent": "claude",
+        "reviewer_agent": "codex",
+        "dependency_ids": ["micro-task-1"],
+        "expected_tests": ["python -m pytest tests/webhooks/test_retry_queue.py -q"],
+        "file_scope": ["tests/webhooks/test_retry_queue.py"],
+        "metadata": {"source": "explicit_spec_work_order"},
+    }
+    result = WorkerProcess(
+        work_order_id="micro-2",
+        agent="claude",
+        worktree_path=str(repo),
+        branch="main",
+        exit_code=1,
+        completed_at="2026-04-04T23:33:37.068860+00:00",
+        stdout="worker exited after partial progress\n",
+        stderr="",
+        diff="",
+        initial_head=base_head,
+        head_sha=marker_head,
+        changed_paths=[],
+        commit_shas=[marker_head],
+    )
+
+    with patch.object(supervisor, "_release_terminal_lease") as mock_release:
+        supervisor._apply_worker_result(work_order, result)
+
+    assert work_order["status"] == "needs_human"
+    assert work_order["failure_reason"] == "worker_crash_with_deliverable"
+    assert work_order["worker_outcome"] == "crash"
+    assert work_order["review_status"] == "changes_requested"
+    assert work_order["blockers"] == [
+        "worker exited non-zero after producing a recoverable deliverable"
+    ]
+    for cleared_key in (
+        "resource_error",
+        "conflicts",
+        "scope_violation",
+        "merge_gate",
+        "verification_missing_reason",
+    ):
+        assert cleared_key not in work_order
+    mock_release.assert_called_once_with(work_order)
 
 
 @pytest.mark.asyncio
@@ -4028,6 +5863,110 @@ async def test_collect_finished_results_keeps_explicit_target_agent_sticky_on_ca
     assert breaker["status"] == "open"
     assert breaker["last_failure_reason"] == "agent_capacity"
     assert breaker["last_failure_detail"] == "Credit balance is too low"
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_failed_worker_clears_stale_completion_metadata(
+    repo: Path,
+) -> None:
+    store = DevCoordinationStore(repo_root=repo)
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        path=repo,
+        branch="swarm-failed-cleanup",
+        session_id="dispatch-sess-failed-cleanup",
+        agent="codex",
+        created=True,
+        reconcile_status=None,
+        payload={},
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(
+        return_value=[
+            WorkerProcess(
+                work_order_id="failed-cleanup-task",
+                agent="codex",
+                worktree_path=str(repo),
+                branch="swarm-failed-cleanup",
+                pid=779,
+                session_id="dispatch-sess-failed-cleanup",
+                lease_id="lease-1",
+                exit_code=1,
+                completed_at="2026-03-06T00:00:00+00:00",
+                stdout="worker crashed\n",
+                stderr="fatal: boom",
+            )
+        ]
+    )
+    mock_launcher.collect_detached_finished = AsyncMock(return_value=None)
+
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = TaskDecomposition(
+        original_task="Goal",
+        complexity_score=2,
+        complexity_level="low",
+        should_decompose=True,
+        subtasks=[
+            SubTask(
+                id="failed-cleanup-task",
+                title="Failure cleanup test",
+                description="Clear stale completion metadata on crash without deliverable",
+                file_scope=["README.md"],
+            )
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+        launcher=mock_launcher,
+        decomposer=decomposer,
+    )
+    run = supervisor.start_run(
+        spec=SwarmSpec(raw_goal="Goal", refined_goal="Goal"),
+        default_target_agent="codex",
+        max_concurrency=4,
+        managed_dir_pattern=".worktrees/phase0b-{agent}",
+    )
+    run.work_orders[0]["status"] = "dispatched"
+    run.work_orders[0]["target_agent"] = "codex"
+    run.work_orders[0]["reviewer_agent"] = "claude"
+    run.work_orders[0]["pid"] = 779
+    run.work_orders[0]["receipt_id"] = "receipt-stale"
+    run.work_orders[0]["confidence"] = 0.93
+    run.work_orders[0]["pr_url"] = "https://github.com/synaptent/aragora/pull/9999"
+    run.work_orders[0]["merge_gate"] = {"checks_passed": True}
+    run.work_orders[0]["verification_missing_reason"] = "missing_verification_plan"
+    run.work_orders[0]["scope_violation"] = {"violations": [{"path": "README.md"}]}
+    run.work_orders[0]["resource_error"] = "old resource wait"
+    run.work_orders[0]["conflicts"] = [{"source": "lease", "lease_id": "lease-stale"}]
+    run.work_orders[0]["blockers"] = ["old blocker"]
+    store.update_supervisor_run(run.run_id, work_orders=run.work_orders, status="active")
+
+    completed = await supervisor.collect_finished_results(run.run_id)
+
+    assert len(completed) == 1
+    refreshed = store.get_supervisor_run(run.run_id)
+    assert refreshed is not None
+    work_order = refreshed["work_orders"][0]
+    assert work_order["status"] == "failed"
+    assert work_order["review_status"] == "changes_requested"
+    assert work_order["failure_reason"] == "worker_crash"
+    assert work_order["dispatch_error"] == "fatal: boom"
+    for cleared_key in (
+        "receipt_id",
+        "confidence",
+        "pr_url",
+        "merge_gate",
+        "verification_missing_reason",
+        "scope_violation",
+        "resource_error",
+        "conflicts",
+    ):
+        assert cleared_key not in work_order
+    assert work_order["blockers"] == ["fatal: boom"]
 
 
 def test_reset_worker_type_circuit_breaker_preserves_run_metadata(
@@ -4471,6 +6410,7 @@ async def test_collect_finished_results_marks_dead_dispatched_worker_needs_human
             {
                 "work_order_id": "wo-dead",
                 "status": "dispatched",
+                "review_status": "pending_heterogeneous_review",
                 "worktree_path": str(repo),
                 "branch": "main",
                 "target_agent": "codex",
@@ -4478,6 +6418,15 @@ async def test_collect_finished_results_marks_dead_dispatched_worker_needs_human
                 "initial_head": "abc123",
                 "dispatched_at": "2026-03-06T00:00:00+00:00",
                 "last_progress_at": "2026-03-06T00:00:00+00:00",
+                "receipt_id": "receipt-stale",
+                "confidence": 0.97,
+                "commit_shas": ["stale123"],
+                "pr_url": "https://example.com/pr/123",
+                "merge_gate": {"checks_passed": True},
+                "verification_missing_reason": "stale-check",
+                "resource_error": "stale disk full",
+                "conflicts": [{"path": "stale.py", "source": "lease"}],
+                "blockers": ["stale blocker"],
                 "progress_fingerprint": {
                     "head_sha": "abc123",
                     "changed_paths": [],
@@ -4510,10 +6459,25 @@ async def test_collect_finished_results_marks_dead_dispatched_worker_needs_human
     assert updated is not None
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "needs_human"
+    assert work_order["review_status"] == "changes_requested"
     assert "without receipt or exit marker" in work_order["dispatch_error"]
     assert work_order["failure_reason"] == "worker_exited_without_receipt"
     assert "existing worktree" in work_order["blocking_question"]
     assert "pid" not in work_order
+    assert work_order["worker_outcome"] == "crash"
+    assert work_order["blockers"] == [work_order["dispatch_error"]]
+    for key in (
+        "receipt_id",
+        "confidence",
+        "commit_shas",
+        "pr_url",
+        "merge_gate",
+        "verification_missing_reason",
+        "exit_code",
+        "resource_error",
+        "conflicts",
+    ):
+        assert key not in work_order
 
 
 @pytest.mark.asyncio
@@ -4774,6 +6738,7 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
             {
                 "work_order_id": "wo-stalled",
                 "status": "dispatched",
+                "review_status": "pending_heterogeneous_review",
                 "worktree_path": str(repo),
                 "branch": "main",
                 "target_agent": "claude",
@@ -4781,6 +6746,17 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
                 "initial_head": "abc123",
                 "dispatched_at": stale_time,
                 "last_progress_at": stale_time,
+                "receipt_id": "receipt-stale",
+                "confidence": 0.99,
+                "commit_shas": ["stale456"],
+                "pr_url": "https://example.com/pr/456",
+                "merge_gate": {"checks_passed": True},
+                "verification_missing_reason": "stale-plan",
+                "resource_error": "stale quota",
+                "conflicts": [{"path": "old.py", "source": "lease"}],
+                "blockers": ["stale timeout blocker"],
+                "stdout_tail": "stalled output\n",
+                "stderr_tail": "stalled warning\n",
                 "progress_fingerprint": {
                     "head_sha": "abc123",
                     "changed_paths": [],
@@ -4813,9 +6789,188 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
     assert updated is not None
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "needs_human"
+    assert work_order["review_status"] == "changes_requested"
     assert "no-progress timeout" in work_order["dispatch_error"]
     assert work_order["failure_reason"] == "worker_no_progress_timeout"
     assert "stalled lane" in work_order["blocking_question"]
+    assert work_order["worker_outcome"] == "timeout_no_progress"
+    assert work_order["blockers"] == [work_order["dispatch_error"]]
+    for key in (
+        "receipt_id",
+        "confidence",
+        "commit_shas",
+        "pr_url",
+        "merge_gate",
+        "verification_missing_reason",
+        "exit_code",
+        "resource_error",
+        "conflicts",
+    ):
+        assert key not in work_order
+
+
+def test_no_progress_timeout_uses_recent_output_when_bytes_exist(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    supervisor.launcher.config.no_progress_timeout_seconds = 60.0
+    now = datetime.now(UTC)
+    item = {
+        "dispatched_at": (now - timedelta(minutes=10)).isoformat(),
+        "last_progress_at": (now - timedelta(minutes=10)).isoformat(),
+        "last_output_at": (now - timedelta(seconds=15)).isoformat(),
+        "output_fingerprint": {
+            "stdout_size": 128,
+            "stderr_size": 0,
+            "stdout_mtime_ns": 123,
+            "stderr_mtime_ns": 0,
+            "has_output": True,
+        },
+    }
+
+    assert supervisor._exceeded_no_progress_timeout(item) is False
+
+
+def test_no_progress_timeout_ignores_last_output_at_without_actual_output(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    supervisor.launcher.config.no_progress_timeout_seconds = 60.0
+    now = datetime.now(UTC)
+    item = {
+        "dispatched_at": (now - timedelta(minutes=10)).isoformat(),
+        "last_progress_at": (now - timedelta(minutes=10)).isoformat(),
+        "last_output_at": (now - timedelta(seconds=15)).isoformat(),
+        "output_fingerprint": {
+            "stdout_size": 0,
+            "stderr_size": 0,
+            "stdout_mtime_ns": 0,
+            "stderr_mtime_ns": 0,
+            "has_output": False,
+        },
+    }
+
+    assert supervisor._exceeded_no_progress_timeout(item) is True
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_defers_with_active_lock_and_no_usable_pid(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    (repo / ".codex_session_active").write_text("1\n", encoding="utf-8")
+    run_record = store.create_supervisor_run(
+        goal="active lock without usable pid",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "active lock without usable pid"},
+        work_orders=[
+            {
+                "work_order_id": "wo-active-lock",
+                "status": "dispatched",
+                "review_status": "pending",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": "oops",
+                "initial_head": "abc123",
+                "dispatched_at": "2026-03-06T00:00:00+00:00",
+                "last_progress_at": "2026-03-06T00:00:00+00:00",
+                "progress_fingerprint": {
+                    "head_sha": "abc123",
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    launcher = WorkerLauncher()
+    launcher.collect_finished = AsyncMock(return_value=[])
+    launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=launcher)
+
+    with patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": "oops"}):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert completed == []
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "dispatched"
+    assert work_order["review_status"] == "pending"
+    assert "dispatch_error" not in work_order
+
+
+@pytest.mark.asyncio
+async def test_no_progress_timeout_defers_with_active_lock_and_no_usable_pid(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    (repo / ".codex_session_active").write_text("1\n", encoding="utf-8")
+    stale = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
+    run_record = store.create_supervisor_run(
+        goal="active lock timeout without usable pid",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "active lock timeout without usable pid"},
+        work_orders=[
+            {
+                "work_order_id": "wo-active-lock-timeout",
+                "status": "dispatched",
+                "review_status": "pending",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "pid": "oops",
+                "initial_head": "abc123",
+                "dispatched_at": stale,
+                "last_progress_at": stale,
+                "progress_fingerprint": {
+                    "head_sha": "abc123",
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    launcher = MagicMock(spec=WorkerLauncher)
+    launcher.collect_finished = AsyncMock(return_value=[])
+    launcher.snapshot_progress = AsyncMock(
+        return_value={
+            "pid_alive": True,
+            "head_sha": "abc123",
+            "changed_paths": [],
+            "diff_lines": 0,
+        }
+    )
+    launcher.config = SimpleNamespace(auto_commit=True, no_progress_timeout_seconds=60.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=launcher)
+
+    with (
+        patch.object(WorkerLauncher, "_read_session_meta", return_value={"pid": "oops"}),
+        patch.object(
+            WorkerLauncher,
+            "collect_detached_result",
+            new=AsyncMock(return_value=None),
+        ) as mock_collect,
+    ):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert completed == []
+    assert mock_collect.await_count == 1
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "dispatched"
+    assert work_order["review_status"] == "pending"
+    assert "dispatch_error" not in work_order
+    assert work_order["pid"] == "oops"
 
 
 def test_session_key_unique_per_work_order() -> None:
@@ -4842,7 +6997,10 @@ def test_worker_prompt_includes_boss_lane_contract() -> None:
         {
             "title": "Implement boss-facing reporter output",
             "description": "Emit stable coordinator output for one lane.",
-            "file_scope": ["aragora/swarm/reporter.py", "tests/swarm/test_supervisor.py"],
+            "file_scope": [
+                "aragora/swarm/reporter.py",
+                "tests/swarm/test_supervisor.py",
+            ],
             "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
             "approval_required": True,
             "lease_id": "lease-123",
@@ -4988,11 +7146,12 @@ def test_refresh_run_marks_expired_leased_work_order(
 
     refreshed = supervisor.refresh_run(run.run_id)
 
-    assert refreshed.status == "needs_human"
+    assert refreshed.status == "active"
     work_order = refreshed.work_orders[0]
-    assert work_order["status"] == "needs_human"
-    assert work_order["failure_reason"] == "expired_lease_reaped"
-    assert lease_id not in {lease.lease_id for lease in store.list_active_leases()}
+    assert work_order["status"] == "leased"
+    assert work_order.get("failure_reason") in {"", None}
+    assert work_order["lease_id"] != lease_id
+    assert any(lease.lease_id == work_order["lease_id"] for lease in store.list_active_leases())
 
 
 def test_refresh_run_requeues_conflict_only_needs_human_when_fleet_claims_are_stale(
@@ -5054,6 +7213,978 @@ def test_refresh_run_requeues_conflict_only_needs_human_when_fleet_claims_are_st
     assert "scope_violation" not in work_order
 
 
+def test_refresh_run_waiting_conflict_clears_stale_terminal_state(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    blocking_path = repo / "wt-blocking-conflict"
+    blocking_path.mkdir()
+    store.claim_lease(
+        task_id="blocking-lane",
+        title="Blocking lane",
+        owner_agent="codex",
+        owner_session_id="blocking-session",
+        branch="codex/blocking-lane",
+        worktree_path=str(blocking_path),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+    )
+
+    session_path = repo / "wt-waiting-conflict-cleanup"
+    session_path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-waiting-conflict-cleanup",
+        agent="claude",
+        branch="codex/swarm-waiting-conflict-cleanup",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run_record = store.create_supervisor_run(
+        goal="waiting conflict clears stale terminal state",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "waiting conflict clears stale terminal state"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "wo-waiting-conflict-cleanup",
+                "title": "Conflict cleanup lane",
+                "description": "Conflict cleanup lane",
+                "status": "queued",
+                "target_agent": "claude",
+                "reviewer_agent": "codex",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "review_status": "pending_heterogeneous_review",
+                "lease_id": "lease-stale",
+                "owner_session_id": "stale-session",
+                "branch": "codex/stale-lane",
+                "worktree_path": str(repo / "wt-stale-lane"),
+                "receipt_id": "receipt-stale",
+                "confidence": 0.91,
+                "worker_outcome": "completed",
+                "completed_at": "2026-04-02T00:00:00+00:00",
+                "head_sha": "deadbeef",
+                "commit_shas": ["deadbeef"],
+                "changed_paths": ["aragora/swarm/supervisor.py"],
+                "merge_gate": {"checks_passed": True},
+                "dispatch_error": "old dispatch failure",
+                "failure_reason": "worker_crash",
+                "blocking_question": "Old blocker?",
+                "blocker": {"reason": "worker_crash", "question": "Old blocker?"},
+                "blockers": ["old blocker"],
+            }
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_order = refreshed.work_orders[0]
+    assert work_order["status"] == "waiting_conflict"
+    assert work_order["review_status"] == "pending"
+    assert work_order["failure_reason"] == "waiting_conflict"
+    assert work_order["blocker"]["reason"] == "waiting_conflict"
+    assert any(
+        str(entry).startswith("scope already claimed:") for entry in work_order.get("blockers", [])
+    )
+    for cleared_key in (
+        "lease_id",
+        "owner_session_id",
+        "branch",
+        "worktree_path",
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "completed_at",
+        "head_sha",
+        "commit_shas",
+        "changed_paths",
+        "merge_gate",
+        "dispatch_error",
+    ):
+        assert cleared_key not in work_order
+
+
+def test_refresh_run_waiting_resource_clears_stale_terminal_state(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.side_effect = RuntimeError("No space left on device")
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run_record = store.create_supervisor_run(
+        goal="waiting resource clears stale terminal state",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "waiting resource clears stale terminal state"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "wo-waiting-resource-cleanup",
+                "title": "Resource cleanup lane",
+                "description": "Resource cleanup lane",
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "review_status": "pending_heterogeneous_review",
+                "lease_id": "lease-stale",
+                "owner_session_id": "stale-session",
+                "branch": "codex/stale-lane",
+                "worktree_path": str(repo / "wt-stale-lane"),
+                "receipt_id": "receipt-stale",
+                "confidence": 0.88,
+                "worker_outcome": "completed",
+                "completed_at": "2026-04-02T00:00:00+00:00",
+                "head_sha": "deadbeef",
+                "commit_shas": ["deadbeef"],
+                "changed_paths": ["aragora/swarm/supervisor.py"],
+                "merge_gate": {"checks_passed": True},
+                "resource_error": "old resource wait",
+                "dispatch_error": "old dispatch failure",
+                "failure_reason": "worker_crash",
+                "blocking_question": "Old blocker?",
+                "blocker": {"reason": "worker_crash", "question": "Old blocker?"},
+                "blockers": ["old blocker"],
+            }
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_order = refreshed.work_orders[0]
+    assert refreshed.status == "needs_human"
+    assert work_order["status"] == "waiting_resource"
+    assert work_order["review_status"] == "pending"
+    assert work_order["resource_error"] == "No space left on device"
+    assert work_order["failure_reason"] == "waiting_resource"
+    assert work_order["blocking_question"] == (
+        "Which capacity or environment constraint must be resolved before this lane can proceed?"
+    )
+    assert work_order["blocker"] == {
+        "reason": "waiting_resource",
+        "question": work_order["blocking_question"],
+    }
+    assert work_order["blockers"] == ["No space left on device"]
+    for cleared_key in (
+        "lease_id",
+        "owner_session_id",
+        "branch",
+        "worktree_path",
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "completed_at",
+        "head_sha",
+        "commit_shas",
+        "changed_paths",
+        "merge_gate",
+        "dispatch_error",
+    ):
+        assert cleared_key not in work_order
+
+
+def test_refresh_run_work_order_leasing_failure_clears_stale_deliverable_state(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.side_effect = RuntimeError(
+        "managed worktree metadata unreadable"
+    )
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run_record = store.create_supervisor_run(
+        goal="leasing failure clears stale deliverable state",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "leasing failure clears stale deliverable state"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "wo-leasing-failed-cleanup",
+                "title": "Leasing failure lane",
+                "description": "Leasing failure lane",
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "review_status": "pending_heterogeneous_review",
+                "receipt_id": "receipt-stale",
+                "confidence": 0.91,
+                "worker_outcome": "completed",
+                "completed_at": "2026-04-02T00:00:00+00:00",
+                "head_sha": "deadbeef",
+                "commit_shas": ["deadbeef"],
+                "changed_paths": ["aragora/swarm/supervisor.py"],
+                "merge_gate": {"checks_passed": True},
+                "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+                "verification_missing_reason": "missing_verification_plan",
+                "scope_violation": {
+                    "violations": [{"path": "aragora/swarm/supervisor.py"}],
+                },
+                "resource_error": "old resource wait",
+                "conflicts": [{"source": "lease", "lease_id": "old-lease"}],
+                "blockers": ["old blocker"],
+            }
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_order = refreshed.work_orders[0]
+    assert refreshed.status == "needs_human"
+    assert work_order["status"] == "needs_human"
+    assert work_order["review_status"] == "changes_requested"
+    assert work_order["dispatch_error"] == "managed worktree metadata unreadable"
+    assert work_order["failure_reason"] == "work_order_leasing_failed"
+    assert work_order["blockers"] == [work_order["dispatch_error"]]
+    for cleared_key in (
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "completed_at",
+        "head_sha",
+        "commit_shas",
+        "changed_paths",
+        "merge_gate",
+        "pr_url",
+        "verification_missing_reason",
+        "scope_violation",
+        "resource_error",
+        "conflicts",
+    ):
+        assert cleared_key not in work_order
+
+
+def test_refresh_run_continues_after_work_order_leasing_failure_for_independent_lane(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+    run_record = store.create_supervisor_run(
+        goal="continue after lane-specific leasing failure",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "continue after lane-specific leasing failure"},
+        metadata={"max_concurrency": 2},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "First lane fails to lease",
+                "description": "First lane fails to lease",
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/server/handlers/runs.py"],
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Second independent lane still leases",
+                "description": "Second independent lane still leases",
+                "status": "queued",
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/server/fastapi/routes/runs.py"],
+            },
+        ],
+        status="active",
+    )
+
+    def fake_lease_work_order(
+        *,
+        run_id: str,
+        target_branch: str,
+        work_order: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+        managed_dir_pattern: str,
+        approval_policy: SwarmApprovalPolicy,
+    ) -> bool:
+        del run_id, target_branch, work_orders, managed_dir_pattern, approval_policy
+        if work_order["work_order_id"] == "micro-1":
+            raise RuntimeError("autopilot ensure failed (1): branch already exists")
+        work_order["status"] = "leased"
+        work_order["lease_id"] = "lease-micro-2"
+        work_order["owner_session_id"] = "swarm-session-micro-2"
+        return True
+
+    supervisor._lease_work_order = fake_lease_work_order  # type: ignore[method-assign]
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_orders = {item["work_order_id"]: item for item in refreshed.work_orders}
+    assert refreshed.status == "needs_human"
+    assert work_orders["micro-1"]["status"] == "needs_human"
+    assert work_orders["micro-1"]["failure_reason"] == "work_order_leasing_failed"
+    assert work_orders["micro-2"]["status"] == "leased"
+    assert work_orders["micro-2"]["lease_id"] == "lease-micro-2"
+
+
+def test_refresh_run_requeues_recoverable_work_order_leasing_failed_lane_and_dependency_children(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+    run_record = store.create_supervisor_run(
+        goal="requeue recoverable leasing failure lane",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "requeue recoverable leasing failure lane"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Primary lane",
+                "description": "Primary lane",
+                "status": "discarded",
+                "failure_reason": "work_order_leasing_failed",
+                "dispatch_error": (
+                    "autopilot ensure failed (1): fatal: a branch named "
+                    "'codex/swarm-requeue-micro-1-a123' already exists"
+                ),
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/server/handlers/runs.py"],
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "archived_due_to": "work_order_leasing_failed",
+                    "archived_at": "2026-04-04T00:00:00+00:00",
+                    "archive_reason": "work_order_leasing_failed",
+                    "previous_status": "needs_human",
+                },
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Dependent test lane",
+                "description": "Dependent test lane",
+                "status": "discarded",
+                "failure_reason": "terminal_dependency_failure",
+                "dependency_ids": ["micro-task-1"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["tests/server/handlers/test_runs_handler.py"],
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "archived_due_to": "terminal_dependency_failure",
+                    "archived_at": "2026-04-04T00:00:01+00:00",
+                    "archive_reason": "terminal_dependency_failure:micro-task-1",
+                    "previous_status": "queued",
+                    "blocking_dependency_id": "micro-task-1",
+                    "blocking_dependency_status": "discarded",
+                    "blocking_dependency_reason": "work_order_leasing_failed",
+                },
+                "blocker": {
+                    "reason": "terminal_dependency_failure",
+                    "dependency_id": "micro-task-1",
+                    "dependency_status": "discarded",
+                    "dependency_reason": "work_order_leasing_failed",
+                },
+                "blocking_question": (
+                    "Dependency micro-task-1 ended in discarded; should that dependency be rerun "
+                    "or replaced before retrying this lane?"
+                ),
+            },
+        ],
+        status="active",
+    )
+
+    def fake_lease_work_order(
+        *,
+        run_id: str,
+        target_branch: str,
+        work_order: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+        managed_dir_pattern: str,
+        approval_policy: SwarmApprovalPolicy,
+    ) -> bool:
+        del run_id, target_branch, work_orders, managed_dir_pattern, approval_policy
+        work_order["status"] = "leased"
+        work_order["lease_id"] = "lease-requeued-micro-1"
+        work_order["owner_session_id"] = "swarm-session-micro-1"
+        return True
+
+    supervisor._lease_work_order = fake_lease_work_order  # type: ignore[method-assign]
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_orders = {item["work_order_id"]: item for item in refreshed.work_orders}
+    assert refreshed.status == "active"
+    assert work_orders["micro-1"]["status"] == "leased"
+    assert work_orders["micro-1"]["lease_id"] == "lease-requeued-micro-1"
+    assert work_orders["micro-1"].get("failure_reason") in {"", None}
+    assert "archived_due_to" not in work_orders["micro-1"].get("metadata", {})
+    assert work_orders["micro-2"]["status"] == "queued"
+    assert work_orders["micro-2"].get("failure_reason") in {"", None}
+    assert work_orders["micro-2"].get("blocking_question") in {"", None}
+    assert "archived_due_to" not in work_orders["micro-2"].get("metadata", {})
+
+
+def test_refresh_run_requeues_ignorable_scope_violation_and_dependency_children(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+    run_record = store.create_supervisor_run(
+        goal="requeue ignorable runtime scope violation lane",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "requeue ignorable runtime scope violation lane"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Route lane",
+                "description": "Route lane",
+                "status": "scope_violation",
+                "failure_reason": "scope_violation",
+                "dispatch_error": (
+                    "worker edited files outside permitted scope: aragora/live/node_modules"
+                ),
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["aragora/server/fastapi/routes/runs.py"],
+                "changed_paths": ["aragora/live/node_modules"],
+                "scope_violation": {
+                    "violations": [
+                        {
+                            "path": "aragora/live/node_modules",
+                            "type": "out_of_scope",
+                            "reason": "outside permitted scope",
+                        }
+                    ]
+                },
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                },
+            },
+            {
+                "work_order_id": "micro-3",
+                "pipeline_task_id": "micro-task-3",
+                "title": "Dependent lane",
+                "description": "Dependent lane",
+                "status": "discarded",
+                "failure_reason": "terminal_dependency_failure",
+                "dependency_ids": ["micro-task-2"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "file_scope": ["tests/server/fastapi/test_runs_routes.py"],
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "archived_due_to": "terminal_dependency_failure",
+                    "archived_at": "2026-04-04T00:00:01+00:00",
+                    "archive_reason": "terminal_dependency_failure:micro-task-2",
+                    "previous_status": "queued",
+                    "blocking_dependency_id": "micro-task-2",
+                    "blocking_dependency_status": "scope_violation",
+                    "blocking_dependency_reason": "scope_violation",
+                },
+                "blocker": {
+                    "reason": "terminal_dependency_failure",
+                    "dependency_id": "micro-task-2",
+                    "dependency_status": "scope_violation",
+                    "dependency_reason": "scope_violation",
+                },
+            },
+        ],
+        status="active",
+    )
+
+    def fake_lease_work_order(
+        *,
+        run_id: str,
+        target_branch: str,
+        work_order: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+        managed_dir_pattern: str,
+        approval_policy: SwarmApprovalPolicy,
+    ) -> bool:
+        del run_id, target_branch, work_orders, managed_dir_pattern, approval_policy
+        work_order["status"] = "leased"
+        work_order["lease_id"] = "lease-requeued-micro-2"
+        work_order["owner_session_id"] = "swarm-session-micro-2"
+        return True
+
+    supervisor._lease_work_order = fake_lease_work_order  # type: ignore[method-assign]
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    work_orders = {item["work_order_id"]: item for item in refreshed.work_orders}
+    assert refreshed.status == "active"
+    assert work_orders["micro-2"]["status"] == "leased"
+    assert work_orders["micro-2"]["lease_id"] == "lease-requeued-micro-2"
+    assert "scope_violation" not in work_orders["micro-2"]
+    assert "changed_paths" not in work_orders["micro-2"]
+    assert work_orders["micro-3"]["status"] == "queued"
+    assert work_orders["micro-3"].get("failure_reason") in {"", None}
+    assert "archived_due_to" not in work_orders["micro-3"].get("metadata", {})
+
+
+def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branch(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    dependency_branch = "codex/swarm-dependency-base"
+    _run(repo, "git", "checkout", "-b", dependency_branch)
+    (repo / "README.md").write_text("hello\ndependency\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "dependency commit")
+    dependency_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    _run(repo, "git", "checkout", "main")
+
+    unrelated_branch = "codex/swarm-unrelated-base"
+    _run(repo, "git", "checkout", "-b", unrelated_branch)
+    (repo / "README.md").write_text("hello\nunrelated\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "unrelated commit")
+    unrelated_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    _run(repo, "git", "checkout", "main")
+
+    session_path = repo / "wt-dependent-base"
+    _run(
+        repo,
+        "git",
+        "worktree",
+        "add",
+        "-b",
+        "codex/swarm-dependent-base",
+        str(session_path),
+        unrelated_branch,
+    )
+
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-dependent-base",
+        agent="codex",
+        branch="codex/swarm-dependent-base",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run_record = store.create_supervisor_run(
+        goal="validate dependency branch reuse",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "validate dependency branch reuse"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests",
+                "status": "completed",
+                "review_status": "pending_heterogeneous_review",
+                "branch": dependency_branch,
+                "head_sha": dependency_head,
+                "file_scope": ["README.md"],
+                "target_agent": "codex",
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "status": "queued",
+                "review_status": "pending",
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": ["README.md"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+            },
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    dependent = next(
+        item for item in refreshed.work_orders if item.get("pipeline_task_id") == "micro-task-2"
+    )
+    assert dependent["status"] == "leased"
+    assert dependent["dependency_base_ref"] == dependency_branch
+    assert dependent["dependency_base_source"] == "micro-task-1"
+    assert _run(session_path, "git", "rev-parse", "HEAD").stdout.strip() == dependency_head
+    assert (
+        _run(session_path, "git", "rev-parse", "codex/swarm-dependent-base").stdout.strip()
+        == dependency_head
+    )
+    assert unrelated_head != dependency_head
+
+
+def test_refresh_run_marks_invalid_dependency_ref_needs_human(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    session_path = repo / "wt-invalid-dependent-base"
+    _run(
+        repo,
+        "git",
+        "worktree",
+        "add",
+        "-b",
+        "codex/swarm-invalid-dependent-base",
+        str(session_path),
+        "main",
+    )
+
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = ManagedWorktreeSession(
+        session_id="swarm-invalid-dependent-base",
+        agent="codex",
+        branch="codex/swarm-invalid-dependent-base",
+        path=session_path,
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, lifecycle=lifecycle)
+    run_record = store.create_supervisor_run(
+        goal="reject invalid dependency branch",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "reject invalid dependency branch"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests",
+                "status": "completed",
+                "review_status": "pending_heterogeneous_review",
+                "branch": "-bad-ref",
+                "file_scope": ["README.md"],
+                "target_agent": "codex",
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "status": "queued",
+                "review_status": "pending",
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": ["README.md"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "receipt_id": "rcpt-stale",
+                "confidence": 0.91,
+                "worker_outcome": "completed",
+                "commit_shas": ["deadbeef"],
+                "changed_paths": ["README.md"],
+                "head_sha": "deadbeef",
+                "pr_url": "https://github.com/synaptent/aragora/pull/9999",
+                "merge_gate": {"checks_passed": True},
+                "verification_missing_reason": "missing_verification_plan",
+                "resource_error": "old disk pressure",
+                "conflicts": [{"source": "lease", "lease_id": "lease-stale"}],
+                "blockers": ["old blocker"],
+                "blocker": {"reason": "waiting_conflict", "question": "old question"},
+                "blocking_question": "old question",
+            },
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    dependent = next(
+        item for item in refreshed.work_orders if item.get("pipeline_task_id") == "micro-task-2"
+    )
+    assert dependent["status"] == "needs_human"
+    assert dependent["failure_reason"] == "dependency_base_conflict"
+    assert dependent["dependency_base_ref"] == "-bad-ref"
+    assert dependent["dependency_base_source"] == "micro-task-1"
+    assert "unsafe dependency base reference" in dependent["dispatch_error"]
+    for cleared_key in (
+        "resource_error",
+        "conflicts",
+        "receipt_id",
+        "confidence",
+        "worker_outcome",
+        "commit_shas",
+        "changed_paths",
+        "head_sha",
+        "pr_url",
+        "merge_gate",
+        "verification_missing_reason",
+        "scope_violation",
+    ):
+        assert cleared_key not in dependent
+    assert dependent["blockers"] == [
+        "Dependent lane received an invalid prerequisite branch reference; reconcile the dependency chain before rerunning."
+    ]
+
+
+def test_refresh_run_rehabilitates_validation_marker_crash_lane(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    base_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    _run(
+        repo,
+        "git",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "test: validation passed — tests/webhooks/test_retry_queue.py (49 passed)",
+    )
+    marker_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    lease = store.claim_lease(
+        task_id="micro-task-2",
+        title="Run validation and fix failures",
+        owner_agent="claude",
+        owner_session_id="swarm-rehab-micro-2",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["tests/webhooks/test_retry_queue.py"],
+        expected_tests=["python -m pytest tests/webhooks/test_retry_queue.py -q"],
+        metadata={"work_order_id": "micro-2"},
+    )
+    receipt = store.record_completion(
+        lease_id=lease.lease_id,
+        owner_agent="claude",
+        owner_session_id="swarm-rehab-micro-2",
+        branch="main",
+        worktree_path=str(repo),
+        base_sha=base_head,
+        head_sha=marker_head,
+        commit_shas=[marker_head],
+        changed_paths=[],
+        tests_run=[],
+        validations_run=[],
+        outcome="deliverable_created",
+        confidence=0.8,
+        metadata={"verification_results": []},
+    )
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    run_record = store.create_supervisor_run(
+        goal="rehabilitate validation marker crash lane",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "rehabilitate validation marker crash lane"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests for changes",
+                "status": "completed",
+                "review_status": "pending_heterogeneous_review",
+                "worker_outcome": "crash_with_salvage",
+                "branch": "codex/swarm-micro-1",
+                "commit_shas": [base_head],
+                "head_sha": base_head,
+                "receipt_id": "receipt-parent",
+                "changed_paths": ["tests/webhooks/test_retry_queue.py"],
+                "file_scope": ["tests/webhooks/test_retry_queue.py"],
+                "target_agent": "claude",
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "worker_outcome": "crash",
+                "failure_reason": "worker_crash_with_deliverable",
+                "dispatch_error": "worker exited non-zero after producing a recoverable deliverable",
+                "blocking_question": (
+                    "Should the recovered deliverable be adopted as-is, amended, or rerun before integration?"
+                ),
+                "blocker": {
+                    "reason": "worker_crash_with_deliverable",
+                    "question": (
+                        "Should the recovered deliverable be adopted as-is, amended, or rerun before integration?"
+                    ),
+                },
+                "blockers": ["worker exited non-zero after producing a recoverable deliverable"],
+                "branch": "main",
+                "worktree_path": str(repo),
+                "receipt_id": receipt.receipt_id,
+                "lease_id": lease.lease_id,
+                "owner_session_id": "swarm-rehab-micro-2",
+                "completed_at": "2026-04-04T23:33:37.068860+00:00",
+                "exit_code": 1,
+                "initial_head": base_head,
+                "head_sha": marker_head,
+                "commit_shas": [marker_head],
+                "changed_paths": [],
+                "dependency_ids": ["micro-task-1"],
+                "expected_tests": ["python -m pytest tests/webhooks/test_retry_queue.py -q"],
+                "file_scope": ["tests/webhooks/test_retry_queue.py"],
+                "target_agent": "claude",
+                "reviewer_agent": "codex",
+                "stdout_tail": (
+                    "Done. All 49 tests in `tests/webhooks/test_retry_queue.py` passed. "
+                    "Empty commit marker created.\n"
+                ),
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+        ],
+        status="needs_human",
+    )
+
+    store.update_lease_metadata(
+        lease.lease_id,
+        {"supervisor_run_id": run_record["run_id"], "work_order_id": "micro-2"},
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    dependent = next(
+        item for item in refreshed.work_orders if item.get("pipeline_task_id") == "micro-task-2"
+    )
+    refreshed_receipt = store.get_completion_receipt(receipt.receipt_id)
+    assert refreshed.status == "completed"
+    assert dependent["status"] == "completed"
+    assert dependent["review_status"] == "pending_heterogeneous_review"
+    assert dependent["worker_outcome"] == "completed"
+    assert dependent["commit_shas"] == [marker_head]
+    assert dependent["changed_paths"] == []
+    assert dependent["tests_run"] == ["python -m pytest tests/webhooks/test_retry_queue.py -q"]
+    assert dependent["merge_gate"]["checks_passed"] is True
+    assert dependent["verification_results"][0]["inferred_from"] == "validation_marker_commit"
+    assert dependent["metadata"]["validation_marker_original_exit_code"] == 1
+    assert dependent["receipt_id"] == receipt.receipt_id
+    assert refreshed_receipt is not None
+    assert refreshed_receipt.tests_run == ["python -m pytest tests/webhooks/test_retry_queue.py -q"]
+    assert refreshed_receipt.validations_run == [
+        "python -m pytest tests/webhooks/test_retry_queue.py -q"
+    ]
+    assert refreshed_receipt.metadata["verification_replayed"] is True
+    assert (
+        refreshed_receipt.metadata["verification_results"][0]["inferred_from"]
+        == "validation_marker_commit"
+    )
+    assert "failure_reason" not in dependent
+    assert "blocking_question" not in dependent
+    assert "blocker" not in dependent
+    assert "dispatch_error" not in dependent
+
+
+def test_refresh_run_rehabilitates_validation_marker_crash_lane_without_expected_tests(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    base_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    _run(
+        repo,
+        "git",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "test: validation passed for aragora/webhooks/retry_queue.py (48/48 tests pass)",
+    )
+    marker_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    run_record = store.create_supervisor_run(
+        goal="rehabilitate historical validation marker crash lane",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "rehabilitate historical validation marker crash lane"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Write tests for changes",
+                "status": "completed",
+                "review_status": "pending_heterogeneous_review",
+                "worker_outcome": "crash_with_salvage",
+                "branch": "codex/swarm-micro-1",
+                "commit_shas": [base_head],
+                "head_sha": base_head,
+                "receipt_id": "receipt-parent",
+                "changed_paths": ["tests/webhooks/test_retry_queue.py"],
+                "file_scope": ["tests/webhooks/test_retry_queue.py"],
+                "target_agent": "claude",
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Run validation and fix failures",
+                "status": "needs_human",
+                "review_status": "changes_requested",
+                "worker_outcome": "crash",
+                "failure_reason": "worker_crash_with_deliverable",
+                "dispatch_error": "worker exited non-zero after producing a recoverable deliverable",
+                "blocking_question": (
+                    "Should the recovered deliverable be adopted as-is, amended, or rerun before integration?"
+                ),
+                "blocker": {
+                    "reason": "worker_crash_with_deliverable",
+                    "question": (
+                        "Should the recovered deliverable be adopted as-is, amended, or rerun before integration?"
+                    ),
+                },
+                "blockers": ["worker exited non-zero after producing a recoverable deliverable"],
+                "branch": "main",
+                "worktree_path": str(repo),
+                "receipt_id": "receipt-child",
+                "lease_id": "lease-child",
+                "owner_session_id": "swarm-rehab-micro-2",
+                "completed_at": "2026-04-04T23:09:29.037775+00:00",
+                "exit_code": 1,
+                "initial_head": base_head,
+                "head_sha": marker_head,
+                "commit_shas": [marker_head],
+                "changed_paths": [],
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": ["aragora/webhooks/retry_queue.py"],
+                "target_agent": "claude",
+                "reviewer_agent": "codex",
+                "stdout_tail": (
+                    "Done. All 48 tests in `tests/webhooks/test_retry_queue.py` passed. "
+                    "No-op marker committed.\n"
+                ),
+                "metadata": {"source": "explicit_spec_work_order"},
+            },
+        ],
+        status="needs_human",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    dependent = next(
+        item for item in refreshed.work_orders if item.get("pipeline_task_id") == "micro-task-2"
+    )
+    assert refreshed.status == "completed"
+    assert dependent["status"] == "completed"
+    assert dependent["worker_outcome"] == "completed"
+    assert dependent["expected_tests"] == ["python -m pytest tests/webhooks/test_retry_queue.py -q"]
+    assert dependent["tests_run"] == ["python -m pytest tests/webhooks/test_retry_queue.py -q"]
+    assert dependent["verification_results"][0]["command"] == (
+        "python -m pytest tests/webhooks/test_retry_queue.py -q"
+    )
+    assert dependent["verification_results"][0]["inferred_from"] == "validation_marker_commit"
+
+
 def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordinationStore) -> None:
     """refresh_run should not leave dead leased work orders active forever."""
     lifecycle = MagicMock()
@@ -5107,11 +8238,12 @@ def test_refresh_run_reaps_stale_leased_work_order(repo: Path, store: DevCoordin
 
     refreshed = supervisor.refresh_run(run.run_id)
 
-    assert refreshed.status == "needs_human"
+    assert refreshed.status == "active"
     work_order = refreshed.work_orders[0]
-    assert work_order["status"] == "needs_human"
-    assert work_order["failure_reason"] == "stale_lease_reaped"
-    assert lease_id not in {lease.lease_id for lease in store.list_active_leases()}
+    assert work_order["status"] == "leased"
+    assert work_order.get("failure_reason") in {"", None}
+    assert work_order["lease_id"] != lease_id
+    assert any(lease.lease_id == work_order["lease_id"] for lease in store.list_active_leases())
 
 
 # ---------------------------------------------------------------------------
@@ -5203,7 +8335,9 @@ def test_pre_reap_salvage_backfills_commit_shas_from_dead_worker(
 
     # Cleanup
     subprocess.run(
-        ["git", "worktree", "remove", str(wt_path), "--force"], cwd=repo, capture_output=True
+        ["git", "worktree", "remove", str(wt_path), "--force"],
+        cwd=repo,
+        capture_output=True,
     )
 
 
@@ -5390,7 +8524,10 @@ async def test_refresh_run_async_context_reconciles_dead_worker_salvage(
     test_file = wt_path / "salvage_async.py"
     test_file.write_text("print('salvage')\n", encoding="utf-8")
     subprocess.run(
-        ["git", "add", "salvage_async.py"], cwd=wt_path, capture_output=True, check=False
+        ["git", "add", "salvage_async.py"],
+        cwd=wt_path,
+        capture_output=True,
+        check=False,
     )
     subprocess.run(
         ["git", "commit", "-m", "async salvage commit"],

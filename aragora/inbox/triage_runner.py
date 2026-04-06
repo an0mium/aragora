@@ -181,16 +181,33 @@ def _extract_fast_tier_json(raw_text: str) -> dict[str, Any] | None:
 
 def _build_fast_tier_prompt(*, sender: str, subject: str, body: str) -> str:
     return (
-        "You are triaging a single email for a founder inbox assistant.\n"
-        "Return ONLY valid JSON with keys action, confidence, rationale.\n"
-        "- action must be one of: archive, star, label, ignore\n"
-        "- confidence must be a number between 0 and 1\n"
-        "- rationale must be under 80 words\n\n"
-        "Confidence rubric:\n"
-        "- 0.90 to 1.00: routine, low-risk, obvious newsletters/promotions/spam or clearly ignorable mail\n"
-        "- 0.70 to 0.89: likely correct but not fully obvious\n"
-        "- below 0.70: uncertain, ambiguous, or potentially consequential\n\n"
-        "Use high confidence for obvious marketing/newsletter/archive cases.\n\n"
+        "You are an executive inbox assistant for a startup founder/CEO. "
+        "Your job is to make a genuinely intelligent triage decision about this email — "
+        "not pattern-match on keywords, but actually reason about whether this message "
+        "matters to someone running a company.\n\n"
+        "Think about:\n"
+        "- Is this from a real person who knows the recipient, or a mass sender?\n"
+        "- Could ignoring this email cost money, damage a relationship, or miss an opportunity?\n"
+        "- Is this a security/account alert that needs attention (password changes, login alerts, "
+        "phone number changes, billing issues)?\n"
+        "- Is this a time-sensitive request from a colleague, investor, customer, or partner?\n"
+        "- Or is this genuinely just noise — newsletters, promotions, automated notifications "
+        "that have no actionable content?\n\n"
+        "Actions:\n"
+        "- **star**: Important and needs the founder's attention. Personal messages from known "
+        "contacts, investor updates, customer escalations, security alerts, legal notices, "
+        "time-sensitive requests.\n"
+        "- **archive**: Safe to clear. Marketing, newsletters, promotions, automated "
+        "notifications with no action required, social media digests, mass emails.\n"
+        "- **label**: Useful reference but not urgent. Receipts, shipping notifications, "
+        "subscription confirmations, informational updates from tools/services.\n"
+        "- **ignore**: Spam, phishing, completely irrelevant.\n\n"
+        "Confidence should reflect YOUR genuine uncertainty, not a formula:\n"
+        "- High (0.85-1.0): You are very sure this action is correct.\n"
+        "- Medium (0.5-0.84): Reasonable guess but you could be wrong.\n"
+        "- Low (below 0.5): Genuinely uncertain — this might need human review.\n\n"
+        'Return ONLY valid JSON: {"action": "...", "confidence": 0.XX, "rationale": "..."}\n'
+        "Rationale must be under 80 words.\n\n"
         f"From: {sender}\n"
         f"Subject: {subject}\n"
         f"Body: {body[:2000]}\n"
@@ -389,6 +406,13 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             role="proposer",
             model="claude-haiku-4-5-20251001",
         )
+    elif os.environ.get("OPENROUTER_API_KEY") and "openrouter" not in providers_used:
+        _append_agent(
+            "openrouter",
+            name="triage-proposer",
+            role="proposer",
+            model="anthropic/claude-haiku-4-5-20251001",
+        )
 
     if os.environ.get("OPENROUTER_API_KEY"):
         _append_agent(
@@ -419,12 +443,20 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
             role="synthesizer",
             model="claude-haiku-4-5-20251001",
         )
-    elif os.environ.get("OPENAI_API_KEY") and len(agents) < 2:
+    elif os.environ.get("OPENAI_API_KEY") and len(agents) < 3:
         _append_agent(
             "openai-api",
             name="triage-reviewer",
             role="synthesizer",
             model="gpt-4.1-mini",
+        )
+    elif os.environ.get("OPENROUTER_API_KEY") and len(agents) < 3:
+        # Use a different model family for heterogeneous consensus
+        _append_agent(
+            "openrouter",
+            name="triage-reviewer",
+            role="synthesizer",
+            model="google/gemini-2.0-flash-001",
         )
 
     if max_agents is not None:
@@ -433,10 +465,18 @@ def _create_triage_agents(*, max_agents: int | None = None) -> list[Any]:
 
 
 def _attach_display_metadata(intent: ActionIntent, msg: dict[str, Any], body: str) -> None:
-    """Attach non-persisted email display metadata for CLI summaries."""
-    intent._subject = msg.get("subject", "(no subject)")  # type: ignore[attr-defined]
-    intent._sender = msg.get("from_address", msg.get("sender", "(unknown)"))  # type: ignore[attr-defined]
-    intent._snippet = msg.get("snippet", body[:120])  # type: ignore[attr-defined]
+    """Attach email display metadata for CLI summaries and receipt auditability."""
+    subject = msg.get("subject", "(no subject)")
+    sender = msg.get("from_address", msg.get("sender", "(unknown)"))
+    snippet = msg.get("snippet", body[:120])
+    # Set dataclass fields (survive replace() for receipt persistence)
+    object.__setattr__(intent, "email_subject", str(subject))
+    object.__setattr__(intent, "email_from", str(sender))
+    object.__setattr__(intent, "email_snippet", str(snippet)[:200])
+    # Keep private attrs for backward compat with CLI display code
+    intent._subject = subject  # type: ignore[attr-defined]
+    intent._sender = sender  # type: ignore[attr-defined]
+    intent._snippet = snippet  # type: ignore[attr-defined]
 
 
 @contextmanager
@@ -893,11 +933,15 @@ class InboxTriageRunner:
         sender = msg.get("from_address", msg.get("sender", "(unknown)"))
         body = msg.get("body_text", msg.get("body", msg.get("snippet", "")))
         question = (
-            "Triage this email and recommend exactly ONE action: "
-            "archive, star, label, or ignore.\n\n"
+            "You are debating the correct triage action for an email in a startup "
+            "founder's inbox. Think about whether this message genuinely matters — "
+            "could ignoring it cost money, damage a relationship, miss an opportunity, "
+            "or compromise security? Or is it just noise?\n\n"
             f"From: {sender}\n"
             f"Subject: {subject}\n"
             f"Body: {body[:2000]}\n\n"
+            "Actions: star (important, needs attention), archive (safe to clear), "
+            "label (useful reference, not urgent), ignore (spam/irrelevant).\n\n"
             "Your final answer MUST begin with the action word "
             "(archive, star, label, or ignore) followed by your reasoning."
         )
@@ -982,13 +1026,24 @@ class InboxTriageRunner:
                     "status": "insufficient_participation",
                 }
             except (RuntimeError, OSError, ValueError, TypeError) as exc:
-                logger.warning("Debate failed, returning blocked triage result: %s", exc)
-                return {
-                    "final_answer": "",
-                    "confidence": 0.0,
-                    "debate_id": f"err-{uuid.uuid4().hex[:8]}",
-                    "status": "failed",
-                }
+                logger.warning("Debate failed (%s), falling back to fast-tier", exc)
+                # Fall back to fast-tier rather than blocking — a single-model
+                # decision is better than no decision on escalated emails.
+                try:
+                    fast_fallback = await self._run_fast_tier_once(msg)
+                    fast_fallback["metadata"] = {
+                        **(fast_fallback.get("metadata") or {}),
+                        "debate_fallback": True,
+                        "debate_error": str(exc)[:200],
+                    }
+                    return fast_fallback
+                except Exception:
+                    return {
+                        "final_answer": "",
+                        "confidence": 0.0,
+                        "debate_id": f"err-{uuid.uuid4().hex[:8]}",
+                        "status": "failed",
+                    }
 
     async def _execute_action(self, decision: TriageDecision) -> None:
         """Execute an approved triage action via the Gmail connector.

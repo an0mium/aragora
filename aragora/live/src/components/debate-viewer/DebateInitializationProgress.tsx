@@ -96,21 +96,21 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Task with classification badges */}
-      <div className="p-4 border border-acid-green/30 bg-surface">
-        <div className="text-base font-mono text-acid-green mb-3">
+      <div className="p-4 border border-[var(--accent)]/30 bg-surface">
+        <div className="text-base font-theme-data text-[var(--accent)] mb-3">
           {task || 'Waiting for debate topic...'}
         </div>
 
         {/* Classification badges */}
         {classification && (
           <div className="flex flex-wrap gap-2 mb-3">
-            <span className="px-2 py-1 text-xs font-mono bg-accent/20 text-accent border border-accent/30">
+            <span className="px-2 py-1 text-xs font-theme-data bg-accent/20 text-accent border border-accent/30">
               {classification.question_type?.toUpperCase() || 'GENERAL'}
             </span>
-            <span className="px-2 py-1 text-xs font-mono bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/30">
+            <span className="px-2 py-1 text-xs font-theme-data bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30">
               {classification.domain || 'other'}
             </span>
-            <span className="px-2 py-1 text-xs font-mono bg-acid-yellow/20 text-acid-yellow border border-acid-yellow/30">
+            <span className="px-2 py-1 text-xs font-theme-data bg-acid-yellow/20 text-[var(--acid-yellow)] border border-acid-yellow/30">
               {classification.complexity || 'moderate'} complexity
             </span>
           </div>
@@ -127,14 +127,14 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
       {/* Key aspects to explore */}
       {classification?.key_aspects && classification.key_aspects.length > 0 && (
         <div className="p-3 border border-border bg-bg/50">
-          <div className="text-xs font-mono text-text-muted mb-2 uppercase tracking-wider">
+          <div className="text-xs font-theme-data text-text-muted mb-2 uppercase tracking-wider">
             {'>'} Key Focus Areas
           </div>
           <div className="flex flex-wrap gap-2">
             {classification.key_aspects.map((aspect, i) => (
               <span
                 key={i}
-                className="px-2 py-1 text-xs font-mono bg-surface border border-border text-text-secondary"
+                className="px-2 py-1 text-xs font-theme-data bg-surface border border-border text-text-secondary"
               >
                 {aspect}
               </span>
@@ -146,7 +146,7 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
       {/* Agent preview cards */}
       {agentPreviews && agentPreviews.length > 0 && (
         <div className="p-3 border border-border bg-bg/50">
-          <div className="text-xs font-mono text-text-muted mb-3 uppercase tracking-wider">
+          <div className="text-xs font-theme-data text-text-muted mb-3 uppercase tracking-wider">
             {'>'} Debate Participants
           </div>
           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
@@ -157,7 +157,7 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
                   key={agent.name}
                   className={`p-2 border ${colors.border} ${colors.bg} bg-opacity-10`}
                 >
-                  <div className={`text-xs font-mono ${colors.text} font-semibold`}>
+                  <div className={`text-xs font-theme-data ${colors.text} font-semibold`}>
                     {agent.name}
                   </div>
                   <div className="text-xs text-text-muted mt-1">
@@ -178,13 +178,13 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
       {/* Initialization errors */}
       {initErrors.length > 0 && (
         <div className="p-3 border border-red-500/30 bg-red-500/5">
-          <div className="text-xs font-mono text-red-400 mb-2 uppercase tracking-wider">
+          <div className="text-xs font-theme-data text-red-400 mb-2 uppercase tracking-wider">
             {'>'} Agents Failed to Initialize
           </div>
           <div className="space-y-1 text-xs text-text-muted">
             {initErrors.map((err, i) => (
               <div key={`${err.agent}-${i}`}>
-                <span className="font-mono text-red-300">{err.agent}</span>
+                <span className="font-theme-data text-red-300">{err.agent}</span>
                 <span className="text-text-muted"> — {err.message}</span>
               </div>
             ))}
@@ -195,7 +195,7 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
       {/* Context gathering status */}
       {contextPreview && (
         <div className="p-3 border border-accent/30 bg-accent/5">
-          <div className="text-xs font-mono text-accent mb-2 uppercase tracking-wider">
+          <div className="text-xs font-theme-data text-accent mb-2 uppercase tracking-wider">
             {'>'} Gathering Context...
           </div>
           {contextPreview.trending_topics && contextPreview.trending_topics.length > 0 && (
@@ -225,7 +225,7 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
             return (
               <span
                 key={agent}
-                className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
+                className={`px-2 py-1 text-xs font-theme-data ${colors.bg} ${colors.text} ${colors.border} border`}
               >
                 {agent}
               </span>
@@ -238,11 +238,11 @@ export function DebateInitializationProgress({ task, agents, streamEvents }: Pro
       <div className="flex items-center gap-3">
         <div className="h-1 flex-1 bg-border overflow-hidden rounded-full">
           <div
-            className="h-full bg-acid-green transition-all duration-1000 ease-out"
+            className="h-full bg-[var(--accent)] transition-all duration-1000 ease-out"
             style={{ width: `${progressPct}%` }}
           />
         </div>
-        <span className="text-xs font-mono text-acid-cyan animate-pulse whitespace-nowrap">
+        <span className="text-xs font-theme-data text-[var(--acid-cyan)] animate-pulse whitespace-nowrap">
           {progressMessage || 'Agents preparing proposals...'}
         </span>
       </div>

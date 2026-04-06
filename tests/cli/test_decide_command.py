@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+from aragora.pipeline.execution_mode import ExecutionMode
 
 
 def _make_args(**overrides):
@@ -27,6 +30,7 @@ def _make_args(**overrides):
         "auto_select_config": None,
         "context": None,
         "context_file": None,
+        "spec": None,
         "document": None,
         "documents": None,
         "no_knowledge": False,
@@ -99,6 +103,28 @@ def test_cmd_decide_normalizes_execution_mode_alias() -> None:
     assert kwargs["implementation_profile"]["execution_mode"] == "workflow"
 
 
+def test_cmd_decide_uses_structured_spec_path_without_mutating_context(tmp_path) -> None:
+    """cmd_decide should pass spec_file through without stuffing spec text into context."""
+    from aragora.cli.commands import decide as decide_cmd
+
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text('{"specification":{"title":"Spec","problem_statement":"Ship it"}}')
+    args = _make_args(
+        spec=str(spec_path),
+        context="operator notes",
+    )
+
+    with (
+        patch.object(decide_cmd, "run_decide", return_value="coro") as mock_run_decide,
+        patch.object(decide_cmd.asyncio, "run", return_value={}),
+    ):
+        decide_cmd.cmd_decide(args)
+
+    kwargs = mock_run_decide.call_args.kwargs
+    assert kwargs["context"] == "operator notes"
+    assert kwargs["spec_file"] == str(spec_path)
+
+
 @pytest.mark.asyncio
 async def test_run_decide_seeds_backbone_run_for_spec_dry_run(tmp_path) -> None:
     """Spec-driven dry runs should still seed a backbone run."""
@@ -138,6 +164,66 @@ async def test_run_decide_seeds_backbone_run_for_spec_dry_run(tmp_path) -> None:
         source_surface="cli_decide_spec",
         source_id=str(spec_path),
     )
+
+
+@pytest.mark.asyncio
+async def test_run_decide_forwards_wrapped_spec_artifacts(tmp_path) -> None:
+    """Wrapped spec files should preserve validation and canonical spec artifacts."""
+    from aragora.cli.commands.decide import run_decide
+
+    spec_path = tmp_path / "spec.json"
+    spec_path.write_text(
+        json.dumps(
+            {
+                "specification": {
+                    "title": "Spec",
+                    "problem_statement": "Ship it",
+                },
+                "validation": {
+                    "passed": True,
+                    "overall_confidence": 0.92,
+                },
+                "spec_bundle": {
+                    "title": "Spec",
+                    "problem_statement": "Ship it",
+                    "is_execution_grade": False,
+                },
+            }
+        )
+    )
+
+    plan = MagicMock()
+    plan.id = "plan-cli-wrapped"
+    plan.status = SimpleNamespace(value="approved")
+    plan.risk_register = None
+    plan.requires_human_approval = False
+
+    with (
+        patch(
+            "aragora.pipeline.decision_plan.DecisionPlanFactory.from_specification",
+            return_value=plan,
+        ) as mock_from_specification,
+        patch(
+            "aragora.cli.commands.decide._seed_cli_backbone_run",
+            return_value="run-cli-wrapped",
+        ),
+    ):
+        result = await run_decide(
+            task="Ship the feature",
+            agents_str="claude,gemini",
+            dry_run=True,
+            spec_file=str(spec_path),
+        )
+
+    kwargs = mock_from_specification.call_args.kwargs
+    assert kwargs["validation_result"] == {
+        "passed": True,
+        "overall_confidence": 0.92,
+    }
+    assert kwargs["metadata"]["prompt_spec_artifacts"]["validation"]["passed"] is True
+    assert kwargs["metadata"]["spec_bundle"]["title"] == "Spec"
+    assert result["plan"] is plan
+    assert result["run_id"] == "run-cli-wrapped"
 
 
 @pytest.mark.asyncio
@@ -200,6 +286,7 @@ async def test_run_decide_executes_via_backbone_helper(tmp_path) -> None:
         executor=executor,
         auth_context=None,
         execution_mode="hybrid",
+        safety_mode=ExecutionMode.INTERACTIVE,
     )
 
 
@@ -247,4 +334,5 @@ def test_cmd_plans_execute_routes_through_backbone_helper() -> None:
         executor=executor,
         auth_context=None,
         execution_mode="hybrid",
+        safety_mode=ExecutionMode.INTERACTIVE,
     )

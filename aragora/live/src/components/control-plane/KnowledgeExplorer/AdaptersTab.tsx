@@ -31,21 +31,21 @@ export function AdaptersTab() {
       <div className="flex items-center justify-between">
         <div className="flex gap-6 text-sm">
           <span className="text-text-muted">
-            Total: <span className="text-text font-mono">{total}</span>
+            Total: <span className="text-text font-theme-data">{total}</span>
           </span>
           <span className="text-green-400">
-            Active: <span className="font-mono">{active}</span>
+            Active: <span className="font-theme-data">{active}</span>
           </span>
           <span className="text-yellow-400">
-            Stale: <span className="font-mono">{stale}</span>
+            Stale: <span className="font-theme-data">{stale}</span>
           </span>
           <span className="text-red-400">
-            Offline: <span className="font-mono">{total - active - stale}</span>
+            Offline: <span className="font-theme-data">{total - active - stale}</span>
           </span>
         </div>
         <button
           onClick={() => refresh()}
-          className="text-xs text-acid-green hover:underline"
+          className="text-xs text-[var(--accent)] hover:underline"
         >
           Refresh
         </button>
@@ -56,10 +56,10 @@ export function AdaptersTab() {
         {adapters.map((adapter) => (
           <div
             key={adapter.name}
-            className="p-3 bg-surface rounded-lg border border-border hover:border-acid-green/30 transition-colors"
+            className="p-3 bg-surface rounded-lg border border-border hover:border-[var(--accent)]/30 transition-colors"
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="font-mono text-sm text-text truncate">
+              <span className="font-theme-data text-sm text-text truncate">
                 {adapter.name}
               </span>
               <span className={`flex items-center gap-1.5 text-xs ${statusColors[adapter.status] || 'text-text-muted'}`}>

@@ -22,6 +22,7 @@ from aragora.debate.complexity_governor import (
 from aragora.debate.context import DebateContext
 from aragora.logging_config import LogContext, get_logger as get_structured_logger
 from aragora.observability.tracing import add_span_attributes
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
 from aragora.server.metrics import (
     ACTIVE_DEBATES,
     track_debate_outcome,
@@ -992,9 +993,10 @@ async def execute_debate_phases(
 
     except asyncio.TimeoutError:
         # Timeout recovery - use partial results from context
-        ctx.result.messages = ctx.partial_messages
-        ctx.result.critiques = ctx.partial_critiques
-        ctx.result.rounds_used = ctx.partial_rounds
+        if ctx.result is not None:
+            ctx.result.messages = ctx.partial_messages
+            ctx.result.critiques = ctx.partial_critiques
+            ctx.result.rounds_used = ctx.partial_rounds
         state.debate_status = "timeout"
         span.set_attribute("debate.status", "timeout")
         logger.warning("Debate timed out, returning partial results")
@@ -1126,13 +1128,14 @@ async def handle_debate_completion(
 
     # Ingest high-confidence consensus into Knowledge Mound (background, non-blocking)
     if ctx.result:
+        result = ctx.result
 
         async def _km_ingest_background() -> None:
             _ingestion_succeeded = False
             _last_error: Exception | None = None
             for _attempt in range(3):
                 try:
-                    await arena._ingest_debate_outcome(ctx.result)
+                    await arena._ingest_debate_outcome(result)
                     _ingestion_succeeded = True
                     break
                 except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
@@ -1149,7 +1152,7 @@ async def handle_debate_completion(
                     from aragora.knowledge.mound.ingestion_queue import IngestionDeadLetterQueue
 
                     dlq = IngestionDeadLetterQueue()
-                    result_dict = ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
+                    result_dict = result.to_dict() if hasattr(result, "to_dict") else {}
                     dlq.enqueue(state.debate_id, result_dict, str(_last_error))
                 except (ImportError, OSError, ValueError, TypeError, RuntimeError) as dlq_err:
                     logger.debug("DLQ enqueue failed: %s", dlq_err)
@@ -1170,11 +1173,12 @@ async def handle_debate_completion(
 
     # Capture epistemic settlement metadata for future review
     if ctx.result:
+        result = ctx.result
         try:
             from aragora.debate.settlement import EpistemicSettlementTracker
 
             tracker = EpistemicSettlementTracker()
-            settlement = tracker.capture_settlement(ctx.result)
+            settlement = tracker.capture_settlement(result)
             logger.debug("Settlement captured for debate %s", state.debate_id)
             # Record settlement metrics
             try:
@@ -1187,7 +1191,7 @@ async def handle_debate_completion(
                 record_settlement_captured(
                     status=getattr(settlement, "status", "settled") if settlement else "settled"
                 )
-                confidence = getattr(ctx.result, "confidence", 0.0)
+                confidence = getattr(result, "confidence", 0.0)
                 if confidence:
                     record_settlement_confidence(confidence)
                 falsifier_count = len(getattr(settlement, "falsifiers", [])) if settlement else 0
@@ -1218,6 +1222,7 @@ async def handle_debate_completion(
         "legal",
         "compliance",
     }:
+        result = ctx.result
 
         def _attach_compliance() -> None:
             try:
@@ -1232,10 +1237,10 @@ async def handle_debate_completion(
                 risk_levels = {"minimal": 0, "limited": 1, "high": 2, "unacceptable": 3}
                 if risk_levels.get(risk.risk_level.value, 0) >= 1:
                     generator = ComplianceArtifactGenerator()
-                    receipt_dict = ctx.result.to_dict() if hasattr(ctx.result, "to_dict") else {}
+                    receipt_dict = result.to_dict() if hasattr(result, "to_dict") else {}
                     bundle = generator.generate(receipt_dict)
-                    if hasattr(ctx.result, "metadata") and isinstance(ctx.result.metadata, dict):
-                        ctx.result.metadata["compliance_artifacts"] = bundle.to_dict()
+                    if hasattr(result, "metadata") and isinstance(result.metadata, dict):
+                        result.metadata["compliance_artifacts"] = bundle.to_dict()
                     logger.info(
                         "Attached compliance artifacts for debate %s (risk=%s)",
                         state.debate_id,
@@ -1253,14 +1258,15 @@ async def handle_debate_completion(
     if state.gupp_bead_id and state.gupp_hook_entries:
         try:
             success = state.debate_status == "completed"
-            await arena._update_debate_bead(state.gupp_bead_id, ctx.result, success)
+            if ctx.result is not None:
+                await arena._update_debate_bead(state.gupp_bead_id, ctx.result, success)
             await arena._complete_hook_tracking(
                 state.gupp_bead_id,
                 state.gupp_hook_entries,
                 success,
                 error_msg="" if success else f"Debate {state.debate_status}",
             )
-            if success:
+            if success and ctx.result is not None:
                 ctx.result.bead_id = state.gupp_bead_id
         except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
             logger.debug("GUPP completion failed (non-critical): %s", e)
@@ -1530,7 +1536,8 @@ async def handle_debate_completion(
                 )
 
     # Queue for Supabase background sync
-    arena._queue_for_supabase_sync(ctx, ctx.result)
+    if ctx.result is not None:
+        arena._queue_for_supabase_sync(ctx, ctx.result)
 
 
 async def cleanup_debate_resources(
@@ -1858,6 +1865,7 @@ async def _auto_execute_plan(
                 executor=executor,
                 auth_context=getattr(arena, "auth_context", None),
                 execution_mode=execution_mode,
+                safety_mode=SafetyMode.AUTONOMOUS,
             )
             refreshed_plan = get_plan(plan.id) or plan
             result.metadata["decision_plan_status"] = (

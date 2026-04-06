@@ -94,8 +94,8 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
 
   if (loading) {
     return (
-      <div className="bg-surface border border-acid-green/30 p-4">
-        <div className="text-xs font-mono text-text-muted animate-pulse">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
+        <div className="text-xs font-theme-data text-text-muted animate-pulse">
           Checking for hollow consensus...
         </div>
       </div>
@@ -105,7 +105,7 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
   if (error || !data) {
     return (
       <div className="bg-surface border border-yellow-500/30 p-4">
-        <div className="text-xs font-mono text-yellow-500">
+        <div className="text-xs font-theme-data text-yellow-500">
           {error || 'No trickster data available'}
         </div>
       </div>
@@ -118,7 +118,7 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
       <div className="bg-surface border border-green-500/30 p-4">
         <div className="flex items-center gap-2">
           <span className="text-green-400">✓</span>
-          <span className="text-xs font-mono text-green-400">
+          <span className="text-xs font-theme-data text-green-400">
             CONSENSUS INTEGRITY: No hollow consensus detected
           </span>
         </div>
@@ -139,7 +139,7 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
         <div className="flex items-center gap-2">
           <span className="text-lg">🎭</span>
           <span
-            className={`text-xs font-mono uppercase tracking-wider ${
+            className={`text-xs font-theme-data uppercase tracking-wider ${
               severityLevel === 'high'
                 ? 'text-red-400'
                 : severityLevel === 'medium'
@@ -151,7 +151,7 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
             {data.total_alerts === 1 ? 'warning' : 'warnings'}
           </span>
         </div>
-        <span className="text-xs font-mono text-text-muted">
+        <span className="text-xs font-theme-data text-text-muted">
           {expanded ? '[-]' : '[+]'}
         </span>
       </div>
@@ -160,10 +160,10 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
         <div className="p-4 space-y-4">
           {/* Summary */}
           <div className="bg-bg/50 border border-border rounded p-3">
-            <div className="text-xs font-mono text-text-muted uppercase mb-2">
+            <div className="text-xs font-theme-data text-text-muted uppercase mb-2">
               Detection Summary
             </div>
-            <div className="grid grid-cols-3 gap-4 text-xs font-mono">
+            <div className="grid grid-cols-3 gap-4 text-xs font-theme-data">
               <div>
                 <span className="text-text-muted">Alerts: </span>
                 <span className="text-text">{data.total_alerts}</span>
@@ -181,7 +181,7 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
 
           {/* Alerts */}
           <div className="space-y-2">
-            <div className="text-xs font-mono text-text-muted uppercase">
+            <div className="text-xs font-theme-data text-text-muted uppercase">
               Hollow Consensus Alerts
             </div>
             {data.hollow_consensus_alerts.map((alert, idx) => {
@@ -192,10 +192,10 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
                   className={`p-3 border rounded ${SEVERITY_COLORS[level]}`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs font-mono font-bold">
+                    <div className="text-xs font-theme-data font-bold">
                       Round {alert.round}
                     </div>
-                    <div className="flex gap-4 text-xs font-mono text-text-muted">
+                    <div className="flex gap-4 text-xs font-theme-data text-text-muted">
                       <span>
                         Severity: {Math.round(alert.severity * 100)}%
                       </span>
@@ -209,12 +209,12 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
                   </div>
                   {alert.gaps && Object.keys(alert.gaps).length > 0 && (
                     <div className="mt-2">
-                      <div className="text-xs font-mono text-text-muted mb-1">
+                      <div className="text-xs font-theme-data text-text-muted mb-1">
                         Evidence Gaps:
                       </div>
                       <div className="space-y-1">
                         {Object.entries(alert.gaps).map(([agent, gaps]) => (
-                          <div key={agent} className="text-xs font-mono">
+                          <div key={agent} className="text-xs font-theme-data">
                             <span className="text-text">{agent}: </span>
                             <span className="text-text-muted">
                               {(gaps as string[]).join(', ')}
@@ -232,7 +232,7 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
           {/* Interventions */}
           {data.interventions.length > 0 && (
             <div className="space-y-2">
-              <div className="text-xs font-mono text-text-muted uppercase">
+              <div className="text-xs font-theme-data text-text-muted uppercase">
                 Trickster Interventions
               </div>
               {data.interventions.map((intervention, idx) => (
@@ -243,19 +243,19 @@ export function TricksterAlert({ debateId }: TricksterAlertProps) {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span>{INTERVENTION_ICONS[intervention.type] || '🎭'}</span>
-                      <span className="text-xs font-mono text-purple-400 uppercase">
+                      <span className="text-xs font-theme-data text-purple-400 uppercase">
                         {intervention.type.replace(/_/g, ' ')}
                       </span>
                     </div>
-                    <div className="text-xs font-mono text-text-muted">
+                    <div className="text-xs font-theme-data text-text-muted">
                       Round {intervention.round} | Priority:{' '}
                       {Math.round(intervention.priority * 100)}%
                     </div>
                   </div>
-                  <div className="text-xs font-mono text-text mb-2">
+                  <div className="text-xs font-theme-data text-text mb-2">
                     Target: {intervention.target_agents.join(', ')}
                   </div>
-                  <div className="text-xs font-mono text-text-muted bg-bg/50 p-2 rounded">
+                  <div className="text-xs font-theme-data text-text-muted bg-bg/50 p-2 rounded">
                     &ldquo;{intervention.challenge}&rdquo;
                   </div>
                 </div>

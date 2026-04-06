@@ -129,6 +129,11 @@ def apply_core_components(arena: Arena, core: Any) -> None:
         arena._budget_coordinator.extensions = arena.extensions
         if autotuner is not None:
             arena._budget_coordinator.autotuner = autotuner
+    # Wire per-debate cost limit from protocol
+    cost_limit = getattr(arena.protocol, "debate_cost_limit_usd", None)
+    if cost_limit is not None and hasattr(arena._budget_coordinator, "set_debate_cost_limit"):
+        arena._budget_coordinator.set_debate_cost_limit(cost_limit)
+
     arena.cartographer = core.cartographer
     arena.event_bridge = core.event_bridge
     # ML Integration

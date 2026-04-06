@@ -76,12 +76,12 @@ export function ComplianceFrameworkList({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search frameworks..."
-          className="flex-1 min-w-[200px] px-3 py-2 text-sm bg-bg border border-border rounded focus:border-acid-green focus:outline-none"
+          className="flex-1 min-w-[200px] px-3 py-2 text-sm bg-bg border border-border rounded focus:border-[var(--accent)] focus:outline-none"
         />
         <select
           value={selectedVertical || ''}
           onChange={(e) => onVerticalChange(e.target.value || null)}
-          className="px-3 py-2 text-sm bg-bg border border-border rounded focus:border-acid-green focus:outline-none"
+          className="px-3 py-2 text-sm bg-bg border border-border rounded focus:border-[var(--accent)] focus:outline-none"
         >
           <option value="">All Verticals</option>
           {verticals.map((v) => (
@@ -100,7 +100,7 @@ export function ComplianceFrameworkList({
             return (
               <div key={verticalId}>
                 {!selectedVertical && (
-                  <h3 className="font-mono font-bold text-text mb-3">
+                  <h3 className="font-theme-data font-bold text-text mb-3">
                     {vertical?.name || verticalId}
                   </h3>
                 )}
@@ -110,15 +110,15 @@ export function ComplianceFrameworkList({
                       key={fw.framework_id}
                       onClick={() => handleClick(fw)}
                       className={`p-4 bg-bg border rounded-lg cursor-pointer transition-all ${
-                        expandedId === fw.framework_id ? 'border-acid-green' : 'border-border hover:border-text-muted'
+                        expandedId === fw.framework_id ? 'border-[var(--accent)]' : 'border-border hover:border-text-muted'
                       } ${!fw.enabled ? 'opacity-60' : ''}`}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <h4 className="font-mono font-bold text-text">{fw.name}</h4>
-                          <span className="text-xs font-mono text-text-muted">{fw.framework_id.toUpperCase()}</span>
+                          <h4 className="font-theme-data font-bold text-text">{fw.name}</h4>
+                          <span className="text-xs font-theme-data text-text-muted">{fw.framework_id.toUpperCase()}</span>
                         </div>
-                        <span className={`px-2 py-0.5 text-xs font-mono uppercase rounded border ${LEVEL_COLORS[fw.level]}`}>
+                        <span className={`px-2 py-0.5 text-xs font-theme-data uppercase rounded border ${LEVEL_COLORS[fw.level]}`}>
                           {fw.level}
                         </span>
                       </div>
@@ -132,10 +132,10 @@ export function ComplianceFrameworkList({
                       {expandedId === fw.framework_id && (
                         <div className="mt-4 pt-4 border-t border-border">
                           <div className="flex gap-2">
-                            <button className="flex-1 px-3 py-1.5 text-xs font-mono bg-surface border border-border rounded hover:border-acid-green transition-colors">
+                            <button className="flex-1 px-3 py-1.5 text-xs font-theme-data bg-surface border border-border rounded hover:border-[var(--accent)] transition-colors">
                               Configure
                             </button>
-                            <button className={`flex-1 px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+                            <button className={`flex-1 px-3 py-1.5 text-xs font-theme-data rounded transition-colors ${
                               fw.enabled
                                 ? 'bg-red-900/30 text-red-400 border border-red-800/30'
                                 : 'bg-green-900/30 text-green-400 border border-green-800/30'

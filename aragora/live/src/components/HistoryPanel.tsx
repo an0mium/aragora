@@ -48,8 +48,8 @@ export function HistoryPanel() {
   const { recentLoops, selectedLoopId, selectLoop } = supabaseHistory;
 
   const stats = [
-    { value: cycles.length, label: 'Cycles', color: 'text-acid-cyan' },
-    { value: events.length, label: 'Events', color: 'text-acid-green' },
+    { value: cycles.length, label: 'Cycles', color: 'text-[var(--acid-cyan)]' },
+    { value: events.length, label: 'Events', color: 'text-[var(--accent)]' },
     { value: debates.length, label: 'Debates', color: 'text-purple' },
   ];
 
@@ -62,13 +62,13 @@ export function HistoryPanel() {
 
       {/* Show warning when Supabase not configured */}
       {supabaseWarning && !useSupabase && (
-        <div className="mb-4 p-2 bg-yellow-900/20 border border-yellow-600/50 text-yellow-200 text-xs font-mono" role="alert">
+        <div className="mb-4 p-2 bg-yellow-900/20 border border-yellow-600/50 text-yellow-200 text-xs font-theme-data" role="alert">
           <span className="text-yellow-300">!</span> {supabaseWarning}
         </div>
       )}
 
       {error && (
-        <div className="mb-4 p-2 bg-crimson/10 border border-crimson text-crimson text-xs font-mono">
+        <div className="mb-4 p-2 bg-[var(--crimson)]/10 border border-[var(--crimson)] text-[var(--crimson)] text-xs font-theme-data">
           {error}
         </div>
       )}
@@ -76,12 +76,12 @@ export function HistoryPanel() {
       {/* Loop selector - only for Supabase mode */}
       {useSupabase && (
         <div className="mb-4">
-          <label htmlFor="loop-selector" className="text-xs text-text-muted block mb-1 font-mono">SELECT_LOOP</label>
+          <label htmlFor="loop-selector" className="text-xs text-text-muted block mb-1 font-theme-data">SELECT_LOOP</label>
           <select
             id="loop-selector"
             value={selectedLoopId || ''}
             onChange={(e) => selectLoop(e.target.value)}
-            className="w-full bg-bg border border-border px-2 py-1 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+            className="w-full bg-bg border border-border px-2 py-1 text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
           >
             {recentLoops.length === 0 && (
               <option value="">No loops found</option>
@@ -97,8 +97,8 @@ export function HistoryPanel() {
 
       {/* Local API summary */}
       {!useSupabase && localHistory.summary && (
-        <div className="mb-4 p-2 bg-bg border border-border text-xs font-mono text-text-muted">
-          <span className="text-acid-green">&gt;</span> Using local API
+        <div className="mb-4 p-2 bg-bg border border-border text-xs font-theme-data text-text-muted">
+          <span className="text-[var(--accent)]">&gt;</span> Using local API
           {localHistory.summary.recent_loop_id && (
             <span className="ml-2 text-text">• {formatLoopId(localHistory.summary.recent_loop_id)}</span>
           )}
@@ -113,7 +113,7 @@ export function HistoryPanel() {
       {/* Cycles list */}
       {cycles.length > 0 && (
         <div className="mb-4">
-          <h4 id="phases-heading" className="text-xs font-mono text-text-muted mb-2">PHASES</h4>
+          <h4 id="phases-heading" className="text-xs font-theme-data text-text-muted mb-2">PHASES</h4>
           <div
             role="list"
             aria-labelledby="phases-heading"
@@ -124,7 +124,7 @@ export function HistoryPanel() {
                 key={cycle.id}
                 role="listitem"
                 aria-label={`Cycle ${cycle.cycle_number}: ${cycle.phase}, status: ${cycle.success === true ? 'success' : cycle.success === false ? 'failed' : 'in progress'}`}
-                className="flex items-center justify-between text-xs font-mono bg-bg border border-border px-2 py-1"
+                className="flex items-center justify-between text-xs font-theme-data bg-bg border border-border px-2 py-1"
               >
                 <span className="text-text">
                   C{cycle.cycle_number}: {cycle.phase}
@@ -132,9 +132,9 @@ export function HistoryPanel() {
                 <span
                   className={
                     cycle.success === true
-                      ? 'text-acid-green'
+                      ? 'text-[var(--accent)]'
                       : cycle.success === false
-                      ? 'text-crimson'
+                      ? 'text-[var(--crimson)]'
                       : 'text-warning'
                   }
                   aria-hidden="true"
@@ -154,14 +154,14 @@ export function HistoryPanel() {
       {/* Recent events */}
       {events.length > 0 && (
         <div>
-          <h4 id="events-heading" className="text-xs font-mono text-text-muted mb-2">
+          <h4 id="events-heading" className="text-xs font-theme-data text-text-muted mb-2">
             EVENTS ({events.length})
           </h4>
           <div
             role="log"
             aria-labelledby="events-heading"
             aria-live="polite"
-            className="space-y-1 max-h-40 overflow-y-auto text-xs font-mono"
+            className="space-y-1 max-h-40 overflow-y-auto text-xs font-theme-data"
           >
             {events.slice(-100).map((event) => (
               <div
@@ -172,7 +172,7 @@ export function HistoryPanel() {
                 <span className="text-text-muted opacity-50">
                   {new Date(event.timestamp).toLocaleTimeString()}
                 </span>{' '}
-                <span className="text-acid-cyan">{event.event_type}</span>
+                <span className="text-[var(--acid-cyan)]">{event.event_type}</span>
                 {event.agent && (
                   <span className="text-purple"> [{event.agent}]</span>
                 )}
@@ -185,7 +185,7 @@ export function HistoryPanel() {
       {/* Debates preview */}
       {debates.length > 0 && (
         <div className="mt-4">
-          <h4 id="debates-heading" className="text-xs font-mono text-text-muted mb-2">DEBATES</h4>
+          <h4 id="debates-heading" className="text-xs font-theme-data text-text-muted mb-2">DEBATES</h4>
           <div
             role="list"
             aria-labelledby="debates-heading"
@@ -196,7 +196,7 @@ export function HistoryPanel() {
                 key={debate.id}
                 role="listitem"
                 aria-label={`${debate.phase} debate in cycle ${debate.cycle_number}, ${debate.consensus_reached ? `consensus reached with ${(debate.confidence * 100).toFixed(0)}% confidence` : 'no consensus'}`}
-                className="bg-bg border border-border p-2 text-xs font-mono"
+                className="bg-bg border border-border p-2 text-xs font-theme-data"
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-text">
@@ -205,7 +205,7 @@ export function HistoryPanel() {
                   <span
                     className={
                       debate.consensus_reached
-                        ? 'text-acid-green'
+                        ? 'text-[var(--accent)]'
                         : 'text-warning'
                     }
                     aria-hidden="true"

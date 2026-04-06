@@ -38,10 +38,10 @@ export const ActionNode = memo(function ActionNode({ data, selected }: ActionNod
         <span className="w-5 h-5 flex items-center justify-center text-xs font-bold rounded bg-amber-500/30 text-amber-200">
           {config.icon}
         </span>
-        <span className="px-1.5 py-0.5 text-xs bg-amber-500/30 text-amber-200 rounded font-mono uppercase">
+        <span className="px-1.5 py-0.5 text-xs bg-amber-500/30 text-amber-200 rounded font-theme-data uppercase">
           {config.label}
         </span>
-        <span className={`px-1.5 py-0.5 text-xs rounded font-mono ${statusClass}`}>
+        <span className={`px-1.5 py-0.5 text-xs rounded font-theme-data ${statusClass}`}>
           {status.replace('_', ' ')}
         </span>
       </div>
@@ -51,12 +51,12 @@ export const ActionNode = memo(function ActionNode({ data, selected }: ActionNod
       {description && <div className="text-xs text-text-muted mb-1 line-clamp-2">{description}</div>}
 
       {optional && (
-        <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-500/30 text-gray-300 rounded font-mono mb-1">optional</span>
+        <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-500/30 text-gray-300 rounded font-theme-data mb-1">optional</span>
       )}
 
       {assignee && <div className="text-xs text-amber-300/80 mb-1">assigned: {assignee}</div>}
 
-      {timeout && timeout > 0 && <div className="text-xs font-mono text-amber-300">timeout: {timeout}s</div>}
+      {timeout && timeout > 0 && <div className="text-xs font-theme-data text-amber-300">timeout: {timeout}s</div>}
 
       {lockedBy && <div className="mt-1 text-xs text-amber-400">Locked by {lockedBy}</div>}
 

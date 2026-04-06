@@ -408,7 +408,7 @@ export function CodeReviewWorkflow() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-mono text-[var(--acid-green)]">
+        <h1 className="text-xl font-theme-data text-[var(--acid-green)]">
           {'>'} MULTI-AGENT CODE REVIEW
         </h1>
         <p className="text-sm text-[var(--text-muted)] mt-1">

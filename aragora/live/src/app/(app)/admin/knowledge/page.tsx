@@ -22,9 +22,9 @@ interface MoundStats {
 
 function StatCard({ label, value, color = 'acid-green' }: { label: string; value: number | string; color?: string }) {
   return (
-    <div className="p-4 bg-surface rounded border border-acid-green/20">
-      <div className="font-mono text-xs text-text-muted mb-1">{label}</div>
-      <div className={`font-mono text-2xl text-${color}`}>{typeof value === 'number' ? value.toLocaleString() : value}</div>
+    <div className="p-4 bg-surface rounded border border-[var(--accent)]/20">
+      <div className="font-theme-data text-xs text-text-muted mb-1">{label}</div>
+      <div className={`font-theme-data text-2xl text-${color}`}>{typeof value === 'number' ? value.toLocaleString() : value}</div>
     </div>
   );
 }
@@ -169,7 +169,7 @@ export default function KnowledgeAdminPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -177,13 +177,13 @@ export default function KnowledgeAdminPage() {
             <div className="flex items-center gap-4">
               <Link
                 href="/"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
               >
                 [DASHBOARD]
               </Link>
               <Link
                 href="/admin"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
               >
                 [ADMIN]
               </Link>
@@ -194,36 +194,36 @@ export default function KnowledgeAdminPage() {
         </header>
 
         {/* Sub Navigation */}
-        <div className="border-b border-acid-green/20 bg-surface/40">
+        <div className="border-b border-[var(--accent)]/20 bg-surface/40">
           <div className="container mx-auto px-4">
             <div className="flex gap-4 overflow-x-auto">
               <Link
                 href="/admin"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 SYSTEM
               </Link>
               <Link
                 href="/admin/organizations"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 ORGANIZATIONS
               </Link>
               <Link
                 href="/admin/users"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 USERS
               </Link>
               <Link
                 href="/admin/knowledge"
-                className="px-4 py-2 font-mono text-sm text-acid-green border-b-2 border-acid-green"
+                className="px-4 py-2 font-theme-data text-sm text-[var(--accent)] border-b-2 border-[var(--accent)]"
               >
                 KNOWLEDGE
               </Link>
               <Link
                 href="/admin/audit"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 AUDIT
               </Link>
@@ -235,17 +235,17 @@ export default function KnowledgeAdminPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                 Knowledge Mound Administration
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Manage global knowledge, federation, and visibility settings.
               </p>
             </div>
             <button
               onClick={fetchStats}
               disabled={loading}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Refreshing...' : 'Refresh'}
             </button>
@@ -253,7 +253,7 @@ export default function KnowledgeAdminPage() {
 
           {!isAdmin && (
             <div className="card p-6 mb-6 border-acid-yellow/40">
-              <div className="flex items-center gap-2 text-acid-yellow font-mono text-sm">
+              <div className="flex items-center gap-2 text-[var(--acid-yellow)] font-theme-data text-sm">
                 <span>!</span>
                 <span>Admin access required for full functionality. Sign in as admin.</span>
               </div>
@@ -262,19 +262,19 @@ export default function KnowledgeAdminPage() {
 
           {error && (
             <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
-              <p className="text-acid-red font-mono text-sm">{error}</p>
+              <p className="text-acid-red font-theme-data text-sm">{error}</p>
             </div>
           )}
 
           {/* Tab Navigation */}
-          <div className="flex gap-2 border-b border-acid-green/20 pb-2 mb-6 overflow-x-auto">
+          <div className="flex gap-2 border-b border-[var(--accent)]/20 pb-2 mb-6 overflow-x-auto">
             {(['overview', 'federation', 'global'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-2 font-mono text-sm whitespace-nowrap transition-colors ${
+                className={`px-4 py-2 font-theme-data text-sm whitespace-nowrap transition-colors ${
                   activeTab === tab
-                    ? 'text-acid-green border-b-2 border-acid-green'
+                    ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                     : 'text-text-muted hover:text-text'
                 }`}
               >
@@ -299,12 +299,12 @@ export default function KnowledgeAdminPage() {
               {/* Visibility Breakdown */}
               {stats?.nodes_by_visibility && (
                 <div className="card p-6">
-                  <h2 className="font-mono text-acid-green mb-4">Visibility Distribution</h2>
+                  <h2 className="font-theme-data text-[var(--accent)] mb-4">Visibility Distribution</h2>
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     {Object.entries(stats.nodes_by_visibility).map(([level, count]) => (
-                      <div key={level} className="p-3 bg-surface rounded border border-acid-green/10">
-                        <div className="font-mono text-xs text-text-muted capitalize">{level}</div>
-                        <div className="font-mono text-lg text-text">{count.toLocaleString()}</div>
+                      <div key={level} className="p-3 bg-surface rounded border border-[var(--accent)]/10">
+                        <div className="font-theme-data text-xs text-text-muted capitalize">{level}</div>
+                        <div className="font-theme-data text-lg text-text">{count.toLocaleString()}</div>
                       </div>
                     ))}
                   </div>
@@ -313,35 +313,35 @@ export default function KnowledgeAdminPage() {
 
               {/* Quick Actions */}
               <div className="card p-6">
-                <h2 className="font-mono text-acid-green mb-4">Quick Actions</h2>
+                <h2 className="font-theme-data text-[var(--accent)] mb-4">Quick Actions</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <Link
                     href="/control-plane"
-                    className="p-4 bg-surface rounded border border-acid-green/20 hover:border-acid-green/50 transition-colors"
+                    className="p-4 bg-surface rounded border border-[var(--accent)]/20 hover:border-[var(--accent)]/50 transition-colors"
                   >
-                    <div className="font-mono text-sm text-acid-green">Knowledge Explorer</div>
-                    <div className="font-mono text-xs text-text-muted mt-1">Browse and query knowledge</div>
+                    <div className="font-theme-data text-sm text-[var(--accent)]">Knowledge Explorer</div>
+                    <div className="font-theme-data text-xs text-text-muted mt-1">Browse and query knowledge</div>
                   </Link>
                   <button
                     onClick={() => setActiveTab('federation')}
-                    className="p-4 bg-surface rounded border border-acid-green/20 hover:border-acid-green/50 transition-colors text-left"
+                    className="p-4 bg-surface rounded border border-[var(--accent)]/20 hover:border-[var(--accent)]/50 transition-colors text-left"
                   >
-                    <div className="font-mono text-sm text-acid-cyan">Manage Federation</div>
-                    <div className="font-mono text-xs text-text-muted mt-1">Configure multi-region sync</div>
+                    <div className="font-theme-data text-sm text-[var(--acid-cyan)]">Manage Federation</div>
+                    <div className="font-theme-data text-xs text-text-muted mt-1">Configure multi-region sync</div>
                   </button>
                   <button
                     onClick={() => setActiveTab('global')}
-                    className="p-4 bg-surface rounded border border-acid-green/20 hover:border-acid-green/50 transition-colors text-left"
+                    className="p-4 bg-surface rounded border border-[var(--accent)]/20 hover:border-[var(--accent)]/50 transition-colors text-left"
                   >
-                    <div className="font-mono text-sm text-acid-yellow">Add Global Fact</div>
-                    <div className="font-mono text-xs text-text-muted mt-1">Store verified facts</div>
+                    <div className="font-theme-data text-sm text-[var(--acid-yellow)]">Add Global Fact</div>
+                    <div className="font-theme-data text-xs text-text-muted mt-1">Store verified facts</div>
                   </button>
                   <Link
                     href="/admin/audit"
-                    className="p-4 bg-surface rounded border border-acid-green/20 hover:border-acid-green/50 transition-colors"
+                    className="p-4 bg-surface rounded border border-[var(--accent)]/20 hover:border-[var(--accent)]/50 transition-colors"
                   >
-                    <div className="font-mono text-sm text-text">View Audit Logs</div>
-                    <div className="font-mono text-xs text-text-muted mt-1">Knowledge access history</div>
+                    <div className="font-theme-data text-sm text-text">View Audit Logs</div>
+                    <div className="font-theme-data text-xs text-text-muted mt-1">Knowledge access history</div>
                   </Link>
                 </div>
               </div>
@@ -378,31 +378,31 @@ export default function KnowledgeAdminPage() {
               {/* Add New Fact Form */}
               {isAdmin && (
                 <div className="card p-6">
-                  <h2 className="font-mono text-acid-green mb-4">Add Verified Fact</h2>
+                  <h2 className="font-theme-data text-[var(--accent)] mb-4">Add Verified Fact</h2>
                   <div className="space-y-4">
                     <div>
-                      <label className="block font-mono text-xs text-text-muted mb-1">Content</label>
+                      <label className="block font-theme-data text-xs text-text-muted mb-1">Content</label>
                       <textarea
                         value={newFactContent}
                         onChange={(e) => setNewFactContent(e.target.value)}
                         placeholder="Enter the verified fact..."
-                        className="w-full p-3 bg-bg border border-acid-green/30 rounded font-mono text-sm text-text resize-none focus:outline-none focus:border-acid-green"
+                        className="w-full p-3 bg-bg border border-[var(--accent)]/30 rounded font-theme-data text-sm text-text resize-none focus:outline-none focus:border-[var(--accent)]"
                         rows={3}
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block font-mono text-xs text-text-muted mb-1">Source</label>
+                        <label className="block font-theme-data text-xs text-text-muted mb-1">Source</label>
                         <input
                           type="text"
                           value={newFactSource}
                           onChange={(e) => setNewFactSource(e.target.value)}
                           placeholder="e.g., RFC 7231, HIPAA 164.530"
-                          className="w-full p-3 bg-bg border border-acid-green/30 rounded font-mono text-sm text-text focus:outline-none focus:border-acid-green"
+                          className="w-full p-3 bg-bg border border-[var(--accent)]/30 rounded font-theme-data text-sm text-text focus:outline-none focus:border-[var(--accent)]"
                         />
                       </div>
                       <div>
-                        <label className="block font-mono text-xs text-text-muted mb-1">
+                        <label className="block font-theme-data text-xs text-text-muted mb-1">
                           Confidence ({Math.round(newFactConfidence * 100)}%)
                         </label>
                         <input
@@ -419,7 +419,7 @@ export default function KnowledgeAdminPage() {
                     <button
                       onClick={handleStoreFact}
                       disabled={isStoringFact || !newFactContent.trim() || !newFactSource.trim()}
-                      className="px-6 py-2 bg-acid-yellow/20 border border-acid-yellow/40 text-acid-yellow font-mono text-sm rounded hover:bg-acid-yellow/30 transition-colors disabled:opacity-50"
+                      className="px-6 py-2 bg-acid-yellow/20 border border-acid-yellow/40 text-[var(--acid-yellow)] font-theme-data text-sm rounded hover:bg-acid-yellow/30 transition-colors disabled:opacity-50"
                     >
                       {isStoringFact ? 'Storing...' : 'Store Verified Fact'}
                     </button>
@@ -429,13 +429,13 @@ export default function KnowledgeAdminPage() {
 
               {/* Recent Global Facts */}
               <div className="card p-6">
-                <h2 className="font-mono text-acid-green mb-4">Recent Global Facts</h2>
-                <p className="font-mono text-sm text-text-muted">
+                <h2 className="font-theme-data text-[var(--accent)] mb-4">Recent Global Facts</h2>
+                <p className="font-theme-data text-sm text-text-muted">
                   Query global knowledge using the Knowledge Explorer.
                 </p>
                 <Link
                   href="/control-plane"
-                  className="inline-block mt-4 px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors"
+                  className="inline-block mt-4 px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors"
                 >
                   Open Knowledge Explorer
                 </Link>
@@ -445,8 +445,8 @@ export default function KnowledgeAdminPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

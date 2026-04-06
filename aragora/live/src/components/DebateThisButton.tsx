@@ -25,7 +25,7 @@ export function DebateThisButton({
       <>
         <button
           onClick={(e) => { e.stopPropagation(); setIsOpen(true); }}
-          className={`w-8 h-8 flex items-center justify-center text-acid-cyan border border-acid-cyan/30 rounded hover:bg-acid-cyan/10 hover:border-acid-cyan transition-all ${className}`}
+          className={`w-8 h-8 flex items-center justify-center text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 rounded hover:bg-[var(--acid-cyan)]/10 hover:border-[var(--acid-cyan)] transition-all ${className}`}
           title="Debate This"
           aria-label="Debate This"
         >
@@ -50,7 +50,7 @@ export function DebateThisButton({
       <>
         <button
           onClick={(e) => { e.stopPropagation(); setIsOpen(true); }}
-          className={`text-xs font-mono text-acid-cyan hover:text-acid-green underline underline-offset-2 transition-colors ${className}`}
+          className={`text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] underline underline-offset-2 transition-colors ${className}`}
         >
           Debate This
         </button>
@@ -71,7 +71,7 @@ export function DebateThisButton({
     <>
       <button
         onClick={(e) => { e.stopPropagation(); setIsOpen(true); }}
-        className={`px-3 py-1 text-xs font-mono text-acid-cyan border border-acid-cyan/50 hover:bg-acid-cyan/10 hover:border-acid-cyan transition-all duration-200 rounded ${className}`}
+        className={`px-3 py-1 text-xs font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/50 hover:bg-[var(--acid-cyan)]/10 hover:border-[var(--acid-cyan)] transition-all duration-200 rounded ${className}`}
       >
         DEBATE THIS
       </button>

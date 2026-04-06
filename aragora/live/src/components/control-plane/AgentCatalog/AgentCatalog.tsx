@@ -267,7 +267,7 @@ export function AgentCatalog({
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="mt-2 text-xs text-acid-green hover:underline"
+              className="mt-2 text-xs text-[var(--accent)] hover:underline"
             >
               Clear search
             </button>
@@ -298,7 +298,7 @@ export function AgentCatalog({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search agents..."
-          className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-acid-green focus:outline-none"
+          className="w-full px-3 py-2 text-sm bg-surface border border-border rounded focus:border-[var(--accent)] focus:outline-none"
         />
 
         {/* Filter tabs */}
@@ -307,9 +307,9 @@ export function AgentCatalog({
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id as AgentFilter)}
-              className={`px-3 py-1 text-xs font-mono rounded transition-colors ${
+              className={`px-3 py-1 text-xs font-theme-data rounded transition-colors ${
                 filter === tab.id
-                  ? 'bg-acid-green text-bg'
+                  ? 'bg-[var(--accent)] text-bg'
                   : 'bg-surface text-text-muted hover:text-text'
               }`}
             >

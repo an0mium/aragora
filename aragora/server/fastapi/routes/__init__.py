@@ -5,10 +5,13 @@ from . import debates
 from . import decisions
 from . import testfixer
 from . import receipts
+from . import backups
+from . import dr
 from . import gauntlet
 from . import agents
 from . import consensus
 from . import pipeline
+from . import runs
 from . import knowledge
 from . import workflows
 from . import compliance
@@ -33,10 +36,13 @@ __all__ = [
     "decisions",
     "testfixer",
     "receipts",
+    "backups",
+    "dr",
     "gauntlet",
     "agents",
     "consensus",
     "pipeline",
+    "runs",
     "knowledge",
     "workflows",
     "compliance",

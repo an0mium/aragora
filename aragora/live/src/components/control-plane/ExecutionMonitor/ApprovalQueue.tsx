@@ -85,7 +85,7 @@ export function ApprovalQueue({
                   👤
                 </div>
                 <div>
-                  <div className="text-sm font-mono text-text">{request.step_name}</div>
+                  <div className="text-sm font-theme-data text-text">{request.step_name}</div>
                   <div className="text-xs text-text-muted">
                     Requested{' '}
                     {new Date(request.requested_at).toLocaleString()}
@@ -141,7 +141,7 @@ export function ApprovalQueue({
                     value={notes[request.id] || ''}
                     onChange={(e) => updateNotes(request.id, e.target.value)}
                     placeholder="Add any notes or comments..."
-                    className="w-full px-3 py-2 text-sm bg-bg border border-border rounded resize-none focus:border-acid-green focus:outline-none"
+                    className="w-full px-3 py-2 text-sm bg-bg border border-border rounded resize-none focus:border-[var(--accent)] focus:outline-none"
                     rows={2}
                     disabled={isLoading}
                   />

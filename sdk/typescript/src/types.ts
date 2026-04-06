@@ -1953,6 +1953,30 @@ export interface MFAVerifyResponse {
   mfa_enabled: boolean;
 }
 
+export interface MFACompatibilityResponse {
+  status: string;
+  message?: string | null;
+  secret?: string | null;
+  provisioning_uri?: string | null;
+  qr_code_uri?: string | null;
+  backup_codes?: string[] | null;
+  sessions_invalidated?: boolean | null;
+  disabled?: boolean | null;
+  tokens?: {
+    access_token?: string;
+    refresh_token?: string;
+    token_type?: string;
+    expires_in?: number;
+  } | null;
+  access_token?: string | null;
+  refresh_token?: string | null;
+  token_type?: string | null;
+  expires_in?: number | null;
+  user?: User | Record<string, unknown> | null;
+  backup_codes_remaining?: number | null;
+  warning?: string | null;
+}
+
 // =============================================================================
 // Tenancy Types
 // =============================================================================

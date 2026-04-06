@@ -39,17 +39,17 @@ const STEPS = [
 
 export function DebateProtocolSection() {
   return (
-    <section className="py-12 border-t border-acid-green/20">
+    <section className="py-12 border-t border-[var(--accent)]/20">
       <div className="container mx-auto px-4">
         <SectionHeader title="THE DELIBERATION PROTOCOL" />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 max-w-6xl mx-auto">
           {STEPS.map((step) => (
             <div key={step.id} className={`border border-${step.accent}/20 p-4 bg-surface/30`}>
-              <h3 className={`text-${step.accent} font-mono text-sm mb-2`}>
+              <h3 className={`text-${step.accent} font-theme-data text-sm mb-2`}>
                 [{step.id}] {step.title}
               </h3>
-              <p className="text-text-muted text-xs font-mono leading-relaxed">{step.content}</p>
+              <p className="text-text-muted text-xs font-theme-data leading-relaxed">{step.content}</p>
             </div>
           ))}
         </div>

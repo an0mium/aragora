@@ -26,9 +26,15 @@ from aragora.pipeline.backbone_contracts import (
     SpecBundle,
     build_goal_refs_from_implement_plan,
 )
+from aragora.pipeline.backbone_errors import (
+    BackbonePersistenceError,
+    FAIL_CLOSED_BACKBONE_MESSAGE,
+    ensure_backbone_persisted,
+)
 from aragora.pipeline.backbone_runtime import BackboneRuntime
 from aragora.pipeline.decision_plan.factory import normalize_execution_mode
-from aragora.pipeline.executor import ExecutionMode
+from aragora.pipeline.execution_mode import ExecutionMode as SafetyMode
+from aragora.pipeline.executor import ExecutionMode as ExecutorExecutionMode
 
 from ..base import (
     HandlerResult,
@@ -210,6 +216,11 @@ class PromptEngineHandler(SecureHandler):
             "execution_id": execution_id,
             "receipt_id": receipt_id,
         }
+
+    @staticmethod
+    def _backbone_failure_response(exc: BackbonePersistenceError) -> HandlerResult:
+        logger.warning("Prompt-engine interactive execution blocked: %s", exc)
+        return error_response(FAIL_CLOSED_BACKBONE_MESSAGE, 503)
 
     @staticmethod
     def _query_limit(value: Any, default: int = 20) -> int:
@@ -403,7 +414,14 @@ class PromptEngineHandler(SecureHandler):
                 },
             )
         )
-        runtime.create_run(run)
+        try:
+            runtime.create_run(run)
+            ensure_backbone_persisted(
+                runtime.get_run(run_id) is not None,
+                f"Failed to persist prompt-engine backbone run {run_id}",
+            )
+        except BackbonePersistenceError as exc:
+            return self._backbone_failure_response(exc)
 
         conductor = self._make_conductor(data)
 
@@ -447,46 +465,61 @@ class PromptEngineHandler(SecureHandler):
                 "stages_completed": list(result.stages_completed),
             },
         )
-        runtime.update_run(
-            run_id,
-            status="spec_ready",
-            intake_bundle=canonical_intake,
-            spec_bundle=spec_bundle,
-            metadata={
-                "prompt_engine": {
-                    "question_count": len(result.questions),
-                    "auto_approved": bool(result.auto_approved),
-                    "stages_completed": list(result.stages_completed),
-                    "validation_passed": bool(getattr(validation, "passed", False)),
-                }
-            },
-        )
-        runtime.append_stage_event(
-            run_id,
-            BackboneStage.INTENT,
-            status="completed",
-            details={
-                "intent_type": result.intent.to_dict().get("intent_type"),
-                "ambiguity_count": len(getattr(result.intent, "ambiguities", []) or []),
-            },
-        )
-        if "research" in result.stages_completed or result.research is not None:
-            runtime.append_stage_event(
-                run_id,
-                BackboneStage.RESEARCH,
-                status="completed" if result.research is not None else "skipped",
+        try:
+            ensure_backbone_persisted(
+                runtime.update_run(
+                    run_id,
+                    status="spec_ready",
+                    intake_bundle=canonical_intake,
+                    spec_bundle=spec_bundle,
+                    metadata={
+                        "prompt_engine": {
+                            "question_count": len(result.questions),
+                            "auto_approved": bool(result.auto_approved),
+                            "stages_completed": list(result.stages_completed),
+                            "validation_passed": bool(getattr(validation, "passed", False)),
+                        }
+                    },
+                ),
+                f"Failed to update prompt-engine backbone run {run_id}",
             )
-        runtime.append_stage_event(
-            run_id,
-            BackboneStage.SPECIFICATION,
-            status="completed",
-            artifact_ref="spec_bundle",
-            details={
-                "execution_grade": spec_bundle.is_execution_grade,
-                "missing_required_fields": list(spec_bundle.missing_required_fields),
-                "validation_passed": bool(getattr(validation, "passed", False)),
-            },
-        )
+            ensure_backbone_persisted(
+                runtime.append_stage_event(
+                    run_id,
+                    BackboneStage.INTENT,
+                    status="completed",
+                    details={
+                        "intent_type": result.intent.to_dict().get("intent_type"),
+                        "ambiguity_count": len(getattr(result.intent, "ambiguities", []) or []),
+                    },
+                ),
+                f"Failed to record intent stage for backbone run {run_id}",
+            )
+            if "research" in result.stages_completed or result.research is not None:
+                ensure_backbone_persisted(
+                    runtime.append_stage_event(
+                        run_id,
+                        BackboneStage.RESEARCH,
+                        status="completed" if result.research is not None else "skipped",
+                    ),
+                    f"Failed to record research stage for backbone run {run_id}",
+                )
+            ensure_backbone_persisted(
+                runtime.append_stage_event(
+                    run_id,
+                    BackboneStage.SPECIFICATION,
+                    status="completed",
+                    artifact_ref="spec_bundle",
+                    details={
+                        "execution_grade": spec_bundle.is_execution_grade,
+                        "missing_required_fields": list(spec_bundle.missing_required_fields),
+                        "validation_passed": bool(getattr(validation, "passed", False)),
+                    },
+                ),
+                f"Failed to record specification stage for backbone run {run_id}",
+            )
+        except BackbonePersistenceError as exc:
+            return self._backbone_failure_response(exc)
 
         payload = {
             "specification": result.specification.to_dict(),
@@ -527,20 +560,29 @@ class PromptEngineHandler(SecureHandler):
                 fail_closed_spec_validation=True,
             )
         except ValueError as exc:
-            runtime.append_stage_event(
-                run_id,
-                BackboneStage.PLAN,
-                status="blocked",
-                details={
-                    "reason": "spec_not_execution_grade",
-                    "missing_required_fields": list(spec_bundle.missing_required_fields),
-                },
-            )
-            runtime.update_run(
-                run_id,
-                status="spec_ready",
-                metadata={"decision_plan_error": str(exc)},
-            )
+            try:
+                ensure_backbone_persisted(
+                    runtime.append_stage_event(
+                        run_id,
+                        BackboneStage.PLAN,
+                        status="blocked",
+                        details={
+                            "reason": "spec_not_execution_grade",
+                            "missing_required_fields": list(spec_bundle.missing_required_fields),
+                        },
+                    ),
+                    f"Failed to record blocked plan stage for backbone run {run_id}",
+                )
+                ensure_backbone_persisted(
+                    runtime.update_run(
+                        run_id,
+                        status="spec_ready",
+                        metadata={"decision_plan_error": str(exc)},
+                    ),
+                    f"Failed to update decision-plan error state for backbone run {run_id}",
+                )
+            except BackbonePersistenceError as backbone_exc:
+                return self._backbone_failure_response(backbone_exc)
             payload["decision_plan_error"] = {
                 "message": str(exc),
                 "missing_required_fields": list(spec_bundle.missing_required_fields),
@@ -558,7 +600,13 @@ class PromptEngineHandler(SecureHandler):
             plan.metadata["execution_gate"] = execution_gate_decision.gate
 
         store.create(plan)
-        runtime.sync_plan_receipt_to_run(plan, append_event=False)
+        try:
+            ensure_backbone_persisted(
+                runtime.sync_plan_receipt_to_run(plan, append_event=False),
+                f"Failed to sync decision-plan receipt for backbone run {run_id}",
+            )
+        except BackbonePersistenceError as exc:
+            return self._backbone_failure_response(exc)
         store_plan(plan)
         payload["decision_plan"] = plan.to_dict()
         goal_refs = build_goal_refs_from_implement_plan(plan.implement_plan)
@@ -571,47 +619,62 @@ class PromptEngineHandler(SecureHandler):
             if plan.requires_human_approval and not plan.is_approved
             else "plan_ready"
         )
-        runtime.update_run(
-            run_id,
-            status=run_status,
-            plan_id=plan.id,
-            debate_id=plan.debate_id,
-            receipt_id=receipt_id,
-            goal_refs=goal_refs,
-            metadata={
-                "decision_plan_status": plan.status.value,
-                "decision_plan_requires_human_approval": plan.requires_human_approval,
-                "goal_refs_count": len(goal_refs),
-                "execution_gate": execution_gate_decision.gate,
-            },
-        )
-        runtime.append_stage_event(
-            run_id,
-            BackboneStage.GOALS,
-            status="completed" if goal_refs else "skipped",
-            artifact_ref=plan.id,
-            details={"goal_refs_count": len(goal_refs)},
-        )
-        runtime.append_stage_event(
-            run_id,
-            BackboneStage.PLAN,
-            status="completed",
-            artifact_ref=plan.id,
-            details={
-                "plan_status": plan.status.value,
-                "approval_mode": plan.approval_mode.value,
-                "requires_human_approval": plan.requires_human_approval,
-                "execution_gate_reasons": list(execution_gate_decision.reason_codes),
-            },
-        )
-        if receipt_id:
-            runtime.append_stage_event(
-                run_id,
-                BackboneStage.RECEIPT,
-                status=str(decision_receipt.get("state", "created") or "created"),
-                artifact_ref=receipt_id,
-                details={"source": "decision_plan_receipt"},
+        try:
+            ensure_backbone_persisted(
+                runtime.update_run(
+                    run_id,
+                    status=run_status,
+                    plan_id=plan.id,
+                    debate_id=plan.debate_id,
+                    receipt_id=receipt_id,
+                    goal_refs=goal_refs,
+                    metadata={
+                        "decision_plan_status": plan.status.value,
+                        "decision_plan_requires_human_approval": plan.requires_human_approval,
+                        "goal_refs_count": len(goal_refs),
+                        "execution_gate": execution_gate_decision.gate,
+                    },
+                ),
+                f"Failed to update decision-plan state for backbone run {run_id}",
             )
+            ensure_backbone_persisted(
+                runtime.append_stage_event(
+                    run_id,
+                    BackboneStage.GOALS,
+                    status="completed" if goal_refs else "skipped",
+                    artifact_ref=plan.id,
+                    details={"goal_refs_count": len(goal_refs)},
+                ),
+                f"Failed to record goals stage for backbone run {run_id}",
+            )
+            ensure_backbone_persisted(
+                runtime.append_stage_event(
+                    run_id,
+                    BackboneStage.PLAN,
+                    status="completed",
+                    artifact_ref=plan.id,
+                    details={
+                        "plan_status": plan.status.value,
+                        "approval_mode": plan.approval_mode.value,
+                        "requires_human_approval": plan.requires_human_approval,
+                        "execution_gate_reasons": list(execution_gate_decision.reason_codes),
+                    },
+                ),
+                f"Failed to record plan stage for backbone run {run_id}",
+            )
+            if receipt_id:
+                ensure_backbone_persisted(
+                    runtime.append_stage_event(
+                        run_id,
+                        BackboneStage.RECEIPT,
+                        status=str(decision_receipt.get("state", "created") or "created"),
+                        artifact_ref=receipt_id,
+                        details={"source": "decision_plan_receipt"},
+                    ),
+                    f"Failed to record receipt stage for backbone run {run_id}",
+                )
+        except BackbonePersistenceError as exc:
+            return self._backbone_failure_response(exc)
 
         execution_id = ""
         if plan_request["schedule_execution"]:
@@ -626,25 +689,38 @@ class PromptEngineHandler(SecureHandler):
                     or (plan.requires_human_approval and not plan.is_approved)
                     else "blocked"
                 )
-                runtime.update_run(
-                    run_id,
-                    status=run_status,
-                    metadata={
-                        "execution_pending_approval": run_status == "pending_approval",
-                        "execution_gate_blocked": run_status == "blocked",
-                        "execution_gate": execution_gate_decision.gate,
-                    },
-                )
-                runtime.append_stage_event(
-                    run_id,
-                    BackboneStage.EXECUTION,
-                    status=run_status,
-                    artifact_ref=plan.id,
-                    details={
-                        "requires_human_approval": run_status == "pending_approval",
-                        "execution_gate_reasons": list(execution_gate_decision.reason_codes),
-                    },
-                )
+                try:
+                    ensure_backbone_persisted(
+                        runtime.update_run(
+                            run_id,
+                            status=run_status,
+                            metadata={
+                                "safety_mode": SafetyMode.INTERACTIVE.value,
+                                "execution_pending_approval": run_status == "pending_approval",
+                                "execution_gate_blocked": run_status == "blocked",
+                                "execution_gate": execution_gate_decision.gate,
+                            },
+                        ),
+                        f"Failed to update execution gate state for backbone run {run_id}",
+                    )
+                    ensure_backbone_persisted(
+                        runtime.append_stage_event(
+                            run_id,
+                            BackboneStage.EXECUTION,
+                            status=run_status,
+                            artifact_ref=plan.id,
+                            details={
+                                "requires_human_approval": run_status == "pending_approval",
+                                "execution_gate_reasons": list(
+                                    execution_gate_decision.reason_codes
+                                ),
+                                "safety_mode": SafetyMode.INTERACTIVE.value,
+                            },
+                        ),
+                        f"Failed to record execution gate stage for backbone run {run_id}",
+                    )
+                except BackbonePersistenceError as exc:
+                    return self._backbone_failure_response(exc)
                 payload["execution"] = {
                     "status": run_status,
                     "plan_id": plan.id,
@@ -659,25 +735,39 @@ class PromptEngineHandler(SecureHandler):
                     else None
                 )
                 run_status = "execution_requested"
-                runtime.update_run(
-                    run_id,
-                    status=run_status,
-                    metadata={
-                        "execution_mode": execution_mode or "default",
-                        "execution_requested": True,
-                    },
-                )
-                runtime.append_stage_event(
-                    run_id,
-                    BackboneStage.EXECUTION,
-                    status="requested",
-                    artifact_ref=plan.id,
-                    details={"execution_mode": execution_mode or "default"},
-                )
-                bridge.schedule_execution(
-                    plan.id,
-                    execution_mode=cast(ExecutionMode | None, execution_mode),
-                )
+                try:
+                    ensure_backbone_persisted(
+                        runtime.update_run(
+                            run_id,
+                            status=run_status,
+                            metadata={
+                                "execution_mode": execution_mode or "default",
+                                "safety_mode": SafetyMode.INTERACTIVE.value,
+                                "execution_requested": True,
+                            },
+                        ),
+                        f"Failed to update execution request state for backbone run {run_id}",
+                    )
+                    ensure_backbone_persisted(
+                        runtime.append_stage_event(
+                            run_id,
+                            BackboneStage.EXECUTION,
+                            status="requested",
+                            artifact_ref=plan.id,
+                            details={
+                                "execution_mode": execution_mode or "default",
+                                "safety_mode": SafetyMode.INTERACTIVE.value,
+                            },
+                        ),
+                        f"Failed to record requested execution stage for backbone run {run_id}",
+                    )
+                    bridge.schedule_execution(
+                        plan.id,
+                        execution_mode=cast(ExecutorExecutionMode | None, execution_mode),
+                        safety_mode=SafetyMode.INTERACTIVE,
+                    )
+                except BackbonePersistenceError as exc:
+                    return self._backbone_failure_response(exc)
                 record = next(iter(bridge.list_execution_records(plan_id=plan.id, limit=1)), None)
                 execution_payload: dict[str, Any] = {
                     "status": "scheduled",
@@ -687,23 +777,36 @@ class PromptEngineHandler(SecureHandler):
                 if record:
                     execution_payload["record"] = record
                     execution_id = str(record.get("execution_id", "") or "").strip()
-                    runtime.update_run(
-                        run_id,
-                        status="execution_scheduled",
-                        execution_id=execution_id,
-                        metadata={
-                            "scheduled_execution_status": str(
-                                record.get("status", "queued") or "queued"
-                            )
-                        },
-                    )
-                    runtime.append_stage_event(
-                        run_id,
-                        BackboneStage.EXECUTION,
-                        status=str(record.get("status", "queued") or "queued"),
-                        artifact_ref=execution_id,
-                        details={"execution_mode": execution_mode or "default"},
-                    )
+                    try:
+                        ensure_backbone_persisted(
+                            runtime.update_run(
+                                run_id,
+                                status="execution_scheduled",
+                                execution_id=execution_id,
+                                metadata={
+                                    "safety_mode": SafetyMode.INTERACTIVE.value,
+                                    "scheduled_execution_status": str(
+                                        record.get("status", "queued") or "queued"
+                                    ),
+                                },
+                            ),
+                            f"Failed to update scheduled execution state for backbone run {run_id}",
+                        )
+                        ensure_backbone_persisted(
+                            runtime.append_stage_event(
+                                run_id,
+                                BackboneStage.EXECUTION,
+                                status=str(record.get("status", "queued") or "queued"),
+                                artifact_ref=execution_id,
+                                details={
+                                    "execution_mode": execution_mode or "default",
+                                    "safety_mode": SafetyMode.INTERACTIVE.value,
+                                },
+                            ),
+                            f"Failed to record scheduled execution stage for backbone run {run_id}",
+                        )
+                    except BackbonePersistenceError as exc:
+                        return self._backbone_failure_response(exc)
                     run_status = "execution_scheduled"
                 payload["execution"] = execution_payload
 

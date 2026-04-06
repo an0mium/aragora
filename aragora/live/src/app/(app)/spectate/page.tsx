@@ -85,17 +85,17 @@ function getBridgeLabel(state: BridgeState): string {
 function getBridgeTone(state: BridgeState): string {
   switch (state) {
     case 'live_debates_available':
-      return 'bg-acid-green/10 text-acid-green border-acid-green/30';
+      return 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30';
     case 'activity_unattributed':
     case 'status_unavailable':
-      return 'bg-acid-cyan/10 text-acid-cyan border-acid-cyan/30';
+      return 'bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30';
     case 'idle':
     case 'checking':
-      return 'bg-acid-yellow/10 text-acid-yellow border-acid-yellow/30';
+      return 'bg-[var(--acid-yellow)]/10 text-[var(--acid-yellow)] border-[var(--acid-yellow)]/30';
     case 'inactive':
     case 'unreachable':
     default:
-      return 'bg-red-500/10 text-red-400 border-red-500/30';
+      return 'bg-[var(--crimson)]/10 text-[var(--crimson)] border-[var(--crimson)]/30';
   }
 }
 
@@ -268,14 +268,14 @@ export default function SpectatePage() {
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Bridge</span>
             <span
-              className={`text-sm font-mono ${
+              className={`text-sm font-theme-data ${
                 bridgeState === 'live_debates_available'
-                  ? 'text-[var(--acid-green)]'
+                  ? 'text-[var(--accent)]'
                   : bridgeState === 'activity_unattributed' || bridgeState === 'status_unavailable'
                     ? 'text-[var(--acid-cyan)]'
                     : bridgeState === 'idle' || bridgeState === 'checking'
                       ? 'text-[var(--acid-yellow)]'
-                      : 'text-red-400'
+                      : 'text-[var(--crimson)]'
               }`}
             >
               {getBridgeLabel(bridgeState)}
@@ -283,25 +283,25 @@ export default function SpectatePage() {
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Discoverable Debates</span>
-            <span className="text-sm font-mono text-[var(--acid-green)]">
+            <span className="text-sm font-theme-data text-[var(--accent)]">
               {discoverableDebates.length}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Recent Events</span>
-            <span className="text-sm font-mono text-[var(--acid-cyan)]">
+            <span className="text-sm font-theme-data text-[var(--acid-cyan)]">
               {recentEventCount}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Last Activity</span>
-            <span className="text-sm font-mono text-[var(--text)]">
+            <span className="text-sm font-theme-data text-[var(--text)]">
               {formatRelativeAge(spectateStatus?.last_event_at)}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Buffered Events</span>
-            <span className="text-sm font-mono text-[var(--text)]">
+            <span className="text-sm font-theme-data text-[var(--text)]">
               {spectateStatus?.buffer_size ?? spectateEvents.length}
             </span>
           </div>
@@ -311,13 +311,13 @@ export default function SpectatePage() {
         <div className="space-y-2">
           <Link
             href="/arena"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center btn-theme-primary"
           >
             + START DEBATE
           </Link>
           <Link
             href="/debates"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center btn-theme-secondary"
           >
             VIEW ARCHIVE
           </Link>
@@ -339,44 +339,49 @@ export default function SpectatePage() {
 
   return (
     <>
-      <Scanlines opacity={0.02} />
-      <CRTVignette />
+      {/* CRT effects only render in dark theme via CSS */}
+      <div className="crt-effect">
+        <Scanlines opacity={0.02} />
+        <CRTVignette />
+      </div>
 
-      <main className="min-h-screen bg-bg text-text relative z-10">
+      <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
         <div className="max-w-6xl mx-auto px-4 py-8">
+          {/* Header */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-2">
               <div
                 className={`w-3 h-3 rounded-full ${
                   bridgeState === 'live_debates_available'
-                    ? 'bg-acid-green animate-pulse'
+                    ? 'bg-[var(--accent)] animate-pulse'
                     : bridgeState === 'activity_unattributed'
-                      ? 'bg-acid-cyan animate-pulse'
+                      ? 'bg-[var(--acid-cyan)] animate-pulse'
                       : bridgeState === 'idle' || bridgeState === 'checking'
-                        ? 'bg-acid-yellow animate-pulse'
-                        : 'bg-red-500'
+                        ? 'bg-[var(--acid-yellow)] animate-pulse'
+                        : 'bg-[var(--crimson)]'
                 }`}
               />
-              <h1 className="text-2xl font-mono text-acid-green">SPECTATE MODE</h1>
-              <span className={`px-2 py-0.5 text-xs font-mono border rounded ${getBridgeTone(bridgeState)}`}>
+              <h1 className="text-2xl font-theme-heading text-[var(--accent)]">Spectate Mode</h1>
+              <span className={`badge-theme ${getBridgeTone(bridgeState)}`}>
                 {getBridgeLabel(bridgeState)}
               </span>
             </div>
-            <p className="text-text-muted text-sm font-mono">
+            <p className="text-[var(--text-muted)] text-sm">
               Watch only what the live bridge can actually confirm.
             </p>
           </div>
 
-          <div className="border border-acid-cyan/20 bg-acid-cyan/5 p-4 mb-6">
+          {/* Bridge Readiness Panel */}
+          <div className="card-theme-info p-4 mb-6">
             <div className="flex items-start justify-between gap-4 flex-col sm:flex-row">
               <div>
-                <h2 className="text-sm font-mono text-acid-cyan uppercase tracking-wider mb-2">
+                <h2 className="text-sm font-theme-data text-[var(--acid-cyan)] uppercase tracking-wider mb-2">
                   Bridge Readiness
                 </h2>
-                <p className="text-sm font-mono text-text mb-2">
+                <p className="text-sm text-[var(--text)] mb-2">
                   {getReadinessTitle(bridgeState)}
                 </p>
-                <p className="text-xs font-mono text-text-muted max-w-3xl">
+                <p className="text-xs text-[var(--text-muted)] max-w-3xl">
                   {getReadinessBody(
                     bridgeState,
                     discoverableDebates.length,
@@ -384,39 +389,41 @@ export default function SpectatePage() {
                   )}
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-xs font-mono min-w-[240px]">
-                <div className="border border-border bg-surface/50 px-3 py-2">
-                  <div className="text-text-muted mb-1">Bridge State</div>
-                  <div className="text-acid-green break-words">{getBridgeLabel(bridgeState)}</div>
+              <div className="grid grid-cols-2 gap-3 text-xs font-theme-data min-w-[240px]">
+                <div className="card-theme px-3 py-2">
+                  <div className="text-[var(--text-muted)] mb-1">Bridge State</div>
+                  <div className="text-[var(--accent)] break-words">{getBridgeLabel(bridgeState)}</div>
                 </div>
-                <div className="border border-border bg-surface/50 px-3 py-2">
-                  <div className="text-text-muted mb-1">Last Event</div>
-                  <div className="text-acid-cyan">{formatRelativeAge(spectateStatus?.last_event_at)}</div>
+                <div className="card-theme px-3 py-2">
+                  <div className="text-[var(--text-muted)] mb-1">Last Event</div>
+                  <div className="text-[var(--acid-cyan)]">{formatRelativeAge(spectateStatus?.last_event_at)}</div>
                 </div>
-                <div className="border border-border bg-surface/50 px-3 py-2">
-                  <div className="text-text-muted mb-1">Recent Events</div>
-                  <div className="text-acid-green">{recentEventCount}</div>
+                <div className="card-theme px-3 py-2">
+                  <div className="text-[var(--text-muted)] mb-1">Recent Events</div>
+                  <div className="text-[var(--accent)]">{recentEventCount}</div>
                 </div>
-                <div className="border border-border bg-surface/50 px-3 py-2">
-                  <div className="text-text-muted mb-1">Debate IDs</div>
-                  <div className="text-acid-cyan">{discoverableDebates.length}</div>
+                <div className="card-theme px-3 py-2">
+                  <div className="text-[var(--text-muted)] mb-1">Debate IDs</div>
+                  <div className="text-[var(--acid-cyan)]">{discoverableDebates.length}</div>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Loading State */}
           {!spectateLoaded && (
-            <div className="border border-acid-green/20 bg-surface/30 p-8 text-center mb-6">
-              <div className="w-8 h-8 border-2 border-acid-green/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
-              <p className="text-text-muted text-sm font-mono">
+            <div className="card-theme p-8 text-center mb-6">
+              <div className="w-8 h-8 border-2 border-[var(--accent)]/30 border-t-[var(--accent)] rounded-full animate-spin mx-auto mb-4" />
+              <p className="text-[var(--text-muted)] text-sm">
                 Checking live bridge readiness...
               </p>
             </div>
           )}
 
+          {/* Discoverable Debates Grid */}
           {spectateLoaded && discoverableDebates.length > 0 && (
             <div className="space-y-4 mb-6">
-              <h2 className="text-sm font-mono text-acid-cyan uppercase tracking-wider">
+              <h2 className="text-sm font-theme-data text-[var(--acid-cyan)] uppercase tracking-wider">
                 Discoverable Live Debates ({discoverableDebates.length})
               </h2>
 
@@ -425,19 +432,19 @@ export default function SpectatePage() {
                   <Link
                     key={debate.debate_id}
                     href={`/spectate/${debate.debate_id}`}
-                    className="block border border-acid-green/30 bg-surface/50 p-4 hover:border-acid-green/60 hover:bg-surface/80 transition-all group"
+                    className="block card-theme p-4 hover:border-[var(--accent)]/60 transition-all group"
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs font-mono text-text-muted mb-2">Debate ID</div>
-                        <h3 className="text-sm font-mono text-text break-all group-hover:text-acid-green transition-colors">
+                        <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">Debate ID</div>
+                        <h3 className="text-sm font-theme-data text-[var(--text)] break-all group-hover:text-[var(--accent)] transition-colors">
                           {debate.debate_id}
                         </h3>
                         <div className="flex flex-wrap gap-2 mt-3">
                           {debate.event_types.map((eventType) => (
                             <span
                               key={`${debate.debate_id}-${eventType}`}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/30"
+                              className="badge-theme inline-flex items-center gap-1 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30"
                             >
                               <EventTypeIcon eventType={eventType} />
                               {eventType}
@@ -446,19 +453,19 @@ export default function SpectatePage() {
                         </div>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1 text-xs font-mono">
+                      <div className="flex flex-col items-end gap-1 text-xs font-theme-data">
                         <div className="flex items-center gap-2">
-                          <span className="text-text-muted">Recent Events</span>
-                          <span className="text-acid-green">{debate.recent_event_count}</span>
+                          <span className="text-[var(--text-muted)]">Recent Events</span>
+                          <span className="text-[var(--accent)]">{debate.recent_event_count}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-text-muted">Last Seen</span>
-                          <span className="text-acid-cyan">
+                          <span className="text-[var(--text-muted)]">Last Seen</span>
+                          <span className="text-[var(--acid-cyan)]">
                             {formatRelativeAge(debate.last_event_at)}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 text-acid-green">
-                          <div className="w-2 h-2 bg-acid-green rounded-full animate-pulse" />
+                        <div className="flex items-center gap-1 text-[var(--accent)]">
+                          <div className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" />
                           OPEN FEED
                         </div>
                       </div>
@@ -469,27 +476,29 @@ export default function SpectatePage() {
             </div>
           )}
 
+          {/* Partial Readiness Warning */}
           {spectateLoaded &&
             bridgeState === 'activity_unattributed' &&
             discoverableDebates.length === 0 && (
-              <div className="border border-acid-yellow/30 bg-acid-yellow/10 p-4 mb-6">
-                <h2 className="text-sm font-mono text-acid-yellow mb-2">
+              <div className="border border-[var(--acid-yellow)]/30 bg-[var(--acid-yellow)]/10 p-4 mb-6" style={{ borderRadius: 'var(--radius-card, 6px)' }}>
+                <h2 className="text-sm font-theme-data text-[var(--acid-yellow)] mb-2">
                   Partial Readiness
                 </h2>
-                <p className="text-xs font-mono text-text-muted">
+                <p className="text-xs text-[var(--text-muted)]">
                   Recent bridge activity is flowing, but the current events are not tagged with
-                  a `debate_id`. This surface stays honest and does not invent clickable live
+                  a debate ID. This surface stays honest and does not invent clickable live
                   debates until attribution is present.
                 </p>
               </div>
             )}
 
+          {/* Recent Bridge Event Feed */}
           {spectateLoaded && recentBridgeEvents.length > 0 && (
             <div className="mt-6 space-y-4">
-              <h2 className="text-sm font-mono text-acid-cyan uppercase tracking-wider">
+              <h2 className="text-sm font-theme-data text-[var(--acid-cyan)] uppercase tracking-wider">
                 Recent Bridge Event Feed ({recentBridgeEvents.length} events)
               </h2>
-              <div className="border border-acid-green/20 bg-surface/30 divide-y divide-border max-h-[400px] overflow-y-auto">
+              <div className="card-theme divide-y divide-[var(--border)] max-h-[400px] overflow-y-auto">
                 {recentBridgeEvents
                   .slice(-20)
                   .reverse()
@@ -500,33 +509,33 @@ export default function SpectatePage() {
                     return (
                       <div
                         key={`${event.timestamp}-${index}`}
-                        className="px-4 py-2 flex items-start gap-3 text-xs font-mono hover:bg-surface/50 transition-colors"
+                        className="px-4 py-2 flex items-start gap-3 text-xs font-theme-data hover:bg-[var(--surface-elevated)] transition-colors"
                       >
-                        <span className="text-acid-green mt-0.5">
+                        <span className="text-[var(--accent)] mt-0.5">
                           <EventTypeIcon eventType={event.event_type} />
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-acid-cyan">{event.event_type}</span>
+                            <span className="text-[var(--acid-cyan)]">{event.event_type}</span>
                             {event.agent_name && (
-                              <span className="text-text-muted">by {event.agent_name}</span>
+                              <span className="text-[var(--text-muted)]">by {event.agent_name}</span>
                             )}
                             {event.round_number != null && (
-                              <span className="text-text-muted">R{event.round_number}</span>
+                              <span className="text-[var(--text-muted)]">R{event.round_number}</span>
                             )}
                           </div>
                           {details && (
-                            <span className="text-text-muted/80 truncate block">
+                            <span className="text-[var(--text-muted)]/80 truncate block">
                               {details}
                             </span>
                           )}
                           {event.debate_id && (
-                            <span className="text-text-muted/60 truncate block">
+                            <span className="text-[var(--text-muted)]/60 truncate block">
                               debate: {event.debate_id}
                             </span>
                           )}
                         </div>
-                        <span className="text-text-muted/40 flex-shrink-0">
+                        <span className="text-[var(--text-muted)]/40 flex-shrink-0">
                           {new Date(event.timestamp).toLocaleTimeString()}
                         </span>
                       </div>
@@ -536,27 +545,28 @@ export default function SpectatePage() {
             </div>
           )}
 
+          {/* Empty State */}
           {spectateLoaded &&
             discoverableDebates.length === 0 &&
             recentBridgeEvents.length === 0 && (
-              <div className="border border-acid-green/20 bg-surface/30 p-8 text-center">
+              <div className="card-theme p-8 text-center">
                 <div className="text-4xl mb-4">👁️</div>
-                <h2 className="text-lg font-mono text-acid-green mb-2">
+                <h2 className="text-lg font-theme-heading text-[var(--accent)] mb-2">
                   {getEmptyStateTitle(bridgeState)}
                 </h2>
-                <p className="text-text-muted text-sm font-mono mb-6 max-w-md mx-auto">
+                <p className="text-[var(--text-muted)] text-sm mb-6 max-w-md mx-auto">
                   {getEmptyStateBody(bridgeState)}
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                   <Link
                     href="/arena"
-                    className="px-6 py-2 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors"
+                    className="px-6 py-2 btn-theme-primary"
                   >
                     START DEBATE
                   </Link>
                   <Link
                     href="/debates"
-                    className="px-6 py-2 border border-acid-green/30 text-acid-green font-mono hover:border-acid-green transition-colors"
+                    className="px-6 py-2 btn-theme-secondary"
                   >
                     VIEW ARCHIVE
                   </Link>
@@ -564,12 +574,13 @@ export default function SpectatePage() {
               </div>
             )}
 
-          <div className="mt-8 border border-acid-cyan/20 bg-acid-cyan/5 p-4">
-            <h3 className="text-sm font-mono text-acid-cyan mb-2">
+          {/* About Section */}
+          <div className="mt-8 card-theme-info p-4">
+            <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-2">
               About Spectate Mode
             </h3>
-            <ul className="text-xs font-mono text-text-muted space-y-1">
-              <li>• This page only lists debates that appear in recent bridge events with a `debate_id`.</li>
+            <ul className="text-xs text-[var(--text-muted)] space-y-1">
+              <li>• This page only lists debates that appear in recent bridge events with a debate ID.</li>
               <li>• If activity is real but unattributed, the surface stays partial instead of inventing a live card.</li>
               <li>• Recent bridge status is shown separately from the raw event feed.</li>
               <li>• Read-only: spectators cannot influence debates.</li>

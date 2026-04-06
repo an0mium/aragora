@@ -122,18 +122,18 @@ export function TopicDetailDrawer({
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-surface border-l border-acid-green/30 z-50 flex flex-col shadow-2xl">
+      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-surface border-l border-[var(--accent)]/30 z-50 flex flex-col shadow-2xl">
         {/* Header */}
         <div className="p-4 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-lg">{sourceIcon}</span>
-            <span className="text-xs font-mono text-text-muted uppercase">
+            <span className="text-xs font-theme-data text-text-muted uppercase">
               {topic.source}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center text-text-muted hover:text-acid-green transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-text-muted hover:text-[var(--accent)] transition-colors"
           >
             <span className="text-lg">×</span>
           </button>
@@ -143,7 +143,7 @@ export function TopicDetailDrawer({
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* Topic title */}
           <div>
-            <h2 className="text-lg font-mono text-acid-green leading-tight">
+            <h2 className="text-lg font-theme-data text-[var(--accent)] leading-tight">
               {topic.topic}
             </h2>
           </div>
@@ -152,14 +152,14 @@ export function TopicDetailDrawer({
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-bg p-3 rounded border border-border">
               <div className="text-xs text-text-muted mb-1">SCORE</div>
-              <div className={`text-2xl font-mono font-bold ${getScoreColor(topic.score)}`}>
+              <div className={`text-2xl font-theme-data font-bold ${getScoreColor(topic.score)}`}>
                 {Math.round(topic.score * 100)}%
               </div>
             </div>
             {topic.volume !== undefined && (
               <div className="bg-bg p-3 rounded border border-border">
                 <div className="text-xs text-text-muted mb-1">ENGAGEMENT</div>
-                <div className="text-2xl font-mono font-bold text-acid-cyan">
+                <div className="text-2xl font-theme-data font-bold text-[var(--acid-cyan)]">
                   {formatVolume(topic.volume)}
                 </div>
               </div>
@@ -167,7 +167,7 @@ export function TopicDetailDrawer({
             {topic.debate_count !== undefined && (
               <div className="bg-bg p-3 rounded border border-border">
                 <div className="text-xs text-text-muted mb-1">DEBATES</div>
-                <div className="text-2xl font-mono font-bold text-text">
+                <div className="text-2xl font-theme-data font-bold text-text">
                   {topic.debate_count}
                 </div>
               </div>
@@ -175,7 +175,7 @@ export function TopicDetailDrawer({
             {topic.category && (
               <div className="bg-bg p-3 rounded border border-border">
                 <div className="text-xs text-text-muted mb-1">CATEGORY</div>
-                <div className="text-lg font-mono text-text capitalize">
+                <div className="text-lg font-theme-data text-text capitalize">
                   {topic.category}
                 </div>
               </div>
@@ -188,27 +188,27 @@ export function TopicDetailDrawer({
               href={sourceLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 p-3 bg-bg border border-border rounded hover:border-acid-green/50 transition-colors group"
+              className="flex items-center gap-2 p-3 bg-bg border border-border rounded hover:border-[var(--accent)]/50 transition-colors group"
             >
               <span className="text-lg">{sourceIcon}</span>
-              <span className="flex-1 text-sm font-mono text-text-muted group-hover:text-text">
+              <span className="flex-1 text-sm font-theme-data text-text-muted group-hover:text-text">
                 View on {topic.source}
               </span>
-              <span className="text-acid-green">→</span>
+              <span className="text-[var(--accent)]">→</span>
             </a>
           )}
 
           {/* Debate Configuration */}
           <div className="border-t border-border pt-4">
-            <h3 className="text-xs font-mono text-acid-green uppercase mb-4">
+            <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase mb-4">
               DEBATE CONFIGURATION
             </h3>
 
             {/* Rounds */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-mono text-text-muted">ROUNDS</label>
-                <span className="text-xs font-mono text-acid-green">{debateConfig.rounds}</span>
+                <label className="text-xs font-theme-data text-text-muted">ROUNDS</label>
+                <span className="text-xs font-theme-data text-[var(--accent)]">{debateConfig.rounds}</span>
               </div>
               <input
                 type="range"
@@ -230,8 +230,8 @@ export function TopicDetailDrawer({
             {/* Agent Count */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-mono text-text-muted">AGENTS</label>
-                <span className="text-xs font-mono text-acid-green">{debateConfig.agentCount}</span>
+                <label className="text-xs font-theme-data text-text-muted">AGENTS</label>
+                <span className="text-xs font-theme-data text-[var(--accent)]">{debateConfig.agentCount}</span>
               </div>
               <input
                 type="range"
@@ -252,7 +252,7 @@ export function TopicDetailDrawer({
 
             {/* Focus Areas */}
             <div>
-              <label className="block text-xs font-mono text-text-muted mb-2">
+              <label className="block text-xs font-theme-data text-text-muted mb-2">
                 FOCUS AREAS (optional)
               </label>
               <div className="flex gap-2 mb-2">
@@ -262,11 +262,11 @@ export function TopicDetailDrawer({
                   onChange={(e) => setCustomFocus(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addFocusArea()}
                   placeholder="Add focus area..."
-                  className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm font-mono text-text placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none"
+                  className="flex-1 px-3 py-2 bg-bg border border-border rounded text-sm font-theme-data text-text placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
                 />
                 <button
                   onClick={addFocusArea}
-                  className="px-3 py-2 bg-acid-green/20 border border-acid-green text-acid-green text-sm font-mono rounded hover:bg-acid-green/30"
+                  className="px-3 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] text-sm font-theme-data rounded hover:bg-[var(--accent)]/30"
                 >
                   +
                 </button>
@@ -276,12 +276,12 @@ export function TopicDetailDrawer({
                   {debateConfig.focusAreas.map((area) => (
                     <span
                       key={area}
-                      className="px-2 py-1 bg-acid-cyan/20 border border-acid-cyan/30 text-acid-cyan text-xs font-mono rounded flex items-center gap-1"
+                      className="px-2 py-1 bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] text-xs font-theme-data rounded flex items-center gap-1"
                     >
                       {area}
                       <button
                         onClick={() => removeFocusArea(area)}
-                        className="text-acid-cyan/70 hover:text-acid-cyan"
+                        className="text-[var(--acid-cyan)]/70 hover:text-[var(--acid-cyan)]"
                       >
                         ×
                       </button>
@@ -296,19 +296,19 @@ export function TopicDetailDrawer({
         {/* Footer with action buttons */}
         <div className="p-4 border-t border-border space-y-2">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-mono text-text-muted">Quick launch:</span>
+            <span className="text-xs font-theme-data text-text-muted">Quick launch:</span>
             <DebateThisButton question={topic.topic} source="pulse" variant="button" />
           </div>
           <button
             onClick={handleStartDebate}
             disabled={isStarting}
-            className="w-full py-3 bg-acid-green text-bg font-mono font-bold rounded hover:bg-acid-green/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3 bg-[var(--accent)] text-bg font-theme-data font-bold rounded hover:bg-[var(--accent)]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isStarting ? 'Starting Debate...' : 'START WITH CONFIG'}
           </button>
           <button
             onClick={onClose}
-            className="w-full py-2 border border-border text-text-muted font-mono text-sm rounded hover:border-text-muted transition-colors"
+            className="w-full py-2 border border-border text-text-muted font-theme-data text-sm rounded hover:border-text-muted transition-colors"
           >
             Cancel
           </button>

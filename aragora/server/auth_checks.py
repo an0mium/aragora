@@ -307,6 +307,9 @@ class AuthChecksMixin:
             # Playground - only mock debate is free (no API credits used)
             "/api/v1/playground/debate",
             "/api/v1/playground/debate/",
+            "/api/v1/playground/assess",
+            "/api/v1/playground/landing/events",
+            "/api/v1/playground/landing/feedback",
             # Live debate + TTS: NOT exempt — require auth + budget gate
             # (handled by _check_live_streaming_budget in the request pipeline)
             "/api/v1/playground/status",
@@ -316,6 +319,7 @@ class AuthChecksMixin:
             "/api/v1/spectate/recent",
             "/api/v1/spectate/status",
             "/api/v1/spectate/stream",
+            "/api/v1/spectate/emit",
             # OAuth callbacks from external providers (redirects carry no auth headers)
             "/api/integrations/slack/callback",
             "/api/integrations/teams/callback",

@@ -15,7 +15,7 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -187,6 +187,92 @@ def cancelled_run(pipeline_store):
         "result": None,
     }
     pipeline_store["pipe-cancel1"] = run
+    return run
+
+
+@pytest.fixture
+def workflow_ready_run(pipeline_store):
+    """Insert a completed pipeline run with a goal graph ready for workflow execution."""
+    run = {
+        "id": "pipe-workflow1",
+        "idea": "Turn approved goals into executable work",
+        "status": "completed",
+        "stages": [
+            {
+                "stage_name": "ideation",
+                "status": "completed",
+                "output": {"type": "Canvas"},
+                "started_at": "2026-02-20T09:00:00",
+                "completed_at": "2026-02-20T09:01:00",
+                "duration": 1.0,
+                "error": None,
+            },
+            {
+                "stage_name": "goals",
+                "status": "completed",
+                "output": {"type": "GoalGraph"},
+                "started_at": "2026-02-20T09:01:00",
+                "completed_at": "2026-02-20T09:02:00",
+                "duration": 0.8,
+                "error": None,
+            },
+        ],
+        "created_at": "2026-02-20T09:00:00",
+        "updated_at": "2026-02-20T09:02:00",
+        "config": {},
+        "result": {
+            "pipeline_id": "pipe-workflow1",
+            "goals": {
+                "id": "gg-1",
+                "goals": [
+                    {
+                        "id": "goal-1",
+                        "title": "Ship the workflow handoff",
+                        "description": "Execute the generated workflow from the pipeline run",
+                        "type": "goal",
+                        "priority": "high",
+                        "measurable": "Execution record exists",
+                        "dependencies": [],
+                        "source_idea_ids": ["idea-1"],
+                        "confidence": 0.9,
+                        "metadata": {},
+                    }
+                ],
+                "provenance": [],
+                "transition": None,
+                "metadata": {},
+            },
+            "stage_status": {"ideation": "complete", "goals": "complete"},
+        },
+    }
+    pipeline_store["pipe-workflow1"] = run
+    return run
+
+
+@pytest.fixture
+def no_goal_workflow_run(pipeline_store):
+    """Insert a completed pipeline run with no executable goals."""
+    run = {
+        "id": "pipe-no-goals1",
+        "idea": "Pipeline result without executable workflow steps",
+        "status": "completed",
+        "stages": [],
+        "created_at": "2026-02-20T09:00:00",
+        "updated_at": "2026-02-20T09:02:00",
+        "config": {},
+        "result": {
+            "pipeline_id": "pipe-no-goals1",
+            "goals": {
+                "id": "gg-empty",
+                "goals": [],
+                "provenance": [],
+                "transition": None,
+                "metadata": {},
+            },
+            "stage_status": {"ideation": "complete", "goals": "complete"},
+        },
+    }
+    pipeline_store["pipe-no-goals1"] = run
     return run
 
 
@@ -677,6 +763,97 @@ class TestCancelPipelineRun:
         response = authed_client.delete("/api/v2/pipeline/runs/pipe-cancel1")
         assert response.status_code == 400
         assert "already cancelled" in response.json()["detail"]
+
+
+# =============================================================================
+# POST /api/v2/pipeline/runs/{run_id}/execute-workflow
+# =============================================================================
+
+
+class TestExecuteWorkflowFromPipeline:
+    """Tests for POST /api/v2/pipeline/runs/{run_id}/execute-workflow."""
+
+    def test_requires_auth(self, client, workflow_ready_run):
+        """Execute-workflow endpoint requires authentication."""
+        response = client.post("/api/v2/pipeline/runs/pipe-workflow1/execute-workflow")
+        assert response.status_code == 401
+
+    def test_uses_workflow_handlers_and_returns_execution_id(
+        self,
+        authed_client,
+        workflow_ready_run,
+        pipeline_store,
+    ):
+        """Execute-workflow persists and executes via the workflow subsystem."""
+        with (
+            patch(
+                "aragora.server.handlers.workflows.crud.create_workflow",
+                new_callable=AsyncMock,
+            ) as mock_create_workflow,
+            patch(
+                "aragora.server.handlers.workflows.execution.execute_workflow",
+                new_callable=AsyncMock,
+            ) as mock_execute_workflow,
+        ):
+            mock_create_workflow.return_value = {
+                "id": "wf_pipe_workflow1",
+                "name": "Workflow from pipeline pipe-workflow1",
+            }
+            mock_execute_workflow.return_value = {
+                "id": "exec_abc123",
+                "workflow_id": "wf_pipe_workflow1",
+                "status": "running",
+            }
+
+            response = authed_client.post("/api/v2/pipeline/runs/pipe-workflow1/execute-workflow")
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["pipeline_id"] == "pipe-workflow1"
+        assert data["workflow_id"] == "wf_pipe_workflow1"
+        assert data["execution_id"] == "exec_abc123"
+        assert data["status"] == "running"
+        assert data["steps_count"] == 1
+        assert data["transitions_count"] == 0
+
+        mock_create_workflow.assert_awaited_once()
+        create_args = mock_create_workflow.await_args
+        assert create_args.kwargs["tenant_id"] == "ws-1"
+        assert create_args.kwargs["created_by"] == "user-1"
+        assert create_args.args[0]["id"] == "wf-pipe-workflow1"
+        assert create_args.args[0]["steps"][0]["id"] == "goal-1"
+
+        mock_execute_workflow.assert_awaited_once_with(
+            "wf_pipe_workflow1",
+            inputs={"pipeline_id": "pipe-workflow1"},
+            tenant_id="ws-1",
+            user_id="user-1",
+            org_id="org-1",
+        )
+
+        assert pipeline_store["pipe-workflow1"]["workflow_id"] == "wf_pipe_workflow1"
+        assert pipeline_store["pipe-workflow1"]["execution_id"] == "exec_abc123"
+
+    def test_rejects_pipeline_without_executable_goals(
+        self,
+        authed_client,
+        no_goal_workflow_run,
+    ):
+        """Execute-workflow returns a helpful 400 when the goal graph is empty."""
+        response = authed_client.post("/api/v2/pipeline/runs/pipe-no-goals1/execute-workflow")
+        assert response.status_code == 400
+        assert "no executable workflow steps" in response.json()["detail"]
+
+    def test_returns_404_for_nonexistent(self, authed_client):
+        """Execute-workflow returns 404 for nonexistent run."""
+        response = authed_client.post("/api/v2/pipeline/runs/nonexistent/execute-workflow")
+        assert response.status_code == 404
+
+    def test_requires_completed_result(self, authed_client, sample_run):
+        """Execute-workflow rejects runs that do not have a stored result yet."""
+        response = authed_client.post("/api/v2/pipeline/runs/pipe-abc123/execute-workflow")
+        assert response.status_code == 400
+        assert "run the pipeline first" in response.json()["detail"]
 
 
 # =============================================================================

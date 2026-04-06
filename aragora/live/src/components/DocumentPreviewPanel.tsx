@@ -63,13 +63,13 @@ function formatDate(dateStr?: string): string {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    completed: 'bg-acid-green/20 text-acid-green border-acid-green/40',
-    processing: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40 animate-pulse',
+    completed: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
+    processing: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40 animate-pulse',
     pending: 'bg-acid-blue/20 text-acid-blue border-acid-blue/40',
     failed: 'bg-acid-red/20 text-acid-red border-acid-red/40',
   };
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[status] || colors.pending}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[status] || colors.pending}`}>
       {status.toUpperCase()}
     </span>
   );
@@ -78,13 +78,13 @@ function StatusBadge({ status }: { status: string }) {
 function ChunkTypeBadge({ type }: { type: string }) {
   const colors: Record<string, string> = {
     text: 'bg-surface text-foreground',
-    code: 'bg-acid-cyan/20 text-acid-cyan',
+    code: 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]',
     table: 'bg-acid-purple/20 text-acid-purple',
-    heading: 'bg-acid-yellow/20 text-acid-yellow',
+    heading: 'bg-acid-yellow/20 text-[var(--acid-yellow)]',
     image: 'bg-acid-orange/20 text-acid-orange',
   };
   return (
-    <span className={`px-1.5 py-0.5 text-xs font-mono rounded ${colors[type] || colors.text}`}>
+    <span className={`px-1.5 py-0.5 text-xs font-theme-data rounded ${colors[type] || colors.text}`}>
       {type}
     </span>
   );
@@ -149,7 +149,7 @@ export function DocumentPreviewPanel({
   if (loading) {
     return (
       <div className="p-6 text-center">
-        <div className="text-muted font-mono animate-pulse">Loading document...</div>
+        <div className="text-muted font-theme-data animate-pulse">Loading document...</div>
       </div>
     );
   }
@@ -157,7 +157,7 @@ export function DocumentPreviewPanel({
   if (error || !document) {
     return (
       <div className="p-6 text-center">
-        <div className="text-acid-red font-mono mb-4">{error || 'Document not found'}</div>
+        <div className="text-acid-red font-theme-data mb-4">{error || 'Document not found'}</div>
         {onClose && (
           <button onClick={onClose} className="btn btn-ghost">
             Close
@@ -176,9 +176,9 @@ export function DocumentPreviewPanel({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <StatusBadge status={document.status} />
-            <span className="text-xs font-mono text-muted truncate">{document.mime_type}</span>
+            <span className="text-xs font-theme-data text-muted truncate">{document.mime_type}</span>
           </div>
-          <h3 className="font-mono font-medium truncate" title={document.filename}>
+          <h3 className="font-theme-data font-medium truncate" title={document.filename}>
             {document.filename}
           </h3>
         </div>
@@ -193,20 +193,20 @@ export function DocumentPreviewPanel({
       <div className="p-4 border-b border-border bg-surface/50">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <div className="text-xs font-mono text-muted mb-0.5">SIZE</div>
-            <div className="font-mono">{formatFileSize(document.size_bytes)}</div>
+            <div className="text-xs font-theme-data text-muted mb-0.5">SIZE</div>
+            <div className="font-theme-data">{formatFileSize(document.size_bytes)}</div>
           </div>
           <div>
-            <div className="text-xs font-mono text-muted mb-0.5">CHUNKS</div>
-            <div className="font-mono">{document.chunk_count}</div>
+            <div className="text-xs font-theme-data text-muted mb-0.5">CHUNKS</div>
+            <div className="font-theme-data">{document.chunk_count}</div>
           </div>
           <div>
-            <div className="text-xs font-mono text-muted mb-0.5">TOKENS</div>
-            <div className="font-mono">{document.token_count?.toLocaleString() || '-'}</div>
+            <div className="text-xs font-theme-data text-muted mb-0.5">TOKENS</div>
+            <div className="font-theme-data">{document.token_count?.toLocaleString() || '-'}</div>
           </div>
           <div>
-            <div className="text-xs font-mono text-muted mb-0.5">UPLOADED</div>
-            <div className="font-mono text-xs">{formatDate(document.created_at)}</div>
+            <div className="text-xs font-theme-data text-muted mb-0.5">UPLOADED</div>
+            <div className="font-theme-data text-xs">{formatDate(document.created_at)}</div>
           </div>
         </div>
       </div>
@@ -217,11 +217,11 @@ export function DocumentPreviewPanel({
           // Document preview
           <div className="p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-mono text-muted">PREVIEW</span>
+              <span className="text-xs font-theme-data text-muted">PREVIEW</span>
               {document.status === 'completed' && document.chunk_count > 0 && (
                 <button
                   onClick={() => setShowChunks(true)}
-                  className="text-xs font-mono text-accent hover:underline"
+                  className="text-xs font-theme-data text-accent hover:underline"
                 >
                   VIEW CHUNKS ({document.chunk_count})
                 </button>
@@ -229,7 +229,7 @@ export function DocumentPreviewPanel({
             </div>
             {document.preview ? (
               <div className="p-3 bg-surface rounded border border-border">
-                <pre className="text-sm whitespace-pre-wrap font-mono text-muted leading-relaxed">
+                <pre className="text-sm whitespace-pre-wrap font-theme-data text-muted leading-relaxed">
                   {document.preview}
                 </pre>
                 {document.preview.length >= 500 && (
@@ -237,18 +237,18 @@ export function DocumentPreviewPanel({
                 )}
               </div>
             ) : document.status === 'processing' ? (
-              <div className="p-4 text-center text-muted font-mono animate-pulse">
+              <div className="p-4 text-center text-muted font-theme-data animate-pulse">
                 Processing document...
               </div>
             ) : document.status === 'failed' ? (
               <div className="p-4 text-center">
-                <div className="text-acid-red font-mono mb-2">Processing failed</div>
+                <div className="text-acid-red font-theme-data mb-2">Processing failed</div>
                 {document.error_message && (
                   <div className="text-sm text-muted">{document.error_message}</div>
                 )}
               </div>
             ) : (
-              <div className="p-4 text-center text-muted font-mono">No preview available</div>
+              <div className="p-4 text-center text-muted font-theme-data">No preview available</div>
             )}
           </div>
         ) : (
@@ -257,7 +257,7 @@ export function DocumentPreviewPanel({
             <div className="flex items-center justify-between mb-3">
               <button
                 onClick={() => setShowChunks(false)}
-                className="text-xs font-mono text-muted hover:text-foreground"
+                className="text-xs font-theme-data text-muted hover:text-foreground"
               >
                 BACK TO PREVIEW
               </button>
@@ -265,17 +265,17 @@ export function DocumentPreviewPanel({
                 <button
                   onClick={() => setActiveChunkIndex(Math.max(0, activeChunkIndex - 1))}
                   disabled={activeChunkIndex === 0}
-                  className="px-2 py-1 text-xs font-mono border border-border rounded disabled:opacity-30"
+                  className="px-2 py-1 text-xs font-theme-data border border-border rounded disabled:opacity-30"
                 >
                   PREV
                 </button>
-                <span className="text-xs font-mono">
+                <span className="text-xs font-theme-data">
                   {activeChunkIndex + 1} / {chunks.length}
                 </span>
                 <button
                   onClick={() => setActiveChunkIndex(Math.min(chunks.length - 1, activeChunkIndex + 1))}
                   disabled={activeChunkIndex === chunks.length - 1}
-                  className="px-2 py-1 text-xs font-mono border border-border rounded disabled:opacity-30"
+                  className="px-2 py-1 text-xs font-theme-data border border-border rounded disabled:opacity-30"
                 >
                   NEXT
                 </button>
@@ -283,18 +283,18 @@ export function DocumentPreviewPanel({
             </div>
 
             {chunks.length === 0 ? (
-              <div className="p-4 text-center text-muted font-mono animate-pulse">
+              <div className="p-4 text-center text-muted font-theme-data animate-pulse">
                 Loading chunks...
               </div>
             ) : activeChunk ? (
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <ChunkTypeBadge type={activeChunk.chunk_type} />
-                  <span className="text-xs font-mono text-muted">
+                  <span className="text-xs font-theme-data text-muted">
                     {activeChunk.token_count} tokens
                   </span>
                   {activeChunk.start_page && (
-                    <span className="text-xs font-mono text-muted ml-auto">
+                    <span className="text-xs font-theme-data text-muted ml-auto">
                       Page {activeChunk.start_page}
                       {activeChunk.end_page && activeChunk.end_page !== activeChunk.start_page
                         ? `-${activeChunk.end_page}`
@@ -303,7 +303,7 @@ export function DocumentPreviewPanel({
                   )}
                 </div>
                 <div className="p-3 bg-surface rounded border border-border max-h-64 overflow-y-auto">
-                  <pre className="text-sm whitespace-pre-wrap font-mono leading-relaxed">
+                  <pre className="text-sm whitespace-pre-wrap font-theme-data leading-relaxed">
                     {activeChunk.content}
                   </pre>
                 </div>
@@ -312,13 +312,13 @@ export function DocumentPreviewPanel({
 
             {/* Chunk list */}
             <div className="mt-4">
-              <div className="text-xs font-mono text-muted mb-2">ALL CHUNKS</div>
+              <div className="text-xs font-theme-data text-muted mb-2">ALL CHUNKS</div>
               <div className="flex flex-wrap gap-1">
                 {chunks.map((chunk, idx) => (
                   <button
                     key={chunk.id}
                     onClick={() => setActiveChunkIndex(idx)}
-                    className={`px-2 py-1 text-xs font-mono rounded transition-colors ${
+                    className={`px-2 py-1 text-xs font-theme-data rounded transition-colors ${
                       idx === activeChunkIndex
                         ? 'bg-accent text-background'
                         : 'bg-surface hover:bg-surface/80'

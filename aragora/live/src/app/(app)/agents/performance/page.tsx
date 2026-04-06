@@ -33,7 +33,7 @@ function EloSparkline({ points, width = 120, height = 32 }: {
   if (points.length < 2) {
     return (
       <div
-        className="flex items-center justify-center text-[10px] text-[var(--text-muted)] font-mono"
+        className="flex items-center justify-center text-[10px] text-[var(--text-muted)] font-theme-data"
         style={{ width, height }}
       >
         No history
@@ -118,10 +118,10 @@ function ModelComparisonChart({ agents }: { agents: AgentPerformanceEntry[] }) {
         <div key={g.provider} className="p-3 bg-[var(--bg)] border border-[var(--border)] rounded">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <span className="font-mono text-sm text-[var(--acid-cyan)] uppercase">{g.provider}</span>
+              <span className="font-theme-data text-sm text-[var(--acid-cyan)] uppercase">{g.provider}</span>
               <span className="text-[10px] text-[var(--text-muted)] ml-2">({g.agentCount} agents)</span>
             </div>
-            <span className="font-mono text-sm text-purple-400">{g.avgElo}</span>
+            <span className="font-theme-data text-sm text-purple-400">{g.avgElo}</span>
           </div>
           {/* ELO bar */}
           <div className="h-2 bg-[var(--surface)] rounded-full overflow-hidden mb-2">
@@ -130,7 +130,7 @@ function ModelComparisonChart({ agents }: { agents: AgentPerformanceEntry[] }) {
               style={{ width: `${(g.avgElo / maxElo) * 100}%` }}
             />
           </div>
-          <div className="flex gap-4 text-[10px] font-mono text-[var(--text-muted)]">
+          <div className="flex gap-4 text-[10px] font-theme-data text-[var(--text-muted)]">
             <span>
               Win Rate:{' '}
               <span className={g.avgWinRate >= 0.5 ? 'text-[var(--acid-green)]' : 'text-red-400'}>
@@ -168,7 +168,7 @@ function DomainHeatmap({ agents }: { agents: AgentPerformanceEntry[] }) {
   }, [agents]);
 
   if (domainData.length === 0) {
-    return <p className="text-sm text-[var(--text-muted)] font-mono">No domain data available.</p>;
+    return <p className="text-sm text-[var(--text-muted)] font-theme-data">No domain data available.</p>;
   }
 
   const maxCount = domainData[0][1];
@@ -180,7 +180,7 @@ function DomainHeatmap({ agents }: { agents: AgentPerformanceEntry[] }) {
         return (
           <div
             key={domain}
-            className="px-2.5 py-1.5 rounded font-mono text-xs border border-[var(--acid-green)]/20"
+            className="px-2.5 py-1.5 rounded font-theme-data text-xs border border-[var(--acid-green)]/20"
             style={{
               backgroundColor: `color-mix(in srgb, var(--acid-green) ${intensity}%, transparent)`,
               color: intensity > 50 ? 'var(--bg)' : 'var(--acid-green)',
@@ -273,24 +273,24 @@ export default function AgentPerformancePage() {
             <div className="flex items-center gap-2 mb-2">
               <Link
                 href="/agents"
-                className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
+                className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
               >
                 Agents
               </Link>
               <span className="text-[var(--text-muted)]">/</span>
-              <span className="text-xs font-mono text-[var(--acid-green)]">Performance</span>
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">Performance</span>
             </div>
-            <h1 className="text-xl font-mono text-[var(--acid-green)]">
+            <h1 className="text-xl font-theme-data text-[var(--acid-green)]">
               {'>'} AGENT PERFORMANCE ANALYTICS
             </h1>
-            <p className="text-xs text-[var(--text-muted)] font-mono mt-1">
+            <p className="text-xs text-[var(--text-muted)] font-theme-data mt-1">
               Deep-dive into agent ELO trends, model comparisons, calibration accuracy, and domain strengths
             </p>
           </div>
 
           {/* Error State */}
           {error && (
-            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-mono text-sm">
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 text-red-400 font-theme-data text-sm">
               Failed to load agent performance data.
             </div>
           )}
@@ -298,38 +298,38 @@ export default function AgentPerformancePage() {
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-              <div className="text-2xl font-mono text-[var(--acid-green)]">{agents.length}</div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Agents</div>
+              <div className="text-2xl font-theme-data text-[var(--acid-green)]">{agents.length}</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Agents</div>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-              <div className="text-2xl font-mono text-purple-400">{avgElo}</div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Avg ELO</div>
+              <div className="text-2xl font-theme-data text-purple-400">{avgElo}</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Avg ELO</div>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-              <div className={`text-2xl font-mono ${avgWinRate >= 0.5 ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+              <div className={`text-2xl font-theme-data ${avgWinRate >= 0.5 ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
                 {(avgWinRate * 100).toFixed(1)}%
               </div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Avg Win Rate</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Avg Win Rate</div>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-              <div className="text-2xl font-mono text-[var(--acid-cyan)]">
+              <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">
                 {(avgCalibration * 100).toFixed(0)}%
               </div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Avg Calibration</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Avg Calibration</div>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-              <div className="text-2xl font-mono text-yellow-400">
+              <div className="text-2xl font-theme-data text-yellow-400">
                 {debateSummary?.data?.total_debates ?? '-'}
               </div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Total Debates</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Total Debates</div>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)] text-center">
-              <div className="text-2xl font-mono text-[var(--text)]">
+              <div className="text-2xl font-theme-data text-[var(--text)]">
                 {debateSummary?.data?.consensus_rate != null
                   ? `${(debateSummary.data.consensus_rate * 100).toFixed(0)}%`
                   : '-'}
               </div>
-              <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">Consensus Rate</div>
+              <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">Consensus Rate</div>
             </div>
           </div>
 
@@ -338,11 +338,11 @@ export default function AgentPerformancePage() {
             <div className="lg:col-span-2">
               <PanelErrorBoundary panelName="Model Comparison">
                 <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-                  <h2 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-4">
+                  <h2 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-4">
                     Model Provider Comparison
                   </h2>
                   {isLoading ? (
-                    <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-mono animate-pulse">
+                    <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-theme-data animate-pulse">
                       Loading...
                     </div>
                   ) : (
@@ -356,11 +356,11 @@ export default function AgentPerformancePage() {
             <div>
               <PanelErrorBoundary panelName="Domain Heatmap">
                 <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-                  <h2 className="text-sm font-mono text-[var(--acid-green)] uppercase mb-4">
+                  <h2 className="text-sm font-theme-data text-[var(--acid-green)] uppercase mb-4">
                     Domain Expertise
                   </h2>
                   {isLoading ? (
-                    <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-mono animate-pulse">
+                    <div className="h-32 flex items-center justify-center text-[var(--text-muted)] font-theme-data animate-pulse">
                       Loading...
                     </div>
                   ) : (
@@ -376,14 +376,14 @@ export default function AgentPerformancePage() {
             <select
               value={filterDomain}
               onChange={(e) => setFilterDomain(e.target.value)}
-              className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] text-xs font-mono rounded focus:outline-none focus:border-[var(--acid-green)]/50"
+              className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data rounded focus:outline-none focus:border-[var(--acid-green)]/50"
             >
               <option value="">All Domains</option>
               {allDomains.map((d) => (
                 <option key={d} value={d}>{d}</option>
               ))}
             </select>
-            <span className="text-[10px] font-mono text-[var(--text-muted)]">
+            <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
               {filtered.length} of {agents.length} agents
             </span>
           </div>
@@ -394,7 +394,7 @@ export default function AgentPerformancePage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-[10px] font-mono text-[var(--text-muted)] uppercase border-b border-[var(--border)]">
+                    <tr className="text-left text-[10px] font-theme-data text-[var(--text-muted)] uppercase border-b border-[var(--border)]">
                       <th
                         className="px-4 py-3 cursor-pointer hover:text-[var(--acid-green)] transition-colors"
                         onClick={() => handleSort('name')}
@@ -426,13 +426,13 @@ export default function AgentPerformancePage() {
                   <tbody>
                     {isLoading ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-12 text-center text-[var(--text-muted)] font-mono animate-pulse">
+                        <td colSpan={6} className="px-4 py-12 text-center text-[var(--text-muted)] font-theme-data animate-pulse">
                           Loading agent data...
                         </td>
                       </tr>
                     ) : filtered.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-12 text-center text-[var(--text-muted)] font-mono">
+                        <td colSpan={6} className="px-4 py-12 text-center text-[var(--text-muted)] font-theme-data">
                           No agents match the current filters.
                         </td>
                       </tr>
@@ -443,20 +443,20 @@ export default function AgentPerformancePage() {
                           className="border-b border-[var(--border)]/50 hover:bg-[var(--acid-green)]/5 transition-colors"
                         >
                           <td className="px-4 py-3">
-                            <div className="font-mono text-xs text-[var(--acid-cyan)] flex items-center gap-1.5">
+                            <div className="font-theme-data text-xs text-[var(--acid-cyan)] flex items-center gap-1.5">
                               {agent.name}
                               <TrustBadge calibration={agent.calibrationData ?? null} size="sm" />
                             </div>
                             <div className="text-[10px] text-[var(--text-muted)]">{agent.id}</div>
                           </td>
-                          <td className="px-4 py-3 font-mono text-purple-400 font-bold">
+                          <td className="px-4 py-3 font-theme-data text-purple-400 font-bold">
                             {Math.round(agent.elo)}
                           </td>
                           <td className="px-4 py-3">
                             <EloSparkline points={agent.eloHistory} />
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`font-mono ${agent.winRate >= 0.5 ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
+                            <span className={`font-theme-data ${agent.winRate >= 0.5 ? 'text-[var(--acid-green)]' : 'text-red-400'}`}>
                               {(agent.winRate * 100).toFixed(1)}%
                             </span>
                           </td>
@@ -468,7 +468,7 @@ export default function AgentPerformancePage() {
                                   style={{ width: `${agent.calibration * 100}%` }}
                                 />
                               </div>
-                              <span className="font-mono text-xs text-[var(--acid-cyan)]">
+                              <span className="font-theme-data text-xs text-[var(--acid-cyan)]">
                                 {(agent.calibration * 100).toFixed(0)}%
                               </span>
                             </div>
@@ -478,7 +478,7 @@ export default function AgentPerformancePage() {
                               {agent.domains.slice(0, 3).map((d) => (
                                 <span
                                   key={d}
-                                  className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] rounded cursor-pointer hover:bg-[var(--acid-green)]/20"
+                                  className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] rounded cursor-pointer hover:bg-[var(--acid-green)]/20"
                                   onClick={() => setFilterDomain(d)}
                                 >
                                   {d}
@@ -504,19 +504,19 @@ export default function AgentPerformancePage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/agents"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Agent Leaderboard
             </Link>
             <Link
               href="/calibration"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               Calibration Details
             </Link>
             <Link
               href="/admin/intelligence"
-              className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
             >
               System Intelligence
             </Link>
@@ -524,7 +524,7 @@ export default function AgentPerformancePage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-[var(--acid-green)]/20 mt-8">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--acid-green)]/20 mt-8">
           <div className="text-[var(--acid-green)]/50 mb-2" aria-hidden="true">
             {'='.repeat(40)}
           </div>

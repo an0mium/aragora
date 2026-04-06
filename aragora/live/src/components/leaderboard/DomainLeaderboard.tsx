@@ -45,7 +45,7 @@ function DomainLeaderboardComponent() {
   return (
     <div className="card p-4">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="font-mono text-xs text-acid-green">Domain Leaderboards</h4>
+        <h4 className="font-theme-data text-xs text-[var(--accent)]">Domain Leaderboards</h4>
       </div>
 
       {/* Domain Tabs */}
@@ -56,7 +56,7 @@ function DomainLeaderboardComponent() {
             onClick={() => setSelectedDomain(key)}
             role="tab"
             aria-selected={selectedDomain === key}
-            className={`px-2.5 py-1 rounded text-xs font-mono transition-colors whitespace-nowrap ${
+            className={`px-2.5 py-1 rounded text-xs font-theme-data transition-colors whitespace-nowrap ${
               selectedDomain === key
                 ? 'bg-accent text-bg font-medium'
                 : 'text-text-muted hover:text-text hover:bg-surface'
@@ -78,14 +78,14 @@ function DomainLeaderboardComponent() {
 
       {/* Error State */}
       {error && !isLoading && (
-        <p className="text-text-muted font-mono text-xs py-4 text-center">
+        <p className="text-text-muted font-theme-data text-xs py-4 text-center">
           Unable to load domain leaderboard. The endpoint may be unavailable.
         </p>
       )}
 
       {/* Empty State */}
       {!isLoading && !error && rankedAgents.length === 0 && (
-        <p className="text-text-muted font-mono text-xs py-4 text-center">
+        <p className="text-text-muted font-theme-data text-xs py-4 text-center">
           No rankings available for this domain. Run debate cycles to generate data.
         </p>
       )}
@@ -93,7 +93,7 @@ function DomainLeaderboardComponent() {
       {/* Rankings Table */}
       {!isLoading && rankedAgents.length > 0 && (
         <div className="overflow-x-auto">
-          <table className="w-full text-xs font-mono">
+          <table className="w-full text-xs font-theme-data">
             <thead>
               <tr className="text-text-muted border-b border-border">
                 <th className="text-left py-1.5 px-1 w-8">#</th>

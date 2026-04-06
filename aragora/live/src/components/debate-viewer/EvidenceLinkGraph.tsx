@@ -181,8 +181,8 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
 
   if (loading) {
     return (
-      <div className="bg-surface border border-acid-green/30 p-4">
-        <div className="text-xs font-mono text-text-muted animate-pulse">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
+        <div className="text-xs font-theme-data text-text-muted animate-pulse">
           Analyzing evidence links...
         </div>
       </div>
@@ -192,7 +192,7 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
   if (error || !data) {
     return (
       <div className="bg-surface border border-yellow-500/30 p-4">
-        <div className="text-xs font-mono text-yellow-500">
+        <div className="text-xs font-theme-data text-yellow-500">
           {error || 'No evidence data available'}
         </div>
       </div>
@@ -204,7 +204,7 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
       <div className="bg-surface border border-gray-500/30 p-4">
         <div className="flex items-center gap-2">
           <span className="text-gray-400">○</span>
-          <span className="text-xs font-mono text-gray-400">
+          <span className="text-xs font-theme-data text-gray-400">
             EVIDENCE: No evidence analysis available for this debate
           </span>
         </div>
@@ -220,28 +220,28 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
     : 0;
 
   return (
-    <div className="bg-surface border border-acid-green/30">
+    <div className="bg-surface border border-[var(--accent)]/30">
       {/* Header */}
       <div
-        className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 cursor-pointer flex items-center justify-between"
+        className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 cursor-pointer flex items-center justify-between"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+          <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
             {'>'} EVIDENCE LINK GRAPH
           </span>
-          <span className="text-xs font-mono text-text-muted">
+          <span className="text-xs font-theme-data text-text-muted">
             ({claimNodes.length} claims, {evidenceNodes.length} evidence)
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <span className={`text-xs font-mono ${
+          <span className={`text-xs font-theme-data ${
             coveragePercent >= 70 ? 'text-green-400' :
             coveragePercent >= 40 ? 'text-yellow-400' : 'text-red-400'
           }`}>
             {coveragePercent}% coverage
           </span>
-          <span className="text-xs font-mono text-acid-green">
+          <span className="text-xs font-theme-data text-[var(--accent)]">
             {expanded ? '[-]' : '[+]'}
           </span>
         </div>
@@ -252,10 +252,10 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
           {/* Summary Stats */}
           {data.grounded_verdict && (
             <div className="bg-bg/50 border border-border rounded p-3">
-              <div className="text-xs font-mono text-text-muted uppercase mb-2">
+              <div className="text-xs font-theme-data text-text-muted uppercase mb-2">
                 Grounding Analysis
               </div>
-              <div className="grid grid-cols-4 gap-4 text-xs font-mono">
+              <div className="grid grid-cols-4 gap-4 text-xs font-theme-data">
                 <div>
                   <span className="text-text-muted">Score: </span>
                   <span className={`${
@@ -281,7 +281,7 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
                 </div>
               </div>
               {data.grounded_verdict.verdict && (
-                <div className="mt-2 text-xs font-mono text-text-muted">
+                <div className="mt-2 text-xs font-theme-data text-text-muted">
                   <span className="text-text-muted">Verdict: </span>
                   <span className="text-text">{data.grounded_verdict.verdict}</span>
                 </div>
@@ -294,7 +294,7 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
             <div className="flex gap-8">
               {/* Claims Column */}
               <div className="flex-1">
-                <div className="text-xs font-mono text-text-muted uppercase mb-3">
+                <div className="text-xs font-theme-data text-text-muted uppercase mb-3">
                   Claims ({claimNodes.length})
                 </div>
                 <div className="space-y-2">
@@ -308,17 +308,17 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
                       } ${selectedNode === node.id ? 'ring-1 ring-current' : ''}`}
                       onClick={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
                     >
-                      <div className="text-xs font-mono line-clamp-2">
+                      <div className="text-xs font-theme-data line-clamp-2">
                         {node.text.slice(0, 100)}{node.text.length > 100 ? '...' : ''}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[10px] font-mono ${
+                        <span className={`text-[10px] font-theme-data ${
                           node.supported ? 'text-green-400' : 'text-red-400'
                         }`}>
                           {node.supported ? '✓ SUPPORTED' : '✗ UNSUPPORTED'}
                         </span>
                         {node.confidence > 0 && (
-                          <span className="text-[10px] font-mono text-text-muted">
+                          <span className="text-[10px] font-theme-data text-text-muted">
                             {Math.round(node.confidence * 100)}%
                           </span>
                         )}
@@ -326,7 +326,7 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
                     </div>
                   ))}
                   {claimNodes.length > 10 && (
-                    <div className="text-xs font-mono text-text-muted text-center py-1">
+                    <div className="text-xs font-theme-data text-text-muted text-center py-1">
                       + {claimNodes.length - 10} more claims
                     </div>
                   )}
@@ -336,8 +336,8 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
               {/* Links Visualization */}
               <div className="w-16 flex flex-col items-center justify-center">
                 {links.length > 0 && (
-                  <div className="text-xs font-mono text-text-muted text-center">
-                    <div className="text-acid-green">{links.length}</div>
+                  <div className="text-xs font-theme-data text-text-muted text-center">
+                    <div className="text-[var(--accent)]">{links.length}</div>
                     <div>links</div>
                   </div>
                 )}
@@ -345,7 +345,7 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
 
               {/* Evidence Column */}
               <div className="flex-1">
-                <div className="text-xs font-mono text-text-muted uppercase mb-3">
+                <div className="text-xs font-theme-data text-text-muted uppercase mb-3">
                   Evidence ({evidenceNodes.length})
                 </div>
                 <div className="space-y-2">
@@ -357,26 +357,26 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
                       }`}
                       onClick={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
                     >
-                      <div className="text-xs font-mono line-clamp-2">
+                      <div className="text-xs font-theme-data line-clamp-2">
                         {node.text.slice(0, 100)}{node.text.length > 100 ? '...' : ''}
                       </div>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-mono text-blue-400">
+                        <span className="text-[10px] font-theme-data text-blue-400">
                           {node.source}
                         </span>
-                        <span className="text-[10px] font-mono text-text-muted">
+                        <span className="text-[10px] font-theme-data text-text-muted">
                           {Math.round(node.importance * 100)}% imp.
                         </span>
                       </div>
                     </div>
                   ))}
                   {evidenceNodes.length > 10 && (
-                    <div className="text-xs font-mono text-text-muted text-center py-1">
+                    <div className="text-xs font-theme-data text-text-muted text-center py-1">
                       + {evidenceNodes.length - 10} more evidence
                     </div>
                   )}
                   {evidenceNodes.length === 0 && (
-                    <div className="text-xs font-mono text-text-muted text-center py-4">
+                    <div className="text-xs font-theme-data text-text-muted text-center py-4">
                       No evidence nodes found
                     </div>
                   )}
@@ -387,8 +387,8 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
 
           {/* Selected Node Detail */}
           {selectedNode && (
-            <div className="bg-bg/50 border border-acid-green/30 rounded p-3">
-              <div className="text-xs font-mono text-text-muted uppercase mb-2">
+            <div className="bg-bg/50 border border-[var(--accent)]/30 rounded p-3">
+              <div className="text-xs font-theme-data text-text-muted uppercase mb-2">
                 Selected: {selectedNode}
               </div>
               {(() => {
@@ -401,11 +401,11 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
 
                 return (
                   <div className="space-y-2">
-                    <div className="text-xs font-mono text-text">
+                    <div className="text-xs font-theme-data text-text">
                       {node.text}
                     </div>
                     {connectedLinks.length > 0 && (
-                      <div className="text-xs font-mono text-text-muted">
+                      <div className="text-xs font-theme-data text-text-muted">
                         Connected to: {connectedLinks.map((l) =>
                           l.source === selectedNode ? l.target : l.source
                         ).join(', ')}
@@ -418,7 +418,7 @@ export function EvidenceLinkGraph({ debateId }: EvidenceLinkGraphProps) {
           )}
 
           {/* Legend */}
-          <div className="flex gap-4 text-[10px] font-mono text-text-muted">
+          <div className="flex gap-4 text-[10px] font-theme-data text-text-muted">
             <div className="flex items-center gap-1">
               <span className="w-2 h-2 rounded bg-green-500/50"></span>
               <span>Supported Claim</span>

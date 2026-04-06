@@ -23,7 +23,7 @@ interface AlertsPanelProps {
 
 const SEVERITY_STYLES: Record<string, { bg: string; text: string; border: string }> = {
   info: { bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/30' },
-  low: { bg: 'bg-acid-green/10', text: 'text-acid-green', border: 'border-acid-green/30' },
+  low: { bg: 'bg-[var(--accent)]/10', text: 'text-[var(--accent)]', border: 'border-[var(--accent)]/30' },
   medium: { bg: 'bg-yellow-500/10', text: 'text-yellow-500', border: 'border-yellow-500/30' },
   high: { bg: 'bg-orange-500/10', text: 'text-orange-400', border: 'border-orange-500/30' },
   critical: { bg: 'bg-red-500/10', text: 'text-red-400', border: 'border-red-500/30' },
@@ -156,7 +156,7 @@ export function AlertsPanel({ apiBase }: AlertsPanelProps) {
                     <span>Source: {alert.source}</span>
                     <span>{new Date(alert.timestamp).toLocaleString()}</span>
                     {alert.debate_triggered && (
-                      <span className="text-acid-cyan">Debate triggered</span>
+                      <span className="text-[var(--acid-cyan)]">Debate triggered</span>
                     )}
                   </div>
                 </div>
@@ -176,7 +176,7 @@ export function AlertsPanel({ apiBase }: AlertsPanelProps) {
                     onClick={() => handleResolve(alert.id)}
                     disabled={actionLoading === alert.id}
                     aria-label={`Resolve alert: ${alert.title}`}
-                    className="px-3 py-1.5 text-xs bg-acid-green/20 hover:bg-acid-green/30 text-acid-green rounded transition-colors disabled:opacity-50"
+                    className="px-3 py-1.5 text-xs bg-[var(--accent)]/20 hover:bg-[var(--accent)]/30 text-[var(--accent)] rounded transition-colors disabled:opacity-50"
                   >
                     {actionLoading === alert.id ? '...' : 'Resolve'}
                   </button>

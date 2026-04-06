@@ -89,8 +89,20 @@ class PromptResearcher:
             )
             return self._agent
         except (ImportError, RuntimeError, ValueError) as e:
-            logger.warning("Could not create default agent: %s", e)
-            raise RuntimeError("No agent available for research") from e
+            logger.warning("Could not create Anthropic agent: %s", e)
+
+        try:
+            import os
+
+            if os.environ.get("OPENROUTER_API_KEY", "").strip():
+                from aragora.agents.api_agents.openrouter import OpenRouterAgent
+
+                self._agent = OpenRouterAgent(name="researcher", model="anthropic/claude-sonnet-4")
+                return self._agent
+        except (ImportError, RuntimeError, ValueError) as e:
+            logger.warning("Could not create OpenRouter agent: %s", e)
+
+        raise RuntimeError("No agent available for research")
 
     async def research(
         self,

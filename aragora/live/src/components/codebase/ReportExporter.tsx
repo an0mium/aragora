@@ -270,12 +270,12 @@ export function ReportExporter({ result }: ReportExporterProps) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded p-4">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-mono text-[var(--acid-green)]">
+        <h4 className="text-sm font-theme-data text-[var(--acid-green)]">
           {'>'} EXPORT REPORT
         </h4>
         <button
           onClick={copyToClipboard}
-          className="px-3 py-1 text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
+          className="px-3 py-1 text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)] border border-[var(--border)] rounded hover:border-[var(--acid-green)]/30 transition-colors"
         >
           {copied ? '✓ Copied!' : 'Copy JSON'}
         </button>
@@ -294,10 +294,10 @@ export function ReportExporter({ result }: ReportExporterProps) {
             } ${exporting !== null && exporting !== format.id ? 'opacity-50' : ''}`}
           >
             <div className="flex items-center gap-2 mb-1">
-              <span className="w-6 h-6 flex items-center justify-center bg-[var(--bg)] rounded text-xs font-mono text-[var(--acid-cyan)]">
+              <span className="w-6 h-6 flex items-center justify-center bg-[var(--bg)] rounded text-xs font-theme-data text-[var(--acid-cyan)]">
                 {format.icon}
               </span>
-              <span className="font-mono text-sm text-[var(--text)]">{format.name}</span>
+              <span className="font-theme-data text-sm text-[var(--text)]">{format.name}</span>
             </div>
             <p className="text-xs text-[var(--text-muted)]">{format.description}</p>
           </button>
@@ -307,17 +307,17 @@ export function ReportExporter({ result }: ReportExporterProps) {
       {/* Quick Stats for Export */}
       <div className="mt-4 pt-4 border-t border-[var(--border)] grid grid-cols-3 gap-4 text-center">
         <div>
-          <div className="text-sm font-mono text-[var(--text)]">{result.findings.length}</div>
+          <div className="text-sm font-theme-data text-[var(--text)]">{result.findings.length}</div>
           <div className="text-xs text-[var(--text-muted)]">Findings to Export</div>
         </div>
         <div>
-          <div className="text-sm font-mono text-red-400">
+          <div className="text-sm font-theme-data text-red-400">
             {result.summary.critical + result.summary.high}
           </div>
           <div className="text-xs text-[var(--text-muted)]">Critical/High</div>
         </div>
         <div>
-          <div className="text-sm font-mono text-[var(--acid-cyan)]">
+          <div className="text-sm font-theme-data text-[var(--acid-cyan)]">
             {result.files_scanned}
           </div>
           <div className="text-xs text-[var(--text-muted)]">Files Scanned</div>

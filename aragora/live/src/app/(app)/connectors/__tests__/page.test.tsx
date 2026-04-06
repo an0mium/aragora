@@ -214,6 +214,21 @@ describe('ConnectorsPage', () => {
       });
     });
 
+    it('renders connectors with missing schedules using safe defaults', async () => {
+      setupSuccessfulFetch([
+        {
+          ...mockConnector,
+          schedule: undefined as unknown as Connector['schedule'],
+        },
+      ]);
+
+      render(<ConnectorsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Every 60m')).toBeInTheDocument();
+      });
+    });
+
     it('renders Recent Syncs section', async () => {
       setupSuccessfulFetch([mockConnector]);
 

@@ -53,7 +53,7 @@ export const PrincipleNode = memo(function PrincipleNode({ data, selected }: Pri
         <span className="w-5 h-5 flex items-center justify-center text-xs font-bold rounded bg-violet-500/30 text-violet-200">
           {principleTypeIcons[principleType] || '\u25C8'}
         </span>
-        <span className="px-1.5 py-0.5 text-xs bg-violet-500/30 text-violet-200 rounded font-mono uppercase">
+        <span className="px-1.5 py-0.5 text-xs bg-violet-500/30 text-violet-200 rounded font-theme-data uppercase">
           {principleTypeLabels[principleType] || principleType}
         </span>
       </div>
@@ -76,7 +76,7 @@ export const PrincipleNode = memo(function PrincipleNode({ data, selected }: Pri
               style={{ width: `${Math.round(confidence * 100)}%` }}
             />
           </div>
-          <span className="text-xs text-violet-300 font-mono">
+          <span className="text-xs text-violet-300 font-theme-data">
             {Math.round(confidence * 100)}%
           </span>
         </div>
@@ -84,14 +84,14 @@ export const PrincipleNode = memo(function PrincipleNode({ data, selected }: Pri
 
       {theme && (
         <div className="mt-1">
-          <span className="px-1.5 py-0.5 text-xs bg-violet-500/20 text-violet-300 rounded font-mono">
+          <span className="px-1.5 py-0.5 text-xs bg-violet-500/20 text-violet-300 rounded font-theme-data">
             {theme}
           </span>
         </div>
       )}
 
       {contentHash && (
-        <div className="text-xs font-mono text-violet-300 truncate mt-1">
+        <div className="text-xs font-theme-data text-violet-300 truncate mt-1">
           #{contentHash.slice(0, 8)}
         </div>
       )}

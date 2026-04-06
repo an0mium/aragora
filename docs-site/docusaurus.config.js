@@ -76,6 +76,12 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      // Default to light/warm theme to match aragora.ai
+      colorMode: {
+        defaultMode: 'light',
+        respectPrefersColorScheme: true,
+      },
+
       // Social card
       image: 'img/aragora-social-card.png',
 
@@ -106,6 +112,11 @@ const config = {
             label: 'API Reference',
           },
           {
+            href: 'https://aragora.ai',
+            label: 'aragora.ai',
+            position: 'right',
+          },
+          {
             href: 'https://github.com/aragora/aragora',
             label: 'GitHub',
             position: 'right',
@@ -120,7 +131,7 @@ const config = {
 
       // Footer
       footer: {
-        style: 'dark',
+        style: 'light',
         links: [
           {
             title: 'Docs',

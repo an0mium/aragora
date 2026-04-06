@@ -21,7 +21,7 @@ import {
 const SOURCE_LABELS: Record<string, { label: string; color: string; description: string }> = {
   continuum: {
     label: 'Continuum Memory',
-    color: 'text-acid-green',
+    color: 'text-[var(--accent)]',
     description: 'Multi-tier memory (fast/medium/slow/glacial) with TTL-based retention.',
   },
   km: {
@@ -45,7 +45,7 @@ function getStatusIndicator(status: string) {
   switch (status) {
     case 'active':
     case 'connected':
-      return { dot: 'bg-acid-green', badge: 'text-acid-green bg-acid-green/20', label: 'ONLINE' };
+      return { dot: 'bg-[var(--accent)]', badge: 'text-[var(--accent)] bg-[var(--accent)]/20', label: 'ONLINE' };
     case 'degraded':
       return { dot: 'bg-yellow-400', badge: 'text-yellow-400 bg-yellow-500/20', label: 'DEGRADED' };
     case 'unavailable':
@@ -58,7 +58,7 @@ function getStatusIndicator(status: string) {
 
 function getActionColor(action: string) {
   switch (action) {
-    case 'retain': return 'text-acid-green bg-acid-green/20';
+    case 'retain': return 'text-[var(--accent)] bg-[var(--accent)]/20';
     case 'demote': return 'text-yellow-400 bg-yellow-500/20';
     case 'forget': return 'text-red-400 bg-red-500/20';
     case 'consolidate': return 'text-blue-400 bg-blue-400/20';
@@ -129,19 +129,19 @@ export default function MemoryGatewayPage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-3">
-              <Link href="/memory" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/memory" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [MEMORY]
               </Link>
-              <Link href="/supermemory" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/supermemory" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [SUPERMEMORY]
               </Link>
-              <Link href="/system-intelligence" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/system-intelligence" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [INTELLIGENCE]
               </Link>
               <BackendSelector compact />
@@ -152,36 +152,36 @@ export default function MemoryGatewayPage() {
 
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} UNIFIED MEMORY GATEWAY
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Fan-out search across ContinuumMemory, Knowledge Mound, Supermemory, and claude-mem.
               Monitor retention decisions, near-duplicate clusters, and per-system health via{' '}
-              <code className="text-acid-green">enable_unified_memory</code>.
+              <code className="text-[var(--accent)]">enable_unified_memory</code>.
             </p>
           </div>
 
           {/* Aggregate stats bar */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
             <div className="p-3 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono font-bold text-acid-green">{sources.length}</div>
+              <div className="text-2xl font-theme-data font-bold text-[var(--accent)]">{sources.length}</div>
               <div className="text-xs text-text-muted uppercase">Sources</div>
             </div>
             <div className="p-3 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono font-bold text-blue-400">{activeSources}/{sources.length}</div>
+              <div className="text-2xl font-theme-data font-bold text-blue-400">{activeSources}/{sources.length}</div>
               <div className="text-xs text-text-muted uppercase">Active</div>
             </div>
             <div className="p-3 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono font-bold text-purple-400">{totalEntries.toLocaleString()}</div>
+              <div className="text-2xl font-theme-data font-bold text-purple-400">{totalEntries.toLocaleString()}</div>
               <div className="text-xs text-text-muted uppercase">Total Entries</div>
             </div>
             <div className="p-3 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono font-bold text-yellow-400">{totalRetentionActions}</div>
+              <div className="text-2xl font-theme-data font-bold text-yellow-400">{totalRetentionActions}</div>
               <div className="text-xs text-text-muted uppercase">Retention Actions</div>
             </div>
             <div className="p-3 bg-surface border border-border rounded-lg text-center">
-              <div className="text-2xl font-mono font-bold text-red-400">{totalDuplicates}</div>
+              <div className="text-2xl font-theme-data font-bold text-red-400">{totalDuplicates}</div>
               <div className="text-xs text-text-muted uppercase">Duplicates</div>
             </div>
           </div>
@@ -192,10 +192,10 @@ export default function MemoryGatewayPage() {
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
-                className={`px-4 py-2 text-sm font-mono rounded border transition-colors ${
+                className={`px-4 py-2 text-sm font-theme-data rounded border transition-colors ${
                   activeTab === key
-                    ? 'bg-acid-green/20 border-acid-green text-acid-green'
-                    : 'border-border text-text-muted hover:border-acid-green/50'
+                    ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
+                    : 'border-border text-text-muted hover:border-[var(--accent)]/50'
                 }`}
               >
                 {label}
@@ -209,14 +209,14 @@ export default function MemoryGatewayPage() {
           {activeTab === 'overview' && (
             <PanelErrorBoundary panelName="Memory Sources">
               {sourcesLoading ? (
-                <div className="text-acid-green font-mono animate-pulse text-center py-12">
+                <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-12">
                   Scanning memory subsystems...
                 </div>
               ) : sources.length === 0 ? (
                 <div className="p-8 bg-surface border border-border rounded-lg text-center">
-                  <p className="text-text-muted font-mono">
+                  <p className="text-text-muted font-theme-data">
                     No memory sources detected. Enable unified memory via{' '}
-                    <code className="text-acid-green">enable_unified_memory</code> in ArenaConfig.
+                    <code className="text-[var(--accent)]">enable_unified_memory</code> in ArenaConfig.
                   </p>
                 </div>
               ) : (
@@ -233,11 +233,11 @@ export default function MemoryGatewayPage() {
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full ${indicator.dot} inline-block`} />
-                            <span className={`font-mono text-sm font-bold ${meta.color}`}>
+                            <span className={`font-theme-data text-sm font-bold ${meta.color}`}>
                               {meta.label}
                             </span>
                           </div>
-                          <span className={`px-2 py-0.5 text-xs font-mono rounded ${indicator.badge}`}>
+                          <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${indicator.badge}`}>
                             {indicator.label}
                           </span>
                         </div>
@@ -245,13 +245,13 @@ export default function MemoryGatewayPage() {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <div className="text-xs text-text-muted uppercase">Entries</div>
-                            <div className="text-lg font-mono font-bold text-text">
+                            <div className="text-lg font-theme-data font-bold text-text">
                               {src.entry_count.toLocaleString()}
                             </div>
                           </div>
                           <div>
                             <div className="text-xs text-text-muted uppercase">Last Activity</div>
-                            <div className="text-sm font-mono text-text">
+                            <div className="text-sm font-theme-data text-text">
                               {formatTimestamp(src.last_activity)}
                             </div>
                           </div>
@@ -261,14 +261,14 @@ export default function MemoryGatewayPage() {
                           <div className="mt-3">
                             <div className="flex items-center justify-between text-xs text-text-muted mb-1">
                               <span>Share of total</span>
-                              <span className="font-mono">
+                              <span className="font-theme-data">
                                 {((src.entry_count / totalEntries) * 100).toFixed(1)}%
                               </span>
                             </div>
                             <div className="w-full bg-bg rounded-full h-1.5">
                               <div
                                 className={`h-1.5 rounded-full ${
-                                  src.name === 'continuum' ? 'bg-acid-green' :
+                                  src.name === 'continuum' ? 'bg-[var(--accent)]' :
                                   src.name === 'km' ? 'bg-blue-400' :
                                   src.name === 'supermemory' ? 'bg-purple-400' :
                                   'bg-yellow-400'
@@ -287,24 +287,24 @@ export default function MemoryGatewayPage() {
               {/* Retention stats summary */}
               {!retentionLoading && totalRetentionActions > 0 && (
                 <div className="mt-6 p-4 bg-surface border border-border rounded-lg">
-                  <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                  <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                     Retention Gate Summary
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="p-3 bg-bg rounded-lg text-center">
-                      <div className="text-xl font-mono font-bold text-acid-green">{retentionStats.retained}</div>
+                      <div className="text-xl font-theme-data font-bold text-[var(--accent)]">{retentionStats.retained}</div>
                       <div className="text-xs text-text-muted uppercase">Retained</div>
                     </div>
                     <div className="p-3 bg-bg rounded-lg text-center">
-                      <div className="text-xl font-mono font-bold text-yellow-400">{retentionStats.demoted}</div>
+                      <div className="text-xl font-theme-data font-bold text-yellow-400">{retentionStats.demoted}</div>
                       <div className="text-xs text-text-muted uppercase">Demoted</div>
                     </div>
                     <div className="p-3 bg-bg rounded-lg text-center">
-                      <div className="text-xl font-mono font-bold text-red-400">{retentionStats.forgotten}</div>
+                      <div className="text-xl font-theme-data font-bold text-red-400">{retentionStats.forgotten}</div>
                       <div className="text-xs text-text-muted uppercase">Forgotten</div>
                     </div>
                     <div className="p-3 bg-bg rounded-lg text-center">
-                      <div className="text-xl font-mono font-bold text-blue-400">{retentionStats.consolidated}</div>
+                      <div className="text-xl font-theme-data font-bold text-blue-400">{retentionStats.consolidated}</div>
                       <div className="text-xs text-text-muted uppercase">Consolidated</div>
                     </div>
                   </div>
@@ -314,20 +314,20 @@ export default function MemoryGatewayPage() {
               {/* Dedup stats summary */}
               {!dedupLoading && (totalDuplicates > 0 || clusters.length > 0) && (
                 <div className="mt-4 p-4 bg-surface border border-border rounded-lg">
-                  <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                  <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                     Deduplication Summary
                   </h3>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="p-3 bg-bg rounded-lg text-center">
-                      <div className="text-xl font-mono font-bold text-red-400">{totalDuplicates}</div>
+                      <div className="text-xl font-theme-data font-bold text-red-400">{totalDuplicates}</div>
                       <div className="text-xs text-text-muted uppercase">Total Duplicates</div>
                     </div>
                     <div className="p-3 bg-bg rounded-lg text-center">
-                      <div className="text-xl font-mono font-bold text-yellow-400">{clusters.length}</div>
+                      <div className="text-xl font-theme-data font-bold text-yellow-400">{clusters.length}</div>
                       <div className="text-xs text-text-muted uppercase">Clusters</div>
                     </div>
                     <div className="p-3 bg-bg rounded-lg text-center">
-                      <div className="text-xl font-mono font-bold text-acid-green">
+                      <div className="text-xl font-theme-data font-bold text-[var(--accent)]">
                         {totalDuplicates > 0 ? (totalDuplicates / Math.max(1, clusters.length)).toFixed(1) : '0'}
                       </div>
                       <div className="text-xs text-text-muted uppercase">Avg/Cluster</div>
@@ -346,12 +346,12 @@ export default function MemoryGatewayPage() {
               <div className="space-y-4">
                 {/* System filter toggles */}
                 <div className="flex gap-2 flex-wrap">
-                  <span className="text-xs font-mono text-text-muted py-1">Filter:</span>
+                  <span className="text-xs font-theme-data text-text-muted py-1">Filter:</span>
                   {Object.entries(SOURCE_LABELS).map(([key, meta]) => (
                     <button
                       key={key}
                       onClick={() => toggleSystem(key)}
-                      className={`px-3 py-1 text-xs font-mono rounded border transition-colors ${
+                      className={`px-3 py-1 text-xs font-theme-data rounded border transition-colors ${
                         selectedSystems.includes(key)
                           ? `${meta.color} border-current bg-current/10`
                           : 'text-text-muted border-border opacity-50'
@@ -370,19 +370,19 @@ export default function MemoryGatewayPage() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                     placeholder="Search across all memory systems..."
-                    className="flex-1 px-4 py-2 bg-surface border border-border rounded font-mono text-sm text-text placeholder-text-muted focus:border-acid-green focus:outline-none"
+                    className="flex-1 px-4 py-2 bg-surface border border-border rounded font-theme-data text-sm text-text placeholder-text-muted focus:border-[var(--accent)] focus:outline-none"
                   />
                   <button
                     onClick={handleSearch}
                     disabled={searchLoading || !searchQuery.trim()}
-                    className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 disabled:opacity-50"
+                    className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 disabled:opacity-50"
                   >
                     {searchLoading ? 'Searching...' : 'Search'}
                   </button>
                 </div>
 
                 {searchError && (
-                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm font-mono">
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm font-theme-data">
                     Search failed: {searchError.message}
                   </div>
                 )}
@@ -393,7 +393,7 @@ export default function MemoryGatewayPage() {
                     {Object.entries(perSystem).map(([sys, count]) => {
                       const meta = SOURCE_LABELS[sys];
                       return (
-                        <span key={sys} className={`px-2 py-1 text-xs font-mono rounded bg-surface border border-border ${meta?.color ?? 'text-text'}`}>
+                        <span key={sys} className={`px-2 py-1 text-xs font-theme-data rounded bg-surface border border-border ${meta?.color ?? 'text-text'}`}>
                           {meta?.label ?? sys}: {count}
                         </span>
                       );
@@ -404,7 +404,7 @@ export default function MemoryGatewayPage() {
                 {/* Results */}
                 {searchResults.length > 0 && (
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h3 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h3 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       {searchResults.length} results
                     </h3>
                     <div className="space-y-2 max-h-[500px] overflow-y-auto">
@@ -413,10 +413,10 @@ export default function MemoryGatewayPage() {
                         return (
                           <div key={idx} className="p-3 bg-bg rounded">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className={`px-1.5 py-0.5 text-xs font-mono rounded bg-surface ${meta?.color ?? 'text-text'}`}>
+                              <span className={`px-1.5 py-0.5 text-xs font-theme-data rounded bg-surface ${meta?.color ?? 'text-text'}`}>
                                 {meta?.label ?? result.source}
                               </span>
-                              <span className="text-xs text-text-muted font-mono">
+                              <span className="text-xs text-text-muted font-theme-data">
                                 relevance: {(result.relevance * 100).toFixed(0)}%
                               </span>
                             </div>
@@ -430,7 +430,7 @@ export default function MemoryGatewayPage() {
 
                 {!searchLoading && searchResults.length === 0 && searchQuery.trim() && !searchError && (
                   <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                    <p className="text-text-muted font-mono text-sm">
+                    <p className="text-text-muted font-theme-data text-sm">
                       Enter a query and click Search to query across all memory systems.
                     </p>
                   </div>
@@ -445,7 +445,7 @@ export default function MemoryGatewayPage() {
           {activeTab === 'retention' && (
             <PanelErrorBoundary panelName="Retention Gate">
               {retentionLoading ? (
-                <div className="text-acid-green font-mono animate-pulse text-center py-12">
+                <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-12">
                   Loading retention decisions...
                 </div>
               ) : (
@@ -453,24 +453,24 @@ export default function MemoryGatewayPage() {
                   {/* Stats */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                      <div className="text-2xl font-mono font-bold text-acid-green">{retentionStats.retained}</div>
+                      <div className="text-2xl font-theme-data font-bold text-[var(--accent)]">{retentionStats.retained}</div>
                       <div className="text-xs text-text-muted uppercase">Retained</div>
                     </div>
                     <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                      <div className="text-2xl font-mono font-bold text-yellow-400">{retentionStats.demoted}</div>
+                      <div className="text-2xl font-theme-data font-bold text-yellow-400">{retentionStats.demoted}</div>
                       <div className="text-xs text-text-muted uppercase">Demoted</div>
                     </div>
                     <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                      <div className="text-2xl font-mono font-bold text-red-400">{retentionStats.forgotten}</div>
+                      <div className="text-2xl font-theme-data font-bold text-red-400">{retentionStats.forgotten}</div>
                       <div className="text-xs text-text-muted uppercase">Forgotten</div>
                     </div>
                     <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                      <div className="text-2xl font-mono font-bold text-blue-400">{retentionStats.consolidated}</div>
+                      <div className="text-2xl font-theme-data font-bold text-blue-400">{retentionStats.consolidated}</div>
                       <div className="text-xs text-text-muted uppercase">Consolidated</div>
                     </div>
                   </div>
 
-                  <p className="text-xs text-text-muted font-mono">
+                  <p className="text-xs text-text-muted font-theme-data">
                     Titans/MIRAS-inspired surprise-driven decisions. Memories with high surprise scores are retained;
                     stale or low-value entries are demoted, forgotten, or consolidated.
                   </p>
@@ -478,16 +478,16 @@ export default function MemoryGatewayPage() {
                   {/* Decision stream */}
                   {decisions.length === 0 ? (
                     <div className="p-8 bg-surface border border-border rounded-lg text-center">
-                      <p className="text-text-muted font-mono">No retention decisions recorded yet.</p>
+                      <p className="text-text-muted font-theme-data">No retention decisions recorded yet.</p>
                     </div>
                   ) : (
                     <div className="space-y-2 max-h-[500px] overflow-y-auto">
                       {decisions.map((decision, i) => (
                         <div key={i} className="flex items-center gap-3 p-3 bg-surface border border-border rounded">
-                          <span className={`px-2 py-0.5 text-xs font-mono rounded whitespace-nowrap ${getActionColor(decision.action)}`}>
+                          <span className={`px-2 py-0.5 text-xs font-theme-data rounded whitespace-nowrap ${getActionColor(decision.action)}`}>
                             {decision.action.toUpperCase()}
                           </span>
-                          <span className="text-xs text-text font-mono flex-1 truncate" title={decision.memory_id}>
+                          <span className="text-xs text-text font-theme-data flex-1 truncate" title={decision.memory_id}>
                             {decision.memory_id.substring(0, 20)}...
                           </span>
                           <span className="text-xs text-text-muted whitespace-nowrap">
@@ -514,7 +514,7 @@ export default function MemoryGatewayPage() {
           {activeTab === 'dedup' && (
             <PanelErrorBoundary panelName="Dedup Engine">
               {dedupLoading ? (
-                <div className="text-acid-green font-mono animate-pulse text-center py-12">
+                <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-12">
                   Scanning for duplicates...
                 </div>
               ) : (
@@ -522,15 +522,15 @@ export default function MemoryGatewayPage() {
                   {/* Summary */}
                   <div className="grid grid-cols-3 gap-3">
                     <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                      <div className="text-2xl font-mono font-bold text-red-400">{totalDuplicates}</div>
+                      <div className="text-2xl font-theme-data font-bold text-red-400">{totalDuplicates}</div>
                       <div className="text-xs text-text-muted uppercase">Total Duplicates</div>
                     </div>
                     <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                      <div className="text-2xl font-mono font-bold text-yellow-400">{clusters.length}</div>
+                      <div className="text-2xl font-theme-data font-bold text-yellow-400">{clusters.length}</div>
                       <div className="text-xs text-text-muted uppercase">Clusters</div>
                     </div>
                     <div className="p-3 bg-surface border border-border rounded-lg text-center">
-                      <div className="text-2xl font-mono font-bold text-acid-green">
+                      <div className="text-2xl font-theme-data font-bold text-[var(--accent)]">
                         {totalDuplicates > 0
                           ? (totalDuplicates / Math.max(1, clusters.length)).toFixed(1)
                           : '0'}
@@ -539,21 +539,21 @@ export default function MemoryGatewayPage() {
                     </div>
                   </div>
 
-                  <p className="text-xs text-text-muted font-mono">
+                  <p className="text-xs text-text-muted font-theme-data">
                     SHA-256 exact + Jaccard near-duplicate detection across all memory systems.
                     Canonical entries are kept; duplicates are flagged for deduplication.
                   </p>
 
                   {clusters.length === 0 ? (
                     <div className="p-8 bg-surface border border-border rounded-lg text-center">
-                      <p className="text-text-muted font-mono">No duplicate clusters detected. Memory is clean.</p>
+                      <p className="text-text-muted font-theme-data">No duplicate clusters detected. Memory is clean.</p>
                     </div>
                   ) : (
                     <div className="space-y-4 max-h-[600px] overflow-y-auto">
                       {clusters.map((cluster) => (
                         <div key={cluster.cluster_id} className="p-4 bg-surface border border-border rounded-lg">
                           <div className="flex items-center gap-2 mb-3">
-                            <span className="text-xs font-mono text-text-muted">
+                            <span className="text-xs font-theme-data text-text-muted">
                               Cluster: {cluster.cluster_id.substring(0, 12)}
                             </span>
                             <span className="text-xs text-text-muted">
@@ -561,8 +561,8 @@ export default function MemoryGatewayPage() {
                             </span>
                           </div>
                           {/* Canonical */}
-                          <div className="p-2 bg-acid-green/10 border border-acid-green/30 rounded mb-2">
-                            <div className="text-xs text-acid-green font-mono mb-1">CANONICAL</div>
+                          <div className="p-2 bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded mb-2">
+                            <div className="text-xs text-[var(--accent)] font-theme-data mb-1">CANONICAL</div>
                             <p className="text-sm text-text line-clamp-2">{cluster.canonical}</p>
                           </div>
                           {/* Duplicate entries */}
@@ -571,11 +571,11 @@ export default function MemoryGatewayPage() {
                               const meta = SOURCE_LABELS[entry.source];
                               return (
                                 <div key={idx} className="text-xs p-2 bg-bg rounded flex items-center gap-2">
-                                  <span className={`px-1 py-0.5 rounded font-mono ${meta?.color ?? 'text-text'} bg-surface`}>
+                                  <span className={`px-1 py-0.5 rounded font-theme-data ${meta?.color ?? 'text-text'} bg-surface`}>
                                     {meta?.label ?? entry.source}
                                   </span>
                                   <span className="text-text flex-1 line-clamp-1">{entry.content}</span>
-                                  <span className="text-text-muted font-mono whitespace-nowrap">
+                                  <span className="text-text-muted font-theme-data whitespace-nowrap">
                                     {(entry.similarity * 100).toFixed(0)}% sim
                                   </span>
                                 </div>
@@ -592,8 +592,8 @@ export default function MemoryGatewayPage() {
           )}
         </div>
 
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // UNIFIED MEMORY GATEWAY</p>
         </footer>
       </main>

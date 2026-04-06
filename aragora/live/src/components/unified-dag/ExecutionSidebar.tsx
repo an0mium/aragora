@@ -101,12 +101,12 @@ export function ExecutionSidebar({
       <div className="p-4 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-mono font-bold text-text uppercase tracking-wide">
+          <h3 className="text-sm font-theme-data font-bold text-text uppercase tracking-wide">
             Execution
           </h3>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text text-xs font-mono"
+            className="text-text-muted hover:text-text text-xs font-theme-data"
             title="Close"
           >
             {'\u00D7'}
@@ -115,7 +115,7 @@ export function ExecutionSidebar({
 
         {/* Overall progress */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+          <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
             <span>Overall Progress</span>
             <span className="text-text">{completionPct}%</span>
           </div>
@@ -126,7 +126,7 @@ export function ExecutionSidebar({
               data-testid="progress-bar"
             />
           </div>
-          <div className="flex items-center justify-between text-[10px] font-mono text-text-muted">
+          <div className="flex items-center justify-between text-[10px] font-theme-data text-text-muted">
             <span>{succeededNodes}/{totalNodes} nodes complete</span>
             <span>{readyNodes} ready</span>
           </div>
@@ -134,7 +134,7 @@ export function ExecutionSidebar({
 
         {/* Stage breakdown */}
         <div className="space-y-2">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+          <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
             Stage Progress
           </h4>
           {summaries.map((s) => {
@@ -142,7 +142,7 @@ export function ExecutionSidebar({
             const pct = s.total > 0 ? Math.round((s.succeeded / s.total) * 100) : 0;
             return (
               <div key={s.stage} className="space-y-1">
-                <div className="flex items-center justify-between text-xs font-mono">
+                <div className="flex items-center justify-between text-xs font-theme-data">
                   <span style={{ color }} className="capitalize font-bold">{s.stage}</span>
                   <span className="text-text-muted">{s.succeeded}/{s.total}</span>
                 </div>
@@ -153,7 +153,7 @@ export function ExecutionSidebar({
                   />
                 </div>
                 {/* Mini status counts */}
-                <div className="flex gap-2 text-[9px] font-mono text-text-muted">
+                <div className="flex gap-2 text-[9px] font-theme-data text-text-muted">
                   {s.running > 0 && <span className="text-amber-400">{s.running} running</span>}
                   {s.ready > 0 && <span className="text-blue-400">{s.ready} ready</span>}
                   {s.failed > 0 && <span className="text-red-400">{s.failed} failed</span>}
@@ -167,18 +167,18 @@ export function ExecutionSidebar({
         {/* Validation */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+            <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
               Validation
             </h4>
             <button
               onClick={onValidate}
-              className="px-2 py-0.5 text-[10px] font-mono rounded bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/40 transition-colors"
+              className="px-2 py-0.5 text-[10px] font-theme-data rounded bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-600/40 transition-colors"
             >
               Check
             </button>
           </div>
           {validationErrors.length === 0 ? (
-            <div className="flex items-center gap-1.5 text-xs font-mono text-emerald-400">
+            <div className="flex items-center gap-1.5 text-xs font-theme-data text-emerald-400">
               <span>{'\u2713'}</span>
               <span>Graph is valid and executable</span>
             </div>
@@ -187,7 +187,7 @@ export function ExecutionSidebar({
               {validationErrors.map((err, i) => (
                 <div
                   key={i}
-                  className="flex items-start gap-1.5 text-[11px] font-mono text-red-400"
+                  className="flex items-start gap-1.5 text-[11px] font-theme-data text-red-400"
                 >
                   <span className="mt-0.5">{'\u2717'}</span>
                   <span>{err}</span>
@@ -199,13 +199,13 @@ export function ExecutionSidebar({
 
         {/* Batch controls */}
         <div className="space-y-2 pt-2 border-t border-border">
-          <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+          <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
             Batch Operations
           </h4>
           <button
             onClick={onExecuteAll}
             disabled={executing || readyNodes === 0}
-            className="w-full px-3 py-2 text-sm font-mono rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full px-3 py-2 text-sm font-theme-data rounded bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             data-testid="execute-all-btn"
           >
             {executing ? 'Executing...' : `Execute All Ready (${readyNodes})`}
@@ -213,12 +213,12 @@ export function ExecutionSidebar({
           <button
             onClick={onAutoAdvance}
             disabled={executing || totalNodes === 0}
-            className="w-full px-3 py-2 text-sm font-mono rounded bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full px-3 py-2 text-sm font-theme-data rounded bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             data-testid="auto-advance-btn"
           >
             {executing ? 'Advancing...' : 'Auto-Advance All Stages'}
           </button>
-          <p className="text-[10px] font-mono text-text-muted">
+          <p className="text-[10px] font-theme-data text-text-muted">
             Auto-advance decomposes ideas, sets goals, creates actions, assigns agents, and executes the full pipeline.
           </p>
         </div>
@@ -226,14 +226,14 @@ export function ExecutionSidebar({
         {/* Execution history */}
         {executionHistory.length > 0 && (
           <div className="space-y-2 pt-2 border-t border-border">
-            <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+            <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
               Recent Executions
             </h4>
             <div className="space-y-1 max-h-48 overflow-y-auto">
               {executionHistory.slice(0, 20).map((entry) => (
                 <div
                   key={entry.id}
-                  className="flex items-center justify-between px-2 py-1 rounded bg-bg/50 text-[11px] font-mono"
+                  className="flex items-center justify-between px-2 py-1 rounded bg-bg/50 text-[11px] font-theme-data"
                 >
                   <div className="flex items-center gap-1.5 truncate">
                     <span

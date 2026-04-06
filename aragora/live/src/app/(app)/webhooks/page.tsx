@@ -58,8 +58,8 @@ const EVENT_CATEGORIES = [...new Set(EVENT_TYPES.map(e => e.category))];
 
 function StatusBadge({ active }: { active: boolean }) {
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded ${
-      active ? 'bg-acid-green/20 text-acid-green' : 'bg-text-muted/20 text-text-muted'
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${
+      active ? 'bg-[var(--accent)]/20 text-[var(--accent)]' : 'bg-text-muted/20 text-text-muted'
     }`}>
       {active ? 'ACTIVE' : 'INACTIVE'}
     </span>
@@ -68,12 +68,12 @@ function StatusBadge({ active }: { active: boolean }) {
 
 function DeliveryStatus({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    success: 'bg-acid-green/20 text-acid-green',
+    success: 'bg-[var(--accent)]/20 text-[var(--accent)]',
     failed: 'bg-warning/20 text-warning',
-    pending: 'bg-acid-cyan/20 text-acid-cyan',
+    pending: 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]',
   };
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded ${colors[status] || colors.pending}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${colors[status] || colors.pending}`}>
       {status.toUpperCase()}
     </span>
   );
@@ -228,10 +228,10 @@ export default function WebhooksPage() {
       <main className="min-h-screen bg-bg text-text relative z-10">
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} WEBHOOKS
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Configure webhooks to receive real-time notifications for debate events.
               Integrate with external systems, Slack, Discord, or custom applications.
             </p>
@@ -239,7 +239,7 @@ export default function WebhooksPage() {
 
           {error && (
             <div className="mb-6 p-4 border border-warning/30 bg-warning/10 rounded">
-              <p className="text-warning font-mono text-sm">{error}</p>
+              <p className="text-warning font-theme-data text-sm">{error}</p>
             </div>
           )}
 
@@ -247,30 +247,30 @@ export default function WebhooksPage() {
           <div className="flex gap-2 mb-6">
             <button
               onClick={() => setActiveTab('webhooks')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'webhooks'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
               }`}
             >
               [WEBHOOKS] ({webhooks.length})
             </button>
             <button
               onClick={() => setActiveTab('events')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'events'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
               }`}
             >
               [DELIVERY LOG]
             </button>
             <button
               onClick={() => setActiveTab('create')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'create'
-                  ? 'border-acid-cyan bg-acid-cyan/10 text-acid-cyan'
-                  : 'border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/5'
+                  ? 'border-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)]'
+                  : 'border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/5'
               }`}
             >
               [+ NEW]
@@ -280,30 +280,30 @@ export default function WebhooksPage() {
           <PanelErrorBoundary panelName="Webhooks">
             {loading ? (
               <div className="p-8 text-center">
-                <p className="font-mono text-text-muted">Loading webhooks...</p>
+                <p className="font-theme-data text-text-muted">Loading webhooks...</p>
               </div>
             ) : activeTab === 'webhooks' ? (
               <div className="space-y-4">
                 {webhooks.length === 0 ? (
-                  <div className="p-8 border border-acid-green/20 rounded text-center">
-                    <p className="font-mono text-text-muted mb-4">No webhooks configured yet.</p>
+                  <div className="p-8 border border-[var(--accent)]/20 rounded text-center">
+                    <p className="font-theme-data text-text-muted mb-4">No webhooks configured yet.</p>
                     <button
                       onClick={() => setActiveTab('create')}
-                      className="px-4 py-2 border border-acid-cyan/50 text-acid-cyan font-mono text-sm hover:bg-acid-cyan/10 transition-colors"
+                      className="px-4 py-2 border border-[var(--acid-cyan)]/50 text-[var(--acid-cyan)] font-theme-data text-sm hover:bg-[var(--acid-cyan)]/10 transition-colors"
                     >
                       [CREATE WEBHOOK]
                     </button>
                   </div>
                 ) : (
                   webhooks.map(webhook => (
-                    <div key={webhook.id} className="p-4 border border-acid-green/20 rounded bg-surface/30">
+                    <div key={webhook.id} className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
                       <div className="flex items-start justify-between mb-3">
                         <div>
-                          <code className="text-acid-cyan text-sm break-all">{webhook.url}</code>
+                          <code className="text-[var(--acid-cyan)] text-sm break-all">{webhook.url}</code>
                           <div className="flex items-center gap-2 mt-1">
                             <StatusBadge active={webhook.active} />
                             {webhook.failure_count > 0 && (
-                              <span className="text-xs font-mono text-warning">
+                              <span className="text-xs font-theme-data text-warning">
                                 {webhook.failure_count} failures
                               </span>
                             )}
@@ -313,19 +313,19 @@ export default function WebhooksPage() {
                           <button
                             onClick={() => handleTest(webhook.id)}
                             disabled={testing === webhook.id || !webhook.active}
-                            className="px-2 py-1 text-xs font-mono border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/10 transition-colors disabled:opacity-50"
+                            className="px-2 py-1 text-xs font-theme-data border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors disabled:opacity-50"
                           >
                             {testing === webhook.id ? '[TESTING...]' : '[TEST]'}
                           </button>
                           <button
                             onClick={() => handleToggle(webhook.id, webhook.active)}
-                            className="px-2 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-text transition-colors"
+                            className="px-2 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-text transition-colors"
                           >
                             {webhook.active ? '[DISABLE]' : '[ENABLE]'}
                           </button>
                           <button
                             onClick={() => handleDelete(webhook.id)}
-                            className="px-2 py-1 text-xs font-mono border border-warning/30 text-warning hover:bg-warning/10 transition-colors"
+                            className="px-2 py-1 text-xs font-theme-data border border-warning/30 text-warning hover:bg-warning/10 transition-colors"
                           >
                             [DELETE]
                           </button>
@@ -334,8 +334,8 @@ export default function WebhooksPage() {
 
                       {/* Test result notification */}
                       {testResult && testing === null && (
-                        <div className={`mb-3 p-2 text-xs font-mono rounded ${
-                          testResult.success ? 'bg-acid-green/10 text-acid-green' : 'bg-warning/10 text-warning'
+                        <div className={`mb-3 p-2 text-xs font-theme-data rounded ${
+                          testResult.success ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'bg-warning/10 text-warning'
                         }`}>
                           {testResult.message}
                         </div>
@@ -345,14 +345,14 @@ export default function WebhooksPage() {
                         {webhook.events.map(event => {
                           const eventType = EVENT_TYPES.find(e => e.id === event);
                           return (
-                            <span key={event} className="px-2 py-0.5 text-xs font-mono bg-acid-green/10 text-acid-green rounded">
+                            <span key={event} className="px-2 py-0.5 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] rounded">
                               {eventType?.label || event}
                             </span>
                           );
                         })}
                       </div>
                       {webhook.last_triggered && (
-                        <div className="mt-2 text-xs font-mono text-text-muted">
+                        <div className="mt-2 text-xs font-theme-data text-text-muted">
                           Last triggered: {new Date(webhook.last_triggered).toLocaleString()}
                         </div>
                       )}
@@ -363,22 +363,22 @@ export default function WebhooksPage() {
             ) : activeTab === 'events' ? (
               <div className="space-y-2">
                 {events.length === 0 ? (
-                  <div className="p-8 border border-acid-green/20 rounded text-center">
-                    <p className="font-mono text-text-muted">No delivery events recorded yet.</p>
+                  <div className="p-8 border border-[var(--accent)]/20 rounded text-center">
+                    <p className="font-theme-data text-text-muted">No delivery events recorded yet.</p>
                   </div>
                 ) : (
                   events.map(event => (
-                    <div key={event.id} className="p-3 border border-acid-green/10 rounded bg-surface/20 flex items-center justify-between">
+                    <div key={event.id} className="p-3 border border-[var(--accent)]/10 rounded bg-surface/20 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <DeliveryStatus status={event.status} />
-                        <span className="font-mono text-sm text-acid-cyan">{event.event_type}</span>
+                        <span className="font-theme-data text-sm text-[var(--acid-cyan)]">{event.event_type}</span>
                         {event.response_code && (
-                          <span className="font-mono text-xs text-text-muted">
+                          <span className="font-theme-data text-xs text-text-muted">
                             HTTP {event.response_code}
                           </span>
                         )}
                       </div>
-                      <span className="font-mono text-xs text-text-muted">
+                      <span className="font-theme-data text-xs text-text-muted">
                         {new Date(event.triggered_at).toLocaleString()}
                       </span>
                     </div>
@@ -386,12 +386,12 @@ export default function WebhooksPage() {
                 )}
               </div>
             ) : (
-              <div className="p-6 border border-acid-cyan/30 rounded bg-surface/30">
-                <h3 className="font-mono text-acid-cyan mb-4">Create New Webhook</h3>
+              <div className="p-6 border border-[var(--acid-cyan)]/30 rounded bg-surface/30">
+                <h3 className="font-theme-data text-[var(--acid-cyan)] mb-4">Create New Webhook</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block font-mono text-sm text-text-muted mb-2">
+                    <label className="block font-theme-data text-sm text-text-muted mb-2">
                       Webhook URL *
                     </label>
                     <input
@@ -399,11 +399,11 @@ export default function WebhooksPage() {
                       value={newUrl}
                       onChange={(e) => setNewUrl(e.target.value)}
                       placeholder="https://your-server.com/webhook"
-                      className="w-full bg-bg border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                      className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
                     />
                   </div>
                   <div>
-                    <label className="block font-mono text-sm text-text-muted mb-2">
+                    <label className="block font-theme-data text-sm text-text-muted mb-2">
                       Name (optional)
                     </label>
                     <input
@@ -411,20 +411,20 @@ export default function WebhooksPage() {
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
                       placeholder="My webhook"
-                      className="w-full bg-bg border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:outline-none focus:border-acid-green"
+                      className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2 text-sm font-theme-data text-text focus:outline-none focus:border-[var(--accent)]"
                     />
                   </div>
                 </div>
 
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-2">
-                    <label className="font-mono text-sm text-text-muted">
+                    <label className="font-theme-data text-sm text-text-muted">
                       Events to Subscribe ({selectedEvents.length} selected)
                     </label>
                     <button
                       type="button"
                       onClick={() => setSelectedEvents(selectedEvents.length === EVENT_TYPES.length ? [] : EVENT_TYPES.map(e => e.id))}
-                      className="text-xs font-mono text-acid-cyan hover:text-acid-cyan/80"
+                      className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--acid-cyan)]/80"
                     >
                       {selectedEvents.length === EVENT_TYPES.length ? '[DESELECT ALL]' : '[SELECT ALL]'}
                     </button>
@@ -433,7 +433,7 @@ export default function WebhooksPage() {
                   {/* Events grouped by category */}
                   {EVENT_CATEGORIES.map(category => (
                     <div key={category} className="mb-4">
-                      <div className="text-xs font-mono text-text-muted mb-2 uppercase">{category}</div>
+                      <div className="text-xs font-theme-data text-text-muted mb-2 uppercase">{category}</div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         {EVENT_TYPES.filter(e => e.category === category).map(event => (
                           <button
@@ -442,12 +442,12 @@ export default function WebhooksPage() {
                             onClick={() => toggleEvent(event.id)}
                             className={`p-3 border text-left transition-colors ${
                               selectedEvents.includes(event.id)
-                                ? 'border-acid-green bg-acid-green/10'
-                                : 'border-acid-green/20 hover:border-acid-green/40'
+                                ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                                : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/40'
                             }`}
                           >
-                            <div className="font-mono text-sm text-text">{event.label}</div>
-                            <div className="font-mono text-xs text-text-muted">{event.description}</div>
+                            <div className="font-theme-data text-sm text-text">{event.label}</div>
+                            <div className="font-theme-data text-xs text-text-muted">{event.description}</div>
                           </button>
                         ))}
                       </div>
@@ -458,7 +458,7 @@ export default function WebhooksPage() {
                 <button
                   onClick={handleCreate}
                   disabled={creating || !newUrl || selectedEvents.length === 0}
-                  className="px-4 py-2 bg-acid-cyan/20 border border-acid-cyan/50 text-acid-cyan font-mono text-sm hover:bg-acid-cyan/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-[var(--acid-cyan)]/20 border border-[var(--acid-cyan)]/50 text-[var(--acid-cyan)] font-theme-data text-sm hover:bg-[var(--acid-cyan)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {creating ? 'Creating...' : '[CREATE WEBHOOK]'}
                 </button>
@@ -468,8 +468,8 @@ export default function WebhooksPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

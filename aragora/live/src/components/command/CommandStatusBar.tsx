@@ -15,11 +15,11 @@ export function CommandStatusBar({ stats, onAutoFlowAll, onValidateAll, onExecut
     <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-surface">
       {/* Left: Title */}
       <div className="flex items-center gap-3">
-        <h2 className="text-sm font-mono font-bold text-acid-green uppercase tracking-wider">
+        <h2 className="text-sm font-theme-data font-bold text-[var(--accent)] uppercase tracking-wider">
           Command Center
         </h2>
         {loading && (
-          <div className="w-3 h-3 border-2 border-acid-green/30 border-t-acid-green rounded-full animate-spin" />
+          <div className="w-3 h-3 border-2 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin" />
         )}
       </div>
 
@@ -49,7 +49,7 @@ function StatChip({ label, value, color }: { label: string; value: string | numb
     indigo: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30',
   };
   return (
-    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border ${colorMap[color] || colorMap.blue}`}>
+    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-theme-data border ${colorMap[color] || colorMap.blue}`}>
       <span className="opacity-70">{label}</span>
       <span className="font-bold">{value}</span>
     </div>
@@ -61,9 +61,9 @@ function ActionButton({ label, onClick, disabled, accent }: { label: string; onC
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`px-3 py-1.5 text-xs font-mono rounded transition-colors disabled:opacity-50 ${
+      className={`px-3 py-1.5 text-xs font-theme-data rounded transition-colors disabled:opacity-50 ${
         accent
-          ? 'bg-acid-green/20 text-acid-green border border-acid-green/30 hover:bg-acid-green/30'
+          ? 'bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/30 hover:bg-[var(--accent)]/30'
           : 'text-text-muted hover:text-text hover:bg-bg border border-border'
       }`}
     >

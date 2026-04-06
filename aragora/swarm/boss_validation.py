@@ -68,6 +68,7 @@ _PRE_DISPATCH_SAFE_COMMAND_PREFIXES = (
     "python3 -m aragora",
 )
 _BACKTICK_COMMAND_RE = re.compile(r"`(?P<command>[^`]+)`")
+_EXPLICIT_PYTEST_TARGET_RE = re.compile(r"(?<!\S)(?P<path>tests/\S+?\.py)(?:::\S+)?(?!\S)")
 
 
 def _ordered_unique_strings(items: list[str]) -> list[str]:
@@ -237,6 +238,37 @@ def extract_pre_dispatch_validation_commands(issue_body: str) -> list[str]:
         if any(normalized.startswith(prefix) for prefix in _PRE_DISPATCH_SAFE_COMMAND_PREFIXES):
             commands.append(normalized)
     return _ordered_unique_strings(commands)
+
+
+def find_missing_pre_dispatch_validation_targets(
+    commands: list[str],
+    *,
+    repo_root: Path,
+) -> list[str]:
+    """Return explicit pytest file targets that do not exist on disk.
+
+    This is intentionally narrower than executing the command: a failing test is
+    a legitimate bug-fix lane, but a missing pytest target is usually a stale
+    issue contract that should stop before dispatch.
+    """
+
+    missing: list[str] = []
+    for command in commands:
+        normalized = _normalize_pre_dispatch_command(command)
+        lowered = normalized.lower()
+        if not (
+            lowered.startswith("pytest ")
+            or lowered.startswith("python -m pytest ")
+            or lowered.startswith("python3 -m pytest ")
+            or lowered.startswith("uv run pytest ")
+            or lowered.startswith("uv run python -m pytest ")
+        ):
+            continue
+        for match in _EXPLICIT_PYTEST_TARGET_RE.finditer(normalized):
+            path = match.group("path").strip()
+            if path and not (repo_root / path).exists():
+                missing.append(path)
+    return _ordered_unique_strings(missing)
 
 
 def run_pre_dispatch_validation_commands(

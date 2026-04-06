@@ -181,29 +181,29 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-surface border border-acid-green/30 p-4">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-mono text-acid-green">{'>'} SCENARIO MATRIX</h2>
-          <span className="text-xs font-mono text-text-muted">
+          <h2 className="text-lg font-theme-data text-[var(--accent)]">{'>'} SCENARIO MATRIX</h2>
+          <span className="text-xs font-theme-data text-text-muted">
             Parallel scenario comparison
           </span>
         </div>
 
         {/* Task input */}
         <div className="mb-4">
-          <label className="text-xs font-mono text-text-muted block mb-1">BASE TASK</label>
+          <label className="text-xs font-theme-data text-text-muted block mb-1">BASE TASK</label>
           <textarea
             value={task}
             onChange={(e) => setTask(e.target.value)}
             placeholder="Enter the debate topic that will be explored across all scenarios..."
-            className="w-full px-3 py-2 bg-bg border border-acid-green/30 text-text font-mono text-sm focus:outline-none focus:border-acid-green resize-none"
+            className="w-full px-3 py-2 bg-bg border border-[var(--accent)]/30 text-text font-theme-data text-sm focus:outline-none focus:border-[var(--accent)] resize-none"
             rows={2}
           />
         </div>
 
         {/* Scenario builder */}
         <div className="mb-4">
-          <label className="text-xs font-mono text-text-muted block mb-2">
+          <label className="text-xs font-theme-data text-text-muted block mb-2">
             SCENARIOS ({scenarios.length})
           </label>
           <ScenarioBuilder
@@ -218,7 +218,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
         <button
           onClick={runMatrix}
           disabled={loading || !task.trim() || scenarios.length === 0}
-          className="w-full py-3 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-3 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'RUNNING MATRIX...' : 'RUN SCENARIO MATRIX'}
         </button>
@@ -226,8 +226,8 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
 
       {/* Error */}
       {error && (
-        <div className="bg-surface border border-crimson/30 p-4">
-          <div className="text-xs font-mono text-crimson">Error: {error}</div>
+        <div className="bg-surface border border-[var(--crimson)]/30 p-4">
+          <div className="text-xs font-theme-data text-[var(--crimson)]">Error: {error}</div>
         </div>
       )}
 
@@ -239,14 +239,14 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
             <MetricCard
               label="Scenarios"
               value={result.scenario_count}
-              color="text-acid-cyan"
+              color="text-[var(--acid-cyan)]"
             />
             <MetricCard
               label="Consensus Rate"
               value={`${(result.comparison_matrix.consensus_rate * 100).toFixed(0)}%`}
               color={
                 result.comparison_matrix.consensus_rate > 0.5
-                  ? 'text-acid-green'
+                  ? 'text-[var(--accent)]'
                   : 'text-yellow-400'
               }
             />
@@ -263,9 +263,9 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
 
           {/* Universal conclusions */}
           {result.universal_conclusions.length > 0 && (
-            <div className="bg-surface border border-acid-green/30">
-              <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50">
-                <span className="text-xs font-mono text-acid-green uppercase tracking-wider">
+            <div className="bg-surface border border-[var(--accent)]/30">
+              <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50">
+                <span className="text-xs font-theme-data text-[var(--accent)] uppercase tracking-wider">
                   {'>'} UNIVERSAL CONCLUSIONS
                 </span>
               </div>
@@ -273,7 +273,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                 {result.universal_conclusions.map((conclusion, i) => (
                   <div
                     key={i}
-                    className="px-3 py-2 bg-acid-green/10 border border-acid-green/30 text-sm font-mono text-text"
+                    className="px-3 py-2 bg-[var(--accent)]/10 border border-[var(--accent)]/30 text-sm font-theme-data text-text"
                   >
                     {conclusion}
                   </div>
@@ -292,9 +292,9 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
           )}
 
           {/* Scenario results */}
-          <div className="bg-surface border border-acid-cyan/30">
-            <div className="px-4 py-3 border-b border-acid-cyan/20 bg-bg/50 flex items-center justify-between flex-wrap gap-2">
-              <span className="text-xs font-mono text-acid-cyan uppercase tracking-wider">
+          <div className="bg-surface border border-[var(--acid-cyan)]/30">
+            <div className="px-4 py-3 border-b border-[var(--acid-cyan)]/20 bg-bg/50 flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-theme-data text-[var(--acid-cyan)] uppercase tracking-wider">
                 {'>'} SCENARIO RESULTS ({filteredResults.length}/{result.results.length})
               </span>
 
@@ -304,10 +304,10 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
-                    className={`px-2 py-1 text-[10px] font-mono transition-colors ${
+                    className={`px-2 py-1 text-[10px] font-theme-data transition-colors ${
                       viewMode === mode
-                        ? 'bg-acid-cyan text-bg'
-                        : 'text-text-muted hover:text-acid-cyan'
+                        ? 'bg-[var(--acid-cyan)] text-bg'
+                        : 'text-text-muted hover:text-[var(--acid-cyan)]'
                     }`}
                   >
                     {mode.toUpperCase()}
@@ -317,15 +317,15 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
             </div>
 
             {/* Filters */}
-            <div className="px-4 py-2 border-b border-acid-cyan/10 bg-bg/30 flex items-center gap-4 flex-wrap">
+            <div className="px-4 py-2 border-b border-[var(--acid-cyan)]/10 bg-bg/30 flex items-center gap-4 flex-wrap">
               <input
                 type="text"
                 value={filters.searchTerm}
                 onChange={(e) => setFilters({ ...filters, searchTerm: e.target.value })}
                 placeholder="Search scenarios..."
-                className="px-2 py-1 bg-bg border border-border text-xs font-mono text-text focus:outline-none focus:border-acid-cyan"
+                className="px-2 py-1 bg-bg border border-border text-xs font-theme-data text-text focus:outline-none focus:border-[var(--acid-cyan)]"
               />
-              <label className="flex items-center gap-1 text-[10px] font-mono text-text-muted">
+              <label className="flex items-center gap-1 text-[10px] font-theme-data text-text-muted">
                 <input
                   type="checkbox"
                   checked={filters.consensusOnly}
@@ -334,7 +334,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                 />
                 Consensus only
               </label>
-              <label className="flex items-center gap-1 text-[10px] font-mono text-text-muted">
+              <label className="flex items-center gap-1 text-[10px] font-theme-data text-text-muted">
                 Min confidence:
                 <input
                   type="range"
@@ -344,7 +344,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                   onChange={(e) => setFilters({ ...filters, minConfidence: parseInt(e.target.value) / 100 })}
                   className="w-20 h-1 accent-acid-cyan"
                 />
-                <span className="text-acid-cyan">{Math.round(filters.minConfidence * 100)}%</span>
+                <span className="text-[var(--acid-cyan)]">{Math.round(filters.minConfidence * 100)}%</span>
               </label>
             </div>
 
@@ -374,7 +374,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                     );
                   })}
                   {filteredResults.length === 0 && (
-                    <div className="text-center text-text-muted text-xs font-mono py-4">
+                    <div className="text-center text-text-muted text-xs font-theme-data py-4">
                       No scenarios match your filters
                     </div>
                   )}
@@ -387,7 +387,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
           {result.conditional_conclusions.length > 0 && (
             <div className="bg-surface border border-gold/30">
               <div className="px-4 py-3 border-b border-gold/20 bg-bg/50">
-                <span className="text-xs font-mono text-gold uppercase tracking-wider">
+                <span className="text-xs font-theme-data text-gold uppercase tracking-wider">
                   {'>'} CONDITIONAL CONCLUSIONS
                 </span>
               </div>
@@ -395,8 +395,8 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                 {result.conditional_conclusions.map((cc, i) => (
                   <div key={i} className="p-3 bg-bg/50 border border-gold/20">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-mono text-gold">{cc.condition}</span>
-                      <span className="text-xs font-mono text-text-muted">
+                      <span className="text-xs font-theme-data text-gold">{cc.condition}</span>
+                      <span className="text-xs font-theme-data text-text-muted">
                         ({(cc.confidence * 100).toFixed(0)}% confidence)
                       </span>
                     </div>
@@ -405,14 +405,14 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                         {Object.entries(cc.parameters).map(([key, value]) => (
                           <span
                             key={key}
-                            className="px-1 py-0.5 bg-acid-cyan/10 text-acid-cyan text-[10px] font-mono"
+                            className="px-1 py-0.5 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] text-[10px] font-theme-data"
                           >
                             {key}={String(value)}
                           </span>
                         ))}
                       </div>
                     )}
-                    <div className="text-sm font-mono text-text">
+                    <div className="text-sm font-theme-data text-text">
                       {cc.conclusion.length > 300
                         ? cc.conclusion.slice(0, 300) + '...'
                         : cc.conclusion}
@@ -426,7 +426,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
           {/* Comparison grid */}
           <div className="bg-surface border border-purple/30">
             <div className="px-4 py-3 border-b border-purple/20 bg-bg/50">
-              <span className="text-xs font-mono text-purple uppercase tracking-wider">
+              <span className="text-xs font-theme-data text-purple uppercase tracking-wider">
                 {'>'} COMPARISON GRID
               </span>
             </div>
@@ -443,21 +443,21 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                     }`}
                   >
                     <div className="flex items-center justify-between mb-3">
-                      <span className={`text-sm font-mono ${r.is_baseline ? 'text-gold' : 'text-text'}`}>
+                      <span className={`text-sm font-theme-data ${r.is_baseline ? 'text-gold' : 'text-text'}`}>
                         {r.scenario_name}
                       </span>
                       {r.is_baseline && (
-                        <span className="text-[10px] font-mono text-gold">[BASELINE]</span>
+                        <span className="text-[10px] font-theme-data text-gold">[BASELINE]</span>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                    <div className="grid grid-cols-2 gap-2 text-xs font-theme-data">
                       <div className="flex justify-between items-center p-2 bg-bg/50 rounded">
                         <span className="text-text-muted">Consensus</span>
                         <span
                           className={`px-2 py-0.5 ${
                             r.consensus_reached
-                              ? 'bg-acid-green/20 text-acid-green'
-                              : 'bg-crimson/20 text-crimson'
+                              ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
+                              : 'bg-[var(--crimson)]/20 text-[var(--crimson)]'
                           }`}
                         >
                           {r.consensus_reached ? 'YES' : 'NO'}
@@ -465,7 +465,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                       </div>
                       <div className="flex justify-between items-center p-2 bg-bg/50 rounded">
                         <span className="text-text-muted">Confidence</span>
-                        <span className="text-acid-cyan">{(r.confidence * 100).toFixed(0)}%</span>
+                        <span className="text-[var(--acid-cyan)]">{(r.confidence * 100).toFixed(0)}%</span>
                       </div>
                       <div className="flex justify-between items-center p-2 bg-bg/50 rounded">
                         <span className="text-text-muted">Rounds</span>
@@ -489,7 +489,7 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
 
             {/* Desktop table layout */}
             <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-xs font-mono">
+              <table className="w-full text-xs font-theme-data">
                 <thead>
                   <tr className="bg-bg/50">
                     <th className="px-4 py-2 text-left text-text-muted">Scenario</th>
@@ -513,14 +513,14 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
                           <span
                             className={`px-2 py-0.5 ${
                               r.consensus_reached
-                                ? 'bg-acid-green/20 text-acid-green'
-                                : 'bg-crimson/20 text-crimson'
+                                ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
+                                : 'bg-[var(--crimson)]/20 text-[var(--crimson)]'
                             }`}
                           >
                             {r.consensus_reached ? 'YES' : 'NO'}
                           </span>
                         </td>
-                        <td className="px-4 py-2 text-center text-acid-cyan">
+                        <td className="px-4 py-2 text-center text-[var(--acid-cyan)]">
                           {(r.confidence * 100).toFixed(0)}%
                         </td>
                         <td className="px-4 py-2 text-center text-text-muted">
@@ -547,9 +547,9 @@ export function ScenarioMatrixView({ events = [], initialMatrixId }: ScenarioMat
 
       {/* Empty state */}
       {!result && !loading && (
-        <div className="bg-surface border border-acid-green/30 p-8 text-center">
-          <div className="text-4xl font-mono text-acid-green/30 mb-4">[...]</div>
-          <div className="text-sm font-mono text-text-muted">
+        <div className="bg-surface border border-[var(--accent)]/30 p-8 text-center">
+          <div className="text-4xl font-theme-data text-[var(--accent)]/30 mb-4">[...]</div>
+          <div className="text-sm font-theme-data text-text-muted">
             Configure scenarios above and run the matrix to see results
           </div>
         </div>

@@ -21,6 +21,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from aragora.pipeline.backbone_errors import BackbonePersistenceError, FAIL_CLOSED_BACKBONE_MESSAGE
 from aragora.server.fastapi import create_app
 from aragora.server.fastapi.routes.canvas_pipeline import ExecuteRequest, execute_pipeline
 
@@ -477,6 +478,57 @@ class TestPipelineExecution:
             saved_pipeline["live_state"]["orchestration"]["active_nodes"][0]["label"]
             == "Ship feature"
         )
+
+    @pytest.mark.asyncio
+    async def test_execute_pipeline_backbone_failure_returns_503(self, monkeypatch):
+        pipeline = {
+            "pipeline_id": "pipe-fastapi-backbone",
+            "name": "FastAPI Backbone",
+            "stage_status": {
+                "ideas": "complete",
+                "goals": "complete",
+                "actions": "complete",
+                "orchestration": "complete",
+            },
+            "orchestration": {
+                "nodes": [
+                    {"id": "t1", "data": {"orch_type": "agent_task", "label": "Ship feature"}},
+                ],
+                "edges": [],
+            },
+        }
+        store = MagicMock()
+        monkeypatch.setattr(
+            "aragora.server.fastapi.routes.canvas_pipeline._get_result_or_404",
+            AsyncMock(return_value=pipeline),
+        )
+        monkeypatch.setattr(
+            "aragora.server.fastapi.routes.canvas_pipeline._get_store",
+            lambda: store,
+        )
+
+        fake_execution = types.ModuleType("aragora.pipeline.canonical_execution")
+        fake_execution.build_decision_plan_from_orchestration = lambda **_: (
+            types.SimpleNamespace(id="plan-fastapi"),
+            [{"id": "t1"}],
+        )
+
+        def _raise_backbone(*_, **__):
+            raise BackbonePersistenceError("run ledger unavailable")
+
+        fake_execution.queue_plan_execution = _raise_backbone
+        fake_execution.execute_queued_plan = AsyncMock()
+
+        with patch.dict(sys.modules, {"aragora.pipeline.canonical_execution": fake_execution}):
+            with pytest.raises(Exception) as excinfo:
+                await execute_pipeline(
+                    "pipe-fastapi-backbone",
+                    ExecuteRequest(),
+                    auth=MagicMock(),
+                )
+
+        assert getattr(excinfo.value, "status_code", None) == 503
+        assert getattr(excinfo.value, "detail", None) == FAIL_CLOSED_BACKBONE_MESSAGE
 
     def test_get_pipeline_stage_invalid(self, client, mock_pipeline_store):
         """Stage endpoint rejects invalid stage name."""

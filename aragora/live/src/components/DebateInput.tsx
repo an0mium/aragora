@@ -646,7 +646,7 @@ export function DebateInput({
   return (
     <div className="w-full max-w-3xl mx-auto">
       {requiresLiveAuth && (
-        <div className="mb-4 p-3 bg-warning/10 border border-warning/30 font-mono text-sm">
+        <div className="mb-4 p-3 bg-warning/10 border border-warning/30 font-theme-data text-sm">
           <div className="flex items-center gap-2 text-warning">
             <span className="w-2 h-2 rounded-full bg-warning" />
             <span>Live debates require an authenticated session.</span>
@@ -655,16 +655,16 @@ export function DebateInput({
       )}
       {/* Playground mode indicator */}
       {isPlaygroundMode && (
-        <div className="mb-4 p-3 bg-acid-green/10 border border-acid-green/30 font-mono text-sm">
-          <div className="flex items-center gap-2 text-acid-green">
-            <span className="w-2 h-2 rounded-full bg-acid-green" />
+        <div className="mb-4 p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/30 font-theme-data text-sm">
+          <div className="flex items-center gap-2 text-[var(--accent)]">
+            <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
             <span>Demo mode — using mock agents (no API keys required)</span>
           </div>
         </div>
       )}
       {/* API Status Banner */}
       {apiStatus === 'offline' && (
-        <div className="mb-4 p-3 bg-warning/10 border border-warning/30 font-mono text-sm">
+        <div className="mb-4 p-3 bg-warning/10 border border-warning/30 font-theme-data text-sm">
           <div className="flex items-center gap-2 text-warning">
             <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />
             <span>API server offline</span>
@@ -689,8 +689,8 @@ export function DebateInput({
             disabled={isDisabled}
             rows={3}
             aria-describedby="debate-input-hint"
-            className="debate-input w-full bg-surface border-2 border-acid-green/40 focus:border-acid-green
-                       px-5 py-4 font-mono text-lg text-text placeholder-text-muted/40
+            className="debate-input w-full bg-surface border-2 border-[var(--accent)]/40 focus:border-[var(--accent)]
+                       px-5 py-4 font-theme-data text-lg text-text placeholder-text-muted/40
                        resize-none transition-all focus:outline-none rounded-2xl
                        disabled:opacity-50 disabled:cursor-not-allowed
                        focus:shadow-[0_0_20px_rgba(0,255,65,0.15)]"
@@ -700,7 +700,7 @@ export function DebateInput({
               }
             }}
           />
-          <div id="debate-input-hint" className="absolute bottom-2 right-2 text-xs text-text-muted font-mono">
+          <div id="debate-input-hint" className="absolute bottom-2 right-2 text-xs text-text-muted font-theme-data">
             {question.length > 0 && `${question.length} chars`}
             {question.length === 0 && 'Cmd+Enter to debate this question'}
           </div>
@@ -708,8 +708,8 @@ export function DebateInput({
 
         {/* Agent Routing Hints */}
         {detectedDomain !== 'general' && recommendations.length > 0 && (
-          <div className="flex items-center gap-2 p-2 bg-surface/50 border border-acid-cyan/30 rounded">
-            <span className="text-xs font-mono text-acid-cyan">
+          <div className="flex items-center gap-2 p-2 bg-surface/50 border border-[var(--acid-cyan)]/30 rounded">
+            <span className="text-xs font-theme-data text-[var(--acid-cyan)]">
               [{detectedDomain.toUpperCase()}]
             </span>
             <span className="text-xs text-text-muted">Suggested agents:</span>
@@ -717,7 +717,7 @@ export function DebateInput({
               {recommendations.slice(0, 3).map((rec) => (
                 <span
                   key={rec.agent}
-                  className="px-1.5 py-0.5 text-xs font-mono bg-bg rounded text-text"
+                  className="px-1.5 py-0.5 text-xs font-theme-data bg-bg rounded text-text"
                   title={`Suitability: ${(rec.suitability * 100).toFixed(0)}%`}
                 >
                   {rec.agent}
@@ -728,7 +728,7 @@ export function DebateInput({
               type="button"
               onClick={applyRecommendations}
               aria-label="Use recommended agents"
-              className="ml-auto text-xs font-mono text-acid-green hover:text-acid-green/80 transition-colors"
+              className="ml-auto text-xs font-theme-data text-[var(--accent)] hover:text-[var(--accent)]/80 transition-colors"
             >
               [USE]
             </button>
@@ -745,7 +745,7 @@ export function DebateInput({
               aria-expanded={showAdvanced}
               aria-controls="advanced-options"
               aria-label={showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
-              className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+              className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
             >
               {showAdvanced ? '[-] Hide options' : '[+] Show options'}
             </button>
@@ -765,13 +765,13 @@ export function DebateInput({
 
           {/* Compact cost indicator when options are collapsed */}
           {!showAdvanced && (costEstimate || costLoading || costError) && (
-            <span className="text-xs font-mono">
+            <span className="text-xs font-theme-data">
               {costLoading ? (
                 <span className="text-text-muted animate-pulse">estimating...</span>
               ) : costError ? (
                 <span className="text-warning/60">cost N/A</span>
               ) : costEstimate ? (
-                <span className="text-acid-green/70">
+                <span className="text-[var(--accent)]/70">
                   ~${costEstimate.total < 0.01 ? '<0.01' : costEstimate.total.toFixed(2)}
                 </span>
               ) : null}
@@ -782,13 +782,13 @@ export function DebateInput({
             type="submit"
             disabled={isDisabled}
             aria-label="Start debate"
-            className="px-8 py-3 bg-acid-green text-bg font-mono font-bold text-lg
-                       hover:bg-acid-green/80 transition-colors
+            className="px-8 py-3 bg-[var(--accent)] text-bg font-theme-data font-bold text-lg
+                       hover:bg-[var(--accent)]/80 transition-colors
                        disabled:bg-text-muted disabled:cursor-not-allowed
                        flex items-center gap-2 shrink-0 relative"
           >
             {isPlaygroundMode && (
-              <span className="absolute -top-2 -right-2 px-1.5 py-0.5 text-[10px] font-mono font-bold bg-acid-yellow text-bg rounded-sm leading-tight">
+              <span className="absolute -top-2 -right-2 px-1.5 py-0.5 text-[10px] font-theme-data font-bold bg-acid-yellow text-bg rounded-sm leading-tight">
                 DEMO
               </span>
             )}
@@ -809,10 +809,10 @@ export function DebateInput({
 
         {/* Advanced Options */}
         {showAdvanced && (
-          <div id="advanced-options" className="border border-acid-green/30 p-4 space-y-4 bg-surface/50">
+          <div id="advanced-options" className="border border-[var(--accent)]/30 p-4 space-y-4 bg-surface/50">
             {/* Debate Mode Selector */}
             <div>
-              <label id="debate-mode-label" className="block text-xs font-mono text-text-muted mb-2">
+              <label id="debate-mode-label" className="block text-xs font-theme-data text-text-muted mb-2">
                 DEBATE MODE
               </label>
               <div
@@ -842,10 +842,10 @@ export function DebateInput({
                     aria-label={`${DEBATE_MODES[mode].label} mode: ${DEBATE_MODES[mode].description}`}
                     tabIndex={debateMode === mode ? 0 : -1}
                     onClick={() => setDebateMode(mode)}
-                    className={`flex-1 px-3 py-2 text-xs font-mono border transition-colors ${
+                    className={`flex-1 px-3 py-2 text-xs font-theme-data border transition-colors ${
                       debateMode === mode
-                        ? 'bg-acid-green text-bg border-acid-green'
-                        : 'bg-bg text-text-muted border-acid-green/30 hover:border-acid-green/60'
+                        ? 'bg-[var(--accent)] text-bg border-[var(--accent)]'
+                        : 'bg-bg text-text-muted border-[var(--accent)]/30 hover:border-[var(--accent)]/60'
                     }`}
                     title={DEBATE_MODES[mode].description}
                   >
@@ -860,7 +860,7 @@ export function DebateInput({
 
             {/* Debate Format Selector */}
             <div>
-              <label id="debate-format-label" className="block text-xs font-mono text-text-muted mb-2">
+              <label id="debate-format-label" className="block text-xs font-theme-data text-text-muted mb-2">
                 DEBATE DEPTH
               </label>
               <div
@@ -890,10 +890,10 @@ export function DebateInput({
                     aria-label={`${DEBATE_FORMATS[format].label}: ${DEBATE_FORMATS[format].description}, ${DEBATE_FORMATS[format].time}`}
                     tabIndex={debateFormat === format ? 0 : -1}
                     onClick={() => setDebateFormat(format)}
-                    className={`flex-1 px-3 py-2 text-xs font-mono border transition-colors ${
+                    className={`flex-1 px-3 py-2 text-xs font-theme-data border transition-colors ${
                       debateFormat === format
-                        ? 'bg-acid-green text-bg border-acid-green'
-                        : 'bg-bg text-text-muted border-acid-green/30 hover:border-acid-green/60'
+                        ? 'bg-[var(--accent)] text-bg border-[var(--accent)]'
+                        : 'bg-bg text-text-muted border-[var(--accent)]/30 hover:border-[var(--accent)]/60'
                     }`}
                     title={`${DEBATE_FORMATS[format].description} (${DEBATE_FORMATS[format].time})`}
                   >
@@ -922,7 +922,7 @@ export function DebateInput({
             <div className="grid grid-cols-2 gap-4">
               {/* Agents */}
               <div>
-                <label htmlFor="debate-agents" className="block text-xs font-mono text-text-muted mb-1">
+                <label htmlFor="debate-agents" className="block text-xs font-theme-data text-text-muted mb-1">
                   AGENTS (comma-separated)
                 </label>
                 <input
@@ -930,8 +930,8 @@ export function DebateInput({
                   type="text"
                   value={agents}
                   onChange={(e) => setAgents(e.target.value)}
-                  className="w-full bg-bg border border-acid-green/30 px-3 py-2
-                             font-mono text-sm text-text focus:border-acid-green
+                  className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2
+                             font-theme-data text-sm text-text focus:border-[var(--accent)]
                              focus:outline-none"
                   placeholder="grok,anthropic-api,openai-api,deepseek"
                 />
@@ -942,15 +942,15 @@ export function DebateInput({
 
               {/* Rounds */}
               <div>
-                <label htmlFor="debate-rounds" className="block text-xs font-mono text-text-muted mb-1">
+                <label htmlFor="debate-rounds" className="block text-xs font-theme-data text-text-muted mb-1">
                   DEBATE ROUNDS
                 </label>
                 <select
                   id="debate-rounds"
                   value={rounds}
                   onChange={(e) => setRounds(parseInt(e.target.value))}
-                  className="w-full bg-bg border border-acid-green/30 px-3 py-2
-                             font-mono text-sm text-text focus:border-acid-green
+                  className="w-full bg-bg border border-[var(--accent)]/30 px-3 py-2
+                             font-theme-data text-sm text-text focus:border-[var(--accent)]
                              focus:outline-none"
                 >
                   {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
@@ -966,7 +966,7 @@ export function DebateInput({
 
               {/* Budget Limit */}
               <div>
-                <label htmlFor="debate-budget" className="block text-xs font-mono text-text-muted mb-1">
+                <label htmlFor="debate-budget" className="block text-xs font-theme-data text-text-muted mb-1">
                   BUDGET CAP (USD)
                 </label>
                 <input
@@ -979,13 +979,13 @@ export function DebateInput({
                   onChange={(e) => setBudgetLimit(e.target.value)}
                   placeholder="No limit"
                   className={`w-full bg-bg border px-3 py-2
-                             font-mono text-sm text-text focus:outline-none transition-colors
+                             font-theme-data text-sm text-text focus:outline-none transition-colors
                              ${budgetLimit && costEstimate && parseFloat(budgetLimit) > 0 && parseFloat(budgetLimit) < costEstimate.total
                                ? 'border-warning/60 focus:border-warning'
-                               : 'border-acid-green/30 focus:border-acid-green'}`}
+                               : 'border-[var(--accent)]/30 focus:border-[var(--accent)]'}`}
                 />
                 {budgetLimit && costEstimate && parseFloat(budgetLimit) > 0 && parseFloat(budgetLimit) < costEstimate.total ? (
-                  <p className="text-[10px] text-warning mt-1 font-mono">
+                  <p className="text-[10px] text-warning mt-1 font-theme-data">
                     Budget ${parseFloat(budgetLimit).toFixed(2)} is below estimated cost ${costEstimate.total.toFixed(2)}
                   </p>
                 ) : (
@@ -999,12 +999,12 @@ export function DebateInput({
             {/* Cost Estimate Preview */}
             {(costEstimate || costLoading || costError) && (
               <div className={`border p-3 bg-bg/50 transition-colors ${
-                costError ? 'border-warning/30' : 'border-acid-cyan/30'
+                costError ? 'border-warning/30' : 'border-[var(--acid-cyan)]/30'
               }`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono text-acid-cyan">ESTIMATED COST</span>
+                  <span className="text-xs font-theme-data text-[var(--acid-cyan)]">ESTIMATED COST</span>
                   {costLoading ? (
-                    <span className="text-sm font-mono text-text-muted">
+                    <span className="text-sm font-theme-data text-text-muted">
                       <span className="inline-flex gap-0.5">
                         <span className="animate-pulse">.</span>
                         <span className="animate-pulse" style={{ animationDelay: '150ms' }}>.</span>
@@ -1012,9 +1012,9 @@ export function DebateInput({
                       </span>
                     </span>
                   ) : costError ? (
-                    <span className="text-xs font-mono text-warning/80">unavailable</span>
+                    <span className="text-xs font-theme-data text-warning/80">unavailable</span>
                   ) : costEstimate ? (
-                    <span className="text-lg font-mono font-bold text-acid-green">
+                    <span className="text-lg font-theme-data font-bold text-[var(--accent)]">
                       ${costEstimate.total < 0.01 ? '<0.01' : costEstimate.total.toFixed(2)}
                     </span>
                   ) : null}
@@ -1022,7 +1022,7 @@ export function DebateInput({
                 {!costError && costEstimate && costEstimate.breakdown.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {costEstimate.breakdown.map((b, i) => (
-                      <div key={i} className="flex items-center justify-between text-[10px] font-mono text-text-muted">
+                      <div key={i} className="flex items-center justify-between text-[10px] font-theme-data text-text-muted">
                         <span>{b.model}</span>
                         <span>${b.subtotal < 0.001 ? '<0.001' : b.subtotal.toFixed(3)}</span>
                       </div>
@@ -1042,7 +1042,7 @@ export function DebateInput({
 
       {/* Error display */}
       {localError && (
-        <div className="mt-4 p-3 bg-red-900/20 border border-red-500/40 rounded font-mono text-sm">
+        <div className="mt-4 p-3 bg-red-900/20 border border-red-500/40 rounded font-theme-data text-sm">
           <div className="flex items-start gap-2">
             <span className="text-red-400 shrink-0">[ERROR]</span>
             <span className="text-red-300">{localError}</span>
@@ -1061,11 +1061,11 @@ export function DebateInput({
       {apiStatus !== 'online' && (
         <div className="mt-4 text-center">
           {apiStatus === 'offline' ? (
-            <p className="text-[10px] font-mono text-warning/50">
+            <p className="text-[10px] font-theme-data text-warning/50">
               Server temporarily unavailable — please try again shortly
             </p>
           ) : (
-            <p className="text-[10px] font-mono text-text-muted/40 animate-pulse">
+            <p className="text-[10px] font-theme-data text-text-muted/40 animate-pulse">
               Connecting...
             </p>
           )}

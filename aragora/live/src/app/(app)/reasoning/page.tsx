@@ -188,29 +188,29 @@ export default function ReasoningPage() {
     <div className="space-y-6">
       {/* Crux Claims */}
       <div>
-        <h2 className="text-xs font-mono text-acid-green mb-3">
+        <h2 className="text-xs font-theme-data text-[var(--accent)] mb-3">
           &gt; CRUX CLAIMS ({cruxes.length})
         </h2>
         {cruxes.length === 0 ? (
-          <p className="text-text-muted font-mono text-sm">No crux claims found for this debate.</p>
+          <p className="text-text-muted font-theme-data text-sm">No crux claims found for this debate.</p>
         ) : (
           <div className="space-y-3">
             {cruxes.map((c, i) => (
-              <div key={c.claim_id ?? i} className="p-4 border border-acid-green/20 bg-bg">
-                <p className="text-sm font-mono text-text mb-3">{c.claim}</p>
-                <div className="flex items-center gap-4 text-xs font-mono text-text-muted mb-2">
+              <div key={c.claim_id ?? i} className="p-4 border border-[var(--accent)]/20 bg-bg">
+                <p className="text-sm font-theme-data text-text mb-3">{c.claim}</p>
+                <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted mb-2">
                   {c.source_agent && (
-                    <span className="text-acid-cyan">{c.source_agent}</span>
+                    <span className="text-[var(--acid-cyan)]">{c.source_agent}</span>
                   )}
                   <span>Sensitivity: {(c.sensitivity * 100).toFixed(0)}%</span>
                 </div>
                 {/* Probability bar */}
                 <div>
-                  <div className="flex items-center justify-between text-xs text-text-muted font-mono mb-1">
+                  <div className="flex items-center justify-between text-xs text-text-muted font-theme-data mb-1">
                     <span>P = {c.probability.toFixed(2)}</span>
                     <span>{(c.probability * 100).toFixed(0)}%</span>
                   </div>
-                  <div className="h-2 bg-bg border border-acid-green/20 rounded-sm overflow-hidden">
+                  <div className="h-2 bg-bg border border-[var(--accent)]/20 rounded-sm overflow-hidden">
                     <div
                       className="h-full transition-all"
                       style={{
@@ -229,24 +229,24 @@ export default function ReasoningPage() {
 
       {/* Load-Bearing Claims */}
       <div>
-        <h2 className="text-xs font-mono text-acid-green mb-3">
+        <h2 className="text-xs font-theme-data text-[var(--accent)] mb-3">
           &gt; LOAD-BEARING CLAIMS ({loadBearing.length})
         </h2>
         {loadBearing.length === 0 ? (
-          <p className="text-text-muted font-mono text-sm">No load-bearing claims found.</p>
+          <p className="text-text-muted font-theme-data text-sm">No load-bearing claims found.</p>
         ) : (
           <div className="space-y-3">
             {loadBearing.map((lb, i) => (
-              <div key={lb.claim_id ?? i} className="p-4 border border-acid-green/20 bg-bg">
-                <p className="text-sm font-mono text-text mb-2">{lb.claim}</p>
-                <div className="flex items-center gap-4 text-xs font-mono text-text-muted mb-2">
+              <div key={lb.claim_id ?? i} className="p-4 border border-[var(--accent)]/20 bg-bg">
+                <p className="text-sm font-theme-data text-text mb-2">{lb.claim}</p>
+                <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted mb-2">
                   {lb.source_agent && (
-                    <span className="text-acid-cyan">{lb.source_agent}</span>
+                    <span className="text-[var(--acid-cyan)]">{lb.source_agent}</span>
                   )}
                   <span>Centrality: {lb.centrality.toFixed(3)}</span>
                 </div>
                 {/* Centrality bar */}
-                <div className="h-2 bg-bg border border-acid-green/20 rounded-sm overflow-hidden">
+                <div className="h-2 bg-bg border border-[var(--accent)]/20 rounded-sm overflow-hidden">
                   <div
                     className="h-full transition-all"
                     style={{
@@ -267,11 +267,11 @@ export default function ReasoningPage() {
   /* ---- Claims tab ---- */
   const renderClaims = () => (
     <div>
-      <h2 className="text-xs font-mono text-acid-green mb-3">
+      <h2 className="text-xs font-theme-data text-[var(--accent)] mb-3">
         &gt; CLAIM GRAPH ({claims.length} claims)
       </h2>
       {claims.length === 0 ? (
-        <p className="text-text-muted font-mono text-sm">No claims found for this debate.</p>
+        <p className="text-text-muted font-theme-data text-sm">No claims found for this debate.</p>
       ) : (
         <div className="space-y-3">
           {claims.map((c, i) => {
@@ -280,30 +280,30 @@ export default function ReasoningPage() {
               <div
                 key={c.id || i}
                 className={`p-3 border bg-bg ${
-                  hasContradiction ? 'border-red-500/50' : 'border-acid-green/20'
+                  hasContradiction ? 'border-red-500/50' : 'border-[var(--accent)]/20'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <span className="px-2 py-0.5 bg-acid-green/20 text-acid-green text-xs font-mono uppercase">
+                  <span className="px-2 py-0.5 bg-[var(--accent)]/20 text-[var(--accent)] text-xs font-theme-data uppercase">
                     {c.type}
                   </span>
                   {c.agent && (
-                    <span className="text-acid-cyan text-xs font-mono">{c.agent}</span>
+                    <span className="text-[var(--acid-cyan)] text-xs font-theme-data">{c.agent}</span>
                   )}
                   {c.evidence_count !== undefined && c.evidence_count > 0 && (
-                    <span className="text-text-muted text-xs font-mono">
+                    <span className="text-text-muted text-xs font-theme-data">
                       {c.evidence_count} evidence
                     </span>
                   )}
                   {hasContradiction && (
-                    <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs font-mono">
+                    <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs font-theme-data">
                       CONTRADICTED
                     </span>
                   )}
                 </div>
-                <p className="text-sm font-mono text-text">{c.text}</p>
+                <p className="text-sm font-theme-data text-text">{c.text}</p>
                 {hasContradiction && (
-                  <div className="mt-2 text-xs font-mono text-red-400/70">
+                  <div className="mt-2 text-xs font-theme-data text-red-400/70">
                     Contradicts: {c.contradicts!.join(', ')}
                   </div>
                 )}
@@ -319,7 +319,7 @@ export default function ReasoningPage() {
   const renderPositions = () => {
     if (!positions) {
       return (
-        <p className="text-text-muted font-mono text-sm">No position data found for this debate.</p>
+        <p className="text-text-muted font-theme-data text-sm">No position data found for this debate.</p>
       );
     }
 
@@ -332,7 +332,7 @@ export default function ReasoningPage() {
 
     return (
       <div className="space-y-6">
-        <h2 className="text-xs font-mono text-acid-green mb-3">&gt; POSITION EVOLUTION</h2>
+        <h2 className="text-xs font-theme-data text-[var(--accent)] mb-3">&gt; POSITION EVOLUTION</h2>
 
         {/* Summary stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -342,9 +342,9 @@ export default function ReasoningPage() {
             ['Reversals', positions.summary.reversals],
             ['Agents', agents.length],
           ] as [string, string | number][]).map(([label, value]) => (
-            <div key={label} className="p-3 border border-acid-green/20 bg-bg">
-              <div className="text-xs font-mono text-text-muted">{label}</div>
-              <div className="text-lg font-mono text-acid-green">{value}</div>
+            <div key={label} className="p-3 border border-[var(--accent)]/20 bg-bg">
+              <div className="text-xs font-theme-data text-text-muted">{label}</div>
+              <div className="text-lg font-theme-data text-[var(--accent)]">{value}</div>
             </div>
           ))}
         </div>
@@ -360,10 +360,10 @@ export default function ReasoningPage() {
             const stability = positions.summary.stability_scores[agent] ?? 1;
 
             return (
-              <div key={agent} className="p-4 border border-acid-green/20 bg-bg">
+              <div key={agent} className="p-4 border border-[var(--accent)]/20 bg-bg">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-mono text-acid-cyan text-sm">{agent}</span>
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="font-theme-data text-[var(--acid-cyan)] text-sm">{agent}</span>
+                  <span className="text-xs font-theme-data text-text-muted">
                     stability: {(stability * 100).toFixed(0)}%
                   </span>
                 </div>
@@ -392,7 +392,7 @@ export default function ReasoningPage() {
                             style={{ backgroundColor: '#facc15' }}
                           />
                         )}
-                        <div className="text-center text-[9px] text-text-muted font-mono mt-0.5">
+                        <div className="text-center text-[9px] text-text-muted font-theme-data mt-0.5">
                           R{r}
                         </div>
                       </div>
@@ -407,18 +407,18 @@ export default function ReasoningPage() {
         {/* Pivot log */}
         {positions.pivots.length > 0 && (
           <div>
-            <h3 className="text-xs font-mono text-acid-green mb-2">&gt; PIVOT LOG</h3>
+            <h3 className="text-xs font-theme-data text-[var(--accent)] mb-2">&gt; PIVOT LOG</h3>
             <div className="space-y-2">
               {positions.pivots.map((pivot, i) => (
                 <div
                   key={i}
-                  className={`p-2 border text-xs font-mono ${
+                  className={`p-2 border text-xs font-theme-data ${
                     pivot.pivot_type === 'reversal'
                       ? 'border-red-500/30 bg-red-500/5'
-                      : 'border-acid-green/20 bg-bg'
+                      : 'border-[var(--accent)]/20 bg-bg'
                   }`}
                 >
-                  <span className="text-acid-cyan">{pivot.agent}</span>
+                  <span className="text-[var(--acid-cyan)]">{pivot.agent}</span>
                   <span className="text-text-muted mx-2">
                     R{pivot.from_round} {STANCE_LABELS[pivot.from_stance] ?? pivot.from_stance}
                     {' -> '}
@@ -428,7 +428,7 @@ export default function ReasoningPage() {
                     className={`px-1 py-0.5 text-[10px] uppercase ${
                       pivot.pivot_type === 'reversal'
                         ? 'bg-red-500/20 text-red-400'
-                        : 'bg-acid-green/20 text-acid-green'
+                        : 'bg-[var(--accent)]/20 text-[var(--accent)]'
                     }`}
                   >
                     {pivot.pivot_type}
@@ -443,7 +443,7 @@ export default function ReasoningPage() {
         )}
 
         {/* Stance legend */}
-        <div className="flex flex-wrap gap-3 text-xs font-mono text-text-muted">
+        <div className="flex flex-wrap gap-3 text-xs font-theme-data text-text-muted">
           {Object.entries(STANCE_COLORS).map(([stance, color]) => (
             <div key={stance} className="flex items-center gap-1">
               <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: color }} />
@@ -472,27 +472,27 @@ export default function ReasoningPage() {
       <Scanlines opacity={0.02} />
       <CRTVignette />
 
-      <main className="min-h-screen bg-bg text-text relative z-10 font-mono">
+      <main className="min-h-screen bg-bg text-text relative z-10 font-theme-data">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs text-text-muted">
-              <Link href="/" className="hover:text-acid-green transition-colors">
+              <Link href="/" className="hover:text-[var(--accent)] transition-colors">
                 DASHBOARD
               </Link>
               <span>/</span>
-              <span className="text-acid-green">REASONING ENGINE</span>
+              <span className="text-[var(--accent)]">REASONING ENGINE</span>
             </div>
             <div className="flex items-center gap-3">
               <Link
                 href="/argument-analysis"
-                className="text-xs text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [ARGUMENTS]
               </Link>
               <Link
                 href="/crux"
-                className="text-xs text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [CRUX]
               </Link>
@@ -502,7 +502,7 @@ export default function ReasoningPage() {
 
         <div className="container mx-auto px-4 py-6">
           {/* Title */}
-          <h1 className="text-2xl text-acid-green mb-4">
+          <h1 className="text-2xl text-[var(--accent)] mb-4">
             {'>'} REASONING ENGINE
           </h1>
 
@@ -519,12 +519,12 @@ export default function ReasoningPage() {
               value={debateId}
               onChange={(e) => setDebateId(e.target.value)}
               placeholder="Enter debate ID..."
-              className="flex-1 bg-surface border border-acid-green/30 px-4 py-2 text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:border-acid-green"
+              className="flex-1 bg-surface border border-[var(--accent)]/30 px-4 py-2 text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:border-[var(--accent)]"
             />
             <button
               type="submit"
               disabled={loading || !debateId.trim()}
-              className="px-6 py-2 border border-acid-green text-acid-green text-sm hover:bg-acid-green/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-2 border border-[var(--accent)] text-[var(--accent)] text-sm hover:bg-[var(--accent)]/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? 'LOADING...' : '[LOAD]'}
             </button>
@@ -539,7 +539,7 @@ export default function ReasoningPage() {
 
           {/* Empty state */}
           {!loadedId && !loading && !error && (
-            <div className="flex items-center justify-center h-96 border border-acid-green/20 bg-surface/30">
+            <div className="flex items-center justify-center h-96 border border-[var(--accent)]/20 bg-surface/30">
               <div className="text-center text-text-muted">
                 <p className="text-lg mb-2">&gt; REASONING ENGINE</p>
                 <p className="text-sm">Enter a debate ID to explore belief networks, claims, and position evolution</p>
@@ -549,8 +549,8 @@ export default function ReasoningPage() {
 
           {/* Loading */}
           {loading && (
-            <div className="flex items-center justify-center h-96 border border-acid-green/20 bg-surface/30">
-              <div className="text-center text-acid-green animate-pulse">
+            <div className="flex items-center justify-center h-96 border border-[var(--accent)]/20 bg-surface/30">
+              <div className="text-center text-[var(--accent)] animate-pulse">
                 Loading reasoning data...
               </div>
             </div>
@@ -560,15 +560,15 @@ export default function ReasoningPage() {
           {loadedId && !loading && (
             <>
               {/* Tab bar */}
-              <div className="flex border border-acid-green/20 border-b-0">
+              <div className="flex border border-[var(--accent)]/20 border-b-0">
                 {tabs.map((tab) => (
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
                     className={`flex-1 px-4 py-2 text-xs transition-colors ${
                       activeTab === tab.key
-                        ? 'bg-acid-green/20 text-acid-green border-b-2 border-acid-green'
-                        : 'text-text-muted hover:text-acid-green'
+                        ? 'bg-[var(--accent)]/20 text-[var(--accent)] border-b-2 border-[var(--accent)]'
+                        : 'text-text-muted hover:text-[var(--accent)]'
                     }`}
                   >
                     [{tab.label}]
@@ -576,7 +576,7 @@ export default function ReasoningPage() {
                 ))}
               </div>
 
-              <div className="border border-acid-green/20 bg-surface/30 min-h-[500px] p-4">
+              <div className="border border-[var(--accent)]/20 bg-surface/30 min-h-[500px] p-4">
                 {activeTab === 'belief' && renderBeliefNetwork()}
                 {activeTab === 'claims' && renderClaims()}
                 {activeTab === 'positions' && renderPositions()}
@@ -586,8 +586,8 @@ export default function ReasoningPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

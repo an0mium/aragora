@@ -97,14 +97,14 @@ export const TemplateSelector = memo(function TemplateSelector({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-text-muted font-mono text-sm">Loading templates...</div>
+        <div className="text-text-muted font-theme-data text-sm">Loading templates...</div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-8 max-w-4xl mx-auto">
-      <h2 className="text-lg font-mono font-bold text-text uppercase tracking-wide mb-2">
+      <h2 className="text-lg font-theme-data font-bold text-text uppercase tracking-wide mb-2">
         Start a Pipeline
       </h2>
       <p className="text-sm text-text-muted mb-6 text-center">
@@ -115,7 +115,7 @@ export const TemplateSelector = memo(function TemplateSelector({
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setSelectedCategory(null)}
-          className={`px-3 py-1 rounded font-mono text-xs transition-colors ${
+          className={`px-3 py-1 rounded font-theme-data text-xs transition-colors ${
             !selectedCategory
               ? 'bg-surface text-text ring-1 ring-acid-green'
               : 'text-text-muted hover:text-text hover:bg-surface/50'
@@ -127,7 +127,7 @@ export const TemplateSelector = memo(function TemplateSelector({
           <button
             key={cat}
             onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
-            className={`px-3 py-1 rounded font-mono text-xs capitalize transition-colors ${
+            className={`px-3 py-1 rounded font-theme-data text-xs capitalize transition-colors ${
               cat === selectedCategory
                 ? 'bg-surface text-text ring-1 ring-acid-green'
                 : 'text-text-muted hover:text-text hover:bg-surface/50'
@@ -149,14 +149,14 @@ export const TemplateSelector = memo(function TemplateSelector({
             onClick={() => handleSelect(template.name)}
           >
             <div className="flex items-start gap-3 mb-2">
-              <div className="w-8 h-8 rounded bg-surface flex items-center justify-center font-mono text-sm font-bold text-text">
+              <div className="w-8 h-8 rounded bg-surface flex items-center justify-center font-theme-data text-sm font-bold text-text">
                 {CATEGORY_ICONS[template.category] || '?'}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-mono font-bold text-text truncate">
+                <h3 className="text-sm font-theme-data font-bold text-text truncate">
                   {template.display_name}
                 </h3>
-                <span className="text-xs font-mono text-text-muted capitalize">
+                <span className="text-xs font-theme-data text-text-muted capitalize">
                   {template.category}
                 </span>
               </div>
@@ -165,11 +165,11 @@ export const TemplateSelector = memo(function TemplateSelector({
               {template.description}
             </p>
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono text-text-muted">
+              <span className="text-xs font-theme-data text-text-muted">
                 {template.idea_count} ideas
               </span>
               <button
-                className="px-3 py-1 bg-surface border border-border text-text font-mono text-xs rounded hover:bg-bg transition-colors"
+                className="px-3 py-1 bg-surface border border-border text-text font-theme-data text-xs rounded hover:bg-bg transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleSelect(template.name);
@@ -185,7 +185,7 @@ export const TemplateSelector = memo(function TemplateSelector({
       {/* Blank pipeline option */}
       <button
         onClick={onStartBlank}
-        className="px-6 py-3 border-2 border-dashed border-border rounded-lg text-text-muted font-mono text-sm hover:border-acid-green hover:text-text transition-colors"
+        className="px-6 py-3 border-2 border-dashed border-border rounded-lg text-text-muted font-theme-data text-sm hover:border-[var(--accent)] hover:text-text transition-colors"
       >
         Blank Pipeline &mdash; Start from scratch
       </button>

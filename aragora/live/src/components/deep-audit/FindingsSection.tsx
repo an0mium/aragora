@@ -54,7 +54,7 @@ function FindingCard({ finding }: { finding: AuditFinding }) {
             </span>
             {finding.severity > 0 && (
               <span
-                className={`text-xs font-mono ${
+                className={`text-xs font-theme-data ${
                   finding.severity >= 0.7
                     ? 'text-red-400'
                     : finding.severity >= 0.4

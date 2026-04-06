@@ -13,15 +13,15 @@ export function AppearanceTab({ preferences, updateTheme, updateDisplay }: Appea
   return (
     <div className="space-y-6" role="tabpanel" id="panel-appearance" aria-labelledby="tab-appearance">
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Theme</h3>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Theme</h3>
         <div className="space-y-3">
           {(['dark', 'light', 'system'] as const).map((theme) => (
             <label
               key={theme}
               className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors ${
                 preferences.theme === theme
-                  ? 'border-acid-green bg-acid-green/10'
-                  : 'border-acid-green/30 hover:border-acid-green/60'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                  : 'border-[var(--accent)]/30 hover:border-[var(--accent)]/60'
               }`}
             >
               <input
@@ -34,16 +34,16 @@ export function AppearanceTab({ preferences, updateTheme, updateDisplay }: Appea
               />
               <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
                 preferences.theme === theme
-                  ? 'border-acid-green'
+                  ? 'border-[var(--accent)]'
                   : 'border-text-muted'
               }`}>
                 {preferences.theme === theme && (
-                  <div className="w-2 h-2 rounded-full bg-acid-green" />
+                  <div className="w-2 h-2 rounded-full bg-[var(--accent)]" />
                 )}
               </div>
               <div>
-                <div className="font-mono text-sm text-text capitalize">{theme}</div>
-                <div className="font-mono text-xs text-text-muted">
+                <div className="font-theme-data text-sm text-text capitalize">{theme}</div>
+                <div className="font-theme-data text-xs text-text-muted">
                   {theme === 'dark' && 'Default dark theme with acid green accents'}
                   {theme === 'light' && 'Light theme for bright environments'}
                   {theme === 'system' && 'Match your system preference'}
@@ -55,7 +55,7 @@ export function AppearanceTab({ preferences, updateTheme, updateDisplay }: Appea
       </div>
 
       <div className="card p-6">
-        <h3 className="font-mono text-acid-green mb-4">Display Options</h3>
+        <h3 className="font-theme-data text-[var(--accent)] mb-4">Display Options</h3>
         <div className="space-y-4">
           <ToggleSwitch
             label="Compact Mode"

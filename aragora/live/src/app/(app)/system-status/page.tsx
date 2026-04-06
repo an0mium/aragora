@@ -62,7 +62,7 @@ interface IncidentsData {
 type TabType = 'overview' | 'components' | 'uptime' | 'incidents';
 
 const STATUS_COLORS: Record<string, string> = {
-  operational: 'text-acid-green',
+  operational: 'text-[var(--accent)]',
   degraded: 'text-yellow-400',
   partial_outage: 'text-orange-400',
   major_outage: 'text-red-400',
@@ -70,7 +70,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_BG: Record<string, string> = {
-  operational: 'border-acid-green/30 bg-acid-green/5',
+  operational: 'border-[var(--accent)]/30 bg-[var(--accent)]/5',
   degraded: 'border-yellow-500/30 bg-yellow-500/5',
   partial_outage: 'border-orange-500/30 bg-orange-500/5',
   major_outage: 'border-red-500/30 bg-red-500/5',
@@ -78,7 +78,7 @@ const STATUS_BG: Record<string, string> = {
 };
 
 const STATUS_DOT: Record<string, string> = {
-  operational: 'bg-acid-green',
+  operational: 'bg-[var(--accent)]',
   degraded: 'bg-yellow-400',
   partial_outage: 'bg-orange-400',
   major_outage: 'bg-red-400',
@@ -172,10 +172,10 @@ export default function StatusPage() {
         <div className="container mx-auto px-4 py-6">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} SYSTEM STATUS
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Real-time health monitoring for all Aragora platform components.
             </p>
           </div>
@@ -185,17 +185,17 @@ export default function StatusPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full animate-pulse ${STATUS_DOT[overallStatus] || STATUS_DOT.operational}`} />
-                <span className={`text-xl font-mono font-bold ${STATUS_COLORS[overallStatus] || STATUS_COLORS.operational}`}>
+                <span className={`text-xl font-theme-data font-bold ${STATUS_COLORS[overallStatus] || STATUS_COLORS.operational}`}>
                   {summary?.message || 'Checking...'}
                 </span>
               </div>
               <div className="text-right">
                 {summary && (
-                  <div className="font-mono text-sm text-text-muted">
+                  <div className="font-theme-data text-sm text-text-muted">
                     Uptime: <span className="text-text">{summary.uptime_formatted}</span>
                   </div>
                 )}
-                <div className="font-mono text-xs text-text-muted/60 mt-1">
+                <div className="font-theme-data text-xs text-text-muted/60 mt-1">
                   {operationalCount}/{totalCount} components operational
                 </div>
               </div>
@@ -212,25 +212,25 @@ export default function StatusPage() {
                 >
                   <div className="flex items-center gap-2 mb-1">
                     <div className={`w-2 h-2 rounded-full ${STATUS_DOT[c.status] || STATUS_DOT.operational}`} />
-                    <span className="font-mono text-sm text-text truncate">{c.name}</span>
+                    <span className="font-theme-data text-sm text-text truncate">{c.name}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-mono capitalize ${STATUS_COLORS[c.status] || STATUS_COLORS.operational}`}>
+                    <span className={`text-xs font-theme-data capitalize ${STATUS_COLORS[c.status] || STATUS_COLORS.operational}`}>
                       {c.status.replace(/_/g, ' ')}
                     </span>
                     {c.response_time_ms !== null && (
-                      <span className="text-xs font-mono text-text-muted">{c.response_time_ms.toFixed(0)}ms</span>
+                      <span className="text-xs font-theme-data text-text-muted">{c.response_time_ms.toFixed(0)}ms</span>
                     )}
                   </div>
                   {c.message && (
-                    <div className="text-xs font-mono text-text-muted/60 mt-1 truncate">{c.message}</div>
+                    <div className="text-xs font-theme-data text-text-muted/60 mt-1 truncate">{c.message}</div>
                   )}
                 </div>
               ))}
             </div>
           )}
           {summaryLoading && !summary && (
-            <div className="text-center py-8 text-acid-green font-mono animate-pulse mb-6">Checking system status...</div>
+            <div className="text-center py-8 text-[var(--accent)] font-theme-data animate-pulse mb-6">Checking system status...</div>
           )}
 
           {/* Tab Navigation */}
@@ -244,10 +244,10 @@ export default function StatusPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 font-mono text-sm border transition-colors ${
+                className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                   activeTab === tab.id
-                    ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                    : 'border-acid-green/30 text-text-muted hover:text-text'
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                    : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
                 }`}
               >
                 [{tab.label}]
@@ -259,9 +259,9 @@ export default function StatusPage() {
           {activeTab === 'overview' && summary && (
             <div className="space-y-6">
               {/* Component Summary Table */}
-              <div className="border border-acid-green/20 rounded bg-surface/30">
-                <div className="p-4 border-b border-acid-green/20">
-                  <h3 className="font-mono text-acid-cyan text-sm">Component Health Summary</h3>
+              <div className="border border-[var(--accent)]/20 rounded bg-surface/30">
+                <div className="p-4 border-b border-[var(--accent)]/20">
+                  <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm">Component Health Summary</h3>
                 </div>
                 <div className="divide-y divide-acid-green/10">
                   {summary.components.map((c) => (
@@ -269,17 +269,17 @@ export default function StatusPage() {
                       <div className="flex items-center gap-3">
                         <div className={`w-2.5 h-2.5 rounded-full ${STATUS_DOT[c.status] || STATUS_DOT.operational}`} />
                         <div>
-                          <span className="font-mono text-sm text-text">{c.name}</span>
+                          <span className="font-theme-data text-sm text-text">{c.name}</span>
                           {c.message && (
-                            <span className="ml-2 font-mono text-xs text-text-muted">({c.message})</span>
+                            <span className="ml-2 font-theme-data text-xs text-text-muted">({c.message})</span>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-4">
                         {c.response_time_ms !== null && (
-                          <span className="font-mono text-xs text-text-muted">{c.response_time_ms.toFixed(1)}ms</span>
+                          <span className="font-theme-data text-xs text-text-muted">{c.response_time_ms.toFixed(1)}ms</span>
                         )}
-                        <span className={`font-mono text-xs capitalize ${STATUS_COLORS[c.status] || STATUS_COLORS.operational}`}>
+                        <span className={`font-theme-data text-xs capitalize ${STATUS_COLORS[c.status] || STATUS_COLORS.operational}`}>
                           {c.status.replace(/_/g, ' ')}
                         </span>
                       </div>
@@ -290,18 +290,18 @@ export default function StatusPage() {
 
               {/* System Info */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 border border-acid-green/20 rounded bg-surface/30">
-                  <div className="font-mono text-xs text-text-muted mb-1">Server Uptime</div>
-                  <div className="font-mono text-lg text-acid-green">{summary.uptime_formatted}</div>
+                <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
+                  <div className="font-theme-data text-xs text-text-muted mb-1">Server Uptime</div>
+                  <div className="font-theme-data text-lg text-[var(--accent)]">{summary.uptime_formatted}</div>
                 </div>
-                <div className="p-4 border border-acid-green/20 rounded bg-surface/30">
-                  <div className="font-mono text-xs text-text-muted mb-1">Last Check</div>
-                  <div className="font-mono text-lg text-text">{lastRefresh.toLocaleTimeString()}</div>
+                <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
+                  <div className="font-theme-data text-xs text-text-muted mb-1">Last Check</div>
+                  <div className="font-theme-data text-lg text-text">{lastRefresh.toLocaleTimeString()}</div>
                 </div>
-                <div className="p-4 border border-acid-green/20 rounded bg-surface/30">
-                  <div className="font-mono text-xs text-text-muted mb-1">Components</div>
-                  <div className="font-mono text-lg">
-                    <span className="text-acid-green">{operationalCount}</span>
+                <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
+                  <div className="font-theme-data text-xs text-text-muted mb-1">Components</div>
+                  <div className="font-theme-data text-lg">
+                    <span className="text-[var(--accent)]">{operationalCount}</span>
                     <span className="text-text-muted">/{totalCount} operational</span>
                   </div>
                 </div>
@@ -318,19 +318,19 @@ export default function StatusPage() {
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <div className={`w-2.5 h-2.5 rounded-full ${STATUS_DOT[c.status] || STATUS_DOT.operational}`} />
-                        <h3 className="font-mono text-text font-bold">{c.name}</h3>
+                        <h3 className="font-theme-data text-text font-bold">{c.name}</h3>
                       </div>
-                      <p className="font-mono text-xs text-text-muted">{c.description || `Component: ${c.id}`}</p>
+                      <p className="font-theme-data text-xs text-text-muted">{c.description || `Component: ${c.id}`}</p>
                       {c.message && (
-                        <p className="font-mono text-xs text-text-muted/70 mt-1">{c.message}</p>
+                        <p className="font-theme-data text-xs text-text-muted/70 mt-1">{c.message}</p>
                       )}
                     </div>
                     <div className="text-right">
-                      <span className={`font-mono text-sm capitalize font-bold ${STATUS_COLORS[c.status] || STATUS_COLORS.operational}`}>
+                      <span className={`font-theme-data text-sm capitalize font-bold ${STATUS_COLORS[c.status] || STATUS_COLORS.operational}`}>
                         {c.status.replace(/_/g, ' ')}
                       </span>
                       {c.response_time_ms !== null && (
-                        <div className="font-mono text-xs text-text-muted mt-1">{c.response_time_ms.toFixed(1)}ms response</div>
+                        <div className="font-theme-data text-xs text-text-muted mt-1">{c.response_time_ms.toFixed(1)}ms response</div>
                       )}
                     </div>
                   </div>
@@ -343,28 +343,28 @@ export default function StatusPage() {
           {activeTab === 'uptime' && (
             <div className="space-y-6">
               {uptimeLoading ? (
-                <div className="text-center py-8 text-acid-green font-mono animate-pulse">Loading uptime history...</div>
+                <div className="text-center py-8 text-[var(--accent)] font-theme-data animate-pulse">Loading uptime history...</div>
               ) : uptime ? (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {Object.entries(uptime.periods).map(([period, data]) => (
-                      <div key={period} className="p-4 border border-acid-green/20 rounded bg-surface/30 text-center">
-                        <div className="font-mono text-xs text-text-muted mb-2 uppercase">{period}</div>
-                        <div className={`font-mono text-2xl font-bold ${
-                          data.uptime_percent >= 99.9 ? 'text-acid-green' :
+                      <div key={period} className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30 text-center">
+                        <div className="font-theme-data text-xs text-text-muted mb-2 uppercase">{period}</div>
+                        <div className={`font-theme-data text-2xl font-bold ${
+                          data.uptime_percent >= 99.9 ? 'text-[var(--accent)]' :
                           data.uptime_percent >= 99.0 ? 'text-yellow-400' :
                           'text-red-400'
                         }`}>
                           {data.uptime_percent.toFixed(2)}%
                         </div>
-                        <div className="font-mono text-xs text-text-muted mt-1">
+                        <div className="font-theme-data text-xs text-text-muted mt-1">
                           {data.incidents} incident{data.incidents !== 1 ? 's' : ''}
                         </div>
                         {/* Visual uptime bar */}
                         <div className="mt-3 h-2 bg-bg rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
-                              data.uptime_percent >= 99.9 ? 'bg-acid-green' :
+                              data.uptime_percent >= 99.9 ? 'bg-[var(--accent)]' :
                               data.uptime_percent >= 99.0 ? 'bg-yellow-400' :
                               'bg-red-400'
                             }`}
@@ -376,11 +376,11 @@ export default function StatusPage() {
                   </div>
 
                   {/* SLA Thresholds Reference */}
-                  <div className="p-4 border border-acid-green/20 rounded bg-surface/30">
-                    <h3 className="font-mono text-acid-cyan text-sm mb-3">SLA Reference</h3>
-                    <div className="grid grid-cols-3 gap-4 font-mono text-xs">
+                  <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
+                    <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">SLA Reference</h3>
+                    <div className="grid grid-cols-3 gap-4 font-theme-data text-xs">
                       <div>
-                        <span className="text-acid-green">99.99%</span>
+                        <span className="text-[var(--accent)]">99.99%</span>
                         <span className="text-text-muted ml-2">= 4.3m downtime/mo</span>
                       </div>
                       <div>
@@ -395,8 +395,8 @@ export default function StatusPage() {
                   </div>
                 </>
               ) : (
-                <div className="p-8 border border-acid-green/20 rounded text-center">
-                  <p className="font-mono text-text-muted">Uptime data unavailable.</p>
+                <div className="p-8 border border-[var(--accent)]/20 rounded text-center">
+                  <p className="font-theme-data text-text-muted">Uptime data unavailable.</p>
                 </div>
               )}
             </div>
@@ -406,36 +406,36 @@ export default function StatusPage() {
           {activeTab === 'incidents' && (
             <div className="space-y-6">
               {incidentsLoading ? (
-                <div className="text-center py-8 text-acid-green font-mono animate-pulse">Loading incidents...</div>
+                <div className="text-center py-8 text-[var(--accent)] font-theme-data animate-pulse">Loading incidents...</div>
               ) : incidents ? (
                 <>
                   {/* Active Incidents */}
                   <div>
-                    <h3 className="font-mono text-acid-cyan text-sm mb-3">Active Incidents</h3>
+                    <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">Active Incidents</h3>
                     {incidents.active.length === 0 ? (
-                      <div className="p-6 border border-acid-green/20 rounded text-center">
-                        <div className="text-acid-green font-mono text-sm">No active incidents</div>
-                        <div className="text-text-muted font-mono text-xs mt-1">All systems operating normally.</div>
+                      <div className="p-6 border border-[var(--accent)]/20 rounded text-center">
+                        <div className="text-[var(--accent)] font-theme-data text-sm">No active incidents</div>
+                        <div className="text-text-muted font-theme-data text-xs mt-1">All systems operating normally.</div>
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {incidents.active.map((inc) => (
                           <div key={inc.id} className="p-4 border border-red-500/30 rounded bg-red-500/5">
                             <div className="flex items-start justify-between mb-2">
-                              <span className="font-mono text-text font-bold">{inc.title}</span>
+                              <span className="font-theme-data text-text font-bold">{inc.title}</span>
                               <div className="flex gap-2">
-                                <span className="px-2 py-0.5 text-xs font-mono border rounded uppercase border-red-500/30 text-red-400">
+                                <span className="px-2 py-0.5 text-xs font-theme-data border rounded uppercase border-red-500/30 text-red-400">
                                   {inc.severity}
                                 </span>
-                                <span className="px-2 py-0.5 text-xs font-mono border rounded uppercase border-yellow-500/30 text-yellow-400">
+                                <span className="px-2 py-0.5 text-xs font-theme-data border rounded uppercase border-yellow-500/30 text-yellow-400">
                                   {inc.status}
                                 </span>
                               </div>
                             </div>
-                            <div className="font-mono text-xs text-text-muted">
+                            <div className="font-theme-data text-xs text-text-muted">
                               Components: {inc.components.join(', ')}
                             </div>
-                            <div className="font-mono text-xs text-text-muted/60 mt-1">
+                            <div className="font-theme-data text-xs text-text-muted/60 mt-1">
                               Started: {new Date(inc.created_at).toLocaleString()}
                             </div>
                           </div>
@@ -446,24 +446,24 @@ export default function StatusPage() {
 
                   {/* Recent Incidents */}
                   <div>
-                    <h3 className="font-mono text-acid-cyan text-sm mb-3">Recent Incidents (7d)</h3>
+                    <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">Recent Incidents (7d)</h3>
                     {incidents.recent.length === 0 ? (
-                      <div className="p-6 border border-acid-green/20 rounded text-center">
-                        <div className="font-mono text-text-muted text-sm">No recent incidents in the past 7 days.</div>
+                      <div className="p-6 border border-[var(--accent)]/20 rounded text-center">
+                        <div className="font-theme-data text-text-muted text-sm">No recent incidents in the past 7 days.</div>
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {incidents.recent.map((inc) => (
-                          <div key={inc.id} className="p-4 border border-acid-green/20 rounded bg-surface/30">
+                          <div key={inc.id} className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
                             <div className="flex items-start justify-between mb-2">
-                              <span className="font-mono text-text text-sm">{inc.title}</span>
-                              <span className={`px-2 py-0.5 text-xs font-mono border rounded uppercase ${
-                                inc.resolved_at ? 'border-acid-green/30 text-acid-green' : 'border-yellow-500/30 text-yellow-400'
+                              <span className="font-theme-data text-text text-sm">{inc.title}</span>
+                              <span className={`px-2 py-0.5 text-xs font-theme-data border rounded uppercase ${
+                                inc.resolved_at ? 'border-[var(--accent)]/30 text-[var(--accent)]' : 'border-yellow-500/30 text-yellow-400'
                               }`}>
                                 {inc.resolved_at ? 'resolved' : inc.status}
                               </span>
                             </div>
-                            <div className="font-mono text-xs text-text-muted">
+                            <div className="font-theme-data text-xs text-text-muted">
                               {new Date(inc.created_at).toLocaleString()}
                               {inc.resolved_at && ` - ${new Date(inc.resolved_at).toLocaleString()}`}
                             </div>
@@ -476,12 +476,12 @@ export default function StatusPage() {
                   {/* Scheduled Maintenance */}
                   {incidents.scheduled_maintenance.length > 0 && (
                     <div>
-                      <h3 className="font-mono text-blue-400 text-sm mb-3">Scheduled Maintenance</h3>
+                      <h3 className="font-theme-data text-blue-400 text-sm mb-3">Scheduled Maintenance</h3>
                       <div className="space-y-3">
                         {incidents.scheduled_maintenance.map((inc) => (
                           <div key={inc.id} className="p-4 border border-blue-500/30 rounded bg-blue-500/5">
-                            <span className="font-mono text-text text-sm">{inc.title}</span>
-                            <div className="font-mono text-xs text-text-muted mt-1">
+                            <span className="font-theme-data text-text text-sm">{inc.title}</span>
+                            <div className="font-theme-data text-xs text-text-muted mt-1">
                               Scheduled: {new Date(inc.created_at).toLocaleString()}
                             </div>
                           </div>
@@ -491,8 +491,8 @@ export default function StatusPage() {
                   )}
                 </>
               ) : (
-                <div className="p-8 border border-acid-green/20 rounded text-center">
-                  <p className="font-mono text-text-muted">Incident data unavailable.</p>
+                <div className="p-8 border border-[var(--accent)]/20 rounded text-center">
+                  <p className="font-theme-data text-text-muted">Incident data unavailable.</p>
                 </div>
               )}
             </div>
@@ -500,8 +500,8 @@ export default function StatusPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

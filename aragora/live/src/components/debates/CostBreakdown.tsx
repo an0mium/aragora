@@ -15,10 +15,10 @@ export function CostBreakdown({ costBreakdown, totalCost }: CostBreakdownProps) 
   if (!costBreakdown || costBreakdown.length === 0) {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] p-6">
-        <div className="text-xs font-mono text-[var(--acid-green)] mb-4">
+        <div className="text-xs font-theme-data text-[var(--acid-green)] mb-4">
           {'>'} COST BREAKDOWN
         </div>
-        <div className="text-center py-6 text-[var(--text-muted)] font-mono text-sm">
+        <div className="text-center py-6 text-[var(--text-muted)] font-theme-data text-sm">
           {'>'} No cost data available for this debate.
         </div>
       </div>
@@ -30,10 +30,10 @@ export function CostBreakdown({ costBreakdown, totalCost }: CostBreakdownProps) 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-6">
       <div className="flex items-center justify-between mb-4">
-        <div className="text-xs font-mono text-[var(--acid-green)]">
+        <div className="text-xs font-theme-data text-[var(--acid-green)]">
           {'>'} COST BREAKDOWN
         </div>
-        <div className="text-sm font-mono text-[var(--acid-green)]">
+        <div className="text-sm font-theme-data text-[var(--acid-green)]">
           TOTAL: ${typeof totalCost === 'number' ? totalCost.toFixed(4) : '--'}
         </div>
       </div>
@@ -44,12 +44,12 @@ export function CostBreakdown({ costBreakdown, totalCost }: CostBreakdownProps) 
           return (
             <div key={i}>
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-mono text-[var(--text)]">{entry.agent}</span>
+                <span className="text-xs font-theme-data text-[var(--text)]">{entry.agent}</span>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono text-[var(--text-muted)]">
+                  <span className="text-xs font-theme-data text-[var(--text-muted)]">
                     {entry.tokens.toLocaleString()} tokens
                   </span>
-                  <span className="text-xs font-mono text-[var(--acid-cyan)] w-16 text-right">
+                  <span className="text-xs font-theme-data text-[var(--acid-cyan)] w-16 text-right">
                     ${entry.cost.toFixed(4)}
                   </span>
                 </div>

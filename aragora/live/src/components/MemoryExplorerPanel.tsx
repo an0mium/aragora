@@ -75,15 +75,15 @@ const DEFAULT_API_BASE = API_BASE_URL;
 
 const TIER_COLORS: Record<string, string> = {
   fast: 'text-acid-red',
-  medium: 'text-acid-yellow',
-  slow: 'text-acid-cyan',
+  medium: 'text-[var(--acid-yellow)]',
+  slow: 'text-[var(--acid-cyan)]',
   glacial: 'text-acid-blue',
 };
 
 const TIER_BG_COLORS: Record<string, string> = {
   fast: 'bg-acid-red/20 border-acid-red/40',
   medium: 'bg-acid-yellow/20 border-acid-yellow/40',
-  slow: 'bg-acid-cyan/20 border-acid-cyan/40',
+  slow: 'bg-[var(--acid-cyan)]/20 border-[var(--acid-cyan)]/40',
   glacial: 'bg-acid-blue/20 border-acid-blue/40',
 };
 
@@ -275,8 +275,8 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
     return (
       <div className="card p-6">
         <div className="flex items-center gap-3">
-          <div className="animate-spin w-5 h-5 border-2 border-acid-green border-t-transparent rounded-full" />
-          <span className="font-mono text-text-muted">Loading memory stats...</span>
+          <div className="animate-spin w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+          <span className="font-theme-data text-text-muted">Loading memory stats...</span>
         </div>
       </div>
     );
@@ -300,13 +300,13 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
         <div className="bg-warning/10 border border-warning/30 rounded px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-warning">⚠</span>
-            <span className="font-mono text-sm text-warning">
+            <span className="font-theme-data text-sm text-warning">
               Demo Mode - Memory API unavailable
             </span>
           </div>
           <button
             onClick={fetchStats}
-            className="font-mono text-xs text-warning hover:text-warning/80 transition-colors"
+            className="font-theme-data text-xs text-warning hover:text-warning/80 transition-colors"
           >
             [RETRY]
           </button>
@@ -314,14 +314,14 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
       )}
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-acid-green/20 pb-2">
+      <div className="flex gap-2 border-b border-[var(--accent)]/20 pb-2">
         {(['overview', 'search', 'critiques', 'transitions'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 font-mono text-sm transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm transition-colors ${
               activeTab === tab
-                ? 'text-acid-green border-b-2 border-acid-green'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -335,27 +335,27 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
         <div className="space-y-6">
           {/* Summary Stats */}
           <div className="card p-4">
-            <h3 className="font-mono text-acid-green mb-4">Memory System Status</h3>
+            <h3 className="font-theme-data text-[var(--accent)] mb-4">Memory System Status</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-3xl font-mono text-acid-green">{stats.total_memories}</div>
-                <div className="text-xs font-mono text-text-muted">Total Memories</div>
+                <div className="text-3xl font-theme-data text-[var(--accent)]">{stats.total_memories}</div>
+                <div className="text-xs font-theme-data text-text-muted">Total Memories</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-mono text-acid-cyan">{tiers.length}</div>
-                <div className="text-xs font-mono text-text-muted">Active Tiers</div>
+                <div className="text-3xl font-theme-data text-[var(--acid-cyan)]">{tiers.length}</div>
+                <div className="text-xs font-theme-data text-text-muted">Active Tiers</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-mono text-acid-yellow">
+                <div className="text-3xl font-theme-data text-[var(--acid-yellow)]">
                   {stats.transitions?.length || 0}
                 </div>
-                <div className="text-xs font-mono text-text-muted">Transitions</div>
+                <div className="text-xs font-theme-data text-text-muted">Transitions</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-mono text-acid-red">
+                <div className="text-3xl font-theme-data text-acid-red">
                   {pressure ? `${Math.round(pressure.overall_pressure * 100)}%` : 'N/A'}
                 </div>
-                <div className="text-xs font-mono text-text-muted">Pressure</div>
+                <div className="text-xs font-theme-data text-text-muted">Pressure</div>
               </div>
             </div>
           </div>
@@ -375,15 +375,15 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
                   className={`card p-4 border ${TIER_BG_COLORS[tier]}`}
                 >
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className={`font-mono font-bold uppercase ${TIER_COLORS[tier]}`}>
+                    <h4 className={`font-theme-data font-bold uppercase ${TIER_COLORS[tier]}`}>
                       {tier}
                     </h4>
-                    <span className="text-xs font-mono text-text-muted">
+                    <span className="text-xs font-theme-data text-text-muted">
                       {tierStats.count} entries
                     </span>
                   </div>
 
-                  <p className="text-xs font-mono text-text-muted mb-3">
+                  <p className="text-xs font-theme-data text-text-muted mb-3">
                     {TIER_DESCRIPTIONS[tier]}
                   </p>
 
@@ -395,7 +395,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
                         style={{ width: `${Math.min(usagePercent, 100)}%` }}
                       />
                     </div>
-                    <div className="flex justify-between text-xs font-mono text-text-muted mt-1">
+                    <div className="flex justify-between text-xs font-theme-data text-text-muted mt-1">
                       <span>{usagePercent}% used</span>
                       <span>
                         {tierPressure && typeof tierPressure === 'object'
@@ -405,7 +405,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
                     </div>
                   </div>
 
-                  <div className="text-xs font-mono text-text-muted">
+                  <div className="text-xs font-theme-data text-text-muted">
                     Avg importance: {(tierStats.avg_importance || 0).toFixed(2)}
                   </div>
                 </div>
@@ -416,23 +416,23 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
           {/* Archive Stats */}
           {archiveStats && archiveStats.total_archived > 0 && (
             <div className="card p-4">
-              <h3 className="font-mono text-acid-cyan mb-4">Archive Statistics</h3>
+              <h3 className="font-theme-data text-[var(--acid-cyan)] mb-4">Archive Statistics</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-mono text-acid-cyan">{archiveStats.total_archived}</div>
-                  <div className="text-xs font-mono text-text-muted">Archived</div>
+                  <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">{archiveStats.total_archived}</div>
+                  <div className="text-xs font-theme-data text-text-muted">Archived</div>
                 </div>
                 {Object.entries(archiveStats.by_tier || {}).map(([tier, count]) => (
                   <div key={tier} className="text-center">
-                    <div className={`text-2xl font-mono ${TIER_COLORS[tier.toLowerCase()] || 'text-text'}`}>
+                    <div className={`text-2xl font-theme-data ${TIER_COLORS[tier.toLowerCase()] || 'text-text'}`}>
                       {count}
                     </div>
-                    <div className="text-xs font-mono text-text-muted capitalize">{tier}</div>
+                    <div className="text-xs font-theme-data text-text-muted capitalize">{tier}</div>
                   </div>
                 ))}
               </div>
               {(archiveStats.oldest_entry || archiveStats.newest_entry) && (
-                <div className="mt-4 pt-4 border-t border-acid-cyan/20 flex justify-between text-xs font-mono text-text-muted">
+                <div className="mt-4 pt-4 border-t border-[var(--acid-cyan)]/20 flex justify-between text-xs font-theme-data text-text-muted">
                   {archiveStats.oldest_entry && (
                     <span>Oldest: {new Date(archiveStats.oldest_entry).toLocaleDateString()}</span>
                   )}
@@ -452,7 +452,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
           {/* Search Controls */}
           <div className="card p-4 space-y-4">
             <div>
-              <label className="block font-mono text-xs text-text-muted mb-2">
+              <label className="block font-theme-data text-xs text-text-muted mb-2">
                 Search Query
               </label>
               <input
@@ -460,13 +460,13 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search memories..."
-                className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
             </div>
 
             <div className="flex flex-wrap gap-4">
               <div>
-                <label className="block font-mono text-xs text-text-muted mb-2">
+                <label className="block font-theme-data text-xs text-text-muted mb-2">
                   Tiers
                 </label>
                 <div className="flex gap-2">
@@ -480,7 +480,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
                             : [...prev, tier]
                         );
                       }}
-                      className={`px-3 py-1 font-mono text-xs rounded border transition-colors ${
+                      className={`px-3 py-1 font-theme-data text-xs rounded border transition-colors ${
                         selectedTiers.includes(tier)
                           ? `${TIER_BG_COLORS[tier]} ${TIER_COLORS[tier]}`
                           : 'border-text-muted/30 text-text-muted'
@@ -493,7 +493,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
               </div>
 
               <div>
-                <label className="block font-mono text-xs text-text-muted mb-2">
+                <label className="block font-theme-data text-xs text-text-muted mb-2">
                   Min Importance: {minImportance.toFixed(1)}
                 </label>
                 <input
@@ -511,16 +511,16 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
 
           {/* Search Results */}
           <div className="card p-4">
-            <h3 className="font-mono text-acid-green mb-4">
+            <h3 className="font-theme-data text-[var(--accent)] mb-4">
               Results ({memories.length})
             </h3>
             {searchError && (
-              <div className="mb-4 p-3 bg-warning/10 border border-warning/30 rounded text-warning font-mono text-sm">
+              <div className="mb-4 p-3 bg-warning/10 border border-warning/30 rounded text-warning font-theme-data text-sm">
                 {searchError}
               </div>
             )}
             {!searchError && memories.length === 0 ? (
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 {searchQuery ? 'No memories found.' : 'Enter a search query to find memories.'}
               </p>
             ) : (
@@ -531,18 +531,18 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
                     className={`p-3 rounded border ${TIER_BG_COLORS[memory.tier] || 'border-text-muted/30'}`}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className={`font-mono text-xs uppercase ${TIER_COLORS[memory.tier]}`}>
+                      <span className={`font-theme-data text-xs uppercase ${TIER_COLORS[memory.tier]}`}>
                         {memory.tier}
                       </span>
-                      <span className="font-mono text-xs text-text-muted">
+                      <span className="font-theme-data text-xs text-text-muted">
                         importance: {memory.importance.toFixed(2)}
                       </span>
                     </div>
-                    <p className="font-mono text-sm text-text line-clamp-3">
+                    <p className="font-theme-data text-sm text-text line-clamp-3">
                       {memory.content}
                     </p>
                     {memory.created_at && (
-                      <p className="font-mono text-xs text-text-muted mt-2">
+                      <p className="font-theme-data text-xs text-text-muted mt-2">
                         Created: {new Date(memory.created_at).toLocaleString()}
                       </p>
                     )}
@@ -561,7 +561,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
           <div className="card p-4 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block font-mono text-xs text-text-muted mb-2">
+                <label className="block font-theme-data text-xs text-text-muted mb-2">
                   Filter by Agent
                 </label>
                 <input
@@ -569,11 +569,11 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
                   value={critiqueFilter.agent}
                   onChange={(e) => setCritiqueFilter(prev => ({ ...prev, agent: e.target.value }))}
                   placeholder="Agent name..."
-                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 />
               </div>
               <div>
-                <label className="block font-mono text-xs text-text-muted mb-2">
+                <label className="block font-theme-data text-xs text-text-muted mb-2">
                   Filter by Debate ID
                 </label>
                 <input
@@ -581,7 +581,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
                   value={critiqueFilter.debateId}
                   onChange={(e) => setCritiqueFilter(prev => ({ ...prev, debateId: e.target.value }))}
                   placeholder="Debate ID..."
-                  className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                  className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
                 />
               </div>
             </div>
@@ -589,16 +589,16 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
 
           {/* Critiques List */}
           <div className="card p-4">
-            <h3 className="font-mono text-acid-green mb-4">
+            <h3 className="font-theme-data text-[var(--accent)] mb-4">
               Agent Critiques ({critiques.length})
             </h3>
             {critiqueError && (
-              <div className="mb-4 p-3 bg-warning/10 border border-warning/30 rounded text-warning font-mono text-sm">
+              <div className="mb-4 p-3 bg-warning/10 border border-warning/30 rounded text-warning font-theme-data text-sm">
                 {critiqueError}
               </div>
             )}
             {!critiqueError && critiques.length === 0 ? (
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 No critiques found. Critiques are recorded when agents analyze and critique
                 each other&apos;s arguments during debates.
               </p>
@@ -610,18 +610,18 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
                     className={`p-4 bg-surface rounded border ${
                       critique.severity === 'high' ? 'border-acid-red/40' :
                       critique.severity === 'medium' ? 'border-acid-yellow/40' :
-                      'border-acid-green/30'
+                      'border-[var(--accent)]/30'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
-                        <span className="font-mono text-xs text-acid-cyan">
+                        <span className="font-theme-data text-xs text-[var(--acid-cyan)]">
                           {critique.agent || 'Unknown'}
                         </span>
                         {critique.target_agent && (
                           <>
                             <span className="text-text-muted">→</span>
-                            <span className="font-mono text-xs text-acid-yellow">
+                            <span className="font-theme-data text-xs text-[var(--acid-yellow)]">
                               {critique.target_agent}
                             </span>
                           </>
@@ -629,31 +629,31 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
                       </div>
                       <div className="flex items-center gap-2">
                         {critique.critique_type && (
-                          <span className="px-2 py-0.5 bg-surface rounded text-xs font-mono text-text-muted">
+                          <span className="px-2 py-0.5 bg-surface rounded text-xs font-theme-data text-text-muted">
                             {critique.critique_type}
                           </span>
                         )}
                         {critique.severity && (
-                          <span className={`px-2 py-0.5 rounded text-xs font-mono ${
+                          <span className={`px-2 py-0.5 rounded text-xs font-theme-data ${
                             critique.severity === 'high' ? 'bg-acid-red/20 text-acid-red' :
-                            critique.severity === 'medium' ? 'bg-acid-yellow/20 text-acid-yellow' :
-                            'bg-acid-green/20 text-acid-green'
+                            critique.severity === 'medium' ? 'bg-acid-yellow/20 text-[var(--acid-yellow)]' :
+                            'bg-[var(--accent)]/20 text-[var(--accent)]'
                           }`}>
                             {critique.severity}
                           </span>
                         )}
                       </div>
                     </div>
-                    <p className="font-mono text-sm text-text line-clamp-3">
+                    <p className="font-theme-data text-sm text-text line-clamp-3">
                       {critique.content}
                     </p>
                     {critique.debate_id && (
-                      <p className="font-mono text-xs text-text-muted mt-2">
+                      <p className="font-theme-data text-xs text-text-muted mt-2">
                         Debate: {critique.debate_id}
                       </p>
                     )}
                     {critique.created_at && (
-                      <p className="font-mono text-xs text-text-muted mt-1">
+                      <p className="font-theme-data text-xs text-text-muted mt-1">
                         {new Date(critique.created_at).toLocaleString()}
                       </p>
                     )}
@@ -668,9 +668,9 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
       {/* Transitions Tab */}
       {activeTab === 'transitions' && stats && (
         <div className="card p-4">
-          <h3 className="font-mono text-acid-green mb-4">Tier Transitions</h3>
+          <h3 className="font-theme-data text-[var(--accent)] mb-4">Tier Transitions</h3>
           {(!stats.transitions || stats.transitions.length === 0) ? (
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               No tier transitions recorded yet. Transitions occur when memories
               are promoted or demoted based on importance and access patterns.
             </p>
@@ -679,7 +679,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
               {stats.transitions.map((transition, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-3 p-2 bg-surface rounded font-mono text-sm"
+                  className="flex items-center gap-3 p-2 bg-surface rounded font-theme-data text-sm"
                 >
                   <span className={TIER_COLORS[transition.from_tier]}>
                     {transition.from_tier}
@@ -698,13 +698,13 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
 
           {/* Transition Legend */}
           <div className="mt-6 p-3 bg-surface/50 rounded">
-            <h4 className="font-mono text-xs text-acid-cyan mb-2">
+            <h4 className="font-theme-data text-xs text-[var(--acid-cyan)] mb-2">
               How Transitions Work
             </h4>
-            <ul className="font-mono text-xs text-text-muted space-y-1">
-              <li>• <span className="text-acid-red">Fast</span> → <span className="text-acid-yellow">Medium</span>: Frequently accessed memories promote up</li>
-              <li>• <span className="text-acid-yellow">Medium</span> → <span className="text-acid-cyan">Slow</span>: Important patterns persist longer</li>
-              <li>• <span className="text-acid-cyan">Slow</span> → <span className="text-acid-blue">Glacial</span>: Critical insights archive long-term</li>
+            <ul className="font-theme-data text-xs text-text-muted space-y-1">
+              <li>• <span className="text-acid-red">Fast</span> → <span className="text-[var(--acid-yellow)]">Medium</span>: Frequently accessed memories promote up</li>
+              <li>• <span className="text-[var(--acid-yellow)]">Medium</span> → <span className="text-[var(--acid-cyan)]">Slow</span>: Important patterns persist longer</li>
+              <li>• <span className="text-[var(--acid-cyan)]">Slow</span> → <span className="text-acid-blue">Glacial</span>: Critical insights archive long-term</li>
               <li>• Reverse transitions occur when TTL expires or limits exceed</li>
             </ul>
           </div>
@@ -716,7 +716,7 @@ function MemoryExplorerPanelComponent({ backendConfig }: MemoryExplorerPanelProp
         <button
           onClick={fetchStats}
           disabled={loading}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
         >
           {loading ? 'Refreshing...' : 'Refresh Stats'}
         </button>

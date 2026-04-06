@@ -428,10 +428,15 @@ class TestCreateBackup:
     """Tests for POST /api/v2/backups."""
 
     @pytest.mark.asyncio
-    async def test_create_missing_source_path(self, handler):
-        result = await handler.handle("/api/v2/backups", {}, _http("POST", body={}))
-        assert result.status_code == 400
-        assert "source_path" in _body(result).get("error", "").lower()
+    async def test_create_missing_source_path(self, handler, tmp_path):
+        missing_source = tmp_path / "missing.db"
+        with patch(
+            "aragora.server.handlers.backup_handler.get_default_backup_source_path",
+            return_value=missing_source,
+        ):
+            result = await handler.handle("/api/v2/backups", {}, _http("POST", body={}))
+        assert result.status_code == 404
+        assert "default backup source not found" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_create_invalid_backup_type(self, handler):

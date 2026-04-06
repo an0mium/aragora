@@ -26,7 +26,7 @@ export function StatsGrid({ stats, columns = 3, className = '' }: StatsGridProps
           key={index}
           className="p-3 bg-bg border border-border rounded-lg text-center"
         >
-          <div className={`text-2xl font-mono ${stat.color || 'text-accent'}`}>
+          <div className={`text-2xl font-theme-data ${stat.color || 'text-accent'}`}>
             {stat.value}
           </div>
           <div className="text-xs text-text-muted">{stat.label}</div>

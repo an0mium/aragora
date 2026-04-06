@@ -261,7 +261,11 @@ class SwarmCommander:
 
         launcher = WorkerLauncher(
             config=LaunchConfig(
-                detach=not wait,
+                # Direct CLI launches (no managed session wrapper) must stay
+                # recoverable across supervisor-process restarts and bounded
+                # outer wrappers like timeout(1). Run them detached even when
+                # the caller still wants synchronous reconciliation.
+                detach=(not wait) or (not use_managed_session_script),
                 use_managed_session_script=use_managed_session_script,
                 # When the managed session wrapper is disabled (boss loop path),
                 # the caller is the approval authority — skip the launcher's

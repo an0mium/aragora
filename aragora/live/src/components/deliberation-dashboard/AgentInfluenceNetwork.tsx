@@ -22,12 +22,12 @@ export function AgentInfluenceNetwork({
 
   if (agents.length === 0) {
     return (
-      <div className="bg-surface border border-acid-green/30 p-4">
-        <div className="text-xs font-mono text-acid-green mb-2 uppercase">
+      <div className="bg-surface border border-[var(--accent)]/30 p-4">
+        <div className="text-xs font-theme-data text-[var(--accent)] mb-2 uppercase">
           {'>'} AGENT INFLUENCE
         </div>
         <div
-          className="flex items-center justify-center text-text-muted font-mono text-xs"
+          className="flex items-center justify-center text-text-muted font-theme-data text-xs"
           style={{ height }}
         >
           No agent data available
@@ -37,8 +37,8 @@ export function AgentInfluenceNetwork({
   }
 
   return (
-    <div className="bg-surface border border-acid-green/30 p-4">
-      <div className="text-xs font-mono text-acid-green mb-3 uppercase">
+    <div className="bg-surface border border-[var(--accent)]/30 p-4">
+      <div className="text-xs font-theme-data text-[var(--accent)] mb-3 uppercase">
         {'>'} AGENT INFLUENCE
       </div>
 
@@ -52,15 +52,15 @@ export function AgentInfluenceNetwork({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`px-1.5 py-0.5 text-xs font-mono ${colors.bg} ${colors.text} ${colors.border} border`}
+                    className={`px-1.5 py-0.5 text-xs font-theme-data ${colors.bg} ${colors.text} ${colors.border} border`}
                   >
                     {agent.agent_id.split('-')[0]}
                   </span>
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     {agent.message_count} msgs
                   </span>
                 </div>
-                <span className="text-xs font-mono text-text">
+                <span className="text-xs font-theme-data text-text">
                   {Math.round(agent.influence_score * 100)}%
                 </span>
               </div>
@@ -72,7 +72,7 @@ export function AgentInfluenceNetwork({
                 />
               </div>
 
-              <div className="flex items-center gap-4 text-xs font-mono text-text-muted">
+              <div className="flex items-center gap-4 text-xs font-theme-data text-text-muted">
                 <span>
                   Consensus: {Math.round(agent.consensus_contributions * 100)}%
                 </span>

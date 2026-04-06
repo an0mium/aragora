@@ -90,7 +90,7 @@ export function FineTuningDashboard({
     <div className={`bg-surface border border-border rounded-lg overflow-hidden ${className}`}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-bg">
-        <h3 className="text-sm font-mono font-bold text-acid-green">
+        <h3 className="text-sm font-theme-data font-bold text-[var(--accent)]">
           FINE-TUNING PIPELINE
         </h3>
         <p className="text-xs text-text-muted mt-1">
@@ -109,7 +109,7 @@ export function FineTuningDashboard({
           <div className="text-xs text-text-muted">Queued</div>
         </div>
         <div className="text-center">
-          <div className="text-xl font-bold text-acid-green">{stats.completed}</div>
+          <div className="text-xl font-bold text-[var(--accent)]">{stats.completed}</div>
           <div className="text-xs text-text-muted">Completed</div>
         </div>
         <div className="text-center">
@@ -125,9 +125,9 @@ export function FineTuningDashboard({
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`
-              px-4 py-2 text-xs font-mono uppercase transition-colors
+              px-4 py-2 text-xs font-theme-data uppercase transition-colors
               ${activeTab === tab
-                ? 'text-acid-green border-b-2 border-acid-green bg-bg'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-bg'
                 : 'text-text-muted hover:text-text'
               }
             `}
@@ -140,13 +140,13 @@ export function FineTuningDashboard({
       {/* Tab Content */}
       <div className="p-4">
         {loading && jobs.length === 0 && (
-          <div className="text-center py-8 text-text-muted font-mono">
+          <div className="text-center py-8 text-text-muted font-theme-data">
             Loading training jobs...
           </div>
         )}
 
         {!loading && error && (
-          <div className="text-center py-8 text-red-400 font-mono">
+          <div className="text-center py-8 text-red-400 font-theme-data">
             Error: {error}
           </div>
         )}
@@ -161,8 +161,8 @@ export function FineTuningDashboard({
         {activeTab === 'new' && (
           <div className="space-y-6">
             {isCreating && (
-              <div className="p-4 bg-bg border border-acid-green/30 rounded text-center">
-                <p className="font-mono text-acid-green">Creating training job...</p>
+              <div className="p-4 bg-bg border border-[var(--accent)]/30 rounded text-center">
+                <p className="font-theme-data text-[var(--accent)]">Creating training job...</p>
               </div>
             )}
             <ModelSelector

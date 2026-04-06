@@ -187,7 +187,7 @@ export function ArgumentGraph({ debateId }: { debateId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="text-[var(--acid-green)] font-mono animate-pulse text-sm">
+        <div className="text-[var(--acid-green)] font-theme-data animate-pulse text-sm">
           {'>'} BUILDING ARGUMENT GRAPH...
         </div>
       </div>
@@ -196,7 +196,7 @@ export function ArgumentGraph({ debateId }: { debateId: string }) {
 
   if (error) {
     return (
-      <div className="text-center py-12 text-[var(--text-muted)] font-mono text-sm">
+      <div className="text-center py-12 text-[var(--text-muted)] font-theme-data text-sm">
         {'>'} {error}
       </div>
     );
@@ -204,7 +204,7 @@ export function ArgumentGraph({ debateId }: { debateId: string }) {
 
   if (!graph || graph.nodes.length === 0) {
     return (
-      <div className="text-center py-12 text-[var(--text-muted)] font-mono text-sm">
+      <div className="text-center py-12 text-[var(--text-muted)] font-theme-data text-sm">
         {'>'} No argument structure available for this debate.
       </div>
     );
@@ -232,10 +232,10 @@ export function ArgumentGraph({ debateId }: { debateId: string }) {
       {/* Graph */}
       <div className="bg-[var(--surface)] border border-[var(--border)] overflow-hidden">
         <div className="px-4 py-2 border-b border-[var(--border)] flex items-center justify-between">
-          <span className="text-xs font-mono text-[var(--acid-green)]">
+          <span className="text-xs font-theme-data text-[var(--acid-green)]">
             {'>'} ARGUMENT GRAPH
           </span>
-          <span className="text-xs font-mono text-[var(--text-muted)]">
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">
             {graph.nodes.length} nodes / {graph.edges.length} edges
           </span>
         </div>
@@ -348,7 +348,7 @@ export function ArgumentGraph({ debateId }: { debateId: string }) {
       <div className="flex flex-wrap gap-4 px-1">
         <div className="flex flex-wrap gap-2">
           {Object.entries(NODE_COLORS).map(([type, color]) => (
-            <span key={type} className="flex items-center gap-1 text-[10px] font-mono text-[var(--text-muted)]">
+            <span key={type} className="flex items-center gap-1 text-[10px] font-theme-data text-[var(--text-muted)]">
               <span
                 className="inline-block w-2.5 h-2.5 rounded-full border"
                 style={{ borderColor: color, backgroundColor: `${color}33` }}
@@ -359,7 +359,7 @@ export function ArgumentGraph({ debateId }: { debateId: string }) {
         </div>
         <div className="flex flex-wrap gap-2">
           {Object.entries(EDGE_COLORS).map(([rel, color]) => (
-            <span key={rel} className="flex items-center gap-1 text-[10px] font-mono text-[var(--text-muted)]">
+            <span key={rel} className="flex items-center gap-1 text-[10px] font-theme-data text-[var(--text-muted)]">
               <span className="inline-block w-3 h-0.5" style={{ backgroundColor: color }} />
               {rel}
             </span>
@@ -372,7 +372,7 @@ export function ArgumentGraph({ debateId }: { debateId: string }) {
         {agents.map((agent) => (
           <span
             key={agent}
-            className="px-1.5 py-0.5 text-[10px] font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/20"
+            className="px-1.5 py-0.5 text-[10px] font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/20"
           >
             {agent}
           </span>
@@ -385,7 +385,7 @@ export function ArgumentGraph({ debateId }: { debateId: string }) {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <span
-                className="px-1.5 py-0.5 text-[10px] font-mono border"
+                className="px-1.5 py-0.5 text-[10px] font-theme-data border"
                 style={{
                   color: NODE_COLORS[selectedNode.node_type],
                   borderColor: `${NODE_COLORS[selectedNode.node_type]}66`,
@@ -394,21 +394,21 @@ export function ArgumentGraph({ debateId }: { debateId: string }) {
               >
                 {selectedNode.node_type.toUpperCase()}
               </span>
-              <span className="text-xs font-mono text-[var(--acid-green)]">
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">
                 {selectedNode.agent}
               </span>
-              <span className="text-xs font-mono text-[var(--text-muted)]">
+              <span className="text-xs font-theme-data text-[var(--text-muted)]">
                 Round {selectedNode.round_num}
               </span>
             </div>
             <button
               onClick={() => setSelectedNode(null)}
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--text)]"
+              className="text-xs font-theme-data text-[var(--text-muted)] hover:text-[var(--text)]"
             >
               [CLOSE]
             </button>
           </div>
-          <p className="text-sm font-mono text-[var(--text)] whitespace-pre-wrap">
+          <p className="text-sm font-theme-data text-[var(--text)] whitespace-pre-wrap">
             {selectedNode.summary}
           </p>
         </div>

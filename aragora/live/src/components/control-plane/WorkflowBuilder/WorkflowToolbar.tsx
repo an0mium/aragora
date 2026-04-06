@@ -103,7 +103,7 @@ export function WorkflowToolbar({
       <div className="flex items-center gap-2">
         {currentWorkflow && (
           <>
-            <span className="text-sm font-mono text-text">
+            <span className="text-sm font-theme-data text-text">
               {currentWorkflow.name}
             </span>
             {isDirty && (
@@ -158,7 +158,7 @@ export function WorkflowToolbar({
           disabled={!currentWorkflow || isSaving || !isDirty}
           className={`px-3 py-1.5 text-sm rounded transition-colors ${
             isDirty && !isSaving
-              ? 'bg-acid-green text-bg hover:bg-acid-green/90'
+              ? 'bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/90'
               : 'bg-bg border border-border hover:border-text-muted'
           } disabled:opacity-50`}
           title="Save workflow (Ctrl+S)"
@@ -170,7 +170,7 @@ export function WorkflowToolbar({
         <button
           onClick={onExecute}
           disabled={!currentWorkflow || !canExecute || hasErrors}
-          className="px-3 py-1.5 text-sm bg-acid-cyan text-bg rounded hover:bg-acid-cyan/90 transition-colors disabled:opacity-50"
+          className="px-3 py-1.5 text-sm bg-[var(--acid-cyan)] text-bg rounded hover:bg-[var(--acid-cyan)]/90 transition-colors disabled:opacity-50"
           title="Execute workflow"
         >
           ▶ Execute

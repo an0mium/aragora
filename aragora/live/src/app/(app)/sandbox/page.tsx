@@ -54,15 +54,15 @@ export default function SandboxPage() {
             <>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)]">Available</span>
-                <span className="text-sm font-mono text-[var(--acid-green)]">{poolStatus.available}</span>
+                <span className="text-sm font-theme-data text-[var(--acid-green)]">{poolStatus.available}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)]">In Use</span>
-                <span className="text-sm font-mono text-[var(--acid-cyan)]">{poolStatus.in_use}</span>
+                <span className="text-sm font-theme-data text-[var(--acid-cyan)]">{poolStatus.in_use}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)]">Pool Health</span>
-                <span className={`text-sm font-mono ${poolStatus.healthy ? 'text-green-400' : 'text-red-400'}`}>
+                <span className={`text-sm font-theme-data ${poolStatus.healthy ? 'text-green-400' : 'text-red-400'}`}>
                   {poolStatus.healthy ? 'HEALTHY' : 'DEGRADED'}
                 </span>
               </div>
@@ -73,18 +73,18 @@ export default function SandboxPage() {
               <div className="border-t border-[var(--border)] pt-3 mt-3">
                 <div className="flex justify-between items-center">
                   <span className="text-xs text-[var(--text-muted)]">Mode</span>
-                  <span className="text-sm font-mono text-[var(--acid-cyan)]">{config.mode.toUpperCase()}</span>
+                  <span className="text-sm font-theme-data text-[var(--acid-cyan)]">{config.mode.toUpperCase()}</span>
                 </div>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)]">Timeout</span>
-                <span className="text-sm font-mono text-[var(--text)]">
+                <span className="text-sm font-theme-data text-[var(--text)]">
                   {config.resource_limits.max_execution_seconds}s
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)]">Memory</span>
-                <span className="text-sm font-mono text-[var(--text)]">
+                <span className="text-sm font-theme-data text-[var(--text)]">
                   {config.resource_limits.max_memory_mb}MB
                 </span>
               </div>
@@ -92,7 +92,7 @@ export default function SandboxPage() {
           )}
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Executions</span>
-            <span className="text-sm font-mono text-[var(--acid-green)]">{executionHistory.length}</span>
+            <span className="text-sm font-theme-data text-[var(--acid-green)]">{executionHistory.length}</span>
           </div>
         </div>
       ),
@@ -101,14 +101,14 @@ export default function SandboxPage() {
           <button
             onClick={execute}
             disabled={isExecuting || !code.trim()}
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-green)] text-[var(--bg)] font-bold hover:bg-[var(--acid-green)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--acid-green)] text-[var(--bg)] font-bold hover:bg-[var(--acid-green)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isExecuting ? 'EXECUTING...' : 'RUN CODE'}
           </button>
           {isExecuting && currentExecution && (
             <button
               onClick={() => cancelExecution(currentExecution.execution_id)}
-              className="block w-full px-3 py-2 text-xs font-mono text-center bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors"
+              className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors"
             >
               CANCEL
             </button>
@@ -116,7 +116,7 @@ export default function SandboxPage() {
           <button
             onClick={clearResult}
             disabled={!currentExecution}
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors disabled:opacity-50"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors disabled:opacity-50"
           >
             CLEAR RESULT
           </button>
@@ -163,8 +163,8 @@ export default function SandboxPage() {
         <div className="max-w-6xl mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">CODE SANDBOX</h1>
-            <p className="text-text-muted text-sm font-mono">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">CODE SANDBOX</h1>
+            <p className="text-text-muted text-sm font-theme-data">
               Execute code in an isolated environment with resource limits and policy enforcement.
             </p>
           </div>
@@ -172,7 +172,7 @@ export default function SandboxPage() {
           {/* Error Banner */}
           {executionError && (
             <div className="mb-4 border border-warning/30 bg-warning/10 p-3">
-              <p className="text-warning text-sm font-mono">{executionError}</p>
+              <p className="text-warning text-sm font-theme-data">{executionError}</p>
             </div>
           )}
 
@@ -181,16 +181,16 @@ export default function SandboxPage() {
             <div className="space-y-4">
               {/* Language Selector */}
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-text-muted">Language:</span>
+                <span className="text-xs font-theme-data text-text-muted">Language:</span>
                 <div className="flex gap-1">
                   {(Object.keys(LANGUAGE_CONFIG) as Language[]).map((lang) => (
                     <button
                       key={lang}
                       onClick={() => setLanguage(lang)}
-                      className={`px-3 py-1 text-xs font-mono border transition-colors ${
+                      className={`px-3 py-1 text-xs font-theme-data border transition-colors ${
                         language === lang
-                          ? 'bg-acid-green/20 text-acid-green border-acid-green/50'
-                          : 'bg-surface text-text-muted border-border hover:border-acid-green/30'
+                          ? 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/50'
+                          : 'bg-surface text-text-muted border-border hover:border-[var(--accent)]/30'
                       }`}
                     >
                       {LANGUAGE_CONFIG[lang].label}
@@ -200,12 +200,12 @@ export default function SandboxPage() {
               </div>
 
               {/* Code Editor */}
-              <div className="border border-acid-green/30 bg-surface/50">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-acid-green/20 bg-surface/80">
-                  <span className="text-xs font-mono text-acid-cyan">
+              <div className="border border-[var(--accent)]/30 bg-surface/50">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--accent)]/20 bg-surface/80">
+                  <span className="text-xs font-theme-data text-[var(--acid-cyan)]">
                     code{LANGUAGE_CONFIG[language].extension}
                   </span>
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     Ctrl+Enter to run
                   </span>
                 </div>
@@ -215,7 +215,7 @@ export default function SandboxPage() {
                   onChange={(e) => setCode(e.target.value)}
                   disabled={isExecuting}
                   spellCheck={false}
-                  className="w-full h-80 p-4 bg-bg text-text font-mono text-sm resize-none focus:outline-none disabled:opacity-50"
+                  className="w-full h-80 p-4 bg-bg text-text font-theme-data text-sm resize-none focus:outline-none disabled:opacity-50"
                   placeholder={LANGUAGE_CONFIG[language].placeholder}
                 />
               </div>
@@ -224,7 +224,7 @@ export default function SandboxPage() {
               <button
                 onClick={execute}
                 disabled={isExecuting || !code.trim()}
-                className="lg:hidden w-full py-3 bg-acid-green text-bg font-mono font-bold hover:bg-acid-green/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="lg:hidden w-full py-3 bg-[var(--accent)] text-bg font-theme-data font-bold hover:bg-[var(--accent)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isExecuting ? 'EXECUTING...' : 'RUN CODE'}
               </button>
@@ -233,9 +233,9 @@ export default function SandboxPage() {
             {/* Right: Execution Result */}
             <div className="space-y-4">
               {/* Current Result */}
-              <div className="border border-acid-green/30 bg-surface/50">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-acid-green/20 bg-surface/80">
-                  <span className="text-xs font-mono text-acid-cyan">OUTPUT</span>
+              <div className="border border-[var(--accent)]/30 bg-surface/50">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--accent)]/20 bg-surface/80">
+                  <span className="text-xs font-theme-data text-[var(--acid-cyan)]">OUTPUT</span>
                   {currentExecution && (
                     <StatusBadge status={currentExecution.status} />
                   )}
@@ -245,8 +245,8 @@ export default function SandboxPage() {
                   {isExecuting && !currentExecution && (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">
-                        <div className="w-8 h-8 border-2 border-acid-green/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
-                        <p className="text-text-muted text-sm font-mono">Executing...</p>
+                        <div className="w-8 h-8 border-2 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
+                        <p className="text-text-muted text-sm font-theme-data">Executing...</p>
                       </div>
                     </div>
                   )}
@@ -254,8 +254,8 @@ export default function SandboxPage() {
                   {!isExecuting && !currentExecution && (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center text-text-muted">
-                        <p className="text-sm font-mono">Run code to see output</p>
-                        <p className="text-xs font-mono mt-2 opacity-50">Press Ctrl+Enter</p>
+                        <p className="text-sm font-theme-data">Run code to see output</p>
+                        <p className="text-xs font-theme-data mt-2 opacity-50">Press Ctrl+Enter</p>
                       </div>
                     </div>
                   )}
@@ -268,9 +268,9 @@ export default function SandboxPage() {
 
               {/* Execution Details */}
               {currentExecution && (
-                <div className="border border-acid-cyan/30 bg-surface/50 p-4">
-                  <h3 className="text-xs font-mono text-acid-cyan mb-3 uppercase">Execution Details</h3>
-                  <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+                <div className="border border-[var(--acid-cyan)]/30 bg-surface/50 p-4">
+                  <h3 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3 uppercase">Execution Details</h3>
+                  <div className="grid grid-cols-2 gap-3 text-xs font-theme-data">
                     <div>
                       <span className="text-text-muted">Duration</span>
                       <div className="text-text">{currentExecution.duration_seconds.toFixed(3)}s</div>
@@ -293,7 +293,7 @@ export default function SandboxPage() {
 
                   {/* Policy Violations */}
                   {currentExecution.policy_violations.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-acid-cyan/20">
+                    <div className="mt-4 pt-3 border-t border-[var(--acid-cyan)]/20">
                       <span className="text-xs text-orange-400">Policy Violations:</span>
                       <ul className="mt-1 space-y-1">
                         {currentExecution.policy_violations.map((v, i) => (
@@ -305,11 +305,11 @@ export default function SandboxPage() {
 
                   {/* Files Created */}
                   {currentExecution.files_created.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-acid-cyan/20">
-                      <span className="text-xs text-acid-green">Files Created:</span>
+                    <div className="mt-4 pt-3 border-t border-[var(--acid-cyan)]/20">
+                      <span className="text-xs text-[var(--accent)]">Files Created:</span>
                       <ul className="mt-1 space-y-1">
                         {currentExecution.files_created.map((f, i) => (
-                          <li key={i} className="text-xs text-text-muted font-mono">• {f}</li>
+                          <li key={i} className="text-xs text-text-muted font-theme-data">• {f}</li>
                         ))}
                       </ul>
                     </div>
@@ -323,7 +323,7 @@ export default function SandboxPage() {
           {executionHistory.length > 1 && (
             <div className="mt-8">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-mono text-acid-cyan uppercase tracking-wider">
+                <h2 className="text-sm font-theme-data text-[var(--acid-cyan)] uppercase tracking-wider">
                   Recent Executions ({executionHistory.length})
                 </h2>
               </div>
@@ -348,7 +348,7 @@ export default function SandboxPage() {
 function StatusBadge({ status }: { status: string }) {
   const style = STATUS_STYLES[status as keyof typeof STATUS_STYLES] || STATUS_STYLES.pending;
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono ${style.color} ${style.bgColor} border border-current/30`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data ${style.color} ${style.bgColor} border border-current/30`}>
       {style.label}
     </span>
   );
@@ -360,8 +360,8 @@ function ExecutionOutput({ result }: { result: ExecutionResult }) {
       {/* Stdout */}
       {result.stdout && (
         <div>
-          <div className="text-xs text-acid-green mb-1">stdout</div>
-          <pre className="p-3 bg-bg/50 border border-acid-green/10 text-sm font-mono text-text whitespace-pre-wrap overflow-x-auto max-h-40">
+          <div className="text-xs text-[var(--accent)] mb-1">stdout</div>
+          <pre className="p-3 bg-bg/50 border border-[var(--accent)]/10 text-sm font-theme-data text-text whitespace-pre-wrap overflow-x-auto max-h-40">
             {result.stdout}
           </pre>
         </div>
@@ -371,7 +371,7 @@ function ExecutionOutput({ result }: { result: ExecutionResult }) {
       {result.stderr && (
         <div>
           <div className="text-xs text-red-400 mb-1">stderr</div>
-          <pre className="p-3 bg-red-500/5 border border-red-500/20 text-sm font-mono text-red-300 whitespace-pre-wrap overflow-x-auto max-h-40">
+          <pre className="p-3 bg-red-500/5 border border-red-500/20 text-sm font-theme-data text-red-300 whitespace-pre-wrap overflow-x-auto max-h-40">
             {result.stderr}
           </pre>
         </div>
@@ -381,7 +381,7 @@ function ExecutionOutput({ result }: { result: ExecutionResult }) {
       {result.error_message && (
         <div>
           <div className="text-xs text-warning mb-1">error</div>
-          <pre className="p-3 bg-warning/10 border border-warning/20 text-sm font-mono text-warning whitespace-pre-wrap">
+          <pre className="p-3 bg-warning/10 border border-warning/20 text-sm font-theme-data text-warning whitespace-pre-wrap">
             {result.error_message}
           </pre>
         </div>
@@ -390,7 +390,7 @@ function ExecutionOutput({ result }: { result: ExecutionResult }) {
       {/* No output */}
       {!result.stdout && !result.stderr && !result.error_message && (
         <div className="text-center text-text-muted py-8">
-          <p className="text-sm font-mono">No output</p>
+          <p className="text-sm font-theme-data">No output</p>
         </div>
       )}
     </div>
@@ -399,15 +399,15 @@ function ExecutionOutput({ result }: { result: ExecutionResult }) {
 
 function HistoryItem({ result }: { result: ExecutionResult }) {
   return (
-    <div className="flex items-center gap-4 px-4 py-2 border border-acid-green/10 bg-surface/30 hover:bg-surface/50 transition-colors">
+    <div className="flex items-center gap-4 px-4 py-2 border border-[var(--accent)]/10 bg-surface/30 hover:bg-surface/50 transition-colors">
       <StatusBadge status={result.status} />
-      <span className="text-xs font-mono text-text-muted flex-1 truncate">
+      <span className="text-xs font-theme-data text-text-muted flex-1 truncate">
         {result.execution_id}
       </span>
-      <span className="text-xs font-mono text-text-muted">
+      <span className="text-xs font-theme-data text-text-muted">
         {result.duration_seconds.toFixed(3)}s
       </span>
-      <span className={`text-xs font-mono ${result.exit_code === 0 ? 'text-green-400' : 'text-red-400'}`}>
+      <span className={`text-xs font-theme-data ${result.exit_code === 0 ? 'text-green-400' : 'text-red-400'}`}>
         exit {result.exit_code}
       </span>
     </div>

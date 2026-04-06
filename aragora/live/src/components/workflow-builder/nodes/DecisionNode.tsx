@@ -31,7 +31,7 @@ export const DecisionNode = memo(function DecisionNode({
 
       <div className="flex items-center gap-2 mb-2">
         <span className="text-lg">🔀</span>
-        <span className="text-sm font-mono font-bold text-yellow-300 uppercase tracking-wide">
+        <span className="text-sm font-theme-data font-bold text-yellow-300 uppercase tracking-wide">
           Decision
         </span>
       </div>
@@ -46,7 +46,7 @@ export const DecisionNode = memo(function DecisionNode({
         </div>
       )}
 
-      <div className="px-2 py-1 bg-yellow-500/30 rounded text-xs font-mono text-yellow-200 truncate">
+      <div className="px-2 py-1 bg-yellow-500/30 rounded text-xs font-theme-data text-yellow-200 truncate">
         if: {data.condition}
       </div>
 
@@ -68,10 +68,10 @@ export const DecisionNode = memo(function DecisionNode({
       />
 
       {/* Labels for branches */}
-      <div className="absolute -right-8 top-1/2 text-xs font-mono text-green-400">
+      <div className="absolute -right-8 top-1/2 text-xs font-theme-data text-green-400">
         T
       </div>
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full text-xs font-mono text-red-400">
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full text-xs font-theme-data text-red-400">
         F
       </div>
     </div>

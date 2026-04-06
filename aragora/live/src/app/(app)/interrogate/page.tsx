@@ -16,7 +16,7 @@ const STAGE_LABELS: Record<InterrogationStage, string> = {
 function VaguenessBar({ score }: { score: number }) {
   const pct = Math.round(score * 100);
   return (
-    <div className="flex items-center gap-2 text-xs font-mono">
+    <div className="flex items-center gap-2 text-xs font-theme-data">
       <div className="flex-1 h-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-sm overflow-hidden">
         <div
           className="h-full bg-[var(--acid-green)] transition-all duration-500"
@@ -40,18 +40,18 @@ function QuestionCard({
   return (
     <div className="border border-[var(--border)] bg-[var(--surface)] p-4 rounded space-y-3 shadow-[0_0_12px_rgba(0,255,65,0.08)]">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-mono text-[var(--text)]">{question.text}</p>
-        <span className="text-[10px] font-mono text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 px-1.5 py-0.5 rounded shrink-0">
+        <p className="text-sm font-theme-data text-[var(--text)]">{question.text}</p>
+        <span className="text-[10px] font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 px-1.5 py-0.5 rounded shrink-0">
           P{question.priority}
         </span>
       </div>
 
-      <p className="text-xs font-mono text-[var(--text-muted)] italic">
+      <p className="text-xs font-theme-data text-[var(--text-muted)] italic">
         Why: {question.why}
       </p>
 
       {question.context && (
-        <p className="text-xs font-mono text-[var(--text-muted)]">
+        <p className="text-xs font-theme-data text-[var(--text-muted)]">
           Context: {question.context}
         </p>
       )}
@@ -62,7 +62,7 @@ function QuestionCard({
             <button
               key={opt}
               onClick={() => onAnswer(opt)}
-              className="text-xs font-mono px-3 py-1.5 border border-[var(--acid-green)]/40 text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 hover:border-[var(--acid-green)] rounded transition-colors"
+              className="text-xs font-theme-data px-3 py-1.5 border border-[var(--acid-green)]/40 text-[var(--acid-green)] hover:bg-[var(--acid-green)]/10 hover:border-[var(--acid-green)] rounded transition-colors"
             >
               {opt}
             </button>
@@ -82,7 +82,7 @@ function QuestionCard({
             }
           }}
           placeholder="Or type your own answer..."
-          className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-mono px-3 py-1.5 rounded focus:outline-none focus:border-[var(--acid-green)] placeholder:text-[var(--text-muted)]"
+          className="flex-1 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-xs font-theme-data px-3 py-1.5 rounded focus:outline-none focus:border-[var(--acid-green)] placeholder:text-[var(--text-muted)]"
         />
         <button
           onClick={() => {
@@ -92,7 +92,7 @@ function QuestionCard({
             }
           }}
           disabled={!custom.trim()}
-          className="text-xs font-mono px-3 py-1.5 bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 rounded hover:bg-[var(--acid-green)]/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="text-xs font-theme-data px-3 py-1.5 bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 rounded hover:bg-[var(--acid-green)]/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           Submit
         </button>
@@ -135,7 +135,7 @@ export default function InterrogatePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 sm:p-8 font-mono">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)] p-4 sm:p-8 font-theme-data">
       {/* Header */}
       <div className="max-w-3xl mx-auto mb-8">
         <h1 className="text-xl sm:text-2xl font-bold text-[var(--acid-green)] tracking-wider">
@@ -149,7 +149,7 @@ export default function InterrogatePage() {
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Error display */}
         {error && (
-          <div className="border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-mono px-4 py-2 rounded">
+          <div className="border border-red-500/40 bg-red-500/10 text-red-400 text-xs font-theme-data px-4 py-2 rounded">
             {error}
           </div>
         )}
@@ -168,7 +168,7 @@ export default function InterrogatePage() {
             disabled={stage !== 'idle'}
             placeholder="Describe what you want to build, decide, or explore..."
             rows={3}
-            className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm font-mono px-3 py-2 rounded focus:outline-none focus:border-[var(--acid-green)] placeholder:text-[var(--text-muted)] resize-none disabled:opacity-50"
+            className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] text-sm font-theme-data px-3 py-2 rounded focus:outline-none focus:border-[var(--acid-green)] placeholder:text-[var(--text-muted)] resize-none disabled:opacity-50"
           />
           <div className="flex items-center justify-between mt-3">
             <span className="text-[10px] text-[var(--text-muted)]">
@@ -178,7 +178,7 @@ export default function InterrogatePage() {
               {stage !== 'idle' && (
                 <button
                   onClick={reset}
-                  className="text-xs font-mono px-4 py-1.5 border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--acid-green)]/40 rounded transition-colors"
+                  className="text-xs font-theme-data px-4 py-1.5 border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:border-[var(--acid-green)]/40 rounded transition-colors"
                 >
                   Reset
                 </button>
@@ -186,7 +186,7 @@ export default function InterrogatePage() {
               <button
                 onClick={handleStart}
                 disabled={!prompt.trim() || stage !== 'idle' || loading}
-                className="text-xs font-mono px-4 py-1.5 bg-[var(--acid-green)] text-[var(--bg)] rounded hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-[0_0_8px_rgba(0,255,65,0.3)]"
+                className="text-xs font-theme-data px-4 py-1.5 bg-[var(--acid-green)] text-[var(--bg)] rounded hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-[0_0_8px_rgba(0,255,65,0.3)]"
               >
                 {loading && stage === 'decomposing' ? 'Decomposing...' : 'Interrogate'}
               </button>
@@ -223,7 +223,7 @@ export default function InterrogatePage() {
               </h2>
               <button
                 onClick={crystallize}
-                className="text-[10px] font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] underline underline-offset-2 transition-colors"
+                className="text-[10px] font-theme-data text-[var(--text-muted)] hover:text-[var(--acid-green)] underline underline-offset-2 transition-colors"
               >
                 Skip remaining &rarr; crystallize
               </button>
@@ -239,7 +239,7 @@ export default function InterrogatePage() {
             <button
               onClick={crystallize}
               disabled={loading}
-              className="text-xs font-mono px-6 py-2 bg-[var(--acid-green)] text-[var(--bg)] rounded hover:brightness-110 disabled:opacity-30 transition-all shadow-[0_0_12px_rgba(0,255,65,0.3)]"
+              className="text-xs font-theme-data px-6 py-2 bg-[var(--acid-green)] text-[var(--bg)] rounded hover:brightness-110 disabled:opacity-30 transition-all shadow-[0_0_12px_rgba(0,255,65,0.3)]"
             >
               {loading ? 'Crystallizing...' : 'Crystallize Spec'}
             </button>
@@ -328,7 +328,7 @@ export default function InterrogatePage() {
 
             {/* Execute button */}
             <div className="pt-3 border-t border-[var(--border)] flex justify-end">
-              <button className="text-xs font-mono px-6 py-2 bg-[var(--acid-green)] text-[var(--bg)] rounded hover:brightness-110 transition-all shadow-[0_0_12px_rgba(0,255,65,0.3)]">
+              <button className="text-xs font-theme-data px-6 py-2 bg-[var(--acid-green)] text-[var(--bg)] rounded hover:brightness-110 transition-all shadow-[0_0_12px_rgba(0,255,65,0.3)]">
                 Execute via Pipeline &rarr;
               </button>
             </div>

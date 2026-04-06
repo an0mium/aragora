@@ -76,7 +76,7 @@ export function TemplateBrowser({ onSelect, onClose }: TemplateBrowserProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div>
-            <h2 className="text-lg font-mono font-bold text-text">
+            <h2 className="text-lg font-theme-data font-bold text-text">
               Workflow Templates
             </h2>
             <p className="text-sm text-text-muted">
@@ -95,9 +95,9 @@ export function TemplateBrowser({ onSelect, onClose }: TemplateBrowserProps) {
         <div className="flex gap-2 p-4 border-b border-border overflow-x-auto">
           <button
             onClick={() => setSelectedCategory(null)}
-            className={`px-4 py-2 rounded font-mono text-sm transition-colors ${
+            className={`px-4 py-2 rounded font-theme-data text-sm transition-colors ${
               selectedCategory === null
-                ? 'bg-acid-green text-bg'
+                ? 'bg-[var(--accent)] text-bg'
                 : 'bg-bg text-text-muted hover:text-text'
             }`}
           >
@@ -107,9 +107,9 @@ export function TemplateBrowser({ onSelect, onClose }: TemplateBrowserProps) {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-2 rounded font-mono text-sm transition-colors flex items-center gap-2 ${
+              className={`px-4 py-2 rounded font-theme-data text-sm transition-colors flex items-center gap-2 ${
                 selectedCategory === cat
-                  ? 'bg-acid-green text-bg'
+                  ? 'bg-[var(--accent)] text-bg'
                   : 'bg-bg text-text-muted hover:text-text'
               }`}
             >
@@ -154,7 +154,7 @@ export function TemplateBrowser({ onSelect, onClose }: TemplateBrowserProps) {
                   <span className="text-lg">
                     {categoryIcons[template.category] || '📁'}
                   </span>
-                  <h3 className="font-mono font-bold text-text">
+                  <h3 className="font-theme-data font-bold text-text">
                     {template.name}
                   </h3>
                 </div>
@@ -167,14 +167,14 @@ export function TemplateBrowser({ onSelect, onClose }: TemplateBrowserProps) {
                   {template.tags.slice(0, 4).map((tag) => (
                     <span
                       key={tag}
-                      className="px-2 py-0.5 text-xs bg-bg/50 rounded font-mono"
+                      className="px-2 py-0.5 text-xs bg-bg/50 rounded font-theme-data"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
 
-                <div className="mt-3 text-xs text-text-muted font-mono">
+                <div className="mt-3 text-xs text-text-muted font-theme-data">
                   {template.steps?.length || 0} steps | v{template.version}
                 </div>
               </button>
@@ -184,12 +184,12 @@ export function TemplateBrowser({ onSelect, onClose }: TemplateBrowserProps) {
 
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t border-border bg-bg/50">
-          <p className="text-xs text-text-muted font-mono">
+          <p className="text-xs text-text-muted font-theme-data">
             {templates.length} template{templates.length !== 1 ? 's' : ''} available
           </p>
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-surface border border-border text-text font-mono text-sm hover:border-text transition-colors rounded"
+            className="px-4 py-2 bg-surface border border-border text-text font-theme-data text-sm hover:border-text transition-colors rounded"
           >
             Cancel
           </button>

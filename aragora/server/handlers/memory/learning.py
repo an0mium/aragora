@@ -57,12 +57,23 @@ class LearningHandler(SecureHandler):
         self.ctx = ctx or {}
 
     ROUTES = [
+        "/api/learning/cycles",
+        "/api/learning/patterns",
+        "/api/learning/agent-evolution",
+        "/api/learning/insights",
         "/api/v1/learning/cycles",
         "/api/v1/learning/patterns",
         "/api/v1/learning/agent-evolution",
         "/api/v1/learning/insights",
     ]
     NORMALIZED_ROUTES = tuple(_normalize_legacy_api_path(route) for route in ROUTES)
+
+    _LEGACY_ROUTE_ALIASES = {
+        "/api/learning/cycles": "/api/v1/learning/cycles",
+        "/api/learning/patterns": "/api/v1/learning/patterns",
+        "/api/learning/agent-evolution": "/api/v1/learning/agent-evolution",
+        "/api/learning/insights": "/api/v1/learning/insights",
+    }
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
@@ -72,6 +83,7 @@ class LearningHandler(SecureHandler):
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route GET requests with RBAC."""
+        path = self._LEGACY_ROUTE_ALIASES.get(path, path)
         normalized = _normalize_legacy_api_path(path)
 
         # Rate limit check

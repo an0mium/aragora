@@ -107,7 +107,7 @@ export function TrendingTopicsPanel({
       >
         <div className="flex items-center gap-2">
           <span className="text-lg">🔥</span>
-          <span className="text-acid-cyan font-mono text-sm">[TRENDING]</span>
+          <span className="text-[var(--acid-cyan)] font-theme-data text-sm">[TRENDING]</span>
           {topics.length > 0 && !expanded && (
             <span className="text-xs text-text-muted">
               {topics[0]?.topic?.slice(0, 30)}...
@@ -161,7 +161,7 @@ export function TrendingTopicsPanel({
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-mono text-acid-green truncate">
+                        <span className="text-sm font-theme-data text-[var(--accent)] truncate">
                           {topic.topic}
                         </span>
                         <span className={`text-xs ${getScoreColor(topic.score)}`}>
@@ -189,7 +189,7 @@ export function TrendingTopicsPanel({
                           e.stopPropagation();
                           onStartDebate(topic.topic, topic.source);
                         }}
-                        className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-mono text-acid-cyan border border-acid-cyan/50 hover:bg-acid-cyan/10 transition-all"
+                        className="opacity-0 group-hover:opacity-100 px-2 py-1 text-xs font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/50 hover:bg-[var(--acid-cyan)]/10 transition-all"
                         title="Start a debate on this topic"
                       >
                         DEBATE
@@ -205,7 +205,7 @@ export function TrendingTopicsPanel({
           <button
             onClick={fetchTrending}
             disabled={loading}
-            className="w-full py-2 text-xs text-text-muted hover:text-text border border-acid-green/20 hover:border-acid-green/40 transition-colors disabled:opacity-50"
+            className="w-full py-2 text-xs text-text-muted hover:text-text border border-[var(--accent)]/20 hover:border-[var(--accent)]/40 transition-colors disabled:opacity-50"
           >
             {loading ? 'Refreshing...' : 'Refresh Trending'}
           </button>

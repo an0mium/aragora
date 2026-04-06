@@ -135,13 +135,13 @@ const BOT_CONFIGS: Omit<BotStatus, 'status' | 'lastPing' | 'errorMessage'>[] = [
 
 function SystemStatusBadge({ status }: { status: SystemIntegrationStatus['status'] }) {
   const styles: Record<SystemIntegrationStatus['status'], { classes: string; label: string }> = {
-    available: { classes: 'bg-acid-green/20 text-acid-green border-acid-green/30', label: 'AVAILABLE' },
+    available: { classes: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/30', label: 'AVAILABLE' },
     unavailable: { classes: 'bg-text-muted/20 text-text-muted border-text-muted/30', label: 'UNAVAILABLE' },
-    checking: { classes: 'bg-acid-cyan/20 text-acid-cyan border-acid-cyan/30 animate-pulse', label: 'CHECKING' },
+    checking: { classes: 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 animate-pulse', label: 'CHECKING' },
   };
   const style = styles[status];
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded border ${style.classes}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${style.classes}`}>
       {style.label}
     </span>
   );
@@ -150,20 +150,20 @@ function SystemStatusBadge({ status }: { status: SystemIntegrationStatus['status
 function HealthBadge({ configured, healthy }: { configured: boolean; healthy: boolean }) {
   if (!configured) {
     return (
-      <span className="px-2 py-0.5 text-xs font-mono rounded bg-text-muted/20 text-text-muted">
+      <span className="px-2 py-0.5 text-xs font-theme-data rounded bg-text-muted/20 text-text-muted">
         NOT CONFIGURED
       </span>
     );
   }
   if (healthy) {
     return (
-      <span className="px-2 py-0.5 text-xs font-mono rounded bg-acid-green/20 text-acid-green">
+      <span className="px-2 py-0.5 text-xs font-theme-data rounded bg-[var(--accent)]/20 text-[var(--accent)]">
         HEALTHY
       </span>
     );
   }
   return (
-    <span className="px-2 py-0.5 text-xs font-mono rounded bg-warning/20 text-warning">
+    <span className="px-2 py-0.5 text-xs font-theme-data rounded bg-warning/20 text-warning">
       UNHEALTHY
     </span>
   );
@@ -171,13 +171,13 @@ function HealthBadge({ configured, healthy }: { configured: boolean; healthy: bo
 
 function BotStatusBadge({ status }: { status: BotStatus['status'] }) {
   const styles: Record<BotStatus['status'], string> = {
-    online: 'bg-acid-green/20 text-acid-green',
+    online: 'bg-[var(--accent)]/20 text-[var(--accent)]',
     offline: 'bg-text-muted/20 text-text-muted',
     error: 'bg-warning/20 text-warning',
-    loading: 'bg-acid-cyan/20 text-acid-cyan animate-pulse',
+    loading: 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] animate-pulse',
   };
   return (
-    <span className={`px-2 py-0.5 text-xs font-mono rounded ${styles[status]}`}>
+    <span className={`px-2 py-0.5 text-xs font-theme-data rounded ${styles[status]}`}>
       {status.toUpperCase()}
     </span>
   );
@@ -364,32 +364,32 @@ export default function IntegrationsPage() {
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} INTEGRATIONS
             </h1>
-            <p className="text-text-muted font-mono text-sm max-w-2xl">
+            <p className="text-text-muted font-theme-data text-sm max-w-2xl">
               Connect Aragora to chat platforms for notifications, export data for ML training,
               and extend functionality with plugins and webhooks.
             </p>
           </div>
 
           {/* SDK Installation */}
-          <div className="mb-6 p-4 border border-acid-cyan/30 bg-surface/30 rounded">
-            <h3 className="font-mono text-acid-cyan text-sm mb-3">SDK Installation</h3>
+          <div className="mb-6 p-4 border border-[var(--acid-cyan)]/30 bg-surface/30 rounded">
+            <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">SDK Installation</h3>
             <div className="flex items-center gap-4">
-              <code className="flex-1 bg-bg px-3 py-2 font-mono text-sm text-text border border-acid-green/20 rounded">
+              <code className="flex-1 bg-bg px-3 py-2 font-theme-data text-sm text-text border border-[var(--accent)]/20 rounded">
                 npm install @aragora/sdk
               </code>
               <Link
                 href="https://www.npmjs.com/package/@aragora/sdk"
                 target="_blank"
-                className="px-3 py-2 border border-acid-green/30 text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="px-3 py-2 border border-[var(--accent)]/30 text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [NPM]
               </Link>
               <Link
                 href="/api-explorer"
-                className="px-3 py-2 border border-acid-green/30 text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="px-3 py-2 border border-[var(--accent)]/30 text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [DOCS]
               </Link>
@@ -400,40 +400,40 @@ export default function IntegrationsPage() {
           <div className="flex gap-2 mb-6">
             <button
               onClick={() => setActiveTab('notifications')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'notifications'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
               }`}
             >
               [NOTIFICATIONS]
             </button>
             <button
               onClick={() => setActiveTab('bots')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'bots'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
               }`}
             >
               [BOTS]
             </button>
             <button
               onClick={() => setActiveTab('system')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'system'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
               }`}
             >
               [SYSTEM]
             </button>
             <button
               onClick={() => setActiveTab('docs')}
-              className={`px-4 py-2 font-mono text-sm border transition-colors ${
+              className={`px-4 py-2 font-theme-data text-sm border transition-colors ${
                 activeTab === 'docs'
-                  ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                  : 'border-acid-green/30 text-text-muted hover:text-text'
+                  ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                  : 'border-[var(--accent)]/30 text-text-muted hover:text-text'
               }`}
             >
               [DOCUMENTATION]
@@ -444,13 +444,13 @@ export default function IntegrationsPage() {
           {activeTab === 'notifications' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="font-mono text-text">Chat & Notification Platforms</h2>
+                <h2 className="font-theme-data text-text">Chat & Notification Platforms</h2>
                 <div className="flex gap-2">
                   {chatPlatforms.slice(0, 3).map(type => (
                     <button
                       key={type}
                       onClick={() => handleConfigure(type)}
-                      className="px-3 py-1 text-xs font-mono border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                      className="px-3 py-1 text-xs font-theme-data border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                     >
                       [+ {INTEGRATION_CONFIGS[type].title.toUpperCase()}]
                     </button>
@@ -468,17 +468,17 @@ export default function IntegrationsPage() {
           {activeTab === 'bots' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="font-mono text-text">Chat Platform Bots</h2>
+                <h2 className="font-theme-data text-text">Chat Platform Bots</h2>
                 <button
                   onClick={fetchBotStatuses}
                   disabled={botsLoading}
-                  className="px-3 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-acid-green transition-colors disabled:opacity-50"
+                  className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)] transition-colors disabled:opacity-50"
                 >
                   {botsLoading ? '[CHECKING...]' : '[REFRESH STATUS]'}
                 </button>
               </div>
 
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Bots allow Aragora to interact directly with chat platforms, handling commands and events in real-time.
               </p>
 
@@ -488,26 +488,26 @@ export default function IntegrationsPage() {
                   <div
                     key={bot.platform}
                     className={`p-4 border rounded bg-surface/30 ${
-                      bot.status === 'online' ? 'border-acid-green/40' :
+                      bot.status === 'online' ? 'border-[var(--accent)]/40' :
                       bot.status === 'error' ? 'border-warning/40' :
-                      'border-acid-green/20'
+                      'border-[var(--accent)]/20'
                     }`}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <span className="w-10 h-10 flex items-center justify-center bg-surface rounded font-mono text-lg text-acid-cyan">
+                        <span className="w-10 h-10 flex items-center justify-center bg-surface rounded font-theme-data text-lg text-[var(--acid-cyan)]">
                           {bot.icon}
                         </span>
                         <div>
-                          <h3 className="font-mono text-text">{bot.label}</h3>
-                          <div className="text-xs font-mono text-text-muted">{bot.endpoint}</div>
+                          <h3 className="font-theme-data text-text">{bot.label}</h3>
+                          <div className="text-xs font-theme-data text-text-muted">{bot.endpoint}</div>
                         </div>
                       </div>
                       <BotStatusBadge status={bot.status} />
                     </div>
 
                     {bot.errorMessage && (
-                      <div className="mb-3 p-2 bg-warning/10 border border-warning/30 rounded text-xs font-mono text-warning">
+                      <div className="mb-3 p-2 bg-warning/10 border border-warning/30 rounded text-xs font-theme-data text-warning">
                         {bot.errorMessage}
                       </div>
                     )}
@@ -516,7 +516,7 @@ export default function IntegrationsPage() {
                       {bot.features.map((feature) => (
                         <span
                           key={feature}
-                          className="px-2 py-0.5 text-xs font-mono bg-acid-green/10 text-acid-green/70 rounded"
+                          className="px-2 py-0.5 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)]/70 rounded"
                         >
                           {feature}
                         </span>
@@ -524,7 +524,7 @@ export default function IntegrationsPage() {
                     </div>
 
                     {bot.lastPing && (
-                      <div className="text-xs font-mono text-text-muted">
+                      <div className="text-xs font-theme-data text-text-muted">
                         Last activity: {bot.lastPing}
                       </div>
                     )}
@@ -533,14 +533,14 @@ export default function IntegrationsPage() {
                       {bot.platform !== 'zoom' && (
                         <button
                           onClick={() => handleConfigure(bot.platform as IntegrationType)}
-                          className="px-3 py-1 text-xs font-mono border border-acid-cyan/30 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                          className="px-3 py-1 text-xs font-theme-data border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                         >
                           [CONFIGURE]
                         </button>
                       )}
                       <Link
                         href={`/api-explorer?path=${encodeURIComponent(bot.endpoint)}`}
-                        className="px-3 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-acid-green transition-colors"
+                        className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)] transition-colors"
                       >
                         [API DOCS]
                       </Link>
@@ -550,23 +550,23 @@ export default function IntegrationsPage() {
               </div>
 
               {/* Bot Setup Guide */}
-              <div className="p-4 border border-acid-cyan/30 rounded bg-surface/20">
-                <h3 className="font-mono text-acid-cyan text-sm mb-3">Bot Setup Guide</h3>
-                <div className="space-y-2 text-xs font-mono text-text-muted">
+              <div className="p-4 border border-[var(--acid-cyan)]/30 rounded bg-surface/20">
+                <h3 className="font-theme-data text-[var(--acid-cyan)] text-sm mb-3">Bot Setup Guide</h3>
+                <div className="space-y-2 text-xs font-theme-data text-text-muted">
                   <p>1. Configure your platform credentials in the Notifications tab or environment variables</p>
                   <p>2. Set up webhook URLs to point to your Aragora server endpoints</p>
                   <p>3. The bot will automatically handle incoming events and commands</p>
                 </div>
-                <div className="mt-3 p-3 bg-bg/50 rounded border border-acid-green/20">
-                  <div className="text-xs font-mono text-text-muted mb-1">Example Slack command:</div>
-                  <code className="text-xs font-mono text-acid-cyan">/aragora debate &quot;Should we use microservices?&quot;</code>
+                <div className="mt-3 p-3 bg-bg/50 rounded border border-[var(--accent)]/20">
+                  <div className="text-xs font-theme-data text-text-muted mb-1">Example Slack command:</div>
+                  <code className="text-xs font-theme-data text-[var(--acid-cyan)]">/aragora debate &quot;Should we use microservices?&quot;</code>
                 </div>
               </div>
 
               {/* Environment Variables */}
-              <div className="p-4 border border-acid-green/20 rounded bg-bg/50">
-                <h3 className="font-mono text-text text-sm mb-3">Required Environment Variables</h3>
-                <pre className="font-mono text-xs text-text-muted whitespace-pre overflow-x-auto">
+              <div className="p-4 border border-[var(--accent)]/20 rounded bg-bg/50">
+                <h3 className="font-theme-data text-text text-sm mb-3">Required Environment Variables</h3>
+                <pre className="font-theme-data text-xs text-text-muted whitespace-pre overflow-x-auto">
 {`# Slack Bot
 SLACK_BOT_TOKEN=xoxb-...
 SLACK_SIGNING_SECRET=...
@@ -591,11 +591,11 @@ ZOOM_WEBHOOK_SECRET=...`}
           {activeTab === 'system' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="font-mono text-text">System Integrations</h2>
+                <h2 className="font-theme-data text-text">System Integrations</h2>
                 <button
                   onClick={() => { fetchSystemStatuses(); fetchConnectorHealth(); }}
                   disabled={systemLoading || healthLoading}
-                  className="px-3 py-1 text-xs font-mono border border-acid-green/30 text-text-muted hover:text-acid-green transition-colors disabled:opacity-50"
+                  className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/30 text-text-muted hover:text-[var(--accent)] transition-colors disabled:opacity-50"
                 >
                   {systemLoading || healthLoading ? '[CHECKING...]' : '[REFRESH STATUS]'}
                 </button>
@@ -603,15 +603,15 @@ ZOOM_WEBHOOK_SECRET=...`}
 
               {/* Connector Health from /api/v1/integrations/health */}
               <div>
-                <h3 className="font-mono text-text text-sm mb-3">Connector Health (Environment)</h3>
+                <h3 className="font-theme-data text-text text-sm mb-3">Connector Health (Environment)</h3>
                 {healthError && (
                   <div className="mb-3 p-3 border border-warning/30 bg-warning/10 rounded">
-                    <p className="text-warning font-mono text-sm">{healthError}</p>
+                    <p className="text-warning font-theme-data text-sm">{healthError}</p>
                   </div>
                 )}
                 {healthLoading && connectorHealth.length === 0 && !healthError && (
-                  <div className="p-4 border border-acid-green/20 rounded bg-surface/30">
-                    <p className="font-mono text-text-muted text-center text-sm">Checking connector health...</p>
+                  <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/30">
+                    <p className="font-theme-data text-text-muted text-center text-sm">Checking connector health...</p>
                   </div>
                 )}
                 {connectorHealth.length > 0 && (
@@ -620,17 +620,17 @@ ZOOM_WEBHOOK_SECRET=...`}
                       <div
                         key={connector.name}
                         className={`p-3 border rounded bg-surface/30 ${
-                          connector.configured && connector.healthy ? 'border-acid-green/40' :
+                          connector.configured && connector.healthy ? 'border-[var(--accent)]/40' :
                           connector.configured && !connector.healthy ? 'border-warning/40' :
-                          'border-acid-green/15'
+                          'border-[var(--accent)]/15'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-mono text-text text-sm capitalize">{connector.name}</h4>
+                          <h4 className="font-theme-data text-text text-sm capitalize">{connector.name}</h4>
                           <HealthBadge configured={connector.configured} healthy={connector.healthy} />
                         </div>
-                        <div className="space-y-1 text-xs font-mono text-text-muted">
-                          <div>Module: <span className={connector.module_available ? 'text-acid-green' : 'text-text-muted'}>{connector.module_available ? 'loaded' : 'not loaded'}</span></div>
+                        <div className="space-y-1 text-xs font-theme-data text-text-muted">
+                          <div>Module: <span className={connector.module_available ? 'text-[var(--accent)]' : 'text-text-muted'}>{connector.module_available ? 'loaded' : 'not loaded'}</span></div>
                           {connector.last_check && (
                             <div>Last check: {new Date(connector.last_check).toLocaleString()}</div>
                           )}
@@ -640,9 +640,9 @@ ZOOM_WEBHOOK_SECRET=...`}
                                 <span
                                   key={cb.name}
                                   className={`px-1.5 py-0.5 rounded ${
-                                    cb.state === 'closed' ? 'bg-acid-green/10 text-acid-green' :
+                                    cb.state === 'closed' ? 'bg-[var(--accent)]/10 text-[var(--accent)]' :
                                     cb.state === 'half-open' ? 'bg-warning/10 text-warning' :
-                                    'bg-crimson/10 text-crimson'
+                                    'bg-[var(--crimson)]/10 text-[var(--crimson)]'
                                   }`}
                                 >
                                   {cb.name}: {cb.state}
@@ -656,46 +656,46 @@ ZOOM_WEBHOOK_SECRET=...`}
                   </div>
                 )}
                 {!healthLoading && connectorHealth.length === 0 && !healthError && (
-                  <div className="p-4 border border-acid-green/20 rounded bg-surface/20 text-center">
-                    <p className="font-mono text-sm text-text-muted">No connector health data available.</p>
+                  <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/20 text-center">
+                    <p className="font-theme-data text-sm text-text-muted">No connector health data available.</p>
                   </div>
                 )}
               </div>
 
               {/* System Feature Endpoints */}
               <div>
-                <h3 className="font-mono text-text text-sm mb-3">Feature Endpoints</h3>
+                <h3 className="font-theme-data text-text text-sm mb-3">Feature Endpoints</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {systemStatuses.map((integration) => (
                     <Link
                       key={integration.href}
                       href={integration.href}
                       className={`group p-4 border rounded bg-surface/30 hover:bg-surface/50 transition-all ${
-                        integration.status === 'available' ? 'border-acid-green/30 hover:border-acid-green/50' :
-                        integration.status === 'checking' ? 'border-acid-cyan/20' :
-                        'border-acid-green/10 hover:border-acid-green/30'
+                        integration.status === 'available' ? 'border-[var(--accent)]/30 hover:border-[var(--accent)]/50' :
+                        integration.status === 'checking' ? 'border-[var(--acid-cyan)]/20' :
+                        'border-[var(--accent)]/10 hover:border-[var(--accent)]/30'
                       }`}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-acid-cyan text-lg">{integration.icon}</span>
-                          <h3 className="font-mono text-text group-hover:text-acid-green transition-colors">
+                          <span className="font-theme-data text-[var(--acid-cyan)] text-lg">{integration.icon}</span>
+                          <h3 className="font-theme-data text-text group-hover:text-[var(--accent)] transition-colors">
                             {integration.title}
                           </h3>
                         </div>
                         <SystemStatusBadge status={integration.status} />
                       </div>
-                      <p className="text-text-muted font-mono text-xs mb-2 line-clamp-2">
+                      <p className="text-text-muted font-theme-data text-xs mb-2 line-clamp-2">
                         {integration.description}
                       </p>
-                      <div className="text-xs font-mono text-text-muted mb-3">
-                        Endpoint: <code className="text-acid-cyan/70">{integration.probeEndpoint}</code>
+                      <div className="text-xs font-theme-data text-text-muted mb-3">
+                        Endpoint: <code className="text-[var(--acid-cyan)]/70">{integration.probeEndpoint}</code>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {integration.features.map((feature) => (
                           <span
                             key={feature}
-                            className="px-2 py-0.5 text-xs font-mono bg-acid-green/10 text-acid-green/70 rounded"
+                            className="px-2 py-0.5 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)]/70 rounded"
                           >
                             {feature}
                           </span>
@@ -707,30 +707,30 @@ ZOOM_WEBHOOK_SECRET=...`}
               </div>
 
               {/* Quick Links */}
-              <div className="p-4 border border-acid-green/20 rounded bg-surface/20">
-                <h3 className="font-mono text-text mb-3 text-sm">Quick Actions</h3>
+              <div className="p-4 border border-[var(--accent)]/20 rounded bg-surface/20">
+                <h3 className="font-theme-data text-text mb-3 text-sm">Quick Actions</h3>
                 <div className="flex flex-wrap gap-2">
                   <Link
                     href="/webhooks"
-                    className="px-3 py-2 border border-acid-cyan/30 text-xs font-mono text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                    className="px-3 py-2 border border-[var(--acid-cyan)]/30 text-xs font-theme-data text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                   >
                     [+ NEW WEBHOOK]
                   </Link>
                   <Link
                     href="/plugins"
-                    className="px-3 py-2 border border-acid-cyan/30 text-xs font-mono text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                    className="px-3 py-2 border border-[var(--acid-cyan)]/30 text-xs font-theme-data text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                   >
                     [BROWSE PLUGINS]
                   </Link>
                   <Link
                     href="/training"
-                    className="px-3 py-2 border border-acid-cyan/30 text-xs font-mono text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                    className="px-3 py-2 border border-[var(--acid-cyan)]/30 text-xs font-theme-data text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                   >
                     [EXPORT DATA]
                   </Link>
                   <Link
                     href="/developer"
-                    className="px-3 py-2 border border-acid-cyan/30 text-xs font-mono text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                    className="px-3 py-2 border border-[var(--acid-cyan)]/30 text-xs font-theme-data text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                   >
                     [MCP SERVER]
                   </Link>
@@ -743,7 +743,7 @@ ZOOM_WEBHOOK_SECRET=...`}
             <div className="space-y-6">
               {/* Webhook Event Types */}
               <div>
-                <h3 className="font-mono text-text mb-4 text-sm">Webhook Event Types</h3>
+                <h3 className="font-theme-data text-text mb-4 text-sm">Webhook Event Types</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                   {[
                     { event: 'debate_start', desc: 'Debate begins' },
@@ -761,10 +761,10 @@ ZOOM_WEBHOOK_SECRET=...`}
                   ].map(({ event, desc }) => (
                     <div
                       key={event}
-                      className="p-2 border border-acid-green/10 rounded bg-surface/20 flex items-center justify-between"
+                      className="p-2 border border-[var(--accent)]/10 rounded bg-surface/20 flex items-center justify-between"
                     >
-                      <code className="font-mono text-xs text-acid-cyan">{event}</code>
-                      <span className="font-mono text-xs text-text-muted">{desc}</span>
+                      <code className="font-theme-data text-xs text-[var(--acid-cyan)]">{event}</code>
+                      <span className="font-theme-data text-xs text-text-muted">{desc}</span>
                     </div>
                   ))}
                 </div>
@@ -772,9 +772,9 @@ ZOOM_WEBHOOK_SECRET=...`}
 
               {/* Environment Variables */}
               <div>
-                <h3 className="font-mono text-text mb-4 text-sm">Environment Variables</h3>
-                <div className="p-4 border border-acid-green/20 rounded bg-bg/50 overflow-x-auto">
-                  <pre className="font-mono text-xs text-text-muted whitespace-pre">
+                <h3 className="font-theme-data text-text mb-4 text-sm">Environment Variables</h3>
+                <div className="p-4 border border-[var(--accent)]/20 rounded bg-bg/50 overflow-x-auto">
+                  <pre className="font-theme-data text-xs text-text-muted whitespace-pre">
 {`# Slack
 SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 SLACK_BOT_TOKEN=xoxb-...
@@ -808,9 +808,9 @@ MATRIX_ROOM_ID=!abc123:matrix.org`}
 
               {/* API Example */}
               <div>
-                <h3 className="font-mono text-text mb-4 text-sm">SDK Example</h3>
-                <div className="p-4 border border-acid-green/20 rounded bg-bg/50 overflow-x-auto">
-                  <pre className="font-mono text-xs text-acid-cyan whitespace-pre">
+                <h3 className="font-theme-data text-text mb-4 text-sm">SDK Example</h3>
+                <div className="p-4 border border-[var(--accent)]/20 rounded bg-bg/50 overflow-x-auto">
+                  <pre className="font-theme-data text-xs text-[var(--acid-cyan)] whitespace-pre">
 {`import { Aragora } from '@aragora/sdk';
 
 const client = new Aragora({ apiKey: 'your-api-key' });

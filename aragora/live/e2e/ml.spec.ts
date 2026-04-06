@@ -120,9 +120,9 @@ test.describe('ML Dashboard Page', () => {
     await page.waitForTimeout(1500);
 
     // Should show navigation links to other pages
-    const dashboardLink = page.locator('a[href="/"], text=/dashboard/i').first();
-    const analyticsLink = page.locator('a[href="/analytics"], text=/analytics/i').first();
-    const leaderboardLink = page.locator('a[href="/leaderboard"], text=/ranks|leaderboard/i').first();
+    const dashboardLink = page.getByRole('link', { name: /dashboard/i }).first();
+    const analyticsLink = page.getByRole('link', { name: /analytics/i }).first();
+    const leaderboardLink = page.getByRole('link', { name: /ranks|leaderboard/i }).first();
 
     const hasDashboard = await dashboardLink.isVisible({ timeout: 3000 }).catch(() => false);
     const hasAnalytics = await analyticsLink.isVisible().catch(() => false);

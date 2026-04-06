@@ -67,7 +67,7 @@ const BreadcrumbItem = memo(function BreadcrumbItem({
         onClick={handleClick}
         disabled={isLast}
         className={`
-          inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-mono
+          inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-theme-data
           transition-colors whitespace-nowrap
           ${isLast
             ? `${stageColors.bg} ${stageColors.text} font-bold`

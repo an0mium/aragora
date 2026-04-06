@@ -276,6 +276,44 @@ def test_reap_stale_claims_keeps_live_worktree_sessions(tmp_path: Path) -> None:
     assert store.list_claims()[0]["session_id"] == "session-live"
 
 
+def test_reap_stale_claims_does_not_depend_on_full_fleet_rows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _make_repo(tmp_path)
+    worktree_path = tmp_path / "session-live-lightweight"
+    _run(
+        repo,
+        "git",
+        "worktree",
+        "add",
+        "-b",
+        "codex/session-live-lightweight",
+        str(worktree_path),
+        "HEAD",
+    )
+    (worktree_path / ".codex_session_active").write_text(
+        f"pid={os.getpid()}\nsession_id=session-live-lightweight\n",
+        encoding="utf-8",
+    )
+
+    store = FleetCoordinationStore(repo)
+    store.claim_paths(session_id="session-live-lightweight", paths=["aragora/live/**"])
+    _backdate_all_claims(store)
+
+    def _explode(*args, **kwargs):
+        raise AssertionError("build_fleet_rows should not run during stale claim reaping")
+
+    monkeypatch.setattr(fleet, "build_fleet_rows", _explode)
+
+    result = store.reap_stale_claims()
+
+    assert result["released"] == 0
+    assert result["kept_sessions"][0]["session_id"] == "session-live-lightweight"
+    assert result["kept_sessions"][0]["reason"] == "live_session"
+    assert store.list_claims()[0]["session_id"] == "session-live-lightweight"
+
+
 def test_reap_stale_claims_handles_missing_worktree_paths(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
     worktree_path = tmp_path / "session-missing"

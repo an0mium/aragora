@@ -1,6 +1,6 @@
 export function DashboardFooter() {
   return (
-    <footer className="text-center text-xs font-mono py-6 sm:py-8 border-t border-border mt-6 sm:mt-8">
+    <footer className="text-center text-xs font-theme-data py-6 sm:py-8 border-t border-border mt-6 sm:mt-8">
       <p className="text-text-muted">
         ARAGORA // MULTI-AGENT DEBATE
       </p>

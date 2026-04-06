@@ -153,7 +153,7 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
             onClick={() => handleSchedulerAction('start')}
             disabled={actionLoading === 'start'}
             aria-label="Start scheduler"
-            className="px-3 py-1.5 text-xs bg-acid-green/20 hover:bg-acid-green/30 text-acid-green rounded"
+            className="px-3 py-1.5 text-xs bg-[var(--accent)]/20 hover:bg-[var(--accent)]/30 text-[var(--accent)] rounded"
           >
             {actionLoading === 'start' ? '...' : 'Start Scheduler'}
           </button>
@@ -217,7 +217,7 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
             <button
               onClick={handleCreate}
               disabled={!newTrigger.name || actionLoading === 'create'}
-              className="px-4 py-2 bg-acid-green/20 hover:bg-acid-green/30 text-acid-green rounded text-sm disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--accent)]/20 hover:bg-[var(--accent)]/30 text-[var(--accent)] rounded text-sm disabled:opacity-50"
             >
               {actionLoading === 'create' ? 'Creating...' : 'Create Trigger'}
             </button>
@@ -251,7 +251,7 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-white">{trigger.name}</span>
                     <span
-                      className={`w-2 h-2 rounded-full ${trigger.enabled ? 'bg-acid-green' : 'bg-gray-500'}`}
+                      className={`w-2 h-2 rounded-full ${trigger.enabled ? 'bg-[var(--accent)]' : 'bg-gray-500'}`}
                       aria-hidden="true"
                     />
                     <span className="sr-only">{trigger.enabled ? 'Active' : 'Inactive'}</span>
@@ -273,7 +273,7 @@ export function TriggersPanel({ apiBase }: TriggersPanelProps) {
                     className={`px-3 py-1.5 text-xs rounded transition-colors disabled:opacity-50 ${
                       trigger.enabled
                         ? 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500'
-                        : 'bg-acid-green/20 hover:bg-acid-green/30 text-acid-green'
+                        : 'bg-[var(--accent)]/20 hover:bg-[var(--accent)]/30 text-[var(--accent)]'
                     }`}
                   >
                     {actionLoading === trigger.id ? '...' : trigger.enabled ? 'Disable' : 'Enable'}

@@ -49,10 +49,10 @@ export const ActionNode = memo(function ActionNode({ data, selected }: ActionNod
         <span className="w-5 h-5 flex items-center justify-center text-xs font-bold rounded bg-amber-500/30 text-amber-200">
           {config.icon}
         </span>
-        <span className="px-1.5 py-0.5 text-xs bg-amber-500/30 text-amber-200 rounded font-mono uppercase">
+        <span className="px-1.5 py-0.5 text-xs bg-amber-500/30 text-amber-200 rounded font-theme-data uppercase">
           {config.label}
         </span>
-        <span className={`px-1.5 py-0.5 text-xs rounded font-mono ${statusClass}`}>
+        <span className={`px-1.5 py-0.5 text-xs rounded font-theme-data ${statusClass}`}>
           {status.replace('_', ' ')}
         </span>
       </div>
@@ -71,7 +71,7 @@ export const ActionNode = memo(function ActionNode({ data, selected }: ActionNod
 
       {/* Optional indicator */}
       {optional && (
-        <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-500/30 text-gray-300 rounded font-mono mb-1">
+        <span className="inline-block px-1.5 py-0.5 text-xs bg-gray-500/30 text-gray-300 rounded font-theme-data mb-1">
           optional
         </span>
       )}
@@ -85,7 +85,7 @@ export const ActionNode = memo(function ActionNode({ data, selected }: ActionNod
 
       {/* Timeout */}
       {timeout && timeout > 0 && (
-        <div className="text-xs font-mono text-amber-300">
+        <div className="text-xs font-theme-data text-amber-300">
           timeout: {timeout}s
         </div>
       )}

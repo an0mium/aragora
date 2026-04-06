@@ -32,15 +32,15 @@ function formatDuration(seconds: number): string {
 }
 
 function qualityColor(score: number): string {
-  if (score >= 75) return 'text-acid-green';
-  if (score >= 50) return 'text-acid-yellow';
-  return 'text-crimson';
+  if (score >= 75) return 'text-[var(--accent)]';
+  if (score >= 50) return 'text-[var(--acid-yellow)]';
+  return 'text-[var(--crimson)]';
 }
 
 function qualityBg(score: number): string {
-  if (score >= 75) return 'bg-acid-green/60';
+  if (score >= 75) return 'bg-[var(--accent)]/60';
   if (score >= 50) return 'bg-acid-yellow/60';
-  return 'bg-crimson/60';
+  return 'bg-[var(--crimson)]/60';
 }
 
 // ============================================================================
@@ -62,9 +62,9 @@ function PeriodSelector({
         <button
           key={p}
           onClick={() => onChange(p)}
-          className={`px-3 py-2 text-xs font-mono transition-colors ${
+          className={`px-3 py-2 text-xs font-theme-data transition-colors ${
             value === p
-              ? 'bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/40'
+              ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40'
               : 'text-text-muted hover:text-text'
           }`}
         >
@@ -133,7 +133,7 @@ function QualityGauge({ score, change }: { score: number; change: number | null 
         </text>
       </svg>
       {change !== null && (
-        <div className={`font-mono text-xs mt-1 ${change >= 0 ? 'text-acid-green' : 'text-crimson'}`}>
+        <div className={`font-theme-data text-xs mt-1 ${change >= 0 ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'}`}>
           {change >= 0 ? '+' : ''}{change.toFixed(1)}% vs prev
         </div>
       )}
@@ -202,7 +202,7 @@ function AgentPerformanceTable({
   if (loading) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-4">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">
           {'>'} AGENT PERFORMANCE LEADERBOARD
         </h3>
         <div className="animate-pulse space-y-3">
@@ -217,10 +217,10 @@ function AgentPerformanceTable({
   if (agents.length === 0) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-4">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">
           {'>'} AGENT PERFORMANCE LEADERBOARD
         </h3>
-        <p className="text-text-muted font-mono text-sm text-center py-8">
+        <p className="text-text-muted font-theme-data text-sm text-center py-8">
           No agent performance data yet. Run debates to see ELO ratings, Brier scores, and calibration accuracy.
         </p>
       </div>
@@ -229,15 +229,15 @@ function AgentPerformanceTable({
 
   return (
     <div className="card overflow-hidden">
-      <div className="p-4 border-b border-acid-green/20">
-        <h3 className="font-mono text-sm text-acid-green">
+      <div className="p-4 border-b border-[var(--accent)]/20">
+        <h3 className="font-theme-data text-sm text-[var(--accent)]">
           {'>'} AGENT PERFORMANCE LEADERBOARD
         </h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-xs">
+        <table className="w-full font-theme-data text-xs">
           <thead>
-            <tr className="border-b border-acid-green/20 bg-acid-green/5">
+            <tr className="border-b border-[var(--accent)]/20 bg-[var(--accent)]/5">
               {(
                 [
                   ['rank', 'Rank', 'text-left'],
@@ -253,7 +253,7 @@ function AgentPerformanceTable({
                   key={label}
                   onClick={key ? () => handleSort(key) : undefined}
                   className={`p-3 text-text-muted ${align} ${
-                    key ? 'cursor-pointer hover:text-acid-green transition-colors' : ''
+                    key ? 'cursor-pointer hover:text-[var(--accent)] transition-colors' : ''
                   }`}
                 >
                   {label}
@@ -266,15 +266,15 @@ function AgentPerformanceTable({
             {sorted.map((agent, i) => (
               <tr
                 key={agent.agent_id}
-                className={`border-b border-acid-green/10 hover:bg-acid-green/5 transition-colors ${
-                  i % 2 === 0 ? 'bg-acid-green/[0.02]' : ''
+                className={`border-b border-[var(--accent)]/10 hover:bg-[var(--accent)]/5 transition-colors ${
+                  i % 2 === 0 ? 'bg-[var(--accent)]/[0.02]' : ''
                 }`}
               >
                 <td className="p-3">
                   <span
                     className={`font-bold ${
                       agent.rank === 1
-                        ? 'text-acid-yellow'
+                        ? 'text-[var(--acid-yellow)]'
                         : agent.rank === 2
                           ? 'text-gray-300'
                           : agent.rank === 3
@@ -287,7 +287,7 @@ function AgentPerformanceTable({
                 </td>
                 <td className="p-3">
                   <div className="flex flex-col">
-                    <span className="text-acid-cyan">{agent.agent_name}</span>
+                    <span className="text-[var(--acid-cyan)]">{agent.agent_name}</span>
                     {agent.model && (
                       <span className="text-[10px] text-text-muted">{agent.model}</span>
                     )}
@@ -298,7 +298,7 @@ function AgentPerformanceTable({
                   {agent.elo_change !== 0 && (
                     <span
                       className={`ml-1 text-[10px] ${
-                        agent.elo_change > 0 ? 'text-acid-green' : 'text-crimson'
+                        agent.elo_change > 0 ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'
                       }`}
                     >
                       {agent.elo_change > 0 ? '+' : ''}{agent.elo_change.toFixed(0)}
@@ -306,7 +306,7 @@ function AgentPerformanceTable({
                   )}
                 </td>
                 <td className="p-3 text-right">
-                  <span className={agent.win_rate >= 50 ? 'text-acid-green' : 'text-crimson'}>
+                  <span className={agent.win_rate >= 50 ? 'text-[var(--accent)]' : 'text-[var(--crimson)]'}>
                     {agent.win_rate.toFixed(1)}%
                   </span>
                 </td>
@@ -316,10 +316,10 @@ function AgentPerformanceTable({
                     <span
                       className={
                         agent.brier_score <= 0.25
-                          ? 'text-acid-green'
+                          ? 'text-[var(--accent)]'
                           : agent.brier_score <= 0.5
-                            ? 'text-acid-yellow'
-                            : 'text-crimson'
+                            ? 'text-[var(--acid-yellow)]'
+                            : 'text-[var(--crimson)]'
                       }
                     >
                       {agent.brier_score.toFixed(3)}
@@ -330,7 +330,7 @@ function AgentPerformanceTable({
                 </td>
                 <td className="p-3 text-right">
                   {agent.calibration_accuracy !== null ? (
-                    <span className="text-acid-cyan">
+                    <span className="text-[var(--acid-cyan)]">
                       {(agent.calibration_accuracy * 100).toFixed(0)}%
                     </span>
                   ) : (
@@ -343,10 +343,10 @@ function AgentPerformanceTable({
         </table>
       </div>
       {/* Summary bar */}
-      <div className="p-4 border-t border-acid-green/20 bg-surface/50">
-        <div className="flex justify-between text-xs font-mono text-text-muted">
+      <div className="p-4 border-t border-[var(--accent)]/20 bg-surface/50">
+        <div className="flex justify-between text-xs font-theme-data text-text-muted">
           <span>
-            Agents: <span className="text-acid-green">{agents.length}</span>
+            Agents: <span className="text-[var(--accent)]">{agents.length}</span>
           </span>
           <span>
             Avg ELO:{' '}
@@ -358,7 +358,7 @@ function AgentPerformanceTable({
           </span>
           <span>
             Total debates:{' '}
-            <span className="text-acid-cyan">
+            <span className="text-[var(--acid-cyan)]">
               {agents.reduce((s, a) => s + a.debates, 0)}
             </span>
           </span>
@@ -430,7 +430,7 @@ function DecisionHistoryTable({
   if (loading) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-4">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">
           {'>'} DECISION HISTORY ({total})
         </h3>
         <div className="animate-pulse space-y-3">
@@ -445,10 +445,10 @@ function DecisionHistoryTable({
   if (decisions.length === 0) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-3">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
           {'>'} DECISION HISTORY
         </h3>
-        <p className="text-text-muted font-mono text-sm text-center py-8">
+        <p className="text-text-muted font-theme-data text-sm text-center py-8">
           No decisions yet. Quality scores, rounds, and agent participation will appear here after debates.
         </p>
       </div>
@@ -457,39 +457,39 @@ function DecisionHistoryTable({
 
   return (
     <div className="card overflow-hidden">
-      <div className="p-4 border-b border-acid-green/20">
-        <h3 className="font-mono text-sm text-acid-green">
+      <div className="p-4 border-b border-[var(--accent)]/20">
+        <h3 className="font-theme-data text-sm text-[var(--accent)]">
           {'>'} DECISION HISTORY ({total} total)
         </h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-xs">
+        <table className="w-full font-theme-data text-xs">
           <thead>
-            <tr className="border-b border-acid-green/20 bg-acid-green/5">
+            <tr className="border-b border-[var(--accent)]/20 bg-[var(--accent)]/5">
               <th className="p-3 text-text-muted text-left">Status</th>
               <th className="p-3 text-text-muted text-left">Task / ID</th>
               <th
                 onClick={() => handleSort('quality_score')}
-                className="p-3 text-text-muted text-right cursor-pointer hover:text-acid-green transition-colors"
+                className="p-3 text-text-muted text-right cursor-pointer hover:text-[var(--accent)] transition-colors"
               >
                 Quality{sortIndicator('quality_score')}
               </th>
               <th
                 onClick={() => handleSort('rounds')}
-                className="p-3 text-text-muted text-right cursor-pointer hover:text-acid-green transition-colors"
+                className="p-3 text-text-muted text-right cursor-pointer hover:text-[var(--accent)] transition-colors"
               >
                 Rounds{sortIndicator('rounds')}
               </th>
               <th
                 onClick={() => handleSort('agent_count')}
-                className="p-3 text-text-muted text-right cursor-pointer hover:text-acid-green transition-colors"
+                className="p-3 text-text-muted text-right cursor-pointer hover:text-[var(--accent)] transition-colors"
               >
                 Agents{sortIndicator('agent_count')}
               </th>
               <th className="p-3 text-text-muted text-right">Duration</th>
               <th
                 onClick={() => handleSort('created_at')}
-                className="p-3 text-text-muted text-right cursor-pointer hover:text-acid-green transition-colors"
+                className="p-3 text-text-muted text-right cursor-pointer hover:text-[var(--accent)] transition-colors"
               >
                 Date{sortIndicator('created_at')}
               </th>
@@ -499,14 +499,14 @@ function DecisionHistoryTable({
             {sorted.map((d, i) => (
               <tr
                 key={d.debate_id}
-                className={`border-b border-acid-green/10 hover:bg-acid-green/5 transition-colors ${
-                  i % 2 === 0 ? 'bg-acid-green/[0.02]' : ''
+                className={`border-b border-[var(--accent)]/10 hover:bg-[var(--accent)]/5 transition-colors ${
+                  i % 2 === 0 ? 'bg-[var(--accent)]/[0.02]' : ''
                 }`}
               >
                 <td className="p-3">
                   <span
                     className={
-                      d.consensus_reached ? 'text-acid-green' : 'text-acid-yellow'
+                      d.consensus_reached ? 'text-[var(--accent)]' : 'text-[var(--acid-yellow)]'
                     }
                   >
                     {d.consensus_reached ? '[OK]' : '[--]'}
@@ -560,11 +560,11 @@ function CalibrationCurve({
   if (loading) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-4">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">
           {'>'} CALIBRATION CURVE
         </h3>
         <div className="flex items-center justify-center h-64">
-          <div className="font-mono text-text-muted animate-pulse">Loading...</div>
+          <div className="font-theme-data text-text-muted animate-pulse">Loading...</div>
         </div>
       </div>
     );
@@ -575,11 +575,11 @@ function CalibrationCurve({
   if (!hasData) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-4">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">
           {'>'} CALIBRATION CURVE
         </h3>
         <div className="flex items-center justify-center h-64">
-          <div className="font-mono text-text-muted text-sm text-center space-y-2">
+          <div className="font-theme-data text-text-muted text-sm text-center space-y-2">
             <p>No calibration data yet</p>
             <p className="text-xs text-text-muted/60">Complete debates with confidence predictions to see predicted vs actual accuracy.</p>
           </div>
@@ -613,10 +613,10 @@ function CalibrationCurve({
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-green mb-2">
+      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-2">
         {'>'} CALIBRATION CURVE
       </h3>
-      <p className="text-text-muted text-[10px] font-mono mb-4">
+      <p className="text-text-muted text-[10px] font-theme-data mb-4">
         Predicted confidence vs actual outcome accuracy ({totalObs} observations)
       </p>
 
@@ -635,7 +635,7 @@ function CalibrationCurve({
                 x2={toX(1)}
                 y2={toY(v)}
                 stroke="currentColor"
-                className="text-acid-green/10"
+                className="text-[var(--accent)]/10"
                 strokeDasharray="3"
               />
               <text
@@ -654,7 +654,7 @@ function CalibrationCurve({
                 x2={toX(v)}
                 y2={toY(1)}
                 stroke="currentColor"
-                className="text-acid-green/10"
+                className="text-[var(--accent)]/10"
                 strokeDasharray="3"
               />
               <text
@@ -734,17 +734,17 @@ function CalibrationCurve({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-6 mt-4 font-mono text-[10px]">
+      <div className="flex items-center justify-center gap-6 mt-4 font-theme-data text-[10px]">
         <div className="flex items-center gap-2">
           <div className="w-4 h-0.5 bg-gray-500" style={{ borderTop: '1px dashed #6b7280' }} />
           <span className="text-text-muted">Perfect calibration</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-4 h-0.5 bg-acid-green" />
+          <div className="w-4 h-0.5 bg-[var(--accent)]" />
           <span className="text-text-muted">Actual calibration</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-acid-green/60" />
+          <div className="w-2 h-2 rounded-full bg-[var(--accent)]/60" />
           <span className="text-text-muted">Size = sample count</span>
         </div>
       </div>
@@ -797,10 +797,10 @@ export default function OutcomeAnalyticsPage() {
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-1">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-1">
                 {'>'} OUTCOME ANALYTICS
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Decision quality scores, agent calibration, and convergence trends.
               </p>
             </div>
@@ -809,7 +809,7 @@ export default function OutcomeAnalyticsPage() {
 
           {/* Error banner */}
           {error && (
-            <div className="mb-6 bg-crimson/10 border border-crimson/30 rounded p-4 text-crimson text-sm font-mono">
+            <div className="mb-6 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded p-4 text-[var(--crimson)] text-sm font-theme-data">
               Failed to load outcome analytics. The server may be unavailable.
             </div>
           )}
@@ -817,7 +817,7 @@ export default function OutcomeAnalyticsPage() {
           {/* ---- Quality Score + Overview Cards ---- */}
           <PanelErrorBoundary panelName="Quality Overview">
             <section className="mb-6">
-              <h2 className="text-lg font-mono text-acid-green mb-4">
+              <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">
                 {'>'} DECISION QUALITY
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -942,8 +942,8 @@ export default function OutcomeAnalyticsPage() {
           </PanelErrorBoundary>
 
           {/* Footer */}
-          <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-            <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+          <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+            <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
             <p className="text-text-muted">
               {'>'} ARAGORA // OUTCOME ANALYTICS DASHBOARD
             </p>

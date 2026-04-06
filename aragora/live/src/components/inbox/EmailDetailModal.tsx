@@ -63,14 +63,14 @@ function ScoreBar({ label, value, color }: { label: string; value: number; color
   const percentage = Math.round(value * 100);
   return (
     <div className="flex items-center gap-2">
-      <span className="text-text-muted text-xs font-mono w-20">{label}</span>
+      <span className="text-text-muted text-xs font-theme-data w-20">{label}</span>
       <div className="flex-1 h-2 bg-bg rounded overflow-hidden">
         <div
           className={`h-full ${color} transition-all duration-300`}
           style={{ width: `${percentage}%` }}
         />
       </div>
-      <span className="text-text text-xs font-mono w-10 text-right">{percentage}%</span>
+      <span className="text-text text-xs font-theme-data w-10 text-right">{percentage}%</span>
     </div>
   );
 }
@@ -151,7 +151,7 @@ export function EmailDetailModal({
     return (
       <ModalWrapper onClose={onClose}>
         <div className="text-center py-12">
-          <div className="animate-pulse text-acid-green font-mono">Loading email...</div>
+          <div className="animate-pulse text-[var(--accent)] font-theme-data">Loading email...</div>
         </div>
       </ModalWrapper>
     );
@@ -161,10 +161,10 @@ export function EmailDetailModal({
     return (
       <ModalWrapper onClose={onClose}>
         <div className="text-center py-12">
-          <div className="text-red-400 font-mono mb-4">{error || 'Email not found'}</div>
+          <div className="text-red-400 font-theme-data mb-4">{error || 'Email not found'}</div>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-mono bg-acid-green/10 border border-acid-green/40 text-acid-green hover:bg-acid-green/20 rounded"
+            className="px-4 py-2 text-sm font-theme-data bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] hover:bg-[var(--accent)]/20 rounded"
           >
             Close
           </button>
@@ -178,9 +178,9 @@ export function EmailDetailModal({
   return (
     <ModalWrapper onClose={onClose}>
       {/* Header */}
-      <div className="border-b border-acid-green/30 pb-4 mb-4">
+      <div className="border-b border-[var(--accent)]/30 pb-4 mb-4">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="text-lg font-mono text-text flex-1">
+          <h2 className="text-lg font-theme-data text-text flex-1">
             {email.subject || '(No subject)'}
           </h2>
           <button
@@ -191,7 +191,7 @@ export function EmailDetailModal({
             &times;
           </button>
         </div>
-        <div className="mt-2 text-sm font-mono text-text-muted">
+        <div className="mt-2 text-sm font-theme-data text-text-muted">
           <div>From: <span className="text-text">{email.from_address}</span></div>
           {email.to_addresses && email.to_addresses.length > 0 && (
             <div>To: <span className="text-text">{email.to_addresses.join(', ')}</span></div>
@@ -204,11 +204,11 @@ export function EmailDetailModal({
       <div className={`border rounded p-4 mb-4 ${config.bgColor}`}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
-            <span className={`text-2xl font-bold font-mono ${config.color}`}>
+            <span className={`text-2xl font-bold font-theme-data ${config.color}`}>
               [{config.icon}]
             </span>
             <div>
-              <div className={`text-sm font-bold font-mono ${config.color}`}>
+              <div className={`text-sm font-bold font-theme-data ${config.color}`}>
                 {config.label} Priority
               </div>
               <div className="text-xs text-text-muted">
@@ -217,7 +217,7 @@ export function EmailDetailModal({
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xs text-text-muted font-mono">
+            <div className="text-xs text-text-muted font-theme-data">
               Tier {email.tier_used}
             </div>
             <div className="text-xs text-text-muted">
@@ -229,7 +229,7 @@ export function EmailDetailModal({
         {/* AI Rationale */}
         {email.rationale && (
           <div className="mb-4 p-3 bg-bg/50 rounded">
-            <div className="text-xs text-acid-green font-mono mb-1">AI Analysis:</div>
+            <div className="text-xs text-[var(--accent)] font-theme-data mb-1">AI Analysis:</div>
             <p className="text-sm text-text">{email.rationale}</p>
           </div>
         )}
@@ -237,7 +237,7 @@ export function EmailDetailModal({
         {/* Score Breakdown */}
         {(email.sender_score !== undefined || email.urgency_score !== undefined) && (
           <div className="space-y-2 mb-4">
-            <div className="text-xs text-text-muted font-mono mb-2">Score Breakdown:</div>
+            <div className="text-xs text-text-muted font-theme-data mb-2">Score Breakdown:</div>
             {email.sender_score !== undefined && (
               <ScoreBar label="Sender" value={email.sender_score} color="bg-purple-500" />
             )}
@@ -256,19 +256,19 @@ export function EmailDetailModal({
         {/* Context Boosts */}
         {(email.slack_boost || email.drive_boost || email.calendar_boost) && (
           <div className="flex flex-wrap gap-2 mb-4">
-            <span className="text-xs text-text-muted font-mono">Context Boosts:</span>
+            <span className="text-xs text-text-muted font-theme-data">Context Boosts:</span>
             {email.slack_boost && email.slack_boost > 0 && (
-              <span className="px-2 py-1 text-xs bg-purple-500/20 text-purple-400 rounded font-mono">
+              <span className="px-2 py-1 text-xs bg-purple-500/20 text-purple-400 rounded font-theme-data">
                 Slack +{Math.round(email.slack_boost * 100)}%
               </span>
             )}
             {email.drive_boost && email.drive_boost > 0 && (
-              <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded font-mono">
+              <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded font-theme-data">
                 Drive +{Math.round(email.drive_boost * 100)}%
               </span>
             )}
             {email.calendar_boost && email.calendar_boost > 0 && (
-              <span className="px-2 py-1 text-xs bg-green-500/20 text-green-400 rounded font-mono">
+              <span className="px-2 py-1 text-xs bg-green-500/20 text-green-400 rounded font-theme-data">
                 Calendar +{Math.round(email.calendar_boost * 100)}%
               </span>
             )}
@@ -280,7 +280,7 @@ export function EmailDetailModal({
           <div className="mb-4">
             <Link
               href={`/debates/${email.debate_id}`}
-              className="text-xs text-acid-cyan hover:underline font-mono"
+              className="text-xs text-[var(--acid-cyan)] hover:underline font-theme-data"
             >
               View AI Debate &rarr;
             </Link>
@@ -288,25 +288,25 @@ export function EmailDetailModal({
         )}
 
         {/* Feedback */}
-        <div className="flex items-center gap-3 pt-3 border-t border-acid-green/20">
-          <span className="text-xs text-text-muted font-mono">Is this priority correct?</span>
+        <div className="flex items-center gap-3 pt-3 border-t border-[var(--accent)]/20">
+          <span className="text-xs text-text-muted font-theme-data">Is this priority correct?</span>
           {feedbackGiven === null ? (
             <>
               <button
                 onClick={() => handleFeedback(true)}
-                className="px-3 py-1 text-xs bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 rounded font-mono"
+                className="px-3 py-1 text-xs bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 rounded font-theme-data"
               >
                 Yes
               </button>
               <button
                 onClick={() => handleFeedback(false)}
-                className="px-3 py-1 text-xs bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded font-mono"
+                className="px-3 py-1 text-xs bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 rounded font-theme-data"
               >
                 No
               </button>
             </>
           ) : (
-            <span className="text-xs text-acid-green font-mono">
+            <span className="text-xs text-[var(--accent)] font-theme-data">
               Thanks for your feedback!
             </span>
           )}
@@ -331,17 +331,17 @@ export function EmailDetailModal({
       </div>
 
       {/* Email Body */}
-      <div className="border border-acid-green/20 rounded">
-        <div className="flex items-center justify-between p-2 border-b border-acid-green/20 bg-surface/30">
-          <span className="text-xs text-text-muted font-mono">Email Content</span>
+      <div className="border border-[var(--accent)]/20 rounded">
+        <div className="flex items-center justify-between p-2 border-b border-[var(--accent)]/20 bg-surface/30">
+          <span className="text-xs text-text-muted font-theme-data">Email Content</span>
           <div className="flex gap-2">
             {email.body_html && (
               <button
                 onClick={() => setShowHtml(!showHtml)}
-                className={`px-2 py-1 text-xs font-mono rounded ${
+                className={`px-2 py-1 text-xs font-theme-data rounded ${
                   showHtml
-                    ? 'bg-acid-green/20 text-acid-green'
-                    : 'text-text-muted hover:text-acid-green'
+                    ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
+                    : 'text-text-muted hover:text-[var(--accent)]'
                 }`}
               >
                 HTML
@@ -349,7 +349,7 @@ export function EmailDetailModal({
             )}
             <button
               onClick={openInGmail}
-              className="px-2 py-1 text-xs text-acid-cyan hover:underline font-mono"
+              className="px-2 py-1 text-xs text-[var(--acid-cyan)] hover:underline font-theme-data"
             >
               Open in Gmail
             </button>
@@ -362,7 +362,7 @@ export function EmailDetailModal({
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(email.body_html) }}
             />
           ) : (
-            <pre className="text-sm text-text font-mono whitespace-pre-wrap">
+            <pre className="text-sm text-text font-theme-data whitespace-pre-wrap">
               {email.body_text || email.snippet || '(No content)'}
             </pre>
           )}
@@ -375,7 +375,7 @@ export function EmailDetailModal({
           {email.labels.map((label) => (
             <span
               key={label}
-              className="px-2 py-0.5 text-xs bg-surface border border-acid-green/20 rounded text-text-muted font-mono"
+              className="px-2 py-0.5 text-xs bg-surface border border-[var(--accent)]/20 rounded text-text-muted font-theme-data"
             >
               {label}
             </span>
@@ -406,7 +406,7 @@ function ModalWrapper({
         role="dialog"
         aria-modal="true"
         aria-labelledby="email-modal-title"
-        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-bg border border-acid-green/30 rounded-lg p-6 shadow-2xl"
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-bg border border-[var(--accent)]/30 rounded-lg p-6 shadow-2xl"
       >
         <h2 id="email-modal-title" className="sr-only">Email Details</h2>
         {children}

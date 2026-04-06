@@ -73,7 +73,7 @@ export function UsageTrend({ data, loading = false }: UsageTrendProps) {
   if (loading) {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-4 flex items-center gap-2">
           <span>~</span> USAGE TREND
         </h3>
         <div className="animate-pulse">
@@ -94,7 +94,7 @@ export function UsageTrend({ data, loading = false }: UsageTrendProps) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-mono text-[var(--acid-green)] flex items-center gap-2">
+        <h3 className="text-sm font-theme-data text-[var(--acid-green)] flex items-center gap-2">
           <span>~</span> USAGE TREND
         </h3>
         <div className="flex items-center gap-1">
@@ -102,7 +102,7 @@ export function UsageTrend({ data, loading = false }: UsageTrendProps) {
             <button
               key={m}
               onClick={() => setMetric(m)}
-              className={`px-2 py-1 text-[10px] font-mono border transition-colors ${
+              className={`px-2 py-1 text-[10px] font-theme-data border transition-colors ${
                 metric === m
                   ? `bg-[var(--acid-green)]/20 ${METRIC_CONFIG[m].color} border-[var(--acid-green)]/50`
                   : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/30'
@@ -115,13 +115,13 @@ export function UsageTrend({ data, loading = false }: UsageTrendProps) {
       </div>
 
       {values.length === 0 ? (
-        <div className="flex items-center justify-center h-32 text-xs font-mono text-[var(--text-muted)]">
+        <div className="flex items-center justify-center h-32 text-xs font-theme-data text-[var(--text-muted)]">
           No trend data available
         </div>
       ) : (
         <>
           {/* Summary line */}
-          <div className="flex items-center gap-4 mb-3 text-xs font-mono">
+          <div className="flex items-center gap-4 mb-3 text-xs font-theme-data">
             <div>
               <span className="text-[var(--text-muted)]">Current: </span>
               <span className={config.color}>{config.format(values[values.length - 1]?.value ?? 0)}</span>
@@ -154,7 +154,7 @@ export function UsageTrend({ data, loading = false }: UsageTrendProps) {
                   />
                   {/* Tooltip */}
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-10">
-                    <div className="bg-[var(--bg)] border border-[var(--border)] px-2 py-1 text-[10px] font-mono whitespace-nowrap">
+                    <div className="bg-[var(--bg)] border border-[var(--border)] px-2 py-1 text-[10px] font-theme-data whitespace-nowrap">
                       <div className={config.color}>{config.format(point.value)}</div>
                       <div className="text-[var(--text-muted)]">{formatDate(point.date)}</div>
                     </div>
@@ -165,7 +165,7 @@ export function UsageTrend({ data, loading = false }: UsageTrendProps) {
           </div>
 
           {/* X-axis labels */}
-          <div className="flex justify-between mt-1 text-[10px] font-mono text-[var(--text-muted)]">
+          <div className="flex justify-between mt-1 text-[10px] font-theme-data text-[var(--text-muted)]">
             <span>{formatDate(values[0]?.date ?? '')}</span>
             {values.length > 2 && (
               <span>{formatDate(values[Math.floor(values.length / 2)]?.date ?? '')}</span>

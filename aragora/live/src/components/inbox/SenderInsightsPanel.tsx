@@ -53,7 +53,7 @@ export function SenderInsightsPanel({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className={`w-2 h-2 rounded-full ${priorityColors[email.priority]}`} />
-            <span className="text-xs font-mono text-[var(--text-muted)]">
+            <span className="text-xs font-theme-data text-[var(--text-muted)]">
               {priorityLabels[email.priority]}
             </span>
             {profile?.isVip && (
@@ -67,7 +67,7 @@ export function SenderInsightsPanel({
               </span>
             )}
           </div>
-          <h3 className="font-mono text-sm text-[var(--text)] truncate">
+          <h3 className="font-theme-data text-sm text-[var(--text)] truncate">
             {email.from_address}
           </h3>
           <p className="text-xs text-[var(--text-muted)] truncate">
@@ -85,7 +85,7 @@ export function SenderInsightsPanel({
       {/* Sender Stats */}
       {profile && (
         <div className="p-4 border-b border-[var(--border)]">
-          <h4 className="text-xs font-mono text-[var(--acid-green)] mb-3">
+          <h4 className="text-xs font-theme-data text-[var(--acid-green)] mb-3">
             {'>'} SENDER PROFILE
           </h4>
           <div className="grid grid-cols-2 gap-3">
@@ -111,7 +111,7 @@ export function SenderInsightsPanel({
 
       {/* AI Analysis */}
       <div className="p-4 border-b border-[var(--border)]">
-        <h4 className="text-xs font-mono text-[var(--acid-green)] mb-3">
+        <h4 className="text-xs font-theme-data text-[var(--acid-green)] mb-3">
           {'>'} AI ANALYSIS
         </h4>
         <div className="space-y-2">
@@ -133,7 +133,7 @@ export function SenderInsightsPanel({
         </div>
 
         {email.reasoning && (
-          <div className="mt-3 p-2 bg-[var(--bg)] rounded text-xs font-mono text-[var(--text-muted)]">
+          <div className="mt-3 p-2 bg-[var(--bg)] rounded text-xs font-theme-data text-[var(--text-muted)]">
             <span className="text-[var(--acid-cyan)]">Reasoning:</span> {email.reasoning}
           </div>
         )}
@@ -141,7 +141,7 @@ export function SenderInsightsPanel({
 
       {/* Quick Actions */}
       <div className="p-4">
-        <h4 className="text-xs font-mono text-[var(--acid-green)] mb-3">
+        <h4 className="text-xs font-theme-data text-[var(--acid-green)] mb-3">
           {'>'} QUICK ACTIONS
         </h4>
         <div className="grid grid-cols-2 gap-2">
@@ -182,7 +182,7 @@ export function SenderInsightsPanel({
 
       {/* Related Context */}
       <div className="p-4 bg-[var(--bg)] border-t border-[var(--border)]">
-        <h4 className="text-xs font-mono text-[var(--text-muted)] mb-2">
+        <h4 className="text-xs font-theme-data text-[var(--text-muted)] mb-2">
           Related Context
         </h4>
         <div className="flex flex-wrap gap-2">
@@ -198,7 +198,7 @@ export function SenderInsightsPanel({
 function StatItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-lg font-mono font-bold text-[var(--text)]">{value}</div>
+      <div className="text-lg font-theme-data font-bold text-[var(--text)]">{value}</div>
       <div className="text-xs text-[var(--text-muted)]">{label}</div>
     </div>
   );
@@ -224,7 +224,7 @@ function AnalysisItem({
   return (
     <div className="flex items-center justify-between">
       <span className="text-xs text-[var(--text-muted)]">{label}</span>
-      <span className={`text-xs font-mono ${colorClasses[color]}`}>{value}</span>
+      <span className={`text-xs font-theme-data ${colorClasses[color]}`}>{value}</span>
     </div>
   );
 }
@@ -249,7 +249,7 @@ function ActionButton({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-mono border rounded transition-colors ${variantClasses[variant]}`}
+      className={`flex items-center justify-center gap-1 px-2 py-1.5 text-xs font-theme-data border rounded transition-colors ${variantClasses[variant]}`}
     >
       <span>{icon}</span>
       <span>{label}</span>
@@ -259,7 +259,7 @@ function ActionButton({
 
 function ContextTag({ label }: { label: string }) {
   return (
-    <span className="px-2 py-1 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] rounded">
+    <span className="px-2 py-1 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] rounded">
       {label}
     </span>
   );

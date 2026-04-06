@@ -3,6 +3,12 @@ name: Aragora Code Review
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'aragora/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - '.github/workflows/aragora-review-gate.yml'
+      - '.github/actions/pr-scope-classifier/**'
   workflow_dispatch:
     inputs:
       pr_number:
@@ -19,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
-      should_review: ${{ steps.filter.outputs.code }}
+      should_review: ${{ steps.scope.outputs.review }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,14 +60,8 @@ jobs:
             exit 1
           fi
 
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            code:
-              - 'aragora/**'
-              - 'tests/**'
-              - 'scripts/**'
+      - uses: ./.github/actions/pr-scope-classifier
+        id: scope
 
   review:
     needs: changes

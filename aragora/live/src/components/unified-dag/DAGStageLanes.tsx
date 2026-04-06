@@ -32,7 +32,7 @@ export function DAGStageLanes({ activeStage = null }: DAGStageLanesProps) {
           }}
         >
           <span
-            className="mt-2 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider"
+            className="mt-2 px-3 py-1 rounded-full text-xs font-theme-data font-bold uppercase tracking-wider"
             style={{ color: STAGE_COLORS[stage], background: `${STAGE_COLORS[stage]}15` }}
           >
             {label}

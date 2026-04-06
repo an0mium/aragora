@@ -132,7 +132,7 @@ export function AnalyticsPanel({ apiBase, loopId, events = [] }: AnalyticsPanelP
         className="panel-collapsible-header w-full"
       >
         <div className="flex items-center gap-2">
-          <span className="text-acid-green font-mono text-sm">[ANALYTICS]</span>
+          <span className="text-[var(--accent)] font-theme-data text-sm">[ANALYTICS]</span>
           <span className="text-text-muted text-xs">Debate patterns & insights</span>
         </div>
         <span className="panel-toggle">{expanded ? '[-]' : '[+]'}</span>
@@ -141,15 +141,15 @@ export function AnalyticsPanel({ apiBase, loopId, events = [] }: AnalyticsPanelP
       {expanded && (
         <div className="px-4 pb-4 space-y-3">
           {/* Tabs */}
-          <div className="flex flex-wrap gap-1 border-b border-acid-green/20 pb-2">
+          <div className="flex flex-wrap gap-1 border-b border-[var(--accent)]/20 pb-2">
             {(['disagreements', 'roles', 'early-stops', 'graph'] as TabType[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-2 py-1 text-xs font-mono transition-colors whitespace-nowrap ${
+                className={`px-2 py-1 text-xs font-theme-data transition-colors whitespace-nowrap ${
                   activeTab === tab
-                    ? 'bg-acid-green text-bg'
-                    : 'text-text-muted hover:text-acid-green'
+                    ? 'bg-[var(--accent)] text-bg'
+                    : 'text-text-muted hover:text-[var(--accent)]'
                 }`}
               >
                 {tab.toUpperCase()}
@@ -178,7 +178,7 @@ export function AnalyticsPanel({ apiBase, loopId, events = [] }: AnalyticsPanelP
                       className="border border-warning/30 bg-warning/5 p-2 text-xs"
                     >
                       <div className="flex justify-between items-start">
-                        <span className="text-warning font-mono truncate max-w-[60%]">
+                        <span className="text-warning font-theme-data truncate max-w-[60%]">
                           {d.topic || d.debate_id}
                         </span>
                         <span className="text-text-muted">
@@ -202,9 +202,9 @@ export function AnalyticsPanel({ apiBase, loopId, events = [] }: AnalyticsPanelP
                   roleRotations.map((r) => (
                     <div
                       key={r.agent}
-                      className="border border-acid-cyan/30 bg-acid-cyan/5 p-2 text-xs"
+                      className="border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 p-2 text-xs"
                     >
-                      <div className="font-mono text-acid-cyan">{r.agent}</div>
+                      <div className="font-theme-data text-[var(--acid-cyan)]">{r.agent}</div>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {Object.entries(r.role_counts).map(([role, count]) => (
                           <span key={role} className="text-text-muted">
@@ -229,13 +229,13 @@ export function AnalyticsPanel({ apiBase, loopId, events = [] }: AnalyticsPanelP
                   earlyStops.map((e) => (
                     <div
                       key={e.debate_id}
-                      className="border border-acid-green/30 bg-surface p-2 text-xs"
+                      className="border border-[var(--accent)]/30 bg-surface p-2 text-xs"
                     >
                       <div className="flex justify-between items-start">
-                        <span className="text-acid-green font-mono truncate max-w-[60%]">
+                        <span className="text-[var(--accent)] font-theme-data truncate max-w-[60%]">
                           {e.topic || e.debate_id}
                         </span>
-                        <span className={e.consensus_early ? 'text-acid-green' : 'text-warning'}>
+                        <span className={e.consensus_early ? 'text-[var(--accent)]' : 'text-warning'}>
                           {e.consensus_early ? 'consensus' : e.reason}
                         </span>
                       </div>
@@ -259,39 +259,39 @@ export function AnalyticsPanel({ apiBase, loopId, events = [] }: AnalyticsPanelP
                 ) : (
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="border border-acid-cyan/30 bg-acid-cyan/5 p-2 text-xs">
+                      <div className="border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 p-2 text-xs">
                         <div className="text-text-muted">Nodes</div>
-                        <div className="text-acid-cyan text-lg font-mono">{graphStats.node_count}</div>
+                        <div className="text-[var(--acid-cyan)] text-lg font-theme-data">{graphStats.node_count}</div>
                       </div>
-                      <div className="border border-acid-cyan/30 bg-acid-cyan/5 p-2 text-xs">
+                      <div className="border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 p-2 text-xs">
                         <div className="text-text-muted">Edges</div>
-                        <div className="text-acid-cyan text-lg font-mono">{graphStats.edge_count}</div>
+                        <div className="text-[var(--acid-cyan)] text-lg font-theme-data">{graphStats.edge_count}</div>
                       </div>
                       <div className="border border-purple-500/30 bg-purple-500/5 p-2 text-xs">
                         <div className="text-text-muted">Max Depth</div>
-                        <div className="text-purple-400 text-lg font-mono">{graphStats.max_depth}</div>
+                        <div className="text-purple-400 text-lg font-theme-data">{graphStats.max_depth}</div>
                       </div>
                       <div className="border border-purple-500/30 bg-purple-500/5 p-2 text-xs">
                         <div className="text-text-muted">Avg Branching</div>
-                        <div className="text-purple-400 text-lg font-mono">{graphStats.avg_branching.toFixed(2)}</div>
+                        <div className="text-purple-400 text-lg font-theme-data">{graphStats.avg_branching.toFixed(2)}</div>
                       </div>
                     </div>
-                    <div className="border border-acid-green/30 bg-surface p-2 text-xs">
+                    <div className="border border-[var(--accent)]/30 bg-surface p-2 text-xs">
                       <div className="flex justify-between items-center">
                         <span className="text-text-muted">Complexity Score</span>
-                        <span className="text-acid-green font-mono text-lg">
+                        <span className="text-[var(--accent)] font-theme-data text-lg">
                           {(graphStats.complexity_score * 100).toFixed(0)}%
                         </span>
                       </div>
                       <div className="mt-2 h-2 bg-bg rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-acid-green"
+                          className="h-full bg-[var(--accent)]"
                           style={{ width: `${graphStats.complexity_score * 100}%` }}
                         />
                       </div>
                     </div>
                     <div className="flex gap-2 text-xs text-text-muted">
-                      <span>Claims: <span className="text-acid-green">{graphStats.claim_count}</span></span>
+                      <span>Claims: <span className="text-[var(--accent)]">{graphStats.claim_count}</span></span>
                       <span>Rebuttals: <span className="text-warning">{graphStats.rebuttal_count}</span></span>
                     </div>
                   </div>
@@ -304,7 +304,7 @@ export function AnalyticsPanel({ apiBase, loopId, events = [] }: AnalyticsPanelP
           <button
             onClick={() => fetchData(activeTab)}
             disabled={loading}
-            className="w-full text-xs text-text-muted hover:text-acid-green transition-colors py-1"
+            className="w-full text-xs text-text-muted hover:text-[var(--accent)] transition-colors py-1"
           >
             [REFRESH]
           </button>

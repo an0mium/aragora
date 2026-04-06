@@ -116,6 +116,24 @@ PUBLIC_ENDPOINTS = [
         description="Public playground debate",
     ),
     EndpointAuth(
+        "/api/v1/playground/assess",
+        "post",
+        AuthLevel.PUBLIC,
+        description="Landing question ambiguity assessment",
+    ),
+    EndpointAuth(
+        "/api/v1/playground/landing/events",
+        "post",
+        AuthLevel.PUBLIC,
+        description="Public landing telemetry",
+    ),
+    EndpointAuth(
+        "/api/v1/playground/landing/feedback",
+        "post",
+        AuthLevel.PUBLIC,
+        description="Public landing feedback capture",
+    ),
+    EndpointAuth(
         "/api/v1/playground/status",
         "get",
         AuthLevel.PUBLIC,
@@ -235,6 +253,13 @@ PERMISSION_ENDPOINTS = [
         AuthLevel.PERMISSION,
         permission="receipts:share",
         description="Create receipt share link",
+    ),
+    EndpointAuth(
+        "/api/v2/receipts/{receipt_id}/send-to-channel",
+        "post",
+        AuthLevel.PERMISSION,
+        permission="receipts:share",
+        description="Send receipt to an external channel",
     ),
     EndpointAuth(
         "/api/plugins",

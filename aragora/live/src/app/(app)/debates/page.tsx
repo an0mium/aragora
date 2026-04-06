@@ -100,15 +100,15 @@ export default function DebatesPage() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Total</span>
-            <span className="text-sm font-mono text-[var(--acid-green)]">{debates.length}</span>
+            <span className="text-sm font-theme-data text-[var(--acid-green)]">{debates.length}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Consensus Rate</span>
-            <span className="text-sm font-mono text-[var(--acid-green)]">{consensusRate}%</span>
+            <span className="text-sm font-theme-data text-[var(--acid-green)]">{consensusRate}%</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Avg Confidence</span>
-            <span className="text-sm font-mono text-[var(--acid-cyan)]">{avgConfidence}%</span>
+            <span className="text-sm font-theme-data text-[var(--acid-cyan)]">{avgConfidence}%</span>
           </div>
         </div>
       ),
@@ -116,31 +116,31 @@ export default function DebatesPage() {
         <div className="space-y-2">
           <Link
             href="/arena"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors"
           >
             + NEW DEBATE
           </Link>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
           >
             LIVE CREATE
           </button>
           <Link
             href="/debates/graph"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             GRAPH VIEW
           </Link>
           <Link
             href="/debates/matrix"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             MATRIX VIEW
           </Link>
           <Link
             href="/debates/provenance"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
           >
             PROVENANCE
           </Link>
@@ -308,20 +308,20 @@ export default function DebatesPage() {
           <div className="mb-6">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <h1 className="text-xl font-mono text-[var(--acid-green)] mb-2">
+                <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-2">
                   {'>'} DEBATE ARCHIVE
                 </h1>
-                <p className="text-xs text-[var(--text-muted)] font-mono">
+                <p className="text-xs text-[var(--text-muted)] font-theme-data">
                   Browse, share, and compare past debates side by side
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[var(--text-muted)] font-mono">Filter:</span>
+                <span className="text-xs text-[var(--text-muted)] font-theme-data">Filter:</span>
                 {(['all', 'consensus', 'no-consensus'] as const).map((f) => (
                   <button
                     key={f}
                     onClick={() => setFilter(f)}
-                    className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                    className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                       filter === f
                         ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)] border-[var(--acid-green)]/40'
                         : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/40'
@@ -332,7 +332,7 @@ export default function DebatesPage() {
                 ))}
               </div>
             </div>
-            <div className="mt-2 text-xs text-[var(--text-muted)] font-mono flex items-center gap-2">
+            <div className="mt-2 text-xs text-[var(--text-muted)] font-theme-data flex items-center gap-2">
               <span>Showing {filteredDebates.length} of {debates.length} debates</span>
               {dataSource !== 'none' && (
                 <span className="text-[10px] text-[var(--text-muted)]" title={dataSource === 'backend' ? 'Fetched from API' : 'Fetched from Supabase'}>
@@ -345,7 +345,7 @@ export default function DebatesPage() {
           <PanelErrorBoundary panelName="Debate Archive">
             {loading && (
               <div className="flex items-center justify-center py-20">
-                <div className="text-acid-green font-mono animate-pulse">
+                <div className="text-[var(--accent)] font-theme-data animate-pulse">
                   {'>'} LOADING DEBATES...
                 </div>
               </div>
@@ -353,12 +353,12 @@ export default function DebatesPage() {
 
             {!loading && debates.length === 0 && (
               <div className="space-y-4">
-                <div className="bg-surface border border-acid-green/30">
+                <div className="bg-surface border border-[var(--accent)]/30">
                   <DebatesEmptyState onStart={() => setShowCreateModal(true)} />
                 </div>
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="w-full px-4 py-3 font-mono text-sm bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
+                  className="w-full px-4 py-3 font-theme-data text-sm bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors"
                 >
                   OPEN THE LIVE DEBATE CREATOR
                 </button>
@@ -371,10 +371,10 @@ export default function DebatesPage() {
                 <div className="border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <div className="text-xs font-mono text-[var(--acid-cyan)] mb-2">
+                      <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-2">
                         {'>'} SIDE-BY-SIDE COMPARE QUEUE
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                      <div className="flex flex-wrap items-center gap-2 text-xs font-theme-data">
                         {selectedForCompare.map((debateId, index) => (
                           <span
                             key={debateId}
@@ -394,13 +394,13 @@ export default function DebatesPage() {
                       <button
                         onClick={launchComparison}
                         disabled={selectedForCompare.length < 2}
-                        className="px-3 py-2 text-xs font-mono bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-2 text-xs font-theme-data bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         COMPARE SELECTED
                       </button>
                       <button
                         onClick={() => setSelectedForCompare([])}
-                        className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-cyan)]/40 transition-colors"
+                        className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-cyan)]/40 transition-colors"
                       >
                         CLEAR
                       </button>
@@ -411,8 +411,8 @@ export default function DebatesPage() {
 
               {Object.entries(groupedDebates).map(([date, dateDebates]) => (
                 <div key={date}>
-                  <div className="text-xs font-mono text-text-muted mb-2 flex items-center gap-2">
-                    <span className="text-acid-green">{'>'}</span>
+                  <div className="text-xs font-theme-data text-text-muted mb-2 flex items-center gap-2">
+                    <span className="text-[var(--accent)]">{'>'}</span>
                     {date}
                     <span className="text-text-muted/50">({dateDebates.length} debates)</span>
                   </div>
@@ -424,14 +424,14 @@ export default function DebatesPage() {
                         className={`bg-surface p-4 transition-colors ${
                           selectedForCompare.includes(debate.id)
                             ? 'border-[var(--acid-cyan)]/50 border'
-                            : 'border border-acid-green/30 hover:border-acid-green/50'
+                            : 'border border-[var(--accent)]/30 hover:border-[var(--accent)]/50'
                         }`}
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <Link
                               href={`/debates/${debate.id}`}
-                              className="text-sm font-mono text-acid-green hover:text-acid-cyan transition-colors block mb-2"
+                              className="text-sm font-theme-data text-[var(--accent)] hover:text-[var(--acid-cyan)] transition-colors block mb-2"
                             >
                               {debate.task}
                             </Link>
@@ -444,7 +444,7 @@ export default function DebatesPage() {
                                   return (
                                     <span
                                       key={i}
-                                      className={`px-1.5 py-0.5 ${colors.bg} ${colors.text} font-mono`}
+                                      className={`px-1.5 py-0.5 ${colors.bg} ${colors.text} font-theme-data`}
                                       title={agent}
                                     >
                                       {agent.split('-')[0].toUpperCase()}
@@ -455,11 +455,11 @@ export default function DebatesPage() {
 
                               {/* Status Badge */}
                               <span
-                                className={`px-1.5 py-0.5 text-[10px] font-mono border ${
+                                className={`px-1.5 py-0.5 text-[10px] font-theme-data border ${
                                   debate.winning_proposal
-                                    ? 'bg-acid-green/10 text-acid-green border-acid-green/30'
+                                    ? 'bg-[var(--accent)]/10 text-[var(--accent)] border-[var(--accent)]/30'
                                     : debate.consensus_reached
-                                      ? 'bg-acid-cyan/10 text-acid-cyan border-acid-cyan/30'
+                                      ? 'bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30'
                                       : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
                                 }`}
                               >
@@ -473,7 +473,7 @@ export default function DebatesPage() {
 
                               {/* Receipt indicator */}
                               {debate.vote_tally && (
-                                <span className="text-[10px] font-mono text-acid-green" title="Has receipt">
+                                <span className="text-[10px] font-theme-data text-[var(--accent)]" title="Has receipt">
                                   [RCV]
                                 </span>
                               )}
@@ -489,7 +489,7 @@ export default function DebatesPage() {
                           <div className="flex flex-col items-end gap-2 flex-shrink-0">
                             <button
                               onClick={() => toggleCompareSelection(debate.id)}
-                              className={`px-2 py-1 text-xs font-mono border transition-colors ${
+                              className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
                                 selectedForCompare.includes(debate.id)
                                   ? 'bg-[var(--acid-cyan)]/15 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/40'
                                   : 'bg-[var(--surface)] text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 hover:bg-[var(--acid-cyan)]/10'
@@ -505,11 +505,11 @@ export default function DebatesPage() {
                             </button>
                             <button
                               onClick={() => handleCopyLink(debate.id)}
-                              className="px-2 py-1 text-xs font-mono bg-acid-green/10 text-acid-green border border-acid-green/30 hover:bg-acid-green hover:text-bg transition-colors"
+                              className="px-2 py-1 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30 hover:bg-[var(--accent)] hover:text-bg transition-colors"
                             >
                               {copiedId === debate.id ? 'COPIED!' : 'SHARE'}
                             </button>
-                            <span className="text-[10px] text-text-muted font-mono">
+                            <span className="text-[10px] text-text-muted font-theme-data">
                               {formatDate(debate.created_at).split(',')[1]}
                             </span>
                           </div>
@@ -526,7 +526,7 @@ export default function DebatesPage() {
                   <button
                     onClick={loadMore}
                     disabled={loadingMore}
-                    className="px-6 py-3 font-mono text-sm bg-surface border border-acid-green/30 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-3 font-theme-data text-sm bg-surface border border-[var(--accent)]/30 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loadingMore ? (
                       <span className="animate-pulse">LOADING MORE...</span>
@@ -541,7 +541,7 @@ export default function DebatesPage() {
               )}
 
               {!hasMore && debates.length > 0 && (
-                <div className="text-center py-6 text-xs text-text-muted font-mono">
+                <div className="text-center py-6 text-xs text-text-muted font-theme-data">
                   {'>'} END OF ARCHIVE • {debates.length} total debates
                 </div>
               )}
@@ -555,16 +555,16 @@ export default function DebatesPage() {
             <div className="w-full max-w-4xl max-h-[85vh] overflow-y-auto mx-4 border border-[var(--acid-green)]/30 bg-[var(--bg)] shadow-2xl">
               <div className="flex items-start justify-between gap-4 border-b border-[var(--acid-green)]/20 px-6 py-4">
                 <div>
-                  <h2 className="text-lg font-mono text-[var(--acid-green)]">
+                  <h2 className="text-lg font-theme-data text-[var(--acid-green)]">
                     {'>'} LIVE DEBATE CREATOR
                   </h2>
-                  <p className="mt-1 text-xs font-mono text-[var(--text-muted)]">
+                  <p className="mt-1 text-xs font-theme-data text-[var(--text-muted)]">
                     Start a real backend debate with auto-selected agents, a light protocol, and a default $5 budget cap.
                   </p>
                 </div>
                 <button
                   onClick={() => setShowCreateModal(false)}
-                  className="px-3 py-1.5 text-xs font-mono text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/40 hover:text-[var(--text)] transition-colors"
+                  className="px-3 py-1.5 text-xs font-theme-data text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/40 hover:text-[var(--text)] transition-colors"
                 >
                   CLOSE
                 </button>
@@ -589,22 +589,22 @@ export default function DebatesPage() {
         )}
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'═'.repeat(40)}
           </div>
           <p className="text-text-muted">
             {'>'} AGORA DEBATE ARCHIVE // {debates.length} DEBATES
           </p>
-          <p className="text-acid-cyan mt-2">
+          <p className="text-[var(--acid-cyan)] mt-2">
             <Link
               href="/"
-              className="hover:text-acid-green transition-colors"
+              className="hover:text-[var(--accent)] transition-colors"
             >
               [ RETURN TO LIVE ]
             </Link>
           </p>
-          <div className="text-acid-green/50 mt-4">
+          <div className="text-[var(--accent)]/50 mt-4">
             {'═'.repeat(40)}
           </div>
         </footer>

@@ -219,6 +219,47 @@ class TestUpdateMemoryOutcomes:
         assert manager._retrieved_ids == []
 
 
+class TestCrossDebateContext:
+    """Tests for cross-debate context retrieval."""
+
+    def test_returns_empty_without_continuum_memory(self):
+        """Returns empty string when continuum memory is unavailable."""
+        manager = MemoryManager()
+
+        assert manager.get_cross_debate_context("rate limiting") == ""
+
+    def test_formats_retrieved_entries(self):
+        """Formats retrieved entries as institutional knowledge bullets."""
+        mock_continuum = MagicMock()
+        mock_continuum.retrieve.return_value = [
+            MagicMock(content="Use token bucket for burst tolerance."),
+            MagicMock(content="Track retry storms separately from base load."),
+        ]
+        manager = MemoryManager(continuum_memory=mock_continuum)
+
+        result = manager.get_cross_debate_context("rate limiting", limit=2)
+
+        assert result.startswith(
+            "The following insights are from previous debates on related topics:\n\n"
+        )
+        assert "- Use token bucket for burst tolerance." in result
+        assert "- Track retry storms separately from base load." in result
+        mock_continuum.retrieve.assert_called_once_with(
+            query="rate limiting",
+            tiers=[MemoryTier.FAST, MemoryTier.MEDIUM, MemoryTier.SLOW],
+            limit=2,
+            tenant_id=manager._tenant_id,
+        )
+
+    def test_handles_retrieval_errors(self):
+        """Returns empty string when retrieval raises a supported error."""
+        mock_continuum = MagicMock()
+        mock_continuum.retrieve.side_effect = RuntimeError("backend unavailable")
+        manager = MemoryManager(continuum_memory=mock_continuum)
+
+        assert manager.get_cross_debate_context("incident response") == ""
+
+
 class TestFetchHistoricalContext:
     """Tests for fetching historical context."""
 

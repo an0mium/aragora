@@ -23,8 +23,8 @@ export function SummaryView() {
     return (
       <div className="flex items-center justify-center h-[500px]">
         <div className="text-center text-text-muted">
-          <div className="w-8 h-8 border-2 border-acid-green/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
-          <p className="font-mono text-sm">Waiting for events...</p>
+          <div className="w-8 h-8 border-2 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
+          <p className="font-theme-data text-sm">Waiting for events...</p>
         </div>
       </div>
     );
@@ -34,11 +34,11 @@ export function SummaryView() {
     <div className="p-4 space-y-6">
       {/* Debate Topic */}
       {task && (
-        <div className="border border-acid-green/20 bg-surface/50 p-4">
-          <div className="text-[10px] font-mono text-text-muted uppercase mb-1">
+        <div className="border border-[var(--accent)]/20 bg-surface/50 p-4">
+          <div className="text-[10px] font-theme-data text-text-muted uppercase mb-1">
             Topic
           </div>
-          <div className="text-sm font-mono text-text">{task}</div>
+          <div className="text-sm font-theme-data text-text">{task}</div>
         </div>
       )}
 
@@ -53,11 +53,11 @@ export function SummaryView() {
       {/* Consensus Indicator */}
       <div className="border border-border bg-surface/50 p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-mono text-acid-green uppercase">
+          <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase">
             Consensus Progress
           </h3>
           <span
-            className={`text-xs font-mono px-2 py-0.5 border ${
+            className={`text-xs font-theme-data px-2 py-0.5 border ${
               stats.hasConsensus
                 ? 'text-green-400 border-green-400/30 bg-green-400/10'
                 : stats.latestConvergence !== null && stats.latestConvergence > 0.7
@@ -82,7 +82,7 @@ export function SummaryView() {
                   ? 'bg-green-400'
                   : stats.latestConvergence > 0.7
                   ? 'bg-yellow-400'
-                  : 'bg-acid-green'
+                  : 'bg-[var(--accent)]'
               }`}
               style={{ width: `${Math.min(stats.latestConvergence * 100, 100)}%` }}
             />
@@ -95,7 +95,7 @@ export function SummaryView() {
             {stats.convergenceHistory.map((val, i) => (
               <div
                 key={i}
-                className="flex-1 bg-acid-green/30 rounded-t transition-all"
+                className="flex-1 bg-[var(--accent)]/30 rounded-t transition-all"
                 style={{ height: `${Math.max(val * 100, 4)}%` }}
                 title={`${(val * 100).toFixed(1)}%`}
               />
@@ -107,7 +107,7 @@ export function SummaryView() {
       {/* Agent Activity Summary */}
       <div className="border border-border bg-surface/50">
         <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-xs font-mono text-acid-green uppercase">
+          <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase">
             Agent Activity
           </h3>
         </div>
@@ -119,11 +119,11 @@ export function SummaryView() {
             return (
               <div key={agent} className="px-4 py-3 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-mono text-acid-cyan font-bold truncate">
+                  <span className="text-xs font-theme-data text-[var(--acid-cyan)] font-bold truncate">
                     {agent}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 text-[10px] font-mono text-text-muted shrink-0">
+                <div className="flex items-center gap-3 text-[10px] font-theme-data text-text-muted shrink-0">
                   {agentStats.proposals > 0 && (
                     <span className="text-blue-400">{agentStats.proposals}P</span>
                   )}
@@ -137,7 +137,7 @@ export function SummaryView() {
                     <span className="text-blue-300">{agentStats.refines}R</span>
                   )}
                   {agentStats.lastMetric !== null && (
-                    <span className="text-acid-green">
+                    <span className="text-[var(--accent)]">
                       ({agentStats.lastMetric.toFixed(2)})
                     </span>
                   )}
@@ -151,21 +151,21 @@ export function SummaryView() {
       {/* Latest Key Events */}
       <div className="border border-border bg-surface/50">
         <div className="px-4 py-3 border-b border-border">
-          <h3 className="text-xs font-mono text-acid-green uppercase">
+          <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase">
             Key Events
           </h3>
         </div>
         <div className="p-4 space-y-2">
           {stats.keyEvents.length === 0 ? (
-            <p className="text-xs font-mono text-text-muted">No key events yet</p>
+            <p className="text-xs font-theme-data text-text-muted">No key events yet</p>
           ) : (
             stats.keyEvents.map((ev, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs font-mono">
+              <div key={i} className="flex items-start gap-2 text-xs font-theme-data">
                 <span className="text-text-muted shrink-0">R{ev.round ?? 0}</span>
-                <span className={ev.type === 'consensus' ? 'text-green-400' : ev.type === 'vote' ? 'text-yellow-400' : 'text-acid-cyan'}>
+                <span className={ev.type === 'consensus' ? 'text-green-400' : ev.type === 'vote' ? 'text-yellow-400' : 'text-[var(--acid-cyan)]'}>
                   [{ev.type.toUpperCase()}]
                 </span>
-                {ev.agent && <span className="text-acid-cyan">{ev.agent}</span>}
+                {ev.agent && <span className="text-[var(--acid-cyan)]">{ev.agent}</span>}
                 {ev.details && <span className="text-text truncate">{ev.details}</span>}
               </div>
             ))
@@ -187,10 +187,10 @@ function StatCard({
 }) {
   return (
     <div className="border border-border bg-surface/50 p-3">
-      <div className="text-[10px] font-mono text-text-muted uppercase">
+      <div className="text-[10px] font-theme-data text-text-muted uppercase">
         {label}
       </div>
-      <div className={`text-lg font-mono font-bold text-${color}`}>{value}</div>
+      <div className={`text-lg font-theme-data font-bold text-${color}`}>{value}</div>
     </div>
   );
 }

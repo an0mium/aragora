@@ -21,11 +21,11 @@ import hmac
 import json
 import os
 import time
-from dataclasses import dataclass
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from aragora.rbac.models import AuthorizationContext
 
 
 # ---------------------------------------------------------------------------
@@ -95,16 +95,51 @@ def _reset_module_globals(handler_module, monkeypatch):
 @pytest.fixture(autouse=True)
 def _patch_env(monkeypatch, handler_module):
     """Set a default non-production environment and Slack credentials."""
-    monkeypatch.setattr(
-        handler_module,
-        "get_secret",
-        lambda name, default=None, strict=False: os.environ.get(name, default),
-    )
     monkeypatch.setattr(handler_module, "SLACK_CLIENT_ID", "test-client-id")
     monkeypatch.setattr(handler_module, "SLACK_CLIENT_SECRET", "test-client-secret")
     monkeypatch.setattr(handler_module, "SLACK_REDIRECT_URI", "https://example.com/callback")
     monkeypatch.setattr(handler_module, "ARAGORA_ENV", "test")
     monkeypatch.setattr(handler_module, "SLACK_SCOPES", "channels:history,chat:write")
+    monkeypatch.setattr(handler_module, "SLACK_SIGNING_SECRET", "")
+    monkeypatch.setenv("SLACK_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("SLACK_CLIENT_SECRET", "test-client-secret")
+    monkeypatch.setenv("SLACK_REDIRECT_URI", "https://example.com/callback")
+    monkeypatch.setenv("ARAGORA_ENV", "test")
+    monkeypatch.setenv("SLACK_SCOPES", "channels:history,chat:write")
+    monkeypatch.setenv("SLACK_SIGNING_SECRET", "")
+
+
+@pytest.fixture(autouse=True)
+def _patch_secret_lookup(monkeypatch, handler_module):
+    """Keep unit tests isolated from live Secrets Manager values."""
+
+    baselines = {
+        "SLACK_CLIENT_ID": "test-client-id",
+        "SLACK_CLIENT_SECRET": "test-client-secret",
+        "SLACK_REDIRECT_URI": "https://example.com/callback",
+        "ARAGORA_ENV": "test",
+        "SLACK_SCOPES": "channels:history,chat:write",
+        "SLACK_SIGNING_SECRET": "",
+    }
+
+    def fake_get_secret(name: str, default: str | None = None, strict: bool | None = None):
+        baseline = baselines.get(name)
+        module_value = getattr(handler_module, name, None)
+        env_value = os.environ.get(name)
+
+        if name in baselines and module_value != baseline:
+            return module_value if module_value not in (None, "") else default
+
+        if name in baselines and env_value != baseline:
+            return env_value if env_value not in (None, "") else default
+
+        if module_value not in (None, ""):
+            return module_value
+        if env_value not in (None, ""):
+            return env_value
+        return default
+
+    monkeypatch.setattr(handler_module, "get_secret", fake_get_secret)
 
 
 @pytest.fixture
@@ -112,11 +147,13 @@ def mock_state_store():
     """Create a mock OAuth state store."""
     store = MagicMock()
     store.generate.return_value = "test-state-token-abc123"
-    store.validate_and_consume.return_value = {
+    state_payload = {
         "tenant_id": "tenant-1",
         "provider": "slack",
         "created_at": time.time(),
     }
+    store.peek.return_value = state_payload
+    store.validate_and_consume.return_value = state_payload
     return store
 
 
@@ -287,7 +324,7 @@ class TestInstall:
         assert result.headers.get("Cache-Control") == "no-store"
 
     @pytest.mark.asyncio
-    async def test_ignores_unauthenticated_tenant_id(self, handler, mock_state_store):
+    async def test_unauthenticated_install_ignores_tenant_id(self, handler, mock_state_store):
         result = await handler.handle(
             "GET", "/api/integrations/slack/install", {}, {"tenant_id": "t-123"}, {}, None
         )
@@ -296,6 +333,33 @@ class TestInstall:
         call_kwargs = mock_state_store.generate.call_args
         metadata = call_kwargs[1].get("metadata") or call_kwargs.kwargs.get("metadata")
         assert metadata["tenant_id"] is None
+
+    @pytest.mark.asyncio
+    async def test_authenticated_install_prefers_auth_tenant(
+        self,
+        handler,
+        mock_state_store,
+        handler_module,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(handler_module, "ARAGORA_ENV", "production")
+        auth_context = AuthorizationContext(
+            user_id="tenant-user",
+            org_id="tenant-1",
+            roles={"member"},
+            permissions={"connectors.authorize"},
+        )
+        handler.get_auth_context = AsyncMock(return_value=auth_context)
+        handler.check_permission = MagicMock(return_value=True)
+
+        result = await handler.handle(
+            "GET", "/api/integrations/slack/install", {}, {"tenant_id": "t-123"}, {}, None
+        )
+        assert _status(result) == 302
+        mock_state_store.generate.assert_called_once()
+        call_kwargs = mock_state_store.generate.call_args
+        metadata = call_kwargs[1].get("metadata") or call_kwargs.kwargs.get("metadata")
+        assert metadata["tenant_id"] == "tenant-1"
 
     @pytest.mark.asyncio
     async def test_stores_state_in_fallback(self, handler, handler_module):
@@ -749,6 +813,7 @@ class TestCallback:
     ):
         """When centralized store returns None, fall back to in-memory."""
         mock_state_store.validate_and_consume.return_value = None
+        mock_state_store.peek.return_value = None
         handler_module._oauth_states_fallback["fallback-state"] = {
             "tenant_id": "t-1",
             "provider": "slack",
@@ -1446,6 +1511,7 @@ class TestRefreshToken:
             "access_token": "xoxb-new-token",
             "refresh_token": "xoxr-new-refresh",
             "expires_in": 43200,
+            "team": {"id": "W123"},
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -1604,6 +1670,7 @@ class TestRefreshToken:
             "ok": True,
             "access_token": "xoxb-new",
             "expires_in": 43200,
+            "team": {"id": "W123"},
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -1662,6 +1729,7 @@ class TestRefreshToken:
         mock_response.json.return_value = {
             "ok": True,
             "access_token": "xoxb-new-token",
+            "team": {"id": "W123"},
         }
         mock_response.raise_for_status = MagicMock()
 

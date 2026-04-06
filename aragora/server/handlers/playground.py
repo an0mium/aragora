@@ -11,8 +11,14 @@ platform.
 
 Routes:
     POST /api/v1/playground/debate              - Run a mock debate
+    POST /api/v1/playground/assess              - Assess question ambiguity for landing preflight
     POST /api/v1/playground/debate/live          - Run a live debate with real agents
     POST /api/v1/playground/debate/live/cost-estimate - Pre-flight cost estimate
+    POST /api/v1/playground/landing/events      - Capture bounded landing telemetry
+    POST /api/v1/playground/landing/feedback    - Capture bounded landing wrong-answer reports
+    GET  /api/v1/playground/landing/feedback    - List recent landing wrong-answer reports
+    POST /api/v1/playground/landing/feedback/review - Update admin review state for a report
+    GET  /api/v1/playground/landing/events/summary - Aggregate recent landing telemetry
     GET  /api/v1/playground/debate/{id}          - Retrieve a saved debate (shareable link)
     GET  /api/v1/playground/status               - Health check for the playground
 """
@@ -20,6 +26,7 @@ Routes:
 from __future__ import annotations
 
 import asyncio
+from collections import Counter
 import hashlib
 import json
 import logging
@@ -31,6 +38,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+from aragora.agents.errors import AgentError
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -38,6 +46,8 @@ from aragora.server.handlers.base import (
     json_response,
     handle_errors,
 )
+from aragora.server.validation.query_params import safe_query_float, safe_query_int
+from aragora.storage.landing_review_store import get_landing_review_store
 
 logger = logging.getLogger(__name__)
 
@@ -45,11 +55,19 @@ logger = logging.getLogger(__name__)
 # Rate limiting (in-memory, per-IP, 5 req/min for mock, 1/10min for live)
 # ---------------------------------------------------------------------------
 
-_PLAYGROUND_RATE_LIMIT = 5  # requests per window
+_PLAYGROUND_RATE_LIMIT = 2  # debates per window per IP (was 5 — tighter for multi-agent)
 _PLAYGROUND_RATE_WINDOW = 60.0  # seconds
 
 _LIVE_RATE_LIMIT = 1  # 1 live debate per window per IP
 _LIVE_RATE_WINDOW = 600.0  # 10 minutes
+
+# Global daily budget cap — stop serving multi-agent debates when exceeded.
+# Each 4-agent debate costs ~$0.02-0.05 via OpenRouter.
+# At 2 req/min sustained = ~$1.50-3.00/hour. Cap at $10/day.
+_DAILY_BUDGET_CAP_USD = float(os.environ.get("ARAGORA_PLAYGROUND_DAILY_BUDGET", "10.0"))
+_daily_debate_count = 0
+_daily_debate_reset_time = 0.0
+_ESTIMATED_COST_PER_DEBATE = 0.04  # ~$0.04 for 4 parallel LLM calls
 
 # OpenRouter model diversity for playground debates.
 # Each agent gets a different model architecture for genuine adversarial diversity.
@@ -64,6 +82,19 @@ OPENROUTER_PLAYGROUND_MODELS: list[tuple[str, str]] = [
 # IP -> list of timestamps
 _request_timestamps: dict[str, list[float]] = {}
 _live_request_timestamps: dict[str, list[float]] = {}
+_LANDING_EVENT_TYPE_ORDER = (
+    "preflight_shown",
+    "preflight_selected",
+    "preview_rendered",
+    "preview_timeout",
+    "preview_clarification_requested",
+    "retry_clicked",
+    "wrong_answer_clicked",
+    "open_full_debate_clicked",
+    "share_clicked",
+)
+_LANDING_EVENT_TYPES = set(_LANDING_EVENT_TYPE_ORDER)
+_LANDING_REVIEW_STATUSES = frozenset({"pending", "reviewed", "resolved", "dismissed"})
 
 
 def _check_rate_limit(
@@ -117,16 +148,390 @@ def _check_live_rate_limit(client_ip: str) -> tuple[bool, int]:
     return True, 0
 
 
+def _check_daily_budget() -> tuple[bool, str]:
+    """Check whether the daily playground budget has been exceeded.
+
+    Returns (allowed, reason). Resets at midnight UTC.
+    """
+    global _daily_debate_count, _daily_debate_reset_time  # noqa: PLW0603
+
+    now = time.time()
+    # Reset counter at midnight UTC (86400s = 24h)
+    if now - _daily_debate_reset_time > 86400:
+        _daily_debate_count = 0
+        _daily_debate_reset_time = now
+
+    estimated_spend = _daily_debate_count * _ESTIMATED_COST_PER_DEBATE
+    if estimated_spend >= _DAILY_BUDGET_CAP_USD:
+        return (
+            False,
+            f"Daily playground budget (${_DAILY_BUDGET_CAP_USD:.0f}) reached. Resets at midnight UTC.",
+        )
+    return True, ""
+
+
+def _record_debate_cost() -> None:
+    """Record that a debate was served (for budget tracking)."""
+    global _daily_debate_count  # noqa: PLW0603
+    _daily_debate_count += 1
+
+
 def _reset_rate_limits() -> None:
     """Reset all rate limit state. Used by tests."""
+    global _daily_debate_count, _daily_debate_reset_time  # noqa: PLW0603
     _request_timestamps.clear()
     _live_request_timestamps.clear()
+    get_landing_review_store().clear()
+    _daily_debate_count = 0
+    _daily_debate_reset_time = 0.0
 
 
 def _reset_oracle_sessions() -> None:
     """Reset all Oracle session state. Used by tests."""
     _oracle_sessions.clear()
     _oracle_session_timestamps.clear()
+
+
+def _sanitize_landing_event_data(data: Any) -> dict[str, Any]:
+    """Keep landing telemetry bounded and scalar for a public endpoint."""
+    if not isinstance(data, dict):
+        return {}
+
+    clean: dict[str, Any] = {}
+    for key, value in data.items():
+        clean_key = str(key).strip()[:64]
+        if not clean_key:
+            continue
+        if isinstance(value, bool):
+            clean[clean_key] = value
+        elif isinstance(value, int):
+            clean[clean_key] = max(-1_000_000, min(1_000_000, value))
+        elif isinstance(value, float):
+            clean[clean_key] = round(max(-1_000_000.0, min(1_000_000.0, value)), 4)
+        elif value is None:
+            clean[clean_key] = None
+        elif isinstance(value, str):
+            clean[clean_key] = value.strip()[:160]
+    return clean
+
+
+def _truncate_feedback_text(value: Any, *, limit: int) -> str | None:
+    """Normalize user-visible feedback text to a bounded string."""
+    if not isinstance(value, str):
+        return None
+    text = re.sub(r"\s+", " ", value).strip()
+    if not text:
+        return None
+    return text[:limit]
+
+
+def _client_tag(client_ip: str) -> str:
+    """Return a stable, privacy-safer tag for client grouping."""
+    normalized = client_ip.strip()
+    if not normalized or normalized == "unknown":
+        return "unknown"
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+    return f"ip:{digest[:12]}"
+
+
+def _record_landing_event(
+    event_type: str,
+    *,
+    client_ip: str,
+    data: dict[str, Any] | None = None,
+) -> None:
+    """Record a bounded landing telemetry event."""
+    if event_type not in _LANDING_EVENT_TYPES:
+        return
+
+    try:
+        get_landing_review_store().record_event(
+            event_type=event_type,
+            client_tag=_client_tag(client_ip),
+            data=_sanitize_landing_event_data(data or {}),
+            timestamp=datetime.now(timezone.utc).isoformat(),
+        )
+    except Exception as exc:  # noqa: BLE001 - telemetry should not block user-facing requests
+        logger.warning("Failed to persist landing telemetry event: %s", exc)
+
+
+def _record_landing_feedback(
+    *,
+    client_ip: str,
+    data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Record a bounded wrong-answer report for internal review."""
+    payload = data if isinstance(data, dict) else {}
+    report = {
+        "id": f"lfb_{uuid.uuid4().hex[:12]}",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "client_tag": _client_tag(client_ip),
+        "question": _truncate_feedback_text(payload.get("question"), limit=500),
+        "interpreted_question": _truncate_feedback_text(
+            payload.get("interpreted_question"), limit=500
+        ),
+        "final_answer_preview": _truncate_feedback_text(payload.get("final_answer"), limit=1200),
+        "result_warning": _truncate_feedback_text(payload.get("result_warning"), limit=280),
+        "result_mode": _truncate_feedback_text(payload.get("result_mode"), limit=32) or "preview",
+        "debate_id": _truncate_feedback_text(payload.get("debate_id"), limit=64),
+        "verdict": _truncate_feedback_text(payload.get("verdict"), limit=64),
+        "participant_count": None,
+        "rewritten": payload.get("rewritten") is True,
+        "review_status": "pending",
+        "reviewed_at": None,
+        "reviewed_by": None,
+    }
+    participant_count = payload.get("participant_count")
+    if isinstance(participant_count, int):
+        report["participant_count"] = max(0, min(20, participant_count))
+
+    try:
+        get_landing_review_store().record_feedback(report)
+    except Exception as exc:  # noqa: BLE001 - feedback capture should be best-effort
+        logger.warning("Failed to persist landing feedback report: %s", exc)
+
+    return report
+
+
+def _normalize_landing_review_status(value: Any) -> str:
+    """Normalize landing review state to a supported value."""
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _LANDING_REVIEW_STATUSES:
+            return normalized
+    return "pending"
+
+
+def _reviewer_label(user: Any) -> str:
+    """Build a compact admin identifier for queue triage metadata."""
+    if user is None:
+        return "admin"
+    email = getattr(user, "email", None)
+    if isinstance(email, str) and email.strip():
+        return email.strip()[:160]
+    user_id = getattr(user, "user_id", None) or getattr(user, "id", None)
+    if isinstance(user_id, str) and user_id.strip():
+        return user_id.strip()[:160]
+    return "admin"
+
+
+def _parse_landing_event_timestamp(value: Any) -> datetime | None:
+    """Parse an event timestamp into UTC."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
+def _ratio(numerator: int, denominator: int) -> float | None:
+    """Return a rounded ratio when the denominator is present."""
+    if denominator <= 0:
+        return None
+    return round(numerator / denominator, 4)
+
+
+def _build_landing_event_summary(
+    *,
+    window_seconds: float = 86_400.0,
+    option_limit: int = 5,
+) -> dict[str, Any]:
+    """Aggregate recent landing telemetry into a compact funnel summary."""
+    now = datetime.now(timezone.utc)
+    try:
+        snapshot = get_landing_review_store().list_recent_events(window_seconds=window_seconds)
+    except Exception as exc:  # noqa: BLE001 - degrade to an empty summary if storage is unavailable
+        logger.warning("Failed to load landing telemetry summary: %s", exc)
+        snapshot = []
+
+    recent_events: list[tuple[datetime, dict[str, Any]]] = []
+    for event in snapshot:
+        event_dt = _parse_landing_event_timestamp(event.get("timestamp"))
+        if event_dt is None:
+            continue
+        recent_events.append((event_dt, event))
+
+    event_counts = {event_type: 0 for event_type in _LANDING_EVENT_TYPE_ORDER}
+    option_counts: Counter[str] = Counter()
+    option_recommended: Counter[str] = Counter()
+    option_rewritten: Counter[str] = Counter()
+    unique_clients: set[str] = set()
+    question_lengths: list[int] = []
+    preview_participants: list[int] = []
+    timeout_seconds: list[float] = []
+    last_event_at: datetime | None = None
+
+    for event_dt, event in recent_events:
+        event_type = str(event.get("event_type", "") or "")
+        if event_type in event_counts:
+            event_counts[event_type] += 1
+
+        client_tag = str(event.get("client_tag", "") or "").strip()
+        if client_tag and client_tag != "unknown":
+            unique_clients.add(client_tag)
+
+        if last_event_at is None or event_dt > last_event_at:
+            last_event_at = event_dt
+
+        data = event.get("data")
+        if not isinstance(data, dict):
+            continue
+
+        question_length = data.get("question_length")
+        if isinstance(question_length, int):
+            question_lengths.append(question_length)
+
+        if event_type == "preflight_selected":
+            option_id = str(data.get("option_id", "") or "").strip()[:64]
+            if option_id:
+                option_counts[option_id] += 1
+                if data.get("recommended") is True:
+                    option_recommended[option_id] += 1
+                if data.get("rewritten") is True:
+                    option_rewritten[option_id] += 1
+
+        if event_type == "preview_rendered":
+            participant_count = data.get("participant_count")
+            if isinstance(participant_count, int):
+                preview_participants.append(participant_count)
+
+        if event_type == "preview_timeout":
+            timeout_seconds_value = data.get("timeout_seconds")
+            if isinstance(timeout_seconds_value, (int, float)):
+                timeout_seconds.append(float(timeout_seconds_value))
+
+    top_options = [
+        {
+            "option_id": option_id,
+            "selected_count": count,
+            "recommended_count": option_recommended[option_id],
+            "rewritten_count": option_rewritten[option_id],
+        }
+        for option_id, count in option_counts.most_common(option_limit)
+    ]
+
+    retries_needed = (
+        event_counts["preview_timeout"] + event_counts["preview_clarification_requested"]
+    )
+
+    return {
+        "generated_at": now.isoformat(),
+        "window_seconds": window_seconds,
+        "total_events": len(recent_events),
+        "unique_client_count": len(unique_clients),
+        "last_event_at": last_event_at.isoformat() if last_event_at else None,
+        "event_counts": event_counts,
+        "rates": {
+            "preflight_selection_rate": _ratio(
+                event_counts["preflight_selected"], event_counts["preflight_shown"]
+            ),
+            "preview_render_rate": _ratio(
+                event_counts["preview_rendered"], event_counts["preflight_selected"]
+            ),
+            "preview_timeout_rate": _ratio(
+                event_counts["preview_timeout"], event_counts["preflight_selected"]
+            ),
+            "preview_clarification_rate": _ratio(
+                event_counts["preview_clarification_requested"],
+                event_counts["preflight_selected"],
+            ),
+            "wrong_answer_rate": _ratio(
+                event_counts["wrong_answer_clicked"], event_counts["preview_rendered"]
+            ),
+            "open_full_debate_rate": _ratio(
+                event_counts["open_full_debate_clicked"], event_counts["preview_rendered"]
+            ),
+            "share_rate": _ratio(event_counts["share_clicked"], event_counts["preview_rendered"]),
+            "retry_rate": _ratio(event_counts["retry_clicked"], retries_needed),
+        },
+        "question_length": {
+            "samples": len(question_lengths),
+            "avg": round(sum(question_lengths) / len(question_lengths), 2)
+            if question_lengths
+            else None,
+            "max": max(question_lengths) if question_lengths else None,
+        },
+        "preview": {
+            "rendered_count": event_counts["preview_rendered"],
+            "avg_participant_count": round(sum(preview_participants) / len(preview_participants), 2)
+            if preview_participants
+            else None,
+        },
+        "timeouts": {
+            "count": event_counts["preview_timeout"],
+            "avg_timeout_seconds": round(sum(timeout_seconds) / len(timeout_seconds), 2)
+            if timeout_seconds
+            else None,
+        },
+        "top_options": top_options,
+    }
+
+
+def _build_landing_feedback_summary(
+    *,
+    window_seconds: float = 604_800.0,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """Return recent landing wrong-answer reports for internal review."""
+    now = datetime.now(timezone.utc)
+    try:
+        snapshot = get_landing_review_store().list_recent_feedback(
+            window_seconds=window_seconds,
+            limit=limit,
+        )
+    except Exception as exc:  # noqa: BLE001 - degrade to an empty queue if storage is unavailable
+        logger.warning("Failed to load landing feedback summary: %s", exc)
+        snapshot = []
+
+    recent_reports: list[tuple[datetime, dict[str, Any]]] = []
+    for report in snapshot:
+        report_dt = _parse_landing_event_timestamp(report.get("timestamp"))
+        if report_dt is None:
+            continue
+        recent_reports.append((report_dt, report))
+
+    recent_reports.sort(key=lambda item: item[0], reverse=True)
+    trimmed = [report for _, report in recent_reports]
+    rewritten_count = sum(1 for report in trimmed if report.get("rewritten") is True)
+    preview_mode_count = sum(1 for report in trimmed if report.get("result_mode") == "preview")
+    review_status_counts = {status: 0 for status in sorted(_LANDING_REVIEW_STATUSES)}
+    for report in trimmed:
+        review_status = _normalize_landing_review_status(report.get("review_status"))
+        review_status_counts[review_status] += 1
+    unique_clients = {
+        str(report.get("client_tag", "") or "").strip()
+        for _, report in recent_reports
+        if str(report.get("client_tag", "") or "").strip()
+    }
+    last_report_at = recent_reports[0][0].isoformat() if recent_reports else None
+
+    return {
+        "generated_at": now.isoformat(),
+        "window_seconds": window_seconds,
+        "total_reports": len(recent_reports),
+        "returned_reports": len(trimmed),
+        "unique_client_count": len(unique_clients),
+        "last_report_at": last_report_at,
+        "stats": {
+            "rewritten_count": rewritten_count,
+            "rewritten_rate": _ratio(rewritten_count, len(trimmed)),
+            "preview_mode_count": preview_mode_count,
+            "preview_mode_rate": _ratio(preview_mode_count, len(trimmed)),
+            "review_status_counts": review_status_counts,
+        },
+        "reports": trimmed,
+    }
+
+
+def _extract_client_ip(handler: Any) -> str:
+    """Best-effort client IP extraction for public endpoints."""
+    client_ip = "unknown"
+    if handler and hasattr(handler, "client_address"):
+        addr = handler.client_address
+        if isinstance(addr, (list, tuple)) and len(addr) >= 1:
+            client_ip = str(addr[0])
+    return client_ip
 
 
 # ---------------------------------------------------------------------------
@@ -140,7 +545,7 @@ _MIN_AGENTS = 2
 
 _DEFAULT_TOPIC = "Should we use microservices or a monolith?"
 _DEFAULT_ROUNDS = 2
-_DEFAULT_AGENTS = 3
+_DEFAULT_AGENTS = 4  # 4 agents for diverse multi-model debates
 
 _AGENT_STYLES: list[Literal["supportive", "critical", "balanced", "contrarian"]] = [
     "supportive",
@@ -327,6 +732,43 @@ def _build_live_demo_unavailable_response(message: str) -> HandlerResult:
     )
 
 
+def _build_landing_preview_timeout_response(message: str | None = None) -> HandlerResult:
+    """Return an explicit fast-fail when landing preview cannot finish cleanly."""
+    detail = (
+        message
+        or "The landing preview timed out before the models returned a clean result. "
+        "Shorten the prompt or choose one interpretation first."
+    )
+    return json_response(
+        {
+            "error": detail,
+            "message": detail,
+            "code": "landing_preview_timeout",
+            "timeout_seconds": int(_ORACLE_CALL_TIMEOUT),
+            "is_live": False,
+        },
+        status=408,
+    )
+
+
+def _build_landing_preview_clarification_response(message: str | None = None) -> HandlerResult:
+    """Return an explicit guardrail when the fast preview drifts off-topic."""
+    detail = (
+        message
+        or "The fast preview drifted away from your question. "
+        "Tighten the wording or pick one interpretation first."
+    )
+    return json_response(
+        {
+            "error": detail,
+            "message": detail,
+            "code": "landing_preview_needs_clarification",
+            "is_live": False,
+        },
+        status=422,
+    )
+
+
 # Keep static versions for backward compat
 _MOCK_CRITIQUE_ISSUES = _build_mock_critiques(_DEFAULT_TOPIC)["issues"]
 _MOCK_CRITIQUE_SUGGESTIONS = _build_mock_critiques(_DEFAULT_TOPIC)["suggestions"]
@@ -353,7 +795,7 @@ _MOCK_CONFIDENCE: dict[str, float] = {
 _ORACLE_MODEL_ANTHROPIC = "claude-sonnet-4-6"
 _ORACLE_MODEL_OPENAI = "gpt-5.3-chat"
 _ORACLE_MODEL_OPENROUTER = "anthropic/claude-opus-4.6"  # OpenRouter fallback
-_ORACLE_CALL_TIMEOUT = 10.0  # seconds — tight timeout to keep playground responsive
+_ORACLE_CALL_TIMEOUT = 90.0  # seconds — allows 4 parallel LLM calls with OpenRouter fallback
 
 
 def _get_api_key(name: str) -> str | None:
@@ -395,18 +837,18 @@ _TENTACLE_MODELS: list[dict[str, str]] = [
         "openrouter_model": "x-ai/grok-3-fast",
     },
     {
+        "provider": "google",
+        "model": "gemini-2.5-pro",
+        "name": "gemini",
+        "env": "GEMINI_API_KEY",
+        "openrouter_model": "google/gemini-2.5-pro-preview",
+    },
+    {
         "provider": "openrouter",
         "model": "deepseek/deepseek-chat-v3-0324",
         "name": "deepseek",
         "env": "OPENROUTER_API_KEY",
         "openrouter_model": "deepseek/deepseek-chat-v3-0324",
-    },
-    {
-        "provider": "google",
-        "model": "gemini-2.5-flash",
-        "name": "gemini",
-        "env": "GEMINI_API_KEY",
-        "openrouter_model": "google/gemini-2.5-flash-preview",
     },
     {
         "provider": "openrouter",
@@ -937,6 +1379,7 @@ def _try_oracle_response(
     question: str,
     topic: str | None = None,
     session_id: str | None = None,
+    client_debate_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Generate a real LLM response for Oracle Phase 1 (initial take).
 
@@ -965,9 +1408,39 @@ def _try_oracle_response(
     _append_session_turn(session_id, "oracle", text)
 
     duration = time.monotonic() - start
-    debate_id = uuid.uuid4().hex[:16]
+    debate_id = client_debate_id or uuid.uuid4().hex[:16]
     now_iso = datetime.now(timezone.utc).isoformat()
     receipt_id = f"OR-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
+
+    # Emit spectate events so the landing page bridge shows activity
+    try:
+        from aragora.spectate.ws_bridge import (
+            get_spectate_bridge,
+            bind_spectate_context,
+        )
+
+        bridge = get_spectate_bridge()
+        if bridge.running:
+            with bind_spectate_context(debate_id=debate_id):
+                bridge._forward_event(
+                    event_type="debate_start",
+                    agent="oracle",
+                    details=question[:200],
+                )
+                bridge._forward_event(
+                    event_type="proposal",
+                    agent="oracle",
+                    details=text[:500],
+                    round_number=1,
+                )
+                bridge._forward_event(
+                    event_type="consensus",
+                    agent="oracle",
+                    details="Oracle verdict delivered",
+                    round_number=1,
+                )
+    except Exception:
+        pass  # Never block oracle response for spectate
     receipt_hash = hashlib.sha256(f"{receipt_id}:{question}:approved:0.85".encode()).hexdigest()
 
     return {
@@ -1048,7 +1521,7 @@ _TENTACLE_ROLE_PROMPTS: list[str] = [
     ),
 ]
 
-_LANDING_ROLE_PROMPTS = [
+_LANDING_STRATEGY_ROLE_PROMPTS = [
     (
         "You are the STRATEGIC ANALYST. Evaluate from a strategic perspective — "
         "market dynamics, competitive positioning, risk/reward tradeoffs. "
@@ -1085,6 +1558,444 @@ _LANDING_ROLE_PROMPTS = [
         "Keep to 2-3 concise paragraphs."
     ),
 ]
+
+_LANDING_TECHNICAL_ROLE_PROMPTS = [
+    (
+        "You are the SYSTEMS ARCHITECT. Evaluate the technical architecture, system "
+        "boundaries, and long-term design tradeoffs. Be concrete about constraints, "
+        "failure modes, and what good boundaries look like. Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the RELIABILITY SKEPTIC. Stress-test the plan for operational risk, "
+        "coupling, rollout hazards, debugging cost, and team ownership gaps. Keep to "
+        "2-3 concise paragraphs."
+    ),
+    (
+        "You are the IMPLEMENTATION LEAD. Translate the answer into a practical sequence "
+        "of engineering steps with clear priorities, dependencies, and rollback logic. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the COST AND COMPLEXITY CHECKER. Identify where the proposal creates "
+        "hidden maintenance burden, migration drag, or tool/process sprawl. Keep to 2-3 "
+        "concise paragraphs."
+    ),
+    (
+        "You are the SYNTHESIZER. Integrate the technical tradeoffs into a balanced "
+        "recommendation and state the clearest next move. Keep to 2-3 concise paragraphs."
+    ),
+]
+
+_LANDING_PRACTICAL_ROLE_PROMPTS = [
+    (
+        "You are the PRACTICAL ADVISOR. Answer the everyday decision in plain English. "
+        "Lead with what the person should do right now, then explain why. Keep to 2-3 "
+        "concise paragraphs."
+    ),
+    (
+        "You are the SAFETY CHECKER. Identify real-world risks, edge cases, and what would "
+        "change the advice. Focus on concrete safety or welfare concerns, not abstract "
+        "debate for its own sake. Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the COMMON-SENSE SKEPTIC. Challenge overcomplication, false dilemmas, and "
+        "needless moral theater. Separate the practical question from side issues unless "
+        "they materially change the answer. Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the CONTEXT CHECKER. Identify what facts are missing, what assumptions the "
+        "question implies, and what clarification matters most before escalating the issue. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the SYNTHESIZER. Combine the practical answer, the key caveats, and the "
+        "most relevant edge case into one direct recommendation. Keep to 2-3 concise paragraphs."
+    ),
+]
+
+_LANDING_ETHICS_ROLE_PROMPTS = [
+    (
+        "You are the ETHICS ANALYST. Evaluate the moral question directly without drifting "
+        "into unrelated abstractions. Clarify the relevant values, tradeoffs, and harms. "
+        "Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the DEVIL'S ADVOCATE. Surface the strongest opposing moral argument and the "
+        "hardest uncomfortable objection. Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the PRACTICAL DECISION-MAKER. Translate the ethical discussion into what a "
+        "person should actually do next, including what matters now versus later. Keep to 2-3 "
+        "concise paragraphs."
+    ),
+    (
+        "You are the HUMAN IMPACT CHECKER. Focus on who is affected, what harm is direct or "
+        "outsourced, and what moral distance may be hiding. Keep to 2-3 concise paragraphs."
+    ),
+    (
+        "You are the SYNTHESIZER. Reconcile the ethical and practical considerations into a "
+        "clear bottom-line recommendation. Keep to 2-3 concise paragraphs."
+    ),
+]
+
+_LANDING_ROLE_PROMPTS = _LANDING_STRATEGY_ROLE_PROMPTS
+
+_LANDING_INTENT_TECHNICAL_TERMS = {
+    "api",
+    "apis",
+    "auth",
+    "backend",
+    "billing",
+    "checkout",
+    "ci",
+    "codebase",
+    "database",
+    "deploy",
+    "deployment",
+    "frontend",
+    "infra",
+    "migration",
+    "microservice",
+    "microservices",
+    "monolith",
+    "monolithic",
+    "ownership",
+    "pipeline",
+    "pricing",
+    "reporting",
+    "service",
+    "services",
+    "system",
+    "systems",
+    "typescript",
+}
+
+_LANDING_INTENT_PRACTICAL_TERMS = {
+    "child",
+    "chicken",
+    "cook",
+    "cooking",
+    "eat",
+    "feeding",
+    "food",
+    "hungry",
+    "kid",
+    "meal",
+    "microwave",
+    "microwaving",
+    "nugget",
+    "nuggets",
+    "parent",
+    "practical",
+    "reheat",
+    "reheating",
+    "safe",
+    "safety",
+    "toddler",
+}
+
+_LANDING_INTENT_ETHICAL_TERMS = {
+    "better person",
+    "cruel",
+    "ethical",
+    "ethics",
+    "factory",
+    "guilt",
+    "harm",
+    "humane",
+    "killing",
+    "moral",
+    "morally",
+    "outsourced",
+    "right thing",
+    "wrong",
+}
+
+_LANDING_GENERIC_DRIFT_PHRASES = {
+    "lyrics",
+    "song",
+    "chorus",
+    "verse",
+    "task force",
+    "quarterly workshop",
+    "quarterly workshops",
+    "shadow it",
+    "kpi",
+    "kpis",
+    "cultural transformation",
+    "layer two",
+    "decentralized innovation",
+    "residue data",
+}
+
+_LANDING_INTENT_DRIFT_PHRASES = {
+    "practical": _LANDING_GENERIC_DRIFT_PHRASES,
+    "technical": _LANDING_GENERIC_DRIFT_PHRASES | {"recipe", "hungry", "toddler"},
+    "ethical": _LANDING_GENERIC_DRIFT_PHRASES,
+    "strategy": {"lyrics", "chorus", "verse", "recipe", "microwave", "nuggets", "4 year old"},
+}
+
+_LANDING_HEURISTIC_FOOD_TERMS = {
+    "chicken",
+    "cook",
+    "cooking",
+    "food",
+    "meal",
+    "microwave",
+    "microwaving",
+    "nugget",
+    "nuggets",
+    "reheat",
+    "reheating",
+}
+
+_LANDING_HEURISTIC_CHILD_TERMS = {
+    "4 year old",
+    "child",
+    "kid",
+    "parent",
+    "toddler",
+}
+
+_LANDING_HEURISTIC_ETHICS_TERMS = {
+    "alive",
+    "better person",
+    "cruel",
+    "dead",
+    "ethical",
+    "ethics",
+    "factory",
+    "humane",
+    "killing",
+    "live",
+    "moral",
+    "morally",
+}
+
+
+def _contains_term(text: str, term: str) -> bool:
+    if " " in term:
+        return term in text
+    return bool(re.search(rf"\b{re.escape(term)}\b", text))
+
+
+def _contains_any_term(text: str, terms: set[str]) -> bool:
+    return any(_contains_term(text, term) for term in terms)
+
+
+def _classify_landing_intent(question: str) -> str:
+    lower_question = question.lower()
+    if any(_contains_term(lower_question, term) for term in _LANDING_INTENT_TECHNICAL_TERMS):
+        return "technical"
+    if any(_contains_term(lower_question, term) for term in _LANDING_INTENT_PRACTICAL_TERMS):
+        return "practical"
+    if any(_contains_term(lower_question, term) for term in _LANDING_INTENT_ETHICAL_TERMS):
+        return "ethical"
+    return "strategy"
+
+
+def _choose_landing_role_prompts(question: str) -> list[str]:
+    intent = _classify_landing_intent(question)
+    if intent == "technical":
+        return _LANDING_TECHNICAL_ROLE_PROMPTS
+    if intent == "practical":
+        return _LANDING_PRACTICAL_ROLE_PROMPTS
+    if intent == "ethical":
+        return _LANDING_ETHICS_ROLE_PROMPTS
+    return _LANDING_STRATEGY_ROLE_PROMPTS
+
+
+def _keyword_tokens(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z]{4,}", text.lower())
+        if token
+        not in {
+            "about",
+            "after",
+            "answer",
+            "because",
+            "being",
+            "could",
+            "first",
+            "from",
+            "have",
+            "into",
+            "just",
+            "keep",
+            "more",
+            "other",
+            "question",
+            "right",
+            "should",
+            "that",
+            "their",
+            "them",
+            "they",
+            "this",
+            "what",
+            "when",
+            "which",
+            "would",
+        }
+    }
+
+
+def _landing_focus_terms(question: str, intent: str) -> set[str]:
+    lower_question = question.lower()
+    if intent == "technical":
+        source_terms = _LANDING_INTENT_TECHNICAL_TERMS
+    elif intent == "practical":
+        source_terms = _LANDING_INTENT_PRACTICAL_TERMS
+    elif intent == "ethical":
+        source_terms = _LANDING_INTENT_ETHICAL_TERMS
+    else:
+        source_terms = _keyword_tokens(lower_question)
+
+    matches = {term for term in source_terms if _contains_term(lower_question, term)}
+    if matches:
+        return matches
+    return set(list(_keyword_tokens(lower_question))[:6])
+
+
+def _landing_relevance_issue(question: str, response: str) -> str | None:
+    lower_question = question.lower()
+    lower_response = response.lower()
+    intent = _classify_landing_intent(question)
+
+    if "lyric" not in lower_question and any(
+        phrase in lower_response for phrase in {"lyrics", "chorus", "verse", "song"}
+    ):
+        return "The fast preview drifted into unrelated lyrics analysis."
+
+    focus_terms = _landing_focus_terms(question, intent)
+    has_focus_term = any(_contains_term(lower_response, term) for term in focus_terms)
+    overlap = _keyword_tokens(lower_question) & _keyword_tokens(lower_response)
+    drift_hits = [
+        phrase
+        for phrase in _LANDING_INTENT_DRIFT_PHRASES[intent]
+        if phrase in lower_response and phrase not in lower_question
+    ]
+
+    if drift_hits and not has_focus_term and not overlap:
+        if intent == "practical":
+            return (
+                "The fast preview drifted away from the practical question. "
+                "Tighten the wording or pick the interpretation you want Aragora to debate."
+            )
+        if intent == "technical":
+            return (
+                "The fast preview drifted away from the technical question. "
+                "Tighten the wording or focus the architecture problem before retrying."
+            )
+        if intent == "ethical":
+            return (
+                "The fast preview drifted away from the ethical question. "
+                "Tighten the wording so Aragora debates the moral issue you actually care about."
+            )
+        return (
+            "The fast preview drifted away from your question. "
+            "Tighten the wording or pick one interpretation first."
+        )
+
+    return None
+
+
+def _landing_food_subject(question: str) -> str:
+    lower_question = question.lower()
+    if _contains_term(lower_question, "nugget") or _contains_term(lower_question, "nuggets"):
+        return "pre-cooked chicken nuggets"
+    if _contains_term(lower_question, "chicken"):
+        return "chicken"
+    return "the food"
+
+
+def _build_heuristic_food_preflight(question: str) -> dict[str, Any] | None:
+    lower_question = question.lower()
+    has_food_context = _contains_any_term(lower_question, _LANDING_HEURISTIC_FOOD_TERMS)
+    has_ethics_context = _contains_any_term(lower_question, _LANDING_HEURISTIC_ETHICS_TERMS)
+    has_splitter = any(
+        phrase in lower_question
+        for phrase in {"alive or dead", "live or dead", "but what if", "what if"}
+    )
+
+    if not has_food_context or not has_ethics_context:
+        return None
+    if not (
+        has_splitter
+        or _contains_term(lower_question, "alive")
+        or _contains_term(lower_question, "dead")
+    ):
+        return None
+
+    subject = _landing_food_subject(question)
+    action = (
+        "reheat"
+        if any(
+            phrase in lower_question
+            for phrase in {
+                "reheat",
+                "reheating",
+                "warmed up",
+                "warm up",
+                "pre-cooked",
+                "precooked",
+                "frozen",
+            }
+        )
+        else "cook"
+    )
+    audience = (
+        " for my child"
+        if _contains_any_term(lower_question, _LANDING_HEURISTIC_CHILD_TERMS)
+        else ""
+    )
+    practical_question = f"Should I {action} {subject}{audience} in a microwave, and what food-safety precautions matter most?"
+    ethical_question = (
+        "Is the real question an ethical one about live animals or the moral distance created by factory-processed chicken, "
+        "rather than the practical reheating question?"
+    )
+
+    return {
+        "title": "This question could mean a few things",
+        "prompt": "Pick the interpretation you want Aragora to debate.",
+        "options": [
+            {
+                "id": "heuristic-practical-food",
+                "label": "Practical food-safety first",
+                "description": f"Focus on whether {action}ing {subject} in a microwave is safe and practical.",
+                "originalQuestion": question,
+                "interpretedQuestion": practical_question,
+                "debatePrompt": practical_question,
+                "agents": 3,
+                "rounds": 2,
+                "recommended": True,
+            },
+            {
+                "id": "heuristic-ethical-food",
+                "label": "Ethical / philosophical reading",
+                "description": (
+                    "Treat this as a moral question about live animals or factory-farmed chicken, "
+                    "not the practical reheating question."
+                ),
+                "originalQuestion": question,
+                "interpretedQuestion": ethical_question,
+                "debatePrompt": ethical_question,
+                "agents": 3,
+                "rounds": 2,
+            },
+            {
+                "id": "original",
+                "label": "Use original wording",
+                "description": "Debate the question exactly as written.",
+                "originalQuestion": question,
+                "interpretedQuestion": question,
+                "debatePrompt": question,
+                "agents": 3,
+                "rounds": 2,
+            },
+        ],
+    }
 
 
 def _build_tentacle_prompt(
@@ -1172,6 +2083,7 @@ def _try_oracle_tentacles(
     topic: str | None = None,
     source: str = "oracle",
     summary_depth: str = "light",
+    client_debate_id: str | None = None,
 ) -> dict[str, Any] | None:
     """Generate multi-perspective Oracle responses using genuinely different AI models.
 
@@ -1186,7 +2098,9 @@ def _try_oracle_tentacles(
         return None
 
     # Assign roles to available models (up to agent_count)
-    role_prompts = _TENTACLE_ROLE_PROMPTS if source == "oracle" else _LANDING_ROLE_PROMPTS
+    role_prompts = (
+        _TENTACLE_ROLE_PROMPTS if source == "oracle" else _choose_landing_role_prompts(question)
+    )
     count = max(2, min(agent_count, len(available), len(role_prompts)))
     assignments = list(zip(available[:count], role_prompts[:count]))
     results: dict[str, str] = {}
@@ -1259,18 +2173,39 @@ def _try_oracle_tentacles(
     final = results.get(available[min(2, len(available) - 1)]["name"]) or next(
         iter(results.values())
     )
-    debate_id = uuid.uuid4().hex[:16]
+    is_landing_preview = source == "landing"
+    if is_landing_preview:
+        final_issue = _landing_relevance_issue(question, final)
+        flagged_responses = sum(
+            1 for response in results.values() if _landing_relevance_issue(question, response)
+        )
+        if final_issue or flagged_responses >= max(2, (len(results) + 1) // 2):
+            return {
+                "error": "Landing preview needs clarification",
+                "message": final_issue
+                or (
+                    "The fast preview drifted away from your question. "
+                    "Tighten the wording or pick one interpretation first."
+                ),
+                "code": "landing_preview_needs_clarification",
+                "is_live": False,
+            }
+    consensus_reached = False if is_landing_preview else len(results) >= 2
+    confidence = 0.0 if is_landing_preview else 0.7
+    debate_id = client_debate_id or uuid.uuid4().hex[:16]
     now_iso = datetime.now(timezone.utc).isoformat()
     receipt_id = f"LV-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
-    receipt_hash = hashlib.sha256(f"{receipt_id}:{question}:needs_review:0.7".encode()).hexdigest()
+    receipt_hash = hashlib.sha256(
+        f"{receipt_id}:{question}:needs_review:{confidence}".encode()
+    ).hexdigest()
 
-    return {
+    payload: dict[str, Any] = {
         "id": debate_id,
         "topic": question,
         "status": "completed",
         "rounds_used": 1,
-        "consensus_reached": len(results) >= 2,
-        "confidence": 0.7,
+        "consensus_reached": consensus_reached,
+        "confidence": confidence,
         "verdict": "needs_review",
         "duration_seconds": round(duration, 3),
         "participants": participants,
@@ -1279,16 +2214,16 @@ def _try_oracle_tentacles(
         "votes": [],
         "dissenting_views": [],
         "final_answer": final,
-        "is_live": True,
+        "is_live": not is_landing_preview,
         "receipt": {
             "receipt_id": receipt_id,
             "question": question,
             "verdict": "needs_review",
-            "confidence": 0.7,
+            "confidence": confidence,
             "consensus": {
-                "reached": len(results) >= 2,
-                "method": "multi_perspective",
-                "confidence": 0.7,
+                "reached": consensus_reached,
+                "method": "landing_preview" if is_landing_preview else "multi_perspective",
+                "confidence": confidence,
                 "supporting_agents": participants,
                 "dissenting_agents": [],
                 "dissents": [],
@@ -1303,6 +2238,13 @@ def _try_oracle_tentacles(
         },
         "receipt_hash": receipt_hash,
     }
+    if is_landing_preview:
+        payload["result_mode"] = "preview"
+        payload["result_warning"] = (
+            "This landing result is a fast preview of parallel model outputs. "
+            "It is not a full consensus proof."
+        )
+    return payload
 
 
 def _run_inline_mock_debate(
@@ -1538,9 +2480,15 @@ class PlaygroundHandler(BaseHandler):
     """
 
     ROUTES = [
+        "/api/v1/playground/assess",
         "/api/v1/playground/debate",
+        "/api/v1/playground/assess",
         "/api/v1/playground/debate/live",
         "/api/v1/playground/debate/live/cost-estimate",
+        "/api/v1/playground/landing/events",
+        "/api/v1/playground/landing/events/summary",
+        "/api/v1/playground/landing/feedback",
+        "/api/v1/playground/landing/feedback/review",
         "/api/v1/playground/status",
         "/api/v1/playground/tts",
     ]
@@ -1556,9 +2504,15 @@ class PlaygroundHandler(BaseHandler):
 
     def can_handle(self, path: str) -> bool:
         if path in (
+            "/api/v1/playground/assess",
             *self._CREATE_PATHS,
+            "/api/v1/playground/assess",
             "/api/v1/playground/debate/live",
             "/api/v1/playground/debate/live/cost-estimate",
+            "/api/v1/playground/landing/events",
+            "/api/v1/playground/landing/events/summary",
+            "/api/v1/playground/landing/feedback",
+            "/api/v1/playground/landing/feedback/review",
             "/api/v1/playground/status",
             "/api/v1/playground/tts",
         ):
@@ -1577,6 +2531,10 @@ class PlaygroundHandler(BaseHandler):
     ) -> HandlerResult | None:
         if path == "/api/v1/playground/status":
             return self._handle_status()
+        if path == "/api/v1/playground/landing/events/summary":
+            return self._handle_landing_event_summary(query_params)
+        if path == "/api/v1/playground/landing/feedback":
+            return self._handle_landing_feedback_list(query_params, handler)
 
         # GET /api/v1/playground/debate/{debate_id} — retrieve saved debate
         m = self._DEBATE_ID_PATTERN.match(path)
@@ -1600,6 +2558,15 @@ class PlaygroundHandler(BaseHandler):
             return error_response("Debate not found", 404)
 
     def _handle_status(self) -> HandlerResult:
+        try:
+            review_store = get_landing_review_store()
+            landing_event_count = review_store.count_events()
+            landing_feedback_count = review_store.count_feedback()
+        except Exception as exc:  # noqa: BLE001 - health endpoint should remain available
+            logger.warning("Failed to read landing review counts: %s", exc)
+            landing_event_count = 0
+            landing_feedback_count = 0
+
         return json_response(
             {
                 "status": "ok",
@@ -1608,6 +2575,97 @@ class PlaygroundHandler(BaseHandler):
                 "max_rounds": _MAX_ROUNDS,
                 "max_agents": _MAX_AGENTS,
                 "rate_limit": f"{_PLAYGROUND_RATE_LIMIT} requests per {int(_PLAYGROUND_RATE_WINDOW)}s",
+                "landing_event_count": landing_event_count,
+                "landing_feedback_count": landing_feedback_count,
+            }
+        )
+
+    def _handle_landing_event_summary(self, query_params: dict[str, Any]) -> HandlerResult:
+        """Summarize recent landing telemetry without exposing raw events."""
+        window_seconds = safe_query_float(
+            query_params,
+            "window",
+            default=86_400.0,
+            min_val=60.0,
+            max_val=604_800.0,
+        )
+        option_limit = safe_query_int(query_params, "limit", default=5, min_val=1, max_val=20)
+        return json_response(
+            _build_landing_event_summary(
+                window_seconds=window_seconds,
+                option_limit=option_limit,
+            )
+        )
+
+    def _handle_landing_feedback_list(
+        self,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult:
+        """List recent wrong-answer reports for admins."""
+        _user, err = self.require_admin_or_error(handler)
+        if err:
+            return err
+
+        window_seconds = safe_query_float(
+            query_params,
+            "window",
+            default=604_800.0,
+            min_val=300.0,
+            max_val=2_592_000.0,
+        )
+        limit = safe_query_int(query_params, "limit", default=50, min_val=1, max_val=200)
+        return json_response(
+            _build_landing_feedback_summary(
+                window_seconds=window_seconds,
+                limit=limit,
+            )
+        )
+
+    def _handle_landing_feedback_review(self, handler: Any) -> HandlerResult:
+        """Update admin review state for a wrong-answer report."""
+        user, err = self.require_admin_or_error(handler)
+        if err:
+            return err
+
+        body = self.read_json_body(handler) if handler else {}
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            return error_response("Invalid landing feedback review payload", 400)
+
+        report_id = str(body.get("id", "") or "").strip()
+        if not report_id:
+            return error_response("Missing landing feedback report id", 400)
+
+        review_status = _normalize_landing_review_status(body.get("review_status"))
+        reviewed_at = None
+        reviewed_by = None
+        if review_status != "pending":
+            reviewed_at = datetime.now(timezone.utc).isoformat()
+            reviewed_by = _reviewer_label(user)
+
+        try:
+            updated = get_landing_review_store().update_feedback_review(
+                report_id=report_id,
+                review_status=review_status,
+                reviewed_at=reviewed_at,
+                reviewed_by=reviewed_by,
+            )
+        except Exception as exc:  # noqa: BLE001 - keep admin queue endpoint resilient
+            logger.warning("Failed to update landing feedback review state: %s", exc)
+            return error_response("Failed to update landing feedback review state", 500)
+
+        if not updated:
+            return error_response("Landing feedback report not found", 404)
+
+        return json_response(
+            {
+                "ok": True,
+                "id": report_id,
+                "review_status": review_status,
+                "reviewed_at": reviewed_at,
+                "reviewed_by": reviewed_by,
             }
         )
 
@@ -1716,6 +2774,14 @@ class PlaygroundHandler(BaseHandler):
     ) -> HandlerResult | None:
         if path == "/api/v1/playground/tts":
             return self._handle_tts(handler)
+        if path == "/api/v1/playground/landing/events":
+            return self._handle_landing_event(handler)
+        if path == "/api/v1/playground/landing/feedback":
+            return self._handle_landing_feedback(handler)
+        if path == "/api/v1/playground/landing/feedback/review":
+            return self._handle_landing_feedback_review(handler)
+        if path == "/api/v1/playground/assess":
+            return self._handle_assess(handler)
         if path == "/api/v1/playground/debate/live/cost-estimate":
             return self._handle_cost_estimate(handler)
         if path == "/api/v1/playground/debate/live":
@@ -1745,10 +2811,20 @@ class PlaygroundHandler(BaseHandler):
 
         # Source: "oracle" for Oracle page, "landing" for main site, etc.
         # Controls prompt flavour — Oracle uses tentacle language, landing uses neutral.
-        source = str(body.get("source", "") or "").strip() or "oracle"
+        # Default to "landing" so unauthenticated visitors get multi-agent debates
+        # instead of single-agent oracle. The Oracle page explicitly sends source=oracle.
+        source = str(body.get("source", "") or "").strip() or "landing"
 
         # Session ID for follow-up conversation memory
         session_id = str(body.get("session_id", "") or "").strip() or None
+
+        # Client-provided debate ID — allows the frontend to subscribe to
+        # spectate WebSocket events *before* the HTTP POST returns.
+        client_debate_id = str(body.get("debate_id", "") or "").strip() or None
+        if client_debate_id and (
+            len(str(client_debate_id)) > 64 or not str(client_debate_id).isascii()
+        ):
+            client_debate_id = None
 
         try:
             rounds = int(body.get("rounds", _DEFAULT_ROUNDS))
@@ -1799,6 +2875,37 @@ class PlaygroundHandler(BaseHandler):
                     cached["cached"] = True
                     cached["cached_at"] = time.time()
                     logger.info("Cache hit for debate key %.12s…", cache_key)
+                    # Emit spectate events for cached results too (landing page demo)
+                    try:
+                        from aragora.spectate.ws_bridge import (
+                            get_spectate_bridge,
+                            bind_spectate_context,
+                        )
+
+                        bridge = get_spectate_bridge()
+                        if bridge.running:
+                            debate_id = cached.get("id", "cached")
+                            answer = str(cached.get("final_answer", ""))[:500]
+                            with bind_spectate_context(debate_id=debate_id):
+                                bridge._forward_event(
+                                    event_type="debate_start",
+                                    agent="oracle",
+                                    details=str(cached.get("topic", ""))[:200],
+                                )
+                                bridge._forward_event(
+                                    event_type="proposal",
+                                    agent="oracle",
+                                    details=answer,
+                                    round_number=1,
+                                )
+                                bridge._forward_event(
+                                    event_type="consensus",
+                                    agent="oracle",
+                                    details="Oracle verdict delivered",
+                                    round_number=1,
+                                )
+                    except Exception:
+                        pass
                     return json_response(cached)
         except (ImportError, RuntimeError, OSError, ValueError):
             logger.debug("Cache lookup unavailable, proceeding to debate", exc_info=True)
@@ -1806,11 +2913,7 @@ class PlaygroundHandler(BaseHandler):
             logger.debug("Cache lookup failed, proceeding to debate", exc_info=True)
 
         # Rate limiting (skipped on cache hit above)
-        client_ip = "unknown"
-        if handler and hasattr(handler, "client_address"):
-            addr = handler.client_address
-            if isinstance(addr, (list, tuple)) and len(addr) >= 1:
-                client_ip = str(addr[0])
+        client_ip = _extract_client_ip(handler)
 
         allowed, retry_after = _check_rate_limit(client_ip)
         if not allowed:
@@ -1823,6 +2926,18 @@ class PlaygroundHandler(BaseHandler):
                 status=429,
             )
 
+        # Daily budget cap — prevents runaway OpenRouter costs
+        budget_ok, budget_reason = _check_daily_budget()
+        if not budget_ok:
+            return json_response(
+                {
+                    "error": budget_reason,
+                    "code": "budget_exceeded",
+                },
+                status=429,
+            )
+        _record_debate_cost()
+
         return self._run_debate(
             topic,
             rounds,
@@ -1833,7 +2948,256 @@ class PlaygroundHandler(BaseHandler):
             source=source,
             cache_key=cache_key,
             model_ids=model_ids,
+            client_debate_id=client_debate_id,
         )
+
+    def _handle_landing_event(self, handler: Any) -> HandlerResult:
+        """Accept best-effort landing telemetry from the public landing page."""
+        body = self.read_json_body(handler) if handler else {}
+        if body is None:
+            body = {}
+
+        event_type = str(body.get("event_type", "") or "").strip()
+        if event_type not in _LANDING_EVENT_TYPES:
+            return error_response("Unknown landing telemetry event", 400)
+
+        _record_landing_event(
+            event_type,
+            client_ip=_extract_client_ip(handler),
+            data=body.get("data") if isinstance(body, dict) else {},
+        )
+        return json_response({"ok": True}, status=202)
+
+    def _handle_landing_feedback(self, handler: Any) -> HandlerResult:
+        """Accept a bounded wrong-answer report from the landing page."""
+        body = self.read_json_body(handler) if handler else {}
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            return error_response("Invalid landing feedback payload", 400)
+
+        report = _record_landing_feedback(
+            client_ip=_extract_client_ip(handler),
+            data=body,
+        )
+        return json_response({"ok": True, "report_id": report["id"]}, status=202)
+
+    # ------------------------------------------------------------------
+    # Question assessment (ambiguity detection via frontier model)
+    # ------------------------------------------------------------------
+
+    def _handle_assess(self, handler: Any) -> HandlerResult:
+        """Assess question ambiguity using a frontier model."""
+        body = self.read_json_body(handler) if handler else {}
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            return error_response("Invalid assess payload", 400)
+        question = str(body.get("question", "")).strip()
+        if not question:
+            return json_response({"type": "ready", "option": self._build_ready_option("")})
+
+        if len(question) > _MAX_TOPIC_LENGTH:
+            return json_response(
+                {"type": "ready", "option": self._build_ready_option(question[:200])}
+            )
+
+        # Rate limit: reuse the existing per-IP check (5 per 60s for assess)
+        client_ip = _extract_client_ip(handler)
+        allowed, retry_after = _check_rate_limit(
+            f"assess:{client_ip}",
+            limit=5,
+            window=60.0,
+        )
+        if not allowed:
+            return json_response(
+                {
+                    "error": "Rate limit exceeded. Please try again later.",
+                    "code": "rate_limit_exceeded",
+                    "retry_after": retry_after,
+                },
+                status=429,
+            )
+
+        heuristic_preflight = _build_heuristic_food_preflight(question)
+        if heuristic_preflight is not None:
+            return json_response({"type": "confirm", "preflight": heuristic_preflight})
+
+        prompt = (
+            "You are a question-assessment system. Analyze this user question and determine if it is "
+            "clear enough to debate directly, or if it could be interpreted multiple ways.\n\n"
+            f"Question: {question}\n\n"
+            "Respond with JSON only:\n"
+            '- If clear: {"clear": true, "topic": "<the question as-is>"}\n'
+            '- If ambiguous: {"clear": false, "interpretations": ["interpretation 1", "interpretation 2", "interpretation 3"]}\n'
+            "JSON response:"
+        )
+
+        try:
+            raw = self._call_frontier_model(prompt, timeout=5.0)
+            # Extract JSON from response (model might wrap it in markdown code blocks)
+            import re as _re
+
+            json_match = _re.search(r"\{.*\}", raw, _re.DOTALL)
+            if json_match:
+                parsed = json.loads(json_match.group())
+            else:
+                parsed = json.loads(raw)
+        except (TimeoutError, ConnectionError, json.JSONDecodeError, RuntimeError, OSError) as exc:
+            logger.debug("Assess call failed, returning ready: %s", exc)
+            return json_response({"type": "ready", "option": self._build_ready_option(question)})
+
+        if parsed.get("clear", True):
+            topic = parsed.get("topic", question)
+            return json_response({"type": "ready", "option": self._build_ready_option(topic)})
+
+        # Build preflight options from interpretations
+        interpretations = parsed.get("interpretations", [])
+        options = []
+        for i, interp in enumerate(interpretations[:4]):
+            options.append(
+                {
+                    "id": f"interp-{i}",
+                    "label": interp[:80],
+                    "description": interp,
+                    "originalQuestion": question,
+                    "interpretedQuestion": interp,
+                    "debatePrompt": interp,
+                    "agents": 3,
+                    "rounds": 2,
+                    "recommended": i == 0,
+                }
+            )
+        # Always include "use original wording" as last option
+        options.append(
+            {
+                "id": "original",
+                "label": "Use original wording",
+                "description": "Debate the question exactly as written.",
+                "originalQuestion": question,
+                "interpretedQuestion": question,
+                "debatePrompt": question,
+                "agents": 3,
+                "rounds": 2,
+            }
+        )
+
+        return json_response(
+            {
+                "type": "confirm",
+                "preflight": {
+                    "title": "This question could mean a few things",
+                    "prompt": "Pick the interpretation you want Aragora to debate.",
+                    "options": options,
+                },
+            }
+        )
+
+    def _build_ready_option(self, question: str) -> dict:
+        """Build a ready-to-debate option payload."""
+        return {
+            "id": "original",
+            "label": "Use original wording",
+            "description": question,
+            "originalQuestion": question,
+            "interpretedQuestion": question,
+            "debatePrompt": question,
+            "agents": 3,
+            "rounds": 2,
+        }
+
+    # ------------------------------------------------------------------
+    # TL;DR synthesis helpers
+    # ------------------------------------------------------------------
+
+    def _call_frontier_model(self, prompt: str, timeout: float = 5.0) -> str:
+        """Call the fastest available frontier model for a short generation task.
+
+        Tries Anthropic (Claude Sonnet) first, falls back to OpenRouter.
+        Runs the async agent.generate() call in a sync context with a timeout.
+
+        Raises:
+            TimeoutError: If the generation exceeds *timeout* seconds.
+            RuntimeError: If no agent is available.
+        """
+        agent = None
+
+        # Try Anthropic first
+        try:
+            from aragora.agents.api_agents.anthropic import (
+                AnthropicAPIAgent as _Anthropic,
+            )
+
+            agent = _Anthropic(
+                name="tldr-synth",
+                model="claude-sonnet-4-6",
+            )
+        except (ImportError, RuntimeError, ValueError, OSError) as exc:
+            logger.debug("Anthropic agent unavailable for TL;DR: %s", exc)
+
+        # Fall back to OpenRouter
+        if agent is None:
+            try:
+                from aragora.agents.api_agents.openrouter import (
+                    OpenRouterAgent as _OpenRouter,
+                )
+
+                agent = _OpenRouter(
+                    name="tldr-synth",
+                    model="anthropic/claude-sonnet-4.6",
+                )
+            except (ImportError, RuntimeError, ValueError, OSError) as exc:
+                logger.debug("OpenRouter agent unavailable for TL;DR: %s", exc)
+
+        if agent is None:
+            raise RuntimeError("No frontier model available for TL;DR synthesis")
+
+        async def _generate() -> str:
+            return await asyncio.wait_for(agent.generate(prompt), timeout=timeout)
+
+        return asyncio.run(_generate())
+
+    def _synthesize_tldr(
+        self,
+        question: str,
+        proposals: dict[str, str],
+        fallback_text: str | None = None,
+    ) -> str:
+        """Synthesize a one-sentence TL;DR from agent proposals.
+
+        Uses ``_call_frontier_model`` to generate a concise answer.  On any
+        failure (timeout, connection error, missing agent), extracts the first
+        sentence from *fallback_text* instead.
+        """
+        prompt = (
+            "Given these agent proposals responding to the question below, "
+            "write a single-sentence direct answer. Be practical, not philosophical. "
+            "Do not mention the agents or the debate process.\n\n"
+            f"Question: {question}\n\n"
+        )
+        for agent_name, text in proposals.items():
+            prompt += f"{agent_name}: {text[:500]}\n\n"
+        prompt += "One-sentence answer:"
+
+        try:
+            return self._call_frontier_model(prompt, timeout=5.0)
+        except (
+            AgentError,
+            TimeoutError,
+            OSError,
+            RuntimeError,
+            ConnectionError,
+            ValueError,
+        ) as exc:
+            logger.debug("TL;DR synthesis failed, using fallback: %s", exc)
+
+        # Fallback: extract first sentence from fallback_text
+        if not fallback_text:
+            return ""
+        first_dot = fallback_text.find(". ")
+        if first_dot > 0:
+            return fallback_text[: first_dot + 1]
+        return fallback_text[:200]
 
     def _run_debate(
         self,
@@ -1846,6 +3210,7 @@ class PlaygroundHandler(BaseHandler):
         source: str = "oracle",
         cache_key: str | None = None,
         model_ids: list[str] | None = None,
+        client_debate_id: str | None = None,
     ) -> HandlerResult:
         _cache_kw: dict[str, Any] = {}
         if cache_key is not None:
@@ -1855,9 +3220,20 @@ class PlaygroundHandler(BaseHandler):
             if source == "oracle":
                 # Oracle mode: try single-agent Oracle response first
                 oracle_result = _try_oracle_response(
-                    mode=mode, question=question, topic=topic, session_id=session_id
+                    mode=mode,
+                    question=question,
+                    topic=topic,
+                    session_id=session_id,
+                    client_debate_id=client_debate_id,
                 )
                 if oracle_result:
+                    proposals = oracle_result.get("proposals", {})
+                    if proposals:
+                        oracle_result["tldr"] = self._synthesize_tldr(
+                            question or topic,
+                            proposals,
+                            fallback_text=oracle_result.get("final_answer", ""),
+                        )
                     return self._persist_and_respond(
                         json_response(oracle_result),
                         topic,
@@ -1869,7 +3245,7 @@ class PlaygroundHandler(BaseHandler):
                 )
                 # Return an Oracle-themed placeholder instead of a generic mock debate
                 # (the generic mock talks about microservices which is nonsensical for Oracle)
-                debate_id = uuid.uuid4().hex[:16]
+                debate_id = client_debate_id or uuid.uuid4().hex[:16]
                 return self._persist_and_respond(
                     json_response(
                         {
@@ -1906,11 +3282,30 @@ class PlaygroundHandler(BaseHandler):
                     topic=topic,
                     source=source,
                     summary_depth="none",  # no essay context for non-Oracle sources
+                    client_debate_id=client_debate_id,
                 )
                 if tentacle_result:
+                    if (
+                        source == "landing"
+                        and tentacle_result.get("code") == "landing_preview_needs_clarification"
+                    ):
+                        logger.info("Landing preview drifted off-topic — asking for clarification")
+                        return _build_landing_preview_clarification_response(
+                            str(tentacle_result.get("message") or "").strip() or None
+                        )
+                    proposals = tentacle_result.get("proposals", {})
+                    if proposals:
+                        tentacle_result["tldr"] = self._synthesize_tldr(
+                            question or topic,
+                            proposals,
+                            fallback_text=tentacle_result.get("final_answer", ""),
+                        )
                     return self._persist_and_respond(
                         json_response(tentacle_result), topic, source, **_cache_kw
                     )
+                if source == "landing":
+                    logger.info("Landing preview failed — returning explicit preview timeout")
+                    return _build_landing_preview_timeout_response()
                 logger.info("Multi-perspective call failed — trying live debate")
 
         # Run a real live debate, fall back to mock if it fails
@@ -1918,11 +3313,24 @@ class PlaygroundHandler(BaseHandler):
             live_result = self._run_live_debate(question or topic, rounds, agent_count)
             # Check if live debate returned an error response (status >= 400)
             if live_result.status_code < 400:
+                # Inject TL;DR into live debate result
+                try:
+                    live_data = json.loads(live_result.body.decode("utf-8"))
+                    proposals = live_data.get("proposals", {})
+                    if isinstance(proposals, dict) and proposals:
+                        live_data["tldr"] = self._synthesize_tldr(
+                            question or topic,
+                            proposals,
+                            fallback_text=live_data.get("final_answer", ""),
+                        )
+                        live_result = json_response(live_data, status=live_result.status_code)
+                except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+                    logger.debug("Could not inject TL;DR into live debate result")
                 return self._persist_and_respond(live_result, topic, source, **_cache_kw)
             logger.info(
                 "Live debate returned status %d, falling back to mock", live_result.status_code
             )
-        except (TimeoutError, ValueError, RuntimeError, OSError) as exc:
+        except Exception as exc:  # noqa: BLE001 — landing page must never error
             logger.warning("Live debate failed, falling back to mock: %s", exc)
 
         if source == "demo":
@@ -1936,6 +3344,13 @@ class PlaygroundHandler(BaseHandler):
             _run_inline_mock_debate(topic, rounds, agent_count, question=question),
             reason="Live agents were unavailable, so the public beta returned a deterministic fallback.",
         )
+        proposals = mock_data.get("proposals", {})
+        if proposals:
+            mock_data["tldr"] = self._synthesize_tldr(
+                question or topic,
+                proposals,
+                fallback_text=mock_data.get("final_answer", ""),
+            )
         return self._persist_and_respond(json_response(mock_data), topic, source, **_cache_kw)
 
     @staticmethod
@@ -2214,7 +3629,17 @@ class PlaygroundHandler(BaseHandler):
 
         # Keep the readiness gate aligned with the actual live debate resolver.
         # Otherwise provider-specific keys can incorrectly fall back to mock mode.
-        if len(_get_available_live_agents(agent_count)) < 2:
+        try:
+            live_agents = _get_available_live_agents(agent_count)
+        except ValueError as exc:
+            logger.info(
+                "Live playground agents unavailable during readiness check, "
+                "falling back to mock debate: %s",
+                exc,
+            )
+            live_agents = []
+
+        if len(live_agents) < 2:
             # Fall back to mock debate with a note
             result = self._run_debate(
                 topic,
@@ -2250,6 +3675,13 @@ class PlaygroundHandler(BaseHandler):
             )
             if tentacle_result:
                 tentacle_result["upgrade_cta"] = _build_upgrade_cta()
+                proposals = tentacle_result.get("proposals", {})
+                if proposals:
+                    tentacle_result["tldr"] = self._synthesize_tldr(
+                        question or topic,
+                        proposals,
+                        fallback_text=tentacle_result.get("final_answer", ""),
+                    )
                 return self._persist_and_respond(
                     json_response(tentacle_result),
                     topic,
@@ -2308,6 +3740,7 @@ class PlaygroundHandler(BaseHandler):
                 agent_count=agent_count,
                 max_rounds=rounds,
                 timeout=_LIVE_TIMEOUT,
+                debate_id=debate_id,
             )
         except TimeoutError:
             return json_response(
@@ -2400,7 +3833,7 @@ class PlaygroundHandler(BaseHandler):
 # Live debate execution
 # ---------------------------------------------------------------------------
 
-_LIVE_TIMEOUT = 15  # seconds — playground must respond quickly
+_LIVE_TIMEOUT = 90  # seconds — playground must respond quickly
 _LIVE_BUDGET_CAP = 0.05  # USD
 _LIVE_MAX_CONCURRENT = 2
 _LIVE_DEFAULT_AGENTS = ["anthropic-api", "openai-api"]
@@ -2427,6 +3860,10 @@ def _get_available_live_agents(count: int) -> list[str]:
         candidates.append("openai-api")
     if _get_api_key("MISTRAL_API_KEY"):
         candidates.append("mistral")
+    if _get_api_key("XAI_API_KEY"):
+        candidates.append("xai")
+    if _get_api_key("GEMINI_API_KEY"):
+        candidates.append("google")
 
     # If we have enough primary agents, use them
     if len(candidates) >= count:
@@ -2475,6 +3912,7 @@ def start_playground_debate(
     agent_count: int = 3,
     max_rounds: int = 2,
     timeout: int = 60,
+    debate_id: str | None = None,
 ) -> dict[str, Any]:
     """Run a simplified live debate for the playground.
 
@@ -2486,6 +3924,8 @@ def start_playground_debate(
         agent_count: Number of agents (2-5)
         max_rounds: Maximum rounds (1-2)
         timeout: Timeout in seconds
+        debate_id: Optional debate ID to bind spectate context before the HTTP
+            response returns.
 
     Returns:
         Dict with debate result fields
@@ -2518,8 +3958,14 @@ def start_playground_debate(
 
             arena = factory.create_arena(config)
 
+            try:
+                from aragora.spectate.ws_bridge import bind_spectate_context
+            except ImportError:
+                from contextlib import nullcontext as bind_spectate_context  # type: ignore[assignment]
+
             async def _run_arena():
-                return await asyncio.wait_for(arena.run(), timeout=timeout)
+                with bind_spectate_context(debate_id=debate_id):
+                    return await asyncio.wait_for(arena.run(), timeout=timeout)
 
             result = asyncio.run(_run_arena())
 

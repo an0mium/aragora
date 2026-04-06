@@ -21,7 +21,7 @@ interface ApprovalPanelProps {
 }
 
 const RISK_COLORS: Record<string, { bg: string; text: string }> = {
-  low: { bg: 'bg-acid-green/10', text: 'text-acid-green' },
+  low: { bg: 'bg-[var(--accent)]/10', text: 'text-[var(--accent)]' },
   medium: { bg: 'bg-yellow-500/10', text: 'text-yellow-500' },
   high: { bg: 'bg-orange-500/10', text: 'text-orange-400' },
   critical: { bg: 'bg-red-500/10', text: 'text-red-400' },
@@ -133,7 +133,7 @@ export function ApprovalPanel({ apiBase }: ApprovalPanelProps) {
             <div
               key={request.id}
               className={`border rounded-lg transition-colors ${
-                isSelected ? 'border-acid-green/50 bg-white/10' : 'border-white/10 bg-white/5'
+                isSelected ? 'border-[var(--accent)]/50 bg-white/10' : 'border-white/10 bg-white/5'
               }`}
             >
               <button
@@ -166,9 +166,9 @@ export function ApprovalPanel({ apiBase }: ApprovalPanelProps) {
                     <div className="text-xs font-medium text-white/70 mb-2">Changes</div>
                     <div className="space-y-1 max-h-40 overflow-y-auto">
                       {request.changes.map((change, i) => (
-                        <div key={i} className="text-xs text-white/50 font-mono">
+                        <div key={i} className="text-xs text-white/50 font-theme-data">
                           <span className={
-                            change.action === 'create' ? 'text-acid-green' :
+                            change.action === 'create' ? 'text-[var(--accent)]' :
                             change.action === 'delete' ? 'text-red-400' : 'text-yellow-500'
                           }>
                             {change.action === 'create' ? '+' : change.action === 'delete' ? '-' : '~'}
@@ -185,7 +185,7 @@ export function ApprovalPanel({ apiBase }: ApprovalPanelProps) {
                       onClick={() => handleApprove(request.id)}
                       disabled={actionLoading === request.id}
                       aria-label={`Approve request: ${request.title}`}
-                      className="flex-1 px-4 py-2 bg-acid-green/20 hover:bg-acid-green/30 text-acid-green rounded transition-colors disabled:opacity-50"
+                      className="flex-1 px-4 py-2 bg-[var(--accent)]/20 hover:bg-[var(--accent)]/30 text-[var(--accent)] rounded transition-colors disabled:opacity-50"
                     >
                       {actionLoading === request.id ? '...' : 'Approve'}
                     </button>

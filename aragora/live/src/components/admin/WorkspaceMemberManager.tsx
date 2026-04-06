@@ -48,18 +48,18 @@ function RoleSelector({
       <button
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className={`px-3 py-1.5 font-mono text-xs rounded border transition-colors ${
+        className={`px-3 py-1.5 font-theme-data text-xs rounded border transition-colors ${
           disabled
-            ? 'bg-surface-elevated/50 text-text-muted border-acid-green/10 cursor-not-allowed'
-            : 'bg-surface-elevated text-text border-acid-green/30 hover:border-acid-green/60'
+            ? 'bg-surface-elevated/50 text-text-muted border-[var(--accent)]/10 cursor-not-allowed'
+            : 'bg-surface-elevated text-text border-[var(--accent)]/30 hover:border-[var(--accent)]/60'
         }`}
       >
-        {currentRole.toUpperCase()} {!disabled && <span className="ml-1 text-acid-cyan">v</span>}
+        {currentRole.toUpperCase()} {!disabled && <span className="ml-1 text-[var(--acid-cyan)]">v</span>}
       </button>
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 z-50 bg-surface border border-acid-green/40 rounded shadow-lg py-1 min-w-[180px]">
+          <div className="absolute left-0 top-full mt-1 z-50 bg-surface border border-[var(--accent)]/40 rounded shadow-lg py-1 min-w-[180px]">
             {roles.map((role) => (
               <button
                 key={role.id}
@@ -67,14 +67,14 @@ function RoleSelector({
                   onChange(role.id);
                   setIsOpen(false);
                 }}
-                className={`w-full text-left px-3 py-2 font-mono text-xs transition-colors hover:bg-surface-elevated ${
-                  currentRole === role.id ? 'text-acid-green' : 'text-text'
+                className={`w-full text-left px-3 py-2 font-theme-data text-xs transition-colors hover:bg-surface-elevated ${
+                  currentRole === role.id ? 'text-[var(--accent)]' : 'text-text'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span>{role.name.toUpperCase()}</span>
                   {role.isDefault && (
-                    <span className="text-acid-cyan text-[10px]">DEFAULT</span>
+                    <span className="text-[var(--acid-cyan)] text-[10px]">DEFAULT</span>
                   )}
                 </div>
                 <div className="text-text-muted text-[10px] mt-0.5">{role.description}</div>
@@ -121,25 +121,25 @@ function InviteModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-background/80" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md card p-6">
-        <h3 className="font-mono text-lg text-acid-green mb-4">INVITE MEMBER</h3>
+        <h3 className="font-theme-data text-lg text-[var(--accent)] mb-4">INVITE MEMBER</h3>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block font-mono text-xs text-text-muted mb-2">EMAIL ADDRESS</label>
+            <label className="block font-theme-data text-xs text-text-muted mb-2">EMAIL ADDRESS</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="colleague@example.com"
-              className="w-full px-3 py-2 bg-surface-elevated border border-acid-green/30 rounded font-mono text-sm text-text placeholder-text-muted focus:border-acid-green focus:outline-none"
+              className="w-full px-3 py-2 bg-surface-elevated border border-[var(--accent)]/30 rounded font-theme-data text-sm text-text placeholder-text-muted focus:border-[var(--accent)] focus:outline-none"
               autoFocus
             />
           </div>
           <div className="mb-6">
-            <label className="block font-mono text-xs text-text-muted mb-2">ROLE</label>
+            <label className="block font-theme-data text-xs text-text-muted mb-2">ROLE</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3 py-2 bg-surface-elevated border border-acid-green/30 rounded font-mono text-sm text-text focus:border-acid-green focus:outline-none"
+              className="w-full px-3 py-2 bg-surface-elevated border border-[var(--accent)]/30 rounded font-theme-data text-sm text-text focus:border-[var(--accent)] focus:outline-none"
             >
               {roles.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -149,7 +149,7 @@ function InviteModal({
             </select>
           </div>
           {error && (
-            <div className="mb-4 px-3 py-2 bg-acid-red/10 border border-acid-red/40 rounded font-mono text-xs text-acid-red">
+            <div className="mb-4 px-3 py-2 bg-acid-red/10 border border-acid-red/40 rounded font-theme-data text-xs text-acid-red">
               {error}
             </div>
           )}
@@ -157,14 +157,14 @@ function InviteModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+              className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
             >
               CANCEL
             </button>
             <button
               type="submit"
               disabled={sending || !email.trim()}
-              className="px-4 py-2 font-mono text-sm bg-acid-green/20 text-acid-green border border-acid-green/40 rounded hover:bg-acid-green/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 font-theme-data text-sm bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40 rounded hover:bg-[var(--accent)]/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {sending ? 'SENDING...' : 'SEND INVITE'}
             </button>
@@ -245,12 +245,12 @@ export function WorkspaceMemberManager({
       sortable: true,
       render: (_, row) => (
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-acid-green/20 flex items-center justify-center font-mono text-acid-green text-sm">
+          <div className="w-8 h-8 rounded-full bg-[var(--accent)]/20 flex items-center justify-center font-theme-data text-[var(--accent)] text-sm">
             {row.name?.charAt(0).toUpperCase() || row.email?.charAt(0).toUpperCase() || '?'}
           </div>
           <div>
-            <div className="font-mono text-sm text-text">{row.name || 'Unknown'}</div>
-            <div className="font-mono text-xs text-acid-cyan">{row.email}</div>
+            <div className="font-theme-data text-sm text-text">{row.name || 'Unknown'}</div>
+            <div className="font-theme-data text-xs text-[var(--acid-cyan)]">{row.email}</div>
           </div>
         </div>
       ),
@@ -277,12 +277,12 @@ export function WorkspaceMemberManager({
       render: (value) => {
         const status = value as 'active' | 'inactive' | 'pending';
         const colors: Record<string, string> = {
-          active: 'bg-acid-green/20 text-acid-green border-acid-green/40',
+          active: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/40',
           inactive: 'bg-acid-red/20 text-acid-red border-acid-red/40',
-          pending: 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/40',
+          pending: 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/40',
         };
         return (
-          <span className={`px-2 py-0.5 text-xs font-mono rounded border ${colors[status]}`}>
+          <span className={`px-2 py-0.5 text-xs font-theme-data rounded border ${colors[status]}`}>
             {status.toUpperCase()}
           </span>
         );
@@ -294,7 +294,7 @@ export function WorkspaceMemberManager({
       sortable: true,
       width: '120px',
       render: (value) => (
-        <span className="font-mono text-xs text-text-muted">
+        <span className="font-theme-data text-xs text-text-muted">
           {value ? new Date(value as string).toLocaleDateString() : '-'}
         </span>
       ),
@@ -306,26 +306,26 @@ export function WorkspaceMemberManager({
       {/* Header Actions */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
-          <h2 className="font-mono text-lg text-acid-green">WORKSPACE MEMBERS</h2>
-          <span className="font-mono text-sm text-text-muted">
+          <h2 className="font-theme-data text-lg text-[var(--accent)]">WORKSPACE MEMBERS</h2>
+          <span className="font-theme-data text-sm text-text-muted">
             {members.length} member{members.length !== 1 ? 's' : ''}
           </span>
         </div>
         <div className="flex items-center gap-2">
           {selectedIds.length > 0 && onBulkAction && (
             <div className="flex items-center gap-2 mr-4">
-              <span className="font-mono text-xs text-text-muted">
+              <span className="font-theme-data text-xs text-text-muted">
                 {selectedIds.length} selected
               </span>
               <button
                 onClick={() => handleBulkAction('deactivate')}
-                className="px-3 py-1.5 font-mono text-xs text-acid-yellow border border-acid-yellow/40 rounded hover:bg-acid-yellow/10 transition-colors"
+                className="px-3 py-1.5 font-theme-data text-xs text-[var(--acid-yellow)] border border-acid-yellow/40 rounded hover:bg-acid-yellow/10 transition-colors"
               >
                 DEACTIVATE
               </button>
               <button
                 onClick={() => handleBulkAction('remove')}
-                className="px-3 py-1.5 font-mono text-xs text-acid-red border border-acid-red/40 rounded hover:bg-acid-red/10 transition-colors"
+                className="px-3 py-1.5 font-theme-data text-xs text-acid-red border border-acid-red/40 rounded hover:bg-acid-red/10 transition-colors"
               >
                 REMOVE
               </button>
@@ -334,7 +334,7 @@ export function WorkspaceMemberManager({
           {onInvite && (
             <button
               onClick={() => setShowInvite(true)}
-              className="px-4 py-2 font-mono text-sm bg-acid-green/20 text-acid-green border border-acid-green/40 rounded hover:bg-acid-green/30 transition-colors"
+              className="px-4 py-2 font-theme-data text-sm bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/40 rounded hover:bg-[var(--accent)]/30 transition-colors"
             >
               + INVITE
             </button>

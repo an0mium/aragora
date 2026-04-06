@@ -47,7 +47,7 @@ export function TeamInviteStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-mono text-acid-green mb-2">
+        <h3 className="text-lg font-theme-data text-[var(--accent)] mb-2">
           Invite Your Team
         </h3>
         <p className="text-sm text-text-muted">
@@ -57,7 +57,7 @@ export function TeamInviteStep() {
 
       {/* Email Input */}
       <div>
-        <label className="block text-sm font-mono text-text mb-2">
+        <label className="block text-sm font-theme-data text-text mb-2">
           Team Member Email
         </label>
         <div className="flex gap-2">
@@ -70,11 +70,11 @@ export function TeamInviteStep() {
             }}
             onKeyPress={handleKeyPress}
             placeholder="colleague@company.com"
-            className="flex-1 px-4 py-2 bg-bg border border-acid-green/30 rounded text-text font-mono focus:border-acid-green focus:outline-none"
+            className="flex-1 px-4 py-2 bg-bg border border-[var(--accent)]/30 rounded text-text font-theme-data focus:border-[var(--accent)] focus:outline-none"
           />
           <button
             onClick={handleAddMember}
-            className="px-4 py-2 bg-acid-green text-bg font-mono text-sm hover:bg-acid-green/90 transition-colors"
+            className="px-4 py-2 bg-[var(--accent)] text-bg font-theme-data text-sm hover:bg-[var(--accent)]/90 transition-colors"
           >
             ADD
           </button>
@@ -87,17 +87,17 @@ export function TeamInviteStep() {
       {/* Team Members List */}
       {teamMembers.length > 0 && (
         <div>
-          <label className="block text-sm font-mono text-text mb-2">
+          <label className="block text-sm font-theme-data text-text mb-2">
             Invited Members ({teamMembers.length})
           </label>
           <div className="space-y-2">
             {teamMembers.map((member) => (
               <div
                 key={member.email}
-                className="flex items-center justify-between px-4 py-2 border border-acid-green/20 rounded"
+                className="flex items-center justify-between px-4 py-2 border border-[var(--accent)]/20 rounded"
               >
                 <div>
-                  <span className="text-sm text-text font-mono">
+                  <span className="text-sm text-text font-theme-data">
                     {member.email}
                   </span>
                   <span className="text-xs text-text-muted ml-2">
@@ -106,7 +106,7 @@ export function TeamInviteStep() {
                 </div>
                 <button
                   onClick={() => removeTeamMember(member.email)}
-                  className="text-xs font-mono text-text-muted hover:text-accent-red transition-colors"
+                  className="text-xs font-theme-data text-text-muted hover:text-accent-red transition-colors"
                 >
                   [REMOVE]
                 </button>

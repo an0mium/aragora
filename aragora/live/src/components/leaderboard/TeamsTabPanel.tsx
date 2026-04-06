@@ -64,7 +64,7 @@ function TeamsTabPanelComponent({ teams, loading }: TeamsTabPanelProps) {
 
           {/* Success Rate */}
           <div
-            className={`text-sm font-mono font-bold ${
+            className={`text-sm font-theme-data font-bold ${
               (Number(team.success_rate) || 0) >= 0.7
                 ? 'text-green-400'
                 : (Number(team.success_rate) || 0) >= 0.5

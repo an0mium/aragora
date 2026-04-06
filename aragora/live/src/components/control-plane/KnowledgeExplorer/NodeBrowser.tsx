@@ -32,7 +32,7 @@ const nodeTypeColors: Record<NodeType, string> = {
   claim: 'text-blue-400',
   memory: 'text-purple-400',
   evidence: 'text-yellow-400',
-  consensus: 'text-acid-cyan',
+  consensus: 'text-[var(--acid-cyan)]',
   entity: 'text-orange-400',
 };
 
@@ -100,7 +100,7 @@ export function NodeBrowser({
             p-3 rounded-lg border cursor-pointer transition-all
             ${
               selectedNodeId === node.id
-                ? 'border-acid-green bg-acid-green/10'
+                ? 'border-[var(--accent)] bg-[var(--accent)]/10'
                 : 'border-border hover:border-text-muted hover:bg-surface/50'
             }
           `}
@@ -114,7 +114,7 @@ export function NodeBrowser({
               </span>
 
               {/* Node type label */}
-              <span className={`text-xs font-mono uppercase ${nodeTypeColors[node.node_type]}`}>
+              <span className={`text-xs font-theme-data uppercase ${nodeTypeColors[node.node_type]}`}>
                 {node.node_type}
               </span>
 
@@ -130,7 +130,7 @@ export function NodeBrowser({
               {onViewInGraph && (
                 <button
                   onClick={(e) => handleViewInGraph(e, node)}
-                  className="text-xs text-text-muted hover:text-acid-green transition-colors p-1"
+                  className="text-xs text-text-muted hover:text-[var(--accent)] transition-colors p-1"
                   title="View in graph"
                 >
                   🔗
@@ -149,7 +149,7 @@ export function NodeBrowser({
               <div className="flex items-center gap-1">
                 <span className="text-text-muted">Confidence:</span>
                 <span
-                  className={`font-mono ${
+                  className={`font-theme-data ${
                     node.confidence >= 0.8
                       ? 'text-green-400'
                       : node.confidence >= 0.5

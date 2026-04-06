@@ -142,20 +142,20 @@ export default function SpectateClient() {
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Round</span>
-            <span className="text-sm font-mono text-[var(--acid-green)]">{currentRound}</span>
+            <span className="text-sm font-theme-data text-[var(--acid-green)]">{currentRound}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Events</span>
-            <span className="text-sm font-mono text-[var(--acid-cyan)]">{events.length}</span>
+            <span className="text-sm font-theme-data text-[var(--acid-cyan)]">{events.length}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Agents</span>
-            <span className="text-sm font-mono text-[var(--acid-cyan)]">{agents.length}</span>
+            <span className="text-sm font-theme-data text-[var(--acid-cyan)]">{agents.length}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-[var(--text-muted)]">Status</span>
             <span
-              className={`text-sm font-mono ${
+              className={`text-sm font-theme-data ${
                 connectionStatus === 'connected'
                   ? 'text-green-400'
                   : connectionStatus === 'error'
@@ -172,13 +172,13 @@ export default function SpectateClient() {
         <div className="space-y-2">
           <Link
             href="/spectate"
-            className="block w-full px-3 py-2 text-xs font-mono text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+            className="block w-full px-3 py-2 text-xs font-theme-data text-center bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
           >
             ← BACK TO LIST
           </Link>
           <button
             onClick={() => setAutoScroll(!autoScroll)}
-            className={`block w-full px-3 py-2 text-xs font-mono text-center border transition-colors ${
+            className={`block w-full px-3 py-2 text-xs font-theme-data text-center border transition-colors ${
               autoScroll
                 ? 'bg-[var(--acid-green)]/10 text-[var(--acid-green)] border-[var(--acid-green)]/30'
                 : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)]'
@@ -188,7 +188,7 @@ export default function SpectateClient() {
           </button>
           <button
             onClick={() => setShowTimestamps(!showTimestamps)}
-            className={`block w-full px-3 py-2 text-xs font-mono text-center border transition-colors ${
+            className={`block w-full px-3 py-2 text-xs font-theme-data text-center border transition-colors ${
               showTimestamps
                 ? 'bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30'
                 : 'bg-[var(--surface)] text-[var(--text-muted)] border-[var(--border)]'
@@ -237,20 +237,20 @@ export default function SpectateClient() {
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-3">
-                <Link href="/spectate" className="text-text-muted hover:text-acid-green transition-colors">
+                <Link href="/spectate" className="text-text-muted hover:text-[var(--accent)] transition-colors">
                   ← Back
                 </Link>
                 <div className="flex items-center gap-2">
                   {connectionStatus === 'connected' && (
                     <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
                   )}
-                  <h1 className="text-xl font-mono text-acid-green">SPECTATING</h1>
+                  <h1 className="text-xl font-theme-data text-[var(--accent)]">SPECTATING</h1>
                 </div>
               </div>
 
               {/* Connection Status Badge */}
               <div
-                className={`px-3 py-1 text-xs font-mono border ${
+                className={`px-3 py-1 text-xs font-theme-data border ${
                   connectionStatus === 'connected'
                     ? 'bg-green-500/10 text-green-400 border-green-500/30'
                     : connectionStatus === 'connecting'
@@ -263,13 +263,13 @@ export default function SpectateClient() {
             </div>
 
             {/* Task */}
-            {task && <p className="text-text-muted text-sm font-mono">{task}</p>}
+            {task && <p className="text-text-muted text-sm font-theme-data">{task}</p>}
           </div>
 
           {/* Error Banner */}
           {error && (
             <div className="mb-4 border border-warning/30 bg-warning/10 p-3">
-              <p className="text-warning text-sm font-mono">{error}</p>
+              <p className="text-warning text-sm font-theme-data">{error}</p>
             </div>
           )}
 
@@ -279,20 +279,20 @@ export default function SpectateClient() {
               {agents.map((agent) => (
                 <span
                   key={agent}
-                  className="px-3 py-1 text-xs font-mono bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/30"
+                  className="px-3 py-1 text-xs font-theme-data bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30"
                 >
                   {agent}
                 </span>
               ))}
-              <span className="px-3 py-1 text-xs font-mono bg-surface text-text-muted border border-border">
+              <span className="px-3 py-1 text-xs font-theme-data bg-surface text-text-muted border border-border">
                 Round {currentRound}
               </span>
             </div>
           )}
 
           {/* View Mode Tabs */}
-          <div className="border border-acid-green/30 bg-surface/50">
-            <div className="flex items-center border-b border-acid-green/20 bg-surface/80">
+          <div className="border border-[var(--accent)]/30 bg-surface/50">
+            <div className="flex items-center border-b border-[var(--accent)]/20 bg-surface/80">
               {/* Tab buttons */}
               <div className="flex">
                 {([
@@ -303,9 +303,9 @@ export default function SpectateClient() {
                   <button
                     key={tab.key}
                     onClick={() => setViewMode(tab.key)}
-                    className={`px-4 py-2 text-xs font-mono transition-colors border-b-2 ${
+                    className={`px-4 py-2 text-xs font-theme-data transition-colors border-b-2 ${
                       viewMode === tab.key
-                        ? 'text-acid-green border-acid-green bg-acid-green/5'
+                        ? 'text-[var(--accent)] border-[var(--accent)] bg-[var(--accent)]/5'
                         : 'text-text-muted border-transparent hover:text-text hover:bg-surface/50'
                     }`}
                   >
@@ -317,10 +317,10 @@ export default function SpectateClient() {
               {/* Feed meta (only visible in feed mode) */}
               {viewMode === 'feed' && (
                 <div className="ml-auto px-4 flex items-center gap-3">
-                  <span className="text-xs font-mono text-acid-green">
+                  <span className="text-xs font-theme-data text-[var(--accent)]">
                     {filteredEvents.length} events
                   </span>
-                  <span className="text-xs font-mono text-text-muted">
+                  <span className="text-xs font-theme-data text-text-muted">
                     {autoScroll ? 'Auto-scrolling' : 'Scroll paused'}
                   </span>
                 </div>
@@ -331,7 +331,7 @@ export default function SpectateClient() {
             {viewMode === 'feed' && (
               <div
                 ref={eventListRef}
-                className="h-[500px] overflow-y-auto p-4 space-y-2 font-mono text-sm"
+                className="h-[500px] overflow-y-auto p-4 space-y-2 font-theme-data text-sm"
                 onScroll={(e) => {
                   const target = e.target as HTMLDivElement;
                   const atBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 50;
@@ -343,7 +343,7 @@ export default function SpectateClient() {
                 {filteredEvents.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center text-text-muted">
-                      <div className="w-8 h-8 border-2 border-acid-green/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
+                      <div className="w-8 h-8 border-2 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
                       <p>Waiting for events...</p>
                     </div>
                   </div>
@@ -376,11 +376,11 @@ export default function SpectateClient() {
           </div>
 
           {/* Legend */}
-          <div className="mt-4 border border-acid-green/20 bg-surface/30 p-4">
-            <h3 className="text-xs font-mono text-acid-cyan mb-3">EVENT TYPES</h3>
+          <div className="mt-4 border border-[var(--accent)]/20 bg-surface/30 p-4">
+            <h3 className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3">EVENT TYPES</h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
               {Object.entries(EVENT_STYLES).map(([type, style]) => (
-                <div key={type} className="flex items-center gap-2 text-xs font-mono">
+                <div key={type} className="flex items-center gap-2 text-xs font-theme-data">
                   <span>{style.icon}</span>
                   <span className={style.color}>{style.label}</span>
                 </div>
@@ -406,20 +406,20 @@ function EventLine({
   const style = EVENT_STYLES[event.type] || { icon: '•', color: 'text-gray-400', label: 'UNKNOWN' };
 
   return (
-    <div className="flex items-start gap-2 py-1 hover:bg-acid-green/5 px-2 -mx-2 rounded">
+    <div className="flex items-start gap-2 py-1 hover:bg-[var(--accent)]/5 px-2 -mx-2 rounded">
       {/* Timestamp */}
       {showTimestamp && (
         <span className="text-text-muted/50 text-xs shrink-0 w-20">[{formatTimestamp(event.timestamp)}]</span>
       )}
 
       {/* Round */}
-      {event.round !== null && <span className="text-acid-cyan/70 text-xs shrink-0">R{event.round}</span>}
+      {event.round !== null && <span className="text-[var(--acid-cyan)]/70 text-xs shrink-0">R{event.round}</span>}
 
       {/* Icon */}
       <span className="shrink-0">{style.icon}</span>
 
       {/* Agent */}
-      {event.agent && <span className="text-acid-green font-bold shrink-0">{event.agent}</span>}
+      {event.agent && <span className="text-[var(--accent)] font-bold shrink-0">{event.agent}</span>}
 
       {/* Details */}
       {event.details && <span className="text-text truncate">{event.details}</span>}

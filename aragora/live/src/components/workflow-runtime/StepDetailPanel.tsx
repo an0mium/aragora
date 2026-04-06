@@ -76,15 +76,15 @@ export function StepDetailPanel({
         <div className="flex items-center gap-3">
           <span className="text-2xl">{icon}</span>
           <div>
-            <h3 className="text-lg font-mono font-bold text-text">{step.name}</h3>
-            <span className="text-xs font-mono text-text-muted uppercase">
+            <h3 className="text-lg font-theme-data font-bold text-text">{step.name}</h3>
+            <span className="text-xs font-theme-data text-text-muted uppercase">
               {step.type.replace('_', ' ')}
             </span>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="w-8 h-8 flex items-center justify-center text-text-muted hover:text-acid-green transition-colors"
+          className="w-8 h-8 flex items-center justify-center text-text-muted hover:text-[var(--accent)] transition-colors"
         >
           <span className="text-xl">×</span>
         </button>
@@ -94,8 +94,8 @@ export function StepDetailPanel({
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Status */}
         <div className={`p-4 rounded-lg ${statusColors.bg}`}>
-          <div className="text-xs font-mono text-text-muted mb-1">STATUS</div>
-          <div className={`text-lg font-mono font-bold ${statusColors.text} capitalize`}>
+          <div className="text-xs font-theme-data text-text-muted mb-1">STATUS</div>
+          <div className={`text-lg font-theme-data font-bold ${statusColors.text} capitalize`}>
             {step.status.replace('_', ' ')}
           </div>
         </div>
@@ -104,24 +104,24 @@ export function StepDetailPanel({
         {step.startedAt && (
           <div className="space-y-3">
             <div className="p-3 bg-bg rounded border border-border">
-              <div className="text-xs font-mono text-text-muted mb-1">STARTED AT</div>
-              <div className="text-sm font-mono text-text">
+              <div className="text-xs font-theme-data text-text-muted mb-1">STARTED AT</div>
+              <div className="text-sm font-theme-data text-text">
                 {formatDateTime(step.startedAt)}
               </div>
             </div>
 
             {step.completedAt && (
               <div className="p-3 bg-bg rounded border border-border">
-                <div className="text-xs font-mono text-text-muted mb-1">COMPLETED AT</div>
-                <div className="text-sm font-mono text-text">
+                <div className="text-xs font-theme-data text-text-muted mb-1">COMPLETED AT</div>
+                <div className="text-sm font-theme-data text-text">
                   {formatDateTime(step.completedAt)}
                 </div>
               </div>
             )}
 
             <div className="p-3 bg-bg rounded border border-border">
-              <div className="text-xs font-mono text-text-muted mb-1">DURATION</div>
-              <div className="text-sm font-mono text-acid-green">
+              <div className="text-xs font-theme-data text-text-muted mb-1">DURATION</div>
+              <div className="text-sm font-theme-data text-[var(--accent)]">
                 {formatDuration(step.startedAt, step.completedAt)}
                 {!step.completedAt && step.status === 'running' && (
                   <span className="text-blue-400 animate-pulse"> (running)</span>
@@ -134,8 +134,8 @@ export function StepDetailPanel({
         {/* Error */}
         {step.error && (
           <div className="p-4 bg-red-900/20 border border-red-500/30 rounded-lg">
-            <div className="text-xs font-mono text-red-400 mb-2">ERROR</div>
-            <pre className="text-sm font-mono text-red-300 whitespace-pre-wrap break-words">
+            <div className="text-xs font-theme-data text-red-400 mb-2">ERROR</div>
+            <pre className="text-sm font-theme-data text-red-300 whitespace-pre-wrap break-words">
               {step.error}
             </pre>
           </div>
@@ -144,18 +144,18 @@ export function StepDetailPanel({
         {/* Approval Message */}
         {step.status === 'waiting_approval' && step.approvalMessage && (
           <div className="p-4 bg-purple-900/20 border border-purple-500/30 rounded-lg">
-            <div className="text-xs font-mono text-purple-400 mb-2">APPROVAL REQUIRED</div>
+            <div className="text-xs font-theme-data text-purple-400 mb-2">APPROVAL REQUIRED</div>
             <p className="text-sm text-purple-200 mb-4">{step.approvalMessage}</p>
             <div className="flex gap-2">
               <button
                 onClick={() => onApprove?.(step.id)}
-                className="flex-1 py-2 bg-green-600 text-white font-mono text-sm rounded hover:bg-green-500 transition-colors"
+                className="flex-1 py-2 bg-green-600 text-white font-theme-data text-sm rounded hover:bg-green-500 transition-colors"
               >
                 Approve
               </button>
               <button
                 onClick={() => onReject?.(step.id)}
-                className="flex-1 py-2 bg-red-600 text-white font-mono text-sm rounded hover:bg-red-500 transition-colors"
+                className="flex-1 py-2 bg-red-600 text-white font-theme-data text-sm rounded hover:bg-red-500 transition-colors"
               >
                 Reject
               </button>
@@ -166,8 +166,8 @@ export function StepDetailPanel({
         {/* Output */}
         {step.output && Object.keys(step.output).length > 0 && (
           <div>
-            <div className="text-xs font-mono text-text-muted mb-2">OUTPUT</div>
-            <pre className="p-3 bg-bg border border-border rounded text-xs font-mono text-text overflow-x-auto max-h-64">
+            <div className="text-xs font-theme-data text-text-muted mb-2">OUTPUT</div>
+            <pre className="p-3 bg-bg border border-border rounded text-xs font-theme-data text-text overflow-x-auto max-h-64">
               {JSON.stringify(step.output, null, 2)}
             </pre>
           </div>
@@ -178,7 +178,7 @@ export function StepDetailPanel({
       <div className="p-4 border-t border-border">
         <button
           onClick={onClose}
-          className="w-full py-2 border border-border text-text-muted font-mono text-sm rounded hover:border-text-muted transition-colors"
+          className="w-full py-2 border border-border text-text-muted font-theme-data text-sm rounded hover:border-text-muted transition-colors"
         >
           Close
         </button>

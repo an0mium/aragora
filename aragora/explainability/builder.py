@@ -54,6 +54,7 @@ class ExplanationBuilder:
         elo_system: Any | None = None,
         provenance_tracker: Any | None = None,
         event_emitter: Any | None = None,
+        event_bus: Any | None = None,
     ):
         """
         Initialize the builder with optional tracking systems.
@@ -65,13 +66,14 @@ class ExplanationBuilder:
             elo_system: EloSystem for agent skill ratings
             provenance_tracker: ProvenanceTracker for claim lineage
             event_emitter: Optional event emitter for streaming explainability events
+            event_bus: Optional EventBus-compatible sink for live explainability events
         """
         self.evidence_tracker = evidence_tracker
         self.belief_network = belief_network
         self.calibration_tracker = calibration_tracker
         self.elo_system = elo_system
         self.provenance_tracker = provenance_tracker
-        self.event_emitter = event_emitter
+        self.event_emitter = event_emitter or event_bus
 
     async def build(
         self,
@@ -180,6 +182,34 @@ class ExplanationBuilder:
 
         return decision
 
+    def snapshot_to_metadata(self, snapshot: Any) -> dict[str, Any]:
+        """Convert a :class:`~aragora.explainability.live_stream.ExplanationSnapshot`
+        into a metadata dict suitable for embedding in a :class:`DecisionReceipt`.
+
+        This bridges the live explainability stream with the receipt pipeline so
+        that the EventBus-driven factor tracking survives into the audit receipt.
+
+        Args:
+            snapshot: An ``ExplanationSnapshot`` (or duck-typed equivalent with
+                the same public attributes).
+
+        Returns:
+            A dict keyed the same way ``handle_debate_completion`` writes into
+            ``result.metadata["live_explainability"]``.
+        """
+        return {
+            "factors": getattr(snapshot, "top_factors", []),
+            "narrative": getattr(snapshot, "narrative", ""),
+            "leading_position": getattr(snapshot, "leading_position", None),
+            "agent_agreement": getattr(snapshot, "agent_agreement", 0.0),
+            "evidence_quality": getattr(snapshot, "evidence_quality", 0.0),
+            "position_confidence": getattr(snapshot, "position_confidence", 0.0),
+            "round_num": getattr(snapshot, "round_num", 0),
+            "evidence_count": getattr(snapshot, "evidence_count", 0),
+            "vote_count": getattr(snapshot, "vote_count", 0),
+            "belief_shifts": getattr(snapshot, "belief_shifts", 0),
+        }
+
     def _emit_event(self, event_name: str, data: dict[str, Any]) -> None:
         """Emit a stream event if event_emitter is configured."""
         if not self.event_emitter:
@@ -189,7 +219,22 @@ class ExplanationBuilder:
 
             event_type = getattr(StreamEventType, event_name, None)
             if event_type is not None:
-                self.event_emitter.emit(StreamEvent(type=event_type, data=data))
+                event = StreamEvent(type=event_type, data=data)
+                if callable(self.event_emitter):
+                    self.event_emitter(event)
+                    return
+
+                emitter = getattr(self.event_emitter, "emit", None)
+                if callable(emitter):
+                    emitter(event)
+                    return
+
+                publisher = getattr(self.event_emitter, "publish", None)
+                if callable(publisher):
+                    try:
+                        publisher(event)
+                    except TypeError:
+                        publisher(event_name, data)
         except (ImportError, AttributeError, TypeError):
             pass
 

@@ -21,7 +21,7 @@ export function CompareView({
         <div className={`text-right ${isDifferent ? 'text-text' : 'text-text-muted'}`}>
           {typeof leftVal === 'number' ? leftVal.toFixed(0) : leftVal}
         </div>
-        <div className="text-center text-xs font-mono text-text-muted">{label}</div>
+        <div className="text-center text-xs font-theme-data text-text-muted">{label}</div>
         <div className={`text-left ${isDifferent ? 'text-text' : 'text-text-muted'}`}>
           {typeof rightVal === 'number' ? rightVal.toFixed(0) : rightVal}
         </div>
@@ -32,12 +32,12 @@ export function CompareView({
   return (
     <div className="bg-surface border border-purple/40">
       <div className="px-4 py-3 border-b border-purple/20 bg-bg/50 flex items-center justify-between">
-        <span className="text-xs font-mono text-purple uppercase tracking-wider">
+        <span className="text-xs font-theme-data text-purple uppercase tracking-wider">
           SCENARIO COMPARISON
         </span>
         <button
           onClick={onClose}
-          className="text-xs font-mono text-text-muted hover:text-purple"
+          className="text-xs font-theme-data text-text-muted hover:text-purple"
         >
           [CLOSE]
         </button>
@@ -46,14 +46,14 @@ export function CompareView({
       <div className="p-4">
         {/* Headers - stack on mobile, side-by-side on desktop */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          <div className={`p-3 text-center ${left.is_baseline ? 'bg-gold/10 border-gold/30' : 'bg-acid-cyan/10 border-acid-cyan/30'} border`}>
-            <div className={`text-sm font-mono ${left.is_baseline ? 'text-gold' : 'text-acid-cyan'}`}>
+          <div className={`p-3 text-center ${left.is_baseline ? 'bg-gold/10 border-gold/30' : 'bg-[var(--acid-cyan)]/10 border-[var(--acid-cyan)]/30'} border`}>
+            <div className={`text-sm font-theme-data ${left.is_baseline ? 'text-gold' : 'text-[var(--acid-cyan)]'}`}>
               {left.scenario_name}
             </div>
             {left.is_baseline && <div className="text-xs text-gold/70">[BASELINE]</div>}
           </div>
-          <div className={`p-3 text-center ${right.is_baseline ? 'bg-gold/10 border-gold/30' : 'bg-acid-cyan/10 border-acid-cyan/30'} border`}>
-            <div className={`text-sm font-mono ${right.is_baseline ? 'text-gold' : 'text-acid-cyan'}`}>
+          <div className={`p-3 text-center ${right.is_baseline ? 'bg-gold/10 border-gold/30' : 'bg-[var(--acid-cyan)]/10 border-[var(--acid-cyan)]/30'} border`}>
+            <div className={`text-sm font-theme-data ${right.is_baseline ? 'text-gold' : 'text-[var(--acid-cyan)]'}`}>
               {right.scenario_name}
             </div>
             {right.is_baseline && <div className="text-xs text-gold/70">[BASELINE]</div>}
@@ -61,7 +61,7 @@ export function CompareView({
         </div>
 
         {/* Comparison metrics */}
-        <div className="bg-bg/50 border border-border p-4 text-xs font-mono">
+        <div className="bg-bg/50 border border-border p-4 text-xs font-theme-data">
           {renderDiff('Consensus', left.consensus_reached ? 'YES' : 'NO', right.consensus_reached ? 'YES' : 'NO')}
           {renderDiff('Confidence', `${(left.confidence * 100).toFixed(0)}%`, `${(right.confidence * 100).toFixed(0)}%`)}
           {renderDiff('Rounds', left.rounds_used, right.rounds_used)}
@@ -71,18 +71,18 @@ export function CompareView({
         {/* Conclusions - stack on mobile, side-by-side on desktop */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div>
-            <div className="text-xs font-mono text-text-muted mb-2">
+            <div className="text-xs font-theme-data text-text-muted mb-2">
               CONCLUSION <span className="sm:hidden text-purple">({left.scenario_name})</span>
             </div>
-            <div className="text-xs font-mono text-text bg-bg/50 p-3 border border-border max-h-40 overflow-y-auto">
+            <div className="text-xs font-theme-data text-text bg-bg/50 p-3 border border-border max-h-40 overflow-y-auto">
               {left.final_answer || 'No conclusion'}
             </div>
           </div>
           <div>
-            <div className="text-xs font-mono text-text-muted mb-2">
+            <div className="text-xs font-theme-data text-text-muted mb-2">
               CONCLUSION <span className="sm:hidden text-purple">({right.scenario_name})</span>
             </div>
-            <div className="text-xs font-mono text-text bg-bg/50 p-3 border border-border max-h-40 overflow-y-auto">
+            <div className="text-xs font-theme-data text-text bg-bg/50 p-3 border border-border max-h-40 overflow-y-auto">
               {right.final_answer || 'No conclusion'}
             </div>
           </div>
@@ -91,12 +91,12 @@ export function CompareView({
         {/* Parameters comparison - stack on mobile, side-by-side on desktop */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div>
-            <div className="text-xs font-mono text-text-muted mb-2">
+            <div className="text-xs font-theme-data text-text-muted mb-2">
               PARAMETERS <span className="sm:hidden text-purple">({left.scenario_name})</span>
             </div>
             <div className="flex flex-wrap gap-1">
               {Object.entries(left.parameters).map(([key, value]) => (
-                <span key={key} className="px-1 py-0.5 bg-acid-cyan/10 text-acid-cyan text-[10px] font-mono">
+                <span key={key} className="px-1 py-0.5 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] text-[10px] font-theme-data">
                   {key}={String(value)}
                 </span>
               ))}
@@ -106,12 +106,12 @@ export function CompareView({
             </div>
           </div>
           <div>
-            <div className="text-xs font-mono text-text-muted mb-2">
+            <div className="text-xs font-theme-data text-text-muted mb-2">
               PARAMETERS <span className="sm:hidden text-purple">({right.scenario_name})</span>
             </div>
             <div className="flex flex-wrap gap-1">
               {Object.entries(right.parameters).map(([key, value]) => (
-                <span key={key} className="px-1 py-0.5 bg-acid-cyan/10 text-acid-cyan text-[10px] font-mono">
+                <span key={key} className="px-1 py-0.5 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] text-[10px] font-theme-data">
                   {key}={String(value)}
                 </span>
               ))}

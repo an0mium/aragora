@@ -81,7 +81,7 @@ export function OrchestrationCanvas({ canvasId }: OrchestrationCanvasProps) {
       <OrchPalette />
       <div ref={reactFlowWrapper} className="flex-1 relative" onDragOver={handleDragOver} onDrop={handleDrop}>
         <div className="absolute top-2 left-2 z-20 flex gap-2">
-          <button onClick={saveCanvas} className="px-3 py-1 text-xs font-mono rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] hover:border-pink-500 transition-colors">Save</button>
+          <button onClick={saveCanvas} className="px-3 py-1 text-xs font-theme-data rounded bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] hover:border-pink-500 transition-colors">Save</button>
         </div>
         <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodeClick={onNodeClick} onPaneClick={onPaneClick} nodeTypes={nodeTypes} snapToGrid snapGrid={[16, 16]} fitView className="bg-[var(--bg)]">
           <Background gap={16} size={1} />

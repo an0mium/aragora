@@ -115,11 +115,11 @@ export function TeaserResult({
       <div className="p-5 border-b border-[var(--acid-green)]/20">
         <div className="flex items-start justify-between gap-4 mb-3">
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-mono text-[var(--text-muted)] mb-1 uppercase tracking-wider">
+            <p className="text-xs font-theme-data text-[var(--text-muted)] mb-1 uppercase tracking-wider">
               VERDICT
             </p>
             <span
-              className="text-xl font-mono font-bold"
+              className="text-xl font-theme-data font-bold"
               style={{ color: vColor }}
             >
               {verdictLabel(verdict)}
@@ -127,7 +127,7 @@ export function TeaserResult({
           </div>
           {/* Confidence gauge */}
           <div className="shrink-0 text-right">
-            <p className="text-xs font-mono text-[var(--text-muted)] mb-1 uppercase tracking-wider">
+            <p className="text-xs font-theme-data text-[var(--text-muted)] mb-1 uppercase tracking-wider">
               CONFIDENCE
             </p>
             <div className="flex items-center gap-2 justify-end">
@@ -140,7 +140,7 @@ export function TeaserResult({
                   }}
                 />
               </div>
-              <span className="text-sm font-mono font-bold" style={{ color: vColor }}>
+              <span className="text-sm font-theme-data font-bold" style={{ color: vColor }}>
                 {confidencePercent}%
               </span>
             </div>
@@ -148,7 +148,7 @@ export function TeaserResult({
         </div>
         {/* Topic */}
         {topic && (
-          <p className="text-xs font-mono text-[var(--text-muted)]/60 truncate" title={topic}>
+          <p className="text-xs font-theme-data text-[var(--text-muted)]/60 truncate" title={topic}>
             on: &ldquo;{topic.length > 80 ? topic.slice(0, 80) + '...' : topic}&rdquo;
           </p>
         )}
@@ -156,10 +156,10 @@ export function TeaserResult({
 
       {/* Summary explanation — show more content */}
       <div className="p-4 border-b border-[var(--acid-green)]/20">
-        <p className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider mb-2">
+        <p className="text-xs font-theme-data text-[var(--text-muted)] uppercase tracking-wider mb-2">
           SUMMARY
         </p>
-        <p className="text-sm font-mono text-[var(--text)] leading-relaxed">
+        <p className="text-sm font-theme-data text-[var(--text)] leading-relaxed">
           {explanation.length > 500 ? explanation.slice(0, 500) + '...' : explanation}
         </p>
       </div>
@@ -167,7 +167,7 @@ export function TeaserResult({
       {/* Agent Positions — expandable */}
       {visibleAgents.length > 0 && proposals && (
         <div className="p-4 border-b border-[var(--acid-green)]/20">
-          <p className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-wider mb-3">
+          <p className="text-xs font-theme-data text-[var(--text-muted)] uppercase tracking-wider mb-3">
             AGENT POSITIONS ({visibleAgents.length} of {participants?.length ?? 0})
           </p>
           <div className="space-y-2">
@@ -187,23 +187,23 @@ export function TeaserResult({
                   >
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <span className="text-xs font-mono font-bold" style={{ color }}>
+                      <span className="text-xs font-theme-data font-bold" style={{ color }}>
                         {agent.toUpperCase()}
                       </span>
                     </div>
-                    <span className="text-xs font-mono text-[var(--text-muted)]/60">
+                    <span className="text-xs font-theme-data text-[var(--text-muted)]/60">
                       {isExpanded ? '▲ collapse' : '▼ expand'}
                     </span>
                   </button>
                   {raw && (
                     <div className="px-3 pb-3">
-                      <p className="text-xs font-mono text-[var(--text-muted)] leading-relaxed">
+                      <p className="text-xs font-theme-data text-[var(--text-muted)] leading-relaxed">
                         {isExpanded ? raw : preview}
                       </p>
                       {raw.length > 160 && !isExpanded && (
                         <button
                           onClick={() => toggleAgent(agent)}
-                          className="mt-1 text-xs font-mono text-[var(--acid-cyan)] hover:underline"
+                          className="mt-1 text-xs font-theme-data text-[var(--acid-cyan)] hover:underline"
                         >
                           Read full argument
                         </button>
@@ -215,7 +215,7 @@ export function TeaserResult({
             })}
           </div>
           {(participants?.length ?? 0) > 4 && (
-            <p className="text-xs font-mono text-[var(--text-muted)]/60 mt-2">
+            <p className="text-xs font-theme-data text-[var(--text-muted)]/60 mt-2">
               + {(participants?.length ?? 0) - 4} more agent{(participants?.length ?? 0) - 4 > 1 ? 's' : ''} in full transcript
             </p>
           )}
@@ -227,7 +227,7 @@ export function TeaserResult({
         {debateId && shareUrl ? (
           <button
             onClick={handleShare}
-            className="w-full py-2.5 font-mono font-bold text-sm border border-[var(--acid-green)] text-[var(--acid-green)]
+            className="w-full py-2.5 font-theme-data font-bold text-sm border border-[var(--acid-green)] text-[var(--acid-green)]
                        hover:bg-[var(--acid-green)]/10 transition-colors flex items-center justify-center gap-2"
           >
             <span>{copied ? '✓ LINK COPIED!' : 'SHARE THIS DEBATE'}</span>
@@ -243,7 +243,7 @@ export function TeaserResult({
                 }).catch(() => {});
               }
             }}
-            className="w-full py-2.5 font-mono font-bold text-sm border border-[var(--acid-green)]/50 text-[var(--acid-green)]/70
+            className="w-full py-2.5 font-theme-data font-bold text-sm border border-[var(--acid-green)]/50 text-[var(--acid-green)]/70
                        hover:border-[var(--acid-green)] hover:text-[var(--acid-green)] transition-colors"
           >
             {copied ? '✓ COPIED!' : 'SHARE ARAGORA.AI'}
@@ -255,10 +255,10 @@ export function TeaserResult({
       {receiptHash && (
         <div className="px-4 py-3 border-b border-[var(--acid-green)]/20">
           <div className="flex items-center gap-3 p-2 bg-[var(--bg)]/50 border border-[var(--border)]">
-            <span className="text-xs font-mono text-[var(--acid-green)]">&#10003;</span>
+            <span className="text-xs font-theme-data text-[var(--acid-green)]">&#10003;</span>
             <div className="min-w-0 flex-1">
-              <span className="text-xs font-mono text-[var(--text-muted)] block">SHA-256 DECISION RECEIPT</span>
-              <p className="text-xs font-mono text-[var(--text-muted)]/60 truncate" title={receiptHash}>
+              <span className="text-xs font-theme-data text-[var(--text-muted)] block">SHA-256 DECISION RECEIPT</span>
+              <p className="text-xs font-theme-data text-[var(--text-muted)]/60 truncate" title={receiptHash}>
                 {receiptHash}
               </p>
             </div>
@@ -270,14 +270,14 @@ export function TeaserResult({
       <div className="p-4 bg-[var(--acid-green)]/5">
         <Link
           href="/onboarding"
-          className="block w-full py-3 text-center font-mono font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
+          className="block w-full py-3 text-center font-theme-data font-bold text-sm bg-[var(--acid-green)] text-[var(--bg)] hover:bg-[var(--acid-green)]/80 transition-colors"
         >
           GET FULL RECEIPTS — START FREE
         </Link>
-        <p className="text-center text-xs font-mono text-[var(--text-muted)] mt-2">
+        <p className="text-center text-xs font-theme-data text-[var(--text-muted)] mt-2">
           30 seconds to set up. Full audit trails, shareable receipts, team collaboration.
         </p>
-        <p className="text-center text-xs font-mono text-[var(--text-muted)] mt-1">
+        <p className="text-center text-xs font-theme-data text-[var(--text-muted)] mt-1">
           Already have an account?{' '}
           <Link href="/login" className="text-[var(--acid-cyan)] hover:underline">Sign in</Link>
         </p>

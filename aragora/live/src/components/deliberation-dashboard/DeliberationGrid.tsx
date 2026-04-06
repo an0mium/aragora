@@ -21,17 +21,17 @@ export function DeliberationGrid({
         {[...Array(4)].map((_, i) => (
           <div
             key={i}
-            className="bg-surface border border-acid-green/20 p-4 animate-pulse"
+            className="bg-surface border border-[var(--accent)]/20 p-4 animate-pulse"
           >
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-2 h-2 rounded-full bg-acid-green/20" />
-              <div className="w-12 h-3 bg-acid-green/20 rounded" />
+              <div className="w-2 h-2 rounded-full bg-[var(--accent)]/20" />
+              <div className="w-12 h-3 bg-[var(--accent)]/20 rounded" />
             </div>
-            <div className="h-10 bg-acid-green/10 rounded mb-3" />
+            <div className="h-10 bg-[var(--accent)]/10 rounded mb-3" />
             <div className="h-1 bg-bg rounded-full mb-3" />
             <div className="flex justify-between">
-              <div className="w-16 h-3 bg-acid-green/10 rounded" />
-              <div className="w-10 h-3 bg-acid-green/10 rounded" />
+              <div className="w-16 h-3 bg-[var(--accent)]/10 rounded" />
+              <div className="w-10 h-3 bg-[var(--accent)]/10 rounded" />
             </div>
           </div>
         ))}
@@ -41,10 +41,10 @@ export function DeliberationGrid({
 
   if (deliberations.length === 0) {
     return (
-      <div className="bg-surface border border-acid-green/20 p-8 text-center">
+      <div className="bg-surface border border-[var(--accent)]/20 p-8 text-center">
         <div className="text-4xl mb-4 opacity-30">◎</div>
-        <p className="text-text-muted font-mono text-sm">{emptyMessage}</p>
-        <p className="text-text-muted font-mono text-xs mt-2">
+        <p className="text-text-muted font-theme-data text-sm">{emptyMessage}</p>
+        <p className="text-text-muted font-theme-data text-xs mt-2">
           Start a new debate from the Arena or run a Gauntlet stress test
         </p>
       </div>

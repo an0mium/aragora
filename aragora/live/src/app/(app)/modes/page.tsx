@@ -30,7 +30,7 @@ export default function ModesPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -38,25 +38,25 @@ export default function ModesPage() {
             <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [DASHBOARD]
               </Link>
               <Link
                 href="/gauntlet"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [GAUNTLET]
               </Link>
               <Link
                 href="/probe"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [PROBE]
               </Link>
               <Link
                 href="/training"
-                className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 [TRAINING]
               </Link>
@@ -69,40 +69,40 @@ export default function ModesPage() {
         {/* Content */}
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} OPERATIONAL MODES
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Configure debate operational modes: standard, red-team, cooperative,
               adversarial, and tournament settings.
             </p>
           </div>
 
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 border border-acid-green/30 bg-acid-green/5 rounded">
-              <h3 className="text-sm font-mono text-acid-green mb-2">Standard Mode</h3>
-              <p className="text-xs font-mono text-text-muted">
+            <div className="p-4 border border-[var(--accent)]/30 bg-[var(--accent)]/5 rounded">
+              <h3 className="text-sm font-theme-data text-[var(--accent)] mb-2">Standard Mode</h3>
+              <p className="text-xs font-theme-data text-text-muted">
                 Balanced debate with consensus-seeking behavior. Agents argue positions
                 and converge on supported conclusions.
               </p>
             </div>
             <div className="p-4 border border-warning/30 bg-warning/5 rounded">
-              <h3 className="text-sm font-mono text-warning mb-2">Red Team Mode</h3>
-              <p className="text-xs font-mono text-text-muted">
+              <h3 className="text-sm font-theme-data text-warning mb-2">Red Team Mode</h3>
+              <p className="text-xs font-theme-data text-text-muted">
                 Adversarial testing with devil&apos;s advocate agents. Stress-test arguments
                 and find weaknesses in reasoning.
               </p>
             </div>
-            <div className="p-4 border border-acid-cyan/30 bg-acid-cyan/5 rounded">
-              <h3 className="text-sm font-mono text-acid-cyan mb-2">Cooperative Mode</h3>
-              <p className="text-xs font-mono text-text-muted">
+            <div className="p-4 border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 rounded">
+              <h3 className="text-sm font-theme-data text-[var(--acid-cyan)] mb-2">Cooperative Mode</h3>
+              <p className="text-xs font-theme-data text-text-muted">
                 Collaborative problem-solving where agents build on each other&apos;s ideas.
                 Focus on constructive synthesis.
               </p>
             </div>
             <div className="p-4 border border-gold/30 bg-gold/5 rounded">
-              <h3 className="text-sm font-mono text-gold mb-2">Tournament Mode</h3>
-              <p className="text-xs font-mono text-text-muted">
+              <h3 className="text-sm font-theme-data text-gold mb-2">Tournament Mode</h3>
+              <p className="text-xs font-theme-data text-text-muted">
                 Competitive debates with ELO rankings. Agents compete to win arguments
                 and improve their standing.
               </p>
@@ -115,8 +115,8 @@ export default function ModesPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

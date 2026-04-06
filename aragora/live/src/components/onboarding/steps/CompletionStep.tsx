@@ -12,57 +12,57 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
   return (
     <div className="space-y-6 text-center">
       <div>
-        <div className="inline-block p-4 bg-acid-green/10 border border-acid-green/30 mb-4">
+        <div className="inline-block p-4 bg-[var(--accent)]/10 border border-[var(--accent)]/30 mb-4">
           <span className="text-4xl">&#x2705;</span>
         </div>
-        <h2 className="text-2xl font-mono text-acid-green mb-2">
+        <h2 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
           You&apos;re all set!
         </h2>
-        <p className="font-mono text-text-muted text-sm">
+        <p className="font-theme-data text-text-muted text-sm">
           {organizationName ? `Welcome to Aragora, ${organizationName}!` : 'Welcome to Aragora!'}
         </p>
       </div>
 
       <div className="space-y-3 text-left">
-        <div className="p-4 bg-surface border border-acid-green/20">
-          <h3 className="font-mono text-sm text-acid-green mb-2">
+        <div className="p-4 bg-surface border border-[var(--accent)]/20">
+          <h3 className="font-theme-data text-sm text-[var(--accent)] mb-2">
             What you&apos;ve accomplished
           </h3>
-          <ul className="space-y-2 font-mono text-text-muted text-sm">
+          <ul className="space-y-2 font-theme-data text-text-muted text-sm">
             <li className="flex items-center gap-2">
-              <span className="text-acid-green">&#x2713;</span>
+              <span className="text-[var(--accent)]">&#x2713;</span>
               Set up your organization
             </li>
             {selectedTemplate && (
               <li className="flex items-center gap-2">
-                <span className="text-acid-green">&#x2713;</span>
+                <span className="text-[var(--accent)]">&#x2713;</span>
                 Selected {selectedTemplate.name} template
               </li>
             )}
             {firstDebateId && (
               <li className="flex items-center gap-2">
-                <span className="text-acid-green">&#x2713;</span>
+                <span className="text-[var(--accent)]">&#x2713;</span>
                 Started your first debate
               </li>
             )}
           </ul>
         </div>
 
-        <div className="p-4 bg-acid-cyan/5 border border-acid-cyan/20">
-          <h3 className="font-mono text-sm text-acid-cyan mb-2">
+        <div className="p-4 bg-[var(--acid-cyan)]/5 border border-[var(--acid-cyan)]/20">
+          <h3 className="font-theme-data text-sm text-[var(--acid-cyan)] mb-2">
             Next steps
           </h3>
-          <ul className="space-y-2 font-mono text-text-muted text-sm">
+          <ul className="space-y-2 font-theme-data text-text-muted text-sm">
             <li className="flex items-start gap-2">
-              <span className="text-acid-cyan">&#x2192;</span>
+              <span className="text-[var(--acid-cyan)]">&#x2192;</span>
               <span>Invite team members to collaborate</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-acid-cyan">&#x2192;</span>
+              <span className="text-[var(--acid-cyan)]">&#x2192;</span>
               <span>Explore templates for different use cases</span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-acid-cyan">&#x2192;</span>
+              <span className="text-[var(--acid-cyan)]">&#x2192;</span>
               <span>Review decision receipts after debates</span>
             </li>
           </ul>
@@ -72,7 +72,7 @@ export function CompletionStep({ onComplete }: CompletionStepProps) {
       <div className="pt-4">
         <button
           onClick={onComplete}
-          className="w-full px-6 py-3 font-mono text-sm bg-acid-green text-bg hover:bg-acid-green/80 transition-colors"
+          className="w-full px-6 py-3 font-theme-data text-sm bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80 transition-colors"
         >
           Go to Dashboard
         </button>

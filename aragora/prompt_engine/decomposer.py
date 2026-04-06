@@ -90,8 +90,24 @@ class PromptDecomposer:
             )
             return self._agent
         except (ImportError, RuntimeError, ValueError) as e:
-            logger.warning("Could not create default agent: %s", e)
-            raise RuntimeError("No agent available for prompt decomposition") from e
+            logger.warning("Could not create Anthropic agent: %s", e)
+
+        # Fallback to OpenRouter if available
+        try:
+            import os
+
+            if os.environ.get("OPENROUTER_API_KEY", "").strip():
+                from aragora.agents.api_agents.openrouter import OpenRouterAgent
+
+                self._agent = OpenRouterAgent(
+                    name="decomposer",
+                    model="anthropic/claude-sonnet-4",
+                )
+                return self._agent
+        except (ImportError, RuntimeError, ValueError) as e:
+            logger.warning("Could not create OpenRouter agent: %s", e)
+
+        raise RuntimeError("No agent available for prompt decomposition")
 
     async def decompose(
         self,

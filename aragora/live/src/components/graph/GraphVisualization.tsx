@@ -145,7 +145,7 @@ function GraphNode({ position, isSelected, onClick }: GraphNodeProps) {
       <text
         textAnchor="middle"
         dominantBaseline="central"
-        className={`text-xs font-mono ${branchColor}`}
+        className={`text-xs font-theme-data ${branchColor}`}
         style={{ pointerEvents: 'none' }}
       >
         <NodeTypeIcon type={node.node_type} />
@@ -156,7 +156,7 @@ function GraphNode({ position, isSelected, onClick }: GraphNodeProps) {
         <text
           y={35}
           textAnchor="middle"
-          className="text-[10px] font-mono fill-text-muted"
+          className="text-[10px] font-theme-data fill-text-muted"
         >
           {(node.confidence * 100).toFixed(0)}%
         </text>
@@ -166,7 +166,7 @@ function GraphNode({ position, isSelected, onClick }: GraphNodeProps) {
       <text
         y={-35}
         textAnchor="middle"
-        className={`text-[10px] font-mono ${colors.text}`}
+        className={`text-[10px] font-theme-data ${colors.text}`}
       >
         {node.agent_id.slice(0, 8)}
       </text>
@@ -183,19 +183,19 @@ export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
   const colors = getAgentColors(node.agent_id);
 
   return (
-    <div className="absolute top-4 right-4 w-96 bg-surface border border-acid-green/30 shadow-lg z-10">
-      <div className="px-4 py-3 border-b border-acid-green/20 bg-bg/50 flex items-center justify-between">
+    <div className="absolute top-4 right-4 w-96 bg-surface border border-[var(--accent)]/30 shadow-lg z-10">
+      <div className="px-4 py-3 border-b border-[var(--accent)]/20 bg-bg/50 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className={`px-2 py-0.5 ${colors.bg} ${colors.text} text-xs font-mono`}>
+          <span className={`px-2 py-0.5 ${colors.bg} ${colors.text} text-xs font-theme-data`}>
             {node.agent_id}
           </span>
-          <span className="text-xs font-mono text-text-muted uppercase">
+          <span className="text-xs font-theme-data text-text-muted uppercase">
             {node.node_type.replace('_', ' ')}
           </span>
         </div>
         <button
           onClick={onClose}
-          className="text-text-muted hover:text-acid-green text-xs font-mono"
+          className="text-text-muted hover:text-[var(--accent)] text-xs font-theme-data"
           aria-label="Close node details"
         >
           [X]
@@ -205,8 +205,8 @@ export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
       <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
         {/* Content */}
         <div>
-          <div className="text-xs font-mono text-text-muted mb-1">CONTENT</div>
-          <div className="text-sm font-mono text-text whitespace-pre-wrap">
+          <div className="text-xs font-theme-data text-text-muted mb-1">CONTENT</div>
+          <div className="text-sm font-theme-data text-text whitespace-pre-wrap">
             {node.content.length > 500 ? node.content.slice(0, 500) + '...' : node.content}
           </div>
         </div>
@@ -214,10 +214,10 @@ export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
         {/* Claims */}
         {node.claims.length > 0 && (
           <div>
-            <div className="text-xs font-mono text-acid-cyan mb-1">CLAIMS ({node.claims.length})</div>
+            <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-1">CLAIMS ({node.claims.length})</div>
             <ul className="space-y-1">
               {node.claims.slice(0, 5).map((claim, i) => (
-                <li key={i} className="text-xs font-mono text-text-muted pl-2 border-l border-acid-cyan/30">
+                <li key={i} className="text-xs font-theme-data text-text-muted pl-2 border-l border-[var(--acid-cyan)]/30">
                   {claim.slice(0, 100)}{claim.length > 100 ? '...' : ''}
                 </li>
               ))}
@@ -226,7 +226,7 @@ export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
         )}
 
         {/* Metadata */}
-        <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+        <div className="grid grid-cols-2 gap-2 text-xs font-theme-data">
           <div>
             <span className="text-text-muted">Branch: </span>
             <span className={getBranchColor(node.branch_id || 'main')}>
@@ -235,7 +235,7 @@ export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
           </div>
           <div>
             <span className="text-text-muted">Confidence: </span>
-            <span className="text-acid-green">{(node.confidence * 100).toFixed(0)}%</span>
+            <span className="text-[var(--accent)]">{(node.confidence * 100).toFixed(0)}%</span>
           </div>
           <div>
             <span className="text-text-muted">Parents: </span>
@@ -248,7 +248,7 @@ export function NodeDetailPanel({ node, onClose }: NodeDetailPanelProps) {
         </div>
 
         {/* Hash */}
-        <div className="text-[10px] font-mono text-text-muted/50 pt-2 border-t border-border">
+        <div className="text-[10px] font-theme-data text-text-muted/50 pt-2 border-t border-border">
           Hash: {node.hash}
         </div>
       </div>
@@ -476,41 +476,41 @@ export function GraphVisualization({
       <div className="absolute top-2 left-2 z-10 flex gap-1">
         <button
           onClick={handleZoomIn}
-          className="w-8 h-8 bg-surface border border-acid-green/30 text-acid-green font-mono text-sm hover:bg-acid-green/20"
+          className="w-8 h-8 bg-surface border border-[var(--accent)]/30 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/20"
           title="Zoom in"
         >
           +
         </button>
         <button
           onClick={handleZoomOut}
-          className="w-8 h-8 bg-surface border border-acid-green/30 text-acid-green font-mono text-sm hover:bg-acid-green/20"
+          className="w-8 h-8 bg-surface border border-[var(--accent)]/30 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/20"
           title="Zoom out"
         >
           -
         </button>
         <button
           onClick={handleResetView}
-          className="px-2 h-8 bg-surface border border-acid-green/30 text-acid-green font-mono text-xs hover:bg-acid-green/20"
+          className="px-2 h-8 bg-surface border border-[var(--accent)]/30 text-[var(--accent)] font-theme-data text-xs hover:bg-[var(--accent)]/20"
           title="Reset view"
         >
           RESET
         </button>
         <button
           onClick={handleReheat}
-          className={`px-2 h-8 bg-surface border border-acid-cyan/30 text-acid-cyan font-mono text-xs hover:bg-acid-cyan/20 ${
+          className={`px-2 h-8 bg-surface border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] font-theme-data text-xs hover:bg-[var(--acid-cyan)]/20 ${
             isSimulating ? 'animate-pulse' : ''
           }`}
           title="Re-run force simulation"
         >
           {isSimulating ? 'SIMULATING...' : 'RELAYOUT'}
         </button>
-        <span className="h-8 flex items-center px-2 text-xs font-mono text-text-muted">
+        <span className="h-8 flex items-center px-2 text-xs font-theme-data text-text-muted">
           {Math.round(zoom * 100)}%
         </span>
       </div>
 
       {/* Pan hint */}
-      <div className="absolute top-2 right-2 z-10 text-xs font-mono text-text-muted/50">
+      <div className="absolute top-2 right-2 z-10 text-xs font-theme-data text-text-muted/50">
         Drag nodes | Shift+drag to pan | Ctrl+scroll to zoom
       </div>
 

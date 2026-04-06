@@ -800,13 +800,13 @@ def probe_runner_execution(
     checked_at = _utcnow()
     ttl_seconds = DEFAULT_RUNNER_PROBE_TTL_SECONDS
 
-    if inspection.runner_type != "claude":
+    if inspection.runner_type not in {"claude", "codex"}:
         return RunnerProbeResult(
             runner_id=inspection.runner_id,
             runner_type=inspection.runner_type,
             status="unsupported",
             checked_at=checked_at,
-            detail="Active exec probe is currently implemented for Claude runners only.",
+            detail="Active exec probe is currently implemented for Claude and Codex runners only.",
             profile=inspection.profile,
             ttl_seconds=ttl_seconds,
         )
@@ -818,7 +818,10 @@ def probe_runner_execution(
             runner_type=inspection.runner_type,
             status="failed",
             checked_at=checked_at,
-            detail="No runnable Claude probe command could be constructed for this runner.",
+            detail=(
+                f"No runnable {inspection.runner_type.capitalize()} probe command could be "
+                "constructed for this runner."
+            ),
             profile=inspection.profile,
             ttl_seconds=ttl_seconds,
         )
@@ -829,6 +832,7 @@ def probe_runner_execution(
             command,
             cwd=str(Path(repo_root or Path.cwd()).resolve()),
             text=True,
+            input=_probe_stdin_for_inspection(inspection),
             capture_output=True,
             timeout=timeout_seconds,
             check=False,
@@ -887,18 +891,29 @@ def _probe_command_for_inspection(
     repo_root: str | Path | None = None,
 ) -> list[str] | None:
     prompt = f"Reply with exactly: {RUNNER_PROBE_TOKEN}"
-    if inspection.runner_type != "claude":
+    if inspection.runner_type == "claude":
+        if inspection.profile:
+            script = _text(inspection.command_path)
+            if not script:
+                candidate = (
+                    Path(repo_root or Path.cwd()) / "scripts" / "claude_profile.sh"
+                ).resolve()
+                script = str(candidate) if candidate.exists() else ""
+            if not script:
+                return None
+            return [script, "exec", inspection.profile, "--", "claude", "-p", prompt]
+        command_path = _text(inspection.command_path) or "claude"
+        return [command_path, "-p", prompt]
+    if inspection.runner_type == "codex":
+        command_path = _text(inspection.command_path) or _text(inspection.codex_path) or "codex"
+        return [command_path, "exec", "-"]
+    return None
+
+
+def _probe_stdin_for_inspection(inspection: RunnerInspection) -> str | None:
+    if inspection.runner_type != "codex":
         return None
-    if inspection.profile:
-        script = _text(inspection.command_path)
-        if not script:
-            candidate = (Path(repo_root or Path.cwd()) / "scripts" / "claude_profile.sh").resolve()
-            script = str(candidate) if candidate.exists() else ""
-        if not script:
-            return None
-        return [script, "exec", inspection.profile, "--", "claude", "-p", prompt]
-    command_path = _text(inspection.command_path) or "claude"
-    return [command_path, "-p", prompt]
+    return f"Reply with exactly: {RUNNER_PROBE_TOKEN}\n"
 
 
 def _probe_failure_detail(text: str, *, returncode: int) -> str:
@@ -907,7 +922,16 @@ def _probe_failure_detail(text: str, *, returncode: int) -> str:
         lowered = line.lower()
         if any(
             marker in lowered
-            for marker in ("authentication", "oauth", "expired", "401", "error", "failed")
+            for marker in (
+                "authentication",
+                "oauth",
+                "expired",
+                "401",
+                "error",
+                "failed",
+                "invalid_token",
+                "protected-resource",
+            )
         ):
             return f"Probe failed (exit {returncode}): {line[:240]}"
     for line in lines:
@@ -948,6 +972,17 @@ def _probe_next_action(
             "Re-probe this Claude profile after local inspection: "
             f"ARAGORA_CLAUDE_RUNNER_PROFILES={profile} python3 -m aragora.cli.main "
             "swarm runner probe --runner-type claude --json"
+        )
+    if runner_type == "codex":
+        if any(
+            marker in detail
+            for marker in ("oauth", "authenticate", "401", "expired", "invalid_token", "protected")
+        ):
+            executable = command_path or "codex"
+            return f"Refresh the local Codex login and re-run the probe: {executable} login"
+        return (
+            "Re-run the local Codex runner probe after fixing the underlying Codex runner issue: "
+            "python3 -m aragora.cli.main swarm runner probe --runner-type codex --json"
         )
     return "Re-run the local runner probe after fixing the underlying runner issue."
 

@@ -3,13 +3,13 @@
 import { useAgentPoolHealth } from '@/hooks/useSystemHealth';
 
 const STATUS_COLOR: Record<string, string> = {
-  active: 'text-acid-green',
-  idle: 'text-acid-yellow',
+  active: 'text-[var(--accent)]',
+  idle: 'text-[var(--acid-yellow)]',
   failed: 'text-acid-red',
 };
 
 const STATUS_DOT: Record<string, string> = {
-  active: 'bg-acid-green shadow-[0_0_4px_var(--acid-green)]',
+  active: 'bg-[var(--accent)] shadow-[0_0_4px_var(--acid-green)]',
   idle: 'bg-acid-yellow shadow-[0_0_4px_var(--acid-yellow)]',
   failed: 'bg-acid-red shadow-[0_0_4px_var(--acid-red)]',
 };
@@ -31,17 +31,17 @@ export function AgentPoolHealth() {
 
   return (
     <div className="card p-6">
-      <h3 className="font-mono text-acid-green mb-4">Agent Pool</h3>
+      <h3 className="font-theme-data text-[var(--accent)] mb-4">Agent Pool</h3>
       {!available ? (
-        <p className="text-text-muted font-mono text-xs">Agent registry unavailable</p>
+        <p className="text-text-muted font-theme-data text-xs">Agent registry unavailable</p>
       ) : agents.length === 0 ? (
-        <p className="text-text-muted font-mono text-xs">No agents registered</p>
+        <p className="text-text-muted font-theme-data text-xs">No agents registered</p>
       ) : (
         <>
           {/* Summary bar */}
-          <div className="flex gap-6 mb-4 font-mono text-xs">
-            <span className="text-acid-green">{active} active</span>
-            <span className="text-acid-yellow">{idle} idle</span>
+          <div className="flex gap-6 mb-4 font-theme-data text-xs">
+            <span className="text-[var(--accent)]">{active} active</span>
+            <span className="text-[var(--acid-yellow)]">{idle} idle</span>
             <span className="text-acid-red">{failed} failed</span>
             <span className="text-text-muted">{total} total</span>
           </div>
@@ -50,7 +50,7 @@ export function AgentPoolHealth() {
           <div className="h-3 bg-surface rounded overflow-hidden border border-border flex mb-4">
             {active > 0 && (
               <div
-                className="h-full bg-acid-green transition-all duration-500"
+                className="h-full bg-[var(--accent)] transition-all duration-500"
                 style={{ width: `${(active / total) * 100}%` }}
               />
             )}
@@ -73,7 +73,7 @@ export function AgentPoolHealth() {
             {agents.map((a) => (
               <div
                 key={a.agent_id}
-                className="flex items-center justify-between text-xs font-mono py-1 border-b border-border last:border-0"
+                className="flex items-center justify-between text-xs font-theme-data py-1 border-b border-border last:border-0"
               >
                 <div className="flex items-center gap-2">
                   <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[a.status] || 'bg-text-muted'}`} />

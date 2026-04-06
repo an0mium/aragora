@@ -53,16 +53,16 @@ export function TranscriptionViewer({
   const wordCount = result.text.split(/\s+/).filter(Boolean).length;
 
   return (
-    <div className={`border border-acid-green/30 bg-surface/30 ${className}`}>
+    <div className={`border border-[var(--accent)]/30 bg-surface/30 ${className}`}>
       {/* Header */}
-      <div className="p-3 border-b border-acid-green/20 flex items-center justify-between">
+      <div className="p-3 border-b border-[var(--accent)]/20 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-acid-green font-mono text-xs">[TRANSCRIPTION]</span>
-          <span className="text-text-muted font-mono text-[10px]">
+          <span className="text-[var(--accent)] font-theme-data text-xs">[TRANSCRIPTION]</span>
+          <span className="text-text-muted font-theme-data text-[10px]">
             {wordCount} words | {formatTime(result.duration)}
           </span>
           {result.language && (
-            <span className="text-acid-cyan font-mono text-[10px] uppercase">
+            <span className="text-[var(--acid-cyan)] font-theme-data text-[10px] uppercase">
               {result.language}
             </span>
           )}
@@ -70,17 +70,17 @@ export function TranscriptionViewer({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowTimestamps(!showTimestamps)}
-            className={`px-2 py-1 font-mono text-[10px] border transition-colors ${
+            className={`px-2 py-1 font-theme-data text-[10px] border transition-colors ${
               showTimestamps
-                ? 'border-acid-green/50 text-acid-green bg-acid-green/10'
-                : 'border-acid-green/20 text-text-muted hover:text-acid-green'
+                ? 'border-[var(--accent)]/50 text-[var(--accent)] bg-[var(--accent)]/10'
+                : 'border-[var(--accent)]/20 text-text-muted hover:text-[var(--accent)]'
             }`}
           >
             [TIMESTAMPS]
           </button>
           <button
             onClick={handleCopy}
-            className="px-2 py-1 font-mono text-[10px] border border-acid-green/20 text-text-muted hover:text-acid-green transition-colors"
+            className="px-2 py-1 font-theme-data text-[10px] border border-[var(--accent)]/20 text-text-muted hover:text-[var(--accent)] transition-colors"
           >
             {copySuccess ? '[COPIED]' : '[COPY]'}
           </button>
@@ -97,36 +97,36 @@ export function TranscriptionViewer({
                 onClick={() => setSelectedSegment(selectedSegment === idx ? null : idx)}
                 className={`flex gap-3 p-2 cursor-pointer transition-colors rounded ${
                   selectedSegment === idx
-                    ? 'bg-acid-green/10 border border-acid-green/30'
+                    ? 'bg-[var(--accent)]/10 border border-[var(--accent)]/30'
                     : 'hover:bg-surface/50'
                 }`}
               >
-                <span className="text-acid-cyan font-mono text-[10px] shrink-0 w-16">
+                <span className="text-[var(--acid-cyan)] font-theme-data text-[10px] shrink-0 w-16">
                   [{formatTime(segment.start)}]
                 </span>
-                <span className="text-text font-mono text-sm leading-relaxed">
+                <span className="text-text font-theme-data text-sm leading-relaxed">
                   {segment.text}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-text font-mono text-sm leading-relaxed whitespace-pre-wrap">
+          <p className="text-text font-theme-data text-sm leading-relaxed whitespace-pre-wrap">
             {result.text}
           </p>
         )}
       </div>
 
       {/* Footer with actions */}
-      <div className="p-3 border-t border-acid-green/20 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[10px] font-mono text-text-muted/50">
+      <div className="p-3 border-t border-[var(--accent)]/20 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-[10px] font-theme-data text-text-muted/50">
           {result.provider && <span>Provider: {result.provider}</span>}
           {result.model && <span>| Model: {result.model}</span>}
         </div>
         {onCreateDebate && (
           <button
             onClick={() => onCreateDebate(result.text)}
-            className="px-3 py-1.5 bg-acid-green/20 border border-acid-green/50 text-acid-green font-mono text-xs hover:bg-acid-green/30 transition-colors"
+            className="px-3 py-1.5 bg-[var(--accent)]/20 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-xs hover:bg-[var(--accent)]/30 transition-colors"
           >
             CREATE DEBATE FROM TEXT
           </button>

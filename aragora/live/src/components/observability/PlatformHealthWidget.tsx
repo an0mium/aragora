@@ -60,14 +60,14 @@ interface CircuitBadgeProps {
 
 function CircuitBadge({ state }: CircuitBadgeProps) {
   const stateColors: Record<string, string> = {
-    closed: 'bg-acid-green/20 text-acid-green border-acid-green/30',
-    open: 'bg-crimson/20 text-crimson border-crimson/30',
-    'half-open': 'bg-acid-yellow/20 text-acid-yellow border-acid-yellow/30',
+    closed: 'bg-[var(--accent)]/20 text-[var(--accent)] border-[var(--accent)]/30',
+    open: 'bg-[var(--crimson)]/20 text-[var(--crimson)] border-[var(--crimson)]/30',
+    'half-open': 'bg-acid-yellow/20 text-[var(--acid-yellow)] border-acid-yellow/30',
     not_configured: 'bg-surface text-text-muted border-border',
   };
 
   return (
-    <span className={`px-2 py-0.5 text-[10px] font-mono rounded border ${stateColors[state] || stateColors.not_configured}`}>
+    <span className={`px-2 py-0.5 text-[10px] font-theme-data rounded border ${stateColors[state] || stateColors.not_configured}`}>
       {state.toUpperCase()}
     </span>
   );
@@ -81,15 +81,15 @@ interface StatBoxProps {
 
 function StatBox({ label, value, color = 'green' }: StatBoxProps) {
   const colorClasses: Record<string, string> = {
-    green: 'text-acid-green',
-    cyan: 'text-acid-cyan',
-    yellow: 'text-acid-yellow',
-    red: 'text-crimson',
+    green: 'text-[var(--accent)]',
+    cyan: 'text-[var(--acid-cyan)]',
+    yellow: 'text-[var(--acid-yellow)]',
+    red: 'text-[var(--crimson)]',
   };
 
   return (
     <div className="text-center">
-      <div className={`text-lg font-mono ${colorClasses[color]}`}>{value}</div>
+      <div className={`text-lg font-theme-data ${colorClasses[color]}`}>{value}</div>
       <div className="text-[10px] text-text-muted">{label}</div>
     </div>
   );
@@ -125,11 +125,11 @@ export function PlatformHealthWidget() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy':
-        return 'text-acid-green';
+        return 'text-[var(--accent)]';
       case 'healthy_with_warnings':
-        return 'text-acid-yellow';
+        return 'text-[var(--acid-yellow)]';
       case 'degraded':
-        return 'text-crimson';
+        return 'text-[var(--crimson)]';
       default:
         return 'text-text-muted';
     }
@@ -161,12 +161,12 @@ export function PlatformHealthWidget() {
 
   if (error) {
     return (
-      <div className="border border-crimson/30 bg-crimson/5 rounded-lg p-4">
-        <div className="text-crimson font-mono text-sm mb-1">Platform Health Error</div>
+      <div className="border border-[var(--crimson)]/30 bg-[var(--crimson)]/5 rounded-lg p-4">
+        <div className="text-[var(--crimson)] font-theme-data text-sm mb-1">Platform Health Error</div>
         <div className="text-text-muted text-xs">{error}</div>
         <button
           onClick={() => refetch()}
-          className="mt-2 text-xs text-acid-cyan hover:underline"
+          className="mt-2 text-xs text-[var(--acid-cyan)] hover:underline"
         >
           Retry
         </button>
@@ -191,10 +191,10 @@ export function PlatformHealthWidget() {
           <span className={`text-lg ${getStatusColor(data.status)}`}>
             {getStatusIcon(data.status)}
           </span>
-          <span className="font-mono text-sm text-text">Platform Integrations</span>
+          <span className="font-theme-data text-sm text-text">Platform Integrations</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] text-text-muted font-mono">
+          <span className="text-[10px] text-text-muted font-theme-data">
             {data.summary.active}/{data.summary.total_components} active
           </span>
           <span className="text-text-muted text-xs">{expanded ? '▼' : '▶'}</span>
@@ -231,7 +231,7 @@ export function PlatformHealthWidget() {
           {/* Warnings */}
           {data.warnings && data.warnings.length > 0 && (
             <div className="bg-acid-yellow/10 border border-acid-yellow/30 rounded p-2">
-              <div className="text-acid-yellow text-xs font-mono mb-1">Warnings</div>
+              <div className="text-[var(--acid-yellow)] text-xs font-theme-data mb-1">Warnings</div>
               <ul className="text-[10px] text-text-muted space-y-1">
                 {data.warnings.map((warning, i) => (
                   <li key={i}>• {warning}</li>
@@ -242,7 +242,7 @@ export function PlatformHealthWidget() {
 
           {/* Platform Circuit Breakers */}
           <div>
-            <div className="text-xs text-text-muted mb-2 font-mono">Circuit Breakers</div>
+            <div className="text-xs text-text-muted mb-2 font-theme-data">Circuit Breakers</div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {platforms.map((platform) => {
                 const circuit = circuits[platform];
@@ -262,7 +262,7 @@ export function PlatformHealthWidget() {
           {/* Rate Limiters */}
           {data.components.rate_limiters?.config && (
             <div>
-              <div className="text-xs text-text-muted mb-2 font-mono">Rate Limits (RPM)</div>
+              <div className="text-xs text-text-muted mb-2 font-theme-data">Rate Limits (RPM)</div>
               <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                 {Object.entries(data.components.rate_limiters.config).map(([platform, config]) => (
                   <div
@@ -270,7 +270,7 @@ export function PlatformHealthWidget() {
                     className="text-center p-2 bg-background rounded border border-border"
                   >
                     <div className="text-[10px] text-text-muted capitalize">{platform}</div>
-                    <div className="text-sm font-mono text-acid-cyan">{config.rpm}</div>
+                    <div className="text-sm font-theme-data text-[var(--acid-cyan)]">{config.rpm}</div>
                   </div>
                 ))}
               </div>
@@ -280,19 +280,19 @@ export function PlatformHealthWidget() {
           {/* DLQ Details */}
           {dlq && dlq.status === 'active' && (
             <div>
-              <div className="text-xs text-text-muted mb-2 font-mono">Dead Letter Queue</div>
+              <div className="text-xs text-text-muted mb-2 font-theme-data">Dead Letter Queue</div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="p-2 bg-background rounded border border-border text-center">
                   <div className="text-[10px] text-text-muted">Pending</div>
-                  <div className="text-lg font-mono text-acid-yellow">{dlq.pending_count ?? 0}</div>
+                  <div className="text-lg font-theme-data text-[var(--acid-yellow)]">{dlq.pending_count ?? 0}</div>
                 </div>
                 <div className="p-2 bg-background rounded border border-border text-center">
                   <div className="text-[10px] text-text-muted">Processed</div>
-                  <div className="text-lg font-mono text-acid-green">{dlq.processed_count ?? 0}</div>
+                  <div className="text-lg font-theme-data text-[var(--accent)]">{dlq.processed_count ?? 0}</div>
                 </div>
                 <div className="p-2 bg-background rounded border border-border text-center">
                   <div className="text-[10px] text-text-muted">Failed</div>
-                  <div className="text-lg font-mono text-crimson">{dlq.failed_count ?? 0}</div>
+                  <div className="text-lg font-theme-data text-[var(--crimson)]">{dlq.failed_count ?? 0}</div>
                 </div>
               </div>
             </div>
@@ -306,7 +306,7 @@ export function PlatformHealthWidget() {
                 e.stopPropagation();
                 refetch();
               }}
-              className="ml-2 text-acid-cyan hover:underline"
+              className="ml-2 text-[var(--acid-cyan)] hover:underline"
             >
               Refresh
             </button>

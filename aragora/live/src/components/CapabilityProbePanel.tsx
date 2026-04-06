@@ -388,7 +388,7 @@ function CapabilityProbePanelComponent({
         </div>
       )}
 
-      <div className="mt-3 text-[10px] text-text-muted font-mono">
+      <div className="mt-3 text-[10px] text-text-muted font-theme-data">
         Adversarial capability testing for agent vulnerabilities
       </div>
     </div>

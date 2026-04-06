@@ -212,7 +212,7 @@ export function RelatedPages({
       aria-label="Related pages"
       className={`flex flex-col gap-2 ${className}`}
     >
-      <span className="text-xs font-mono text-text-muted uppercase tracking-wider">
+      <span className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
         {title}
       </span>
       <ul className="flex flex-wrap gap-2" role="list">
@@ -220,13 +220,13 @@ export function RelatedPages({
           <li key={index}>
             <Link
               href={page.href}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-mono
-                         border border-acid-green/20 rounded bg-surface/50
-                         hover:border-acid-green/50 hover:bg-surface
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-theme-data
+                         border border-[var(--accent)]/20 rounded bg-surface/50
+                         hover:border-[var(--accent)]/50 hover:bg-surface
                          transition-colors group"
               title={page.description}
             >
-              <span className="text-acid-green/60 group-hover:text-acid-green">
+              <span className="text-[var(--accent)]/60 group-hover:text-[var(--accent)]">
                 &gt;
               </span>
               <span className="text-text-secondary group-hover:text-text-primary">

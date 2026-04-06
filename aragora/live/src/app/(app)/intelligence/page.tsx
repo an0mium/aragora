@@ -187,9 +187,9 @@ export default function IntelligencePage() {
   ];
 
   const TIER_TEXT: Record<string, string> = {
-    fast: 'text-acid-green',
-    medium: 'text-acid-cyan',
-    slow: 'text-acid-yellow',
+    fast: 'text-[var(--accent)]',
+    medium: 'text-[var(--acid-cyan)]',
+    slow: 'text-[var(--acid-yellow)]',
     glacial: 'text-text-muted',
   };
 
@@ -202,24 +202,24 @@ export default function IntelligencePage() {
         <div className="container mx-auto px-4 py-6">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} INTELLIGENCE HUB
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Memory tiers, knowledge graph, and unified search across all intelligence systems.
             </p>
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex flex-wrap gap-1 border-b border-acid-green/20 pb-2 mb-6">
+          <div className="flex flex-wrap gap-1 border-b border-[var(--accent)]/20 pb-2 mb-6">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 text-xs font-mono transition-colors ${
+                className={`px-4 py-2 text-xs font-theme-data transition-colors ${
                   activeTab === tab.id
-                    ? 'bg-acid-green text-bg'
-                    : 'text-text-muted hover:text-acid-green'
+                    ? 'bg-[var(--accent)] text-bg'
+                    : 'text-text-muted hover:text-[var(--accent)]'
                 }`}
               >
                 [{tab.label}]
@@ -234,7 +234,7 @@ export default function IntelligencePage() {
               <PanelErrorBoundary panelName="Memory">
                 <div className="space-y-6">
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} TIER DISTRIBUTION</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">{'>'} TIER DISTRIBUTION</h2>
                     <MemoryTierViz
                       tiers={tierStats ?? []}
                       loading={tierLoading}
@@ -242,7 +242,7 @@ export default function IntelligencePage() {
                   </section>
 
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} PRESSURE MONITOR</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">{'>'} PRESSURE MONITOR</h2>
                     <PressureGauge
                       pressure={pressure?.pressure ?? 0}
                       byTier={pressure?.by_tier}
@@ -259,7 +259,7 @@ export default function IntelligencePage() {
               <PanelErrorBoundary panelName="Knowledge">
                 <div className="space-y-6">
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} KNOWLEDGE MOUND</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">{'>'} KNOWLEDGE MOUND</h2>
                     <KnowledgeDashboard
                       stats={knowledgeStats ?? { coverage: 0, quality: 0, total_nodes: 0, contradictions: 0 }}
                       loading={knowledgeLoading}
@@ -267,7 +267,7 @@ export default function IntelligencePage() {
                   </section>
 
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} FACTS BROWSER</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">{'>'} FACTS BROWSER</h2>
                     <FactsBrowser
                       facts={factsData?.facts ?? []}
                       onPageChange={setFactsPage}
@@ -285,7 +285,7 @@ export default function IntelligencePage() {
               <PanelErrorBoundary panelName="Search">
                 <div className="space-y-6">
                   <section>
-                    <h2 className="text-lg font-mono text-acid-green mb-4">{'>'} UNIFIED SEARCH</h2>
+                    <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">{'>'} UNIFIED SEARCH</h2>
 
                     {/* Search input */}
                     <div className="flex gap-2 mb-4">
@@ -295,12 +295,12 @@ export default function IntelligencePage() {
                         onChange={(e) => setSearchInput(e.target.value)}
                         onKeyDown={handleSearchKeyDown}
                         placeholder="Search across all memory tiers..."
-                        className="flex-1 bg-surface border border-acid-green/20 rounded px-4 py-2 font-mono text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:border-acid-green/50"
+                        className="flex-1 bg-surface border border-[var(--accent)]/20 rounded px-4 py-2 font-theme-data text-sm text-text placeholder:text-text-muted/50 focus:outline-none focus:border-[var(--accent)]/50"
                       />
                       <button
                         onClick={handleSearch}
                         disabled={!searchInput.trim()}
-                        className="px-4 py-2 bg-acid-green/10 border border-acid-green/30 rounded font-mono text-sm text-acid-green hover:bg-acid-green/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="px-4 py-2 bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded font-theme-data text-sm text-[var(--accent)] hover:bg-[var(--accent)]/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                       >
                         SEARCH
                       </button>
@@ -318,27 +318,27 @@ export default function IntelligencePage() {
                         {searchResults.map((result) => (
                           <div
                             key={result.id}
-                            className="border border-acid-green/10 rounded p-3 hover:bg-acid-green/5 transition-colors"
+                            className="border border-[var(--accent)]/10 rounded p-3 hover:bg-[var(--accent)]/5 transition-colors"
                           >
                             <div className="flex items-start justify-between gap-3">
-                              <p className="text-text font-mono text-sm flex-1 leading-relaxed">
+                              <p className="text-text font-theme-data text-sm flex-1 leading-relaxed">
                                 {result.content}
                               </p>
                               <div className="flex items-center gap-2 shrink-0">
                                 {/* Tier badge */}
                                 <span
-                                  className={`text-xs font-mono px-1.5 py-0.5 rounded border border-current/30 ${TIER_TEXT[result.tier] ?? 'text-text-muted'}`}
+                                  className={`text-xs font-theme-data px-1.5 py-0.5 rounded border border-current/30 ${TIER_TEXT[result.tier] ?? 'text-text-muted'}`}
                                 >
                                   {result.tier.toUpperCase()}
                                 </span>
                                 {/* Importance */}
-                                <span className="text-text-muted text-xs font-mono">
+                                <span className="text-text-muted text-xs font-theme-data">
                                   imp: {result.importance.toFixed(2)}
                                 </span>
                               </div>
                             </div>
                             <div className="mt-2">
-                              <span className="text-text-muted text-xs font-mono">
+                              <span className="text-text-muted text-xs font-theme-data">
                                 {new Date(result.created_at).toLocaleDateString()}
                               </span>
                             </div>
@@ -346,11 +346,11 @@ export default function IntelligencePage() {
                         ))}
                       </div>
                     ) : searchQuery ? (
-                      <p className="text-text-muted text-sm font-mono text-center py-8">
+                      <p className="text-text-muted text-sm font-theme-data text-center py-8">
                         No results found for &quot;{searchQuery}&quot;
                       </p>
                     ) : (
-                      <p className="text-text-muted text-sm font-mono text-center py-8">
+                      <p className="text-text-muted text-sm font-theme-data text-center py-8">
                         Enter a query to search across all memory tiers.
                       </p>
                     )}
@@ -362,8 +362,8 @@ export default function IntelligencePage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // INTELLIGENCE HUB</p>
         </footer>
       </main>

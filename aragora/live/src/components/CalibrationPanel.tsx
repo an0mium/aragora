@@ -98,16 +98,16 @@ export function CalibrationPanel({ apiBase, events = [] }: CalibrationPanelProps
 
   // Score color based on calibration quality
   const getScoreColor = (score: number) => {
-    if (score >= 0.8) return 'text-acid-green';
-    if (score >= 0.6) return 'text-acid-cyan';
+    if (score >= 0.8) return 'text-[var(--accent)]';
+    if (score >= 0.6) return 'text-[var(--acid-cyan)]';
     if (score >= 0.4) return 'text-warning';
     return 'text-error';
   };
 
   // Brier score color (lower is better, 0 is perfect)
   const getBrierColor = (brier: number) => {
-    if (brier <= 0.1) return 'text-acid-green';
-    if (brier <= 0.2) return 'text-acid-cyan';
+    if (brier <= 0.1) return 'text-[var(--accent)]';
+    if (brier <= 0.2) return 'text-[var(--acid-cyan)]';
     if (brier <= 0.3) return 'text-warning';
     return 'text-error';
   };
@@ -120,7 +120,7 @@ export function CalibrationPanel({ apiBase, events = [] }: CalibrationPanelProps
         className="panel-collapsible-header w-full"
       >
         <div className="flex items-center gap-2">
-          <span className="text-acid-cyan font-mono text-sm">[CALIBRATION]</span>
+          <span className="text-[var(--acid-cyan)] font-theme-data text-sm">[CALIBRATION]</span>
           <span className="text-text-muted text-xs">Confidence accuracy scores</span>
         </div>
         <span className="panel-toggle">{expanded ? '[-]' : '[+]'}</span>
@@ -150,14 +150,14 @@ export function CalibrationPanel({ apiBase, events = [] }: CalibrationPanelProps
                     )}
                     className={`w-full text-left border p-2 text-xs transition-colors ${
                       selectedAgent === agent.name
-                        ? 'border-acid-green bg-acid-green/10'
-                        : 'border-acid-green/20 hover:border-acid-green/40'
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                        : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/40'
                     }`}
                   >
                     <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
                         <span className="text-text-muted w-4">#{idx + 1}</span>
-                        <span className="font-mono text-acid-cyan">{agent.name}</span>
+                        <span className="font-theme-data text-[var(--acid-cyan)]">{agent.name}</span>
                       </div>
                       <span className={getScoreColor(agent.calibration_score)}>
                         {(agent.calibration_score * 100).toFixed(0)}%
@@ -174,9 +174,9 @@ export function CalibrationPanel({ apiBase, events = [] }: CalibrationPanelProps
 
               {/* Agent Detail */}
               {agentDetail && (
-                <div className="border border-acid-cyan/30 bg-acid-cyan/5 p-3 space-y-2">
+                <div className="border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/5 p-3 space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="font-mono text-acid-cyan text-sm">{agentDetail.agent}</span>
+                    <span className="font-theme-data text-[var(--acid-cyan)] text-sm">{agentDetail.agent}</span>
                     <span className="text-xs text-text-muted">
                       ECE: <span className={getBrierColor(agentDetail.ece)}>{agentDetail.ece.toFixed(3)}</span>
                     </span>
@@ -191,11 +191,11 @@ export function CalibrationPanel({ apiBase, events = [] }: CalibrationPanelProps
                           <span className="w-16 text-text-muted">{bucket.bucket}</span>
                           <div className="flex-1 h-2 bg-bg/50 relative">
                             <div
-                              className="absolute h-full bg-acid-cyan/50"
+                              className="absolute h-full bg-[var(--acid-cyan)]/50"
                               style={{ width: `${bucket.predicted * 100}%` }}
                             />
                             <div
-                              className="absolute h-full bg-acid-green"
+                              className="absolute h-full bg-[var(--accent)]"
                               style={{ width: `${bucket.actual * 100}%`, opacity: 0.7 }}
                             />
                           </div>
@@ -205,21 +205,21 @@ export function CalibrationPanel({ apiBase, events = [] }: CalibrationPanelProps
                         </div>
                       ))}
                       <div className="text-xs text-text-muted/50 flex gap-4 mt-1">
-                        <span><span className="inline-block w-2 h-2 bg-acid-cyan/50 mr-1" />predicted</span>
-                        <span><span className="inline-block w-2 h-2 bg-acid-green mr-1" />actual</span>
+                        <span><span className="inline-block w-2 h-2 bg-[var(--acid-cyan)]/50 mr-1" />predicted</span>
+                        <span><span className="inline-block w-2 h-2 bg-[var(--accent)] mr-1" />actual</span>
                       </div>
                     </div>
                   )}
 
                   {/* Domain calibration */}
                   {agentDetail.domain_calibration && Object.keys(agentDetail.domain_calibration).length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-acid-cyan/20">
+                    <div className="mt-2 pt-2 border-t border-[var(--acid-cyan)]/20">
                       <div className="text-xs text-text-muted mb-1">By domain:</div>
                       <div className="flex flex-wrap gap-2">
                         {Object.entries(agentDetail.domain_calibration).map(([domain, score]) => (
                           <span
                             key={domain}
-                            className={`text-xs px-1 py-0.5 border border-acid-green/30 ${getScoreColor(score as number)}`}
+                            className={`text-xs px-1 py-0.5 border border-[var(--accent)]/30 ${getScoreColor(score as number)}`}
                           >
                             {domain}: {((score as number) * 100).toFixed(0)}%
                           </span>

@@ -89,7 +89,7 @@ export function AppShell({ children }: AppShellProps) {
                 aria-label="Quick links"
                 className="breadcrumb-links flex-1 overflow-x-auto whitespace-nowrap"
               >
-                <div className="flex items-center gap-3 pr-2 text-xs font-mono text-text-muted">
+                <div className="flex items-center gap-3 pr-2 text-xs font-theme-data text-text-muted">
                   {visibleLinks.map((link) => {
                     if (link.external) {
                       return (
@@ -98,7 +98,7 @@ export function AppShell({ children }: AppShellProps) {
                           href={link.href}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className={`transition-colors ${link.accent ? 'text-acid-cyan hover:text-acid-green' : 'hover:text-acid-green'}`}
+                          className={`transition-colors ${link.accent ? 'text-[var(--acid-cyan)] hover:text-[var(--accent)]' : 'hover:text-[var(--accent)]'}`}
                         >
                           [{link.label}]
                         </a>
@@ -108,7 +108,7 @@ export function AppShell({ children }: AppShellProps) {
                       <Link
                         key={link.label}
                         href={link.href}
-                        className="hover:text-acid-green transition-colors"
+                        className="hover:text-[var(--accent)] transition-colors"
                       >
                         [{link.label}]
                       </Link>

@@ -39,7 +39,7 @@ export function IdeaPalette() {
                     cursor-grab active:cursor-grabbing
                     px-3 py-2 rounded border ${config.borderColor} ${config.color}
                     hover:scale-[1.02] transition-transform
-                    font-mono text-xs
+                    font-theme-data text-xs
                   `}
                 >
                   <div className="flex items-center gap-2">

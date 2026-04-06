@@ -572,6 +572,8 @@ class DevCoordinationStore:
             self._git_common_dir(self.repo_root) / "aragora-agent-state" / "dev_coordination.db"
         )
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._supervisor_run_snapshot_dir = self.db_path.parent / "supervisor_runs"
+        self._supervisor_run_snapshot_dir.mkdir(parents=True, exist_ok=True)
         self.event_bus = event_bus or EventBus(repo_root=self.repo_root)
         self.fleet_store = FleetCoordinationStore(self.repo_root)
         self._ensure_schema()
@@ -790,6 +792,7 @@ class DevCoordinationStore:
         status: str = "planned",
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        self.cleanup_stale_supervisor_runs()
         now = _utcnow().isoformat()
         record = {
             "run_id": str(uuid.uuid4())[:12],
@@ -806,27 +809,11 @@ class DevCoordinationStore:
         }
         conn = self._connect()
         try:
-            conn.execute(
-                """
-                INSERT INTO supervisor_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    record["run_id"],
-                    record["goal"],
-                    record["target_branch"],
-                    record["status"],
-                    _json_dump(record["supervisor_agents"]),
-                    _json_dump(record["approval_policy"]),
-                    _json_dump(record["spec"]),
-                    _json_dump(record["work_orders"]),
-                    _json_dump(record["metadata"]),
-                    record["created_at"],
-                    record["updated_at"],
-                ),
-            )
+            self._insert_supervisor_run(conn, record)
             conn.commit()
         finally:
             conn.close()
+        self._write_supervisor_run_snapshot(record)
         return record
 
     def get_supervisor_run(self, run_id: str) -> dict[str, Any] | None:
@@ -836,6 +823,8 @@ class DevCoordinationStore:
                 "SELECT * FROM supervisor_runs WHERE run_id = ?",
                 (run_id,),
             ).fetchone()
+            if row is None:
+                return self._restore_missing_supervisor_run(conn, run_id)
         finally:
             conn.close()
         return None if row is None else self._supervisor_run_from_row(row)
@@ -1005,6 +994,53 @@ class DevCoordinationStore:
             conn.close()
         return updated
 
+    def rehabilitate_dependency_deferred_missing_verification_plan_work_orders(self) -> int:
+        """Restore historical implementation lanes whose verification is deferred downstream."""
+        now = _utcnow().isoformat()
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            updated = 0
+            for row in rows:
+                record = self._supervisor_run_from_row(row)
+                changed = False
+                for item in record["work_orders"]:
+                    deferred_dependency_ids = _dependency_deferred_verification_ids_for_work_order(
+                        item,
+                        work_orders=record["work_orders"],
+                    )
+                    if not deferred_dependency_ids:
+                        continue
+                    metadata = dict(item.get("metadata") or {})
+                    metadata["deferred_verification_to_dependency_ids"] = deferred_dependency_ids
+                    metadata["dependency_deferred_verification_rehabilitated_at"] = now
+                    item["metadata"] = metadata
+                    item["merge_gate"] = _merge_gate_state_for_work_order(item)
+                    item["verification_missing_reason"] = item["merge_gate"].get(
+                        "verification_missing_reason"
+                    )
+                    item["status"] = "completed"
+                    item["review_status"] = "pending_heterogeneous_review"
+                    item["worker_outcome"] = "completed"
+                    for key in (
+                        "failure_reason",
+                        "blocking_question",
+                        "blocker",
+                        "dispatch_error",
+                    ):
+                        item.pop(key, None)
+                    item["blockers"] = []
+                    changed = True
+                    updated += 1
+                if not changed:
+                    continue
+                record["updated_at"] = now
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return updated
+
     def rehabilitate_deliverable_backed_clean_exit_no_deliverable_work_orders(self) -> int:
         """Restore contradictory clean-exit lanes that already have receipt-backed deliverables."""
         now = _utcnow().isoformat()
@@ -1017,7 +1053,8 @@ class DevCoordinationStore:
                 changed = False
                 for item in record["work_orders"]:
                     if not _work_order_should_rehabilitate_deliverable_backed_clean_exit_no_deliverable(
-                        item
+                        item,
+                        work_orders=record["work_orders"],
                     ):
                         continue
                     item["merge_gate"] = _merge_gate_state_for_work_order(item)
@@ -1266,6 +1303,71 @@ class DevCoordinationStore:
                     continue
                 record["status"] = self._derive_supervisor_run_status(record["work_orders"])
                 record["updated_at"] = now.isoformat()
+                self._persist_supervisor_run(conn, record)
+            conn.commit()
+        finally:
+            conn.close()
+        return archived
+
+    def archive_terminal_dependency_failure_work_orders(self) -> int:
+        """Archive queued lanes that are blocked by a terminal failed dependency."""
+        now = _utcnow().isoformat()
+        conn = self._connect()
+        try:
+            rows = conn.execute("SELECT * FROM supervisor_runs ORDER BY updated_at DESC").fetchall()
+            archived = 0
+            for row in rows:
+                record = self._supervisor_run_from_row(row)
+                changed = False
+                for item in record["work_orders"]:
+                    if not isinstance(item, dict):
+                        continue
+                    dependency_failure = _terminal_dependency_failure_for_work_order(
+                        item,
+                        work_orders=record["work_orders"],
+                    )
+                    if dependency_failure is None:
+                        continue
+                    dependency_id = dependency_failure["dependency_id"]
+                    dependency_status = dependency_failure["dependency_status"]
+                    dependency_reason = dependency_failure["dependency_reason"]
+                    metadata = dict(item.get("metadata") or {})
+                    metadata.update(
+                        {
+                            "archived_due_to": "terminal_dependency_failure",
+                            "archived_at": now,
+                            "archive_reason": f"terminal_dependency_failure:{dependency_id}",
+                            "previous_status": _optional_text(item.get("status")) or "queued",
+                            "blocking_dependency_id": dependency_id,
+                            "blocking_dependency_status": dependency_status,
+                            "blocking_dependency_reason": dependency_reason,
+                        }
+                    )
+                    item["metadata"] = metadata
+                    item["status"] = "discarded"
+                    item["failure_reason"] = "terminal_dependency_failure"
+                    item["blocking_question"] = (
+                        f"Dependency {dependency_id} ended in {dependency_status}; "
+                        "should that dependency be rerun or replaced before retrying this lane?"
+                    )
+                    item["blocker"] = {
+                        "reason": "terminal_dependency_failure",
+                        "dependency_id": dependency_id,
+                        "dependency_status": dependency_status,
+                        "dependency_reason": dependency_reason,
+                    }
+                    item["blockers"] = [
+                        (
+                            f"Dependency {dependency_id} ended in {dependency_status} "
+                            f"without a deliverable: {dependency_reason}"
+                        )
+                    ]
+                    changed = True
+                    archived += 1
+                if not changed:
+                    continue
+                record["status"] = self._derive_supervisor_run_status(record["work_orders"])
+                record["updated_at"] = now
                 self._persist_supervisor_run(conn, record)
             conn.commit()
         finally:
@@ -2667,6 +2769,34 @@ class DevCoordinationStore:
         )
         return True
 
+    def sync_completion_receipt_verification(
+        self,
+        *,
+        receipt_id: str,
+        verification_results: list[dict[str, Any]],
+        replayed_at: str | None = None,
+    ) -> bool:
+        normalized_receipt_id = str(receipt_id or "").strip()
+        if not normalized_receipt_id:
+            return False
+        timestamp = str(replayed_at or _utcnow().isoformat()).strip() or _utcnow().isoformat()
+        normalized_results = [
+            dict(entry) for entry in verification_results if isinstance(entry, dict)
+        ]
+        conn = self._connect()
+        try:
+            updated = self._update_completion_receipt_verification_locked(
+                conn,
+                receipt_id=normalized_receipt_id,
+                verification_results=normalized_results,
+                replayed_at=timestamp,
+            )
+            if updated:
+                conn.commit()
+            return updated
+        finally:
+            conn.close()
+
     def _replay_merge_gate_failures(
         self,
         *,
@@ -3237,8 +3367,12 @@ class DevCoordinationStore:
                 (run_id,),
             ).fetchone()
             if row is None:
-                raise KeyError(f"Unknown supervisor run: {run_id}")
-            record = self._supervisor_run_from_row(row)
+                restored = self._restore_missing_supervisor_run(conn, run_id)
+                if restored is None:
+                    raise KeyError(f"Unknown supervisor run: {run_id}")
+                record = restored
+            else:
+                record = self._supervisor_run_from_row(row)
             if status is not None:
                 record["status"] = status
             if work_orders is not None:
@@ -3334,6 +3468,7 @@ class DevCoordinationStore:
         self.archive_reaped_no_receipt_work_orders()
         self.archive_scope_violation_no_deliverable_work_orders()
         self.archive_failed_no_deliverable_work_orders()
+        self.archive_terminal_dependency_failure_work_orders()
         self.archive_clean_exit_no_deliverable_work_orders()
         self.archive_work_order_leasing_failed_work_orders()
         self.archive_worker_type_blocked_work_orders()
@@ -3353,10 +3488,14 @@ class DevCoordinationStore:
         """Mark stale supervisor runs as completed so duplicate detection doesn't block new dispatches.
 
         A run is stale when:
-        - Its status is 'needs_human' or 'completed'
-        - ALL of its work orders are in non-actionable states (discarded, needs_human,
-          dispatch_failed, failed, timed_out, completed, scope_violation)
-        - No work order has an active lease or running process
+        - It is older than ``max_age_hours``
+        - Its status is ``planned`` with only untouched queued work orders,
+          ``needs_human``/``completed`` with only non-actionable work orders,
+          or ``active`` with no work orders backed by a living process
+        - No work order shows evidence of active progress
+
+        Runs with active leases whose worker process is still alive are
+        never cleaned — only truly orphaned runs from previous sessions.
 
         This prevents the duplicate_open_work_order detector in
         _suppress_duplicate_open_work_orders from permanently blocking new work
@@ -3375,14 +3514,196 @@ class DevCoordinationStore:
             "scope_violation",
             "cancelled",
         }
+        now = _utcnow()
+        max_age = timedelta(hours=max(0.0, float(max_age_hours)))
+        conn = self._connect()
+        try:
+            active_lease_ids = {
+                str(row["lease_id"]).strip()
+                for row in conn.execute(
+                    "SELECT lease_id FROM leases WHERE status = ?",
+                    (LeaseStatus.ACTIVE.value,),
+                ).fetchall()
+                if str(row["lease_id"]).strip()
+            }
+        finally:
+            conn.close()
+
+        def _has_live_worker_process(work_order: dict[str, Any]) -> bool:
+            metadata = work_order.get("metadata")
+            if not isinstance(metadata, dict):
+                metadata = {}
+            raw_pid = work_order.get("worker_pid")
+            if raw_pid is None:
+                raw_pid = metadata.get("worker_pid")
+            if raw_pid is None:
+                return False
+            probe = _safe_kill_probe(raw_pid)
+            return probe is None or isinstance(probe, PermissionError)
+
         runs = self.list_supervisor_runs(limit=limit)
         cleaned = 0
         for run in runs:
             status = str(run.get("status", "")).strip().lower()
-            if status not in ("needs_human", "completed"):
+            if status not in ("planned", "active", "needs_human", "completed"):
+                continue
+            updated_at = _parse_dt(str(run.get("updated_at") or run.get("created_at") or ""))
+            if updated_at is None:
+                continue
+            if max_age.total_seconds() > 0 and (now - updated_at) < max_age:
                 continue
             work_orders = run.get("work_orders", [])
             if not work_orders:
+                continue
+            if any(
+                isinstance(wo, dict)
+                and (
+                    _optional_text(wo.get("lease_id")) in active_lease_ids
+                    or _has_live_worker_process(wo)
+                )
+                for wo in work_orders
+            ):
+                continue
+            if status == "planned":
+                all_stranded = True
+                changed = False
+                for wo in work_orders:
+                    if not isinstance(wo, dict):
+                        continue
+                    wo_status = str(wo.get("status", "")).strip().lower()
+                    if wo_status != "queued":
+                        all_stranded = False
+                        break
+                    if (
+                        wo.get("lease_id")
+                        or wo.get("owner_session_id")
+                        or wo.get("branch")
+                        or wo.get("worktree_path")
+                        or wo.get("receipt_id")
+                        or wo.get("commit_shas")
+                        or wo.get("changed_paths")
+                        or wo.get("changed_files")
+                        or wo.get("pr_url")
+                        or wo.get("adopted_pr")
+                    ):
+                        all_stranded = False
+                        break
+                if not all_stranded:
+                    continue
+                archived_at = now.isoformat()
+                for wo in work_orders:
+                    if not isinstance(wo, dict):
+                        continue
+                    metadata = dict(wo.get("metadata") or {})
+                    metadata.update(
+                        {
+                            "archived_due_to": "stale_planned_run",
+                            "archive_reason": "stale_planned_run",
+                            "archived_at": archived_at,
+                            "previous_status": str(wo.get("status") or "queued").strip()
+                            or "queued",
+                        }
+                    )
+                    wo["metadata"] = metadata
+                    wo["status"] = "discarded"
+                    wo["failure_reason"] = "stale_planned_run"
+                    changed = True
+                if changed:
+                    self.update_supervisor_run(
+                        run["run_id"],
+                        status="completed",
+                        work_orders=work_orders,
+                    )
+                    cleaned += 1
+                continue
+            if status == "active":
+                # Active runs from previous sessions may have orphaned work
+                # orders.  Only clean if no work order has a living worker
+                # process (active lease with live PID or live work-order PID).
+                has_live_worker = False
+                # Collect lease IDs to check against the DB
+                lease_ids = [
+                    wo.get("lease_id")
+                    for wo in work_orders
+                    if isinstance(wo, dict)
+                    and wo.get("lease_id")
+                    and str(wo.get("status", "")).strip().lower() not in terminal_wo_statuses
+                ]
+                active_lease_pids: dict[str, Any] = {}
+                if lease_ids:
+                    conn = self._connect()
+                    try:
+                        placeholders = ",".join("?" for _ in lease_ids)
+                        rows = conn.execute(
+                            f"SELECT lease_id, metadata FROM leases WHERE status = 'active' AND lease_id IN ({placeholders})",
+                            lease_ids,
+                        ).fetchall()
+                        for row in rows:
+                            meta = (
+                                json.loads(row["metadata"] or "{}")
+                                if isinstance(row["metadata"], str)
+                                else (row["metadata"] or {})
+                            )
+                            active_lease_pids[row["lease_id"]] = meta.get("worker_pid")
+                    finally:
+                        conn.close()
+                for wo in work_orders:
+                    if not isinstance(wo, dict):
+                        continue
+                    wo_status = str(wo.get("status", "")).strip().lower()
+                    if wo_status in terminal_wo_statuses:
+                        continue
+                    # Check lease PID if the lease is still active
+                    lid = wo.get("lease_id")
+                    if lid and lid in active_lease_pids:
+                        raw_pid = active_lease_pids[lid]
+                        if raw_pid is not None:
+                            probe = _safe_kill_probe(raw_pid)
+                            if probe is None or isinstance(probe, PermissionError):
+                                has_live_worker = True
+                                break
+                        else:
+                            # No PID recorded but lease is active — treat
+                            # as live to be safe.
+                            has_live_worker = True
+                            break
+                    # Check work order-level PID
+                    wo_pid = wo.get("pid")
+                    if wo_pid is not None:
+                        probe = _safe_kill_probe(wo_pid)
+                        if probe is None or isinstance(probe, PermissionError):
+                            has_live_worker = True
+                            break
+                if has_live_worker:
+                    continue
+                archived_at = now.isoformat()
+                changed = False
+                for wo in work_orders:
+                    if not isinstance(wo, dict):
+                        continue
+                    wo_status = str(wo.get("status", "")).strip().lower()
+                    if wo_status in terminal_wo_statuses:
+                        continue
+                    metadata = dict(wo.get("metadata") or {})
+                    metadata.update(
+                        {
+                            "archived_due_to": "stale_active_run",
+                            "archive_reason": "stale_active_run",
+                            "archived_at": archived_at,
+                            "previous_status": wo_status or "queued",
+                        }
+                    )
+                    wo["metadata"] = metadata
+                    wo["status"] = "discarded"
+                    wo["failure_reason"] = "stale_active_run"
+                    changed = True
+                if changed:
+                    self.update_supervisor_run(
+                        run["run_id"],
+                        status="completed",
+                        work_orders=work_orders,
+                    )
+                    cleaned += 1
                 continue
             all_terminal = all(
                 str(wo.get("status", "")).strip().lower() in terminal_wo_statuses
@@ -3494,6 +3815,7 @@ class DevCoordinationStore:
         self.archive_reaped_no_receipt_work_orders()
         self.archive_scope_violation_no_deliverable_work_orders()
         self.archive_failed_no_deliverable_work_orders()
+        self.archive_terminal_dependency_failure_work_orders()
         self.archive_clean_exit_no_deliverable_work_orders()
         self.archive_work_order_leasing_failed_work_orders()
         self.archive_worker_type_blocked_work_orders()
@@ -4489,6 +4811,7 @@ class DevCoordinationStore:
         self.backfill_missing_blocker_metadata()
         self.backfill_missing_verification_plans()
         self.rehabilitate_docs_only_missing_verification_plan_work_orders()
+        self.rehabilitate_dependency_deferred_missing_verification_plan_work_orders()
         self.rehabilitate_deliverable_backed_clean_exit_no_deliverable_work_orders()
         self.reclassify_branch_snapshot_stale_review_work_orders()
         self.reclassify_deliverable_changes_requested_work_orders()
@@ -5135,6 +5458,92 @@ class DevCoordinationStore:
                 record["run_id"],
             ),
         )
+        self._write_supervisor_run_snapshot(record)
+
+    def _insert_supervisor_run(
+        self,
+        conn: sqlite3.Connection,
+        record: dict[str, Any],
+        *,
+        ignore_existing: bool = False,
+    ) -> None:
+        insert_mode = "INSERT OR IGNORE" if ignore_existing else "INSERT"
+        conn.execute(
+            f"""
+            {insert_mode} INTO supervisor_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                record["run_id"],
+                record["goal"],
+                record["target_branch"],
+                record["status"],
+                _json_dump(record.get("supervisor_agents", {})),
+                _json_dump(record.get("approval_policy", {})),
+                _json_dump(record.get("spec", {})),
+                _json_dump(record.get("work_orders", [])),
+                _json_dump(record.get("metadata", {})),
+                record["created_at"],
+                record["updated_at"],
+            ),
+        )
+
+    def _supervisor_run_snapshot_path(self, run_id: str) -> Path:
+        safe_run_id = re.sub(r"[^A-Za-z0-9_.-]", "_", str(run_id).strip())
+        return self._supervisor_run_snapshot_dir / f"{safe_run_id}.json"
+
+    def _write_supervisor_run_snapshot(self, record: dict[str, Any]) -> None:
+        run_id = str(record.get("run_id", "")).strip()
+        if not run_id:
+            return
+        path = self._supervisor_run_snapshot_path(run_id)
+        tmp_path = path.with_suffix(".json.tmp")
+        payload = json.dumps(record, indent=2, sort_keys=True) + "\n"
+        tmp_path.write_text(payload, encoding="utf-8")
+        tmp_path.replace(path)
+
+    def _load_supervisor_run_snapshot(self, run_id: str) -> dict[str, Any] | None:
+        path = self._supervisor_run_snapshot_path(run_id)
+        if not path.exists():
+            return None
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(loaded, dict):
+            return None
+        if str(loaded.get("run_id", "")).strip() != str(run_id).strip():
+            return None
+        return {
+            "run_id": str(loaded.get("run_id", "")).strip(),
+            "goal": str(loaded.get("goal", "")),
+            "target_branch": str(loaded.get("target_branch", "")),
+            "status": str(loaded.get("status", "")),
+            "supervisor_agents": dict(loaded.get("supervisor_agents") or {}),
+            "approval_policy": dict(loaded.get("approval_policy") or {}),
+            "spec": dict(loaded.get("spec") or {}),
+            "work_orders": [dict(item) for item in loaded.get("work_orders", [])],
+            "metadata": dict(loaded.get("metadata") or {}),
+            "created_at": str(loaded.get("created_at", "")),
+            "updated_at": str(loaded.get("updated_at", "")),
+        }
+
+    def _restore_missing_supervisor_run(
+        self,
+        conn: sqlite3.Connection,
+        run_id: str,
+    ) -> dict[str, Any] | None:
+        snapshot = self._load_supervisor_run_snapshot(run_id)
+        if snapshot is None:
+            return None
+        self._insert_supervisor_run(conn, snapshot, ignore_existing=True)
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM supervisor_runs WHERE run_id = ?",
+            (run_id,),
+        ).fetchone()
+        if row is not None:
+            return self._supervisor_run_from_row(row)
+        return snapshot
 
     def _sync_supervisor_run_from_lease(
         self,
@@ -5177,6 +5586,15 @@ class DevCoordinationStore:
                     changed = True
                     break
                 item.update(update)
+                if _optional_text(update.get("status")) == "completed":
+                    for key in (
+                        "failure_reason",
+                        "blocking_question",
+                        "blocker",
+                        "dispatch_error",
+                    ):
+                        item.pop(key, None)
+                    item["blockers"] = []
                 changed = True
                 break
             if not changed:
@@ -5352,6 +5770,27 @@ def _merge_gate_state_for_work_order(work_order: dict[str, Any]) -> dict[str, An
         )
         and not bool(entry.get("passed", False))
     ]
+    deferred_dependency_ids = [
+        str(dep).strip()
+        for dep in (
+            dict(work_order.get("metadata") or {}).get("deferred_verification_to_dependency_ids")
+            or []
+        )
+        if str(dep).strip()
+    ]
+
+    if deferred_dependency_ids:
+        return {
+            "enabled": True,
+            "expected_checks": expected_checks,
+            "verification_results": verification_results,
+            "verification_missing_reason": None,
+            "checks_passed": True,
+            "human_approval_required": True,
+            "merge_eligible": True,
+            "blocked_reasons": [],
+            "verification_deferred_to_dependency_ids": deferred_dependency_ids,
+        }
 
     blocked_reasons: list[str] = []
     verification_missing_reason: str | None = None
@@ -5744,16 +6183,182 @@ def _work_order_should_rehabilitate_docs_only_missing_verification_plan(
     return _work_order_has_concrete_deliverable(work_order)
 
 
+def _work_order_is_validation_successor(work_order: dict[str, Any]) -> bool:
+    expected_tests = [
+        str(item).strip() for item in work_order.get("expected_tests", []) if str(item).strip()
+    ]
+    if expected_tests:
+        return True
+    text = " ".join(
+        part
+        for part in (
+            _optional_text(work_order.get("title")),
+            _optional_text(work_order.get("description")),
+            " ".join(
+                str(item).strip()
+                for item in ((work_order.get("metadata") or {}).get("acceptance_criteria") or [])
+                if str(item).strip()
+            ),
+        )
+        if part
+    ).lower()
+    return any(
+        token in text
+        for token in (
+            "run validation",
+            "validation and fix failures",
+            "acceptance tests",
+            "pytest ",
+            "fix any failures",
+        )
+    )
+
+
+def _work_order_rehabilitation_identifier(work_order: dict[str, Any]) -> str:
+    return (
+        _optional_text(work_order.get("pipeline_task_id"))
+        or _work_order_identifier(work_order)
+        or _optional_text(work_order.get("task_key"))
+    )
+
+
+def _dependency_deferred_verification_ids_for_work_order(
+    work_order: dict[str, Any],
+    *,
+    work_orders: list[dict[str, Any]],
+) -> list[str]:
+    if not isinstance(work_order, dict):
+        return []
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in {"needs_human", "changes_requested"}:
+        return []
+    if _infer_missing_failure_reason_for_work_order(work_order) != "missing_verification_plan":
+        return []
+    if not _work_order_has_concrete_deliverable(work_order):
+        return []
+
+    work_order_ids = {
+        identifier
+        for identifier in (
+            _optional_text(work_order.get("pipeline_task_id")),
+            _work_order_identifier(work_order),
+            _optional_text(work_order.get("task_key")),
+        )
+        if identifier
+    }
+    if not work_order_ids:
+        return []
+
+    deferred_dependency_ids: list[str] = []
+    for candidate in work_orders:
+        if not isinstance(candidate, dict) or candidate is work_order:
+            continue
+        dependency_ids = set(_work_order_dependency_ids(candidate))
+        if not dependency_ids or not dependency_ids.intersection(work_order_ids):
+            continue
+        if not _work_order_is_validation_successor(candidate):
+            continue
+        candidate_id = _work_order_rehabilitation_identifier(candidate)
+        if candidate_id and candidate_id not in deferred_dependency_ids:
+            deferred_dependency_ids.append(candidate_id)
+    return deferred_dependency_ids
+
+
+def _work_order_dependency_ids(work_order: dict[str, Any]) -> list[str]:
+    return [str(item).strip() for item in work_order.get("dependency_ids", []) if str(item).strip()]
+
+
+def _work_order_matches_dependency_id(work_order: dict[str, Any], dependency_id: str) -> bool:
+    target = str(dependency_id).strip()
+    if not target:
+        return False
+    return target in {
+        _optional_text(work_order.get("pipeline_task_id")),
+        _work_order_identifier(work_order),
+        _optional_text(work_order.get("task_key")),
+    }
+
+
+def _resolve_dependency_work_order(
+    work_orders: list[dict[str, Any]],
+    dependency_id: str,
+) -> dict[str, Any] | None:
+    for candidate in work_orders:
+        if not isinstance(candidate, dict):
+            continue
+        if _work_order_matches_dependency_id(candidate, dependency_id):
+            return candidate
+    return None
+
+
+def _work_order_has_passed_verification_results(work_order: dict[str, Any]) -> bool:
+    verification_results = [
+        dict(entry)
+        for entry in work_order.get("verification_results", [])
+        if isinstance(entry, dict) and str(entry.get("command", "")).strip()
+    ]
+    if not verification_results:
+        return False
+    if not all(bool(entry.get("passed", False)) for entry in verification_results):
+        return False
+    merge_gate = _merge_gate_state_for_work_order(work_order)
+    return bool(merge_gate.get("checks_passed")) and not _optional_text(
+        merge_gate.get("verification_missing_reason")
+    )
+
+
+def _work_order_should_rehabilitate_dependency_validated_clean_exit_no_deliverable(
+    work_order: dict[str, Any],
+    *,
+    work_orders: list[dict[str, Any]],
+) -> bool:
+    if _optional_text(work_order.get("status")).lower() != "completed":
+        return False
+    if _optional_text(work_order.get("review_status")).lower() != "changes_requested":
+        return False
+    if _optional_text(work_order.get("worker_outcome")).lower() != "clean_exit_no_effect":
+        return False
+    if any(str(path).strip() for path in work_order.get("changed_paths", []) or []):
+        return False
+    if not _optional_text(work_order.get("receipt_id")):
+        return False
+    if not _work_order_has_passed_verification_results(work_order):
+        return False
+    dependency_ids = _work_order_dependency_ids(work_order)
+    if not dependency_ids:
+        return False
+    for dependency_id in dependency_ids:
+        dependency = _resolve_dependency_work_order(work_orders, dependency_id)
+        if dependency is None or dependency is work_order:
+            return False
+        if _optional_text(dependency.get("status")).lower() not in {
+            "completed",
+            "changes_requested",
+            "merged",
+        }:
+            return False
+        if not _work_order_has_concrete_deliverable(dependency):
+            return False
+    return True
+
+
 def _work_order_should_rehabilitate_deliverable_backed_clean_exit_no_deliverable(
     work_order: dict[str, Any],
+    *,
+    work_orders: list[dict[str, Any]] | None = None,
 ) -> bool:
     if not isinstance(work_order, dict):
         return False
     status = _optional_text(work_order.get("status")).lower()
-    if status not in {"needs_human", "changes_requested"}:
+    if status not in {"needs_human", "changes_requested", "completed"}:
         return False
     if _infer_missing_failure_reason_for_work_order(work_order) != "clean_exit_no_deliverable":
         return False
+    if status == "completed":
+        return _work_order_should_rehabilitate_dependency_validated_clean_exit_no_deliverable(
+            work_order,
+            work_orders=list(work_orders or []),
+        )
     if not _optional_text(work_order.get("receipt_id")):
         return False
     return _work_order_has_concrete_deliverable(work_order)
@@ -6374,6 +6979,85 @@ def _work_order_failed_no_deliverable_reason(work_order: dict[str, Any]) -> str:
     return _optional_text(work_order.get("failure_reason")) or "failed_no_deliverable"
 
 
+def _terminal_dependency_failure_for_work_order(
+    work_order: dict[str, Any],
+    *,
+    work_orders: list[dict[str, Any]],
+) -> dict[str, str] | None:
+    status = _optional_text(work_order.get("status")).lower()
+    if status not in {"queued", "waiting_conflict"}:
+        return None
+    metadata = work_order.get("metadata")
+    if isinstance(metadata, dict) and _optional_text(metadata.get("archived_due_to")):
+        return None
+    if _optional_text(work_order.get("receipt_id")) or _work_order_has_concrete_deliverable(
+        work_order
+    ):
+        return None
+    dependency_ids = [
+        _optional_text(dep) for dep in work_order.get("dependency_ids", []) if _optional_text(dep)
+    ]
+    if not dependency_ids:
+        return None
+
+    dependency_lookup: dict[str, dict[str, Any]] = {}
+    for candidate in work_orders:
+        if not isinstance(candidate, dict):
+            continue
+        for key in ("pipeline_task_id", "work_order_id", "task_key"):
+            candidate_id = _optional_text(candidate.get(key))
+            if candidate_id:
+                dependency_lookup[candidate_id] = candidate
+
+    for dependency_id in dependency_ids:
+        dependency = dependency_lookup.get(dependency_id)
+        if not isinstance(dependency, dict):
+            continue
+        if _optional_text(dependency.get("receipt_id")) or _work_order_has_concrete_deliverable(
+            dependency
+        ):
+            continue
+        dependency_status = _optional_text(dependency.get("status")).lower()
+        dependency_metadata = dependency.get("metadata")
+        dependency_archived_due_to = (
+            _optional_text(dependency_metadata.get("archived_due_to"))
+            if isinstance(dependency_metadata, dict)
+            else ""
+        )
+        dependency_reason = _optional_text(
+            dependency.get("failure_reason"),
+            dependency.get("dispatch_error"),
+            dependency_metadata.get("archive_reason")
+            if isinstance(dependency_metadata, dict)
+            else "",
+            dependency_archived_due_to,
+            dependency.get("worker_outcome"),
+            dependency_status,
+        )
+        if dependency_status in {"discarded", "failed", "timed_out", "scope_violation"}:
+            return {
+                "dependency_id": dependency_id,
+                "dependency_status": dependency_status,
+                "dependency_reason": dependency_reason or dependency_status,
+            }
+        if dependency_status == "dispatch_failed":
+            return {
+                "dependency_id": dependency_id,
+                "dependency_status": dependency_status,
+                "dependency_reason": dependency_reason or dependency_status,
+            }
+        if dependency_status == "needs_human":
+            non_terminal_reasons = {"stale_lease_reaped", "expired_lease_reaped", "needs_human"}
+            if dependency_reason.lower() in non_terminal_reasons and not dependency_archived_due_to:
+                continue
+            return {
+                "dependency_id": dependency_id,
+                "dependency_status": dependency_status,
+                "dependency_reason": dependency_reason or dependency_status,
+            }
+    return None
+
+
 def _work_order_clean_exit_no_deliverable_reason(work_order: dict[str, Any]) -> str:
     status = _optional_text(work_order.get("status")).lower()
     metadata = work_order.get("metadata")
@@ -6419,6 +7103,7 @@ def _work_order_should_archive_failed_no_deliverable(
 ) -> bool:
     status = _optional_text(work_order.get("status")).lower()
     timeout_like_needs_human = False
+    empty_launch_crash_needs_human = False
     if status == "needs_human":
         worker_outcome = _optional_text(work_order.get("worker_outcome")).lower()
         failure_reason = _optional_text(work_order.get("failure_reason")).lower()
@@ -6432,7 +7117,25 @@ def _work_order_should_archive_failed_no_deliverable(
             or any("timeout" in blocker for blocker in blockers)
             or "timeout" in failure_reason
         )
-    if status not in {"failed", "dispatch_failed", "timed_out"} and not timeout_like_needs_human:
+        changed_paths = [
+            _optional_text(path)
+            for path in work_order.get("changed_paths", [])
+            if _optional_text(path)
+        ]
+        empty_launch_crash_needs_human = (
+            failure_reason == "worker_exited_without_receipt"
+            and worker_outcome in {"", "crash"}
+            and not changed_paths
+            and not _optional_text(work_order.get("stdout_tail"))
+            and not _optional_text(work_order.get("stderr_tail"))
+            and not _optional_text(work_order.get("diff"))
+            and int(work_order.get("diff_lines", 0) or 0) == 0
+        )
+    if (
+        status not in {"failed", "dispatch_failed", "timed_out"}
+        and not timeout_like_needs_human
+        and not empty_launch_crash_needs_human
+    ):
         return False
     if _optional_text(lease_status).lower() == LeaseStatus.ACTIVE.value:
         return False

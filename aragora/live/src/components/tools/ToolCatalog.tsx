@@ -58,14 +58,14 @@ export function ToolCatalog({ tools, categories }: ToolCatalogProps) {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search tools by name, description, or category..."
-        className="w-full bg-[var(--surface)] border border-[var(--border)] rounded px-3 py-2 font-mono text-sm text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors"
+        className="w-full bg-[var(--surface)] border border-[var(--border)] rounded px-3 py-2 font-theme-data text-sm text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--acid-green)] transition-colors"
       />
 
       {/* Category filter chips */}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={selectAll}
-          className={`px-3 py-1 text-xs font-mono border rounded transition-colors ${
+          className={`px-3 py-1 text-xs font-theme-data border rounded transition-colors ${
             allSelected
               ? 'text-[var(--acid-green)] border-[var(--acid-green)] bg-[var(--acid-green)]/10'
               : 'text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/50'
@@ -79,7 +79,7 @@ export function ToolCatalog({ tools, categories }: ToolCatalogProps) {
             <button
               key={cat.name}
               onClick={() => toggleCategory(cat.name)}
-              className={`px-3 py-1 text-xs font-mono border rounded transition-colors ${
+              className={`px-3 py-1 text-xs font-theme-data border rounded transition-colors ${
                 active
                   ? 'text-[var(--acid-green)] border-[var(--acid-green)] bg-[var(--acid-green)]/10'
                   : 'text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--acid-green)]/50'
@@ -92,14 +92,14 @@ export function ToolCatalog({ tools, categories }: ToolCatalogProps) {
       </div>
 
       {/* Count */}
-      <div className="text-xs font-mono text-[var(--text-muted)]">
+      <div className="text-xs font-theme-data text-[var(--text-muted)]">
         Showing {filteredTools.length} of {tools.length} tools
       </div>
 
       {/* Tool grid */}
       {filteredTools.length === 0 ? (
         <div className="py-12 text-center">
-          <p className="text-sm font-mono text-[var(--text-muted)]">
+          <p className="text-sm font-theme-data text-[var(--text-muted)]">
             No tools match your search
           </p>
         </div>

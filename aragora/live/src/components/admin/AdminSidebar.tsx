@@ -20,6 +20,7 @@ const navItems: NavItem[] = [
   { label: 'Billing', href: '/admin/billing', icon: '=' },
   { label: 'Audit Logs', href: '/admin/audit', icon: '!' },
   { label: 'Security', href: '/admin/security', icon: '*' },
+  { label: 'Landing', href: '/admin/landing', icon: '?' },
   { label: 'Queue', href: '/admin/queue', icon: '>' },
   { label: 'Training', href: '/admin/training', icon: '^' },
   { label: 'Personas', href: '/admin/personas', icon: '&' },
@@ -43,21 +44,21 @@ export function AdminSidebar({ collapsed = false, onToggleCollapse }: AdminSideb
   return (
     <aside
       className={`
-        fixed top-12 left-0 h-[calc(100vh-48px)] bg-surface border-r border-acid-green/30 z-30
+        fixed top-12 left-0 h-[calc(100vh-48px)] bg-surface border-r border-[var(--accent)]/30 z-30
         transition-all duration-200 ease-out
         ${collapsed ? 'w-16' : 'w-56'}
       `}
     >
       <div className="flex flex-col h-full">
         {/* Header */}
-        <div className="p-3 border-b border-acid-green/20">
+        <div className="p-3 border-b border-[var(--accent)]/20">
           {!collapsed && (
-            <div className="font-mono text-sm text-acid-green">
+            <div className="font-theme-data text-sm text-[var(--accent)]">
               ADMIN PANEL
             </div>
           )}
           {collapsed && (
-            <div className="font-mono text-lg text-acid-green text-center">
+            <div className="font-theme-data text-lg text-[var(--accent)] text-center">
               A
             </div>
           )}
@@ -72,9 +73,9 @@ export function AdminSidebar({ collapsed = false, onToggleCollapse }: AdminSideb
                 key={item.href}
                 href={item.href}
                 className={`
-                  flex items-center gap-3 px-3 py-2 rounded-md transition-colors font-mono text-sm
+                  flex items-center gap-3 px-3 py-2 rounded-md transition-colors font-theme-data text-sm
                   ${active
-                    ? 'bg-acid-green/10 text-acid-green'
+                    ? 'bg-[var(--accent)]/10 text-[var(--accent)]'
                     : 'text-text-muted hover:bg-surface-elevated hover:text-text'
                   }
                 `}
@@ -88,10 +89,10 @@ export function AdminSidebar({ collapsed = false, onToggleCollapse }: AdminSideb
         </nav>
 
         {/* Collapse Toggle */}
-        <div className="p-3 border-t border-acid-green/20">
+        <div className="p-3 border-t border-[var(--accent)]/20">
           <button
             onClick={onToggleCollapse}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-text-muted hover:bg-surface-elevated hover:text-text transition-colors font-mono text-sm"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md text-text-muted hover:bg-surface-elevated hover:text-text transition-colors font-theme-data text-sm"
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             <span>{collapsed ? '>>' : '<<'}</span>

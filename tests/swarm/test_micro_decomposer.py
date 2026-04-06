@@ -102,6 +102,24 @@ def test_acceptance_criteria_creates_validation_order(repo_root: Path) -> None:
     assert len(validation_orders) == 1
 
 
+def test_acceptance_criteria_marks_non_validation_lanes_as_deferred(repo_root: Path) -> None:
+    orders = build_micro_work_orders(
+        goal="Fix optimizer and add regression coverage",
+        file_scope_hints=["aragora/routing/optimizer.py", "tests/routing/test_optimizer.py"],
+        acceptance_criteria=["pytest tests/routing/test_optimizer.py -x -q passes"],
+        repo_root=repo_root,
+    )
+
+    validation_orders = [o for o in orders if "validation" in o.get("title", "").lower()]
+    assert len(validation_orders) == 1
+    validation_task_id = validation_orders[0]["pipeline_task_id"]
+
+    non_validation_orders = [o for o in orders if o is not validation_orders[0]]
+    assert non_validation_orders
+    for order in non_validation_orders:
+        assert order["metadata"]["deferred_verification_to_dependency_ids"] == [validation_task_id]
+
+
 def test_caps_at_five_impl_files(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     for i in range(10):

@@ -48,7 +48,7 @@ function LearningInsightsTab() {
                 key={agent.id}
                 className="flex items-center justify-between px-3 py-2 bg-[var(--bg-tertiary)] rounded"
               >
-                <span className="font-mono text-sm">{agent.id}</span>
+                <span className="font-theme-data text-sm">{agent.id}</span>
                 <div className="flex gap-4 text-xs text-gray-400">
                   <span>ELO: {agent.elo}</span>
                   <span>Wins: {agent.wins}</span>
@@ -134,7 +134,7 @@ function AgentPerformanceTab() {
               className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-tertiary)] rounded"
             >
               <div className="flex-1 min-w-0">
-                <div className="font-mono text-xs truncate">{agent.name}</div>
+                <div className="font-theme-data text-xs truncate">{agent.name}</div>
                 <div className="text-[10px] text-gray-500">{agent.elo} ELO</div>
               </div>
               <EloSparkline points={agent.eloHistory} />
@@ -168,7 +168,7 @@ function AgentPerformanceTab() {
             <tbody>
               {agents.map((agent) => (
                 <tr key={agent.id} className="border-b border-gray-800/50">
-                  <td className="py-2 pr-4 font-mono">{agent.name}</td>
+                  <td className="py-2 pr-4 font-theme-data">{agent.name}</td>
                   <td className="py-2 pr-4">{agent.elo}</td>
                   <td className="py-2 pr-4">
                     <EloSparkline points={agent.eloHistory} width={80} height={20} />
@@ -324,12 +324,12 @@ function ImprovementQueueTab() {
               className="px-3 py-1.5 bg-[var(--bg-tertiary)] rounded text-xs"
             >
               <span className="text-gray-400">{source}:</span>{' '}
-              <span className="font-mono">{count}</span>
+              <span className="font-theme-data">{count}</span>
             </div>
           ))}
           <div className="px-3 py-1.5 bg-[var(--bg-tertiary)] rounded text-xs">
             <span className="text-gray-400">Total:</span>{' '}
-            <span className="font-mono">{queue.totalSize}</span>
+            <span className="font-theme-data">{queue.totalSize}</span>
           </div>
         </div>
       )}
@@ -391,7 +391,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="px-4 py-3 bg-[var(--bg-secondary)] border border-gray-800 rounded">
       <p className="text-xs text-gray-500 uppercase tracking-wider">{label}</p>
-      <p className="text-xl font-mono mt-1">{value}</p>
+      <p className="text-xl font-theme-data mt-1">{value}</p>
     </div>
   );
 }
@@ -446,7 +446,7 @@ export default function IntelligencePage() {
   return (
     <div className="relative min-h-screen p-6 space-y-6">
       <div className="relative z-10">
-        <h1 className="text-xl font-mono text-[var(--acid-green)] mb-6">
+        <h1 className="text-xl font-theme-data text-[var(--acid-green)] mb-6">
           System Intelligence
         </h1>
 

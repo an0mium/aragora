@@ -12,7 +12,7 @@ Tests for FastAPI receipt route endpoints.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -172,6 +172,61 @@ class TestListReceipts:
         """List receipts supports verdict filter."""
         response = client.get("/api/v2/receipts?verdict=APPROVED")
         assert response.status_code == 200
+
+    def test_list_receipts_forwards_debate_id_filter(self, app, sample_stored_receipt):
+        """List receipts forwards debate_id filtering to durable stores."""
+
+        calls: dict[str, dict[str, object]] = {}
+
+        class StorageBackedStore:
+            def list(self, **kwargs):
+                calls["list"] = kwargs
+                return [sample_stored_receipt]
+
+            def count(self, **kwargs):
+                calls["count"] = kwargs
+                return 1
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "receipt_store": StorageBackedStore(),
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/receipts?debate_id=debate-123")
+        assert response.status_code == 200
+        assert calls["list"]["debate_id"] == "debate-123"
+        assert calls["count"]["debate_id"] == "debate-123"
+
+    def test_list_receipts_filters_list_all_fallback_by_debate_id(self, app):
+        """List-all fallback should still respect debate_id filtering."""
+
+        class ListAllStore:
+            def list_all(self):
+                return [
+                    {"receipt_id": "receipt-1", "debate_id": "debate-123", "verdict": "APPROVED"},
+                    {"receipt_id": "receipt-2", "debate_id": "debate-999", "verdict": "APPROVED"},
+                ]
+
+        app.state.context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "user_store": None,
+            "rbac_checker": MagicMock(),
+            "decision_service": MagicMock(),
+            "receipt_store": ListAllStore(),
+        }
+        client = TestClient(app, raise_server_exceptions=False)
+
+        response = client.get("/api/v2/receipts?debate_id=debate-123")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert [receipt["receipt_id"] for receipt in data["receipts"]] == ["receipt-1"]
 
     def test_list_receipts_with_data(self, client, mock_receipt_store, sample_receipt_dict):
         """List receipts returns receipt summaries."""
@@ -346,6 +401,17 @@ class TestExportReceipt:
         assert data["format"] == "markdown"
         assert "Decision Receipt" in data["content"]
 
+    def test_export_receipt_markdown_raw_mode(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """Raw mode returns markdown bytes for the live download surfaces."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=md&raw=true")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/markdown")
+        assert "Decision Receipt" in response.text
+
     def test_export_receipt_md_alias_format(self, client, mock_receipt_store, sample_receipt_dict):
         """Export receipt accepts the legacy md alias used by the live UI."""
         mock_receipt_store.get.return_value = sample_receipt_dict
@@ -367,6 +433,16 @@ class TestExportReceipt:
         assert "<!DOCTYPE html>" in data["content"]
         assert "Decision Receipt" in data["content"]
 
+    def test_export_receipt_html_raw_mode(self, client, mock_receipt_store, sample_receipt_dict):
+        """Raw HTML mode returns an inline document for onboarding receipt links."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=html&raw=true")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+        assert "<!DOCTYPE html>" in response.text
+        assert "Decision Receipt" in response.text
+
     def test_export_receipt_sarif_format(self, client, mock_receipt_store, sample_receipt_dict):
         """Export receipt in SARIF format."""
         mock_receipt_store.get.return_value = sample_receipt_dict
@@ -379,6 +455,54 @@ class TestExportReceipt:
 
         sarif = json.loads(data["content"])
         assert sarif["version"] == "2.1.0"
+
+    def test_export_receipt_json_raw_mode(self, client, mock_receipt_store, sample_receipt_dict):
+        """Raw JSON mode serves the receipt body directly for file downloads."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=json&raw=true")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/json")
+        assert response.json()["receipt_id"] == "rcpt_test123"
+
+    def test_export_receipt_pdf_format_returns_pdf_bytes(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """PDF export should return raw bytes for browser/download flows."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        mock_receipt = MagicMock()
+        mock_receipt.to_pdf.return_value = b"%PDF-1.4..."
+
+        with patch(
+            "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt
+        ):
+            response = client.get("/api/v2/receipts/rcpt_test123/export?format=pdf")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/pdf")
+        assert response.content == b"%PDF-1.4..."
+
+    def test_export_receipt_pdf_fallback_returns_printable_html(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """When PDF generation is unavailable, export falls back to printable HTML."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        mock_receipt = MagicMock()
+        mock_receipt.to_pdf.side_effect = ImportError("weasyprint not found")
+        mock_receipt.to_html.return_value = "<div>Receipt Content</div>"
+
+        with patch(
+            "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt
+        ):
+            response = client.get("/api/v2/receipts/rcpt_test123/export?format=pdf")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+        assert response.headers["x-pdf-fallback"] == "true"
+        assert "PDF export is unavailable" in response.text
+        assert "Receipt Content" in response.text
 
     def test_export_receipt_from_stored_receipt_uses_full_payload(
         self, client, mock_receipt_store, sample_stored_receipt
@@ -583,6 +707,145 @@ class TestShareReceipt:
         mock_receipt_share_store.save.assert_called_once()
 
 
+class TestFormattedReceipt:
+    """Tests for GET /api/v2/receipts/{receipt_id}/formatted/{channel_type}."""
+
+    def test_get_formatted_receipt_not_found(self, client):
+        response = client.get("/api/v2/receipts/missing/formatted/slack")
+        assert response.status_code == 404
+
+    def test_get_formatted_receipt_success(self, client, mock_receipt_store, sample_receipt_dict):
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        with patch(
+            "aragora.channels.formatter.format_receipt_for_channel",
+            return_value={"blocks": [{"type": "section"}]},
+        ) as format_receipt:
+            response = client.get("/api/v2/receipts/rcpt_test123/formatted/slack?compact=true")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["receipt_id"] == "rcpt_test123"
+        assert data["channel_type"] == "slack"
+        assert data["formatted"]["blocks"][0]["type"] == "section"
+        format_receipt.assert_called_once()
+
+    def test_get_formatted_receipt_invalid_channel(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        with patch(
+            "aragora.channels.formatter.format_receipt_for_channel",
+            side_effect=ValueError("No formatter registered for channel: fax"),
+        ):
+            response = client.get("/api/v2/receipts/rcpt_test123/formatted/fax")
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "No formatter registered for channel: fax"
+
+
+class TestVerifyReceiptSignature:
+    """Tests for POST /api/v2/receipts/{receipt_id}/verify-signature."""
+
+    def test_verify_signature_not_found(self, client, mock_receipt_store):
+        result = MagicMock()
+        result.error = "Receipt not found"
+        result.to_dict.return_value = {
+            "receipt_id": "missing",
+            "signature_valid": False,
+            "algorithm": None,
+            "key_id": None,
+            "signed_at": None,
+            "verification_timestamp": "2026-02-11T12:00:00Z",
+            "error": "Receipt not found",
+        }
+        mock_receipt_store.verify_signature = MagicMock(return_value=result)
+
+        response = client.post("/api/v2/receipts/missing/verify-signature")
+        assert response.status_code == 404
+
+    def test_verify_signature_success(self, client, mock_receipt_store):
+        result = MagicMock()
+        result.error = None
+        result.to_dict.return_value = {
+            "receipt_id": "rcpt_test123",
+            "signature_valid": True,
+            "algorithm": "hmac-sha256",
+            "key_id": "key-1",
+            "signed_at": 1740000000.0,
+            "verification_timestamp": "2026-02-11T12:00:00Z",
+            "error": None,
+        }
+        mock_receipt_store.verify_signature = MagicMock(return_value=result)
+
+        response = client.post("/api/v2/receipts/rcpt_test123/verify-signature")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["receipt_id"] == "rcpt_test123"
+        assert data["signature_valid"] is True
+        assert data["algorithm"] == "hmac-sha256"
+
+
+class TestSendToChannel:
+    """Tests for POST /api/v2/receipts/{receipt_id}/send-to-channel."""
+
+    def test_send_to_channel_requires_auth(self, client):
+        response = client.post(
+            "/api/v2/receipts/rcpt_test123/send-to-channel",
+            json={"channel_type": "email", "channel_id": "user@example.com"},
+        )
+        assert response.status_code == 401
+
+    def test_send_to_channel_requires_permission(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        mock_receipt_store.get.return_value = sample_receipt_dict
+        _override_auth(client, roles=set(), permissions=set())
+        response = client.post(
+            "/api/v2/receipts/rcpt_test123/send-to-channel",
+            json={"channel_type": "email", "channel_id": "user@example.com"},
+        )
+        client.app.dependency_overrides.clear()
+        assert response.status_code == 403
+
+    def test_send_to_channel_not_found(self, client):
+        _override_auth(client, permissions={"receipts:share"})
+        response = client.post(
+            "/api/v2/receipts/missing/send-to-channel",
+            json={"channel_type": "email", "channel_id": "user@example.com"},
+        )
+        client.app.dependency_overrides.clear()
+        assert response.status_code == 404
+
+    def test_send_to_channel_success(self, client, mock_receipt_store, sample_receipt_dict):
+        mock_receipt_store.get.return_value = sample_receipt_dict
+        _override_auth(client, permissions={"receipts:share"})
+
+        with patch(
+            "aragora.channels.formatter.format_receipt_for_channel",
+            return_value={"subject": "Decision Receipt", "html": "<p>ok</p>"},
+        ):
+            with patch(
+                "aragora.server.handlers.receipts.ReceiptsHandler._send_to_email",
+                new=AsyncMock(
+                    return_value={"message_id": "msg-123", "email_sent_to": "user@example.com"}
+                ),
+            ):
+                response = client.post(
+                    "/api/v2/receipts/rcpt_test123/send-to-channel",
+                    json={"channel_type": "email", "channel_id": "user@example.com"},
+                )
+
+        client.app.dependency_overrides.clear()
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sent"] is True
+        assert data["receipt_id"] == "rcpt_test123"
+        assert data["channel_type"] == "email"
+        assert data["message_id"] == "msg-123"
+
+
 class TestGetSharedReceipt:
     """Tests for GET /api/v2/receipts/share/{token}."""
 
@@ -648,6 +911,20 @@ class TestGetSharedReceipt:
         assert spec["paths"]["/api/v2/receipts/{receipt_id}/share"]["post"]["security"] == [
             {"bearerAuth": []}
         ]
+        assert "/api/v2/receipts/{receipt_id}/formatted/{channel_type}" in spec["paths"]
+        assert (
+            "security"
+            not in spec["paths"]["/api/v2/receipts/{receipt_id}/formatted/{channel_type}"]["get"]
+        )
+        assert "/api/v2/receipts/{receipt_id}/verify-signature" in spec["paths"]
+        assert (
+            "security"
+            not in spec["paths"]["/api/v2/receipts/{receipt_id}/verify-signature"]["post"]
+        )
+        assert "/api/v2/receipts/{receipt_id}/send-to-channel" in spec["paths"]
+        assert spec["paths"]["/api/v2/receipts/{receipt_id}/send-to-channel"]["post"][
+            "security"
+        ] == [{"bearerAuth": []}]
 
 
 # =============================================================================

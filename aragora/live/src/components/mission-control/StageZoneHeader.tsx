@@ -44,12 +44,12 @@ export const StageZoneHeader = memo(function StageZoneHeader({
     >
       <span className={`text-base ${colors.text}`}>{config.icon}</span>
 
-      <span className={`text-xs font-mono font-bold uppercase tracking-wide ${colors.text}`}>
+      <span className={`text-xs font-theme-data font-bold uppercase tracking-wide ${colors.text}`}>
         {config.label}
       </span>
 
       <span
-        className={`px-1.5 py-0.5 text-xs font-mono rounded-full ${colors.bg} ${colors.text}`}
+        className={`px-1.5 py-0.5 text-xs font-theme-data rounded-full ${colors.bg} ${colors.text}`}
         data-testid={`stage-zone-count-${stage}`}
       >
         {nodeCount}

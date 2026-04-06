@@ -1,18 +1,10 @@
-import { Metadata } from 'next';
-import Link from 'next/link';
-import { ConnectOpenRouterButton } from '@/components/openrouter/ConnectOpenRouterButton';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Quickstart | ARAGORA',
-  description:
-    'Get from zero to a working adversarial AI debate in under a minute. Install, run, and share decisions.',
-  openGraph: {
-    title: 'Quickstart — ARAGORA',
-    description:
-      'Get from zero to a working adversarial AI debate in under a minute.',
-    siteName: 'ARAGORA',
-  },
-};
+import Link from 'next/link';
+import { useTheme } from '@/context/ThemeContext';
+import { Header } from '@/components/landing/Header';
+import { Footer } from '@/components/landing/Footer';
+import { ConnectOpenRouterButton } from '@/components/openrouter/ConnectOpenRouterButton';
 
 function CodeBlock({
   children,
@@ -22,13 +14,37 @@ function CodeBlock({
   lang?: string;
 }) {
   return (
-    <div className="relative group">
+    <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid var(--border)' }}>
       {lang && (
-        <span className="absolute top-2 right-3 text-[10px] font-mono text-[var(--text-muted)] uppercase">
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '8px 16px',
+            backgroundColor: 'var(--surface-elevated)',
+            borderBottom: '1px solid var(--border)',
+            fontSize: '11px',
+            fontFamily: 'var(--font-theme-data, monospace)',
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase' as const,
+            letterSpacing: '0.06em',
+          }}
+        >
           {lang}
-        </span>
+        </div>
       )}
-      <pre className="p-4 bg-[var(--bg)] border border-[var(--border)] overflow-x-auto text-sm font-mono text-[var(--text)] leading-relaxed">
+      <pre
+        style={{
+          margin: 0,
+          padding: '16px',
+          backgroundColor: 'var(--surface)',
+          overflowX: 'auto',
+          fontSize: '13px',
+          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+          color: 'var(--text)',
+          lineHeight: 1.7,
+        }}
+      >
         <code>{children}</code>
       </pre>
     </div>
@@ -45,57 +61,96 @@ function Step({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-12">
-      <div className="flex items-center gap-3 mb-4">
-        <span className="flex items-center justify-center w-8 h-8 text-sm font-mono font-bold bg-[var(--acid-green)]/20 text-[var(--acid-green)] border border-[var(--acid-green)]/30">
+    <section
+      style={{
+        borderRadius: '14px',
+        border: '1px solid var(--border)',
+        backgroundColor: 'color-mix(in srgb, var(--surface) 40%, transparent)',
+        padding: '28px 32px',
+        marginBottom: '24px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px',
+            fontSize: '14px',
+            fontWeight: 600,
+            borderRadius: '50%',
+            backgroundColor: 'color-mix(in srgb, var(--accent) 12%, transparent)',
+            color: 'var(--accent)',
+            border: '1px solid color-mix(in srgb, var(--accent) 20%, transparent)',
+          }}
+        >
           {number}
         </span>
-        <h2 className="text-lg font-mono font-bold text-[var(--text)]">
+        <h2
+          style={{
+            margin: 0,
+            fontSize: '20px',
+            fontWeight: 600,
+            color: 'var(--text)',
+            fontFamily: 'var(--font-landing)',
+          }}
+        >
           {title}
         </h2>
       </div>
-      <div className="ml-11 space-y-4">{children}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>{children}</div>
     </section>
   );
 }
 
 export default function QuickstartPage() {
-  return (
-    <main className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      {/* Header */}
-      <nav className="border-b border-[var(--border)] bg-[var(--surface)]/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link
-            href="/"
-            className="font-mono text-[var(--acid-green)] font-bold text-sm tracking-wider"
-          >
-            ARAGORA
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/docs"
-              className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
-            >
-              API DOCS
-            </Link>
-            <Link
-              href="/try"
-              className="text-xs font-mono text-[var(--acid-green)] hover:text-[var(--acid-green)]/80 transition-colors"
-            >
-              TRY IT
-            </Link>
-          </div>
-        </div>
-      </nav>
+  const { theme } = useTheme();
 
-      <div className="max-w-3xl mx-auto px-4 py-12">
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: 'var(--bg)',
+        color: 'var(--text)',
+        fontFamily: 'var(--font-landing)',
+      }}
+      data-landing-theme={theme}
+    >
+      <Header />
+
+      <main
+        style={{
+          maxWidth: '780px',
+          margin: '0 auto',
+          padding: '56px 24px 80px',
+        }}
+      >
         {/* Title */}
-        <h1 className="text-2xl md:text-3xl font-mono font-bold text-[var(--acid-green)] mb-2">
-          Quickstart
-        </h1>
-        <p className="text-sm font-mono text-[var(--text-muted)] mb-12">
-          Get from zero to a working adversarial debate in under a minute.
-        </p>
+        <div style={{ textAlign: 'center', marginBottom: '48px' }}>
+          <h1
+            style={{
+              fontSize: '36px',
+              fontWeight: 700,
+              color: 'var(--accent)',
+              marginBottom: '10px',
+              fontFamily: 'var(--font-landing)',
+            }}
+          >
+            Quickstart
+          </h1>
+          <p
+            style={{
+              color: 'var(--text-muted)',
+              fontSize: '18px',
+              fontFamily: 'var(--font-landing)',
+              margin: 0,
+            }}
+          >
+            Get from zero to a working adversarial debate in under a minute.
+          </p>
+        </div>
 
         {/* Step 1 */}
         <Step number={1} title="Install">
@@ -104,7 +159,7 @@ export default function QuickstartPage() {
 
         {/* Step 2 */}
         <Step number={2} title="Zero-Key Demo">
-          <p className="text-sm font-mono text-[var(--text-muted)]">
+          <p style={{ color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-landing)' }}>
             No API keys needed — runs with styled mock agents locally:
           </p>
           <CodeBlock lang="python">{`from aragora_debate.arena import Arena
@@ -119,7 +174,7 @@ agents = [
 arena = Arena(question='Should we migrate to microservices?', agents=agents)
 result = asyncio.run(arena.run())
 print(result.receipt.to_markdown())`}</CodeBlock>
-          <p className="text-sm font-mono text-[var(--text-muted)]">
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: 0, fontFamily: 'var(--font-landing)' }}>
             Three agents debate, critique each other, vote, and produce an
             audit-ready decision receipt.
           </p>
@@ -128,13 +183,13 @@ print(result.receipt.to_markdown())`}</CodeBlock>
         {/* Step 3 */}
         <Step number={3} title="Add Real AI Models">
           <ConnectOpenRouterButton />
-          <p className="text-sm font-mono text-[var(--text-muted)] mt-4">
+          <p style={{ color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-landing)' }}>
             Or set API keys manually:
           </p>
           <CodeBlock lang="bash">{`export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
 # or
 export OPENAI_API_KEY="sk-..."          # GPT`}</CodeBlock>
-          <p className="text-sm font-mono text-[var(--text-muted)]">
+          <p style={{ color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-landing)' }}>
             Then run a real multi-model debate:
           </p>
           <CodeBlock lang="python">{`import asyncio
@@ -165,78 +220,90 @@ console.log(result.summary);`}</CodeBlock>
 
         {/* Step 5 */}
         <Step number={5} title="Self-Host">
-          <CodeBlock lang="bash">
-            docker compose -f deploy/demo/docker-compose.yml up
-          </CodeBlock>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm font-mono">
-            <div className="p-3 border border-[var(--border)] bg-[var(--surface)]">
-              <span className="text-[var(--acid-green)]">Landing page</span>
-              <span className="text-[var(--text-muted)] ml-2">
-                localhost:3000
-              </span>
-            </div>
-            <div className="p-3 border border-[var(--border)] bg-[var(--surface)]">
-              <span className="text-[var(--acid-green)]">API docs</span>
-              <span className="text-[var(--text-muted)] ml-2">
-                localhost:8080/api/v2/docs
-              </span>
-            </div>
-            <div className="p-3 border border-[var(--border)] bg-[var(--surface)]">
-              <span className="text-[var(--acid-green)]">Playground</span>
-              <span className="text-[var(--text-muted)] ml-2">
-                localhost:3000/playground
-              </span>
-            </div>
-            <div className="p-3 border border-[var(--border)] bg-[var(--surface)]">
-              <span className="text-[var(--acid-green)]">CLI</span>
-              <span className="text-[var(--text-muted)] ml-2">
-                aragora debate &quot;your question&quot;
-              </span>
-            </div>
+          <CodeBlock lang="bash">docker compose -f deploy/demo/docker-compose.yml up</CodeBlock>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            {[
+              { label: 'Landing page', url: 'localhost:3000' },
+              { label: 'API docs', url: 'localhost:8080/api/v2/docs' },
+              { label: 'Playground', url: 'localhost:3000/playground' },
+              { label: 'CLI', url: 'aragora debate "your question"' },
+            ].map((item) => (
+              <div
+                key={item.label}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface)',
+                }}
+              >
+                <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent)' }}>
+                  {item.label}
+                </span>
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)', marginLeft: '8px', fontFamily: "'JetBrains Mono', monospace" }}>
+                  {item.url}
+                </span>
+              </div>
+            ))}
           </div>
         </Step>
 
-        {/* Next steps */}
-        <div className="border-t border-[var(--border)] pt-8 mt-4">
-          <h2 className="text-sm font-mono text-[var(--text-muted)] uppercase tracking-wider mb-4">
+        {/* Next Steps */}
+        <div style={{ marginTop: '48px' }}>
+          <h2
+            style={{
+              fontSize: '13px',
+              fontWeight: 600,
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase' as const,
+              letterSpacing: '0.06em',
+              marginBottom: '16px',
+              fontFamily: 'var(--font-landing)',
+            }}
+          >
             Next Steps
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
             <Link
               href="/try"
-              className="p-4 border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/5 hover:bg-[var(--acid-green)]/10 transition-colors"
+              style={{
+                padding: '20px',
+                borderRadius: '14px',
+                border: '1px solid color-mix(in srgb, var(--accent) 25%, transparent)',
+                backgroundColor: 'color-mix(in srgb, var(--accent) 5%, transparent)',
+                textDecoration: 'none',
+                display: 'block',
+              }}
             >
-              <span className="text-sm font-mono font-bold text-[var(--acid-green)]">
+              <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--accent)', fontFamily: 'var(--font-landing)' }}>
                 Try a debate now
               </span>
-              <p className="text-xs font-mono text-[var(--text-muted)] mt-1">
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-landing)' }}>
                 No install needed — run in your browser
               </p>
             </Link>
             <Link
               href="/docs"
-              className="p-4 border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+              style={{
+                padding: '20px',
+                borderRadius: '14px',
+                border: '1px solid var(--border)',
+                textDecoration: 'none',
+                display: 'block',
+              }}
             >
-              <span className="text-sm font-mono font-bold text-[var(--text)]">
+              <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-landing)' }}>
                 API Reference
               </span>
-              <p className="text-xs font-mono text-[var(--text-muted)] mt-1">
-                Swagger + Redoc for all 3,000+ endpoints
+              <p style={{ fontSize: '14px', color: 'var(--text-muted)', margin: '6px 0 0', fontFamily: 'var(--font-landing)' }}>
+                Full REST API documentation
               </p>
             </Link>
           </div>
         </div>
+      </main>
 
-        {/* Footer */}
-        <div className="text-center py-8 mt-8 border-t border-[var(--border)]">
-          <Link
-            href="/"
-            className="text-xs font-mono text-[var(--text-muted)] hover:text-[var(--acid-green)] transition-colors"
-          >
-            ARAGORA // DECISION INTEGRITY PLATFORM
-          </Link>
-        </div>
-      </div>
-    </main>
+      <Footer />
+    </div>
   );
 }

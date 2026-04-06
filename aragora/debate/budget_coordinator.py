@@ -54,6 +54,15 @@ class BudgetCoordinator:
         self.user_id = user_id
         self.extensions = extensions
         self.autotuner = autotuner
+        self._debate_cost_limit_usd: float | None = None
+
+    def set_debate_cost_limit(self, limit_usd: float | None) -> None:
+        """Set a per-debate cost limit. None = no limit."""
+        self._debate_cost_limit_usd = limit_usd
+
+    def _estimate_debate_cost_so_far(self, rounds_completed: int) -> float:
+        """Estimate cost incurred so far based on rounds completed."""
+        return rounds_completed * self.ESTIMATED_ROUND_COST_USD
 
     def estimate_debate_cost(
         self,
@@ -190,6 +199,23 @@ class BudgetCoordinator:
                     return False, reason
             except (AttributeError, TypeError) as e:
                 logger.debug("Autotuner check failed (continuing): %s", e)
+
+        # Per-debate cost limit check (from DebateProtocol.debate_cost_limit_usd)
+        if self._debate_cost_limit_usd is not None:
+            estimated_cost = self._estimate_debate_cost_so_far(round_num)
+            if estimated_cost >= self._debate_cost_limit_usd:
+                reason = (
+                    f"Debate cost limit reached: ~${estimated_cost:.2f} "
+                    f"(limit: ${self._debate_cost_limit_usd:.2f})"
+                )
+                logger.info(
+                    "debate_cost_limit_reached debate_id=%s round=%s cost=%.2f limit=%.2f",
+                    debate_id,
+                    round_num,
+                    estimated_cost,
+                    self._debate_cost_limit_usd,
+                )
+                return False, reason
 
         if not self.org_id:
             return True, ""  # No org context - allow continuation

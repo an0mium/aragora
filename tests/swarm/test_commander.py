@@ -317,6 +317,41 @@ class TestSwarmCommanderRunFromSpec:
         assert mock_supervisor_cls.call_args.kwargs["launcher"] is mock_launcher
 
     @pytest.mark.asyncio
+    async def test_run_supervised_from_spec_detaches_direct_cli_workers_even_when_waiting(self):
+        spec = SwarmSpec(
+            raw_goal="Boss path proof run",
+            refined_goal="Boss path proof run",
+            file_scope_hints=["aragora/swarm/commander.py"],
+        )
+        commander = SwarmCommander()
+        fake_run = MagicMock()
+        fake_run.run_id = "test-run-id"
+        mock_launcher = MagicMock()
+
+        with (
+            patch(
+                "aragora.swarm.worker_launcher.WorkerLauncher",
+                return_value=mock_launcher,
+            ) as launcher_cls,
+            patch("aragora.swarm.commander.SwarmSupervisor") as mock_supervisor_cls,
+        ):
+            mock_sup = mock_supervisor_cls.return_value
+            mock_sup.start_run.return_value = fake_run
+            mock_sup.dispatch_workers = AsyncMock(return_value=[])
+            mock_sup.refresh_run.return_value = fake_run
+
+            await commander.run_supervised_from_spec(
+                spec,
+                wait=True,
+                use_managed_session_script=False,
+            )
+
+        config = launcher_cls.call_args.kwargs["config"]
+        assert config.use_managed_session_script is False
+        assert config.detach is True
+        assert mock_supervisor_cls.call_args.kwargs["launcher"] is mock_launcher
+
+    @pytest.mark.asyncio
     async def test_run_supervised_from_spec_rejects_under_specified_spec(self):
         commander = SwarmCommander()
         spec = SwarmSpec(raw_goal="Make it better", refined_goal="Make it better")

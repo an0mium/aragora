@@ -23,7 +23,7 @@ export function InlineDebatePanel({ nodeId: _nodeId, events, isActive }: InlineD
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+        <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
           Debate {isActive ? '(Live)' : '(Complete)'}
         </h4>
         {isActive && (
@@ -37,7 +37,7 @@ export function InlineDebatePanel({ nodeId: _nodeId, events, isActive }: InlineD
           {agents.map(agent => (
             <span
               key={agent}
-              className="px-2 py-0.5 text-[10px] font-mono bg-indigo-500/10 text-indigo-400 rounded border border-indigo-500/20"
+              className="px-2 py-0.5 text-[10px] font-theme-data bg-indigo-500/10 text-indigo-400 rounded border border-indigo-500/20"
             >
               {agent}
             </span>
@@ -48,7 +48,7 @@ export function InlineDebatePanel({ nodeId: _nodeId, events, isActive }: InlineD
       {/* Confidence */}
       {confidence !== undefined && (
         <div className="space-y-1">
-          <div className="flex justify-between text-[10px] font-mono text-text-muted">
+          <div className="flex justify-between text-[10px] font-theme-data text-text-muted">
             <span>Confidence</span>
             <span>{Math.round(confidence * 100)}%</span>
           </div>
@@ -64,7 +64,7 @@ export function InlineDebatePanel({ nodeId: _nodeId, events, isActive }: InlineD
       {/* Event Timeline */}
       <div className="space-y-1 max-h-40 overflow-y-auto">
         {debateEvents.slice(-8).map(e => (
-          <div key={e.id} className="flex items-start gap-2 text-[11px] font-mono">
+          <div key={e.id} className="flex items-start gap-2 text-[11px] font-theme-data">
             <span className={`flex-shrink-0 mt-0.5 w-1.5 h-1.5 rounded-full ${
               e.type.includes('CONSENSUS') || e.type === 'consensus' ? 'bg-emerald-500' :
               e.type.includes('CRITIQUE') || e.type === 'critique' ? 'bg-amber-500' :

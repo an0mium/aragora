@@ -247,11 +247,11 @@ export function UseCaseWizard({
   }, [selectedTemplate, formData, apiBase, onComplete, router]);
 
   return (
-    <div className={`border border-acid-green/30 bg-surface ${className}`}>
+    <div className={`border border-[var(--accent)]/30 bg-surface ${className}`}>
       {/* Header */}
-      <div className="border-b border-acid-green/20 px-4 py-3 flex items-center justify-between">
+      <div className="border-b border-[var(--accent)]/20 px-4 py-3 flex items-center justify-between">
         <div>
-          <h2 className="text-text font-bold font-mono">
+          <h2 className="text-text font-bold font-theme-data">
             {step === 'select' && 'Select Use Case'}
             {step === 'configure' && selectedTemplate?.name}
             {step === 'review' && 'Review & Start'}
@@ -276,18 +276,18 @@ export function UseCaseWizard({
       </div>
 
       {/* Progress indicator */}
-      <div className="px-4 py-2 border-b border-acid-green/10 flex items-center gap-2">
+      <div className="px-4 py-2 border-b border-[var(--accent)]/10 flex items-center gap-2">
         {['select', 'configure', 'review'].map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             <div
               className={`
                 w-6 h-6 rounded-full flex items-center justify-center
-                font-mono text-xs
+                font-theme-data text-xs
                 ${step === s
-                  ? 'bg-acid-green text-bg'
+                  ? 'bg-[var(--accent)] text-bg'
                   : ['select', 'configure', 'review'].indexOf(step) > i
-                    ? 'bg-acid-green/30 text-acid-green'
-                    : 'bg-surface border border-acid-green/30 text-text-muted'
+                    ? 'bg-[var(--accent)]/30 text-[var(--accent)]'
+                    : 'bg-surface border border-[var(--accent)]/30 text-text-muted'
                 }
               `}
             >
@@ -296,8 +296,8 @@ export function UseCaseWizard({
             {i < 2 && (
               <div className={`w-8 h-0.5 ${
                 ['select', 'configure', 'review'].indexOf(step) > i
-                  ? 'bg-acid-green/50'
-                  : 'bg-acid-green/20'
+                  ? 'bg-[var(--accent)]/50'
+                  : 'bg-[var(--accent)]/20'
               }`} />
             )}
           </div>
@@ -308,7 +308,7 @@ export function UseCaseWizard({
       <div className="p-4">
         {/* Error message */}
         {error && (
-          <div className="mb-4 p-3 bg-crimson/10 border border-crimson/30 text-crimson text-sm">
+          <div className="mb-4 p-3 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 text-[var(--crimson)] text-sm">
             {error}
           </div>
         )}
@@ -342,7 +342,7 @@ export function UseCaseWizard({
         {/* Step: Running */}
         {step === 'running' && (
           <div className="py-8 text-center">
-            <div className="text-acid-green font-mono text-lg animate-pulse">
+            <div className="text-[var(--accent)] font-theme-data text-lg animate-pulse">
               INITIALIZING...
             </div>
             <p className="text-text-muted text-sm mt-2">
@@ -354,12 +354,12 @@ export function UseCaseWizard({
 
       {/* Footer with navigation */}
       {step !== 'running' && (
-        <div className="border-t border-acid-green/20 px-4 py-3 flex items-center justify-between">
+        <div className="border-t border-[var(--accent)]/20 px-4 py-3 flex items-center justify-between">
           <div>
             {step !== 'select' && (
               <button
                 onClick={handleBack}
-                className="px-3 py-1.5 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-3 py-1.5 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 [BACK]
               </button>
@@ -369,7 +369,7 @@ export function UseCaseWizard({
             {step === 'configure' && (
               <button
                 onClick={handleNext}
-                className="px-4 py-1.5 bg-acid-green/10 border border-acid-green/40 text-acid-green font-mono text-sm hover:bg-acid-green/20 transition-colors"
+                className="px-4 py-1.5 bg-[var(--accent)]/10 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/20 transition-colors"
               >
                 [NEXT]
               </button>
@@ -379,10 +379,10 @@ export function UseCaseWizard({
                 onClick={handleSubmit}
                 disabled={isSubmitting}
                 className={`
-                  px-4 py-1.5 font-mono text-sm transition-colors
+                  px-4 py-1.5 font-theme-data text-sm transition-colors
                   ${isSubmitting
-                    ? 'bg-acid-green/20 text-acid-green/50 cursor-wait'
-                    : 'bg-acid-green text-bg hover:bg-acid-green/90'
+                    ? 'bg-[var(--accent)]/20 text-[var(--accent)]/50 cursor-wait'
+                    : 'bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/90'
                   }
                 `}
               >
@@ -425,7 +425,7 @@ function TemplateSelector({
     <div className="space-y-6">
       {Object.entries(grouped).map(([category, categoryTemplates]) => (
         <div key={category}>
-          <h3 className="text-acid-cyan text-xs uppercase tracking-wider mb-2">
+          <h3 className="text-[var(--acid-cyan)] text-xs uppercase tracking-wider mb-2">
             {categoryLabels[category]}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -434,14 +434,14 @@ function TemplateSelector({
                 key={template.id}
                 onClick={() => onSelect(template)}
                 className="
-                  p-3 text-left border border-acid-green/30
-                  hover:border-acid-green/50 hover:bg-acid-green/5
+                  p-3 text-left border border-[var(--accent)]/30
+                  hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5
                   transition-colors rounded
                 "
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-acid-green font-mono">{template.icon}</span>
-                  <span className="font-mono font-bold text-text">{template.name}</span>
+                  <span className="text-[var(--accent)] font-theme-data">{template.icon}</span>
+                  <span className="font-theme-data font-bold text-text">{template.name}</span>
                 </div>
                 <p className="text-xs text-text-muted">{template.description}</p>
               </button>
@@ -471,7 +471,7 @@ function ConfigureStep({
     <div className="space-y-4">
       {/* Primary input - always shown */}
       <div>
-        <label className="block text-sm font-mono text-text-muted mb-1">
+        <label className="block text-sm font-theme-data text-text-muted mb-1">
           Question / Topic
         </label>
         <textarea
@@ -479,9 +479,9 @@ function ConfigureStep({
           onChange={e => updateField('question', e.target.value)}
           placeholder={`What would you like to ${template.category === 'security' ? 'review' : 'analyze'}?`}
           className="
-            w-full px-3 py-2 bg-bg border border-acid-green/30
-            text-text font-mono text-sm
-            focus:border-acid-green focus:outline-none
+            w-full px-3 py-2 bg-bg border border-[var(--accent)]/30
+            text-text font-theme-data text-sm
+            focus:border-[var(--accent)] focus:outline-none
             resize-none
           "
           rows={3}
@@ -490,7 +490,7 @@ function ConfigureStep({
 
       {/* Agent selection - simplified in simple mode */}
       <div>
-        <label className="block text-sm font-mono text-text-muted mb-1">
+        <label className="block text-sm font-theme-data text-text-muted mb-1">
           AI Agents
         </label>
         {isAdvanced ? (
@@ -500,14 +500,14 @@ function ConfigureStep({
             onChange={e => updateField('agents', e.target.value)}
             placeholder="claude-opus,gpt-4o,gemini-pro"
             className="
-              w-full px-3 py-2 bg-bg border border-acid-green/30
-              text-text font-mono text-sm
-              focus:border-acid-green focus:outline-none
+              w-full px-3 py-2 bg-bg border border-[var(--accent)]/30
+              text-text font-theme-data text-sm
+              focus:border-[var(--accent)] focus:outline-none
             "
           />
         ) : (
-          <div className="px-3 py-2 bg-acid-green/5 border border-acid-green/20 text-sm">
-            <span className="text-acid-green font-mono">
+          <div className="px-3 py-2 bg-[var(--accent)]/5 border border-[var(--accent)]/20 text-sm">
+            <span className="text-[var(--accent)] font-theme-data">
               {template.suggestedAgents.length} agents selected
             </span>
             <span className="text-text-muted ml-2">
@@ -520,7 +520,7 @@ function ConfigureStep({
       {/* Rounds - only in advanced mode */}
       {isAdvanced && (
         <div>
-          <label className="block text-sm font-mono text-text-muted mb-1">
+          <label className="block text-sm font-theme-data text-text-muted mb-1">
             Debate Rounds
           </label>
           <input
@@ -530,18 +530,18 @@ function ConfigureStep({
             value={(formData.rounds as number) || template.rounds}
             onChange={e => updateField('rounds', parseInt(e.target.value, 10))}
             className="
-              w-24 px-3 py-2 bg-bg border border-acid-green/30
-              text-text font-mono text-sm
-              focus:border-acid-green focus:outline-none
+              w-24 px-3 py-2 bg-bg border border-[var(--accent)]/30
+              text-text font-theme-data text-sm
+              focus:border-[var(--accent)] focus:outline-none
             "
           />
         </div>
       )}
 
       {/* File upload hint */}
-      <div className="p-3 bg-surface border border-acid-green/10 rounded">
+      <div className="p-3 bg-surface border border-[var(--accent)]/10 rounded">
         <p className="text-xs text-text-muted">
-          <span className="text-acid-cyan">[TIP]</span>{' '}
+          <span className="text-[var(--acid-cyan)]">[TIP]</span>{' '}
           You can also upload files for analysis from the Documents page or drag-and-drop
           after starting.
         </p>
@@ -562,12 +562,12 @@ function ReviewStep({
 }) {
   return (
     <div className="space-y-4">
-      <div className="p-4 bg-surface border border-acid-green/20 rounded">
-        <h4 className="font-mono text-acid-green mb-3">Summary</h4>
+      <div className="p-4 bg-surface border border-[var(--accent)]/20 rounded">
+        <h4 className="font-theme-data text-[var(--accent)] mb-3">Summary</h4>
         <dl className="space-y-2 text-sm">
           <div className="flex">
             <dt className="text-text-muted w-24">Template:</dt>
-            <dd className="text-text font-mono">{template.name}</dd>
+            <dd className="text-text font-theme-data">{template.name}</dd>
           </div>
           <div className="flex">
             <dt className="text-text-muted w-24">Question:</dt>
@@ -575,11 +575,11 @@ function ReviewStep({
           </div>
           <div className="flex">
             <dt className="text-text-muted w-24">Agents:</dt>
-            <dd className="text-text font-mono">{formData.agents as string}</dd>
+            <dd className="text-text font-theme-data">{formData.agents as string}</dd>
           </div>
           <div className="flex">
             <dt className="text-text-muted w-24">Rounds:</dt>
-            <dd className="text-text font-mono">{formData.rounds as number}</dd>
+            <dd className="text-text font-theme-data">{formData.rounds as number}</dd>
           </div>
         </dl>
       </div>
@@ -610,15 +610,15 @@ export function UseCaseQuickSelect({
           key={template.id}
           onClick={() => onSelect(template.id)}
           className="
-            p-3 border border-acid-green/30 rounded
-            hover:border-acid-green/50 hover:bg-acid-green/5
+            p-3 border border-[var(--accent)]/30 rounded
+            hover:border-[var(--accent)]/50 hover:bg-[var(--accent)]/5
             transition-colors text-center
           "
         >
-          <div className="text-acid-green font-mono text-2xl mb-1">
+          <div className="text-[var(--accent)] font-theme-data text-2xl mb-1">
             {template.icon}
           </div>
-          <div className="text-xs font-mono text-text">
+          <div className="text-xs font-theme-data text-text">
             {template.name}
           </div>
         </button>

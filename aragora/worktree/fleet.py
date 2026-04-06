@@ -280,6 +280,43 @@ def _managed_session_snapshots(repo_root: Path) -> dict[str, dict[str, Any]]:
     return snapshots
 
 
+def _live_worktree_session_ids(repo_root: Path) -> set[str]:
+    """Return live session ids without running git status across every worktree.
+
+    Lease acquisition only needs to know whether a claiming session still has a
+    live owning process. Reusing ``build_fleet_rows()`` for that is too
+    expensive because it shells out into per-worktree git status/ahead-behind
+    probes, which can stall hot claim paths.
+    """
+
+    live_session_ids: set[str] = set()
+    for wt in _list_git_worktrees(repo_root):
+        path_text = str(wt.get("path") or "").strip()
+        if not path_text:
+            continue
+        worktree_path = Path(path_text)
+        lock = _parse_lock_file(worktree_path / ".codex_session_active")
+        meta: dict[str, Any] = {}
+        meta_path = worktree_path / ".codex_session_meta.json"
+        if meta_path.exists():
+            try:
+                loaded = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                loaded = None
+            if isinstance(loaded, dict):
+                meta = loaded
+
+        session_id = str(
+            meta.get("session_id") or lock.get("session_id") or worktree_path.name
+        ).strip()
+        if not session_id:
+            continue
+        pid_raw = str(lock.get("pid") or meta.get("pid") or "").strip() or None
+        if _pid_alive(pid_raw):
+            live_session_ids.add(session_id)
+    return live_session_ids
+
+
 def _count_dirty(worktree_path: Path) -> int:
     if not worktree_path.exists():
         return 0
@@ -503,11 +540,7 @@ class FleetCoordinationStore:
     ) -> dict[str, Any]:
         now = datetime.now(timezone.utc)
         threshold_seconds = max(0.0, float(stale_threshold_seconds))
-        live_session_ids = {
-            str(row.get("session_id", "")).strip()
-            for row in build_fleet_rows(self.repo_root, base_branch="main", tail=0)
-            if str(row.get("session_id", "")).strip() and bool(row.get("pid_alive"))
-        }
+        live_session_ids = _live_worktree_session_ids(self.repo_root)
         active_lease_sessions = _active_lease_session_ids(self.repo_root)
         managed_session_snapshots = _managed_session_snapshots(self.repo_root)
 

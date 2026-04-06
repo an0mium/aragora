@@ -17,8 +17,8 @@ import {
 // ---------------------------------------------------------------------------
 
 const METHOD_COLORS: Record<string, string> = {
-  GET: 'text-acid-cyan bg-acid-cyan/10 border-acid-cyan/30',
-  POST: 'text-acid-green bg-acid-green/10 border-acid-green/30',
+  GET: 'text-[var(--acid-cyan)] bg-[var(--acid-cyan)]/10 border-[var(--acid-cyan)]/30',
+  POST: 'text-[var(--accent)] bg-[var(--accent)]/10 border-[var(--accent)]/30',
   PUT: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
   DELETE: 'text-red-400 bg-red-400/10 border-red-400/30',
   PATCH: 'text-purple-400 bg-purple-400/10 border-purple-400/30',
@@ -27,8 +27,8 @@ const METHOD_COLORS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  '2': 'text-acid-green',
-  '3': 'text-acid-cyan',
+  '2': 'text-[var(--accent)]',
+  '3': 'text-[var(--acid-cyan)]',
   '4': 'text-yellow-400',
   '5': 'text-red-400',
 };
@@ -84,14 +84,14 @@ function SchemaViewer({
           return (
             <div key={key} style={{ paddingLeft: depth * 16 }}>
               <div className="flex items-baseline gap-2">
-                <span className="text-acid-cyan font-mono text-xs">{key}</span>
+                <span className="text-[var(--acid-cyan)] font-theme-data text-xs">{key}</span>
                 {isRequired && <span className="text-red-400 text-[10px]">*</span>}
-                <span className="text-text-muted font-mono text-[10px]">
+                <span className="text-text-muted font-theme-data text-[10px]">
                   {getTypeString(propSchema)}
                 </span>
               </div>
               {prop.description && (
-                <p className="text-[10px] text-text-muted/70 font-mono" style={{ paddingLeft: 8 }}>
+                <p className="text-[10px] text-text-muted/70 font-theme-data" style={{ paddingLeft: 8 }}>
                   {prop.description}
                 </p>
               )}
@@ -113,7 +113,7 @@ function SchemaViewer({
   if (resolved.type === 'array' && resolved.items) {
     return (
       <div style={{ paddingLeft: depth * 16 }}>
-        <span className="text-text-muted font-mono text-[10px]">
+        <span className="text-text-muted font-theme-data text-[10px]">
           items: {getTypeString(resolved.items)}
         </span>
         {(resolveRef(resolved.items) || resolved.items)?.type === 'object' && (
@@ -130,9 +130,9 @@ function SchemaViewer({
 
   return (
     <div style={{ paddingLeft: depth * 16 }}>
-      <span className="text-text-muted font-mono text-[10px]">{getTypeString(resolved)}</span>
+      <span className="text-text-muted font-theme-data text-[10px]">{getTypeString(resolved)}</span>
       {resolved.description && (
-        <p className="text-[10px] text-text-muted/70 font-mono">{resolved.description}</p>
+        <p className="text-[10px] text-text-muted/70 font-theme-data">{resolved.description}</p>
       )}
     </div>
   );
@@ -159,15 +159,15 @@ function ResponseSchemaSection({
       {entries.map(([code, resp]) => {
         const schema = resp.content?.['application/json']?.schema;
         return (
-          <div key={code} className="border border-acid-green/15 bg-black/20 p-3">
+          <div key={code} className="border border-[var(--accent)]/15 bg-black/20 p-3">
             <div className="flex items-center gap-2 mb-2">
-              <span className={`font-mono text-xs font-bold ${getStatusColor(parseInt(code, 10) || 0)}`}>
+              <span className={`font-theme-data text-xs font-bold ${getStatusColor(parseInt(code, 10) || 0)}`}>
                 {code}
               </span>
-              <span className="text-xs font-mono text-text-muted">{resp.description}</span>
+              <span className="text-xs font-theme-data text-text-muted">{resp.description}</span>
             </div>
             {schema && (
-              <div className="pl-2 border-l border-acid-green/20">
+              <div className="pl-2 border-l border-[var(--accent)]/20">
                 <SchemaViewer
                   schema={schema}
                   resolveRef={resolveRef}
@@ -206,11 +206,11 @@ function RequestHistoryBar({
   if (history.length === 0) return null;
 
   return (
-    <div className="border border-acid-green/20 bg-surface/30">
+    <div className="border border-[var(--accent)]/20 bg-surface/30">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-3 py-2 text-xs font-mono text-text-muted hover:text-text transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 text-xs font-theme-data text-text-muted hover:text-text transition-colors"
       >
         <span>[{expanded ? '-' : '+'}] REQUEST HISTORY ({history.length})</span>
         {expanded && (
@@ -226,7 +226,7 @@ function RequestHistoryBar({
       {expanded && (
         <div className="px-3 pb-2 max-h-48 overflow-y-auto space-y-1">
           {history.map(entry => (
-            <div key={entry.id} className="flex items-center gap-2 text-[10px] font-mono">
+            <div key={entry.id} className="flex items-center gap-2 text-[10px] font-theme-data">
               <span className={`px-1 border ${METHOD_COLORS[entry.method]} shrink-0`}>
                 {entry.method}
               </span>
@@ -269,11 +269,11 @@ export function ApiExplorerPanel() {
   // Loading state
   if (explorer.specLoading) {
     return (
-      <div className="border border-acid-green/30 bg-surface/30 p-8 text-center">
-        <div className="text-acid-green font-mono text-sm animate-pulse">
+      <div className="border border-[var(--accent)]/30 bg-surface/30 p-8 text-center">
+        <div className="text-[var(--accent)] font-theme-data text-sm animate-pulse">
           Loading OpenAPI specification...
         </div>
-        <p className="text-xs text-text-muted font-mono mt-2">
+        <p className="text-xs text-text-muted font-theme-data mt-2">
           Fetching from /api/openapi.json
         </p>
       </div>
@@ -283,16 +283,16 @@ export function ApiExplorerPanel() {
   // Error state with fallback note
   if (explorer.specError && !explorer.spec) {
     return (
-      <div className="border border-acid-green/30 bg-surface/30 p-8 text-center space-y-4">
-        <div className="text-yellow-400 font-mono text-sm">
+      <div className="border border-[var(--accent)]/30 bg-surface/30 p-8 text-center space-y-4">
+        <div className="text-yellow-400 font-theme-data text-sm">
           Could not load live OpenAPI spec
         </div>
-        <p className="text-xs text-text-muted font-mono">
+        <p className="text-xs text-text-muted font-theme-data">
           {explorer.specError}
         </p>
         <button
           onClick={explorer.reloadSpec}
-          className="px-4 py-2 border border-acid-green/50 text-acid-green font-mono text-xs hover:bg-acid-green/10 transition-colors"
+          className="px-4 py-2 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-xs hover:bg-[var(--accent)]/10 transition-colors"
         >
           RETRY
         </button>
@@ -306,7 +306,7 @@ export function ApiExplorerPanel() {
   return (
     <div className="space-y-4">
       {/* Stats bar */}
-      <div className="flex items-center gap-4 flex-wrap text-xs font-mono text-text-muted">
+      <div className="flex items-center gap-4 flex-wrap text-xs font-theme-data text-text-muted">
         <span>
           {explorer.spec?.info.title || 'Aragora API'} v{explorer.spec?.info.version || '?'}
         </span>
@@ -326,10 +326,10 @@ export function ApiExplorerPanel() {
         {/* ---- Left Sidebar: Filters + Endpoint Tree ---- */}
         <div className="lg:col-span-4 space-y-4">
           {/* Search + Filters */}
-          <div className="border border-acid-green/30 bg-surface/30 p-3 space-y-3">
+          <div className="border border-[var(--accent)]/30 bg-surface/30 p-3 space-y-3">
             {/* Search box */}
             <div className="relative">
-              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-acid-green/50 font-mono text-sm">
+              <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[var(--accent)]/50 font-theme-data text-sm">
                 /
               </span>
               <input
@@ -337,7 +337,7 @@ export function ApiExplorerPanel() {
                 value={explorer.searchQuery}
                 onChange={e => explorer.setSearchQuery(e.target.value)}
                 placeholder="Search endpoints..."
-                className="w-full bg-black/30 border border-acid-green/30 pl-6 pr-3 py-2 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                className="w-full bg-black/30 border border-[var(--accent)]/30 pl-6 pr-3 py-2 text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
               />
             </div>
 
@@ -345,10 +345,10 @@ export function ApiExplorerPanel() {
             <div className="flex flex-wrap gap-1">
               <button
                 onClick={() => explorer.setMethodFilter(null)}
-                className={`px-2 py-0.5 text-[10px] font-mono border transition-colors ${
+                className={`px-2 py-0.5 text-[10px] font-theme-data border transition-colors ${
                   !explorer.methodFilter
-                    ? 'border-acid-green bg-acid-green/20 text-acid-green'
-                    : 'border-acid-green/20 text-text-muted hover:text-text'
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/20 text-[var(--accent)]'
+                    : 'border-[var(--accent)]/20 text-text-muted hover:text-text'
                 }`}
               >
                 ALL
@@ -357,10 +357,10 @@ export function ApiExplorerPanel() {
                 <button
                   key={m}
                   onClick={() => explorer.setMethodFilter(explorer.methodFilter === m ? null : m)}
-                  className={`px-2 py-0.5 text-[10px] font-mono border transition-colors ${
+                  className={`px-2 py-0.5 text-[10px] font-theme-data border transition-colors ${
                     explorer.methodFilter === m
                       ? METHOD_COLORS[m]
-                      : 'border-acid-green/20 text-text-muted hover:text-text'
+                      : 'border-[var(--accent)]/20 text-text-muted hover:text-text'
                   }`}
                 >
                   {m}
@@ -372,7 +372,7 @@ export function ApiExplorerPanel() {
             <select
               value={explorer.tagFilter || ''}
               onChange={e => explorer.setTagFilter(e.target.value || null)}
-              className="w-full bg-black/30 border border-acid-green/30 px-2 py-1.5 text-xs font-mono text-text focus:border-acid-green focus:outline-none"
+              className="w-full bg-black/30 border border-[var(--accent)]/30 px-2 py-1.5 text-xs font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
             >
               <option value="">All tags ({explorer.allTags.length})</option>
               {explorer.allTags.map(tag => (
@@ -381,7 +381,7 @@ export function ApiExplorerPanel() {
             </select>
 
             {/* Count */}
-            <p className="text-xs font-mono text-text-muted">
+            <p className="text-xs font-theme-data text-text-muted">
               {explorer.searchQuery || explorer.methodFilter || explorer.tagFilter
                 ? `${explorer.filteredCount} of ${explorer.totalCount}`
                 : `${explorer.totalCount}`} endpoints
@@ -389,7 +389,7 @@ export function ApiExplorerPanel() {
           </div>
 
           {/* Endpoint tree */}
-          <div className="border border-acid-green/30 bg-surface/30 p-3 space-y-1 max-h-[calc(100vh-24rem)] overflow-y-auto">
+          <div className="border border-[var(--accent)]/30 bg-surface/30 p-3 space-y-1 max-h-[calc(100vh-24rem)] overflow-y-auto">
             {explorer.filteredGroups.map(group => (
               <CollapsibleSection
                 key={group.tag}
@@ -411,24 +411,24 @@ export function ApiExplorerPanel() {
                         onClick={() => explorer.selectEndpoint(endpoint)}
                         className={`w-full text-left px-2 py-1.5 transition-colors ${
                           isSelected
-                            ? 'bg-acid-green/15 border-l-2 border-acid-green'
-                            : 'hover:bg-acid-green/5 border-l-2 border-transparent'
+                            ? 'bg-[var(--accent)]/15 border-l-2 border-[var(--accent)]'
+                            : 'hover:bg-[var(--accent)]/5 border-l-2 border-transparent'
                         } ${endpoint.deprecated ? 'opacity-50' : ''}`}
                       >
                         <div className="flex items-center gap-2">
                           <span
-                            className={`text-[10px] font-mono font-bold px-1 py-0.5 border ${
+                            className={`text-[10px] font-theme-data font-bold px-1 py-0.5 border ${
                               METHOD_COLORS[endpoint.method] || 'border-text-muted/30 text-text-muted'
                             } shrink-0 w-12 text-center`}
                           >
                             {endpoint.method}
                           </span>
-                          <span className="text-xs font-mono text-text truncate">
+                          <span className="text-xs font-theme-data text-text truncate">
                             {endpoint.path}
                           </span>
                           {badgeStatus && <ExperimentalBadge status={badgeStatus} size="sm" />}
                           {endpoint.deprecated && (
-                            <span className="text-[9px] font-mono text-yellow-400 border border-yellow-400/30 px-1">
+                            <span className="text-[9px] font-theme-data text-yellow-400 border border-yellow-400/30 px-1">
                               DEP
                             </span>
                           )}
@@ -445,7 +445,7 @@ export function ApiExplorerPanel() {
 
             {explorer.filteredGroups.length === 0 && (
               <div className="text-center py-8">
-                <p className="text-text-muted font-mono text-sm">No endpoints match your filters</p>
+                <p className="text-text-muted font-theme-data text-sm">No endpoints match your filters</p>
               </div>
             )}
           </div>
@@ -456,32 +456,32 @@ export function ApiExplorerPanel() {
           {ep ? (
             <>
               {/* Endpoint header */}
-              <div className="border border-acid-green/30 bg-surface/30 p-5">
+              <div className="border border-[var(--accent)]/30 bg-surface/30 p-5">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <span
-                    className={`text-sm font-mono font-bold px-2 py-1 border ${
+                    className={`text-sm font-theme-data font-bold px-2 py-1 border ${
                       METHOD_COLORS[ep.method] || ''
                     }`}
                   >
                     {ep.method}
                   </span>
-                  <code className="text-base font-mono text-acid-cyan break-all">
+                  <code className="text-base font-theme-data text-[var(--acid-cyan)] break-all">
                     {ep.path}
                   </code>
                   {selectedBadgeStatus && (
                     <ExperimentalBadge status={selectedBadgeStatus} size="sm" />
                   )}
                   {ep.deprecated && (
-                    <span className="text-xs font-mono text-yellow-400 border border-yellow-400/30 px-1.5 py-0.5">
+                    <span className="text-xs font-theme-data text-yellow-400 border border-yellow-400/30 px-1.5 py-0.5">
                       DEPRECATED
                     </span>
                   )}
                 </div>
-                <h2 className="text-lg font-mono text-acid-green">{ep.summary}</h2>
+                <h2 className="text-lg font-theme-data text-[var(--accent)]">{ep.summary}</h2>
                 {ep.description && (
-                  <p className="text-sm text-text-muted mt-1 font-mono">{ep.description}</p>
+                  <p className="text-sm text-text-muted mt-1 font-theme-data">{ep.description}</p>
                 )}
-                <div className="flex gap-4 mt-2 text-xs font-mono flex-wrap">
+                <div className="flex gap-4 mt-2 text-xs font-theme-data flex-wrap">
                   {ep.requiresAuth && (
                     <span className="text-yellow-400 border border-yellow-400/30 px-1.5 py-0.5">
                       AUTH REQUIRED
@@ -499,12 +499,12 @@ export function ApiExplorerPanel() {
               </div>
 
               {/* Tabs */}
-              <div className="flex gap-0 border-b border-acid-green/30">
+              <div className="flex gap-0 border-b border-[var(--accent)]/30">
                 <button
                   onClick={() => setActiveTab('try-it')}
-                  className={`px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
+                  className={`px-4 py-2 text-xs font-theme-data border-b-2 transition-colors ${
                     activeTab === 'try-it'
-                      ? 'border-acid-green text-acid-green'
+                      ? 'border-[var(--accent)] text-[var(--accent)]'
                       : 'border-transparent text-text-muted hover:text-text'
                   }`}
                 >
@@ -512,9 +512,9 @@ export function ApiExplorerPanel() {
                 </button>
                 <button
                   onClick={() => setActiveTab('schema')}
-                  className={`px-4 py-2 text-xs font-mono border-b-2 transition-colors ${
+                  className={`px-4 py-2 text-xs font-theme-data border-b-2 transition-colors ${
                     activeTab === 'schema'
-                      ? 'border-acid-green text-acid-green'
+                      ? 'border-[var(--accent)] text-[var(--accent)]'
                       : 'border-transparent text-text-muted hover:text-text'
                   }`}
                 >
@@ -524,29 +524,29 @@ export function ApiExplorerPanel() {
 
               {/* Tab content */}
               {activeTab === 'try-it' && (
-                <div className="border border-acid-green/30 bg-surface/30 p-5 space-y-5">
+                <div className="border border-[var(--accent)]/30 bg-surface/30 p-5 space-y-5">
                   {/* Base URL */}
                   <div className="space-y-1">
-                    <label className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                    <label className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
                       Base URL
                     </label>
                     <input
                       type="text"
                       value={explorer.baseUrl}
                       onChange={e => explorer.setBaseUrl(e.target.value)}
-                      className="w-full bg-black/30 border border-acid-green/30 px-3 py-2 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                      className="w-full bg-black/30 border border-[var(--accent)]/30 px-3 py-2 text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
                     />
                   </div>
 
                   {/* Path Parameters */}
                   {ep.pathParams.length > 0 && (
                     <div className="space-y-2">
-                      <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                      <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
                         Path Parameters
                       </h4>
                       {ep.pathParams.map(param => (
                         <div key={param.name} className="flex items-center gap-2">
-                          <label className="text-sm font-mono w-32 text-acid-cyan shrink-0">
+                          <label className="text-sm font-theme-data w-32 text-[var(--acid-cyan)] shrink-0">
                             {param.name}
                             {param.required && <span className="text-red-400">*</span>}:
                           </label>
@@ -555,7 +555,7 @@ export function ApiExplorerPanel() {
                             value={explorer.pathValues[param.name] || ''}
                             onChange={e => explorer.setPathValue(param.name, e.target.value)}
                             placeholder={param.description || param.schema?.type || 'string'}
-                            className="flex-1 bg-black/30 border border-acid-green/30 px-2 py-1.5 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                            className="flex-1 bg-black/30 border border-[var(--accent)]/30 px-2 py-1.5 text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
                           />
                         </div>
                       ))}
@@ -565,12 +565,12 @@ export function ApiExplorerPanel() {
                   {/* Query Parameters */}
                   {ep.queryParams.length > 0 && (
                     <div className="space-y-2">
-                      <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                      <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
                         Query Parameters
                       </h4>
                       {ep.queryParams.map(param => (
                         <div key={param.name} className="flex items-center gap-2">
-                          <label className="text-sm font-mono w-32 text-acid-cyan shrink-0">
+                          <label className="text-sm font-theme-data w-32 text-[var(--acid-cyan)] shrink-0">
                             {param.name}
                             {param.required && <span className="text-red-400">*</span>}:
                           </label>
@@ -579,10 +579,10 @@ export function ApiExplorerPanel() {
                             value={explorer.queryValues[param.name] || ''}
                             onChange={e => explorer.setQueryValue(param.name, e.target.value)}
                             placeholder={param.description || param.schema?.type || 'string'}
-                            className="flex-1 bg-black/30 border border-acid-green/30 px-2 py-1.5 text-sm font-mono text-text focus:border-acid-green focus:outline-none"
+                            className="flex-1 bg-black/30 border border-[var(--accent)]/30 px-2 py-1.5 text-sm font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
                           />
                           {param.schema?.enum && (
-                            <span className="text-[10px] font-mono text-text-muted shrink-0">
+                            <span className="text-[10px] font-theme-data text-text-muted shrink-0">
                               [{param.schema.enum.slice(0, 4).join(', ')}
                               {param.schema.enum.length > 4 ? '...' : ''}]
                             </span>
@@ -595,7 +595,7 @@ export function ApiExplorerPanel() {
                   {/* Request Body */}
                   {ep.method !== 'GET' && ep.method !== 'HEAD' && (
                     <div className="space-y-2">
-                      <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider">
+                      <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider">
                         Request Body
                         {ep.requestBody?.required && (
                           <span className="text-red-400 ml-1">*</span>
@@ -605,7 +605,7 @@ export function ApiExplorerPanel() {
                         value={explorer.bodyValue}
                         onChange={e => explorer.setBodyValue(e.target.value)}
                         rows={10}
-                        className="w-full bg-black/30 border border-acid-green/30 px-3 py-2 text-sm font-mono text-acid-green focus:border-acid-green focus:outline-none resize-y"
+                        className="w-full bg-black/30 border border-[var(--accent)]/30 px-3 py-2 text-sm font-theme-data text-[var(--accent)] focus:border-[var(--accent)] focus:outline-none resize-y"
                         placeholder="JSON request body"
                         spellCheck={false}
                       />
@@ -617,35 +617,35 @@ export function ApiExplorerPanel() {
                     <button
                       type="button"
                       onClick={() => setShowHeaders(!showHeaders)}
-                      className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                      className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
                     >
                       [{showHeaders ? '-' : '+'}] HEADERS
                       {authToken && (
-                        <span className="text-acid-green/60 ml-2">(auth token detected)</span>
+                        <span className="text-[var(--accent)]/60 ml-2">(auth token detected)</span>
                       )}
                     </button>
 
                     {showHeaders && (
-                      <div className="space-y-2 border border-acid-green/20 p-3 bg-black/20">
+                      <div className="space-y-2 border border-[var(--accent)]/20 p-3 bg-black/20">
                         {authToken && (
                           <div className="flex items-center gap-2 opacity-60">
-                            <span className="text-xs font-mono w-28 text-acid-green shrink-0">
+                            <span className="text-xs font-theme-data w-28 text-[var(--accent)] shrink-0">
                               Authorization:
                             </span>
-                            <span className="text-xs font-mono text-text truncate">
+                            <span className="text-xs font-theme-data text-text truncate">
                               Bearer {authToken.slice(0, 20)}...
                             </span>
-                            <span className="text-xs font-mono text-acid-green/50 ml-auto">
+                            <span className="text-xs font-theme-data text-[var(--accent)]/50 ml-auto">
                               (auto)
                             </span>
                           </div>
                         )}
                         <div className="flex items-center gap-2 opacity-60">
-                          <span className="text-xs font-mono w-28 text-acid-green shrink-0">
+                          <span className="text-xs font-theme-data w-28 text-[var(--accent)] shrink-0">
                             Content-Type:
                           </span>
-                          <span className="text-xs font-mono text-text">application/json</span>
-                          <span className="text-xs font-mono text-acid-green/50 ml-auto">
+                          <span className="text-xs font-theme-data text-text">application/json</span>
+                          <span className="text-xs font-theme-data text-[var(--accent)]/50 ml-auto">
                             (auto)
                           </span>
                         </div>
@@ -657,19 +657,19 @@ export function ApiExplorerPanel() {
                               value={h.key}
                               onChange={e => explorer.updateHeader(idx, 'key', e.target.value)}
                               placeholder="Header name"
-                              className="w-28 bg-black/30 border border-acid-green/30 px-2 py-1 text-xs font-mono text-text focus:border-acid-green focus:outline-none shrink-0"
+                              className="w-28 bg-black/30 border border-[var(--accent)]/30 px-2 py-1 text-xs font-theme-data text-text focus:border-[var(--accent)] focus:outline-none shrink-0"
                             />
                             <input
                               type="text"
                               value={h.value}
                               onChange={e => explorer.updateHeader(idx, 'value', e.target.value)}
                               placeholder="Value"
-                              className="flex-1 bg-black/30 border border-acid-green/30 px-2 py-1 text-xs font-mono text-text focus:border-acid-green focus:outline-none"
+                              className="flex-1 bg-black/30 border border-[var(--accent)]/30 px-2 py-1 text-xs font-theme-data text-text focus:border-[var(--accent)] focus:outline-none"
                             />
                             <button
                               type="button"
                               onClick={() => explorer.removeHeader(idx)}
-                              className="text-red-400 hover:text-red-300 text-xs font-mono px-1"
+                              className="text-red-400 hover:text-red-300 text-xs font-theme-data px-1"
                             >
                               x
                             </button>
@@ -679,7 +679,7 @@ export function ApiExplorerPanel() {
                         <button
                           type="button"
                           onClick={explorer.addHeader}
-                          className="text-xs font-mono text-acid-green/70 hover:text-acid-green transition-colors"
+                          className="text-xs font-theme-data text-[var(--accent)]/70 hover:text-[var(--accent)] transition-colors"
                         >
                           + Add Header
                         </button>
@@ -688,9 +688,9 @@ export function ApiExplorerPanel() {
                   </div>
 
                   {/* URL Preview */}
-                  <div className="p-2 bg-black/30 border border-acid-green/20">
-                    <span className="text-xs font-mono text-text-muted">URL: </span>
-                    <code className="text-xs font-mono text-acid-cyan break-all">
+                  <div className="p-2 bg-black/30 border border-[var(--accent)]/20">
+                    <span className="text-xs font-theme-data text-text-muted">URL: </span>
+                    <code className="text-xs font-theme-data text-[var(--acid-cyan)] break-all">
                       {explorer.builtUrl}
                     </code>
                   </div>
@@ -700,7 +700,7 @@ export function ApiExplorerPanel() {
                     type="button"
                     onClick={explorer.sendRequest}
                     disabled={explorer.requestLoading}
-                    className="px-6 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+                    className="px-6 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
                   >
                     {explorer.requestLoading ? 'SENDING...' : `TRY IT - ${ep.method}`}
                   </button>
@@ -708,7 +708,7 @@ export function ApiExplorerPanel() {
                   {/* Error */}
                   {explorer.requestError && (
                     <div className="p-3 bg-red-500/10 border border-red-500/30">
-                      <span className="text-sm font-mono text-red-400">
+                      <span className="text-sm font-theme-data text-red-400">
                         {explorer.requestError}
                       </span>
                     </div>
@@ -716,9 +716,9 @@ export function ApiExplorerPanel() {
 
                   {/* Response */}
                   {explorer.response && (
-                    <div className="space-y-3 border-t border-acid-green/20 pt-4">
+                    <div className="space-y-3 border-t border-[var(--accent)]/20 pt-4">
                       {/* Status line */}
-                      <div className="flex items-center gap-4 font-mono text-sm">
+                      <div className="flex items-center gap-4 font-theme-data text-sm">
                         <span className="text-text-muted">Status:</span>
                         <span
                           className={`font-bold ${getStatusColor(explorer.response.status)}`}
@@ -734,17 +734,17 @@ export function ApiExplorerPanel() {
                       <button
                         type="button"
                         onClick={() => setShowResponseHeaders(!showResponseHeaders)}
-                        className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                        className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
                       >
                         [{showResponseHeaders ? '-' : '+'}] RESPONSE HEADERS (
                         {Object.keys(explorer.response.headers).length})
                       </button>
 
                       {showResponseHeaders && (
-                        <div className="bg-black/30 border border-acid-green/20 p-3 max-h-40 overflow-y-auto">
+                        <div className="bg-black/30 border border-[var(--accent)]/20 p-3 max-h-40 overflow-y-auto">
                           {Object.entries(explorer.response.headers).map(([key, value]) => (
-                            <div key={key} className="text-xs font-mono">
-                              <span className="text-acid-cyan">{key}</span>
+                            <div key={key} className="text-xs font-theme-data">
+                              <span className="text-[var(--acid-cyan)]">{key}</span>
                               <span className="text-text-muted">: </span>
                               <span className="text-text">{value}</span>
                             </div>
@@ -754,10 +754,10 @@ export function ApiExplorerPanel() {
 
                       {/* Response body */}
                       <div>
-                        <h4 className="text-xs font-mono text-text-muted uppercase tracking-wider mb-2">
+                        <h4 className="text-xs font-theme-data text-text-muted uppercase tracking-wider mb-2">
                           Response Body
                         </h4>
-                        <pre className="p-3 bg-black/30 border border-acid-green/20 overflow-x-auto text-xs font-mono text-acid-green max-h-96 overflow-y-auto whitespace-pre-wrap">
+                        <pre className="p-3 bg-black/30 border border-[var(--accent)]/20 overflow-x-auto text-xs font-theme-data text-[var(--accent)] max-h-96 overflow-y-auto whitespace-pre-wrap">
                           {typeof explorer.response.body === 'string'
                             ? explorer.response.body
                             : JSON.stringify(explorer.response.body, null, 2)}
@@ -769,14 +769,14 @@ export function ApiExplorerPanel() {
               )}
 
               {activeTab === 'schema' && (
-                <div className="border border-acid-green/30 bg-surface/30 p-5 space-y-5">
+                <div className="border border-[var(--accent)]/30 bg-surface/30 p-5 space-y-5">
                   {/* Request schema */}
                   {ep.requestBody?.content?.['application/json']?.schema && (
                     <div>
-                      <h3 className="text-sm font-mono text-acid-green mb-3">
+                      <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">
                         REQUEST BODY SCHEMA
                       </h3>
-                      <div className="bg-black/20 border border-acid-green/15 p-3">
+                      <div className="bg-black/20 border border-[var(--accent)]/15 p-3">
                         <SchemaViewer
                           schema={ep.requestBody.content['application/json'].schema}
                           resolveRef={explorer.resolveSchemaRef}
@@ -789,11 +789,11 @@ export function ApiExplorerPanel() {
                   {/* Parameters summary */}
                   {(ep.pathParams.length > 0 || ep.queryParams.length > 0) && (
                     <div>
-                      <h3 className="text-sm font-mono text-acid-green mb-3">PARAMETERS</h3>
-                      <div className="bg-black/20 border border-acid-green/15 overflow-hidden">
-                        <table className="w-full text-xs font-mono">
+                      <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">PARAMETERS</h3>
+                      <div className="bg-black/20 border border-[var(--accent)]/15 overflow-hidden">
+                        <table className="w-full text-xs font-theme-data">
                           <thead>
-                            <tr className="border-b border-acid-green/20">
+                            <tr className="border-b border-[var(--accent)]/20">
                               <th className="text-left px-3 py-2 text-text-muted">Name</th>
                               <th className="text-left px-3 py-2 text-text-muted">In</th>
                               <th className="text-left px-3 py-2 text-text-muted">Type</th>
@@ -805,9 +805,9 @@ export function ApiExplorerPanel() {
                             {[...ep.pathParams, ...ep.queryParams].map(param => (
                               <tr
                                 key={`${param.in}-${param.name}`}
-                                className="border-b border-acid-green/10"
+                                className="border-b border-[var(--accent)]/10"
                               >
-                                <td className="px-3 py-1.5 text-acid-cyan">{param.name}</td>
+                                <td className="px-3 py-1.5 text-[var(--acid-cyan)]">{param.name}</td>
                                 <td className="px-3 py-1.5 text-text-muted">{param.in}</td>
                                 <td className="px-3 py-1.5 text-text">
                                   {param.schema?.type || 'string'}
@@ -833,7 +833,7 @@ export function ApiExplorerPanel() {
                   {/* Response schemas */}
                   {Object.keys(ep.responses).length > 0 && (
                     <div>
-                      <h3 className="text-sm font-mono text-acid-green mb-3">RESPONSES</h3>
+                      <h3 className="text-sm font-theme-data text-[var(--accent)] mb-3">RESPONSES</h3>
                       <ResponseSchemaSection
                         responses={ep.responses}
                         resolveRef={explorer.resolveSchemaRef}
@@ -848,7 +848,7 @@ export function ApiExplorerPanel() {
                     ep.queryParams.length === 0 &&
                     Object.keys(ep.responses).length === 0 && (
                       <div className="text-center py-8">
-                        <p className="text-text-muted font-mono text-sm">
+                        <p className="text-text-muted font-theme-data text-sm">
                           No schema information available for this endpoint
                         </p>
                       </div>
@@ -863,13 +863,13 @@ export function ApiExplorerPanel() {
               />
             </>
           ) : (
-            <div className="border border-acid-green/30 bg-surface/30 flex items-center justify-center h-96">
+            <div className="border border-[var(--accent)]/30 bg-surface/30 flex items-center justify-center h-96">
               <div className="text-center space-y-3">
-                <div className="text-4xl font-mono text-acid-green/30">{'{}'}</div>
-                <p className="text-text-muted font-mono text-sm">
+                <div className="text-4xl font-theme-data text-[var(--accent)]/30">{'{}'}</div>
+                <p className="text-text-muted font-theme-data text-sm">
                   Select an endpoint to explore
                 </p>
-                <p className="text-xs text-text-muted/70 font-mono">
+                <p className="text-xs text-text-muted/70 font-theme-data">
                   {explorer.totalCount > 0
                     ? `Browse ${explorer.totalCount} endpoints across ${explorer.allTags.length} categories`
                     : 'Loading endpoints from OpenAPI spec...'}

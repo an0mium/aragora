@@ -53,10 +53,10 @@ export function ConnectChannelsStep() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-mono text-[var(--acid-green)] mb-2">
+        <h2 className="text-lg font-theme-data text-[var(--acid-green)] mb-2">
           Connect Channels
         </h2>
-        <p className="text-sm font-mono text-[var(--text-muted)]">
+        <p className="text-sm font-theme-data text-[var(--text-muted)]">
           Optional: deliver debate results to your team&apos;s existing tools.
           You can set this up later in Settings.
         </p>
@@ -76,7 +76,7 @@ export function ConnectChannelsStep() {
               }`}
             >
               <span
-                className={`w-10 h-10 flex items-center justify-center text-sm font-mono font-bold shrink-0 ${
+                className={`w-10 h-10 flex items-center justify-center text-sm font-theme-data font-bold shrink-0 ${
                   isSelected
                     ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)]'
                     : 'bg-[var(--border)] text-[var(--text-muted)]'
@@ -86,18 +86,18 @@ export function ConnectChannelsStep() {
               </span>
               <div className="flex-1 min-w-0">
                 <div
-                  className={`text-sm font-mono font-bold ${
+                  className={`text-sm font-theme-data font-bold ${
                     isSelected ? 'text-[var(--acid-green)]' : 'text-[var(--text)]'
                   }`}
                 >
                   {channel.name}
                 </div>
-                <p className="text-xs font-mono text-[var(--text-muted)]">
+                <p className="text-xs font-theme-data text-[var(--text-muted)]">
                   {channel.description}
                 </p>
               </div>
               <span
-                className={`text-xs font-mono px-2 py-0.5 ${
+                className={`text-xs font-theme-data px-2 py-0.5 ${
                   isSelected
                     ? 'bg-[var(--acid-green)]/20 text-[var(--acid-green)]'
                     : 'bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)]'
@@ -111,14 +111,14 @@ export function ConnectChannelsStep() {
       </div>
 
       {selectedChannels.size > 0 && (
-        <div className="p-3 border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/5 text-xs font-mono text-[var(--acid-green)]">
+        <div className="p-3 border border-[var(--acid-green)]/30 bg-[var(--acid-green)]/5 text-xs font-theme-data text-[var(--acid-green)]">
           {'>'} {selectedChannels.size} channel{selectedChannels.size > 1 ? 's' : ''} selected.
           You can configure credentials in Settings after onboarding.
         </div>
       )}
 
       {selectedChannels.size === 0 && (
-        <div className="p-3 border border-[var(--border)] bg-[var(--surface)] text-xs font-mono text-[var(--text-muted)]">
+        <div className="p-3 border border-[var(--border)] bg-[var(--surface)] text-xs font-theme-data text-[var(--text-muted)]">
           No channels selected. You can always connect channels later from Settings.
         </div>
       )}

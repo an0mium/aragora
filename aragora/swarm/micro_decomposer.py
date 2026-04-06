@@ -122,6 +122,12 @@ def build_micro_work_orders(
             dependency_ids=[wo["pipeline_task_id"] for wo in work_orders],
         )
         work_orders.append(validation_wo)
+        for work_order in work_orders[:-1]:
+            metadata = dict(work_order.get("metadata") or {})
+            metadata["deferred_verification_to_dependency_ids"] = [
+                str(validation_wo["pipeline_task_id"])
+            ]
+            work_order["metadata"] = metadata
 
     if work_orders:
         logger.info(

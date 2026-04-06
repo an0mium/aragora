@@ -50,7 +50,7 @@ export interface CheckboxFieldProps {
 
 const LABEL_CLS = 'block text-xs text-text-muted mb-1';
 const INPUT_CLS =
-  'w-full bg-bg border border-border rounded px-2 py-1.5 text-sm text-text font-mono focus:outline-none focus:ring-1 focus:ring-acid-green';
+  'w-full bg-bg border border-border rounded px-2 py-1.5 text-sm text-text font-theme-data focus:outline-none focus:ring-1 focus:ring-acid-green';
 
 /* -------------------------------------------------------------------------- */
 /*  InputField                                                                */
@@ -143,7 +143,7 @@ export const MultiSelect = memo(function MultiSelect({
         {options.map((opt) => (
           <label
             key={opt.value}
-            className="flex items-center gap-2 text-sm font-mono cursor-pointer"
+            className="flex items-center gap-2 text-sm font-theme-data cursor-pointer"
           >
             <input
               type="checkbox"

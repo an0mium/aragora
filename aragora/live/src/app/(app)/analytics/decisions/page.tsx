@@ -47,9 +47,9 @@ function PeriodSelector({
         <button
           key={p}
           onClick={() => onChange(p)}
-          className={`px-3 py-2 text-xs font-mono transition-colors ${
+          className={`px-3 py-2 text-xs font-theme-data transition-colors ${
             value === p
-              ? 'bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/40'
+              ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40'
               : 'text-text-muted hover:text-text'
           }`}
         >
@@ -75,10 +75,10 @@ function AgentTable({
   if (agents.length === 0) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-3">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
           {'>'} AGENT QUALITY
         </h3>
-        <p className="text-text-muted font-mono text-sm text-center py-4">
+        <p className="text-text-muted font-theme-data text-sm text-center py-4">
           No agent quality data yet. Debates will show contribution scores and consensus accuracy here.
         </p>
       </div>
@@ -87,33 +87,33 @@ function AgentTable({
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-green mb-3">
+      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
         {'>'} AGENT QUALITY
       </h3>
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-sm">
+        <table className="w-full font-theme-data text-sm">
           <thead>
-            <tr className="border-b border-acid-green/30">
-              <th className="py-2 px-3 text-acid-green text-left">Agent</th>
-              <th className="py-2 px-3 text-acid-green text-right">Debates</th>
-              <th className="py-2 px-3 text-acid-green text-right">
+            <tr className="border-b border-[var(--accent)]/30">
+              <th className="py-2 px-3 text-[var(--accent)] text-left">Agent</th>
+              <th className="py-2 px-3 text-[var(--accent)] text-right">Debates</th>
+              <th className="py-2 px-3 text-[var(--accent)] text-right">
                 Consensus
               </th>
-              <th className="py-2 px-3 text-acid-green text-right">
+              <th className="py-2 px-3 text-[var(--accent)] text-right">
                 Confidence
               </th>
-              <th className="py-2 px-3 text-acid-green text-right">Score</th>
+              <th className="py-2 px-3 text-[var(--accent)] text-right">Score</th>
             </tr>
           </thead>
           <tbody>
             {agents.map((a, i) => (
               <tr
                 key={a.agent_name}
-                className={`border-b border-acid-green/10 ${
-                  i % 2 === 0 ? 'bg-acid-green/5' : ''
+                className={`border-b border-[var(--accent)]/10 ${
+                  i % 2 === 0 ? 'bg-[var(--accent)]/5' : ''
                 }`}
               >
-                <td className="py-2 px-3 text-acid-cyan">{a.agent_name}</td>
+                <td className="py-2 px-3 text-[var(--acid-cyan)]">{a.agent_name}</td>
                 <td className="py-2 px-3 text-right text-text">
                   {a.debates_participated}
                 </td>
@@ -125,12 +125,12 @@ function AgentTable({
                 </td>
                 <td className="py-2 px-3 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <span className="text-acid-green">
+                    <span className="text-[var(--accent)]">
                       {(a.contribution_score * 100).toFixed(0)}
                     </span>
                     <div className="w-16 h-2 bg-surface rounded overflow-hidden">
                       <div
-                        className="h-full bg-acid-green/60 rounded"
+                        className="h-full bg-[var(--accent)]/60 rounded"
                         style={{
                           width: `${Math.min(a.contribution_score * 100, 100)}%`,
                         }}
@@ -158,10 +158,10 @@ function DomainTable({
   if (domains.length === 0) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-3">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
           {'>'} DOMAINS
         </h3>
-        <p className="text-text-muted font-mono text-sm text-center py-4">
+        <p className="text-text-muted font-theme-data text-sm text-center py-4">
           No domain data yet. Run debates across different topics to see decision distribution by domain.
         </p>
       </div>
@@ -170,28 +170,28 @@ function DomainTable({
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-green mb-3">
+      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
         {'>'} DOMAINS ({total} decisions)
       </h3>
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-sm">
+        <table className="w-full font-theme-data text-sm">
           <thead>
-            <tr className="border-b border-acid-green/30">
-              <th className="py-2 px-3 text-acid-green text-left">Domain</th>
-              <th className="py-2 px-3 text-acid-green text-right">Count</th>
-              <th className="py-2 px-3 text-acid-green text-right">Share</th>
-              <th className="py-2 px-3 text-acid-green text-right">Bar</th>
+            <tr className="border-b border-[var(--accent)]/30">
+              <th className="py-2 px-3 text-[var(--accent)] text-left">Domain</th>
+              <th className="py-2 px-3 text-[var(--accent)] text-right">Count</th>
+              <th className="py-2 px-3 text-[var(--accent)] text-right">Share</th>
+              <th className="py-2 px-3 text-[var(--accent)] text-right">Bar</th>
             </tr>
           </thead>
           <tbody>
             {domains.map((d, i) => (
               <tr
                 key={d.domain}
-                className={`border-b border-acid-green/10 ${
-                  i % 2 === 0 ? 'bg-acid-green/5' : ''
+                className={`border-b border-[var(--accent)]/10 ${
+                  i % 2 === 0 ? 'bg-[var(--accent)]/5' : ''
                 }`}
               >
-                <td className="py-2 px-3 text-acid-cyan">{d.domain}</td>
+                <td className="py-2 px-3 text-[var(--acid-cyan)]">{d.domain}</td>
                 <td className="py-2 px-3 text-right text-text">
                   {d.decision_count}
                 </td>
@@ -201,7 +201,7 @@ function DomainTable({
                 <td className="py-2 px-3 text-right">
                   <div className="w-24 h-2 bg-surface rounded overflow-hidden ml-auto">
                     <div
-                      className="h-full bg-acid-cyan/60 rounded"
+                      className="h-full bg-[var(--acid-cyan)]/60 rounded"
                       style={{ width: `${Math.min(d.percentage, 100)}%` }}
                     />
                   </div>
@@ -235,10 +235,10 @@ function OutcomesList({
   if (outcomes.length === 0) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-3">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
           {'>'} RECENT DECISIONS ({total})
         </h3>
-        <p className="text-text-muted font-mono text-sm text-center py-4">
+        <p className="text-text-muted font-theme-data text-sm text-center py-4">
           No decisions recorded yet. Start a debate to see verdicts, quality scores, and agent participation here.
         </p>
       </div>
@@ -247,23 +247,23 @@ function OutcomesList({
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-green mb-3">
+      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
         {'>'} RECENT DECISIONS ({total} total)
       </h3>
       <div className="space-y-2">
         {outcomes.map((o) => (
           <div
             key={o.debate_id}
-            className={`flex items-center justify-between p-3 border rounded font-mono text-xs ${
+            className={`flex items-center justify-between p-3 border rounded font-theme-data text-xs ${
               o.consensus_reached
-                ? 'border-acid-green/30 bg-acid-green/5'
+                ? 'border-[var(--accent)]/30 bg-[var(--accent)]/5'
                 : 'border-acid-yellow/30 bg-acid-yellow/5'
             }`}
           >
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <span
                 className={
-                  o.consensus_reached ? 'text-acid-green' : 'text-acid-yellow'
+                  o.consensus_reached ? 'text-[var(--accent)]' : 'text-[var(--acid-yellow)]'
                 }
               >
                 {o.consensus_reached ? '[OK]' : '[--]'}
@@ -337,10 +337,10 @@ export default function DecisionAnalyticsPage() {
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-1">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-1">
                 {'>'} DECISION ANALYTICS
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Track AI-assisted decision quality, consensus rates, and agent
                 performance over time.
               </p>
@@ -350,7 +350,7 @@ export default function DecisionAnalyticsPage() {
 
           {/* Error banner */}
           {error && (
-            <div className="mb-6 bg-crimson/10 border border-crimson/30 rounded p-4 text-crimson text-sm font-mono">
+            <div className="mb-6 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded p-4 text-[var(--crimson)] text-sm font-theme-data">
               Failed to load decision analytics. The server may be unavailable.
             </div>
           )}
@@ -358,7 +358,7 @@ export default function DecisionAnalyticsPage() {
           {/* ---- Overview Cards ---- */}
           <PanelErrorBoundary panelName="Decision Overview">
             <section className="mb-6">
-              <h2 className="text-lg font-mono text-acid-green mb-4">
+              <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">
                 {'>'} OVERVIEW
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -463,8 +463,8 @@ export default function DecisionAnalyticsPage() {
           </PanelErrorBoundary>
 
           {/* Footer */}
-          <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-            <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+          <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+            <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
             <p className="text-text-muted">
               {'>'} ARAGORA // DECISION OUTCOME ANALYTICS
             </p>

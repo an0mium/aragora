@@ -197,15 +197,15 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
   return (
     <div className="space-y-6">
       {/* Tabs */}
-      <div className="flex border-b border-acid-green/30">
+      <div className="flex border-b border-[var(--accent)]/30">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-6 py-3 text-sm font-mono transition-colors ${
+            className={`px-6 py-3 text-sm font-theme-data transition-colors ${
               activeTab === tab.id
-                ? 'text-acid-green border-b-2 border-acid-green bg-acid-green/5'
-                : 'text-text-muted hover:text-acid-green'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-[var(--accent)]/5'
+                : 'text-text-muted hover:text-[var(--accent)]'
             }`}
           >
             [{tab.label}]
@@ -215,7 +215,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
 
       {loading && (
         <div className="text-center py-12">
-          <div className="text-acid-green font-mono animate-pulse">Loading evolution data...</div>
+          <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading evolution data...</div>
         </div>
       )}
 
@@ -223,59 +223,59 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Stats Cards */}
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">TOTAL GENOMES</div>
-            <div className="text-3xl font-mono text-acid-green">{stats?.total_genomes || 0}</div>
+            <div className="text-xs font-theme-data text-text-muted mb-1">TOTAL GENOMES</div>
+            <div className="text-3xl font-theme-data text-[var(--accent)]">{stats?.total_genomes || 0}</div>
           </div>
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">ACTIVE POPULATION</div>
-            <div className="text-3xl font-mono text-acid-cyan">{stats?.active_population || 0}</div>
+            <div className="text-xs font-theme-data text-text-muted mb-1">ACTIVE POPULATION</div>
+            <div className="text-3xl font-theme-data text-[var(--acid-cyan)]">{stats?.active_population || 0}</div>
           </div>
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">AVERAGE FITNESS</div>
-            <div className="text-3xl font-mono text-acid-yellow">
+            <div className="text-xs font-theme-data text-text-muted mb-1">AVERAGE FITNESS</div>
+            <div className="text-3xl font-theme-data text-[var(--acid-yellow)]">
               {stats?.average_fitness ? (stats.average_fitness * 100).toFixed(1) : '0'}%
             </div>
           </div>
           <div className="card p-4">
-            <div className="text-xs font-mono text-text-muted mb-1">TOP FITNESS</div>
-            <div className="text-3xl font-mono text-accent">
+            <div className="text-xs font-theme-data text-text-muted mb-1">TOP FITNESS</div>
+            <div className="text-3xl font-theme-data text-accent">
               {stats?.top_fitness ? (stats.top_fitness * 100).toFixed(1) : '0'}%
             </div>
           </div>
 
           {/* Mutation/Crossover Stats */}
           <div className="card p-4 col-span-2">
-            <div className="text-xs font-mono text-acid-cyan mb-3">EVOLUTION OPERATIONS</div>
+            <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3">EVOLUTION OPERATIONS</div>
             <div className="grid grid-cols-4 gap-4">
               <div>
-                <div className="text-lg font-mono text-acid-green">{stats?.total_mutations || 0}</div>
-                <div className="text-xs font-mono text-text-muted">Mutations</div>
+                <div className="text-lg font-theme-data text-[var(--accent)]">{stats?.total_mutations || 0}</div>
+                <div className="text-xs font-theme-data text-text-muted">Mutations</div>
               </div>
               <div>
-                <div className="text-lg font-mono text-acid-cyan">{stats?.total_crossovers || 0}</div>
-                <div className="text-xs font-mono text-text-muted">Crossovers</div>
+                <div className="text-lg font-theme-data text-[var(--acid-cyan)]">{stats?.total_crossovers || 0}</div>
+                <div className="text-xs font-theme-data text-text-muted">Crossovers</div>
               </div>
               <div>
-                <div className="text-lg font-mono text-acid-yellow">{stats?.total_selections || 0}</div>
-                <div className="text-xs font-mono text-text-muted">Selections</div>
+                <div className="text-lg font-theme-data text-[var(--acid-yellow)]">{stats?.total_selections || 0}</div>
+                <div className="text-xs font-theme-data text-text-muted">Selections</div>
               </div>
               <div>
-                <div className="text-lg font-mono text-acid-red">{stats?.extinction_count || 0}</div>
-                <div className="text-xs font-mono text-text-muted">Extinctions</div>
+                <div className="text-lg font-theme-data text-acid-red">{stats?.extinction_count || 0}</div>
+                <div className="text-xs font-theme-data text-text-muted">Extinctions</div>
               </div>
             </div>
           </div>
 
           {/* Recent Events Preview */}
           <div className="card p-4 col-span-2">
-            <div className="text-xs font-mono text-acid-cyan mb-3">RECENT ACTIVITY</div>
+            <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-3">RECENT ACTIVITY</div>
             <div className="space-y-2">
               {events.slice(0, 5).map((event) => (
-                <div key={event.id} className="flex items-center justify-between text-xs font-mono">
+                <div key={event.id} className="flex items-center justify-between text-xs font-theme-data">
                   <span className={`px-2 py-0.5 rounded ${
-                    event.event_type === 'mutation' ? 'bg-acid-green/20 text-acid-green' :
-                    event.event_type === 'crossover' ? 'bg-acid-cyan/20 text-acid-cyan' :
-                    event.event_type === 'selection' ? 'bg-acid-yellow/20 text-acid-yellow' :
+                    event.event_type === 'mutation' ? 'bg-[var(--accent)]/20 text-[var(--accent)]' :
+                    event.event_type === 'crossover' ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]' :
+                    event.event_type === 'selection' ? 'bg-acid-yellow/20 text-[var(--acid-yellow)]' :
                     event.event_type === 'extinction' ? 'bg-acid-red/20 text-acid-red' :
                     'bg-accent/20 text-accent'
                   }`}>
@@ -294,7 +294,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Genome List */}
           <div className="lg:col-span-2 card p-4">
-            <div className="text-xs font-mono text-acid-cyan mb-4">TOP GENOMES BY FITNESS</div>
+            <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-4">TOP GENOMES BY FITNESS</div>
             <div className="space-y-2">
               {genomes.map((genome, idx) => (
                 <button
@@ -302,21 +302,21 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
                   onClick={() => setSelectedGenome(genome)}
                   className={`w-full text-left p-3 rounded border transition-colors ${
                     selectedGenome?.id === genome.id
-                      ? 'border-acid-green bg-acid-green/10'
-                      : 'border-acid-green/20 hover:border-acid-green/40'
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                      : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/40'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="text-lg font-mono text-text-muted">#{idx + 1}</span>
+                      <span className="text-lg font-theme-data text-text-muted">#{idx + 1}</span>
                       <div>
-                        <div className="font-mono text-acid-green">{genome.name || genome.id.slice(0, 12)}</div>
-                        <div className="text-xs font-mono text-text-muted">Gen {genome.generation}</div>
+                        <div className="font-theme-data text-[var(--accent)]">{genome.name || genome.id.slice(0, 12)}</div>
+                        <div className="text-xs font-theme-data text-text-muted">Gen {genome.generation}</div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-mono text-acid-yellow">{(genome.fitness * 100).toFixed(1)}%</div>
-                      <div className="text-xs font-mono text-text-muted">{genome.mutation_count} mutations</div>
+                      <div className="font-theme-data text-[var(--acid-yellow)]">{(genome.fitness * 100).toFixed(1)}%</div>
+                      <div className="text-xs font-theme-data text-text-muted">{genome.mutation_count} mutations</div>
                     </div>
                   </div>
                 </button>
@@ -326,29 +326,29 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
 
           {/* Selected Genome Details */}
           <div className="card p-4">
-            <div className="text-xs font-mono text-acid-cyan mb-4">GENOME DETAILS</div>
+            <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-4">GENOME DETAILS</div>
             {selectedGenome ? (
               <div className="space-y-4">
                 <div>
                   <div className="text-xs text-text-muted mb-1">ID</div>
-                  <div className="font-mono text-sm text-acid-green">{selectedGenome.id}</div>
+                  <div className="font-theme-data text-sm text-[var(--accent)]">{selectedGenome.id}</div>
                 </div>
                 <div>
                   <div className="text-xs text-text-muted mb-1">FITNESS</div>
-                  <div className="font-mono text-2xl text-acid-yellow">
+                  <div className="font-theme-data text-2xl text-[var(--acid-yellow)]">
                     {(selectedGenome.fitness * 100).toFixed(2)}%
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-text-muted mb-1">GENERATION</div>
-                  <div className="font-mono text-lg text-acid-cyan">{selectedGenome.generation}</div>
+                  <div className="font-theme-data text-lg text-[var(--acid-cyan)]">{selectedGenome.generation}</div>
                 </div>
                 {selectedGenome.parent_ids && selectedGenome.parent_ids.length > 0 && (
                   <div>
                     <div className="text-xs text-text-muted mb-1">PARENTS</div>
                     <div className="space-y-1">
                       {selectedGenome.parent_ids.map((pid) => (
-                        <div key={pid} className="font-mono text-xs text-text-muted">{pid.slice(0, 12)}</div>
+                        <div key={pid} className="font-theme-data text-xs text-text-muted">{pid.slice(0, 12)}</div>
                       ))}
                     </div>
                   </div>
@@ -358,9 +358,9 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
                     <div className="text-xs text-text-muted mb-1">TRAITS</div>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(selectedGenome.traits).map(([trait, value]) => (
-                        <div key={trait} className="text-xs font-mono">
+                        <div key={trait} className="text-xs font-theme-data">
                           <span className="text-text-muted">{trait}:</span>
-                          <span className="text-acid-green ml-1">{(value * 100).toFixed(0)}%</span>
+                          <span className="text-[var(--accent)] ml-1">{(value * 100).toFixed(0)}%</span>
                         </div>
                       ))}
                     </div>
@@ -368,7 +368,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
                 )}
               </div>
             ) : (
-              <div className="text-center text-text-muted font-mono text-sm py-8">
+              <div className="text-center text-text-muted font-theme-data text-sm py-8">
                 Select a genome to view details
               </div>
             )}
@@ -405,22 +405,22 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
             <div key={pattern.pattern_id} className="card p-4">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <div className="font-mono text-acid-green">{pattern.name}</div>
-                  <div className="text-xs font-mono text-text-muted mt-1">{pattern.description}</div>
+                  <div className="font-theme-data text-[var(--accent)]">{pattern.name}</div>
+                  <div className="text-xs font-theme-data text-text-muted mt-1">{pattern.description}</div>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-mono text-acid-yellow">{(pattern.success_rate * 100).toFixed(0)}%</div>
-                  <div className="text-xs font-mono text-text-muted">success</div>
+                  <div className="text-lg font-theme-data text-[var(--acid-yellow)]">{(pattern.success_rate * 100).toFixed(0)}%</div>
+                  <div className="text-xs font-theme-data text-text-muted">success</div>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center justify-between text-xs font-theme-data">
                 <span className="text-text-muted">Frequency: {pattern.frequency}</span>
                 <span className="text-text-muted">{pattern.agents_using.length} agents</span>
               </div>
             </div>
           ))}
           {patterns.length === 0 && (
-            <div className="col-span-2 text-center py-8 text-text-muted font-mono">
+            <div className="col-span-2 text-center py-8 text-text-muted font-theme-data">
               No evolution patterns found yet.
             </div>
           )}
@@ -441,7 +441,7 @@ function EvolutionPanelComponent({ backendConfig }: EvolutionPanelProps) {
         <button
           onClick={fetchAll}
           disabled={loading}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
         >
           {loading ? 'Refreshing...' : 'Refresh Data'}
         </button>

@@ -226,41 +226,41 @@ export function GraphVisualization({
       <div className="absolute top-2 left-2 z-10 flex gap-1">
         <button
           onClick={handleZoomIn}
-          className="w-8 h-8 bg-surface border border-acid-green/30 text-acid-green font-mono text-sm hover:bg-acid-green/20"
+          className="w-8 h-8 bg-surface border border-[var(--accent)]/30 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/20"
           title="Zoom in"
         >
           +
         </button>
         <button
           onClick={handleZoomOut}
-          className="w-8 h-8 bg-surface border border-acid-green/30 text-acid-green font-mono text-sm hover:bg-acid-green/20"
+          className="w-8 h-8 bg-surface border border-[var(--accent)]/30 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/20"
           title="Zoom out"
         >
           -
         </button>
         <button
           onClick={handleResetView}
-          className="px-2 h-8 bg-surface border border-acid-green/30 text-acid-green font-mono text-xs hover:bg-acid-green/20"
+          className="px-2 h-8 bg-surface border border-[var(--accent)]/30 text-[var(--accent)] font-theme-data text-xs hover:bg-[var(--accent)]/20"
           title="Reset view"
         >
           RESET
         </button>
         <button
           onClick={handleReheat}
-          className={`px-2 h-8 bg-surface border border-acid-cyan/30 text-acid-cyan font-mono text-xs hover:bg-acid-cyan/20 ${
+          className={`px-2 h-8 bg-surface border border-[var(--acid-cyan)]/30 text-[var(--acid-cyan)] font-theme-data text-xs hover:bg-[var(--acid-cyan)]/20 ${
             isSimulating ? 'animate-pulse' : ''
           }`}
           title="Re-run force simulation"
         >
           {isSimulating ? 'SIMULATING...' : 'RELAYOUT'}
         </button>
-        <span className="h-8 flex items-center px-2 text-xs font-mono text-text-muted">
+        <span className="h-8 flex items-center px-2 text-xs font-theme-data text-text-muted">
           {Math.round(zoom * 100)}%
         </span>
       </div>
 
       {/* Pan hint */}
-      <div className="absolute top-2 right-2 z-10 text-xs font-mono text-text-muted/50">
+      <div className="absolute top-2 right-2 z-10 text-xs font-theme-data text-text-muted/50">
         Drag nodes | Shift+drag to pan | Ctrl+scroll to zoom
       </div>
 

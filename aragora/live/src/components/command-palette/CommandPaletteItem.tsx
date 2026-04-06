@@ -78,7 +78,7 @@ export function CommandPaletteItem({
       className={`
         flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors
         ${isSelected
-          ? 'bg-acid-green/10 border-l-2 border-acid-green'
+          ? 'bg-[var(--accent)]/10 border-l-2 border-[var(--accent)]'
           : 'border-l-2 border-transparent hover:bg-surface-elevated'
         }
       `}
@@ -88,8 +88,8 @@ export function CommandPaletteItem({
       {/* Icon */}
       <span
         className={`
-          font-mono text-sm w-6 text-center flex-shrink-0
-          ${isSelected ? 'text-acid-green' : 'text-acid-green/70'}
+          font-theme-data text-sm w-6 text-center flex-shrink-0
+          ${isSelected ? 'text-[var(--accent)]' : 'text-[var(--accent)]/70'}
         `}
       >
         {icon}
@@ -99,8 +99,8 @@ export function CommandPaletteItem({
       <div className="flex-1 min-w-0">
         <div
           className={`
-            font-mono text-sm truncate
-            ${isSelected ? 'text-acid-green' : 'text-text'}
+            font-theme-data text-sm truncate
+            ${isSelected ? 'text-[var(--accent)]' : 'text-text'}
           `}
         >
           {title}
@@ -114,7 +114,7 @@ export function CommandPaletteItem({
 
       {/* Type badge */}
       {showType && (
-        <span className="text-text-muted text-xs font-mono uppercase flex-shrink-0">
+        <span className="text-text-muted text-xs font-theme-data uppercase flex-shrink-0">
           {typeLabel}
         </span>
       )}

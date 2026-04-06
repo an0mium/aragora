@@ -224,7 +224,7 @@ export function TournamentPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Tou
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-text truncate">{standing.agent}</span>
-                    <span className="text-sm font-mono text-accent">{standing.points.toFixed(1)} pts</span>
+                    <span className="text-sm font-theme-data text-accent">{standing.points.toFixed(1)} pts</span>
                   </div>
                   <div className="text-xs text-text-muted">
                     {standing.wins}W-{standing.losses}L-{standing.draws}D
@@ -232,7 +232,7 @@ export function TournamentPanel({ apiBase = DEFAULT_API_BASE, events = [] }: Tou
                 </div>
 
                 {/* Win Rate */}
-                <div className={`text-sm font-mono ${getWinRateColor(standing.win_rate)}`}>
+                <div className={`text-sm font-theme-data ${getWinRateColor(standing.win_rate)}`}>
                   {(standing.win_rate * 100).toFixed(0)}%
                 </div>
               </div>

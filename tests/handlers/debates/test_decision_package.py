@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import time
 from typing import Any
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -1057,7 +1057,7 @@ class TestReceiptIntegration:
         assert body["receipt"] is None
 
     def test_receipt_store_called_with_debate_prefix(self, http_handler):
-        """Receipt lookup should try canonical then legacy debate-prefixed keys."""
+        """Receipt store should be queried with 'debate-{id}' key."""
         debate = _completed_debate()
         storage = _make_storage({"my-debate": debate})
         h = DecisionPackageHandler(ctx={"storage": storage})
@@ -1071,7 +1071,10 @@ class TestReceiptIntegration:
         ):
             h.handle("/api/v1/debates/my-debate/package", {}, http_handler)
 
-        mock_store.get_by_gauntlet.assert_has_calls([call("my-debate"), call("debate-my-debate")])
+        assert mock_store.get_by_gauntlet.call_args_list == [
+            (("my-debate",), {}),
+            (("debate-my-debate",), {}),
+        ]
 
 
 # ===========================================================================

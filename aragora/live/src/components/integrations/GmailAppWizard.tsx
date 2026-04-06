@@ -217,41 +217,41 @@ export function GmailAppWizard({
           <div className="text-center py-8">
             {loading ? (
               <>
-                <div className="animate-pulse font-mono text-acid-cyan mb-4">
+                <div className="animate-pulse font-theme-data text-[var(--acid-cyan)] mb-4">
                   [CHECKING CONFIGURATION...]
                 </div>
-                <p className="font-mono text-sm text-text-muted">
+                <p className="font-theme-data text-sm text-text-muted">
                   Verifying Google OAuth is configured
                 </p>
               </>
             ) : isConfigured === false ? (
               <>
-                <div className="font-mono text-warning text-4xl mb-4">!</div>
-                <h3 className="font-mono text-lg text-text mb-2">
+                <div className="font-theme-data text-warning text-4xl mb-4">!</div>
+                <h3 className="font-theme-data text-lg text-text mb-2">
                   Gmail OAuth Not Configured
                 </h3>
-                <p className="font-mono text-sm text-text-muted mb-4">
+                <p className="font-theme-data text-sm text-text-muted mb-4">
                   The server needs Google Cloud credentials to enable Gmail integration.
                 </p>
-                <div className="bg-bg/50 border border-acid-green/20 p-4 rounded text-left">
-                  <p className="font-mono text-xs text-text-muted mb-2">
+                <div className="bg-bg/50 border border-[var(--accent)]/20 p-4 rounded text-left">
+                  <p className="font-theme-data text-xs text-text-muted mb-2">
                     1. Create a project in{' '}
                     <a
                       href="https://console.cloud.google.com/"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-acid-cyan hover:underline"
+                      className="text-[var(--acid-cyan)] hover:underline"
                     >
                       Google Cloud Console
                     </a>
                   </p>
-                  <p className="font-mono text-xs text-text-muted mb-2">
+                  <p className="font-theme-data text-xs text-text-muted mb-2">
                     2. Enable the Gmail API and create OAuth credentials
                   </p>
-                  <p className="font-mono text-xs text-text-muted mb-2">
+                  <p className="font-theme-data text-xs text-text-muted mb-2">
                     3. Add the following environment variables:
                   </p>
-                  <pre className="font-mono text-xs text-acid-green bg-bg p-2 rounded overflow-x-auto">
+                  <pre className="font-theme-data text-xs text-[var(--accent)] bg-bg p-2 rounded overflow-x-auto">
 {`GOOGLE_CLIENT_ID=your_client_id
 GOOGLE_CLIENT_SECRET=your_client_secret
 GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
@@ -259,7 +259,7 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
                 </div>
               </>
             ) : (
-              <div className="font-mono text-acid-green">
+              <div className="font-theme-data text-[var(--accent)]">
                 Configuration verified. Proceeding to scope selection...
               </div>
             )}
@@ -269,10 +269,10 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
       case 'scopes':
         return (
           <div className="py-4">
-            <h3 className="font-mono text-lg text-text mb-2">
+            <h3 className="font-theme-data text-lg text-text mb-2">
               Select Permissions
             </h3>
-            <p className="font-mono text-sm text-text-muted mb-4">
+            <p className="font-theme-data text-sm text-text-muted mb-4">
               Choose which Gmail permissions Aragora should request:
             </p>
 
@@ -282,10 +282,10 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
                   key={scope.key}
                   className={`flex items-start gap-3 p-3 border rounded transition-colors ${
                     scope.required
-                      ? 'border-acid-green/50 bg-acid-green/5 cursor-not-allowed'
+                      ? 'border-[var(--accent)]/50 bg-[var(--accent)]/5 cursor-not-allowed'
                       : selectedScopes.includes(scope.key)
-                      ? 'border-acid-green bg-acid-green/10 cursor-pointer'
-                      : 'border-acid-green/20 hover:border-acid-green/40 cursor-pointer'
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10 cursor-pointer'
+                      : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/40 cursor-pointer'
                   }`}
                 >
                   <input
@@ -293,16 +293,16 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
                     checked={selectedScopes.includes(scope.key)}
                     onChange={() => handleScopeToggle(scope.key)}
                     disabled={scope.required}
-                    className="form-checkbox bg-bg border-acid-green/30 mt-0.5"
+                    className="form-checkbox bg-bg border-[var(--accent)]/30 mt-0.5"
                   />
                   <div>
-                    <span className="font-mono text-sm text-text block">
+                    <span className="font-theme-data text-sm text-text block">
                       {scope.label}
                       {scope.required && (
-                        <span className="text-acid-green/70 ml-2">(required)</span>
+                        <span className="text-[var(--accent)]/70 ml-2">(required)</span>
                       )}
                     </span>
-                    <span className="font-mono text-xs text-text-muted">
+                    <span className="font-theme-data text-xs text-text-muted">
                       {scope.description}
                     </span>
                   </div>
@@ -315,17 +315,17 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
       case 'authorize':
         return (
           <div className="text-center py-8">
-            <div className="font-mono text-acid-cyan text-4xl mb-4">@</div>
-            <h3 className="font-mono text-lg text-text mb-2">
+            <div className="font-theme-data text-[var(--acid-cyan)] text-4xl mb-4">@</div>
+            <h3 className="font-theme-data text-lg text-text mb-2">
               Authorize Gmail Access
             </h3>
-            <p className="font-mono text-sm text-text-muted mb-6">
+            <p className="font-theme-data text-sm text-text-muted mb-6">
               Click the button below to sign in with your Google account
               and grant Aragora access to your Gmail.
             </p>
             <button
               onClick={startOAuth}
-              className="px-6 py-3 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors"
+              className="px-6 py-3 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors"
             >
               [SIGN IN WITH GOOGLE]
             </button>
@@ -337,31 +337,31 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
           <div className="py-4">
             <div className="mb-4">
               {account && (
-                <div className="flex items-center gap-2 mb-4 p-3 bg-acid-green/10 border border-acid-green/30 rounded">
-                  <span className="font-mono text-acid-green">Connected:</span>
-                  <span className="font-mono text-text">{account.email}</span>
+                <div className="flex items-center gap-2 mb-4 p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded">
+                  <span className="font-theme-data text-[var(--accent)]">Connected:</span>
+                  <span className="font-theme-data text-text">{account.email}</span>
                 </div>
               )}
-              <h3 className="font-mono text-lg text-text mb-2">
+              <h3 className="font-theme-data text-lg text-text mb-2">
                 Select Labels (Optional)
               </h3>
-              <p className="font-mono text-sm text-text-muted">
+              <p className="font-theme-data text-sm text-text-muted">
                 Choose labels to filter or organize debate-related emails:
               </p>
             </div>
 
             {loading ? (
-              <div className="text-center py-8 font-mono text-acid-cyan">
+              <div className="text-center py-8 font-theme-data text-[var(--acid-cyan)]">
                 [LOADING LABELS...]
               </div>
             ) : labels.length === 0 ? (
               <div className="text-center py-8">
-                <p className="font-mono text-sm text-text-muted mb-4">
+                <p className="font-theme-data text-sm text-text-muted mb-4">
                   No custom labels found. You can create labels later.
                 </p>
                 <button
                   onClick={() => setStep('test')}
-                  className="px-4 py-2 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/10"
+                  className="px-4 py-2 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/10"
                 >
                   [SKIP - CONFIGURE LATER]
                 </button>
@@ -375,17 +375,17 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
                       key={label.id}
                       className={`flex items-center gap-3 p-3 border rounded cursor-pointer transition-colors ${
                         selectedLabels.includes(label.id)
-                          ? 'border-acid-green bg-acid-green/10'
-                          : 'border-acid-green/20 hover:border-acid-green/40'
+                          ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                          : 'border-[var(--accent)]/20 hover:border-[var(--accent)]/40'
                       }`}
                     >
                       <input
                         type="checkbox"
                         checked={selectedLabels.includes(label.id)}
                         onChange={() => handleLabelToggle(label.id)}
-                        className="form-checkbox bg-bg border-acid-green/30"
+                        className="form-checkbox bg-bg border-[var(--accent)]/30"
                       />
-                      <span className="font-mono text-sm text-text">
+                      <span className="font-theme-data text-sm text-text">
                         {label.name}
                       </span>
                     </label>
@@ -398,22 +398,22 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
       case 'test':
         return (
           <div className="text-center py-8">
-            <h3 className="font-mono text-lg text-text mb-2">
+            <h3 className="font-theme-data text-lg text-text mb-2">
               Test Connection
             </h3>
-            <p className="font-mono text-sm text-text-muted mb-6">
+            <p className="font-theme-data text-sm text-text-muted mb-6">
               Verify the Gmail integration by fetching account info.
             </p>
 
             <button
               onClick={testConnection}
               disabled={testStatus === 'testing'}
-              className={`px-6 py-3 font-mono text-sm border transition-colors ${
+              className={`px-6 py-3 font-theme-data text-sm border transition-colors ${
                 testStatus === 'success'
-                  ? 'bg-acid-green/20 border-acid-green text-acid-green'
+                  ? 'bg-[var(--accent)]/20 border-[var(--accent)] text-[var(--accent)]'
                   : testStatus === 'failed'
                   ? 'bg-warning/20 border-warning text-warning'
-                  : 'bg-acid-cyan/20 border-acid-cyan text-acid-cyan hover:bg-acid-cyan/30'
+                  : 'bg-[var(--acid-cyan)]/20 border-[var(--acid-cyan)] text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/30'
               }`}
             >
               {testStatus === 'testing' && '[TESTING CONNECTION...]'}
@@ -423,7 +423,7 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
             </button>
 
             {testStatus === 'success' && (
-              <p className="font-mono text-sm text-acid-green mt-4">
+              <p className="font-theme-data text-sm text-[var(--accent)] mt-4">
                 Gmail integration is working correctly!
               </p>
             )}
@@ -433,11 +433,11 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
       case 'complete':
         return (
           <div className="text-center py-8">
-            <div className="font-mono text-acid-green text-4xl mb-4">✓</div>
-            <h3 className="font-mono text-lg text-text mb-2">
+            <div className="font-theme-data text-[var(--accent)] text-4xl mb-4">✓</div>
+            <h3 className="font-theme-data text-lg text-text mb-2">
               Gmail Integration Complete!
             </h3>
-            <p className="font-mono text-sm text-text-muted mb-6">
+            <p className="font-theme-data text-sm text-text-muted mb-6">
               Aragora can now {selectedScopes.includes('gmail.send') ? 'send and ' : ''}
               read emails from your Gmail account.
             </p>
@@ -480,22 +480,22 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
         onClick={onClose}
       />
 
-      <div className="relative bg-surface border border-acid-green/30 rounded-lg w-full max-w-xl max-h-[90vh] overflow-hidden">
-        <div className="p-4 border-b border-acid-green/20 flex items-center justify-between">
+      <div className="relative bg-surface border border-[var(--accent)]/30 rounded-lg w-full max-w-xl max-h-[90vh] overflow-hidden">
+        <div className="p-4 border-b border-[var(--accent)]/20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-acid-cyan text-xl">@</span>
+            <span className="font-theme-data text-[var(--acid-cyan)] text-xl">@</span>
             <div>
-              <h2 className="font-mono text-acid-green text-lg">
+              <h2 className="font-theme-data text-[var(--accent)] text-lg">
                 Gmail Setup
               </h2>
-              <p className="font-mono text-xs text-text-muted">
+              <p className="font-theme-data text-xs text-text-muted">
                 Connect Aragora to your Gmail account
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text font-mono"
+            className="text-text-muted hover:text-text font-theme-data"
           >
             [X]
           </button>
@@ -504,25 +504,25 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
         <div className="p-6">
           {error && (
             <div className="mb-4 p-3 border border-warning/30 bg-warning/10 rounded">
-              <p className="text-warning font-mono text-sm">{error}</p>
+              <p className="text-warning font-theme-data text-sm">{error}</p>
             </div>
           )}
 
           {renderStep()}
         </div>
 
-        <div className="p-4 border-t border-acid-green/20 flex justify-between">
+        <div className="p-4 border-t border-[var(--accent)]/20 flex justify-between">
           {canGoBack ? (
             <button
               onClick={handleBack}
-              className="px-4 py-2 border border-acid-green/30 text-text-muted font-mono text-sm hover:text-text transition-colors"
+              className="px-4 py-2 border border-[var(--accent)]/30 text-text-muted font-theme-data text-sm hover:text-text transition-colors"
             >
               [BACK]
             </button>
           ) : (
             <button
               onClick={onClose}
-              className="px-4 py-2 border border-acid-green/30 text-text-muted font-mono text-sm hover:text-text transition-colors"
+              className="px-4 py-2 border border-[var(--accent)]/30 text-text-muted font-theme-data text-sm hover:text-text transition-colors"
             >
               [CANCEL]
             </button>
@@ -531,14 +531,14 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
           {step === 'complete' ? (
             <button
               onClick={onComplete}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors"
             >
               [DONE]
             </button>
           ) : step === 'authorize' ? (
             <button
               onClick={startOAuth}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green text-acid-green font-mono text-sm hover:bg-acid-green/30 transition-colors"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/30 transition-colors"
             >
               [SIGN IN WITH GOOGLE]
             </button>
@@ -546,7 +546,7 @@ GOOGLE_REDIRECT_URI=https://your-domain/api/integrations/gmail/callback`}
             <button
               onClick={handleNext}
               disabled={loading}
-              className="px-4 py-2 border border-acid-green/50 text-acid-green font-mono text-sm hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+              className="px-4 py-2 border border-[var(--accent)]/50 text-[var(--accent)] font-theme-data text-sm hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
             >
               {loading ? '[SAVING...]' : '[NEXT]'}
             </button>

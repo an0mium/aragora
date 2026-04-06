@@ -121,7 +121,7 @@ const MOCK_WORKERS: QueueWorker[] = [
 const STATUS_COLORS: Record<JobStatus, string> = {
   pending: 'bg-yellow-500',
   processing: 'bg-cyan-500',
-  completed: 'bg-acid-green',
+  completed: 'bg-[var(--accent)]',
   failed: 'bg-red-500',
   cancelled: 'bg-gray-400',
   retrying: 'bg-orange-500',
@@ -130,7 +130,7 @@ const STATUS_COLORS: Record<JobStatus, string> = {
 const STATUS_TEXT_COLORS: Record<JobStatus, string> = {
   pending: 'text-yellow-400',
   processing: 'text-cyan-400',
-  completed: 'text-acid-green',
+  completed: 'text-[var(--accent)]',
   failed: 'text-red-400',
   cancelled: 'text-gray-400',
   retrying: 'text-orange-400',
@@ -205,7 +205,7 @@ export function QueueMonitoringPanel({
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-bg flex-shrink-0 flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-mono font-bold text-acid-green">
+          <h3 className="text-sm font-theme-data font-bold text-[var(--accent)]">
             QUEUE MONITOR
           </h3>
           <p className="text-xs text-text-muted mt-1">
@@ -216,7 +216,7 @@ export function QueueMonitoringPanel({
           <button
             onClick={onRefresh}
             disabled={isLoading}
-            className="px-3 py-1 text-xs font-mono bg-bg border border-border rounded hover:border-acid-green transition-colors disabled:opacity-50"
+            className="px-3 py-1 text-xs font-theme-data bg-bg border border-border rounded hover:border-[var(--accent)] transition-colors disabled:opacity-50"
           >
             {isLoading ? '...' : 'REFRESH'}
           </button>
@@ -234,7 +234,7 @@ export function QueueMonitoringPanel({
           <div className="text-xs text-text-muted">Processing</div>
         </div>
         <div className="text-center">
-          <div className="text-xl font-bold text-acid-green">{stats.completed}</div>
+          <div className="text-xl font-bold text-[var(--accent)]">{stats.completed}</div>
           <div className="text-xs text-text-muted">Completed</div>
         </div>
         <div className="text-center">
@@ -258,10 +258,10 @@ export function QueueMonitoringPanel({
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`
-              px-4 py-2 text-xs font-mono uppercase
+              px-4 py-2 text-xs font-theme-data uppercase
               ${
                 activeTab === tab
-                  ? 'text-acid-green border-b-2 border-acid-green bg-bg'
+                  ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-bg'
                   : 'text-text-muted hover:text-text'
               }
             `}
@@ -277,17 +277,17 @@ export function QueueMonitoringPanel({
           {/* Status Filter */}
           <div className="p-4 border-b border-border flex-shrink-0">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-text-muted">Filter:</span>
+              <span className="text-xs font-theme-data text-text-muted">Filter:</span>
               {(['all', 'pending', 'processing', 'failed', 'completed'] as const).map(
                 (status) => (
                   <button
                     key={status}
                     onClick={() => setStatusFilter(status)}
                     className={`
-                      px-2 py-1 text-xs font-mono rounded
+                      px-2 py-1 text-xs font-theme-data rounded
                       ${
                         statusFilter === status
-                          ? 'bg-acid-green/20 text-acid-green'
+                          ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                           : 'bg-bg border border-border hover:border-text-muted'
                       }
                     `}
@@ -328,21 +328,21 @@ export function QueueMonitoringPanel({
 
                       {/* Job Info */}
                       <div className="flex-1 text-left">
-                        <div className="font-mono text-sm text-text">{job.id}</div>
+                        <div className="font-theme-data text-sm text-text">{job.id}</div>
                         <div className="text-xs text-text-muted truncate max-w-md">
                           {(job.metadata?.question as string) || 'No description'}
                         </div>
                       </div>
 
                       {/* Attempts */}
-                      <span className="text-xs font-mono text-text-muted">
+                      <span className="text-xs font-theme-data text-text-muted">
                         {job.attempts}/{job.maxAttempts}
                       </span>
 
                       {/* Status Badge */}
                       <span
                         className={`
-                          px-2 py-0.5 text-xs font-mono uppercase rounded
+                          px-2 py-0.5 text-xs font-theme-data uppercase rounded
                           ${STATUS_TEXT_COLORS[job.status]}
                         `}
                       >
@@ -366,14 +366,14 @@ export function QueueMonitoringPanel({
                           <div className="grid grid-cols-2 gap-4 text-xs">
                             <div>
                               <span className="text-text-muted">Created:</span>
-                              <p className="font-mono">
+                              <p className="font-theme-data">
                                 {new Date(job.createdAt).toLocaleString()}
                               </p>
                             </div>
                             {job.startedAt && (
                               <div>
                                 <span className="text-text-muted">Duration:</span>
-                                <p className="font-mono">
+                                <p className="font-theme-data">
                                   {formatDuration(job.startedAt, job.completedAt)}
                                 </p>
                               </div>
@@ -381,18 +381,18 @@ export function QueueMonitoringPanel({
                             {job.workerId && (
                               <div>
                                 <span className="text-text-muted">Worker:</span>
-                                <p className="font-mono text-cyan-400">{job.workerId}</p>
+                                <p className="font-theme-data text-cyan-400">{job.workerId}</p>
                               </div>
                             )}
                             <div>
                               <span className="text-text-muted">Priority:</span>
-                              <p className="font-mono">{job.priority}</p>
+                              <p className="font-theme-data">{job.priority}</p>
                             </div>
                           </div>
 
                           {job.error && (
                             <div className="mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded">
-                              <span className="text-xs text-red-400 font-mono">
+                              <span className="text-xs text-red-400 font-theme-data">
                                 Error: {job.error}
                               </span>
                             </div>
@@ -408,7 +408,7 @@ export function QueueMonitoringPanel({
                                     handleRetry(job.id);
                                   }}
                                   disabled={actionLoading === job.id}
-                                  className="px-3 py-1 text-xs font-mono bg-acid-green/20 text-acid-green border border-acid-green/50 rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+                                  className="px-3 py-1 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] border border-[var(--accent)]/50 rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
                                 >
                                   {actionLoading === job.id ? '...' : 'RETRY'}
                                 </button>
@@ -421,7 +421,7 @@ export function QueueMonitoringPanel({
                                     handleCancel(job.id);
                                   }}
                                   disabled={actionLoading === job.id}
-                                  className="px-3 py-1 text-xs font-mono bg-red-500/20 text-red-400 border border-red-500/50 rounded hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                                  className="px-3 py-1 text-xs font-theme-data bg-red-500/20 text-red-400 border border-red-500/50 rounded hover:bg-red-500/30 transition-colors disabled:opacity-50"
                                 >
                                   {actionLoading === job.id ? '...' : 'CANCEL'}
                                 </button>
@@ -457,13 +457,13 @@ export function QueueMonitoringPanel({
                   <div
                     className={`
                       w-3 h-3 rounded-full
-                      ${worker.pending > 0 ? 'bg-cyan-400 animate-pulse' : 'bg-acid-green'}
+                      ${worker.pending > 0 ? 'bg-cyan-400 animate-pulse' : 'bg-[var(--accent)]'}
                     `}
                   />
 
                   {/* Worker Info */}
                   <div className="flex-1">
-                    <div className="font-mono text-sm text-text">{worker.workerId}</div>
+                    <div className="font-theme-data text-sm text-text">{worker.workerId}</div>
                     <div className="text-xs text-text-muted">{worker.group}</div>
                   </div>
 
@@ -476,10 +476,10 @@ export function QueueMonitoringPanel({
                   {/* Idle Status */}
                   <span
                     className={`
-                      px-2 py-0.5 text-xs font-mono rounded
+                      px-2 py-0.5 text-xs font-theme-data rounded
                       ${
                         worker.idleMs < 1000
-                          ? 'text-acid-green'
+                          ? 'text-[var(--accent)]'
                           : worker.idleMs < 60000
                           ? 'text-yellow-400'
                           : 'text-text-muted'
@@ -497,7 +497,7 @@ export function QueueMonitoringPanel({
 
       {/* Footer */}
       <div className="px-4 py-2 border-t border-border bg-bg flex-shrink-0">
-        <div className="flex items-center justify-between text-xs font-mono text-text-muted">
+        <div className="flex items-center justify-between text-xs font-theme-data text-text-muted">
           <span>
             {activeTab === 'jobs' && `${filteredJobs.length} jobs`}
             {activeTab === 'workers' && `${workers.length} workers`}

@@ -103,7 +103,7 @@ function EnhancedRankingsTableComponent({
     return (
       <th
         className={`py-1.5 px-1 cursor-pointer select-none hover:text-text transition-colors ${
-          isActive ? 'text-acid-green' : 'text-text-muted'
+          isActive ? 'text-[var(--accent)]' : 'text-text-muted'
         } ${className}`}
         onClick={() => handleSort(field)}
         role="columnheader"
@@ -136,7 +136,7 @@ function EnhancedRankingsTableComponent({
             <ul className="mt-2 space-y-1 text-red-200">
               {Object.entries(endpointErrors).map(([endpoint, msg]) => (
                 <li key={endpoint}>
-                  <span className="font-mono">{endpoint}:</span> {msg}
+                  <span className="font-theme-data">{endpoint}:</span> {msg}
                 </li>
               ))}
             </ul>
@@ -148,7 +148,7 @@ function EnhancedRankingsTableComponent({
 
   if (sortedAgents.length === 0) {
     return (
-      <div className="text-center text-text-muted py-4 font-mono text-sm">
+      <div className="text-center text-text-muted py-4 font-theme-data text-sm">
         No rankings yet. Run debate cycles to generate rankings.
       </div>
     );
@@ -156,7 +156,7 @@ function EnhancedRankingsTableComponent({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-xs font-mono" role="table">
+      <table className="w-full text-xs font-theme-data" role="table">
         <thead>
           <tr className="border-b border-border">
             <th className="text-left py-1.5 px-1 text-text-muted w-8">#</th>

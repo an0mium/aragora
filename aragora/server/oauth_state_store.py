@@ -106,6 +106,11 @@ class OAuthStateStore(ABC):
         pass
 
     @abstractmethod
+    def peek(self, state: str) -> OAuthState | None:
+        """Validate state token without consuming it."""
+        pass
+
+    @abstractmethod
     def cleanup_expired(self) -> int:
         """Remove expired states. Returns count of removed entries."""
         pass
@@ -163,6 +168,15 @@ class InMemoryOAuthStateStore(OAuthStateStore):
                 return None
             state_data = self._states.pop(state)
             if state_data.is_expired:
+                return None
+            return state_data
+
+    def peek(self, state: str) -> OAuthState | None:
+        """Validate state token without consuming it."""
+        self.cleanup_expired()
+        with self._lock:
+            state_data = self._states.get(state)
+            if state_data is None or state_data.is_expired:
                 return None
             return state_data
 
@@ -341,6 +355,47 @@ class SQLiteOAuthStateStore(OAuthStateStore):
             logger.error("SQLite OAuth store validate failed: %s", e)
             return None
 
+    def peek(self, state: str) -> OAuthState | None:
+        """Validate state token without consuming it."""
+        self.cleanup_expired()
+        conn = self._get_connection()
+
+        try:
+            cursor = conn.execute(
+                """
+                SELECT user_id, redirect_url, expires_at, created_at, metadata
+                FROM oauth_states WHERE state_token = ?
+            """,
+                (state,),
+            )
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            metadata = None
+            if row[4]:
+                try:
+                    metadata = json.loads(row[4])
+                except json.JSONDecodeError:
+                    pass
+
+            state_data = OAuthState(
+                user_id=row[0],
+                redirect_url=row[1],
+                expires_at=row[2],
+                created_at=row[3],
+                metadata=metadata,
+            )
+
+            if state_data.is_expired:
+                return None
+
+            return state_data
+        except sqlite3.Error as e:
+            logger.error("SQLite OAuth store peek failed: %s", e)
+            return None
+
     def cleanup_expired(self) -> int:
         """Remove expired states."""
         now = time.time()
@@ -492,6 +547,26 @@ class RedisOAuthStateStore(OAuthStateStore):
             logger.warning("Invalid OAuth state data for %s...", state[:16])
             return None
 
+    def peek(self, state: str) -> OAuthState | None:
+        """Validate state token in Redis without consuming it."""
+        redis_client = self._get_redis()
+        if not redis_client:
+            raise RedisUnavailableError("OAuth state storage")
+
+        data_str = redis_client.get(self._key(state))
+        if not data_str:
+            return None
+
+        try:
+            data = json.loads(data_str)
+            state_data = OAuthState.from_dict(data)
+            if state_data.is_expired:
+                return None
+            return state_data
+        except (json.JSONDecodeError, KeyError):
+            logger.warning("Invalid OAuth state data for %s...", state[:16])
+            return None
+
     def cleanup_expired(self) -> int:
         """Redis handles TTL expiration automatically."""
         return 0
@@ -601,6 +676,40 @@ class JWTOAuthStateStore(OAuthStateStore):
 
     def validate_and_consume(self, state: str) -> OAuthState | None:
         """Validate JWT state token and mark as consumed."""
+        state_data, nonce = self._validate_token(state)
+        if state_data is None or not nonce:
+            return None
+
+        with self._nonce_lock:
+            if nonce in self._used_nonces:
+                logger.warning("JWT state: replay detected (nonce reused)")
+                return None
+
+            # Mark nonce as used (simple in-memory tracking)
+            self._used_nonces.add(nonce)
+
+            # Cleanup old nonces periodically
+            if len(self._used_nonces) > self._nonce_cleanup_threshold:
+                # Just clear old nonces - expired states won't validate anyway
+                self._used_nonces.clear()
+
+        return state_data
+
+    def peek(self, state: str) -> OAuthState | None:
+        """Validate JWT state token without consuming it."""
+        state_data, nonce = self._validate_token(state)
+        if state_data is None or not nonce:
+            return None
+
+        with self._nonce_lock:
+            if nonce in self._used_nonces:
+                logger.warning("JWT state: replay detected (nonce reused)")
+                return None
+
+        return state_data
+
+    def _validate_token(self, state: str) -> tuple[OAuthState | None, str]:
+        """Validate a JWT state token and return its decoded payload."""
         import base64
         import hashlib
         import hmac
@@ -609,7 +718,7 @@ class JWTOAuthStateStore(OAuthStateStore):
         parts = state.split(".")
         if len(parts) != 2:
             logger.debug("JWT state: invalid format (expected 2 parts)")
-            return None
+            return None, ""
 
         payload_b64, sig_b64 = parts
 
@@ -624,11 +733,11 @@ class JWTOAuthStateStore(OAuthStateStore):
             actual_sig = base64.urlsafe_b64decode(sig_b64_padded)
         except (ValueError, binascii.Error) as e:
             logger.debug("JWT state: invalid signature encoding: %s", e)
-            return None
+            return None, ""
 
         if not hmac.compare_digest(expected_sig, actual_sig):
             logger.debug("JWT state: signature mismatch")
-            return None
+            return None, ""
 
         # Decode payload
         payload_b64_padded = payload_b64 + "=" * (4 - len(payload_b64) % 4)
@@ -637,35 +746,23 @@ class JWTOAuthStateStore(OAuthStateStore):
             payload = json.loads(payload_json)
         except (ValueError, binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
             logger.debug("JWT state: payload decode failed: %s", e)
-            return None
+            return None, ""
 
         # Check expiration
         expires_at = payload.get("e", 0)
         if time.time() > expires_at:
             logger.debug("JWT state: expired")
-            return None
+            return None, ""
 
-        # Check replay (nonce already used) - thread-safe
-        nonce = payload.get("n", "")
-        with self._nonce_lock:
-            if nonce in self._used_nonces:
-                logger.warning("JWT state: replay detected (nonce reused)")
-                return None
-
-            # Mark nonce as used (simple in-memory tracking)
-            self._used_nonces.add(nonce)
-
-            # Cleanup old nonces periodically
-            if len(self._used_nonces) > self._nonce_cleanup_threshold:
-                # Just clear old nonces - expired states won't validate anyway
-                self._used_nonces.clear()
-
-        return OAuthState(
-            user_id=payload.get("u"),
-            redirect_url=payload.get("r"),
-            expires_at=expires_at,
-            created_at=payload.get("c", 0),
-            metadata=payload.get("m"),
+        return (
+            OAuthState(
+                user_id=payload.get("u"),
+                redirect_url=payload.get("r"),
+                expires_at=expires_at,
+                created_at=payload.get("c", 0),
+                metadata=payload.get("m"),
+            ),
+            str(payload.get("n", "") or ""),
         )
 
     def cleanup_expired(self) -> int:
@@ -895,6 +992,51 @@ class FallbackOAuthStateStore(OAuthStateStore):
                     return result
             except (KeyError, ValueError) as e:
                 logger.debug("Memory OAuth store fallback: %s", e)
+
+        return None
+
+    def peek(self, state: str) -> OAuthState | None:
+        """Validate state without consuming it, checking fallbacks if needed."""
+        store = self._get_active_store()
+        try:
+            result = store.peek(state)
+            if result:
+                return result
+        except _REDIS_ERRORS as e:
+            if store is self._redis_store:
+                logger.warning("Redis peek failed: %s", e)
+                self._redis_failed = True
+            else:
+                logger.warning("OAuth store peek failed: %s", e)
+        except sqlite3.Error as e:
+            if store is self._sqlite_store:
+                logger.warning("SQLite peek failed: %s", e)
+                self._sqlite_failed = True
+            else:
+                logger.warning("OAuth store peek failed: %s", e)
+        except (ValueError, KeyError) as e:
+            if store is self._jwt_store:
+                logger.warning("JWT peek failed: %s", e)
+            else:
+                logger.warning("OAuth store peek failed: %s", e)
+
+        if store is not self._sqlite_store and self._sqlite_store and not self._sqlite_failed:
+            try:
+                result = self._sqlite_store.peek(state)
+                if result:
+                    logger.info("OAuth state peeked from SQLite fallback (migration)")
+                    return result
+            except (OSError, sqlite3.Error) as e:
+                logger.debug("SQLite OAuth store fallback peek: %s", e)
+
+        if store is not self._memory_store:
+            try:
+                result = self._memory_store.peek(state)
+                if result:
+                    logger.info("OAuth state peeked from memory fallback (migration)")
+                    return result
+            except (KeyError, ValueError) as e:
+                logger.debug("Memory OAuth store fallback peek: %s", e)
 
         return None
 

@@ -606,6 +606,10 @@ class DebateProtocol:
     # ignore this setting.
     thinking_budget: int | None = None  # Token budget for extended thinking (None = disabled)
 
+    # Per-debate cost limit: abort if estimated cost exceeds this threshold.
+    # Prevents runaway token spend in production debates. None = no limit.
+    debate_cost_limit_usd: float | None = None
+
     def get_round_phase(self, round_number: int) -> RoundPhase | None:
         """Get the phase configuration for a specific round.
 

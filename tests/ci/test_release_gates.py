@@ -373,6 +373,32 @@ class TestMigrationWorkflow:
         assert "python -m pytest tests/test_migrations.py" in command
 
 
+class TestSelfHostedShadowWorkflow:
+    """Validate self-hosted shadow bootstrap stays lightweight on Hetzner."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.path = WORKFLOWS_DIR / "self-hosted-shadow.yml"
+
+    def test_hetzner_shadow_uses_shared_ci_installer(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["hetzner-offline-golden-path-shadow"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install dependencies"
+        )
+        command = install_step["run"]
+        assert "scripts/ci_install_project.sh --extras dev,test" in command
+
+    def test_hetzner_shadow_skips_heavy_ml_test_deps(self):
+        data = _load_yaml(self.path)
+        workflow = data["jobs"]["hetzner-offline-golden-path-shadow"]
+        install_step = next(
+            step for step in workflow["steps"] if step.get("name") == "Install dependencies"
+        )
+        env = install_step["env"]
+        assert env["ARAGORA_CI_SKIP_HEAVY_ML_TEST_DEPS"] == "1"
+
+
 class TestReleaseWorkflow:
     """Validate release.yml integrates all gates."""
 

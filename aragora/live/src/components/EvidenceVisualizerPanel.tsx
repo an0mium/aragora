@@ -192,8 +192,8 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
     return (
       <div className="card p-6">
         <div className="flex items-center gap-3">
-          <div className="animate-spin w-5 h-5 border-2 border-acid-green border-t-transparent rounded-full" />
-          <span className="font-mono text-text-muted">Loading evidence data...</span>
+          <div className="animate-spin w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+          <span className="font-theme-data text-text-muted">Loading evidence data...</span>
         </div>
       </div>
     );
@@ -215,13 +215,13 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
         <div className="bg-warning/10 border border-warning/30 rounded px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-warning">⚠</span>
-            <span className="font-mono text-sm text-warning">
+            <span className="font-theme-data text-sm text-warning">
               Evidence API unavailable - No data to display
             </span>
           </div>
           <button
             onClick={fetchDissentData}
-            className="font-mono text-xs text-warning hover:text-warning/80 transition-colors"
+            className="font-theme-data text-xs text-warning hover:text-warning/80 transition-colors"
           >
             [RETRY]
           </button>
@@ -231,39 +231,39 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
       {/* Stats Overview */}
       {consensusStats && (
         <div className="card p-4">
-          <h3 className="font-mono text-acid-green mb-4">Consensus Overview</h3>
+          <h3 className="font-theme-data text-[var(--accent)] mb-4">Consensus Overview</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-3xl font-mono text-acid-green">{consensusStats.total_topics}</div>
-              <div className="text-xs font-mono text-text-muted">Total Topics</div>
+              <div className="text-3xl font-theme-data text-[var(--accent)]">{consensusStats.total_topics}</div>
+              <div className="text-xs font-theme-data text-text-muted">Total Topics</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-mono text-acid-cyan">{consensusStats.total_dissents}</div>
-              <div className="text-xs font-mono text-text-muted">Total Dissents</div>
+              <div className="text-3xl font-theme-data text-[var(--acid-cyan)]">{consensusStats.total_dissents}</div>
+              <div className="text-xs font-theme-data text-text-muted">Total Dissents</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-mono text-acid-yellow">
+              <div className="text-3xl font-theme-data text-[var(--acid-yellow)]">
                 {(consensusStats.avg_confidence * 100).toFixed(1)}%
               </div>
-              <div className="text-xs font-mono text-text-muted">Avg Confidence</div>
+              <div className="text-xs font-theme-data text-text-muted">Avg Confidence</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-mono text-acid-red">{riskWarnings.length}</div>
-              <div className="text-xs font-mono text-text-muted">Active Warnings</div>
+              <div className="text-3xl font-theme-data text-acid-red">{riskWarnings.length}</div>
+              <div className="text-xs font-theme-data text-text-muted">Active Warnings</div>
             </div>
           </div>
         </div>
       )}
 
       {/* Tab Navigation */}
-      <div className="flex gap-2 border-b border-acid-green/20 pb-2">
+      <div className="flex gap-2 border-b border-[var(--accent)]/20 pb-2">
         {(['dissent', 'evidence', 'graph'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 font-mono text-sm transition-colors ${
+            className={`px-4 py-2 font-theme-data text-sm transition-colors ${
               activeTab === tab
-                ? 'text-acid-green border-b-2 border-acid-green'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -277,7 +277,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
         <div className="space-y-6">
           {/* Topic Filter */}
           <div className="card p-4">
-            <label className="block font-mono text-xs text-text-muted mb-2">
+            <label className="block font-theme-data text-xs text-text-muted mb-2">
               Filter by Topic
             </label>
             <div className="flex gap-2">
@@ -286,11 +286,11 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
                 value={topicFilter}
                 onChange={(e) => setTopicFilter(e.target.value)}
                 placeholder="Search topics..."
-                className="flex-1 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+                className="flex-1 bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
               />
               <button
                 onClick={fetchDissentData}
-                className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors"
+                className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors"
               >
                 Search
               </button>
@@ -300,7 +300,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
           {/* Risk Warnings */}
           {riskWarnings.length > 0 && (
             <div className="card p-4 border-l-4 border-acid-red">
-              <h3 className="font-mono text-acid-red mb-4 flex items-center gap-2">
+              <h3 className="font-theme-data text-acid-red mb-4 flex items-center gap-2">
                 Risk Warnings ({riskWarnings.length})
               </h3>
               <div className="space-y-3">
@@ -313,11 +313,11 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
 
           {/* Dissenting Views */}
           <div className="card p-4">
-            <h3 className="font-mono text-acid-yellow mb-4">
+            <h3 className="font-theme-data text-[var(--acid-yellow)] mb-4">
               Dissenting Views ({dissents.length})
             </h3>
             {dissents.length === 0 ? (
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 No dissenting views recorded yet. Dissents are captured when agents disagree during debates.
               </p>
             ) : (
@@ -328,26 +328,26 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
                     className="p-4 bg-surface rounded border border-acid-yellow/30"
                   >
                     <div className="mb-3">
-                      <div className="font-mono text-xs text-acid-cyan mb-1">Topic</div>
-                      <div className="font-mono text-sm text-text">{dissent.topic}</div>
+                      <div className="font-theme-data text-xs text-[var(--acid-cyan)] mb-1">Topic</div>
+                      <div className="font-theme-data text-sm text-text">{dissent.topic}</div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-3 bg-acid-green/10 rounded">
-                        <div className="font-mono text-xs text-acid-green mb-1">Majority View</div>
-                        <p className="font-mono text-sm text-text line-clamp-3">
+                      <div className="p-3 bg-[var(--accent)]/10 rounded">
+                        <div className="font-theme-data text-xs text-[var(--accent)] mb-1">Majority View</div>
+                        <p className="font-theme-data text-sm text-text line-clamp-3">
                           {dissent.majority_view}
                         </p>
                       </div>
 
                       <div className="p-3 bg-acid-yellow/10 rounded">
                         <div className="flex items-center justify-between mb-1">
-                          <span className="font-mono text-xs text-acid-yellow">Dissenting View</span>
-                          <span className="font-mono text-xs text-text-muted">
+                          <span className="font-theme-data text-xs text-[var(--acid-yellow)]">Dissenting View</span>
+                          <span className="font-theme-data text-xs text-text-muted">
                             by {dissent.dissenting_agent}
                           </span>
                         </div>
-                        <p className="font-mono text-sm text-text line-clamp-3">
+                        <p className="font-theme-data text-sm text-text line-clamp-3">
                           {dissent.dissenting_view}
                         </p>
                       </div>
@@ -355,13 +355,13 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
 
                     {dissent.reasoning && (
                       <div className="mt-3 p-2 bg-surface/50 rounded">
-                        <div className="font-mono text-xs text-text-muted mb-1">Reasoning</div>
-                        <p className="font-mono text-xs text-text">{dissent.reasoning}</p>
+                        <div className="font-theme-data text-xs text-text-muted mb-1">Reasoning</div>
+                        <p className="font-theme-data text-xs text-text">{dissent.reasoning}</p>
                       </div>
                     )}
 
                     <div className="mt-2 flex items-center gap-4">
-                      <span className="font-mono text-xs text-text-muted">
+                      <span className="font-theme-data text-xs text-text-muted">
                         Confidence: {(dissent.confidence * 100).toFixed(0)}%
                       </span>
                     </div>
@@ -374,24 +374,24 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
           {/* Contrarian Views */}
           {contrarianViews.length > 0 && (
             <div className="card p-4">
-              <h3 className="font-mono text-acid-cyan mb-4">
+              <h3 className="font-theme-data text-[var(--acid-cyan)] mb-4">
                 Contrarian Perspectives ({contrarianViews.length})
               </h3>
               <div className="space-y-3">
                 {contrarianViews.map((view, idx) => (
                   <div
                     key={idx}
-                    className="p-3 bg-surface rounded border border-acid-cyan/30"
+                    className="p-3 bg-surface rounded border border-[var(--acid-cyan)]/30"
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-mono text-sm text-acid-cyan">{view.agent}</span>
-                      <span className="font-mono text-xs text-text-muted">
+                      <span className="font-theme-data text-sm text-[var(--acid-cyan)]">{view.agent}</span>
+                      <span className="font-theme-data text-xs text-text-muted">
                         {(view.confidence * 100).toFixed(0)}% confident
                       </span>
                     </div>
-                    <p className="font-mono text-sm text-text">{view.position}</p>
+                    <p className="font-theme-data text-sm text-text">{view.position}</p>
                     {view.reasoning && (
-                      <p className="font-mono text-xs text-text-muted mt-2">{view.reasoning}</p>
+                      <p className="font-theme-data text-xs text-text-muted mt-2">{view.reasoning}</p>
                     )}
                   </div>
                 ))}
@@ -405,7 +405,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
       {activeTab === 'evidence' && (
         <div className="space-y-4">
           <div className="card p-4">
-            <label className="block font-mono text-xs text-text-muted mb-2">
+            <label className="block font-theme-data text-xs text-text-muted mb-2">
               Debate ID
             </label>
             <input
@@ -413,17 +413,17 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
               value={searchDebateId}
               onChange={(e) => setSearchDebateId(e.target.value)}
               placeholder="Enter debate ID to view evidence trail..."
-              className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
 
           {/* Evidence Error Display */}
           {evidenceError && (
             <div className="bg-acid-red/10 border border-acid-red/30 rounded px-4 py-3 flex items-center justify-between">
-              <span className="font-mono text-sm text-acid-red">{evidenceError}</span>
+              <span className="font-theme-data text-sm text-acid-red">{evidenceError}</span>
               <button
                 onClick={fetchEvidence}
-                className="font-mono text-xs text-acid-red hover:text-acid-red/80 transition-colors"
+                className="font-theme-data text-xs text-acid-red hover:text-acid-red/80 transition-colors"
               >
                 [RETRY]
               </button>
@@ -433,7 +433,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
           {/* Evidence Sources Breakdown */}
           {evidence.length > 0 && (
             <div className="card p-4">
-              <h3 className="font-mono text-acid-cyan mb-3">Evidence Sources</h3>
+              <h3 className="font-theme-data text-[var(--acid-cyan)] mb-3">Evidence Sources</h3>
               <div className="flex flex-wrap gap-2">
                 {Object.entries(
                   evidence.reduce((acc, e) => {
@@ -446,7 +446,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
                   return (
                     <span
                       key={type}
-                      className={`inline-flex items-center gap-1 px-3 py-1 bg-surface rounded-full text-xs font-mono ${config.color} border border-current/20`}
+                      className={`inline-flex items-center gap-1 px-3 py-1 bg-surface rounded-full text-xs font-theme-data ${config.color} border border-current/20`}
                     >
                       <span>{config.icon}</span>
                       <span>{config.label}</span>
@@ -459,15 +459,15 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
           )}
 
           <div className="card p-4">
-            <h3 className="font-mono text-acid-green mb-4">
+            <h3 className="font-theme-data text-[var(--accent)] mb-4">
               Evidence Trail {evidence.length > 0 && `(${evidence.length} citations)`}
             </h3>
             {!searchDebateId ? (
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Enter a debate ID to view its evidence citations and argument chain.
               </p>
             ) : evidence.length === 0 ? (
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 No evidence found for this debate ID.
               </p>
             ) : (
@@ -485,7 +485,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
       {activeTab === 'graph' && (
         <div className="space-y-4">
           <div className="card p-4">
-            <label className="block font-mono text-xs text-text-muted mb-2">
+            <label className="block font-theme-data text-xs text-text-muted mb-2">
               Graph Debate ID
             </label>
             <input
@@ -493,17 +493,17 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
               value={searchDebateId}
               onChange={(e) => setSearchDebateId(e.target.value)}
               placeholder="Enter graph debate ID..."
-              className="w-full bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+              className="w-full bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
             />
           </div>
 
           {/* Graph Error Display */}
           {graphError && (
             <div className="bg-acid-red/10 border border-acid-red/30 rounded px-4 py-3 flex items-center justify-between">
-              <span className="font-mono text-sm text-acid-red">{graphError}</span>
+              <span className="font-theme-data text-sm text-acid-red">{graphError}</span>
               <button
                 onClick={fetchGraphNodes}
-                className="font-mono text-xs text-acid-red hover:text-acid-red/80 transition-colors"
+                className="font-theme-data text-xs text-acid-red hover:text-acid-red/80 transition-colors"
               >
                 [RETRY]
               </button>
@@ -511,20 +511,20 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
           )}
 
           <div className="card p-4">
-            <h3 className="font-mono text-acid-green mb-4">
+            <h3 className="font-theme-data text-[var(--accent)] mb-4">
               Argument Graph {graphNodes.length > 0 && `(${graphNodes.length} nodes)`}
             </h3>
             {!searchDebateId ? (
               <div className="text-center py-8">
-                <p className="text-text-muted font-mono text-sm mb-4">
+                <p className="text-text-muted font-theme-data text-sm mb-4">
                   Enter a graph debate ID to visualize its argument structure.
                 </p>
-                <div className="text-xs font-mono text-acid-cyan">
+                <div className="text-xs font-theme-data text-[var(--acid-cyan)]">
                   Graph debates allow branching when agents fundamentally disagree.
                 </div>
               </div>
             ) : graphNodes.length === 0 ? (
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 No graph nodes found for this debate ID. This may not be a graph debate.
               </p>
             ) : (
@@ -552,7 +552,7 @@ export function EvidenceVisualizerPanel({ backendConfig }: EvidenceVisualizerPan
         <button
           onClick={fetchDissentData}
           disabled={loading}
-          className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
         >
           {loading ? 'Refreshing...' : 'Refresh Data'}
         </button>

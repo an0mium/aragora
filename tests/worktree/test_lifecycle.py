@@ -6,6 +6,7 @@ import argparse
 import inspect
 import json
 from pathlib import Path
+import subprocess
 from unittest.mock import MagicMock
 
 import pytest
@@ -175,6 +176,59 @@ def test_ensure_managed_worktree_missing_session_payload_raises(tmp_path: Path) 
 
     with pytest.raises(RuntimeError, match="missing session payload"):
         service.ensure_managed_worktree(managed_dir=".worktrees/codex-auto")
+
+
+def test_ensure_managed_worktree_falls_back_to_main_when_requested_base_is_missing(
+    tmp_path: Path,
+) -> None:
+    subprocess.run(["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "user.name", "Codex Tests"],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "user.email", "codex@example.com"],
+        check=True,
+        capture_output=True,
+    )
+    (tmp_path / "README.md").write_text("init\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "add", "README.md"], check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "commit", "-m", "init"],
+        check=True,
+        capture_output=True,
+    )
+
+    managed_path = tmp_path / ".worktrees" / "codex-auto" / "session-1"
+    managed_path.mkdir(parents=True)
+    payload = {
+        "ok": True,
+        "created": True,
+        "session": {
+            "session_id": "session-1",
+            "agent": "codex",
+            "branch": "codex/session-1",
+            "path": str(managed_path),
+        },
+    }
+
+    service = WorktreeLifecycleService(repo_root=tmp_path)
+    service.run_autopilot_action = MagicMock(
+        return_value=argparse.Namespace(returncode=0, stdout=json.dumps(payload), stderr="")
+    )
+
+    service.ensure_managed_worktree(
+        managed_dir=".worktrees/codex-auto",
+        base_branch="codex/live-missing-proof-branch",
+        agent="codex",
+        session_id="session-1",
+    )
+
+    call = service.run_autopilot_action.call_args
+    assert call.args[0].base_branch == "main"
 
 
 def test_worktree_lifecycle_defaults_to_ff_only_strategy(tmp_path: Path) -> None:

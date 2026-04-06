@@ -45,17 +45,17 @@ export function OrganizationStep({ onNext, onBack }: OrganizationStepProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-mono text-acid-green mb-2">
+        <h2 className="text-xl font-theme-data text-[var(--accent)] mb-2">
           Set up your organization
         </h2>
-        <p className="font-mono text-text-muted text-sm">
+        <p className="font-theme-data text-text-muted text-sm">
           This helps us configure the right settings for your team
         </p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="block font-mono text-sm text-text-muted mb-2">
+          <label className="block font-theme-data text-sm text-text-muted mb-2">
             Organization name
           </label>
           <input
@@ -63,16 +63,16 @@ export function OrganizationStep({ onNext, onBack }: OrganizationStepProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Acme Inc."
-            className="w-full px-4 py-3 bg-surface border border-acid-green/20 font-mono text-sm text-acid-green placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none"
+            className="w-full px-4 py-3 bg-surface border border-[var(--accent)]/20 font-theme-data text-sm text-[var(--accent)] placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
           />
         </div>
 
         <div>
-          <label className="block font-mono text-sm text-text-muted mb-2">
+          <label className="block font-theme-data text-sm text-text-muted mb-2">
             Organization URL
           </label>
           <div className="flex items-center">
-            <span className="px-3 py-3 bg-surface/50 border border-r-0 border-acid-green/20 font-mono text-sm text-text-muted">
+            <span className="px-3 py-3 bg-surface/50 border border-r-0 border-[var(--accent)]/20 font-theme-data text-sm text-text-muted">
               aragora.ai/
             </span>
             <input
@@ -80,13 +80,13 @@ export function OrganizationStep({ onNext, onBack }: OrganizationStepProps) {
               value={slug}
               onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
               placeholder="acme"
-              className="flex-1 px-4 py-3 bg-surface border border-acid-green/20 font-mono text-sm text-acid-green placeholder:text-text-muted/50 focus:border-acid-green focus:outline-none"
+              className="flex-1 px-4 py-3 bg-surface border border-[var(--accent)]/20 font-theme-data text-sm text-[var(--accent)] placeholder:text-text-muted/50 focus:border-[var(--accent)] focus:outline-none"
             />
           </div>
         </div>
 
         <div>
-          <label className="block font-mono text-sm text-text-muted mb-2">
+          <label className="block font-theme-data text-sm text-text-muted mb-2">
             Team size
           </label>
           <div className="grid grid-cols-4 gap-2">
@@ -94,10 +94,10 @@ export function OrganizationStep({ onNext, onBack }: OrganizationStepProps) {
               <button
                 key={option}
                 onClick={() => setSize(option)}
-                className={`py-2 font-mono text-sm border transition-colors ${
+                className={`py-2 font-theme-data text-sm border transition-colors ${
                   size === option
-                    ? 'border-acid-green bg-acid-green/10 text-acid-green'
-                    : 'border-acid-green/20 text-text-muted hover:border-acid-green/50'
+                    ? 'border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]'
+                    : 'border-[var(--accent)]/20 text-text-muted hover:border-[var(--accent)]/50'
                 }`}
               >
                 {option}
@@ -107,16 +107,16 @@ export function OrganizationStep({ onNext, onBack }: OrganizationStepProps) {
         </div>
       </div>
 
-      <div className="p-3 bg-acid-cyan/5 border-l-2 border-acid-cyan">
-        <p className="text-xs font-mono text-acid-cyan">
-          <span className="text-acid-green">TIP:</span> You can invite team members in the next step
+      <div className="p-3 bg-[var(--acid-cyan)]/5 border-l-2 border-[var(--acid-cyan)]">
+        <p className="text-xs font-theme-data text-[var(--acid-cyan)]">
+          <span className="text-[var(--accent)]">TIP:</span> You can invite team members in the next step
         </p>
       </div>
 
       <div className="flex gap-3 pt-4">
         <button
           onClick={onBack}
-          className="px-4 py-2 font-mono text-sm border border-acid-green/30 text-text-muted hover:border-acid-green hover:text-acid-green transition-colors"
+          className="px-4 py-2 font-theme-data text-sm border border-[var(--accent)]/30 text-text-muted hover:border-[var(--accent)] hover:text-[var(--accent)] transition-colors"
         >
           Back
         </button>
@@ -124,10 +124,10 @@ export function OrganizationStep({ onNext, onBack }: OrganizationStepProps) {
         <button
           onClick={handleNext}
           disabled={!isValid}
-          className={`px-6 py-2 font-mono text-sm transition-colors ${
+          className={`px-6 py-2 font-theme-data text-sm transition-colors ${
             isValid
-              ? 'bg-acid-green text-bg hover:bg-acid-green/80'
-              : 'bg-surface text-text-muted border border-acid-green/20 cursor-not-allowed'
+              ? 'bg-[var(--accent)] text-bg hover:bg-[var(--accent)]/80'
+              : 'bg-surface text-text-muted border border-[var(--accent)]/20 cursor-not-allowed'
           }`}
         >
           Continue

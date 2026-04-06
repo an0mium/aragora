@@ -101,27 +101,27 @@ export function QuickDebatePanel() {
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-6">
-      <h2 className="text-lg font-mono text-[var(--acid-green)] mb-4">
+      <h2 className="text-lg font-theme-data text-[var(--acid-green)] mb-4">
         {'>'} YOUR FIRST DEBATE
       </h2>
 
       {debateStatus === 'idle' || debateStatus === 'error' ? (
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+            <label className="block text-xs font-theme-data text-[var(--text-muted)] mb-2">
               QUESTION
             </label>
             <textarea
               value={question}
               onChange={(e) => setFirstDebateTopic(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 text-sm font-mono bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] focus:border-[var(--acid-green)]/60 focus:outline-none transition-colors resize-none"
+              className="w-full px-3 py-2 text-sm font-theme-data bg-[var(--bg)] text-[var(--text)] border border-[var(--border)] focus:border-[var(--acid-green)]/60 focus:outline-none transition-colors resize-none"
               placeholder="Enter a question for AI agents to debate..."
             />
           </div>
 
           {debateError && (
-            <div className="text-xs font-mono text-[var(--warning)] p-2 border border-[var(--warning)]/30 bg-[var(--warning)]/5">
+            <div className="text-xs font-theme-data text-[var(--warning)] p-2 border border-[var(--warning)]/30 bg-[var(--warning)]/5">
               {debateError}
             </div>
           )}
@@ -129,19 +129,19 @@ export function QuickDebatePanel() {
           <button
             onClick={handleStartDebate}
             disabled={!question.trim()}
-            className="w-full px-4 py-3 text-sm font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-full px-4 py-3 text-sm font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/40 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             START DEBATE
           </button>
         </div>
       ) : debateStatus === 'creating' || debateStatus === 'running' ? (
         <div className="py-8 text-center">
-          <div className="text-sm font-mono text-[var(--acid-green)] animate-pulse mb-2">
+          <div className="text-sm font-theme-data text-[var(--acid-green)] animate-pulse mb-2">
             {debateStatus === 'creating'
               ? '> ASSEMBLING AGENTS...'
               : '> AGENTS ARE DEBATING...'}
           </div>
-          <p className="text-xs font-mono text-[var(--text-muted)]">
+          <p className="text-xs font-theme-data text-[var(--text-muted)]">
             {debateStatus === 'running'
               ? 'Multiple AI models are analyzing your question from different angles.'
               : 'Setting up the debate environment.'}
@@ -158,15 +158,15 @@ export function QuickDebatePanel() {
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="text-xs font-mono text-[var(--acid-green)] mb-2">
+          <div className="text-xs font-theme-data text-[var(--acid-green)] mb-2">
             {'>'} DEBATE COMPLETE
           </div>
           {result && (
             <div className="p-3 bg-[var(--bg)] border border-[var(--acid-green)]/30">
-              <p className="text-sm font-mono text-[var(--text)]">{result}</p>
+              <p className="text-sm font-theme-data text-[var(--text)]">{result}</p>
             </div>
           )}
-          <p className="text-xs font-mono text-[var(--text-muted)]">
+          <p className="text-xs font-theme-data text-[var(--text-muted)]">
             You can review full results, agent arguments, and the decision receipt from the dashboard.
           </p>
         </div>

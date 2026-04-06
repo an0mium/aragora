@@ -54,16 +54,16 @@ export default function CrossDebatePage() {
       <CRTVignette />
 
       <main className="min-h-screen bg-bg text-text relative z-10">
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
             </Link>
             <div className="flex items-center gap-3">
-              <Link href="/knowledge-flow" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/knowledge-flow" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [KNOWLEDGE FLOW]
               </Link>
-              <Link href="/system-intelligence" className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors">
+              <Link href="/system-intelligence" className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors">
                 [SYSTEM INTEL]
               </Link>
               <BackendSelector compact />
@@ -74,10 +74,10 @@ export default function CrossDebatePage() {
 
         <div className="container mx-auto px-4 py-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-mono text-acid-green mb-2">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
               {'>'} CROSS-DEBATE LEARNING
             </h1>
-            <p className="text-text-muted font-mono text-sm">
+            <p className="text-text-muted font-theme-data text-sm">
               Track how institutional knowledge flows between debates. See learned patterns,
               cross-debate memory injections, and how the system builds cumulative expertise.
             </p>
@@ -85,11 +85,11 @@ export default function CrossDebatePage() {
 
           <PanelErrorBoundary panelName="Cross-Debate Learning">
             {isLoading ? (
-              <div className="text-acid-green font-mono animate-pulse text-center py-12">Loading cross-debate data...</div>
+              <div className="text-[var(--accent)] font-theme-data animate-pulse text-center py-12">Loading cross-debate data...</div>
             ) : !crossDebate ? (
               <div className="p-8 bg-surface border border-border rounded-lg text-center">
-                <p className="text-text-muted font-mono">
-                  No cross-debate learning data available. Enable <code className="text-acid-green">enable_cross_debate_memory</code> in ArenaConfig.
+                <p className="text-text-muted font-theme-data">
+                  No cross-debate learning data available. Enable <code className="text-[var(--accent)]">enable_cross_debate_memory</code> in ArenaConfig.
                 </p>
               </div>
             ) : (
@@ -97,25 +97,25 @@ export default function CrossDebatePage() {
                 {/* Stats */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                    <div className="text-3xl font-mono font-bold text-acid-green">
+                    <div className="text-3xl font-theme-data font-bold text-[var(--accent)]">
                       {crossDebate.stats.total_injections}
                     </div>
                     <div className="text-xs text-text-muted uppercase">Total Injections</div>
                   </div>
                   <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                    <div className="text-3xl font-mono font-bold text-blue-400">
+                    <div className="text-3xl font-theme-data font-bold text-blue-400">
                       {crossDebate.stats.unique_patterns}
                     </div>
                     <div className="text-xs text-text-muted uppercase">Unique Patterns</div>
                   </div>
                   <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                    <div className="text-3xl font-mono font-bold text-purple-400">
+                    <div className="text-3xl font-theme-data font-bold text-purple-400">
                       {crossDebate.stats.debates_enriched}
                     </div>
                     <div className="text-xs text-text-muted uppercase">Debates Enriched</div>
                   </div>
                   <div className="p-4 bg-surface border border-border rounded-lg text-center">
-                    <div className="text-3xl font-mono font-bold text-gold">
+                    <div className="text-3xl font-theme-data font-bold text-gold">
                       {crossDebate.stats.avg_items_per_debate.toFixed(1)}
                     </div>
                     <div className="text-xs text-text-muted uppercase">Avg Items/Debate</div>
@@ -125,7 +125,7 @@ export default function CrossDebatePage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Learned Patterns */}
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Learned Patterns
                     </h2>
                     {crossDebate.top_patterns.length > 0 ? (
@@ -136,8 +136,8 @@ export default function CrossDebatePage() {
                             <div className="flex gap-3 text-xs text-text-muted">
                               <span>Seen {pattern.frequency}x</span>
                               <span>From {pattern.source_debates} debates</span>
-                              <span className={`font-mono ${
-                                pattern.confidence >= 0.7 ? 'text-acid-green' : 'text-yellow-400'
+                              <span className={`font-theme-data ${
+                                pattern.confidence >= 0.7 ? 'text-[var(--accent)]' : 'text-yellow-400'
                               }`}>
                                 {(pattern.confidence * 100).toFixed(0)}% conf
                               </span>
@@ -152,7 +152,7 @@ export default function CrossDebatePage() {
 
                   {/* Recent Injections */}
                   <div className="p-4 bg-surface border border-border rounded-lg">
-                    <h2 className="text-sm font-mono font-bold text-text-muted uppercase mb-3">
+                    <h2 className="text-sm font-theme-data font-bold text-text-muted uppercase mb-3">
                       Recent Injections
                     </h2>
                     {crossDebate.recent_injections.length > 0 ? (
@@ -160,10 +160,10 @@ export default function CrossDebatePage() {
                         {crossDebate.recent_injections.map((injection, i) => (
                           <div key={i} className="p-3 bg-bg rounded">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-mono text-text-muted">
+                              <span className="text-xs font-theme-data text-text-muted">
                                 {injection.debate_id.substring(0, 12)}...
                               </span>
-                              <span className="px-1.5 py-0.5 text-xs font-mono bg-acid-green/20 text-acid-green rounded">
+                              <span className="px-1.5 py-0.5 text-xs font-theme-data bg-[var(--accent)]/20 text-[var(--accent)] rounded">
                                 +{injection.injected_items} items
                               </span>
                             </div>
@@ -188,8 +188,8 @@ export default function CrossDebatePage() {
           </PanelErrorBoundary>
         </div>
 
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
           <p className="text-text-muted">{'>'} ARAGORA // CROSS-DEBATE LEARNING</p>
         </footer>
       </main>

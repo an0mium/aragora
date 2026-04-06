@@ -204,14 +204,14 @@ function StatCard({ label, value, subtext, color }: {
 }) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-3 rounded">
-      <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider mb-1">
+      <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase tracking-wider mb-1">
         {label}
       </div>
-      <div className={`text-xl font-mono font-bold ${color || 'text-[var(--text)]'}`}>
+      <div className={`text-xl font-theme-data font-bold ${color || 'text-[var(--text)]'}`}>
         {value}
       </div>
       {subtext && (
-        <div className="text-[10px] font-mono text-[var(--text-muted)] mt-0.5">
+        <div className="text-[10px] font-theme-data text-[var(--text-muted)] mt-0.5">
           {subtext}
         </div>
       )}
@@ -244,10 +244,10 @@ function HealthAndMetricsSection({ summary }: { summary: MetricsSummary }) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-mono text-[var(--acid-green)]">
+        <h2 className="text-sm font-theme-data text-[var(--acid-green)]">
           SELF-IMPROVEMENT HEALTH
         </h2>
-        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+        <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
           {healthLabel}
         </span>
       </div>
@@ -262,8 +262,8 @@ function HealthAndMetricsSection({ summary }: { summary: MetricsSummary }) {
         <div className="md:col-span-4 grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono text-[var(--text-muted)]">Cycle Success</span>
-              <span className="text-[10px] font-mono text-[var(--text)]">
+              <span className="text-[10px] font-theme-data text-[var(--text-muted)]">Cycle Success</span>
+              <span className="text-[10px] font-theme-data text-[var(--text)]">
                 {(summary.cycle_success_rate * 100).toFixed(0)}%
               </span>
             </div>
@@ -271,15 +271,15 @@ function HealthAndMetricsSection({ summary }: { summary: MetricsSummary }) {
               value={summary.cycle_success_rate}
               color={summary.cycle_success_rate >= 0.7 ? 'bg-emerald-400' : summary.cycle_success_rate >= 0.4 ? 'bg-amber-400' : 'bg-red-400'}
             />
-            <div className="text-[9px] font-mono text-[var(--text-muted)] mt-0.5">
+            <div className="text-[9px] font-theme-data text-[var(--text-muted)] mt-0.5">
               {summary.completed_cycles}/{summary.total_cycles} cycles
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono text-[var(--text-muted)]">Goal Completion</span>
-              <span className="text-[10px] font-mono text-[var(--text)]">
+              <span className="text-[10px] font-theme-data text-[var(--text-muted)]">Goal Completion</span>
+              <span className="text-[10px] font-theme-data text-[var(--text)]">
                 {(summary.goal_completion_rate * 100).toFixed(0)}%
               </span>
             </div>
@@ -287,15 +287,15 @@ function HealthAndMetricsSection({ summary }: { summary: MetricsSummary }) {
               value={summary.goal_completion_rate}
               color={summary.goal_completion_rate >= 0.7 ? 'bg-emerald-400' : summary.goal_completion_rate >= 0.4 ? 'bg-amber-400' : 'bg-red-400'}
             />
-            <div className="text-[9px] font-mono text-[var(--text-muted)] mt-0.5">
+            <div className="text-[9px] font-theme-data text-[var(--text-muted)] mt-0.5">
               {summary.completed_subtasks}/{summary.total_subtasks} subtasks
             </div>
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-mono text-[var(--text-muted)]">Test Health</span>
-              <span className="text-[10px] font-mono text-[var(--text)]">
+              <span className="text-[10px] font-theme-data text-[var(--text-muted)]">Test Health</span>
+              <span className="text-[10px] font-theme-data text-[var(--text)]">
                 {(summary.test_pass_rate * 100).toFixed(0)}%
               </span>
             </div>
@@ -303,7 +303,7 @@ function HealthAndMetricsSection({ summary }: { summary: MetricsSummary }) {
               value={summary.test_pass_rate}
               color={summary.test_pass_rate >= 0.8 ? 'bg-emerald-400' : summary.test_pass_rate >= 0.5 ? 'bg-amber-400' : 'bg-red-400'}
             />
-            <div className="text-[9px] font-mono text-[var(--text-muted)] mt-0.5">
+            <div className="text-[9px] font-theme-data text-[var(--text-muted)] mt-0.5">
               inferred from findings
             </div>
           </div>
@@ -337,18 +337,18 @@ function CycleHistorySection({ runs }: { runs: RunEntry[] }) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-mono text-[var(--acid-green)]">CYCLE HISTORY</h2>
-        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+        <h2 className="text-sm font-theme-data text-[var(--acid-green)]">CYCLE HISTORY</h2>
+        <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
           {runs.length} total
         </span>
       </div>
 
       {recentRuns.length === 0 ? (
         <div className="text-center py-8">
-          <div className="text-[var(--text-muted)] font-mono text-sm mb-2">
+          <div className="text-[var(--text-muted)] font-theme-data text-sm mb-2">
             No cycles recorded yet
           </div>
-          <div className="text-[var(--text-muted)] font-mono text-xs">
+          <div className="text-[var(--text-muted)] font-theme-data text-xs">
             Start a self-improvement cycle to see history here.
           </div>
         </div>
@@ -383,19 +383,19 @@ function CycleHistorySection({ runs }: { runs: RunEntry[] }) {
                   {/* Header row */}
                   <div className="flex items-start justify-between gap-2 mb-1.5">
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-mono text-[var(--text)] truncate">
+                      <div className="text-xs font-theme-data text-[var(--text)] truncate">
                         {run.goal}
                       </div>
                     </div>
                     <span
-                      className={`shrink-0 inline-block px-1.5 py-0.5 text-[9px] font-mono border rounded ${outcome.color}`}
+                      className={`shrink-0 inline-block px-1.5 py-0.5 text-[9px] font-theme-data border rounded ${outcome.color}`}
                     >
                       {outcome.text}
                     </span>
                   </div>
 
                   {/* Details row */}
-                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] font-mono text-[var(--text-muted)]">
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] font-theme-data text-[var(--text-muted)]">
                     <span>{run.run_id.slice(0, 8)}</span>
                     {ts && <span>{formatRelativeTime(ts)}</span>}
                     {run.duration != null && <span>{formatDuration(run.duration)}</span>}
@@ -404,7 +404,7 @@ function CycleHistorySection({ runs }: { runs: RunEntry[] }) {
 
                   {/* Summary if available */}
                   {run.summary && (
-                    <div className="text-[10px] font-mono text-[var(--text-muted)] mt-1 truncate">
+                    <div className="text-[10px] font-theme-data text-[var(--text-muted)] mt-1 truncate">
                       {run.summary}
                     </div>
                   )}
@@ -426,18 +426,18 @@ function GoalQueueSection({ goals }: { goals: GoalEntry[] }) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-mono text-[var(--acid-green)]">IMPROVEMENT QUEUE</h2>
-        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+        <h2 className="text-sm font-theme-data text-[var(--acid-green)]">IMPROVEMENT QUEUE</h2>
+        <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
           {goals.length} pending
         </span>
       </div>
 
       {goals.length === 0 ? (
         <div className="text-center py-6">
-          <div className="text-[var(--text-muted)] font-mono text-sm mb-2">
+          <div className="text-[var(--text-muted)] font-theme-data text-sm mb-2">
             Queue is empty
           </div>
-          <div className="text-[var(--text-muted)] font-mono text-xs">
+          <div className="text-[var(--text-muted)] font-theme-data text-xs">
             Goals are auto-generated from gauntlet scans, introspection, and pulse trending topics.
           </div>
         </div>
@@ -471,7 +471,7 @@ function GoalQueueSection({ goals }: { goals: GoalEntry[] }) {
 
                   {/* Source badge */}
                   <span
-                    className={`inline-block px-1.5 py-0.5 text-[9px] font-mono border rounded ${sourceColor(goal.source)}`}
+                    className={`inline-block px-1.5 py-0.5 text-[9px] font-theme-data border rounded ${sourceColor(goal.source)}`}
                   >
                     {sourceLabel(goal.source)}
                   </span>
@@ -479,19 +479,19 @@ function GoalQueueSection({ goals }: { goals: GoalEntry[] }) {
 
                 {/* Impact badge */}
                 <span
-                  className={`inline-block px-1.5 py-0.5 text-[9px] font-mono border rounded ${impactBadge(goal.estimated_impact)}`}
+                  className={`inline-block px-1.5 py-0.5 text-[9px] font-theme-data border rounded ${impactBadge(goal.estimated_impact)}`}
                 >
                   {goal.estimated_impact.toUpperCase()}
                 </span>
               </div>
 
               {/* Goal description */}
-              <div className="text-xs font-mono text-[var(--text)] leading-relaxed">
+              <div className="text-xs font-theme-data text-[var(--text)] leading-relaxed">
                 {goal.goal}
               </div>
 
               {/* Track */}
-              <div className="text-[9px] font-mono text-[var(--text-muted)] mt-1">
+              <div className="text-[9px] font-theme-data text-[var(--text-muted)] mt-1">
                 Track: {goal.track}
               </div>
             </div>
@@ -510,18 +510,18 @@ function ActivityFeedSection({ activity }: { activity: ActivityEntry[] }) {
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-mono text-[var(--acid-green)]">RECENT ACTIVITY</h2>
-        <span className="text-[10px] font-mono text-[var(--text-muted)]">
+        <h2 className="text-sm font-theme-data text-[var(--acid-green)]">RECENT ACTIVITY</h2>
+        <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
           last {activity.length} events
         </span>
       </div>
 
       {activity.length === 0 ? (
         <div className="text-center py-6">
-          <div className="text-[var(--text-muted)] font-mono text-sm mb-2">
+          <div className="text-[var(--text-muted)] font-theme-data text-sm mb-2">
             No recent activity
           </div>
-          <div className="text-[var(--text-muted)] font-mono text-xs">
+          <div className="text-[var(--text-muted)] font-theme-data text-xs">
             Activity will appear here as the Nomic Loop runs.
           </div>
         </div>
@@ -533,16 +533,16 @@ function ActivityFeedSection({ activity }: { activity: ActivityEntry[] }) {
               className="flex items-start gap-2 py-1.5 border-b border-[var(--border)]/30 last:border-0"
             >
               {/* Icon */}
-              <span className={`text-[10px] font-mono shrink-0 mt-0.5 ${activityColor(entry.type)}`}>
+              <span className={`text-[10px] font-theme-data shrink-0 mt-0.5 ${activityColor(entry.type)}`}>
                 {activityIcon(entry.type)}
               </span>
 
               {/* Content */}
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-mono text-[var(--text)] leading-relaxed">
+                <div className="text-xs font-theme-data text-[var(--text)] leading-relaxed">
                   {entry.message}
                 </div>
-                <div className="flex items-center gap-3 text-[9px] font-mono text-[var(--text-muted)] mt-0.5">
+                <div className="flex items-center gap-3 text-[9px] font-theme-data text-[var(--text-muted)] mt-0.5">
                   {entry.timestamp && <span>{formatRelativeTime(entry.timestamp)}</span>}
                   {entry.run_id && <span>run:{entry.run_id.slice(0, 8)}</span>}
                 </div>
@@ -568,18 +568,18 @@ function AutopilotWorktreesSection({ summary }: { summary?: AutopilotWorktreeSum
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-mono text-[var(--acid-green)]">AUTOPILOT WORKTREES</h2>
-        <span className={`inline-block px-1.5 py-0.5 text-[9px] font-mono border rounded ${status.color}`}>
+        <h2 className="text-sm font-theme-data text-[var(--acid-green)]">AUTOPILOT WORKTREES</h2>
+        <span className={`inline-block px-1.5 py-0.5 text-[9px] font-theme-data border rounded ${status.color}`}>
           {status.text}
         </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
         <div className="bg-[var(--bg)] border border-[var(--border)] rounded p-3">
-          <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase tracking-wider mb-1">
+          <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase tracking-wider mb-1">
             Managed Dir
           </div>
-          <div className="text-xs font-mono text-[var(--text)] truncate">
+          <div className="text-xs font-theme-data text-[var(--text)] truncate">
             {summary?.managed_dir || '--'}
           </div>
         </div>
@@ -600,7 +600,7 @@ function AutopilotWorktreesSection({ summary }: { summary?: AutopilotWorktreeSum
       <div className="space-y-1">
         <MiniBar value={activeRatio} color={active > 0 ? 'bg-emerald-400' : 'bg-[var(--border)]'} />
         {summary?.error && (
-          <div className="text-[10px] font-mono text-red-400">
+          <div className="text-[10px] font-theme-data text-red-400">
             error: {summary.error}
           </div>
         )}
@@ -648,7 +648,7 @@ export function NomicMetricsDashboard() {
     return (
       <div className="space-y-4">
         <div className="bg-[var(--surface)] border border-[var(--border)] p-8 text-center">
-          <div className="animate-pulse font-mono text-[var(--text-muted)]">
+          <div className="animate-pulse font-theme-data text-[var(--text-muted)]">
             Loading Nomic Loop metrics...
           </div>
         </div>
@@ -735,7 +735,7 @@ export function NomicMetricsDashboard() {
         {/* Regression Guard (existing component) */}
         <PanelErrorBoundary panelName="RegressionGuard">
           <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-            <h2 className="text-sm font-mono text-[var(--acid-green)] mb-3">
+            <h2 className="text-sm font-theme-data text-[var(--acid-green)] mb-3">
               REGRESSION MONITOR
             </h2>
             <RegressionGuard />

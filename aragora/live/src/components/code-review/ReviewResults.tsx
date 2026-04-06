@@ -48,7 +48,7 @@ export function ReviewResults({ result, onNewReview }: ReviewResultsProps) {
         <div className="flex items-center gap-4">
           <span className="text-5xl">{verdictConfig.icon}</span>
           <div>
-            <div className="text-lg font-mono">{verdictConfig.label}</div>
+            <div className="text-lg font-theme-data">{verdictConfig.label}</div>
             <p className="text-sm text-[var(--text-muted)] mt-1">{result.summary}</p>
           </div>
         </div>
@@ -73,7 +73,7 @@ export function ReviewResults({ result, onNewReview }: ReviewResultsProps) {
               key={severity}
               className={`px-3 py-1 rounded border ${SEVERITY_STYLES[severity as keyof typeof SEVERITY_STYLES]}`}
             >
-              <span className="font-mono text-sm uppercase">{severity}</span>
+              <span className="font-theme-data text-sm uppercase">{severity}</span>
               <span className="ml-2 font-bold">{count}</span>
             </div>
           );
@@ -87,7 +87,7 @@ export function ReviewResults({ result, onNewReview }: ReviewResultsProps) {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`py-2 px-4 text-sm font-mono transition-colors ${
+              className={`py-2 px-4 text-sm font-theme-data transition-colors ${
                 activeTab === tab
                   ? 'text-[var(--acid-green)] border-b-2 border-[var(--acid-green)]'
                   : 'text-[var(--text-muted)] hover:text-[var(--text)]'
@@ -103,7 +103,7 @@ export function ReviewResults({ result, onNewReview }: ReviewResultsProps) {
       {activeTab === 'summary' && (
         <div className="space-y-4">
           <div className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded">
-            <h3 className="text-sm font-mono text-[var(--acid-green)] mb-3">Summary</h3>
+            <h3 className="text-sm font-theme-data text-[var(--acid-green)] mb-3">Summary</h3>
             <p className="text-sm text-[var(--text)]">{result.summary}</p>
           </div>
         </div>
@@ -135,20 +135,20 @@ export function ReviewResults({ result, onNewReview }: ReviewResultsProps) {
           {result.debateRounds.map(round => (
             <div key={round.round} className="p-4 bg-[var(--surface)] border border-[var(--border)] rounded">
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-xs font-mono text-[var(--acid-cyan)]">Round {round.round}</span>
+                <span className="text-xs font-theme-data text-[var(--acid-cyan)]">Round {round.round}</span>
                 <span className="text-xs text-[var(--text-muted)]">{round.topic}</span>
               </div>
               <div className="space-y-2">
                 {round.messages.map((msg, i) => (
                   <div key={i} className="p-2 bg-[var(--bg)] rounded">
-                    <span className="text-xs font-mono text-[var(--acid-green)]">{msg.agent}:</span>
+                    <span className="text-xs font-theme-data text-[var(--acid-green)]">{msg.agent}:</span>
                     <p className="text-sm text-[var(--text)] mt-1">{msg.content}</p>
                   </div>
                 ))}
               </div>
               {round.consensus && (
                 <div className="mt-3 p-2 bg-[var(--acid-green)]/10 border border-[var(--acid-green)]/30 rounded">
-                  <span className="text-xs font-mono text-[var(--acid-green)]">Consensus:</span>
+                  <span className="text-xs font-theme-data text-[var(--acid-green)]">Consensus:</span>
                   <p className="text-sm text-[var(--text)] mt-1">{round.consensus}</p>
                 </div>
               )}
@@ -161,7 +161,7 @@ export function ReviewResults({ result, onNewReview }: ReviewResultsProps) {
       {onNewReview && (
         <button
           onClick={onNewReview}
-          className="w-full py-3 text-sm font-mono text-[var(--acid-green)] border border-[var(--acid-green)]/30
+          className="w-full py-3 text-sm font-theme-data text-[var(--acid-green)] border border-[var(--acid-green)]/30
                      hover:bg-[var(--acid-green)]/10 transition-colors rounded"
         >
           Start New Review
@@ -179,7 +179,7 @@ interface MetricCardProps {
 function MetricCard({ label, value }: MetricCardProps) {
   return (
     <div className="p-3 bg-[var(--surface)] border border-[var(--border)] rounded text-center">
-      <div className="text-lg font-mono text-[var(--acid-green)]">{value}</div>
+      <div className="text-lg font-theme-data text-[var(--acid-green)]">{value}</div>
       <div className="text-xs text-[var(--text-muted)]">{label}</div>
     </div>
   );
@@ -204,10 +204,10 @@ function FindingCard({ finding, isExpanded, onToggle }: FindingCardProps) {
         <span className="text-xl flex-shrink-0">{categoryIcon}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono uppercase">{finding.severity}</span>
+            <span className="text-xs font-theme-data uppercase">{finding.severity}</span>
             <span className="text-xs text-[var(--text-muted)]">by {finding.agent}</span>
           </div>
-          <h4 className="font-mono text-sm">{finding.title}</h4>
+          <h4 className="font-theme-data text-sm">{finding.title}</h4>
           {finding.file && (
             <p className="text-xs text-[var(--text-muted)] mt-1">
               {finding.file}{finding.line ? `:${finding.line}` : ''}
@@ -229,7 +229,7 @@ function FindingCard({ finding, isExpanded, onToggle }: FindingCardProps) {
 
           {finding.suggestion && (
             <div className="p-3 bg-[var(--acid-green)]/10 rounded">
-              <span className="text-xs font-mono text-[var(--acid-green)]">Suggestion:</span>
+              <span className="text-xs font-theme-data text-[var(--acid-green)]">Suggestion:</span>
               <p className="text-sm text-[var(--text)] mt-1">{finding.suggestion}</p>
             </div>
           )}

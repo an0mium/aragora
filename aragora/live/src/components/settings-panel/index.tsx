@@ -259,7 +259,7 @@ export function SettingsPanel() {
         <div className="absolute right-0 top-0 bottom-0 w-4 bg-gradient-to-l from-bg to-transparent pointer-events-none z-10 md:hidden" />
 
         <div
-          className="flex gap-1 md:gap-2 border-b border-acid-green/20 pb-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+          className="flex gap-1 md:gap-2 border-b border-[var(--accent)]/20 pb-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
           role="tablist"
           aria-label="Settings sections"
         >
@@ -268,9 +268,9 @@ export function SettingsPanel() {
               key={tab.id}
               id={`tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-2 md:px-4 py-2 font-mono text-xs md:text-sm whitespace-nowrap transition-colors snap-start ${
+              className={`px-2 md:px-4 py-2 font-theme-data text-xs md:text-sm whitespace-nowrap transition-colors snap-start ${
                 activeTab === tab.id
-                  ? 'text-acid-green border-b-2 border-acid-green'
+                  ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                   : 'text-text-muted hover:text-text'
               }`}
               aria-selected={activeTab === tab.id}
@@ -281,9 +281,9 @@ export function SettingsPanel() {
             </button>
           ))}
           {featureSaveStatus !== 'idle' && (
-            <span className={`ml-2 text-xs font-mono self-center ${
-              featureSaveStatus === 'saving' ? 'text-acid-cyan' :
-              featureSaveStatus === 'saved' ? 'text-acid-green' :
+            <span className={`ml-2 text-xs font-theme-data self-center ${
+              featureSaveStatus === 'saving' ? 'text-[var(--acid-cyan)]' :
+              featureSaveStatus === 'saved' ? 'text-[var(--accent)]' :
               'text-acid-red'
             }`}>
               {featureSaveStatus === 'saving' ? '...' :

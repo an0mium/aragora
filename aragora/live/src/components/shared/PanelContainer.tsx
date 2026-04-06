@@ -108,7 +108,7 @@ export function CollapsiblePanelHeader({
       onKeyDown={(e) => e.key === 'Enter' && onToggle()}
     >
       <div className="flex items-center gap-2">
-        <span className="text-acid-green text-xs">{'>'}</span>
+        <span className="text-[var(--accent)] text-xs">{'>'}</span>
         <span className="panel-title-sm">{title}</span>
         {badge !== undefined && (
           <span className="panel-badge">{badge}</span>

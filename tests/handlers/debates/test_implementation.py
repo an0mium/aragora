@@ -718,20 +718,6 @@ class TestObsidianWriteback:
 
 
 class TestPersistArtifacts:
-    @pytest.fixture(autouse=True)
-    def _mock_backbone(self):
-        with (
-            patch(
-                "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
-                return_value="run-computer-use-1",
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
-                return_value=True,
-            ),
-        ):
-            yield
-
     def _make_rc(self, **overrides):
         from aragora.server.handlers.debates.implementation import _parse_request
 
@@ -776,10 +762,21 @@ class TestPersistArtifacts:
         mock_dp.id = "plan-cu-1"
         with patch("aragora.pipeline.decision_plan.DecisionPlanFactory") as MockFactory:
             MockFactory.from_implement_plan.return_value = mock_dp
-            with patch("aragora.pipeline.executor.store_plan") as mock_store:
+            with (
+                patch("aragora.pipeline.executor.store_plan") as mock_store,
+                patch(
+                    "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
+                    return_value="run-cu-1",
+                ),
+                patch(
+                    "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+                    return_value=True,
+                ),
+            ):
                 payload: dict[str, Any] = {}
                 receipt_id, cu_plan = h._persist_artifacts(_MockPackage(), "d1", rc, payload)
                 assert payload["plan_id"] == "plan-cu-1"
+                assert payload["run_id"] == "run-cu-1"
                 assert cu_plan is mock_dp
                 mock_store.assert_called_once_with(mock_dp)
 
@@ -961,20 +958,6 @@ class TestCreateDecisionIntegrity:
 
 
 class TestHandleWorkflowMode:
-    @pytest.fixture(autouse=True)
-    def _mock_backbone(self):
-        with (
-            patch(
-                "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
-                return_value="run-workflow-1",
-            ),
-            patch(
-                "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
-                return_value=True,
-            ),
-        ):
-            yield
-
     @patch("aragora.server.handlers.debates.implementation.run_async")
     @patch("aragora.pipeline.decision_plan.DecisionPlanFactory")
     @patch("aragora.pipeline.executor.store_plan")
@@ -985,6 +968,8 @@ class TestHandleWorkflowMode:
 
         mock_plan = MagicMock()
         mock_plan.id = "plan-1"
+        mock_plan.status = "approved"
+        mock_plan.approval_mode = "risk_based"
         mock_plan.requires_human_approval = False
         mock_plan.to_dict.return_value = {"id": "plan-1"}
         MockFactory.from_debate_result.return_value = mock_plan
@@ -1002,7 +987,19 @@ class TestHandleWorkflowMode:
             "aragora.server.handlers.debates.implementation.coerce_debate_result",
             return_value=MagicMock(),
         ):
-            result = h._handle_workflow_mode(handler, {"task": "T"}, "d1", _MockPackage(), rc, {})
+            with (
+                patch(
+                    "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
+                    return_value="run-1",
+                ),
+                patch(
+                    "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+                    return_value=True,
+                ),
+            ):
+                result = h._handle_workflow_mode(
+                    handler, {"task": "T"}, "d1", _MockPackage(), rc, {}
+                )
 
         assert _status(result) == 200
         body = _body(result)
@@ -1019,6 +1016,8 @@ class TestHandleWorkflowMode:
 
         mock_plan = MagicMock()
         mock_plan.id = "plan-1"
+        mock_plan.status = "approved"
+        mock_plan.approval_mode = "risk_based"
         mock_plan.requires_human_approval = False
         mock_plan.is_approved = True
         mock_plan.to_dict.return_value = {"id": "plan-1"}
@@ -1028,18 +1027,16 @@ class TestHandleWorkflowMode:
         mock_executor_inst = MagicMock()
         MockPE.return_value = mock_executor_inst
 
-        # run_async needs to return different things for different calls
+        launch = {
+            "run_id": "run-1",
+            "execution_id": "exec-1",
+            "correlation_id": "corr-1",
+        }
+
         def side_effect(coro):
             if hasattr(coro, "close"):
                 coro.close()
-            return (
-                {
-                    "run_id": "run-workflow-1",
-                    "execution_id": "exec-workflow-1",
-                    "correlation_id": "corr-workflow-1",
-                },
-                outcome,
-            )
+            return launch, outcome
 
         mock_ra.side_effect = side_effect
 
@@ -1050,11 +1047,21 @@ class TestHandleWorkflowMode:
             "aragora.server.handlers.debates.implementation.coerce_debate_result",
             return_value=MagicMock(),
         ):
-            with patch("aragora.pipeline.risk_register.RiskLevel", MagicMock()):
-                with patch("aragora.pipeline.decision_plan.ApprovalMode", MagicMock()):
-                    result = h._handle_workflow_mode(
-                        _mock_http_handler(), {}, "d1", _MockPackage(), rc, {}
-                    )
+            with (
+                patch("aragora.pipeline.risk_register.RiskLevel", MagicMock()),
+                patch("aragora.pipeline.decision_plan.ApprovalMode", MagicMock()),
+                patch(
+                    "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
+                    return_value="run-1",
+                ),
+                patch(
+                    "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+                    return_value=True,
+                ),
+            ):
+                result = h._handle_workflow_mode(
+                    _mock_http_handler(), {}, "d1", _MockPackage(), rc, {}
+                )
 
         assert _status(result) == 200
         body = _body(result)
@@ -1070,6 +1077,8 @@ class TestHandleWorkflowMode:
 
         mock_plan = MagicMock()
         mock_plan.id = "plan-1"
+        mock_plan.status = "awaiting_approval"
+        mock_plan.approval_mode = "always"
         mock_plan.requires_human_approval = True
         mock_plan.is_approved = False
         mock_plan.highest_risk_level.value = "high"
@@ -1079,12 +1088,12 @@ class TestHandleWorkflowMode:
 
         approval_req = _MockApprovalRequest(status=ApprovalStatus.PENDING)
 
-        def _approval_side_effect(coro):
+        def approval_side_effect(coro):
             if hasattr(coro, "close"):
                 coro.close()
             return approval_req
 
-        mock_ra.side_effect = _approval_side_effect
+        mock_ra.side_effect = approval_side_effect
 
         rc = _parse_request({"execution_mode": "execute_workflow"}, {})
         h = _make_handler(storage=MagicMock())
@@ -1099,17 +1108,27 @@ class TestHandleWorkflowMode:
                 mock_flow = MagicMock()
                 mock_flow.request_approval = AsyncMock(return_value=approval_req)
                 mock_gaf.return_value = mock_flow
-                with patch("aragora.pipeline.risk_register.RiskLevel", MagicMock()):
-                    with patch("aragora.pipeline.decision_plan.ApprovalMode", MagicMock()):
-                        with patch(
-                            "aragora.server.handlers.debates.implementation.get_permission_checker"
-                        ) as mock_pc:
-                            checker = MagicMock()
-                            checker.check_permission.return_value = _MockPermissionDecision(True)
-                            mock_pc.return_value = checker
-                            result = h._handle_workflow_mode(
-                                _mock_http_handler(), {}, "d1", _MockPackage(), rc, {}
-                            )
+                with (
+                    patch("aragora.pipeline.risk_register.RiskLevel", MagicMock()),
+                    patch("aragora.pipeline.decision_plan.ApprovalMode", MagicMock()),
+                    patch(
+                        "aragora.server.handlers.debates.implementation.ensure_decision_plan_backbone_run",
+                        return_value="run-1",
+                    ),
+                    patch(
+                        "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+                        return_value=True,
+                    ),
+                    patch(
+                        "aragora.server.handlers.debates.implementation.get_permission_checker"
+                    ) as mock_pc,
+                ):
+                    checker = MagicMock()
+                    checker.check_permission.return_value = _MockPermissionDecision(True)
+                    mock_pc.return_value = checker
+                    result = h._handle_workflow_mode(
+                        _mock_http_handler(), {}, "d1", _MockPackage(), rc, {}
+                    )
 
         assert _status(result) == 200
         body = _body(result)
@@ -1435,7 +1454,11 @@ class TestExecuteComputerUse:
         h = _make_handler()
         payload: dict[str, Any] = {}
         approval = _MockApprovalRequest(status=ApprovalStatus.APPROVED, approved_by="admin")
-        h._execute_computer_use(rc, payload, approval, "user", cu_plan)
+        with patch(
+            "aragora.server.handlers.debates.implementation.sync_decision_plan_backbone_receipt",
+            return_value=True,
+        ):
+            h._execute_computer_use(rc, payload, approval, "user", cu_plan)
         assert payload["execution"]["status"] == "completed"
         assert payload["execution"]["mode"] == "computer_use"
         cu_plan.approve.assert_called_once()

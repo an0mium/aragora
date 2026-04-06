@@ -23,6 +23,7 @@ import logging
 import os
 import secrets
 import time
+from html import escape
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
@@ -174,6 +175,60 @@ def _cleanup_oauth_states_fallback(now: float | None = None) -> None:
         _oauth_states_fallback.pop(state, None)
 
 
+def _parse_expires_in(raw_value: Any) -> int | None:
+    """Parse Slack expires_in while rejecting malformed values."""
+    if raw_value is None or raw_value == "":
+        return None
+    if isinstance(raw_value, bool):
+        raise ValueError("expires_in must be an integer number of seconds")
+    try:
+        expires_in = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("expires_in must be an integer number of seconds") from exc
+    if expires_in < 0:
+        raise ValueError("expires_in must be non-negative")
+    return expires_in
+
+
+def _parse_slack_ok(raw_value: Any) -> bool:
+    """Parse Slack ok while rejecting malformed truthy values."""
+    if isinstance(raw_value, bool):
+        return raw_value
+    raise ValueError("ok must be a boolean")
+
+
+def _parse_token_string(raw_value: Any, *, required: bool) -> str | None:
+    """Parse Slack token fields while rejecting malformed non-string values."""
+    if raw_value is None:
+        if required:
+            raise ValueError("token must be a non-empty string")
+        return None
+    if not isinstance(raw_value, str):
+        raise ValueError("token must be a string")
+    value = raw_value.strip()
+    if not value:
+        if required:
+            raise ValueError("token must be a non-empty string")
+        return None
+    return value
+
+
+def _parse_slack_string_field(raw_value: Any, *, field_name: str, required: bool) -> str | None:
+    """Parse Slack string fields while rejecting malformed non-string values."""
+    if raw_value is None:
+        if required:
+            raise ValueError(f"{field_name} must be a non-empty string")
+        return None
+    if not isinstance(raw_value, str):
+        raise ValueError(f"{field_name} must be a string")
+    value = raw_value.strip()
+    if not value:
+        if required:
+            raise ValueError(f"{field_name} must be a non-empty string")
+        return None
+    return value
+
+
 def _get_oauth_audit_logger() -> Any:
     """Get or create Slack audit logger for OAuth (lazy initialization)."""
     global _slack_oauth_audit
@@ -230,8 +285,8 @@ class SlackOAuthHandler(SecureHandler):
 
     # Route patterns for dynamic paths
     ROUTE_PATTERNS = [
-        r"/api/integrations/slack/workspaces/([^/]+)/status",
-        r"/api/integrations/slack/workspaces/([^/]+)/refresh",
+        r"^/api/integrations/slack/workspaces/([^/]+)/status$",
+        r"^/api/integrations/slack/workspaces/([^/]+)/refresh$",
     ]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
@@ -364,6 +419,24 @@ class SlackOAuthHandler(SecureHandler):
         if not requester_tenant_id or not workspace_tenant_id:
             return True
         return requester_tenant_id != workspace_tenant_id
+
+    @staticmethod
+    def _extract_state_metadata(state_data: Any) -> tuple[str | None, str | None, str | None]:
+        """Extract tenant, redirect URI, and provider metadata from an OAuth state payload."""
+        if isinstance(state_data, dict):
+            tenant_id = state_data.get("tenant_id")
+            redirect_uri = str(state_data.get("redirect_uri", "") or "").strip() or None
+            provider = str(state_data.get("provider", "") or "").strip() or None
+            return tenant_id, redirect_uri, provider
+
+        metadata = getattr(state_data, "metadata", None)
+        if isinstance(metadata, dict):
+            tenant_id = metadata.get("tenant_id")
+            redirect_uri = str(metadata.get("redirect_uri", "") or "").strip() or None
+            provider = str(metadata.get("provider", "") or "").strip() or None
+            return tenant_id, redirect_uri, provider
+
+        return None, None, None
 
     async def handle(self, *args: Any, **kwargs: Any) -> HandlerResult:
         """Route OAuth requests with dual-signature support.
@@ -538,7 +611,7 @@ class SlackOAuthHandler(SecureHandler):
         # Check for dynamic workspace routes
         import re
 
-        status_match = re.match(r"/api/integrations/slack/workspaces/([^/]+)/status", path)
+        status_match = re.fullmatch(r"/api/integrations/slack/workspaces/([^/]+)/status", path)
         if status_match:
             workspace_id = status_match.group(1)
             if method == "GET":
@@ -561,7 +634,7 @@ class SlackOAuthHandler(SecureHandler):
                 )
             return error_response("Method not allowed", 405)
 
-        refresh_match = re.match(r"/api/integrations/slack/workspaces/([^/]+)/refresh", path)
+        refresh_match = re.fullmatch(r"/api/integrations/slack/workspaces/([^/]+)/refresh", path)
         if refresh_match:
             workspace_id = refresh_match.group(1)
             if method == "POST":
@@ -690,6 +763,15 @@ class SlackOAuthHandler(SecureHandler):
             )
 
         tenant_id = self._resolved_tenant_id(query_params, auth_context) or ""
+        install_params: dict[str, str] = {}
+        if tenant_id:
+            install_params["tenant_id"] = tenant_id
+        if not _get_slack_redirect_uri() and _get_aragora_env().lower() != "production":
+            host = str(query_params.get("host", "") or "").strip()
+            if host:
+                if not _is_loopback_redirect_host(host):
+                    return error_response("Only localhost allowed in development mode", 400)
+                install_params["host"] = host
 
         # Build scope information for display
         current_scopes = _get_slack_scopes().split(",")
@@ -723,8 +805,8 @@ class SlackOAuthHandler(SecureHandler):
 
         # Build install URL with tenant_id
         install_url = "/api/integrations/slack/install"
-        if tenant_id:
-            install_url += f"?tenant_id={tenant_id}"
+        if install_params:
+            install_url = f"{install_url}?{urlencode(install_params)}"
 
         # Generate HTML consent preview page
         html = self._render_consent_preview(
@@ -749,13 +831,15 @@ class SlackOAuthHandler(SecureHandler):
         """Render the consent preview HTML page."""
         required_html = ""
         for s in required_scopes:
-            icon = s["icon"] if s["icon"] else "&#128274;"
+            icon = escape(str(s["icon"])) if s["icon"] else "&#128274;"
+            name = escape(str(s["name"]))
+            description = escape(str(s["description"]))
             required_html += f"""
             <div class="scope-item">
                 <span class="scope-icon">{icon}</span>
                 <div class="scope-details">
-                    <div class="scope-name">{s["name"]}</div>
-                    <div class="scope-desc">{s["description"]}</div>
+                    <div class="scope-name">{name}</div>
+                    <div class="scope-desc">{description}</div>
                 </div>
                 <span class="scope-badge required">Required</span>
             </div>
@@ -763,13 +847,15 @@ class SlackOAuthHandler(SecureHandler):
 
         optional_html = ""
         for s in optional_scopes:
-            icon = s["icon"] if s["icon"] else "&#128274;"
+            icon = escape(str(s["icon"])) if s["icon"] else "&#128274;"
+            name = escape(str(s["name"]))
+            description = escape(str(s["description"]))
             optional_html += f"""
             <div class="scope-item">
                 <span class="scope-icon">{icon}</span>
                 <div class="scope-details">
-                    <div class="scope-name">{s["name"]}</div>
-                    <div class="scope-desc">{s["description"]}</div>
+                    <div class="scope-name">{name}</div>
+                    <div class="scope-desc">{description}</div>
                 </div>
                 <span class="scope-badge optional">Optional</span>
             </div>
@@ -781,6 +867,8 @@ class SlackOAuthHandler(SecureHandler):
                 "<div class='section-title' style='margin-top: 24px;'>Optional Features</div>"
                 + optional_html
             )
+
+        safe_install_url = escape(install_url, quote=True)
 
         return f"""<!DOCTYPE html>
 <html lang="en">
@@ -911,7 +999,7 @@ class SlackOAuthHandler(SecureHandler):
             </div>
         </div>
         <div class="actions">
-            <a href="{install_url}" class="btn btn-primary">
+            <a href="{safe_install_url}" class="btn btn-primary">
                 &#128241; Continue to Slack Authorization
             </a>
             <a href="javascript:history.back()" class="btn btn-secondary">Cancel</a>
@@ -929,8 +1017,41 @@ class SlackOAuthHandler(SecureHandler):
             state: State token for CSRF verification
             error: Error code if user denied
         """
+        state = query_params.get("state")
+        state_store = _get_state_store()
+        peeked_state_data = None
+        fallback_state_data = None
+
+        if state:
+            _cleanup_oauth_states_fallback()
+            fallback_state_data = _oauth_states_fallback.get(state)
+            try:
+                peeked_state_data = state_store.peek(state)
+            except Exception:
+                logger.debug("Failed to peek Slack OAuth state", exc_info=True)
+
+        peeked_tenant_id, peeked_redirect_uri, peeked_provider = self._extract_state_metadata(
+            peeked_state_data
+        )
+        fallback_tenant_id, fallback_redirect_uri, fallback_provider = self._extract_state_metadata(
+            fallback_state_data
+        )
+        store_state_is_slack = peeked_provider == "slack"
+        fallback_state_is_slack = fallback_provider == "slack"
+
         # Check for error from Slack
         if "error" in query_params:
+            if state:
+                if store_state_is_slack:
+                    try:
+                        state_store.validate_and_consume(state)
+                    except Exception:
+                        logger.debug(
+                            "Failed to consume Slack OAuth state after callback error",
+                            exc_info=True,
+                        )
+                if fallback_state_is_slack:
+                    _oauth_states_fallback.pop(state, None)
             error_code = query_params.get("error")
             logger.warning("Slack OAuth error: %s", error_code)
             # Audit log OAuth denial
@@ -943,9 +1064,7 @@ class SlackOAuthHandler(SecureHandler):
                     error=f"User denied: {error_code}",
                 )
             return error_response(f"Slack authorization denied: {error_code}", 400)
-
         code = query_params.get("code")
-        state = query_params.get("state")
 
         if not code:
             return error_response("Missing authorization code", 400)
@@ -953,29 +1072,32 @@ class SlackOAuthHandler(SecureHandler):
         if not state:
             return error_response("Missing state parameter", 400)
 
-        # Verify state token using centralized state store
-        state_store = _get_state_store()
-        state_data = state_store.validate_and_consume(state)
-        if not state_data:
-            _cleanup_oauth_states_fallback()
-            state_data = _oauth_states_fallback.pop(state, None)
-        if not state_data:
+        if not (peeked_state_data or fallback_state_data):
             return error_response("Invalid or expired state token", 400)
 
-        state_redirect_uri: str | None = None
-        state_provider: str | None = None
-        if isinstance(state_data, dict):
-            tenant_id = state_data.get("tenant_id")
-            state_redirect_uri = str(state_data.get("redirect_uri", "") or "").strip() or None
-            state_provider = str(state_data.get("provider", "") or "").strip() or None
+        if store_state_is_slack:
+            tenant_id = peeked_tenant_id
+            state_redirect_uri = peeked_redirect_uri
+        elif peeked_state_data is None and fallback_state_is_slack:
+            tenant_id = fallback_tenant_id
+            state_redirect_uri = fallback_redirect_uri
         else:
-            metadata = getattr(state_data, "metadata", None)
-            tenant_id = metadata.get("tenant_id") if isinstance(metadata, dict) else None
-            if isinstance(metadata, dict):
-                state_redirect_uri = str(metadata.get("redirect_uri", "") or "").strip() or None
-                state_provider = str(metadata.get("provider", "") or "").strip() or None
+            return error_response("Invalid or expired state token", 400)
 
-        if state_provider != "slack":
+        # Consume only after verifying this state was actually minted for Slack.
+        try:
+            state_data = state_store.validate_and_consume(state) if store_state_is_slack else None
+        except Exception:
+            if fallback_state_is_slack:
+                _oauth_states_fallback.pop(state, None)
+            logger.debug("Failed to consume Slack OAuth state", exc_info=True)
+            return error_response("Invalid or expired state token", 400)
+        fallback_state_data = (
+            _oauth_states_fallback.pop(state, None) if fallback_state_is_slack else None
+        )
+        if not state_data and peeked_state_data is None:
+            state_data = fallback_state_data
+        if not state_data:
             return error_response("Invalid or expired state token", 400)
 
         client_id = _get_slack_client_id()
@@ -1081,32 +1203,114 @@ class SlackOAuthHandler(SecureHandler):
 
         except ImportError:
             return error_response("httpx not available", 503)
-        except (ConnectionError, TimeoutError, OSError, ValueError, TypeError) as e:
+        except (
+            ConnectionError,
+            TimeoutError,
+            OSError,
+            ValueError,
+            TypeError,
+            httpx.HTTPError,
+        ) as e:
             logger.error("[%s] Slack token exchange failed: %s", request_id, e)
             return error_response("Token exchange failed", 500)
 
-        if not data.get("ok"):
+        if not isinstance(data, dict):
+            logger.error("[%s] Slack token exchange returned non-dict payload", request_id)
+            return error_response("Invalid response from Slack", 500)
+
+        try:
+            slack_ok = _parse_slack_ok(data.get("ok"))
+        except ValueError:
+            logger.error("[%s] Slack token exchange returned invalid ok flag", request_id)
+            return error_response("Invalid response from Slack", 500)
+
+        if not slack_ok:
             error_msg = data.get("error", "Unknown error")
             logger.error("Slack OAuth failed: %s", error_msg)
             return error_response(f"Slack OAuth failed: {error_msg}", 400)
 
         # Extract workspace info
-        access_token = data.get("access_token")
-        team = data.get("team", {})
-        bot_user_id = data.get("bot_user_id", "")
-        authed_user = data.get("authed_user", {})
-        scope = data.get("scope", "")
+        try:
+            access_token = _parse_token_string(data.get("access_token"), required=True)
+            refresh_token = _parse_token_string(data.get("refresh_token"), required=False)
+        except ValueError:
+            logger.error("[%s] Slack token exchange returned malformed token fields", request_id)
+            return error_response("Invalid response from Slack", 500)
+        team_payload = data.get("team")
+        team = team_payload if isinstance(team_payload, dict) else {}
+        authed_user_payload = data.get("authed_user")
+        authed_user = authed_user_payload if isinstance(authed_user_payload, dict) else {}
+        raw_scope = data.get("scope", "")
+        if isinstance(raw_scope, str):
+            scope = raw_scope
+        elif isinstance(raw_scope, (list, tuple, set)):
+            scope = ",".join(str(item).strip() for item in raw_scope if str(item).strip())
+        else:
+            scope = str(raw_scope or "").strip()
 
-        # Extract token refresh data (if available)
-        refresh_token = data.get("refresh_token")
-        expires_in = data.get("expires_in")  # Seconds until expiration
-        token_expires_at = None
-        if expires_in:
-            token_expires_at = time.time() + expires_in
+        try:
+            expires_in = _parse_expires_in(data.get("expires_in"))
+        except ValueError:
+            logger.error("[%s] Slack token exchange returned invalid expires_in", request_id)
+            return error_response("Invalid response from Slack", 500)
+        token_expires_at = time.time() + expires_in if expires_in is not None else None
 
-        workspace_id = team.get("id", "")
-        workspace_name = team.get("name", "Unknown")
-        installed_by = authed_user.get("id")
+        try:
+            workspace_id = (
+                _parse_slack_string_field(team.get("id"), field_name="team.id", required=False)
+                or _parse_slack_string_field(
+                    team.get("team_id"),
+                    field_name="team.team_id",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("team_id"),
+                    field_name="team_id",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("workspace_id"),
+                    field_name="workspace_id",
+                    required=False,
+                )
+                or ""
+            )
+            workspace_name = (
+                _parse_slack_string_field(
+                    team.get("name"),
+                    field_name="team.name",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("team_name"),
+                    field_name="team_name",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("workspace_name"),
+                    field_name="workspace_name",
+                    required=False,
+                )
+                or "Unknown"
+            )
+            bot_user_id = (
+                _parse_slack_string_field(
+                    data.get("bot_user_id"),
+                    field_name="bot_user_id",
+                    required=False,
+                )
+                or ""
+            )
+            installed_by = _parse_slack_string_field(
+                authed_user.get("id"),
+                field_name="authed_user.id",
+                required=False,
+            )
+        except ValueError:
+            logger.error(
+                "[%s] Slack token exchange returned malformed workspace identity", request_id
+            )
+            return error_response("Invalid response from Slack", 500)
 
         if not workspace_id or not access_token:
             return error_response("Invalid response from Slack", 500)
@@ -1122,6 +1326,9 @@ class SlackOAuthHandler(SecureHandler):
             existing_workspace = store.get(workspace_id)
             existing_tenant_id = (
                 str(getattr(existing_workspace, "tenant_id", "") or "").strip() or None
+            )
+            existing_refresh_token = (
+                str(getattr(existing_workspace, "refresh_token", "") or "").strip() or None
             )
             requested_tenant_id = str(tenant_id or "").strip() or None
             if (
@@ -1148,6 +1355,8 @@ class SlackOAuthHandler(SecureHandler):
                     "Workspace is already linked to a different tenant",
                     409,
                 )
+            if not str(refresh_token or "").strip():
+                refresh_token = existing_refresh_token
 
             workspace = SlackWorkspace(
                 workspace_id=workspace_id,
@@ -1203,6 +1412,7 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Workspace storage not available", 503)
 
         # Return success page
+        safe_workspace_name = escape(workspace_name)
         success_html = f"""
         <!DOCTYPE html>
         <html>
@@ -1245,7 +1455,7 @@ class SlackOAuthHandler(SecureHandler):
                 <div class="check">&#10003;</div>
                 <h1>Connected!</h1>
                 <p>Aragora is now installed in</p>
-                <p class="workspace">{workspace_name}</p>
+                <p class="workspace">{safe_workspace_name}</p>
                 <p>You can close this window and return to Slack.</p>
             </div>
         </body>
@@ -1555,6 +1765,20 @@ class SlackOAuthHandler(SecureHandler):
             if not workspace.is_active:
                 return error_response("Workspace is inactive. Re-installation required.", 400)
 
+            client_id = _get_slack_client_id()
+            client_secret = _get_slack_client_secret()
+            if not client_id or not client_secret:
+                logger.error("Slack OAuth refresh not configured for workspace %s", workspace_id)
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Slack OAuth not configured",
+                    )
+                return error_response("Slack OAuth not configured", 503)
+
             # Attempt token refresh
             import httpx
 
@@ -1563,8 +1787,8 @@ class SlackOAuthHandler(SecureHandler):
                     response = await client.post(
                         SLACK_OAUTH_TOKEN_URL,
                         data={
-                            "client_id": _get_slack_client_id(),
-                            "client_secret": _get_slack_client_secret(),
+                            "client_id": client_id,
+                            "client_secret": client_secret,
                             "grant_type": "refresh_token",
                             "refresh_token": workspace.refresh_token,
                         },
@@ -1585,7 +1809,36 @@ class SlackOAuthHandler(SecureHandler):
                 logger.warning("Handler error: %s", e)
                 return error_response("Token refresh failed", 502)
 
-            if not data.get("ok"):
+            if not isinstance(data, dict):
+                logger.error(
+                    "Token refresh returned non-dict payload for %s",
+                    workspace_id,
+                )
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed payload",
+                    )
+                return error_response("Invalid token refresh response", 502)
+
+            try:
+                slack_ok = _parse_slack_ok(data.get("ok"))
+            except ValueError:
+                logger.error("Token refresh returned invalid ok flag for %s", workspace_id)
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed ok flag",
+                    )
+                return error_response("Invalid token refresh response", 502)
+
+            if not slack_ok:
                 error_msg = data.get("error", "Unknown error")
                 logger.error("Token refresh failed for %s: %s", workspace_id, error_msg)
                 audit = _get_oauth_audit_logger()
@@ -1598,8 +1851,99 @@ class SlackOAuthHandler(SecureHandler):
                     )
                 return error_response(f"Token refresh failed: {error_msg}", 400)
 
+            response_workspace_id = ""
+            team = data.get("team")
+            try:
+                if isinstance(team, dict):
+                    response_workspace_id = (
+                        _parse_slack_string_field(
+                            team.get("id"),
+                            field_name="team.id",
+                            required=False,
+                        )
+                        or _parse_slack_string_field(
+                            team.get("team_id"),
+                            field_name="team.team_id",
+                            required=False,
+                        )
+                        or ""
+                    )
+                if not response_workspace_id:
+                    response_workspace_id = (
+                        _parse_slack_string_field(
+                            data.get("team_id"),
+                            field_name="team_id",
+                            required=False,
+                        )
+                        or _parse_slack_string_field(
+                            data.get("workspace_id"),
+                            field_name="workspace_id",
+                            required=False,
+                        )
+                        or ""
+                    )
+            except ValueError:
+                logger.error(
+                    "Token refresh returned malformed workspace identity for %s",
+                    workspace_id,
+                )
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed workspace identity",
+                    )
+                return error_response("Invalid token refresh response", 502)
+            expected_workspace_id = str(
+                getattr(workspace, "workspace_id", "") or workspace_id
+            ).strip()
+            if not response_workspace_id:
+                logger.error(
+                    "Token refresh returned no workspace identity for %s",
+                    workspace_id,
+                )
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: missing workspace identity",
+                    )
+                return error_response("Invalid token refresh response", 502)
+            if response_workspace_id and response_workspace_id != expected_workspace_id:
+                logger.error(
+                    "Token refresh workspace mismatch for %s: got %s",
+                    workspace_id,
+                    response_workspace_id,
+                )
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: workspace mismatch",
+                    )
+                return error_response("Invalid token refresh response", 502)
+
             # Update stored tokens
-            new_access_token = data.get("access_token")
+            try:
+                new_access_token = _parse_token_string(data.get("access_token"), required=True)
+                new_refresh_token = _parse_token_string(data.get("refresh_token"), required=False)
+            except ValueError:
+                logger.error("Token refresh returned malformed token fields for %s", workspace_id)
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed token field",
+                    )
+                return error_response("Invalid token refresh response", 502)
             if not str(new_access_token or "").strip():
                 logger.error("Token refresh returned no access token for %s", workspace_id)
                 audit = _get_oauth_audit_logger()
@@ -1611,9 +1955,22 @@ class SlackOAuthHandler(SecureHandler):
                         error="Invalid refresh response: missing access token",
                     )
                 return error_response("Invalid token refresh response", 502)
-            new_refresh_token = data.get("refresh_token", workspace.refresh_token)
-            expires_in = data.get("expires_in")
-            new_expires_at = time.time() + expires_in if expires_in else None
+            if not str(new_refresh_token or "").strip():
+                new_refresh_token = workspace.refresh_token
+            try:
+                expires_in = _parse_expires_in(data.get("expires_in"))
+            except ValueError:
+                logger.error("Token refresh returned invalid expires_in for %s", workspace_id)
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed expires_in",
+                    )
+                return error_response("Invalid token refresh response", 502)
+            new_expires_at = time.time() + expires_in if expires_in is not None else None
 
             workspace.access_token = new_access_token
             workspace.refresh_token = new_refresh_token

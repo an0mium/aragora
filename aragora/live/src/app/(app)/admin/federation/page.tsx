@@ -97,9 +97,9 @@ function StatCard({
   color?: string;
 }) {
   return (
-    <div className="p-4 bg-surface rounded border border-acid-green/20">
-      <div className="font-mono text-xs text-text-muted mb-1">{label}</div>
-      <div className={`font-mono text-2xl text-${color}`}>
+    <div className="p-4 bg-surface rounded border border-[var(--accent)]/20">
+      <div className="font-theme-data text-xs text-text-muted mb-1">{label}</div>
+      <div className={`font-theme-data text-2xl text-${color}`}>
         {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
     </div>
@@ -190,7 +190,7 @@ export default function FederationManagementPage() {
 
       <main className="min-h-screen bg-bg text-text relative z-10">
         {/* Header */}
-        <header className="border-b border-acid-green/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
+        <header className="border-b border-[var(--accent)]/30 bg-surface/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-3 flex items-center justify-between">
             <Link href="/">
               <AsciiBannerCompact connected={true} />
@@ -198,13 +198,13 @@ export default function FederationManagementPage() {
             <div className="flex items-center gap-4">
               <Link
                 href="/"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
               >
                 [DASHBOARD]
               </Link>
               <Link
                 href="/admin"
-                className="text-xs font-mono text-acid-cyan hover:text-acid-green transition-colors"
+                className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
               >
                 [ADMIN]
               </Link>
@@ -215,36 +215,36 @@ export default function FederationManagementPage() {
         </header>
 
         {/* Sub Navigation */}
-        <div className="border-b border-acid-green/20 bg-surface/40">
+        <div className="border-b border-[var(--accent)]/20 bg-surface/40">
           <div className="container mx-auto px-4">
             <div className="flex gap-4 overflow-x-auto">
               <Link
                 href="/admin"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 SYSTEM
               </Link>
               <Link
                 href="/admin/organizations"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 ORGANIZATIONS
               </Link>
               <Link
                 href="/admin/knowledge"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 KNOWLEDGE
               </Link>
               <Link
                 href="/admin/federation"
-                className="px-4 py-2 font-mono text-sm text-acid-green border-b-2 border-acid-green"
+                className="px-4 py-2 font-theme-data text-sm text-[var(--accent)] border-b-2 border-[var(--accent)]"
               >
                 FEDERATION
               </Link>
               <Link
                 href="/admin/audit"
-                className="px-4 py-2 font-mono text-sm text-text-muted hover:text-text transition-colors"
+                className="px-4 py-2 font-theme-data text-sm text-text-muted hover:text-text transition-colors"
               >
                 AUDIT
               </Link>
@@ -257,17 +257,17 @@ export default function FederationManagementPage() {
           {/* Page heading */}
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-2">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-2">
                 Federation Management
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Monitor cross-workspace federation, sync activity, and knowledge sharing.
               </p>
             </div>
             <button
               onClick={fetchAll}
               disabled={loading}
-              className="px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50"
+              className="px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50"
             >
               {loading ? 'Refreshing...' : 'Refresh'}
             </button>
@@ -275,7 +275,7 @@ export default function FederationManagementPage() {
 
           {error && (
             <div className="card p-4 mb-6 border-acid-red/40 bg-acid-red/10">
-              <p className="text-acid-red font-mono text-sm">{error}</p>
+              <p className="text-acid-red font-theme-data text-sm">{error}</p>
             </div>
           )}
 
@@ -296,11 +296,11 @@ export default function FederationManagementPage() {
                 value={overview.shared_knowledge_count}
                 color="acid-yellow"
               />
-              <div className="p-4 bg-surface rounded border border-acid-green/20">
-                <div className="font-mono text-xs text-text-muted mb-1">Sync Health</div>
+              <div className="p-4 bg-surface rounded border border-[var(--accent)]/20">
+                <div className="font-theme-data text-xs text-text-muted mb-1">Sync Health</div>
                 <div className="flex items-center gap-2">
                   <StatusDot status={overview.sync_health} />
-                  <span className="font-mono text-lg text-text capitalize">
+                  <span className="font-theme-data text-lg text-text capitalize">
                     {overview.sync_health}
                   </span>
                 </div>
@@ -310,16 +310,16 @@ export default function FederationManagementPage() {
 
           {/* Connected Workspaces */}
           <div className="card p-6 mb-6">
-            <h2 className="font-mono text-acid-green mb-4">Connected Workspaces</h2>
+            <h2 className="font-theme-data text-[var(--accent)] mb-4">Connected Workspaces</h2>
             {workspaces.length === 0 ? (
-              <p className="font-mono text-sm text-text-muted">
+              <p className="font-theme-data text-sm text-text-muted">
                 No workspaces are currently federated. Register workspaces via the Coordination API to enable federation.
               </p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full font-mono text-sm">
+                <table className="w-full font-theme-data text-sm">
                   <thead>
-                    <tr className="text-left text-text-muted border-b border-acid-green/20">
+                    <tr className="text-left text-text-muted border-b border-[var(--accent)]/20">
                       <th className="pb-2 pr-4">Status</th>
                       <th className="pb-2 pr-4">Workspace</th>
                       <th className="pb-2 pr-4">Mode</th>
@@ -333,7 +333,7 @@ export default function FederationManagementPage() {
                     {workspaces.map((ws) => (
                       <tr
                         key={ws.id}
-                        className="border-b border-acid-green/10 hover:bg-acid-green/5 transition-colors"
+                        className="border-b border-[var(--accent)]/10 hover:bg-[var(--accent)]/5 transition-colors"
                       >
                         <td className="py-3 pr-4">
                           <StatusDot status={ws.status} />
@@ -351,23 +351,23 @@ export default function FederationManagementPage() {
                         <td className="py-3 pr-4 text-text-muted">
                           {ws.latency_ms > 0 ? `${ws.latency_ms.toFixed(0)}ms` : '--'}
                         </td>
-                        <td className="py-3 pr-4 text-acid-cyan">
+                        <td className="py-3 pr-4 text-[var(--acid-cyan)]">
                           {ws.shared_items.toLocaleString()}
                         </td>
                         <td className="py-3">
                           <div className="flex gap-1.5 flex-wrap">
                             {ws.capabilities.knowledge_query && (
-                              <span className="px-1.5 py-0.5 text-xs bg-acid-green/10 text-acid-green border border-acid-green/20 rounded">
+                              <span className="px-1.5 py-0.5 text-xs bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20 rounded">
                                 Knowledge
                               </span>
                             )}
                             {ws.capabilities.agent_execution && (
-                              <span className="px-1.5 py-0.5 text-xs bg-acid-cyan/10 text-acid-cyan border border-acid-cyan/20 rounded">
+                              <span className="px-1.5 py-0.5 text-xs bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/20 rounded">
                                 Agents
                               </span>
                             )}
                             {ws.capabilities.workflow_execution && (
-                              <span className="px-1.5 py-0.5 text-xs bg-acid-yellow/10 text-acid-yellow border border-acid-yellow/20 rounded">
+                              <span className="px-1.5 py-0.5 text-xs bg-acid-yellow/10 text-[var(--acid-yellow)] border border-acid-yellow/20 rounded">
                                 Workflows
                               </span>
                             )}
@@ -385,9 +385,9 @@ export default function FederationManagementPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Sync Activity Feed */}
             <div className="card p-6">
-              <h2 className="font-mono text-acid-green mb-4">Sync Activity</h2>
+              <h2 className="font-theme-data text-[var(--accent)] mb-4">Sync Activity</h2>
               {activity.length === 0 ? (
-                <p className="font-mono text-sm text-text-muted">
+                <p className="font-theme-data text-sm text-text-muted">
                   No recent sync activity.
                 </p>
               ) : (
@@ -395,31 +395,31 @@ export default function FederationManagementPage() {
                   {activity.map((event) => (
                     <div
                       key={event.id}
-                      className="p-3 bg-bg rounded border border-acid-green/10"
+                      className="p-3 bg-bg rounded border border-[var(--accent)]/10"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className={`font-mono text-xs font-bold uppercase ${eventTypeColor(event.type)}`}>
+                        <span className={`font-theme-data text-xs font-bold uppercase ${eventTypeColor(event.type)}`}>
                           {eventTypeLabel(event.type)}
                         </span>
-                        <span className="font-mono text-xs text-text-muted">
+                        <span className="font-theme-data text-xs text-text-muted">
                           {formatTimestamp(event.timestamp)}
                         </span>
                       </div>
-                      <div className="font-mono text-xs text-text-muted">
+                      <div className="font-theme-data text-xs text-text-muted">
                         {event.source_workspace}
-                        <span className="text-acid-green mx-1">{'->'}</span>
+                        <span className="text-[var(--accent)] mx-1">{'->'}</span>
                         {event.target_workspace}
                       </div>
                       {event.scope && (
-                        <div className="font-mono text-xs text-text-muted mt-1">
+                        <div className="font-theme-data text-xs text-text-muted mt-1">
                           Scope: <span className="text-text">{event.scope}</span>
                           {event.times_used !== undefined && (
-                            <> | Used: <span className="text-acid-cyan">{event.times_used}x</span></>
+                            <> | Used: <span className="text-[var(--acid-cyan)]">{event.times_used}x</span></>
                           )}
                         </div>
                       )}
                       {event.operation && (
-                        <div className="font-mono text-xs text-text-muted mt-1">
+                        <div className="font-theme-data text-xs text-text-muted mt-1">
                           Operation: <span className="text-text">{event.operation}</span>
                         </div>
                       )}
@@ -431,23 +431,23 @@ export default function FederationManagementPage() {
 
             {/* Knowledge Sharing Configuration */}
             <div className="card p-6">
-              <h2 className="font-mono text-acid-green mb-4">Knowledge Sharing</h2>
+              <h2 className="font-theme-data text-[var(--accent)] mb-4">Knowledge Sharing</h2>
 
               {fedConfig ? (
                 <div className="space-y-4">
                   {/* Sharing scope */}
-                  <div className="p-3 bg-bg rounded border border-acid-green/10">
-                    <div className="font-mono text-xs text-text-muted mb-1">
+                  <div className="p-3 bg-bg rounded border border-[var(--accent)]/10">
+                    <div className="font-theme-data text-xs text-text-muted mb-1">
                       Sharing Scope
                     </div>
-                    <div className="font-mono text-sm text-text capitalize">
+                    <div className="font-theme-data text-sm text-text capitalize">
                       {fedConfig.knowledge_sharing.scope}
                     </div>
                   </div>
 
                   {/* Approval requirement */}
-                  <div className="p-3 bg-bg rounded border border-acid-green/10">
-                    <div className="font-mono text-xs text-text-muted mb-1">
+                  <div className="p-3 bg-bg rounded border border-[var(--accent)]/10">
+                    <div className="font-theme-data text-xs text-text-muted mb-1">
                       Approval Required
                     </div>
                     <div className="flex items-center gap-2">
@@ -458,15 +458,15 @@ export default function FederationManagementPage() {
                             : 'bg-green-500'
                         }`}
                       />
-                      <span className="font-mono text-sm text-text">
+                      <span className="font-theme-data text-sm text-text">
                         {fedConfig.knowledge_sharing.approval_required ? 'Yes' : 'No'}
                       </span>
                     </div>
                   </div>
 
                   {/* Audit enabled */}
-                  <div className="p-3 bg-bg rounded border border-acid-green/10">
-                    <div className="font-mono text-xs text-text-muted mb-1">
+                  <div className="p-3 bg-bg rounded border border-[var(--accent)]/10">
+                    <div className="font-theme-data text-xs text-text-muted mb-1">
                       Audit Logging
                     </div>
                     <div className="flex items-center gap-2">
@@ -477,15 +477,15 @@ export default function FederationManagementPage() {
                             : 'bg-red-500'
                         }`}
                       />
-                      <span className="font-mono text-sm text-text">
+                      <span className="font-theme-data text-sm text-text">
                         {fedConfig.knowledge_sharing.audit_enabled ? 'Enabled' : 'Disabled'}
                       </span>
                     </div>
                   </div>
 
                   {/* Shared data types */}
-                  <div className="p-3 bg-bg rounded border border-acid-green/10">
-                    <div className="font-mono text-xs text-text-muted mb-2">
+                  <div className="p-3 bg-bg rounded border border-[var(--accent)]/10">
+                    <div className="font-theme-data text-xs text-text-muted mb-2">
                       Shared Knowledge Types
                     </div>
                     {fedConfig.knowledge_sharing.types.length > 0 ? (
@@ -493,31 +493,31 @@ export default function FederationManagementPage() {
                         {fedConfig.knowledge_sharing.types.map((t) => (
                           <span
                             key={t}
-                            className="px-2 py-1 text-xs font-mono bg-acid-green/10 text-acid-green border border-acid-green/20 rounded"
+                            className="px-2 py-1 text-xs font-theme-data bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20 rounded"
                           >
                             {t}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="font-mono text-xs text-text-muted">
+                      <p className="font-theme-data text-xs text-text-muted">
                         No knowledge types are currently shared.
                       </p>
                     )}
                   </div>
 
                   {/* Workspace policy count */}
-                  <div className="p-3 bg-bg rounded border border-acid-green/10">
-                    <div className="font-mono text-xs text-text-muted mb-1">
+                  <div className="p-3 bg-bg rounded border border-[var(--accent)]/10">
+                    <div className="font-theme-data text-xs text-text-muted mb-1">
                       Workspace Policies
                     </div>
-                    <div className="font-mono text-sm text-acid-cyan">
+                    <div className="font-theme-data text-sm text-[var(--acid-cyan)]">
                       {fedConfig.workspace_policy_count} configured
                     </div>
                   </div>
                 </div>
               ) : (
-                <p className="font-mono text-sm text-text-muted">
+                <p className="font-theme-data text-sm text-text-muted">
                   Federation configuration not available.
                 </p>
               )}
@@ -526,8 +526,8 @@ export default function FederationManagementPage() {
         </div>
 
         {/* Footer */}
-        <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-          <div className="text-acid-green/50 mb-2">
+        <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+          <div className="text-[var(--accent)]/50 mb-2">
             {'='.repeat(40)}
           </div>
           <p className="text-text-muted">

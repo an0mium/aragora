@@ -66,6 +66,7 @@ class TestDebateFactoryProviderRouting:
             config = DebateConfig(
                 question="Test question for routing",
                 agents_str="anthropic-api,openai-api",
+                auto_trim_unavailable=False,
             )
             factory.create_arena(config)
 
@@ -83,6 +84,7 @@ class TestDebateFactoryProviderRouting:
             config = DebateConfig(
                 question="Test question without routing",
                 agents_str="anthropic-api,openai-api",
+                auto_trim_unavailable=False,
             )
             # Should not raise
             arena = factory.create_arena(config)
@@ -104,6 +106,7 @@ class TestDebateFactoryProviderRouting:
             config = DebateConfig(
                 question="Test empty hints",
                 agents_str="anthropic-api,openai-api",
+                auto_trim_unavailable=False,
             )
             factory.create_arena(config)
 
@@ -126,6 +129,7 @@ class TestDebateFactoryProviderRouting:
             config = DebateConfig(
                 question="Test router error",
                 agents_str="anthropic-api,openai-api",
+                auto_trim_unavailable=False,
             )
             # Should not raise despite router error
             arena = factory.create_arena(config)

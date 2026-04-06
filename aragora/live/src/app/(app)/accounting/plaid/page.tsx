@@ -194,7 +194,7 @@ function PlaidLinkContent() {
           {status === 'loading' && (
             <>
               <div className="w-16 h-16 mx-auto mb-6 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-              <h2 className="text-lg font-mono mb-2">Initializing...</h2>
+              <h2 className="text-lg font-theme-data mb-2">Initializing...</h2>
               <p className="text-sm text-[var(--muted)]">
                 Preparing secure bank connection
               </p>
@@ -205,7 +205,7 @@ function PlaidLinkContent() {
           {status === 'ready' && (
             <>
               <div className="text-5xl mb-6">🏦</div>
-              <h2 className="text-xl font-mono text-[var(--accent)] mb-2">
+              <h2 className="text-xl font-theme-data text-[var(--accent)] mb-2">
                 Connect Your Bank
               </h2>
               <p className="text-sm text-[var(--muted)] mb-6">
@@ -230,7 +230,7 @@ function PlaidLinkContent() {
 
               <button
                 onClick={openPlaidLink}
-                className="w-full px-6 py-3 bg-[var(--accent)] text-[var(--background)] font-mono rounded hover:opacity-90 transition-opacity"
+                className="w-full px-6 py-3 bg-[var(--accent)] text-[var(--background)] font-theme-data rounded hover:opacity-90 transition-opacity"
               >
                 Connect Bank Account
               </button>
@@ -248,7 +248,7 @@ function PlaidLinkContent() {
           {status === 'linking' && (
             <>
               <div className="w-16 h-16 mx-auto mb-6 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-              <h2 className="text-lg font-mono mb-2">Connecting...</h2>
+              <h2 className="text-lg font-theme-data mb-2">Connecting...</h2>
               <p className="text-sm text-[var(--muted)]">
                 Follow the instructions in the Plaid window
               </p>
@@ -259,7 +259,7 @@ function PlaidLinkContent() {
           {status === 'exchanging' && (
             <>
               <div className="w-16 h-16 mx-auto mb-6 border-4 border-green-400 border-t-transparent rounded-full animate-spin" />
-              <h2 className="text-lg font-mono mb-2">Almost Done...</h2>
+              <h2 className="text-lg font-theme-data mb-2">Almost Done...</h2>
               <p className="text-sm text-[var(--muted)]">
                 Securely linking your accounts
               </p>
@@ -272,7 +272,7 @@ function PlaidLinkContent() {
               <div className="w-16 h-16 mx-auto mb-6 bg-green-500/20 rounded-full flex items-center justify-center">
                 <span className="text-3xl text-green-400">&#10003;</span>
               </div>
-              <h2 className="text-xl font-mono text-green-400 mb-2">
+              <h2 className="text-xl font-theme-data text-green-400 mb-2">
                 Bank Connected!
               </h2>
               <p className="text-sm text-[var(--muted)] mb-4">
@@ -306,7 +306,7 @@ function PlaidLinkContent() {
               <div className="w-16 h-16 mx-auto mb-6 bg-red-500/20 rounded-full flex items-center justify-center">
                 <span className="text-3xl text-red-400">&#10007;</span>
               </div>
-              <h2 className="text-xl font-mono text-red-400 mb-2">
+              <h2 className="text-xl font-theme-data text-red-400 mb-2">
                 Connection Failed
               </h2>
               <p className="text-sm text-[var(--muted)] mb-6">
@@ -318,7 +318,7 @@ function PlaidLinkContent() {
                   setStatus('ready');
                   setError(null);
                 }}
-                className="w-full px-6 py-3 bg-[var(--surface)] border border-[var(--border)] font-mono rounded hover:border-[var(--accent)] transition-colors mb-3"
+                className="w-full px-6 py-3 bg-[var(--surface)] border border-[var(--border)] font-theme-data rounded hover:border-[var(--accent)] transition-colors mb-3"
               >
                 Try Again
               </button>

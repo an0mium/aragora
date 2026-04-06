@@ -96,34 +96,34 @@ export function LearningDashboard({ apiBase = DEFAULT_API_BASE }: LearningDashbo
   return (
     <div className="card p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-acid-green font-mono text-sm font-bold">
+        <h3 className="text-[var(--accent)] font-theme-data text-sm font-bold">
           [CROSS-CYCLE LEARNING]
         </h3>
         <button
           onClick={fetchData}
           disabled={loading}
-          className="text-xs font-mono text-acid-cyan hover:text-acid-green disabled:opacity-50"
+          className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] disabled:opacity-50"
         >
           {loading ? 'LOADING...' : 'REFRESH'}
         </button>
       </div>
 
       {error && (
-        <div className="text-warning text-xs font-mono p-2 bg-warning/10 rounded">
+        <div className="text-warning text-xs font-theme-data p-2 bg-warning/10 rounded">
           {error}
         </div>
       )}
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 border-b border-acid-green/30 pb-2">
+      <div className="flex gap-1 border-b border-[var(--accent)]/30 pb-2">
         {(['cycles', 'patterns', 'evolution'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-3 py-1 text-xs font-mono transition-colors ${
+            className={`px-3 py-1 text-xs font-theme-data transition-colors ${
               activeTab === tab
-                ? 'bg-acid-green text-bg'
-                : 'text-text-muted hover:text-acid-green'
+                ? 'bg-[var(--accent)] text-bg'
+                : 'text-text-muted hover:text-[var(--accent)]'
             }`}
           >
             {tab.toUpperCase()}
@@ -135,18 +135,18 @@ export function LearningDashboard({ apiBase = DEFAULT_API_BASE }: LearningDashbo
       {activeTab === 'cycles' && (
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {cycles.length === 0 ? (
-            <p className="text-text-muted text-xs font-mono">No cycles found</p>
+            <p className="text-text-muted text-xs font-theme-data">No cycles found</p>
           ) : (
             cycles.map((cycle) => (
               <div
                 key={cycle.cycle}
-                className="p-2 bg-surface rounded border border-acid-green/20"
+                className="p-2 bg-surface rounded border border-[var(--accent)]/20"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-acid-cyan font-mono text-xs">
+                  <span className="text-[var(--acid-cyan)] font-theme-data text-xs">
                     Cycle {cycle.cycle}
                   </span>
-                  <span className={`text-xs font-mono ${
+                  <span className={`text-xs font-theme-data ${
                     cycle.success ? 'text-green-400' : 'text-yellow-400'
                   }`}>
                     {cycle.success ? '✓ SUCCESS' : cycle.status.toUpperCase()}
@@ -159,7 +159,7 @@ export function LearningDashboard({ apiBase = DEFAULT_API_BASE }: LearningDashbo
                   {cycle.agents.map((agent) => (
                     <span
                       key={agent}
-                      className="text-[10px] px-1 bg-acid-green/10 text-acid-green rounded"
+                      className="text-[10px] px-1 bg-[var(--accent)]/10 text-[var(--accent)] rounded"
                     >
                       {agent}
                     </span>
@@ -176,7 +176,7 @@ export function LearningDashboard({ apiBase = DEFAULT_API_BASE }: LearningDashbo
         <div className="space-y-4">
           {/* Recurring Themes */}
           <div>
-            <h4 className="text-acid-cyan text-xs font-mono mb-2">RECURRING THEMES</h4>
+            <h4 className="text-[var(--acid-cyan)] text-xs font-theme-data mb-2">RECURRING THEMES</h4>
             <div className="flex flex-wrap gap-2">
               {patterns.recurring_themes.length === 0 ? (
                 <span className="text-text-muted text-xs">No themes detected</span>
@@ -184,7 +184,7 @@ export function LearningDashboard({ apiBase = DEFAULT_API_BASE }: LearningDashbo
                 patterns.recurring_themes.map((theme) => (
                   <span
                     key={theme.theme}
-                    className="text-xs px-2 py-1 bg-acid-cyan/10 text-acid-cyan rounded"
+                    className="text-xs px-2 py-1 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] rounded"
                   >
                     {theme.theme} ({theme.count})
                   </span>
@@ -195,7 +195,7 @@ export function LearningDashboard({ apiBase = DEFAULT_API_BASE }: LearningDashbo
 
           {/* Agent Specializations */}
           <div>
-            <h4 className="text-acid-cyan text-xs font-mono mb-2">AGENT WINS</h4>
+            <h4 className="text-[var(--acid-cyan)] text-xs font-theme-data mb-2">AGENT WINS</h4>
             <div className="space-y-1">
               {Object.entries(patterns.agent_specializations).length === 0 ? (
                 <span className="text-text-muted text-xs">No wins recorded</span>
@@ -204,10 +204,10 @@ export function LearningDashboard({ apiBase = DEFAULT_API_BASE }: LearningDashbo
                   .sort((a, b) => b[1] - a[1])
                   .map(([agent, wins]) => (
                     <div key={agent} className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-acid-green w-16">{agent}</span>
+                      <span className="text-xs font-theme-data text-[var(--accent)] w-16">{agent}</span>
                       <div className="flex-1 h-2 bg-surface rounded overflow-hidden">
                         <div
-                          className="h-full bg-acid-green"
+                          className="h-full bg-[var(--accent)]"
                           style={{ width: `${Math.min(wins * 10, 100)}%` }}
                         />
                       </div>
@@ -221,7 +221,7 @@ export function LearningDashboard({ apiBase = DEFAULT_API_BASE }: LearningDashbo
           {/* Recent Failures */}
           {patterns.failed_patterns.length > 0 && (
             <div>
-              <h4 className="text-warning text-xs font-mono mb-2">RECENT FAILURES</h4>
+              <h4 className="text-warning text-xs font-theme-data mb-2">RECENT FAILURES</h4>
               <div className="space-y-1">
                 {patterns.failed_patterns.slice(0, 3).map((fail, i) => (
                   <div key={i} className="text-xs text-text-muted p-1 bg-warning/5 rounded">
@@ -238,13 +238,13 @@ export function LearningDashboard({ apiBase = DEFAULT_API_BASE }: LearningDashbo
       {activeTab === 'evolution' && (
         <div className="space-y-3">
           {Object.keys(evolution).length === 0 ? (
-            <p className="text-text-muted text-xs font-mono">No evolution data</p>
+            <p className="text-text-muted text-xs font-theme-data">No evolution data</p>
           ) : (
             Object.entries(evolution).map(([agent, data]) => (
               <div key={agent} className="p-2 bg-surface rounded">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-acid-green font-mono text-sm">{agent}</span>
-                  <span className={`text-sm font-mono ${getTrendColor(data.trend)}`}>
+                  <span className="text-[var(--accent)] font-theme-data text-sm">{agent}</span>
+                  <span className={`text-sm font-theme-data ${getTrendColor(data.trend)}`}>
                     {getTrendIcon(data.trend)} {data.trend.toUpperCase()}
                   </span>
                 </div>

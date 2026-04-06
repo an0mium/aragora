@@ -330,7 +330,7 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
   if (!mounted) {
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center">
-        <div className="text-acid-green font-mono animate-pulse">Loading...</div>
+        <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading...</div>
       </div>
     );
   }
@@ -349,7 +349,7 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
           <div className="flex items-center gap-4">
             <Link
               href="/verticals"
-              className="text-xs font-mono text-text-muted hover:text-acid-green transition-colors"
+              className="text-xs font-theme-data text-text-muted hover:text-[var(--accent)] transition-colors"
             >
               [ALL VERTICALS]
             </Link>
@@ -365,7 +365,7 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
             <div className="flex items-center gap-4 mb-6">
               <span className="text-5xl">{vertical.icon}</span>
               <div>
-                <h1 className={`text-4xl font-mono font-bold ${colors.primary}`}>
+                <h1 className={`text-4xl font-theme-data font-bold ${colors.primary}`}>
                   {vertical.name}
                 </h1>
                 <p className="text-xl text-text-muted mt-1">{vertical.tagline}</p>
@@ -380,7 +380,7 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
             <div className="grid grid-cols-3 gap-6 max-w-2xl">
               {vertical.stats.map((stat, i) => (
                 <div key={i} className="text-center">
-                  <div className={`text-3xl font-mono font-bold ${colors.primary}`}>
+                  <div className={`text-3xl font-theme-data font-bold ${colors.primary}`}>
                     {stat.value}
                   </div>
                   <div className="text-sm text-text-muted">{stat.label}</div>
@@ -392,13 +392,13 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
             <div className="mt-10 flex gap-4">
               <Link
                 href={`/arena?vertical=${slug}`}
-                className={`px-6 py-3 ${colors.bg} border ${colors.border} ${colors.primary} font-mono font-bold rounded hover:opacity-80 transition-opacity`}
+                className={`px-6 py-3 ${colors.bg} border ${colors.border} ${colors.primary} font-theme-data font-bold rounded hover:opacity-80 transition-opacity`}
               >
                 Start {vertical.name} Debate
               </Link>
               <Link
                 href="/workflows"
-                className="px-6 py-3 bg-surface border border-border text-text font-mono rounded hover:border-text-muted transition-colors"
+                className="px-6 py-3 bg-surface border border-border text-text font-theme-data rounded hover:border-text-muted transition-colors"
               >
                 View Templates
               </Link>
@@ -409,7 +409,7 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
         {/* Use Cases */}
         <section className="py-16 px-4 border-b border-border">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl font-mono font-bold text-text mb-8">Use Cases</h2>
+            <h2 className="text-2xl font-theme-data font-bold text-text mb-8">Use Cases</h2>
             <div className="grid md:grid-cols-2 gap-6">
               {vertical.useCases.map((useCase, i) => (
                 <div
@@ -419,7 +419,7 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
                   <div className="flex items-start gap-4">
                     <span className="text-3xl">{useCase.icon}</span>
                     <div className="flex-1">
-                      <h3 className={`text-lg font-mono font-bold ${colors.primary}`}>
+                      <h3 className={`text-lg font-theme-data font-bold ${colors.primary}`}>
                         {useCase.title}
                       </h3>
                       <p className="text-text-muted text-sm mt-1 mb-4">
@@ -429,7 +429,7 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
                         {useCase.details.map((detail, j) => (
                           <span
                             key={j}
-                            className={`px-2 py-1 text-xs font-mono ${colors.bg} ${colors.primary} rounded`}
+                            className={`px-2 py-1 text-xs font-theme-data ${colors.bg} ${colors.primary} rounded`}
                           >
                             {detail}
                           </span>
@@ -446,12 +446,12 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
         {/* Specialist Agents */}
         <section className="py-16 px-4 border-b border-border bg-surface/30">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl font-mono font-bold text-text mb-8">Specialist Agents</h2>
+            <h2 className="text-2xl font-theme-data font-bold text-text mb-8">Specialist Agents</h2>
             <div className="grid md:grid-cols-4 gap-4">
               {vertical.agents.map((agent, i) => (
                 <div key={i} className="p-4 bg-bg border border-border rounded-lg text-center">
                   <span className="text-4xl block mb-3">{agent.icon}</span>
-                  <h3 className="font-mono font-bold text-text">{agent.name}</h3>
+                  <h3 className="font-theme-data font-bold text-text">{agent.name}</h3>
                   <p className="text-xs text-text-muted mt-1">{agent.specialty}</p>
                 </div>
               ))}
@@ -462,12 +462,12 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
         {/* Compliance */}
         <section className="py-16 px-4 border-b border-border">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl font-mono font-bold text-text mb-8">Compliance Frameworks</h2>
+            <h2 className="text-2xl font-theme-data font-bold text-text mb-8">Compliance Frameworks</h2>
             <div className="flex flex-wrap gap-3">
               {vertical.compliance.map((framework, i) => (
                 <span
                   key={i}
-                  className={`px-4 py-2 ${colors.bg} border ${colors.border} ${colors.primary} font-mono rounded-lg`}
+                  className={`px-4 py-2 ${colors.bg} border ${colors.border} ${colors.primary} font-theme-data rounded-lg`}
                 >
                   {framework}
                 </span>
@@ -487,7 +487,7 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
                 <span className="text-xl">{vertical.icon}</span>
               </div>
               <div className="text-left">
-                <div className={`font-mono font-bold ${colors.primary}`}>
+                <div className={`font-theme-data font-bold ${colors.primary}`}>
                   {vertical.testimonial.author}
                 </div>
                 <div className="text-sm text-text-muted">
@@ -501,7 +501,7 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
         {/* CTA Section */}
         <section className="py-20 px-4">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className={`text-3xl font-mono font-bold ${colors.primary} mb-4`}>
+            <h2 className={`text-3xl font-theme-data font-bold ${colors.primary} mb-4`}>
               Ready to Transform Your {vertical.name} Workflow?
             </h2>
             <p className="text-text-muted mb-8 max-w-2xl mx-auto">
@@ -511,13 +511,13 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
             <div className="flex justify-center gap-4">
               <Link
                 href={`/arena?vertical=${slug}`}
-                className="px-8 py-4 bg-acid-green text-bg font-mono font-bold rounded hover:bg-acid-green/80 transition-colors"
+                className="px-8 py-4 bg-[var(--accent)] text-bg font-theme-data font-bold rounded hover:bg-[var(--accent)]/80 transition-colors"
               >
                 Start Free Debate
               </Link>
               <Link
                 href="/pricing"
-                className="px-8 py-4 bg-surface border border-border text-text font-mono rounded hover:border-acid-green/50 transition-colors"
+                className="px-8 py-4 bg-surface border border-border text-text font-theme-data rounded hover:border-[var(--accent)]/50 transition-colors"
               >
                 View Pricing
               </Link>
@@ -528,18 +528,18 @@ export default function VerticalContent({ slug }: VerticalContentProps) {
 
       {/* Footer */}
       <footer className="border-t border-border py-8 px-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between text-sm font-mono text-text-muted">
-          <Link href="/" className="hover:text-acid-green transition-colors">
+        <div className="max-w-6xl mx-auto flex items-center justify-between text-sm font-theme-data text-text-muted">
+          <Link href="/" className="hover:text-[var(--accent)] transition-colors">
             ARAGORA
           </Link>
           <div className="flex gap-6">
-            <Link href="/verticals" className="hover:text-acid-green transition-colors">
+            <Link href="/verticals" className="hover:text-[var(--accent)] transition-colors">
               All Verticals
             </Link>
-            <Link href="/workflows" className="hover:text-acid-green transition-colors">
+            <Link href="/workflows" className="hover:text-[var(--accent)] transition-colors">
               Templates
             </Link>
-            <Link href="/docs" className="hover:text-acid-green transition-colors">
+            <Link href="/docs" className="hover:text-[var(--accent)] transition-colors">
               Documentation
             </Link>
           </div>

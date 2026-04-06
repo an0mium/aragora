@@ -66,9 +66,9 @@ function PeriodSelector({
         <button
           key={p}
           onClick={() => onChange(p)}
-          className={`px-3 py-2 text-xs font-mono transition-colors ${
+          className={`px-3 py-2 text-xs font-theme-data transition-colors ${
             value === p
-              ? 'bg-acid-cyan/20 text-acid-cyan border border-acid-cyan/40'
+              ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/40'
               : 'text-text-muted hover:text-text'
           }`}
         >
@@ -93,25 +93,25 @@ function BudgetGauge({
 }) {
   const barColor =
     utilization >= 90
-      ? 'bg-crimson'
+      ? 'bg-[var(--crimson)]'
       : utilization >= 70
         ? 'bg-acid-yellow'
-        : 'bg-acid-green';
+        : 'bg-[var(--accent)]';
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-green mb-4">
+      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">
         {'>'} BUDGET UTILIZATION
       </h3>
 
       {/* Gauge bar */}
       <div className="mb-4">
-        <div className="flex justify-between text-xs font-mono text-text-muted mb-1">
+        <div className="flex justify-between text-xs font-theme-data text-text-muted mb-1">
           <span>0%</span>
           <span>{utilization.toFixed(1)}%</span>
           <span>100%</span>
         </div>
-        <div className="w-full h-4 bg-surface rounded overflow-hidden border border-acid-green/20">
+        <div className="w-full h-4 bg-surface rounded overflow-hidden border border-[var(--accent)]/20">
           <div
             className={`h-full ${barColor} transition-all duration-500`}
             style={{ width: `${Math.min(utilization, 100)}%` }}
@@ -122,24 +122,24 @@ function BudgetGauge({
       {/* Stats grid */}
       <div className="grid grid-cols-3 gap-4">
         <div className="text-center">
-          <div className="text-text-muted text-[10px] font-mono">BUDGET</div>
-          <div className="text-acid-green font-mono text-sm">
+          <div className="text-text-muted text-[10px] font-theme-data">BUDGET</div>
+          <div className="text-[var(--accent)] font-theme-data text-sm">
             {formatUsd(total)}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-text-muted text-[10px] font-mono">
+          <div className="text-text-muted text-[10px] font-theme-data">
             REMAINING
           </div>
-          <div className="text-acid-cyan font-mono text-sm">
+          <div className="text-[var(--acid-cyan)] font-theme-data text-sm">
             {formatUsd(remaining)}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-text-muted text-[10px] font-mono">
+          <div className="text-text-muted text-[10px] font-theme-data">
             DAYS LEFT
           </div>
-          <div className="text-purple-400 font-mono text-sm">
+          <div className="text-purple-400 font-theme-data text-sm">
             {forecastDays !== null ? `~${forecastDays}d` : '--'}
           </div>
         </div>
@@ -157,10 +157,10 @@ function DecisionCostTable({
   if (decisions.length === 0) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-3">
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
           {'>'} COST PER DECISION
         </h3>
-        <p className="text-text-muted font-mono text-sm text-center py-4">
+        <p className="text-text-muted font-theme-data text-sm text-center py-4">
           No decision costs recorded yet.
         </p>
       </div>
@@ -169,17 +169,17 @@ function DecisionCostTable({
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-green mb-3">
+      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-3">
         {'>'} COST PER DECISION
       </h3>
       <div className="overflow-x-auto">
-        <table className="w-full font-mono text-sm">
+        <table className="w-full font-theme-data text-sm">
           <thead>
-            <tr className="border-b border-acid-green/30">
-              <th className="py-2 px-3 text-acid-green text-left">
+            <tr className="border-b border-[var(--accent)]/30">
+              <th className="py-2 px-3 text-[var(--accent)] text-left">
                 Debate ID
               </th>
-              <th className="py-2 px-3 text-acid-green text-right">
+              <th className="py-2 px-3 text-[var(--accent)] text-right">
                 Cost (USD)
               </th>
             </tr>
@@ -188,11 +188,11 @@ function DecisionCostTable({
             {decisions.map((d, i) => (
               <tr
                 key={d.debate_id}
-                className={`border-b border-acid-green/10 ${
-                  i % 2 === 0 ? 'bg-acid-green/5' : ''
+                className={`border-b border-[var(--accent)]/10 ${
+                  i % 2 === 0 ? 'bg-[var(--accent)]/5' : ''
                 }`}
               >
-                <td className="py-2 px-3 text-acid-cyan truncate max-w-[200px]">
+                <td className="py-2 px-3 text-[var(--acid-cyan)] truncate max-w-[200px]">
                   {d.debate_id}
                 </td>
                 <td className="py-2 px-3 text-right text-text">
@@ -281,10 +281,10 @@ export default function SpendDashboardPage() {
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-2xl font-mono text-acid-green mb-1">
+              <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-1">
                 {'>'} SPEND DASHBOARD
               </h1>
-              <p className="text-text-muted font-mono text-sm">
+              <p className="text-text-muted font-theme-data text-sm">
                 Budget tracking, agent costs, and decision spend visibility.
               </p>
             </div>
@@ -293,7 +293,7 @@ export default function SpendDashboardPage() {
 
           {/* Error banner */}
           {summaryError && (
-            <div className="mb-6 bg-crimson/10 border border-crimson/30 rounded p-4 text-crimson text-sm font-mono">
+            <div className="mb-6 bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded p-4 text-[var(--crimson)] text-sm font-theme-data">
               Failed to load spend dashboard. The server may be unavailable.
             </div>
           )}
@@ -301,7 +301,7 @@ export default function SpendDashboardPage() {
           {/* ---- Overview Cards ---- */}
           <PanelErrorBoundary panelName="Spend Summary">
             <section className="mb-6">
-              <h2 className="text-lg font-mono text-acid-green mb-4">
+              <h2 className="text-lg font-theme-data text-[var(--accent)] mb-4">
                 {'>'} SUMMARY
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -396,8 +396,8 @@ export default function SpendDashboardPage() {
           </PanelErrorBoundary>
 
           {/* Footer */}
-          <footer className="text-center text-xs font-mono py-8 border-t border-acid-green/20 mt-8">
-            <div className="text-acid-green/50 mb-2">{'='.repeat(40)}</div>
+          <footer className="text-center text-xs font-theme-data py-8 border-t border-[var(--accent)]/20 mt-8">
+            <div className="text-[var(--accent)]/50 mb-2">{'='.repeat(40)}</div>
             <p className="text-text-muted">
               {'>'} ARAGORA // SPEND DASHBOARD
             </p>

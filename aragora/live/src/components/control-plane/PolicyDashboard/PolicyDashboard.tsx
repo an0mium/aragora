@@ -140,8 +140,8 @@ export function PolicyDashboard({
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-bg">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-mono font-bold text-acid-green">POLICY & COMPLIANCE</h2>
-          <span className="text-xs text-text-muted font-mono">[{stats.totalFrameworks} FRAMEWORKS]</span>
+          <h2 className="text-sm font-theme-data font-bold text-[var(--accent)]">POLICY & COMPLIANCE</h2>
+          <span className="text-xs text-text-muted font-theme-data">[{stats.totalFrameworks} FRAMEWORKS]</span>
         </div>
       </div>
 
@@ -151,9 +151,9 @@ export function PolicyDashboard({
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-xs font-mono uppercase flex items-center gap-2 ${
+            className={`px-4 py-2 text-xs font-theme-data uppercase flex items-center gap-2 ${
               activeTab === tab.id
-                ? 'text-acid-green border-b-2 border-acid-green bg-bg'
+                ? 'text-[var(--accent)] border-b-2 border-[var(--accent)] bg-bg'
                 : 'text-text-muted hover:text-text'
             }`}
           >
@@ -174,23 +174,23 @@ export function PolicyDashboard({
       {/* Stats bar */}
       <div className="grid grid-cols-5 gap-4 p-4 border-b border-border bg-bg">
         <div className="text-center">
-          <div className="text-xl font-mono text-acid-green">{stats.totalFrameworks}</div>
+          <div className="text-xl font-theme-data text-[var(--accent)]">{stats.totalFrameworks}</div>
           <div className="text-xs text-text-muted">Frameworks</div>
         </div>
         <div className="text-center">
-          <div className="text-xl font-mono text-acid-cyan">{stats.totalRules}</div>
+          <div className="text-xl font-theme-data text-[var(--acid-cyan)]">{stats.totalRules}</div>
           <div className="text-xs text-text-muted">Rules</div>
         </div>
         <div className="text-center">
-          <div className="text-xl font-mono text-yellow-400">{stats.openViolations}</div>
+          <div className="text-xl font-theme-data text-yellow-400">{stats.openViolations}</div>
           <div className="text-xs text-text-muted">Open Issues</div>
         </div>
         <div className="text-center">
-          <div className="text-xl font-mono text-red-400">{stats.criticalViolations}</div>
+          <div className="text-xl font-theme-data text-red-400">{stats.criticalViolations}</div>
           <div className="text-xs text-text-muted">Critical</div>
         </div>
         <div className="text-center">
-          <div className={`text-xl font-mono ${
+          <div className={`text-xl font-theme-data ${
             stats.riskScore > 70 ? 'text-red-400' : stats.riskScore > 40 ? 'text-yellow-400' : 'text-green-400'
           }`}>{stats.riskScore}</div>
           <div className="text-xs text-text-muted">Risk Score</div>
@@ -200,7 +200,7 @@ export function PolicyDashboard({
       {/* Content */}
       <div className="p-4">
         {loading ? (
-          <div className="text-center py-8 text-text-muted font-mono">Loading...</div>
+          <div className="text-center py-8 text-text-muted font-theme-data">Loading...</div>
         ) : (
           <>
             {activeTab === 'overview' && (

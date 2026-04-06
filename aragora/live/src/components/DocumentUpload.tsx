@@ -340,7 +340,7 @@ export function DocumentUpload({
       case 'completed':
         return <span className="text-xs bg-success/20 text-success px-2 py-0.5 rounded">Done</span>;
       case 'failed':
-        return <span className="text-xs bg-crimson/20 text-crimson px-2 py-0.5 rounded">Failed</span>;
+        return <span className="text-xs bg-[var(--crimson)]/20 text-[var(--crimson)] px-2 py-0.5 rounded">Failed</span>;
     }
   };
 
@@ -427,7 +427,7 @@ export function DocumentUpload({
 
         {/* Error message */}
         {status === 'error' && error && (
-          <div className="bg-crimson/10 border border-crimson/30 rounded p-2 text-sm text-crimson">
+          <div className="bg-[var(--crimson)]/10 border border-[var(--crimson)]/30 rounded p-2 text-sm text-[var(--crimson)]">
             {error}
           </div>
         )}
@@ -468,7 +468,7 @@ export function DocumentUpload({
                     e.stopPropagation();
                     removeDocument(doc.id);
                   }}
-                  className="text-text-muted hover:text-crimson transition-colors p-1"
+                  className="text-text-muted hover:text-[var(--crimson)] transition-colors p-1"
                   title="Remove document"
                   aria-label={`Remove document: ${doc.filename}`}
                 >
@@ -521,7 +521,7 @@ export function DocumentUpload({
                     </div>
                   )}
                   {media.status === 'failed' && media.error && (
-                    <div className="text-xs text-crimson mt-1">
+                    <div className="text-xs text-[var(--crimson)] mt-1">
                       Error: {media.error}
                     </div>
                   )}
@@ -531,7 +531,7 @@ export function DocumentUpload({
                     e.stopPropagation();
                     removeMedia(media.id);
                   }}
-                  className="text-text-muted hover:text-crimson transition-colors p-1"
+                  className="text-text-muted hover:text-[var(--crimson)] transition-colors p-1"
                   title="Remove transcription"
                   aria-label={`Remove transcription: ${media.filename}`}
                 >

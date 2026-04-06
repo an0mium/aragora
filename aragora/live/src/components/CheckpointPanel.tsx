@@ -45,9 +45,9 @@ interface CheckpointPanelProps {
 const DEFAULT_API_BASE = API_BASE_URL;
 
 const STATUS_STYLES: Record<string, { text: string; bg: string }> = {
-  complete: { text: 'text-acid-green', bg: 'bg-acid-green/20' },
-  creating: { text: 'text-acid-cyan', bg: 'bg-acid-cyan/20' },
-  resuming: { text: 'text-acid-yellow', bg: 'bg-acid-yellow/20' },
+  complete: { text: 'text-[var(--accent)]', bg: 'bg-[var(--accent)]/20' },
+  creating: { text: 'text-[var(--acid-cyan)]', bg: 'bg-[var(--acid-cyan)]/20' },
+  resuming: { text: 'text-[var(--acid-yellow)]', bg: 'bg-acid-yellow/20' },
   corrupted: { text: 'text-acid-red', bg: 'bg-acid-red/20' },
   expired: { text: 'text-text-muted', bg: 'bg-surface' },
 };
@@ -127,14 +127,14 @@ export function CheckpointPanel({ backendConfig, debateId, onResume }: Checkpoin
       <div className="card p-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-mono text-acid-green text-lg">CHECKPOINT MANAGER</h3>
-            <p className="text-xs font-mono text-text-muted mt-1">
+            <h3 className="font-theme-data text-[var(--accent)] text-lg">CHECKPOINT MANAGER</h3>
+            <p className="text-xs font-theme-data text-text-muted mt-1">
               Resume paused debates or restore from previous states
             </p>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-mono text-acid-cyan">{checkpoints.length}</div>
-            <div className="text-xs font-mono text-text-muted">checkpoints</div>
+            <div className="text-2xl font-theme-data text-[var(--acid-cyan)]">{checkpoints.length}</div>
+            <div className="text-xs font-theme-data text-text-muted">checkpoints</div>
           </div>
         </div>
 
@@ -146,7 +146,7 @@ export function CheckpointPanel({ backendConfig, debateId, onResume }: Checkpoin
             value={selectedDebate || ''}
             onChange={(e) => setSelectedDebate(e.target.value || null)}
             aria-label="Filter by debate"
-            className="flex-1 bg-surface border border-acid-green/30 rounded px-3 py-2 font-mono text-sm focus:outline-none focus:border-acid-green"
+            className="flex-1 bg-surface border border-[var(--accent)]/30 rounded px-3 py-2 font-theme-data text-sm focus:outline-none focus:border-[var(--accent)]"
           >
             <option value="">All Debates</option>
             {debates.map(d => (
@@ -160,7 +160,7 @@ export function CheckpointPanel({ backendConfig, debateId, onResume }: Checkpoin
 
       {loading ? (
         <div className="text-center py-12">
-          <div className="text-acid-green font-mono animate-pulse">Loading checkpoints...</div>
+          <div className="text-[var(--accent)] font-theme-data animate-pulse">Loading checkpoints...</div>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -168,8 +168,8 @@ export function CheckpointPanel({ backendConfig, debateId, onResume }: Checkpoin
           <div className="space-y-3">
             {filteredCheckpoints.length === 0 ? (
               <div className="card p-8 text-center">
-                <p className="text-text-muted font-mono">No checkpoints found.</p>
-                <p className="text-xs font-mono text-text-muted mt-2">
+                <p className="text-text-muted font-theme-data">No checkpoints found.</p>
+                <p className="text-xs font-theme-data text-text-muted mt-2">
                   Checkpoints are created automatically during long debates.
                 </p>
               </div>
@@ -180,33 +180,33 @@ export function CheckpointPanel({ backendConfig, debateId, onResume }: Checkpoin
                   <button
                     key={checkpoint.checkpoint_id}
                     onClick={() => setSelectedCheckpoint(checkpoint)}
-                    className={`w-full text-left card p-4 transition-all hover:border-acid-green/60 ${
+                    className={`w-full text-left card p-4 transition-all hover:border-[var(--accent)]/60 ${
                       selectedCheckpoint?.checkpoint_id === checkpoint.checkpoint_id
-                        ? 'border-acid-green bg-acid-green/5'
+                        ? 'border-[var(--accent)] bg-[var(--accent)]/5'
                         : ''
                     }`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <div className="font-mono text-acid-green text-sm line-clamp-1">
+                        <div className="font-theme-data text-[var(--accent)] text-sm line-clamp-1">
                           {checkpoint.task}
                         </div>
-                        <div className="text-xs font-mono text-text-muted mt-1">
+                        <div className="text-xs font-theme-data text-text-muted mt-1">
                           {checkpoint.checkpoint_id}
                         </div>
                       </div>
-                      <span className={`px-2 py-0.5 rounded text-xs font-mono ${style.bg} ${style.text}`}>
+                      <span className={`px-2 py-0.5 rounded text-xs font-theme-data ${style.bg} ${style.text}`}>
                         {checkpoint.status}
                       </span>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                    <div className="grid grid-cols-3 gap-2 text-xs font-theme-data">
                       <div>
                         <span className="text-text-muted">Round:</span>
-                        <span className="text-acid-cyan ml-1">{checkpoint.current_round}/{checkpoint.total_rounds}</span>
+                        <span className="text-[var(--acid-cyan)] ml-1">{checkpoint.current_round}/{checkpoint.total_rounds}</span>
                       </div>
                       <div>
                         <span className="text-text-muted">Phase:</span>
-                        <span className="text-acid-yellow ml-1">{checkpoint.phase}</span>
+                        <span className="text-[var(--acid-yellow)] ml-1">{checkpoint.phase}</span>
                       </div>
                       <div>
                         <span className="text-text-muted">Msgs:</span>
@@ -221,35 +221,35 @@ export function CheckpointPanel({ backendConfig, debateId, onResume }: Checkpoin
 
           {/* Checkpoint Details */}
           <div className="card p-4">
-            <div className="text-xs font-mono text-acid-cyan mb-4">CHECKPOINT DETAILS</div>
+            <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-4">CHECKPOINT DETAILS</div>
             {selectedCheckpoint ? (
               <div className="space-y-4">
                 <div>
                   <div className="text-xs text-text-muted mb-1">CHECKPOINT ID</div>
-                  <div className="font-mono text-sm text-acid-green">{selectedCheckpoint.checkpoint_id}</div>
+                  <div className="font-theme-data text-sm text-[var(--accent)]">{selectedCheckpoint.checkpoint_id}</div>
                 </div>
 
                 <div>
                   <div className="text-xs text-text-muted mb-1">DEBATE</div>
-                  <div className="font-mono text-sm text-text line-clamp-2">{selectedCheckpoint.task}</div>
+                  <div className="font-theme-data text-sm text-text line-clamp-2">{selectedCheckpoint.task}</div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <div className="text-xs text-text-muted mb-1">PROGRESS</div>
-                    <div className="font-mono text-lg text-acid-cyan">
+                    <div className="font-theme-data text-lg text-[var(--acid-cyan)]">
                       Round {selectedCheckpoint.current_round} / {selectedCheckpoint.total_rounds}
                     </div>
                     <div className="w-full bg-surface rounded-full h-2 mt-2">
                       <div
-                        className="bg-acid-green h-2 rounded-full"
+                        className="bg-[var(--accent)] h-2 rounded-full"
                         style={{ width: `${(selectedCheckpoint.current_round / selectedCheckpoint.total_rounds) * 100}%` }}
                       />
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-text-muted mb-1">CONSENSUS</div>
-                    <div className="font-mono text-lg text-acid-yellow">
+                    <div className="font-theme-data text-lg text-[var(--acid-yellow)]">
                       {(selectedCheckpoint.consensus_confidence * 100).toFixed(0)}%
                     </div>
                   </div>
@@ -257,45 +257,45 @@ export function CheckpointPanel({ backendConfig, debateId, onResume }: Checkpoin
 
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="p-2 bg-surface rounded">
-                    <div className="text-lg font-mono text-acid-green">{selectedCheckpoint.message_count}</div>
-                    <div className="text-xs font-mono text-text-muted">messages</div>
+                    <div className="text-lg font-theme-data text-[var(--accent)]">{selectedCheckpoint.message_count}</div>
+                    <div className="text-xs font-theme-data text-text-muted">messages</div>
                   </div>
                   <div className="p-2 bg-surface rounded">
-                    <div className="text-lg font-mono text-acid-cyan">{selectedCheckpoint.agent_count}</div>
-                    <div className="text-xs font-mono text-text-muted">agents</div>
+                    <div className="text-lg font-theme-data text-[var(--acid-cyan)]">{selectedCheckpoint.agent_count}</div>
+                    <div className="text-xs font-theme-data text-text-muted">agents</div>
                   </div>
                   <div className="p-2 bg-surface rounded">
-                    <div className="text-lg font-mono text-text">{selectedCheckpoint.phase}</div>
-                    <div className="text-xs font-mono text-text-muted">phase</div>
+                    <div className="text-lg font-theme-data text-text">{selectedCheckpoint.phase}</div>
+                    <div className="text-xs font-theme-data text-text-muted">phase</div>
                   </div>
                 </div>
 
                 <div>
                   <div className="text-xs text-text-muted mb-1">CREATED</div>
-                  <div className="font-mono text-sm text-text-muted">
+                  <div className="font-theme-data text-sm text-text-muted">
                     {new Date(selectedCheckpoint.created_at).toLocaleString()}
                   </div>
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3 pt-4 border-t border-acid-green/20">
+                <div className="flex gap-3 pt-4 border-t border-[var(--accent)]/20">
                   <button
                     onClick={() => handleResume(selectedCheckpoint)}
                     disabled={selectedCheckpoint.status === 'corrupted' || selectedCheckpoint.status === 'expired'}
-                    className="flex-1 px-4 py-2 bg-acid-green/20 border border-acid-green/40 text-acid-green font-mono text-sm rounded hover:bg-acid-green/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 bg-[var(--accent)]/20 border border-[var(--accent)]/40 text-[var(--accent)] font-theme-data text-sm rounded hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     [RESUME DEBATE]
                   </button>
                   <button
                     onClick={() => window.open(`/debates/${selectedCheckpoint.debate_id}`, '_blank')}
-                    className="px-4 py-2 bg-surface border border-acid-green/30 text-text font-mono text-sm rounded hover:border-acid-green/50 transition-colors"
+                    className="px-4 py-2 bg-surface border border-[var(--accent)]/30 text-text font-theme-data text-sm rounded hover:border-[var(--accent)]/50 transition-colors"
                   >
                     [VIEW]
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="text-center text-text-muted font-mono text-sm py-8">
+              <div className="text-center text-text-muted font-theme-data text-sm py-8">
                 Select a checkpoint to view details
               </div>
             )}
@@ -305,18 +305,18 @@ export function CheckpointPanel({ backendConfig, debateId, onResume }: Checkpoin
 
       {/* Storage Info */}
       <div className="card p-4">
-        <div className="text-xs font-mono text-acid-cyan mb-2">CHECKPOINT STORAGE</div>
-        <div className="grid grid-cols-4 gap-4 text-center text-xs font-mono">
+        <div className="text-xs font-theme-data text-[var(--acid-cyan)] mb-2">CHECKPOINT STORAGE</div>
+        <div className="grid grid-cols-4 gap-4 text-center text-xs font-theme-data">
           <div className="p-2 bg-surface rounded">
-            <div className="text-acid-green">FILE</div>
+            <div className="text-[var(--accent)]">FILE</div>
             <div className="text-text-muted mt-1">Local disk</div>
           </div>
           <div className="p-2 bg-surface rounded">
-            <div className="text-acid-cyan">S3</div>
+            <div className="text-[var(--acid-cyan)]">S3</div>
             <div className="text-text-muted mt-1">AWS bucket</div>
           </div>
           <div className="p-2 bg-surface rounded">
-            <div className="text-acid-yellow">GIT</div>
+            <div className="text-[var(--acid-yellow)]">GIT</div>
             <div className="text-text-muted mt-1">Version control</div>
           </div>
           <div className="p-2 bg-surface rounded">

@@ -37,7 +37,7 @@ export function RightSidebar() {
               className="p-1 hover:bg-[var(--surface-elevated)] rounded transition-colors text-[var(--text-muted)]"
               title="Close panel"
             >
-              <span className="font-mono">×</span>
+              <span className="font-theme-data">×</span>
             </button>
           </div>
         </div>

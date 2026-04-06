@@ -18,9 +18,9 @@ interface FactsBrowserProps {
 }
 
 function confidenceColor(c: number): string {
-  if (c > 0.8) return 'text-acid-green border-acid-green/30 bg-acid-green/10';
-  if (c > 0.5) return 'text-acid-yellow border-acid-yellow/30 bg-acid-yellow/10';
-  return 'text-crimson border-crimson/30 bg-crimson/10';
+  if (c > 0.8) return 'text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10';
+  if (c > 0.5) return 'text-[var(--acid-yellow)] border-acid-yellow/30 bg-acid-yellow/10';
+  return 'text-[var(--crimson)] border-[var(--crimson)]/30 bg-[var(--crimson)]/10';
 }
 
 export function FactsBrowser({
@@ -33,7 +33,7 @@ export function FactsBrowser({
   if (loading) {
     return (
       <div className="card p-4">
-        <h3 className="font-mono text-sm text-acid-green mb-4">{'>'} KNOWLEDGE FACTS</h3>
+        <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">{'>'} KNOWLEDGE FACTS</h3>
         <div className="animate-pulse space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-16 bg-surface rounded" />
@@ -45,10 +45,10 @@ export function FactsBrowser({
 
   return (
     <div className="card p-4">
-      <h3 className="font-mono text-sm text-acid-green mb-4">{'>'} KNOWLEDGE FACTS</h3>
+      <h3 className="font-theme-data text-sm text-[var(--accent)] mb-4">{'>'} KNOWLEDGE FACTS</h3>
 
       {facts.length === 0 ? (
-        <p className="text-text-muted text-sm font-mono text-center py-8">No data available</p>
+        <p className="text-text-muted text-sm font-theme-data text-center py-8">No data available</p>
       ) : (
         <>
           {/* Facts list */}
@@ -56,17 +56,17 @@ export function FactsBrowser({
             {facts.map((fact) => (
               <div
                 key={fact.id}
-                className="border border-acid-green/10 rounded p-3 hover:bg-acid-green/5 transition-colors"
+                className="border border-[var(--accent)]/10 rounded p-3 hover:bg-[var(--accent)]/5 transition-colors"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <p className="text-text font-mono text-sm flex-1 leading-relaxed">
+                  <p className="text-text font-theme-data text-sm flex-1 leading-relaxed">
                     {fact.content}
                   </p>
                   <div className="flex items-center gap-2 shrink-0">
                     {/* Verified indicator */}
                     {fact.verified && (
                       <span
-                        className="text-acid-green text-xs font-mono border border-acid-green/30 px-1.5 py-0.5 rounded"
+                        className="text-[var(--accent)] text-xs font-theme-data border border-[var(--accent)]/30 px-1.5 py-0.5 rounded"
                         title="Verified"
                       >
                         V
@@ -74,7 +74,7 @@ export function FactsBrowser({
                     )}
                     {/* Confidence badge */}
                     <span
-                      className={`text-xs font-mono px-1.5 py-0.5 rounded border ${confidenceColor(fact.confidence)}`}
+                      className={`text-xs font-theme-data px-1.5 py-0.5 rounded border ${confidenceColor(fact.confidence)}`}
                     >
                       {(fact.confidence * 100).toFixed(0)}%
                     </span>
@@ -82,11 +82,11 @@ export function FactsBrowser({
                 </div>
                 <div className="flex items-center gap-3 mt-2">
                   {fact.source && (
-                    <span className="text-text-muted text-xs font-mono">
+                    <span className="text-text-muted text-xs font-theme-data">
                       src: {fact.source}
                     </span>
                   )}
-                  <span className="text-text-muted text-xs font-mono">
+                  <span className="text-text-muted text-xs font-theme-data">
                     {new Date(fact.created_at).toLocaleDateString()}
                   </span>
                 </div>
@@ -96,21 +96,21 @@ export function FactsBrowser({
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-3 border-t border-acid-green/10">
+            <div className="flex items-center justify-center gap-2 pt-3 border-t border-[var(--accent)]/10">
               <button
                 onClick={() => onPageChange(currentPage - 1)}
                 disabled={currentPage <= 0}
-                className="px-3 py-1 text-xs font-mono border border-acid-green/20 rounded disabled:opacity-30 disabled:cursor-not-allowed hover:bg-acid-green/10 text-text-muted hover:text-acid-green transition-colors"
+                className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/20 rounded disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--accent)]/10 text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 {'<'} PREV
               </button>
-              <span className="text-text-muted text-xs font-mono px-3">
+              <span className="text-text-muted text-xs font-theme-data px-3">
                 {currentPage + 1} / {totalPages}
               </span>
               <button
                 onClick={() => onPageChange(currentPage + 1)}
                 disabled={currentPage >= totalPages - 1}
-                className="px-3 py-1 text-xs font-mono border border-acid-green/20 rounded disabled:opacity-30 disabled:cursor-not-allowed hover:bg-acid-green/10 text-text-muted hover:text-acid-green transition-colors"
+                className="px-3 py-1 text-xs font-theme-data border border-[var(--accent)]/20 rounded disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--accent)]/10 text-text-muted hover:text-[var(--accent)] transition-colors"
               >
                 NEXT {'>'}
               </button>

@@ -464,7 +464,7 @@ export function InterventionPanel({
   if (!isActive) {
     return (
       <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
-        <div className="text-center text-[var(--text-muted)] text-sm font-mono">
+        <div className="text-center text-[var(--text-muted)] text-sm font-theme-data">
           Intervention controls are only available during active debates
         </div>
       </div>
@@ -484,7 +484,7 @@ export function InterventionPanel({
           {toasts.map((t) => (
             <div
               key={t.id}
-              className={`px-3 py-2 text-xs font-mono border backdrop-blur-sm animate-in slide-in-from-right-4 transition-opacity duration-300 ${
+              className={`px-3 py-2 text-xs font-theme-data border backdrop-blur-sm animate-in slide-in-from-right-4 transition-opacity duration-300 ${
                 t.type === 'success'
                   ? 'bg-green-500/15 border-green-500/40 text-green-400'
                   : t.type === 'error'
@@ -505,23 +505,23 @@ export function InterventionPanel({
       <div className="flex items-center justify-between p-3 border-b border-[var(--border)]">
         <div className="flex items-center gap-2">
           <span className="text-lg"></span>
-          <h3 className="text-sm font-mono font-bold text-[var(--text)] uppercase">
+          <h3 className="text-sm font-theme-data font-bold text-[var(--text)] uppercase">
             Intervention Controls
           </h3>
           {history.length > 0 && (
-            <span className="text-[10px] font-mono text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 px-1.5 py-0.5">
+            <span className="text-[10px] font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 px-1.5 py-0.5">
               {history.length} actions
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-[var(--text-muted)]">
+          <span className="text-xs font-theme-data text-[var(--text-muted)]">
             Round {currentRound}/{totalRounds}
           </span>
           <button
             onClick={handlePauseToggle}
             disabled={pauseLoading}
-            className={`px-2 py-1 text-xs font-mono border transition-colors ${
+            className={`px-2 py-1 text-xs font-theme-data border transition-colors ${
               isPaused
                 ? 'bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30'
                 : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/30'
@@ -543,7 +543,7 @@ export function InterventionPanel({
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={`flex-1 px-3 py-2 text-xs font-mono transition-colors ${
+            className={`flex-1 px-3 py-2 text-xs font-theme-data transition-colors ${
               activeTab === tab.id
                 ? 'bg-[var(--acid-green)]/10 text-[var(--acid-green)] border-b-2 border-[var(--acid-green)]'
                 : 'text-[var(--text-muted)] hover:bg-[var(--bg)]'
@@ -562,19 +562,19 @@ export function InterventionPanel({
           <div className="space-y-4">
             {/* Argument Injection */}
             <div>
-              <label className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+              <label className="block text-xs font-theme-data text-[var(--text-muted)] mb-2">
                 INJECT ARGUMENT
               </label>
               <textarea
                 value={injection}
                 onChange={(e) => setInjection(e.target.value)}
                 placeholder="Add your argument to the debate..."
-                className="w-full h-24 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-mono text-sm p-2 resize-none focus:border-[var(--acid-green)] focus:outline-none"
+                className="w-full h-24 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-theme-data text-sm p-2 resize-none focus:border-[var(--acid-green)] focus:outline-none"
               />
               <button
                 onClick={handleInject}
                 disabled={!injection.trim() || injecting}
-                className="mt-2 w-full px-3 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-2 w-full px-3 py-2 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {injecting ? 'INJECTING...' : ' INJECT ARGUMENT'}
               </button>
@@ -582,7 +582,7 @@ export function InterventionPanel({
 
             {/* Follow-up Question */}
             <div>
-              <label className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+              <label className="block text-xs font-theme-data text-[var(--text-muted)] mb-2">
                 ADD FOLLOW-UP QUESTION
               </label>
               <input
@@ -590,12 +590,12 @@ export function InterventionPanel({
                 value={followUpQuestion}
                 onChange={(e) => setFollowUpQuestion(e.target.value)}
                 placeholder="Ask a follow-up question..."
-                className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-mono text-sm p-2 focus:border-[var(--acid-green)] focus:outline-none"
+                className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-theme-data text-sm p-2 focus:border-[var(--acid-green)] focus:outline-none"
               />
               <button
                 onClick={handleFollowUp}
                 disabled={!followUpQuestion.trim() || injecting}
-                className="mt-2 w-full px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-2 w-full px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                  ADD FOLLOW-UP
               </button>
@@ -607,10 +607,10 @@ export function InterventionPanel({
         {activeTab === 'nudge' && (
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+              <label className="block text-xs font-theme-data text-[var(--text-muted)] mb-2">
                 NUDGE DIRECTION
               </label>
-              <p className="text-[10px] font-mono text-[var(--text-muted)] mb-2">
+              <p className="text-[10px] font-theme-data text-[var(--text-muted)] mb-2">
                 Redirect the debate focus without adding a specific argument.
               </p>
               <input
@@ -618,33 +618,33 @@ export function InterventionPanel({
                 value={nudgeDirection}
                 onChange={(e) => setNudgeDirection(e.target.value)}
                 placeholder="e.g., Consider the economic implications..."
-                className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-mono text-sm p-2 focus:border-[var(--acid-green)] focus:outline-none"
+                className="w-full bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-theme-data text-sm p-2 focus:border-[var(--acid-green)] focus:outline-none"
               />
               <button
                 onClick={handleNudge}
                 disabled={!nudgeDirection.trim() || injecting}
-                className="mt-2 w-full px-3 py-2 text-xs font-mono bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-2 w-full px-3 py-2 text-xs font-theme-data bg-[var(--acid-green)]/10 text-[var(--acid-green)] border border-[var(--acid-green)]/30 hover:bg-[var(--acid-green)]/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {injecting ? 'NUDGING...' : 'NUDGE DIRECTION'}
               </button>
             </div>
             <div>
-              <label className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+              <label className="block text-xs font-theme-data text-[var(--text-muted)] mb-2">
                 CHALLENGE CLAIM
               </label>
-              <p className="text-[10px] font-mono text-[var(--text-muted)] mb-2">
+              <p className="text-[10px] font-theme-data text-[var(--text-muted)] mb-2">
                 Challenge a specific claim. Injected as a counter-argument.
               </p>
               <textarea
                 value={challengeClaim}
                 onChange={(e) => setChallengeClaim(e.target.value)}
                 placeholder="e.g., The claim that X is incorrect because..."
-                className="w-full h-20 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-mono text-sm p-2 resize-none focus:border-[var(--acid-yellow)] focus:outline-none"
+                className="w-full h-20 bg-[var(--bg)] border border-[var(--border)] text-[var(--text)] font-theme-data text-sm p-2 resize-none focus:border-[var(--acid-yellow)] focus:outline-none"
               />
               <button
                 onClick={handleChallenge}
                 disabled={!challengeClaim.trim() || injecting}
-                className="mt-2 w-full px-3 py-2 text-xs font-mono bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-2 w-full px-3 py-2 text-xs font-theme-data bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {injecting ? 'CHALLENGING...' : 'CHALLENGE CLAIM'}
               </button>
@@ -657,7 +657,7 @@ export function InterventionPanel({
           <div className="space-y-4">
             {/* Consensus Threshold */}
             <div>
-              <label className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+              <label className="block text-xs font-theme-data text-[var(--text-muted)] mb-2">
                 CONSENSUS THRESHOLD: {Math.round(consensusThreshold * 100)}%
               </label>
               <input
@@ -669,7 +669,7 @@ export function InterventionPanel({
                 onChange={(e) => handleThresholdChange(parseFloat(e.target.value))}
                 className="w-full accent-[var(--acid-green)]"
               />
-              <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)] mt-1">
+              <div className="flex justify-between text-[10px] font-theme-data text-[var(--text-muted)] mt-1">
                 <span>50%</span>
                 <span>75%</span>
                 <span>100%</span>
@@ -678,27 +678,27 @@ export function InterventionPanel({
 
             {/* Quick Actions */}
             <div>
-              <label className="block text-xs font-mono text-[var(--text-muted)] mb-2">
+              <label className="block text-xs font-theme-data text-[var(--text-muted)] mb-2">
                 QUICK ACTIONS
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
                 >
                    Skip Round
                 </button>
                 <button
-                  className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
                 >
                    Add Round
                 </button>
                 <button
-                  className="px-3 py-2 text-xs font-mono bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-[var(--surface)] text-[var(--text-muted)] border border-[var(--border)] hover:border-[var(--acid-green)]/30 transition-colors"
                 >
                    Force Vote
                 </button>
                 <button
-                  className="px-3 py-2 text-xs font-mono bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors"
+                  className="px-3 py-2 text-xs font-theme-data bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors"
                 >
                    End Debate
                 </button>
@@ -707,7 +707,7 @@ export function InterventionPanel({
 
             {/* Debate Status */}
             <div className="pt-3 border-t border-[var(--border)]">
-              <div className="flex items-center justify-between text-xs font-mono">
+              <div className="flex items-center justify-between text-xs font-theme-data">
                 <span className="text-[var(--text-muted)]">Status</span>
                 <span className={isPaused ? 'text-yellow-400' : 'text-green-400'}>
                   {isPaused ? ' PAUSED' : ' RUNNING'}
@@ -720,18 +720,18 @@ export function InterventionPanel({
         {/* Weights Tab */}
         {activeTab === 'weights' && (
           <div className="space-y-3">
-            <div className="text-xs font-mono text-[var(--text-muted)] mb-3">
+            <div className="text-xs font-theme-data text-[var(--text-muted)] mb-3">
               Adjust agent influence on consensus:
             </div>
 
             {/* Weight comparison: old vs new */}
             {showWeightComparison && previousWeights && (
               <div className="space-y-1.5 mb-3" data-testid="weight-comparison">
-                <div className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+                <div className="text-[10px] font-theme-data text-[var(--text-muted)] uppercase">
                   Previous
                 </div>
                 <WeightBar weights={previousWeights} totalWeight={previousTotalWeight} />
-                <div className="text-[10px] font-mono text-[var(--acid-green)] uppercase">
+                <div className="text-[10px] font-theme-data text-[var(--acid-green)] uppercase">
                   Current
                 </div>
               </div>
@@ -739,7 +739,7 @@ export function InterventionPanel({
 
             {/* Current weight distribution bar -- per-agent colored */}
             <WeightBar weights={agentWeights} totalWeight={totalWeight} />
-            <div className="flex justify-between text-[10px] font-mono text-[var(--text-muted)]">
+            <div className="flex justify-between text-[10px] font-theme-data text-[var(--text-muted)]">
               {agentWeights.map(({ agent, weight }) => {
                 const pct = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
                 const colors = getAgentColors(agent);
@@ -754,7 +754,7 @@ export function InterventionPanel({
               const colors = getAgentColors(agent);
               return (
                 <div key={agent} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-mono">
+                  <div className="flex items-center justify-between text-xs font-theme-data">
                     <span className={colors.text}>{agent}</span>
                     <span className={colors.text}>{weight.toFixed(1)}x</span>
                   </div>
@@ -770,7 +770,7 @@ export function InterventionPanel({
                 </div>
               );
             })}
-            <div className="pt-2 text-[10px] font-mono text-[var(--text-muted)]">
+            <div className="pt-2 text-[10px] font-theme-data text-[var(--text-muted)]">
               0 = muted | 1 = normal | 2 = double influence
             </div>
           </div>
@@ -782,7 +782,7 @@ export function InterventionPanel({
         <div className="border-t border-[var(--border)]">
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className="w-full px-3 py-2 flex items-center justify-between text-[10px] font-mono text-[var(--text-muted)] uppercase hover:bg-[var(--bg)] transition-colors"
+            className="w-full px-3 py-2 flex items-center justify-between text-[10px] font-theme-data text-[var(--text-muted)] uppercase hover:bg-[var(--bg)] transition-colors"
           >
             <span>History ({history.length})</span>
             <span>{showHistory ? '[-]' : '[+]'}</span>
@@ -794,7 +794,7 @@ export function InterventionPanel({
                 return (
                   <div
                     key={record.id}
-                    className={`flex items-start gap-2 text-[10px] font-mono p-1.5 border ${statusStyle.bg} ${statusStyle.border}`}
+                    className={`flex items-start gap-2 text-[10px] font-theme-data p-1.5 border ${statusStyle.bg} ${statusStyle.border}`}
                   >
                     <span className="text-[var(--acid-cyan)] shrink-0">
                       {new Date(record.timestamp).toLocaleTimeString()}
@@ -817,7 +817,7 @@ export function InterventionPanel({
       )}
 
       {/* Footer */}
-      <div className="px-3 py-2 border-t border-[var(--border)] text-[10px] font-mono text-[var(--text-muted)]">
+      <div className="px-3 py-2 border-t border-[var(--border)] text-[10px] font-theme-data text-[var(--text-muted)]">
         Interventions are logged in the audit trail
       </div>
     </div>
@@ -845,7 +845,7 @@ function WeightBar({ weights, totalWeight }: { weights: AgentWeight[]; totalWeig
           >
             {/* Hover label */}
             {pct > 15 && (
-              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-mono text-white/70 opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="absolute inset-0 flex items-center justify-center text-[9px] font-theme-data text-white/70 opacity-0 group-hover:opacity-100 transition-opacity">
                 {agent.slice(0, 4)}
               </span>
             )}

@@ -30,7 +30,7 @@ export const CycleHistoryTimeline = memo(function CycleHistoryTimeline({
 
   if (visible.length === 0) {
     return (
-      <div className="text-xs font-mono text-[var(--text-muted)] p-3">No cycle history yet</div>
+      <div className="text-xs font-theme-data text-[var(--text-muted)] p-3">No cycle history yet</div>
     );
   }
 
@@ -39,9 +39,9 @@ export const CycleHistoryTimeline = memo(function CycleHistoryTimeline({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-sm">📜</span>
-          <span className="text-xs font-mono font-bold text-[var(--text)]">Cycle History</span>
+          <span className="text-xs font-theme-data font-bold text-[var(--text)]">Cycle History</span>
         </div>
-        <div className="flex gap-2 text-xs font-mono">
+        <div className="flex gap-2 text-xs font-theme-data">
           <span className="text-emerald-400">{successCount} learned</span>
           {failCount > 0 && <span className="text-red-400">{failCount} failed</span>}
         </div>
@@ -61,10 +61,10 @@ export const CycleHistoryTimeline = memo(function CycleHistoryTimeline({
               <span className={`text-xs ${entry.success ? 'text-emerald-400' : 'text-red-400'}`}>
                 {entry.success ? '✓' : '✗'}
               </span>
-              <span className="text-xs font-mono text-[var(--text)] truncate flex-1">
+              <span className="text-xs font-theme-data text-[var(--text)] truncate flex-1">
                 {entry.objective}
               </span>
-              <span className="text-[10px] font-mono text-[var(--text-muted)]">
+              <span className="text-[10px] font-theme-data text-[var(--text-muted)]">
                 {entry.cycleId.slice(0, 8)}
               </span>
             </div>
@@ -72,7 +72,7 @@ export const CycleHistoryTimeline = memo(function CycleHistoryTimeline({
               <p className="text-xs text-[var(--text-muted)] mt-1 ml-5">{entry.lesson}</p>
             )}
             {entry.metrics && (
-              <div className="flex gap-2 mt-1 ml-5 text-[10px] font-mono text-[var(--text-muted)]">
+              <div className="flex gap-2 mt-1 ml-5 text-[10px] font-theme-data text-[var(--text-muted)]">
                 {entry.metrics.testsAdded != null && <span>+{entry.metrics.testsAdded} tests</span>}
                 {entry.metrics.filesTouched != null && <span>{entry.metrics.filesTouched} files</span>}
                 {entry.metrics.duration != null && (

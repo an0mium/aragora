@@ -132,7 +132,7 @@ class TestListDebates:
         result = debates_handler._list_debates(limit=20, org_id="org_123")
 
         assert result.status_code == 200
-        mock_storage.list_recent.assert_called_with(limit=20, org_id="org_123")
+        mock_storage.list_recent.assert_called_with(limit=20, org_id="org_123", offset=0)
 
     def test_list_debates_empty(self, debates_handler, mock_storage):
         """Test listing debates when none exist."""
@@ -149,7 +149,7 @@ class TestListDebates:
         """Test that limit parameter is passed to storage."""
         debates_handler._list_debates(limit=5)
 
-        mock_storage.list_recent.assert_called_with(limit=5, org_id=None)
+        mock_storage.list_recent.assert_called_with(limit=5, org_id=None, offset=0)
 
 
 # ===========================================================================

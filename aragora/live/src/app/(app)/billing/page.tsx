@@ -167,17 +167,17 @@ export default function BillingPage() {
       <main className="min-h-screen bg-bg text-text relative z-10">
         <PanelErrorBoundary panelName="Billing">
           <div className="max-w-4xl mx-auto px-4 py-8">
-            <h1 className="text-2xl font-mono text-acid-green mb-6">
+            <h1 className="text-2xl font-theme-data text-[var(--accent)] mb-6">
               BILLING & SUBSCRIPTION
             </h1>
 
           {/* Tab Navigation */}
-          <div className="flex gap-4 mb-6 border-b border-acid-green/30">
+          <div className="flex gap-4 mb-6 border-b border-[var(--accent)]/30">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`pb-2 font-mono text-sm transition-colors ${
+              className={`pb-2 font-theme-data text-sm transition-colors ${
                 activeTab === 'overview'
-                  ? 'text-acid-green border-b-2 border-acid-green'
+                  ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                   : 'text-text-muted hover:text-text'
               }`}
             >
@@ -185,9 +185,9 @@ export default function BillingPage() {
             </button>
             <button
               onClick={() => setActiveTab('plans')}
-              className={`pb-2 font-mono text-sm transition-colors ${
+              className={`pb-2 font-theme-data text-sm transition-colors ${
                 activeTab === 'plans'
-                  ? 'text-acid-green border-b-2 border-acid-green'
+                  ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                   : 'text-text-muted hover:text-text'
               }`}
             >
@@ -195,9 +195,9 @@ export default function BillingPage() {
             </button>
             <button
               onClick={() => setActiveTab('invoices')}
-              className={`pb-2 font-mono text-sm transition-colors ${
+              className={`pb-2 font-theme-data text-sm transition-colors ${
                 activeTab === 'invoices'
-                  ? 'text-acid-green border-b-2 border-acid-green'
+                  ? 'text-[var(--accent)] border-b-2 border-[var(--accent)]'
                   : 'text-text-muted hover:text-text'
               }`}
             >
@@ -206,14 +206,14 @@ export default function BillingPage() {
           </div>
 
           {error && (
-            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-mono">
+            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-theme-data">
               {error}
             </div>
           )}
 
           {/* Trial Banner */}
           {isInTrial && (
-            <div className="mb-6 p-4 border border-acid-cyan/50 bg-acid-cyan/10 text-acid-cyan text-sm font-mono">
+            <div className="mb-6 p-4 border border-[var(--acid-cyan)]/50 bg-[var(--acid-cyan)]/10 text-[var(--acid-cyan)] text-sm font-theme-data">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-bold">TRIAL PERIOD ACTIVE</span>
@@ -223,7 +223,7 @@ export default function BillingPage() {
                 </div>
                 <Link
                   href="/pricing"
-                  className="px-3 py-1 bg-acid-cyan/20 hover:bg-acid-cyan/30 border border-acid-cyan/50 transition-colors"
+                  className="px-3 py-1 bg-[var(--acid-cyan)]/20 hover:bg-[var(--acid-cyan)]/30 border border-[var(--acid-cyan)]/50 transition-colors"
                 >
                   UPGRADE NOW
                 </Link>
@@ -238,7 +238,7 @@ export default function BillingPage() {
 
           {/* Payment Failed Banner */}
           {subscription?.payment_failed && (
-            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-mono">
+            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-theme-data">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-bold">PAYMENT FAILED</span>
@@ -257,7 +257,7 @@ export default function BillingPage() {
 
           {/* Past Due Status */}
           {subscription?.status === 'past_due' && !subscription?.payment_failed && (
-            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-mono">
+            <div className="mb-6 p-4 border border-warning/50 bg-warning/10 text-warning text-sm font-theme-data">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="font-bold">PAYMENT PAST DUE</span>
@@ -275,41 +275,41 @@ export default function BillingPage() {
           )}
 
           {loading ? (
-            <div className="text-center py-12 font-mono text-text-muted">
+            <div className="text-center py-12 font-theme-data text-text-muted">
               Loading billing data...
             </div>
           ) : activeTab === 'overview' ? (
             <div className="grid gap-6 md:grid-cols-2">
               {/* Subscription Card */}
-              <div className="border border-acid-green/30 bg-surface/30 p-6">
-                <h2 className="text-lg font-mono text-acid-cyan mb-4">
+              <div className="border border-[var(--accent)]/30 bg-surface/30 p-6">
+                <h2 className="text-lg font-theme-data text-[var(--acid-cyan)] mb-4">
                   CURRENT PLAN
                 </h2>
                 <div className="mb-4">
-                  <div className="text-2xl font-mono text-acid-green uppercase">
+                  <div className="text-2xl font-theme-data text-[var(--accent)] uppercase">
                     {subscription?.tier || 'FREE'}
                     {isInTrial && (
-                      <span className="ml-2 text-sm text-acid-cyan">(TRIAL)</span>
+                      <span className="ml-2 text-sm text-[var(--acid-cyan)]">(TRIAL)</span>
                     )}
                   </div>
-                  <div className="text-sm font-mono text-text-muted">
+                  <div className="text-sm font-theme-data text-text-muted">
                     Status: {isInTrial ? (
-                      <span className="text-acid-cyan">Trialing</span>
+                      <span className="text-[var(--acid-cyan)]">Trialing</span>
                     ) : subscription?.status === 'past_due' ? (
                       <span className="text-warning">Past Due</span>
                     ) : subscription?.is_active ? (
-                      <span className="text-acid-green">Active</span>
+                      <span className="text-[var(--accent)]">Active</span>
                     ) : (
                       <span className="text-warning">Inactive</span>
                     )}
                   </div>
                   {isInTrial && (
-                    <div className="text-sm font-mono text-acid-cyan mt-1">
+                    <div className="text-sm font-theme-data text-[var(--acid-cyan)] mt-1">
                       Trial ends: {new Date(subscription!.trial_end!).toLocaleDateString()}
                     </div>
                   )}
                   {subscription?.cancel_at_period_end && (
-                    <div className="text-sm font-mono text-warning mt-1">
+                    <div className="text-sm font-theme-data text-warning mt-1">
                       Cancels at period end
                     </div>
                   )}
@@ -320,14 +320,14 @@ export default function BillingPage() {
                     <button
                       onClick={handleManageBilling}
                       disabled={portalLoading}
-                      className="w-full py-2 font-mono text-sm border border-acid-green/50 text-acid-green hover:bg-acid-green/10 transition-colors disabled:opacity-50"
+                      className="w-full py-2 font-theme-data text-sm border border-[var(--accent)]/50 text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors disabled:opacity-50"
                     >
                       {portalLoading ? 'LOADING...' : 'MANAGE SUBSCRIPTION'}
                     </button>
                   )}
                   <Link
                     href="/pricing"
-                    className="block w-full py-2 font-mono text-sm text-center border border-acid-cyan/50 text-acid-cyan hover:bg-acid-cyan/10 transition-colors"
+                    className="block w-full py-2 font-theme-data text-sm text-center border border-[var(--acid-cyan)]/50 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors"
                   >
                     {subscription?.tier === 'free' ? 'UPGRADE PLAN' : 'CHANGE PLAN'}
                   </Link>
@@ -335,37 +335,37 @@ export default function BillingPage() {
               </div>
 
               {/* Usage Card */}
-              <div className="border border-acid-green/30 bg-surface/30 p-6">
-                <h2 className="text-lg font-mono text-acid-cyan mb-4">
+              <div className="border border-[var(--accent)]/30 bg-surface/30 p-6">
+                <h2 className="text-lg font-theme-data text-[var(--acid-cyan)] mb-4">
                   USAGE THIS MONTH
                 </h2>
 
                 <div className="mb-4">
-                  <div className="flex justify-between text-sm font-mono mb-1">
+                  <div className="flex justify-between text-sm font-theme-data mb-1">
                     <span>Debates</span>
                     <span>
                       {usage?.debates_used || 0} / {usage?.debates_limit || 10}
                     </span>
                   </div>
-                  <div className="h-2 bg-surface border border-acid-green/20">
+                  <div className="h-2 bg-surface border border-[var(--accent)]/20">
                     <div
                       className={`h-full transition-all ${
                         usagePercent >= 90
                           ? 'bg-warning'
                           : usagePercent >= 75
-                          ? 'bg-acid-cyan'
-                          : 'bg-acid-green'
+                          ? 'bg-[var(--acid-cyan)]'
+                          : 'bg-[var(--accent)]'
                       }`}
                       style={{ width: `${usagePercent}%` }}
                     />
                   </div>
-                  <div className="text-xs font-mono text-text-muted mt-1">
+                  <div className="text-xs font-theme-data text-text-muted mt-1">
                     {usage?.debates_remaining || 0} remaining
                   </div>
                 </div>
 
                 {usage?.tokens_used ? (
-                  <div className="text-sm font-mono text-text-muted">
+                  <div className="text-sm font-theme-data text-text-muted">
                     <div>Tokens used: {usage.tokens_used.toLocaleString()}</div>
                     <div>Est. cost: ${usage.estimated_cost_usd.toFixed(2)}</div>
                   </div>
@@ -374,14 +374,14 @@ export default function BillingPage() {
 
               {/* Usage Forecast Card */}
               {forecast && forecastProjection && (
-                <div className="border border-acid-green/30 bg-surface/30 p-6">
-                  <h2 className="text-lg font-mono text-acid-cyan mb-4">
+                <div className="border border-[var(--accent)]/30 bg-surface/30 p-6">
+                  <h2 className="text-lg font-theme-data text-[var(--acid-cyan)] mb-4">
                     USAGE FORECAST
                   </h2>
-                  <div className="space-y-3 text-sm font-mono">
+                  <div className="space-y-3 text-sm font-theme-data">
                     <div className="flex justify-between">
                       <span className="text-text-muted">Projected debates:</span>
-                      <span className={forecast.will_hit_limit ? 'text-warning' : 'text-acid-green'}>
+                      <span className={forecast.will_hit_limit ? 'text-warning' : 'text-[var(--accent)]'}>
                         {forecastProjection.debates_end_of_cycle}
                       </span>
                     </div>
@@ -409,14 +409,14 @@ export default function BillingPage() {
 
               {/* Features Card */}
               {subscription?.limits && (
-                <div className="border border-acid-green/30 bg-surface/30 p-6">
-                  <h2 className="text-lg font-mono text-acid-cyan mb-4">
+                <div className="border border-[var(--accent)]/30 bg-surface/30 p-6">
+                  <h2 className="text-lg font-theme-data text-[var(--acid-cyan)] mb-4">
                     PLAN FEATURES
                   </h2>
-                  <div className="grid grid-cols-2 gap-4 text-sm font-mono">
+                  <div className="grid grid-cols-2 gap-4 text-sm font-theme-data">
                     <div>
                       <div className="text-text-muted">Debates/Month</div>
-                      <div className="text-acid-green">
+                      <div className="text-[var(--accent)]">
                         {subscription.limits.debates_per_month >= 999999
                           ? 'Unlimited'
                           : subscription.limits.debates_per_month}
@@ -424,7 +424,7 @@ export default function BillingPage() {
                     </div>
                     <div>
                       <div className="text-text-muted">Team Members</div>
-                      <div className="text-acid-green">
+                      <div className="text-[var(--accent)]">
                         {subscription.limits.users_per_org >= 999999
                           ? 'Unlimited'
                           : subscription.limits.users_per_org}
@@ -432,7 +432,7 @@ export default function BillingPage() {
                     </div>
                     <div>
                       <div className="text-text-muted">API Access</div>
-                      <div className={subscription.limits.api_access ? 'text-acid-green' : 'text-text-muted'}>
+                      <div className={subscription.limits.api_access ? 'text-[var(--accent)]' : 'text-text-muted'}>
                         {subscription.limits.api_access ? 'Enabled' : 'Disabled'}
                       </div>
                     </div>
@@ -452,25 +452,25 @@ export default function BillingPage() {
                     key={plan.id}
                     className={`border bg-surface/30 p-6 ${
                       isCurrentPlan
-                        ? 'border-acid-green ring-1 ring-acid-green'
-                        : 'border-acid-green/30'
+                        ? 'border-[var(--accent)] ring-1 ring-acid-green'
+                        : 'border-[var(--accent)]/30'
                     }`}
                   >
                     <div className="text-center mb-4">
-                      <h3 className="text-lg font-mono text-acid-cyan uppercase">
+                      <h3 className="text-lg font-theme-data text-[var(--acid-cyan)] uppercase">
                         {plan.name}
                       </h3>
                       <div className="mt-2">
-                        <span className="text-2xl font-mono text-acid-green">
+                        <span className="text-2xl font-theme-data text-[var(--accent)]">
                           {plan.price_monthly}
                         </span>
-                        <span className="text-text-muted font-mono text-sm">/mo</span>
+                        <span className="text-text-muted font-theme-data text-sm">/mo</span>
                       </div>
                     </div>
 
-                    <ul className="space-y-2 mb-6 text-sm font-mono">
+                    <ul className="space-y-2 mb-6 text-sm font-theme-data">
                       <li className="flex items-center gap-2">
-                        <span className="text-acid-green">[+]</span>
+                        <span className="text-[var(--accent)]">[+]</span>
                         <span className="text-text">
                           {plan.features.debates_per_month === -1
                             ? 'Unlimited'
@@ -479,38 +479,38 @@ export default function BillingPage() {
                         </span>
                       </li>
                       <li className="flex items-center gap-2">
-                        <span className="text-acid-green">[+]</span>
+                        <span className="text-[var(--accent)]">[+]</span>
                         <span className="text-text">
                           {plan.features.users_per_org} team members
                         </span>
                       </li>
                       {plan.features.api_access && (
                         <li className="flex items-center gap-2">
-                          <span className="text-acid-green">[+]</span>
+                          <span className="text-[var(--accent)]">[+]</span>
                           <span className="text-text">API access</span>
                         </li>
                       )}
                       {plan.features.all_agents && (
                         <li className="flex items-center gap-2">
-                          <span className="text-acid-green">[+]</span>
+                          <span className="text-[var(--accent)]">[+]</span>
                           <span className="text-text">All AI agents</span>
                         </li>
                       )}
                       {plan.features.sso_enabled && (
                         <li className="flex items-center gap-2">
-                          <span className="text-acid-green">[+]</span>
+                          <span className="text-[var(--accent)]">[+]</span>
                           <span className="text-text">SSO/SAML</span>
                         </li>
                       )}
                       {plan.features.audit_logs && (
                         <li className="flex items-center gap-2">
-                          <span className="text-acid-green">[+]</span>
+                          <span className="text-[var(--accent)]">[+]</span>
                           <span className="text-text">Audit logs</span>
                         </li>
                       )}
                       {plan.features.priority_support && (
                         <li className="flex items-center gap-2">
-                          <span className="text-acid-green">[+]</span>
+                          <span className="text-[var(--accent)]">[+]</span>
                           <span className="text-text">Priority support</span>
                         </li>
                       )}
@@ -519,14 +519,14 @@ export default function BillingPage() {
                     {isCurrentPlan ? (
                       <button
                         disabled
-                        className="w-full py-2 font-mono text-sm border border-acid-green/30 text-text-muted cursor-not-allowed"
+                        className="w-full py-2 font-theme-data text-sm border border-[var(--accent)]/30 text-text-muted cursor-not-allowed"
                       >
                         CURRENT PLAN
                       </button>
                     ) : plan.id === 'free' ? (
                       <button
                         disabled
-                        className="w-full py-2 font-mono text-sm border border-acid-green/30 text-text-muted cursor-not-allowed"
+                        className="w-full py-2 font-theme-data text-sm border border-[var(--accent)]/30 text-text-muted cursor-not-allowed"
                       >
                         FREE TIER
                       </button>
@@ -534,7 +534,7 @@ export default function BillingPage() {
                       <button
                         onClick={() => handleUpgrade(plan.id)}
                         disabled={isLoading}
-                        className="w-full py-2 font-mono text-sm border border-acid-cyan/50 text-acid-cyan hover:bg-acid-cyan/10 transition-colors disabled:opacity-50"
+                        className="w-full py-2 font-theme-data text-sm border border-[var(--acid-cyan)]/50 text-[var(--acid-cyan)] hover:bg-[var(--acid-cyan)]/10 transition-colors disabled:opacity-50"
                       >
                         {isLoading ? 'LOADING...' : 'UPGRADE'}
                       </button>
@@ -545,19 +545,19 @@ export default function BillingPage() {
             </div>
           ) : (
             /* Invoices Tab */
-            <div className="border border-acid-green/30 bg-surface/30 p-6">
-              <h2 className="text-lg font-mono text-acid-cyan mb-4">
+            <div className="border border-[var(--accent)]/30 bg-surface/30 p-6">
+              <h2 className="text-lg font-theme-data text-[var(--acid-cyan)] mb-4">
                 INVOICE HISTORY
               </h2>
               {invoices.length === 0 ? (
-                <div className="text-center py-8 text-text-muted font-mono">
+                <div className="text-center py-8 text-text-muted font-theme-data">
                   No invoices found
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm font-mono">
+                  <table className="w-full text-sm font-theme-data">
                     <thead>
-                      <tr className="border-b border-acid-green/20">
+                      <tr className="border-b border-[var(--accent)]/20">
                         <th className="text-left py-2 text-text-muted">Invoice</th>
                         <th className="text-left py-2 text-text-muted">Date</th>
                         <th className="text-left py-2 text-text-muted">Status</th>
@@ -567,7 +567,7 @@ export default function BillingPage() {
                     </thead>
                     <tbody>
                       {invoices.map((invoice) => (
-                        <tr key={invoice.id} className="border-b border-acid-green/10">
+                        <tr key={invoice.id} className="border-b border-[var(--accent)]/10">
                           <td className="py-3 text-text">{invoice.number || invoice.id.slice(0, 12)}</td>
                           <td className="py-3 text-text-muted">
                             {new Date(invoice.created).toLocaleDateString()}
@@ -576,9 +576,9 @@ export default function BillingPage() {
                             <span
                               className={`px-2 py-0.5 text-xs rounded ${
                                 invoice.status === 'paid'
-                                  ? 'bg-acid-green/20 text-acid-green'
+                                  ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
                                   : invoice.status === 'open'
-                                  ? 'bg-acid-cyan/20 text-acid-cyan'
+                                  ? 'bg-[var(--acid-cyan)]/20 text-[var(--acid-cyan)]'
                                   : 'bg-warning/20 text-warning'
                               }`}
                             >
@@ -595,7 +595,7 @@ export default function BillingPage() {
                                   href={invoice.hosted_invoice_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-acid-cyan hover:text-acid-green text-xs"
+                                  className="text-[var(--acid-cyan)] hover:text-[var(--accent)] text-xs"
                                 >
                                   [VIEW]
                                 </a>
@@ -605,7 +605,7 @@ export default function BillingPage() {
                                   href={invoice.invoice_pdf}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-acid-cyan hover:text-acid-green text-xs"
+                                  className="text-[var(--acid-cyan)] hover:text-[var(--accent)] text-xs"
                                 >
                                   [PDF]
                                 </a>

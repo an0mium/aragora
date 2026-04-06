@@ -21,6 +21,7 @@ from aragora.server.handlers.base import HandlerResult
 from aragora.server.handlers.playground import (
     PlaygroundHandler,
     _check_live_rate_limit,
+    _reset_oracle_sessions,
     _reset_rate_limits,
     _build_upgrade_cta,
     start_playground_debate,
@@ -54,8 +55,10 @@ def _make_handler_with_body(body: dict, client_ip: str = "10.0.0.1") -> MagicMoc
 @pytest.fixture(autouse=True)
 def reset_limits():
     _reset_rate_limits()
+    _reset_oracle_sessions()
     yield
     _reset_rate_limits()
+    _reset_oracle_sessions()
 
 
 # ============================================================================
@@ -89,7 +92,7 @@ class TestCostEstimate:
         handler = _make_handler()
         result = pg.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, handler)
         data = _parse(result)
-        assert data["agent_count"] == 3  # default
+        assert data["agent_count"] == 4  # default
         assert data["rounds"] == 2  # default
 
 
