@@ -2076,6 +2076,52 @@ def _build_tentacle_prompt(
     return f"{context}{summary_block}\n\nYOUR ROLE: {role_prompt}\n\nThe question: {question}"
 
 
+def _assess_proposal_consensus(
+    question: str,
+    proposals: dict[str, str],
+) -> tuple[bool, float]:
+    """Assess whether agent proposals reached consensus using a frontier model.
+
+    Returns (consensus_reached, confidence) where confidence is 0.0-1.0.
+    On failure, falls back to a simple heuristic: consensus if 2+ proposals exist.
+    """
+    if len(proposals) < 2:
+        return False, 0.0
+
+    prompt = (
+        "You are evaluating whether multiple AI agents reached consensus on a question.\n\n"
+        f"Question: {question}\n\n"
+    )
+    for agent, text in proposals.items():
+        prompt += f"{agent}: {text[:400]}\n\n"
+    prompt += (
+        "Do the agents substantially agree on the answer? "
+        "Respond with JSON only: "
+        '{"consensus": true/false, "confidence": 0.0-1.0, "verdict": "agree|disagree|partial"}\n'
+        "JSON:"
+    )
+
+    try:
+        import re as _re
+
+        handler = PlaygroundHandler.__new__(PlaygroundHandler)
+        raw = handler._call_frontier_model(prompt, timeout=5.0)
+        json_match = _re.search(r"\{.*\}", raw, _re.DOTALL)
+        if json_match:
+            parsed = json.loads(json_match.group())
+        else:
+            parsed = json.loads(raw)
+
+        reached = bool(parsed.get("consensus", False))
+        conf = float(parsed.get("confidence", 0.0))
+        conf = max(0.0, min(1.0, conf))  # clamp
+        return reached, conf
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Consensus assessment failed, using heuristic: %s", exc)
+        # Fallback: if 2+ agents responded, assume moderate agreement
+        return len(proposals) >= 2, 0.7
+
+
 def _try_oracle_tentacles(
     mode: str,
     question: str,
@@ -2190,13 +2236,17 @@ def _try_oracle_tentacles(
                 "code": "landing_preview_needs_clarification",
                 "is_live": False,
             }
-    consensus_reached = False if is_landing_preview else len(results) >= 2
-    confidence = 0.0 if is_landing_preview else 0.7
+    # Assess consensus from proposals using frontier model intelligence
+    consensus_reached, confidence = _assess_proposal_consensus(
+        question,
+        results,
+    )
+    verdict_label = "consensus_reached" if consensus_reached else "needs_review"
     debate_id = client_debate_id or uuid.uuid4().hex[:16]
     now_iso = datetime.now(timezone.utc).isoformat()
     receipt_id = f"LV-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
     receipt_hash = hashlib.sha256(
-        f"{receipt_id}:{question}:needs_review:{confidence}".encode()
+        f"{receipt_id}:{question}:{verdict_label}:{confidence}".encode()
     ).hexdigest()
 
     payload: dict[str, Any] = {
@@ -2206,7 +2256,7 @@ def _try_oracle_tentacles(
         "rounds_used": 1,
         "consensus_reached": consensus_reached,
         "confidence": confidence,
-        "verdict": "needs_review",
+        "verdict": verdict_label,
         "duration_seconds": round(duration, 3),
         "participants": participants,
         "proposals": results,
@@ -2218,11 +2268,11 @@ def _try_oracle_tentacles(
         "receipt": {
             "receipt_id": receipt_id,
             "question": question,
-            "verdict": "needs_review",
+            "verdict": verdict_label,
             "confidence": confidence,
             "consensus": {
                 "reached": consensus_reached,
-                "method": "landing_preview" if is_landing_preview else "multi_perspective",
+                "method": "frontier_model_assessment",
                 "confidence": confidence,
                 "supporting_agents": participants,
                 "dissenting_agents": [],
