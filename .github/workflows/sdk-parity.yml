@@ -9,15 +9,15 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: sdk-parity-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: sdk-parity-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
-      relevant: ${{ steps.filter.outputs.relevant }}
+      relevant: ${{ steps.scope.outputs.sdk_parity }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,22 +52,8 @@ jobs:
             exit 1
           fi
 
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            relevant:
-              - 'aragora/server/handlers/**'
-              - 'aragora/server/unified_server.py'
-              - 'sdk/**'
-              - 'openapi/**'
-              - 'scripts/sdk_parity*'
-              - 'scripts/check_sdk_parity*'
-              - 'scripts/check_version_alignment*'
-              - '.github/workflows/sdk-parity.yml'
-              - 'pyproject.toml'
-              - 'requirements*.txt'
-              - 'package.json'
+      - uses: ./.github/actions/pr-scope-classifier
+        id: scope
 
   sdk-parity-run:
     needs: changes

@@ -202,15 +202,16 @@ class TestAnthropicGenerate:
         )
 
         with patch("aiohttp.ClientSession", return_value=mock_session):
-            with patch.dict("os.environ", {"OPENROUTER_API_KEY": ""}, clear=False):
-                # Should log warning when fallback unavailable (warning now comes from mixin)
-                with patch("aragora.agents.fallback.logger") as mock_logger:
-                    # May return error string or raise - just verify warning logged
-                    try:
-                        await agent.generate("Test prompt")
-                    except Exception:
-                        pass  # Some errors may still propagate
-                    mock_logger.warning.assert_called()
+            with patch.object(agent, "_build_fallback_providers", return_value=[]):
+                with patch.dict("os.environ", {"OPENROUTER_API_KEY": ""}, clear=False):
+                    # Should log warning when fallback unavailable (warning now comes from mixin)
+                    with patch("aragora.agents.fallback.logger") as mock_logger:
+                        # May return error string or raise - just verify warning logged
+                        try:
+                            await agent.generate("Test prompt")
+                        except Exception:
+                            pass  # Some errors may still propagate
+                        mock_logger.warning.assert_called()
 
     @pytest.mark.asyncio
     async def test_context_included_in_prompt(self, agent):

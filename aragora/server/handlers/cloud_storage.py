@@ -82,6 +82,7 @@ CLOUD_STORAGE_CB_COOLDOWN_SECONDS = 30
 
 # Safe filename pattern
 SAFE_FILENAME_PATTERN = re.compile(r"^[\w\-. ]+$")
+SAFE_BUCKET_PATTERN = re.compile(r"^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$")
 
 
 class StorageProvider(str, Enum):
@@ -431,6 +432,17 @@ class CloudStorageHandler(BaseHandler):
             return False, f"File extension not allowed: {ext}"
         return True, ""
 
+    def _validate_bucket_name(self, bucket: Any) -> tuple[bool, str]:
+        """Validate a bucket name used in requests."""
+        if not isinstance(bucket, str):
+            return False, "Bucket name must be a string"
+        if not SAFE_BUCKET_PATTERN.match(bucket):
+            return (
+                False,
+                "Bucket name must be 3-63 characters, lowercase letters, numbers, and hyphens",
+            )
+        return True, ""
+
     def _generate_file_id(self) -> str:
         """Generate a unique file ID."""
         return f"file_{uuid.uuid4().hex[:16]}"
@@ -653,6 +665,14 @@ class CloudStorageHandler(BaseHandler):
         """List files with filtering and pagination."""
         bucket = query_params.get("bucket", "default")
         prefix = query_params.get("prefix")
+
+        valid_bucket, bucket_error = self._validate_bucket_name(bucket)
+        if not valid_bucket:
+            return error_response(bucket_error, 400)
+
+        if prefix is not None and not isinstance(prefix, str):
+            return error_response("prefix must be a string", 400)
+
         limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
         offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=10000)
 
@@ -744,6 +764,21 @@ class CloudStorageHandler(BaseHandler):
         tags = body.get("tags", [])
         metadata = body.get("metadata", {})
 
+        if not isinstance(filename, str):
+            return error_response("filename must be a string", 400)
+        if content_b64 is not None and not isinstance(content_b64, str):
+            return error_response("content must be a base64-encoded string", 400)
+
+        valid_bucket, bucket_error = self._validate_bucket_name(bucket)
+        if not valid_bucket:
+            return error_response(bucket_error, 400)
+
+        if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
+            return error_response("tags must be a list of strings", 400)
+
+        if not isinstance(metadata, dict) or any(not isinstance(key, str) for key in metadata):
+            return error_response("metadata must be an object with string keys", 400)
+
         # Validate filename
         valid, err = self._validate_filename(filename)
         if not valid:
@@ -756,8 +791,8 @@ class CloudStorageHandler(BaseHandler):
         import base64
 
         try:
-            data = base64.b64decode(content_b64)
-        except (ValueError, TypeError):
+            data = base64.b64decode(content_b64, validate=True)
+        except (ValueError, TypeError, base64.binascii.Error):
             return error_response("Invalid base64 content", 400)
 
         # Check file size
@@ -868,7 +903,13 @@ class CloudStorageHandler(BaseHandler):
             return error_response("File not found", 404)
 
         expires_in = body.get("expires_in_seconds", 3600)
-        method = body.get("method", "GET").upper()
+        if isinstance(expires_in, bool) or not isinstance(expires_in, int):
+            return error_response("expires_in_seconds must be an integer", 400)
+
+        method_value = body.get("method", "GET")
+        if not isinstance(method_value, str):
+            return error_response("method must be GET or PUT", 400)
+        method = method_value.upper()
 
         if expires_in < 60 or expires_in > 86400:
             return error_response("expires_in_seconds must be between 60 and 86400", 400)
@@ -988,15 +1029,37 @@ class CloudStorageHandler(BaseHandler):
     @require_permission("storage:admin")
     async def _create_bucket(self, body: dict[str, Any], handler: Any) -> HandlerResult:
         """Create a new bucket."""
-        name = body.get("name", "").strip()
+        raw_name = body.get("name", "")
+        if not isinstance(raw_name, str):
+            return error_response("Bucket name must be a string", 400)
+        name = raw_name.strip()
         if not name:
             return error_response("Bucket name is required", 400)
 
-        if not re.match(r"^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$", name):
-            return error_response(
-                "Bucket name must be 3-63 characters, lowercase letters, numbers, and hyphens",
-                400,
-            )
+        valid_name, name_error = self._validate_bucket_name(name)
+        if not valid_name:
+            return error_response(name_error, 400)
+
+        provider_value = body.get("provider", "local")
+        if not isinstance(provider_value, str):
+            return error_response("provider must be a string", 400)
+
+        try:
+            provider = StorageProvider(provider_value)
+        except ValueError:
+            return error_response("provider must be one of: s3, gcs, azure, local", 400)
+
+        region = body.get("region", "local")
+        if not isinstance(region, str) or not region.strip():
+            return error_response("region must be a non-empty string", 400)
+
+        is_public = body.get("is_public", False)
+        if not isinstance(is_public, bool):
+            return error_response("is_public must be a boolean", 400)
+
+        versioning_enabled = body.get("versioning_enabled", False)
+        if not isinstance(versioning_enabled, bool):
+            return error_response("versioning_enabled must be a boolean", 400)
 
         # Check if bucket already exists
         if any(b.name == name for b in self._buckets.values()):
@@ -1009,12 +1072,12 @@ class CloudStorageHandler(BaseHandler):
         bucket = BucketInfo(
             id=bucket_id,
             name=name,
-            provider=StorageProvider(body.get("provider", "local")),
-            region=body.get("region", "local"),
+            provider=provider,
+            region=region.strip(),
             created_at=datetime.now(timezone.utc),
             owner_id=owner_id,
-            is_public=body.get("is_public", False),
-            versioning_enabled=body.get("versioning_enabled", False),
+            is_public=is_public,
+            versioning_enabled=versioning_enabled,
         )
         self._buckets[bucket_id] = bucket
 

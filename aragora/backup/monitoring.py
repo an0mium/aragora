@@ -69,6 +69,15 @@ SLA_TARGETS = {
 }
 
 
+def _metric_with_single_label(metric: Any, preferred_label: str, value: str) -> Any:
+    """Return a labeled metric, tolerating reused collectors with different label names."""
+    labelnames = tuple(getattr(metric, "_labelnames", ()) or ())
+    if not labelnames:
+        return metric
+    label = preferred_label if preferred_label in labelnames else labelnames[0]
+    return metric.labels(**{label: value})
+
+
 def _init_metrics() -> None:
     """Initialize Prometheus metrics lazily."""
     global _initialized
@@ -82,78 +91,82 @@ def _init_metrics() -> None:
         return
 
     try:
-        from prometheus_client import Counter, Gauge, Histogram
+        from aragora.observability.metrics.base import (
+            get_or_create_counter,
+            get_or_create_gauge,
+            get_or_create_histogram,
+        )
 
         # Backup creation metrics
-        BACKUP_CREATED_TOTAL = Counter(
+        BACKUP_CREATED_TOTAL = get_or_create_counter(
             "aragora_backup_created_total",
             "Total number of backups created",
             ["backup_type"],
         )
 
-        BACKUP_SIZE_BYTES = Gauge(
+        BACKUP_SIZE_BYTES = get_or_create_gauge(
             "aragora_backup_size_bytes",
             "Size of the latest backup in bytes",
             ["backup_type"],
         )
 
-        BACKUP_DURATION_SECONDS = Histogram(
+        BACKUP_DURATION_SECONDS = get_or_create_histogram(
             "aragora_backup_duration_seconds",
             "Time taken to create a backup",
             ["backup_type"],
             buckets=[1, 5, 10, 30, 60, 120, 300, 600],
         )
 
-        BACKUP_LAST_TIMESTAMP = Gauge(
+        BACKUP_LAST_TIMESTAMP = get_or_create_gauge(
             "aragora_backup_last_timestamp",
             "Unix timestamp of the last successful backup",
         )
 
-        BACKUP_AGE_SECONDS = Gauge(
+        BACKUP_AGE_SECONDS = get_or_create_gauge(
             "aragora_backup_age_seconds",
             "Age of the latest backup in seconds",
         )
 
         # Verification metrics
-        BACKUP_VERIFICATION_TOTAL = Counter(
+        BACKUP_VERIFICATION_TOTAL = get_or_create_counter(
             "aragora_backup_verification_total",
             "Total backup verifications performed",
             ["result"],
         )
 
-        BACKUP_VERIFICATION_FAILURES = Counter(
+        BACKUP_VERIFICATION_FAILURES = get_or_create_counter(
             "aragora_backup_verification_failures_total",
             "Total backup verification failures",
             ["failure_type"],
         )
 
         # Restore metrics
-        RESTORE_DURATION_SECONDS = Histogram(
+        RESTORE_DURATION_SECONDS = get_or_create_histogram(
             "aragora_restore_duration_seconds",
             "Time taken to restore from backup",
             buckets=[1, 5, 10, 30, 60, 120, 300, 600, 1800, 3600],
         )
 
-        RESTORE_TOTAL = Counter(
+        RESTORE_TOTAL = get_or_create_counter(
             "aragora_restore_total",
             "Total restore operations",
             ["result"],
         )
 
-        RESTORE_FAILURES = Counter(
+        RESTORE_FAILURES = get_or_create_counter(
             "aragora_restore_failures_total",
             "Total restore failures",
             ["failure_type"],
         )
 
         # SLA compliance gauges (1 = compliant, 0 = non-compliant)
-        RPO_COMPLIANCE = Gauge(
+        RPO_COMPLIANCE = get_or_create_gauge(
             "aragora_rpo_compliance",
             "RPO compliance status (1=compliant, 0=non-compliant)",
             ["tier"],
         )
 
-        RTO_COMPLIANCE = Gauge(
+        RTO_COMPLIANCE = get_or_create_gauge(
             "aragora_rto_compliance",
             "RTO compliance status (1=compliant, 0=non-compliant)",
             ["tier"],
@@ -209,10 +222,12 @@ def record_backup_created(
         BACKUP_CREATED_TOTAL.labels(backup_type=backup_type).inc()
 
     if BACKUP_SIZE_BYTES is not None:
-        BACKUP_SIZE_BYTES.labels(backup_type=backup_type).set(size_bytes)
+        _metric_with_single_label(BACKUP_SIZE_BYTES, "backup_type", backup_type).set(size_bytes)
 
     if BACKUP_DURATION_SECONDS is not None:
-        BACKUP_DURATION_SECONDS.labels(backup_type=backup_type).observe(duration_seconds)
+        _metric_with_single_label(BACKUP_DURATION_SECONDS, "backup_type", backup_type).observe(
+            duration_seconds
+        )
 
     if BACKUP_LAST_TIMESTAMP is not None:
         BACKUP_LAST_TIMESTAMP.set(_last_backup_timestamp)

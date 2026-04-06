@@ -39,6 +39,17 @@ from aragora.server.handlers.verification.formal_verification import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _isolate_history_and_governance_store():
+    _verification_history.clear()
+    with patch(
+        "aragora.server.handlers.verification.formal_verification._governance_store"
+    ) as mock_store_factory:
+        mock_store_factory.get.return_value = None
+        yield mock_store_factory
+    _verification_history.clear()
+
+
 # ============================================================================
 # Route Matching
 # ============================================================================

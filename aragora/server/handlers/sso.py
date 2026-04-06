@@ -523,6 +523,10 @@ class SSOHandler(SecureHandler):
             )
         except SSOAuthenticationError as e:
             error_code = (e.details or {}).get("code", "")
+            if not error_code:
+                message_prefix = str(e).split(":", 1)[0].strip()
+                if message_prefix and message_prefix.upper() == message_prefix:
+                    error_code = message_prefix
             logger.warning("SSO authentication error (code=%s): %s", error_code, e)
             if error_code == "DOMAIN_NOT_ALLOWED":
                 return self._format_response(
