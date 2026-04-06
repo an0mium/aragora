@@ -807,7 +807,7 @@ class PersistentAuditHandler:
             try:
                 self._write_event(event)
                 self._events_written += 1
-            except (OSError, ValueError, TypeError, RuntimeError) as e:
+            except (OSError, ValueError, TypeError) as e:
                 self._events_failed += 1
                 logger.error("Failed to persist audit event %s: %s", event.id, e)
 
