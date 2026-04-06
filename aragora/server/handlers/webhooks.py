@@ -805,8 +805,14 @@ The webhook secret is only returned once on creation - save it securely.""",
             return self._webhook_access_denied_response(webhook, user)
 
         # Validate URL if provided (SSRF check)
-        new_url = body.get("url")
-        if new_url:
+        new_url = None
+        if "url" in body:
+            raw_url = body.get("url")
+            if not isinstance(raw_url, str):
+                return error_response("URL must be a non-empty string", 400)
+            new_url = raw_url.strip()
+            if not new_url:
+                return error_response("URL must be a non-empty string", 400)
             is_valid, error_msg = validate_webhook_url(new_url, allow_localhost=False)
             if not is_valid:
                 return error_response(f"Invalid webhook URL: {error_msg}", 400)
@@ -826,7 +832,7 @@ The webhook secret is only returned once on creation - save it securely.""",
 
         updated = store.update(
             webhook_id=webhook_id,
-            url=body.get("url"),
+            url=new_url,
             events=events,
             active=body.get("active"),
             name=body.get("name"),
