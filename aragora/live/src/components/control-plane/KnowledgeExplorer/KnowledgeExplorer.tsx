@@ -68,8 +68,7 @@ export function KnowledgeExplorer({
     sharedItems,
     isLoading: sharedItemsLoading,
     loadSharedWithMe,
-    acceptSharedItem,
-    declineSharedItem,
+    error: sharedItemsError,
   } = useSharing({ workspaceId });
 
   const {
@@ -325,6 +324,7 @@ export function KnowledgeExplorer({
       <SharedWithMeTab
         items={sharedItems as unknown as SharedItem[]}
         isLoading={sharedItemsLoading}
+        error={sharedItemsError ?? undefined}
         onItemClick={(item) => {
           // Navigate to the shared item
           onSelectNode?.({
@@ -338,20 +338,6 @@ export function KnowledgeExplorer({
             topics: [],
             metadata: {},
           } as unknown as KnowledgeNode);
-        }}
-        onAccept={async (item) => {
-          try {
-            await acceptSharedItem(item.id);
-          } catch (error) {
-            logger.error('Failed to accept shared item:', error);
-          }
-        }}
-        onDecline={async (item) => {
-          try {
-            await declineSharedItem(item.id);
-          } catch (error) {
-            logger.error('Failed to decline shared item:', error);
-          }
         }}
       />
     ),

@@ -98,6 +98,82 @@ class SharingHandlerProtocol(Protocol):
 class SharingOperationsMixin:
     """Mixin providing cross-workspace sharing operations for KnowledgeMoundHandler."""
 
+    @staticmethod
+    def _select_matching_grant(
+        grants: list[Any], *, workspace_id: str, user_id: str | None
+    ) -> Any | None:
+        """Prefer a user grant over a workspace grant for shared-item metadata."""
+
+        if user_id:
+            for grant in grants:
+                grant_type = getattr(getattr(grant, "grantee_type", None), "value", None)
+                if grant_type == "user" and getattr(grant, "grantee_id", None) == user_id:
+                    return grant
+
+        for grant in grants:
+            grant_type = getattr(getattr(grant, "grantee_type", None), "value", None)
+            if grant_type == "workspace" and getattr(grant, "grantee_id", None) == workspace_id:
+                return grant
+
+        return grants[0] if grants else None
+
+    @staticmethod
+    def _serialize_shared_item(
+        item: Any, grant: Any | None, *, fallback_workspace_id: str
+    ) -> dict[str, Any]:
+        """Return a frontend-friendly shared item shape with grant metadata."""
+
+        if hasattr(item, "to_dict"):
+            item_dict = item.to_dict()
+        else:
+            item_dict = {
+                "id": getattr(item, "id", "unknown"),
+                "content": getattr(item, "content", ""),
+            }
+
+        metadata = item_dict.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        title = (
+            item_dict.get("title")
+            or metadata.get("title")
+            or metadata.get("name")
+            or str(item_dict.get("content", "")).strip()[:80]
+            or item_dict.get("id", "unknown")
+        )
+        source_workspace_id = (
+            item_dict.get("workspace_id")
+            or item_dict.get("source_workspace_id")
+            or metadata.get("workspace_id")
+            or metadata.get("source_workspace_id")
+            or getattr(item, "workspace_id", None)
+            or fallback_workspace_id
+        )
+
+        granted_at = getattr(grant, "granted_at", None)
+        expires_at = getattr(grant, "expires_at", None)
+        shared_at = granted_at.isoformat() if hasattr(granted_at, "isoformat") else None
+        expires_at_value = expires_at.isoformat() if hasattr(expires_at, "isoformat") else None
+        shared_by = getattr(grant, "granted_by", None) or "unknown"
+
+        item_dict.update(
+            {
+                "title": title,
+                "grant_id": getattr(grant, "id", None),
+                "permissions": list(getattr(grant, "permissions", ["read"]) or ["read"]),
+                "shared_by": shared_by,
+                "shared_by_name": metadata.get("shared_by_name") or shared_by,
+                "shared_by_type": metadata.get("shared_by_type") or "user",
+                "shared_at": shared_at,
+                "expires_at": expires_at_value,
+                "source_workspace_id": source_workspace_id,
+                "source_workspace_name": metadata.get("source_workspace_name")
+                or source_workspace_id,
+            }
+        )
+        return item_dict
+
     @require_permission("sharing:create")
     @rate_limit(requests_per_minute=30, limiter_name="knowledge_share")
     @handle_errors("share item")
@@ -233,19 +309,39 @@ class SharingOperationsMixin:
             logger.error("Failed to get shared items: %s", e)
             return error_response("Failed to get shared items", 500)
 
+        serialized_items: list[dict[str, Any]] = []
+        for item in items[offset : offset + limit]:
+            matched_grant = None
+            item_id = getattr(item, "id", None)
+            if item_id:
+                try:
+                    grants = _run_async(mound.get_share_grants(item_id=item_id))
+                except (
+                    KeyError,
+                    ValueError,
+                    OSError,
+                    TypeError,
+                    RuntimeError,
+                    AttributeError,
+                ) as e:
+                    logger.warning("Failed to load share grants for %s: %s", item_id, e)
+                    grants = []
+                matched_grant = self._select_matching_grant(
+                    grants,
+                    workspace_id=workspace_id,
+                    user_id=user_id,
+                )
+            serialized_items.append(
+                self._serialize_shared_item(
+                    item,
+                    matched_grant,
+                    fallback_workspace_id=workspace_id,
+                )
+            )
+
         return json_response(
             {
-                "items": [
-                    (
-                        item.to_dict()
-                        if hasattr(item, "to_dict")
-                        else {
-                            "id": getattr(item, "id", "unknown"),
-                            "content": getattr(item, "content", ""),
-                        }
-                    )
-                    for item in items[offset : offset + limit]
-                ],
+                "items": serialized_items,
                 "count": len(items),
                 "limit": limit,
                 "offset": offset,

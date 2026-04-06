@@ -75,15 +75,21 @@ class MockShareGrant:
     item_id: str
     grantee_id: str
     permissions: list[str]
-    shared_by: str
+    granted_by: str
+    id: str = "grant-123"
+    grantee_type: str = "workspace"
+    granted_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "id": self.id,
             "item_id": self.item_id,
+            "grantee_type": self.grantee_type,
             "grantee_id": self.grantee_id,
             "permissions": self.permissions,
-            "shared_by": self.shared_by,
+            "granted_by": self.granted_by,
+            "granted_at": self.granted_at.isoformat(),
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
         }
 
@@ -94,9 +100,14 @@ class MockSharedItem:
 
     id: str
     content: str
+    title: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"id": self.id, "content": self.content}
+        payload = {"id": self.id, "content": self.content, "metadata": self.metadata}
+        if self.title is not None:
+            payload["title"] = self.title
+        return payload
 
 
 @dataclass
@@ -339,6 +350,56 @@ class TestSharedWithMe:
         assert data["limit"] == 5
         assert data["offset"] == 2
 
+    def test_get_shared_items_include_share_metadata(self, handler, mock_mound):
+        """Shared item payloads include the grant metadata the live UI expects."""
+        granted_at = datetime(2026, 4, 6, 12, 30, tzinfo=timezone.utc)
+        expires_at = datetime(2026, 4, 9, 12, 30, tzinfo=timezone.utc)
+        mock_mound.get_shared_with_me.return_value = [
+            MockSharedItem(
+                id="item-1",
+                content="Decision receipt context",
+                title="Receipt context",
+                metadata={"workspace_id": "ws-source", "source_workspace_name": "Source Workspace"},
+            )
+        ]
+        mock_mound.get_share_grants.return_value = [
+            MockShareGrant(
+                id="grant-1",
+                item_id="item-1",
+                grantee_type="workspace",
+                grantee_id="ws-123",
+                permissions=["read", "write"],
+                granted_by="user-456",
+                granted_at=granted_at,
+                expires_at=expires_at,
+            )
+        ]
+
+        http_handler = MockHandler()
+        result = handler._handle_shared_with_me({}, http_handler)
+
+        assert result.status_code == 200
+        data = parse_response(result)
+        assert data["items"][0] == {
+            "id": "item-1",
+            "content": "Decision receipt context",
+            "metadata": {
+                "workspace_id": "ws-source",
+                "source_workspace_name": "Source Workspace",
+            },
+            "title": "Receipt context",
+            "grant_id": "grant-1",
+            "permissions": ["read", "write"],
+            "shared_by": "user-456",
+            "shared_by_name": "user-456",
+            "shared_by_type": "user",
+            "shared_at": granted_at.isoformat(),
+            "expires_at": expires_at.isoformat(),
+            "source_workspace_id": "ws-source",
+            "source_workspace_name": "Source Workspace",
+        }
+        mock_mound.get_share_grants.assert_called_once_with(item_id="item-1")
+
     def test_get_shared_no_mound(self, handler_no_mound):
         """Test shared items when mound not available."""
         http_handler = MockHandler()
@@ -428,7 +489,7 @@ class TestMyShares:
                 item_id="item-1",
                 grantee_id="grantee-1",
                 permissions=["read"],
-                shared_by="user-123",
+                granted_by="user-123",
             ),
         ]
         mock_mound.get_share_grants.return_value = grants
@@ -462,7 +523,7 @@ class TestUpdateShare:
             item_id="item-123",
             grantee_id="grantee-456",
             permissions=["read", "write"],
-            shared_by="user-123",
+            granted_by="user-123",
         )
         mock_mound.update_share_permissions.return_value = grant
 
