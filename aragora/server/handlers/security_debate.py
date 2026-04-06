@@ -15,6 +15,7 @@ __all__ = ["SecurityDebateHandler"]
 
 import logging
 import uuid
+from collections.abc import Coroutine
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
@@ -192,11 +193,17 @@ class SecurityDebateHandler(SecureHandler):
                 timeout_seconds=timeout_seconds,
             )
 
+        debate_coro: Coroutine[Any, Any, Any] | None = _run_debate()
+
         try:
-            result = run_async(_run_debate())
+            result = run_async(debate_coro)
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError):
+            if debate_coro is not None:
+                debate_coro.close()
             logger.exception("Security debate failed")
             return error_response("Debate operation failed", 500)
+        else:
+            debate_coro.close()
 
         end_time = datetime.now(timezone.utc)
         duration_ms = (end_time - start_time).total_seconds() * 1000

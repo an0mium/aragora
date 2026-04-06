@@ -11,9 +11,20 @@ import json
 import logging
 import subprocess
 from dataclasses import dataclass
+from fnmatch import fnmatch
 from typing import Any
 
 logger = logging.getLogger(__name__)
+_SCOPE_ROOT_PREFIXES = (
+    "aragora/",
+    "tests/",
+    "scripts/",
+    "docs/",
+    "docs-site/",
+    "sdk/",
+    "contracts/",
+    ".github/",
+)
 
 
 @dataclass(slots=True)
@@ -196,11 +207,133 @@ class GitHubIssueFeed:
         )
 
 
+def _normalize_scope_entry(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    text = text.replace("\\`", "`").strip("`").strip()
+    text = text.strip("'\".,;:()[]{}<>").removeprefix("./")
+    if not text:
+        return None
+    if text.endswith("/**"):
+        base = text[:-3].rstrip("/")
+        text = f"{base}/**" if base else ""
+    else:
+        text = text.rstrip("/")
+    if not text or text.startswith(("http://", "https://")) or "/" not in text:
+        return None
+    if not any(text == prefix[:-1] or text.startswith(prefix) for prefix in _SCOPE_ROOT_PREFIXES):
+        return None
+    return text
+
+
+def _normalize_scope_entries(values: list[str] | set[str] | tuple[str, ...]) -> list[str]:
+    normalized: list[str] = []
+    for item in values:
+        value = _normalize_scope_entry(item)
+        if value:
+            normalized.append(value)
+    return list(dict.fromkeys(normalized))
+
+
+def _scope_entry_matches(scope_entry: str, path: str) -> bool:
+    if "*" in scope_entry:
+        return fnmatch(path, scope_entry)
+    basename = scope_entry.rsplit("/", 1)[-1]
+    if "." not in basename:
+        return path == scope_entry or path.startswith(f"{scope_entry}/")
+    return path == scope_entry
+
+
+def scope_entries_overlap(left: str, right: str) -> bool:
+    return _scope_entry_matches(left, right) or _scope_entry_matches(right, left)
+
+
+def infer_issue_scope_entries(issue: GitHubIssue) -> list[str]:
+    from aragora.swarm.spec import SwarmSpec
+
+    combined = "\n".join(
+        part for part in (str(issue.title or "").strip(), str(issue.body or "").strip()) if part
+    )
+    return _normalize_scope_entries(SwarmSpec.infer_file_scope_hints(combined))
+
+
+def issue_overlaps_blocked_scopes(issue: GitHubIssue, blocked_scopes: set[str] | None) -> bool:
+    if not blocked_scopes:
+        return False
+    issue_scopes = infer_issue_scope_entries(issue)
+    if not issue_scopes:
+        return False
+    normalized_blocked = _normalize_scope_entries(blocked_scopes)
+    return any(
+        scope_entries_overlap(issue_scope, blocked_scope)
+        for issue_scope in issue_scopes
+        for blocked_scope in normalized_blocked
+    )
+
+
+def fetch_open_pr_changed_paths(*, repo: str | None = None, limit: int = 100) -> set[str]:
+    cmd = [
+        "gh",
+        "pr",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        str(max(1, min(int(limit), 100))),
+        "--json",
+        "files",
+    ]
+    if repo:
+        cmd.extend(["--repo", repo])
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired) as exc:
+        logger.warning("gh pr list failed: %s", exc)
+        return set()
+
+    if proc.returncode != 0:
+        logger.warning("gh pr list returned %d: %s", proc.returncode, proc.stderr.strip())
+        return set()
+
+    try:
+        raw_prs = json.loads(proc.stdout)
+    except (json.JSONDecodeError, ValueError):
+        logger.warning("gh pr list produced invalid JSON")
+        return set()
+
+    if not isinstance(raw_prs, list):
+        return set()
+
+    blocked: set[str] = set()
+    for item in raw_prs:
+        if not isinstance(item, dict):
+            continue
+        files = item.get("files") or []
+        if not isinstance(files, list):
+            continue
+        for changed in files:
+            if not isinstance(changed, dict):
+                continue
+            path = _normalize_scope_entry(changed.get("path"))
+            if path:
+                blocked.add(path)
+    return blocked
+
+
 def select_eligible_issue(
     issues: list[GitHubIssue],
     *,
     skip_labels: set[str] | None = None,
     require_labels: set[str] | None = None,
+    blocked_scopes: set[str] | None = None,
     use_value_ranking: bool = False,
 ) -> GitHubIssue | None:
     """Select the best open issue that passes eligibility filters.
@@ -210,6 +343,7 @@ def select_eligible_issue(
     - Must have a non-empty title
     - Must not carry any label in ``skip_labels``
     - If ``require_labels`` is set, must carry ALL of them
+    - Must not infer file scope that overlaps ``blocked_scopes``
 
     When ``use_value_ranking`` is True, eligible issues are scored by
     expected value-per-cost and the highest-scored issue is returned.
@@ -227,6 +361,8 @@ def select_eligible_issue(
         if _skip & set(issue.labels):
             continue
         if require_labels and not require_labels.issubset(set(issue.labels)):
+            continue
+        if issue_overlaps_blocked_scopes(issue, blocked_scopes):
             continue
         eligible.append(issue)
 

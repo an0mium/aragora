@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
 import { Header } from '@/components/landing/Header';
 import { Footer } from '@/components/landing/Footer';
+import { apiPost } from '@/lib/api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,6 +28,12 @@ interface RiskClassification {
   matched_keywords: string[];
   confidence: number;
 }
+
+type ClassificationResponse =
+  | RiskClassification
+  | {
+      classification?: RiskClassification | null;
+    };
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -97,6 +104,15 @@ function getDemoClassification(description: string): RiskClassification {
   return { risk_level: 'minimal', annex_iii_categories: [], applicable_articles: ['Article 52'], matched_keywords: [], confidence: 0.85 };
 }
 
+function normalizeClassificationResponse(
+  data: ClassificationResponse,
+): RiskClassification | null {
+  if ('risk_level' in data) {
+    return data;
+  }
+  return data.classification ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Deadline countdown
 // ---------------------------------------------------------------------------
@@ -129,17 +145,11 @@ export default function CompliancePage() {
     setClassification(null);
 
     try {
-      const response = await fetch('/api/v2/compliance/eu-ai-act/classify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: useCase }),
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setClassification(data.classification || data);
-      } else {
-        setClassification(getDemoClassification(useCase));
-      }
+      const data = await apiPost<ClassificationResponse>(
+        '/api/v2/compliance/eu-ai-act/classify',
+        { description: useCase },
+      );
+      setClassification(normalizeClassificationResponse(data));
     } catch {
       setClassification(getDemoClassification(useCase));
     } finally {
