@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -20,6 +21,7 @@ from aragora.pipeline.plan_store import PlanStore
 from aragora.pipeline.receipt_gate import (
     PlanExecutionGateError,
     PlanReceiptGateError,
+    _resolve_backbone_run,
     ensure_plan_receipt,
 )
 
@@ -91,6 +93,39 @@ def test_existing_tampered_receipt_fails_closed() -> None:
 
     with pytest.raises(PlanReceiptGateError, match="signature verification"):
         ensure_plan_receipt(plan)
+
+
+def test_resolve_backbone_run_logs_warning_when_store_import_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    plan = _plan(metadata={"backbone_run_id": "run-missing-store"})
+
+    with (
+        patch(
+            "aragora.pipeline.plan_store.get_plan_store",
+            side_effect=RuntimeError("store unavailable"),
+        ),
+        caplog.at_level(logging.WARNING),
+    ):
+        assert _resolve_backbone_run(plan) is None
+
+    assert (
+        "Backbone run store unavailable during execution gate lookup: store unavailable"
+        in caplog.text
+    )
+
+
+def test_resolve_backbone_run_logs_warning_when_lookup_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    plan = _plan(metadata={"backbone_run_id": "run-lookup-fail"})
+    store = MagicMock()
+    store.get_run.side_effect = RuntimeError("lookup unavailable")
+
+    with caplog.at_level(logging.WARNING):
+        assert _resolve_backbone_run(plan, plan_store=store) is None
+
+    assert "Backbone run lookup failed for run-lookup-fail: lookup unavailable" in caplog.text
 
 
 @pytest.mark.asyncio

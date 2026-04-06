@@ -329,7 +329,7 @@ describe('ReceiptsPage', () => {
       );
       expect(global.fetch).toHaveBeenNthCalledWith(
         2,
-        'http://localhost:8080/api/v2/receipts/receipt-456/export?format=json',
+        'http://localhost:8080/api/v2/receipts/receipt-456/export?format=json&raw=true',
         expect.any(Object)
       );
       expect(URL.createObjectURL).toHaveBeenCalled();

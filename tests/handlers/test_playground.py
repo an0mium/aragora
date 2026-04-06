@@ -28,6 +28,7 @@ from aragora.server.handlers.playground import (
     PlaygroundHandler,
     _check_rate_limit,
     _check_live_rate_limit,
+    _reset_oracle_sessions,
     _reset_rate_limits,
     _run_inline_mock_debate,
     _build_mock_proposals,
@@ -123,10 +124,22 @@ def _clear_rate_limits(tmp_path, monkeypatch):
     )
     reset_landing_review_store()
     _reset_rate_limits()
+    _reset_oracle_sessions()
     yield
     _reset_rate_limits()
+    _reset_oracle_sessions()
     reset_landing_review_store()
     debate_store_module._store = None
+
+
+@pytest.fixture(autouse=True)
+def _disable_playground_cache(monkeypatch):
+    """Prevent persisted cache entries from bypassing rate-limit assertions."""
+    cache_store = MagicMock()
+    cache_store.get_by_cache_key.return_value = None
+    cache_store.save.return_value = None
+    cache_store.save_cache_index.return_value = None
+    monkeypatch.setattr("aragora.storage.debate_store.get_debate_store", lambda: cache_store)
 
 
 # ============================================================================

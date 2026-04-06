@@ -29,11 +29,11 @@ from aragora.server.auth import AuthConfig, check_auth, generate_shareable_link
 
 
 class TestBroadcastWithAuthOff:
-    """Test that all clients receive events when auth is disabled."""
+    """Test broadcast delivery when auth is disabled."""
 
     @pytest.mark.asyncio
     async def test_all_clients_receive_broadcast_when_auth_disabled(self):
-        """All connected clients should receive broadcast events when auth is off."""
+        """Subscribed clients should receive broadcast events when auth is off."""
         server = DebateStreamServer(host="localhost", port=0)
 
         # Create mock clients
@@ -42,6 +42,9 @@ class TestBroadcastWithAuthOff:
         client3 = AsyncMock()
 
         server.clients = {client1, client2, client3}
+        server._client_subscriptions[id(client1)] = "test_loop"
+        server._client_subscriptions[id(client2)] = "test_loop"
+        server._client_subscriptions[id(client3)] = "test_loop"
 
         event = StreamEvent(
             type=StreamEventType.TASK_START, data={"task": "test_task"}, loop_id="test_loop"

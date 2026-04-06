@@ -686,7 +686,7 @@ class TestSAMLSecurityWarnings:
     """Test SAML security warnings for production mode."""
 
     def test_warning_logged_without_saml_lib(self):
-        """Test that a warning is logged when python3-saml is not available.
+        """Test that a security log is emitted when python3-saml is unavailable.
 
         Note: This test uses mocking since python3-saml is now always installed.
         Requires both ARAGORA_ALLOW_UNSAFE_SAML and ARAGORA_ALLOW_UNSAFE_SAML_CONFIRMED.
@@ -715,9 +715,9 @@ class TestSAMLSecurityWarnings:
             ):
                 with patch("aragora.auth.saml.logger") as mock_logger:
                     SAMLProvider(config)
-                    mock_logger.warning.assert_called()
-                    warning_msg = mock_logger.warning.call_args[0][0]
-                    assert "SECURITY WARNING" in warning_msg
+                    mock_logger.critical.assert_called()
+                    critical_msg = mock_logger.critical.call_args[0][0]
+                    assert "SECURITY:" in critical_msg
 
     def test_production_mode_requires_saml_lib(self):
         """Test that production mode requires python3-saml.

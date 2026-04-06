@@ -2,8 +2,9 @@
  * Landing page components for the unified Aragora platform.
  */
 
-export { LandingPage } from './LandingPage';
-export { Header } from './Header';
+export { LandingPage, type LandingPageProps } from './LandingPage';
+export { Header, type HeaderProps } from './Header';
+export { LiveDebatePanel, type LiveDebatePanelProps } from './LiveDebatePanel';
 export { HeroSection } from './HeroSection';
 export { ProblemSection } from './ProblemSection';
 export { HowItWorksSection } from './HowItWorksSection';

@@ -542,7 +542,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
             self._redis_client.ping()
             logger.info("Connected to Redis for federation registry storage")
             self._using_fallback = False
-        except (ConnectionError, TimeoutError, OSError, ImportError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis transport failures must degrade to SQLite
             logger.warning("Redis connection failed, using SQLite fallback: %s", e)
             self._using_fallback = True
             self._redis_client = None
@@ -565,7 +565,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
             if data:
                 return FederatedRegionConfig.from_json(data)
             return None
-        except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis reads must degrade to SQLite
             logger.warning("Redis get failed, using fallback: %s", e)
             return await self._fallback.get(region_id, workspace_id)
 
@@ -582,7 +582,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
         try:
             key = self._make_key(region.region_id, region.workspace_id)
             self._redis_client.set(key, region.to_json())
-        except (ConnectionError, TimeoutError, OSError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis writes must not break SQLite durability
             logger.warning("Redis save failed (SQLite fallback used): %s", e)
 
     async def delete(self, region_id: str, workspace_id: str | None = None) -> bool:
@@ -595,7 +595,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
         try:
             key = self._make_key(region_id, workspace_id)
             self._redis_client.delete(key)
-        except (ConnectionError, TimeoutError, OSError) as e:
+        except Exception as e:  # noqa: BLE001 - Redis deletes must not break fallback behavior
             logger.warning("Redis delete failed: %s", e)
 
         return result
@@ -645,9 +645,7 @@ class RedisFederationRegistryStore(FederationRegistryStoreBackend):
         if self._redis_client:
             try:
                 self._redis_client.close()
-            except (ConnectionError, OSError) as e:
-                logger.debug("Redis close failed (connection already closed): %s", e)
-            except (RuntimeError, ValueError) as e:
+            except Exception as e:  # noqa: BLE001 - best-effort cleanup
                 logger.debug("Redis close failed: %s", e)
 
 

@@ -444,6 +444,8 @@ describe('HeroSection', () => {
       await user.click(screen.getByRole('button', { name: /start debate/i }));
 
       await waitFor(() => {
+        expect(screen.getByTestId('debate-result-preview')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /view full debate/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /log in to save/i })).toBeInTheDocument();
       });
 
@@ -464,6 +466,7 @@ describe('HeroSection', () => {
       );
       expect(setItemSpy).toHaveBeenCalledWith('return_url', '/debates/debate-123');
       expect(mockPush).toHaveBeenLastCalledWith('/signup');
+      expect(screen.getByRole('button', { name: /try another/i })).toBeInTheDocument();
 
       setItemSpy.mockRestore();
     });

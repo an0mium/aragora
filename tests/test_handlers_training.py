@@ -734,9 +734,15 @@ class TestExportDirectory:
         """Test default export directory is used when env not set."""
         from aragora.server.handlers.training import TrainingHandler
 
-        # Clear environment variable
-        with patch.dict("os.environ", {}, clear=True):
+        default_root = tmp_path / ".nomic"
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(
+                "aragora.persistence.db_config.get_nomic_dir",
+                return_value=default_root,
+            ),
+        ):
             ctx = {"storage": MagicMock()}
             handler = TrainingHandler(ctx)
 
-        assert ".nomic/training_exports" in str(handler._export_dir)
+        assert handler._export_dir == default_root / "training_exports"
