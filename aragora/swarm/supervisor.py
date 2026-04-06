@@ -43,10 +43,10 @@ from aragora.swarm.terminal_truth import (
     qualify_work_order_terminal_state,
 )
 from aragora.swarm.worker_launcher import (
-    SESSION_ARTIFACTS,
     LaunchConfig,
     WorkerLauncher,
     WorkerProcess,
+    is_ignored_changed_path,
 )
 from aragora.worktree.lifecycle import WorktreeLifecycleService
 
@@ -765,9 +765,8 @@ class SwarmSupervisor:
                     self._mark_waiting_conflict(item, exc.conflicts)
                 except RuntimeError as exc:
                     if self._is_resource_constraint_error(exc):
-                        self._clear_waiting_state(item)
-                        item["status"] = "waiting_resource"
-                        item["resource_error"] = str(exc)
+                        self._mark_waiting_resource(item, str(exc))
+                        break
                     else:
                         self._clear_stale_prelaunch_deliverable_state(item)
                         self._mark_needs_human(
@@ -775,7 +774,7 @@ class SwarmSupervisor:
                             str(exc),
                             failure_reason="work_order_leasing_failed",
                         )
-                    break
+                        continue
 
         refreshed = self.store.update_supervisor_run(
             run_id,
@@ -1051,7 +1050,16 @@ class SwarmSupervisor:
                 if self._should_requeue_stale_work_order(item, active_leases):
                     self._reset_work_order_for_requeue(item)
                     continue
+            if self._should_requeue_recoverable_work_order_leasing_failed(item, active_leases):
+                self._reset_work_order_for_requeue(item)
+                continue
             if self._should_requeue_reaped_needs_human(item, active_leases):
+                self._reset_work_order_for_requeue(item)
+                continue
+            if self._should_requeue_ignorable_scope_violation(item):
+                self._reset_work_order_for_requeue(item)
+                continue
+            if self._should_requeue_terminal_dependency_failure(item, work_orders):
                 self._reset_work_order_for_requeue(item)
                 continue
             if self._should_requeue_conflict_only_needs_human(item):
@@ -1135,7 +1143,8 @@ class SwarmSupervisor:
         item["verification_results"] = verification_results
         item["worker_outcome"] = WorkerOutcome.COMPLETED.value
         metadata = dict(item.get("metadata") or {})
-        metadata["validation_marker_rehabilitated_at"] = datetime.now(UTC).isoformat()
+        rehabilitated_at = datetime.now(UTC).isoformat()
+        metadata["validation_marker_rehabilitated_at"] = rehabilitated_at
         metadata["validation_marker_original_exit_code"] = result.exit_code
         item["metadata"] = metadata
         self._finalize_completed_work_order_result(
@@ -1145,6 +1154,12 @@ class SwarmSupervisor:
             worker_type_circuit_breakers=worker_type_circuit_breakers,
             worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
         )
+        if str(item.get("status", "")).strip() == "completed":
+            self.store.sync_completion_receipt_verification(
+                receipt_id=str(item.get("receipt_id", "")).strip(),
+                verification_results=verification_results,
+                replayed_at=rehabilitated_at,
+            )
 
     def _recover_reaped_needs_human_deliverables(
         self,
@@ -1488,6 +1503,118 @@ class SwarmSupervisor:
         return True
 
     @staticmethod
+    def _should_requeue_recoverable_work_order_leasing_failed(
+        item: dict[str, Any],
+        active_leases: dict[str, Any],
+    ) -> bool:
+        status = str(item.get("status", "")).strip().lower()
+        if status not in {"needs_human", "discarded"}:
+            return False
+        failure_reason = str(item.get("failure_reason", "")).strip().lower()
+        metadata = item.get("metadata")
+        archived_due_to = (
+            str(metadata.get("archived_due_to", "")).strip().lower()
+            if isinstance(metadata, dict)
+            else ""
+        )
+        if (
+            failure_reason != "work_order_leasing_failed"
+            and archived_due_to != "work_order_leasing_failed"
+        ):
+            return False
+        lease_id = str(item.get("lease_id", "")).strip()
+        if lease_id and lease_id in active_leases:
+            return False
+        if str(item.get("receipt_id") or "").strip():
+            return False
+        if item.get("commit_shas") or item.get("changed_paths") or item.get("pr_url"):
+            return False
+        dispatch_error = str(item.get("dispatch_error", "")).strip().lower()
+        if not dispatch_error:
+            return False
+        return (
+            "autopilot ensure failed" in dispatch_error
+            and "a branch named" in dispatch_error
+            and "already exists" in dispatch_error
+        )
+
+    @staticmethod
+    def _should_requeue_terminal_dependency_failure(
+        item: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+    ) -> bool:
+        status = str(item.get("status", "")).strip().lower()
+        if status not in {"needs_human", "discarded"}:
+            return False
+        failure_reason = str(item.get("failure_reason", "")).strip().lower()
+        metadata = item.get("metadata")
+        archived_due_to = (
+            str(metadata.get("archived_due_to", "")).strip().lower()
+            if isinstance(metadata, dict)
+            else ""
+        )
+        if (
+            failure_reason != "terminal_dependency_failure"
+            and archived_due_to != "terminal_dependency_failure"
+        ):
+            return False
+        dependency_id = ""
+        if isinstance(metadata, dict):
+            dependency_id = str(metadata.get("blocking_dependency_id", "")).strip()
+        blocker = item.get("blocker")
+        if not dependency_id and isinstance(blocker, dict):
+            dependency_id = str(blocker.get("dependency_id", "")).strip()
+        if not dependency_id:
+            return False
+        dependency_lookup: dict[str, dict[str, Any]] = {}
+        for candidate in work_orders:
+            if not isinstance(candidate, dict):
+                continue
+            for key in ("pipeline_task_id", "work_order_id", "task_key"):
+                candidate_id = str(candidate.get(key, "")).strip()
+                if candidate_id:
+                    dependency_lookup[candidate_id] = candidate
+        dependency = dependency_lookup.get(dependency_id)
+        if not isinstance(dependency, dict):
+            return False
+        dependency_status = str(dependency.get("status", "")).strip().lower()
+        return dependency_status not in {"discarded", "failed", "timed_out", "scope_violation"}
+
+    @staticmethod
+    def _should_requeue_ignorable_scope_violation(item: dict[str, Any]) -> bool:
+        status = str(item.get("status", "")).strip().lower()
+        if status not in {"scope_violation", "needs_human", "discarded"}:
+            return False
+        failure_reason = str(item.get("failure_reason", "")).strip().lower()
+        metadata = item.get("metadata")
+        archived_due_to = (
+            str(metadata.get("archived_due_to", "")).strip().lower()
+            if isinstance(metadata, dict)
+            else ""
+        )
+        if failure_reason != "scope_violation" and archived_due_to != "scope_violation":
+            return False
+        if str(item.get("receipt_id") or "").strip():
+            return False
+        if item.get("commit_shas") or item.get("pr_url") or item.get("adopted_pr"):
+            return False
+
+        candidate_paths: set[str] = {
+            str(path).strip() for path in item.get("changed_paths", []) if str(path).strip()
+        }
+        scope_violation = item.get("scope_violation")
+        if isinstance(scope_violation, dict):
+            for violation in scope_violation.get("violations", []) or []:
+                if not isinstance(violation, dict):
+                    continue
+                path = str(violation.get("path", "")).strip()
+                if path:
+                    candidate_paths.add(path)
+        if not candidate_paths:
+            return False
+        return all(is_ignored_changed_path(path) for path in candidate_paths)
+
+    @staticmethod
     def _reset_work_order_for_requeue(item: dict[str, Any]) -> None:
         item["status"] = "queued"
         item["review_status"] = "pending"
@@ -1535,6 +1662,24 @@ class SwarmSupervisor:
         ):
             item.pop(key, None)
         item.pop("blockers", None)
+        metadata = dict(item.get("metadata") or {})
+        for key in (
+            "archived_due_to",
+            "archived_at",
+            "archive_reason",
+            "previous_status",
+            "canonical_task_key",
+            "canonical_work_order_id",
+            "canonical_run_id",
+            "blocking_dependency_id",
+            "blocking_dependency_status",
+            "blocking_dependency_reason",
+        ):
+            metadata.pop(key, None)
+        if metadata:
+            item["metadata"] = metadata
+        else:
+            item.pop("metadata", None)
 
     def _backfill_missing_completion_receipt(self, item: dict[str, Any]) -> None:
         """Heal older completed lanes that predate receipt propagation fixes."""
@@ -2403,6 +2548,12 @@ class SwarmSupervisor:
     ) -> bool:
         def _clear_stale_deliverable_state() -> None:
             for key in (
+                "dispatch_error",
+                "failure_reason",
+                "blocking_question",
+                "blocker",
+                "resource_error",
+                "conflicts",
                 "receipt_id",
                 "confidence",
                 "worker_outcome",
@@ -2424,6 +2575,7 @@ class SwarmSupervisor:
                 "scope_violation",
             ):
                 work_order.pop(key, None)
+            work_order.pop("blockers", None)
 
         if not self._is_safe_dependency_ref(str(session.path), dependency_ref):
             _clear_stale_deliverable_state()
@@ -2573,6 +2725,7 @@ class SwarmSupervisor:
         try:
             self.store.rehabilitate_dependency_deferred_missing_verification_plan_work_orders()
             self.store.archive_failed_no_deliverable_work_orders(grace_period_hours=0.0)
+            self.store.archive_clean_exit_no_deliverable_work_orders(grace_period_hours=0.0)
             self.store.archive_terminal_dependency_failure_work_orders()
         except Exception:
             logger.debug(
@@ -3067,13 +3220,14 @@ class SwarmSupervisor:
 
     @staticmethod
     def _strip_session_artifacts(paths: list[str]) -> list[str]:
-        """Remove harness session metadata from a list of changed paths.
+        """Remove harness and runtime noise from a list of changed paths.
 
         Session artifacts like ``.codex_session_meta.json`` are infrastructure
-        metadata created by the harness, not user deliverables.  Stripping them
-        prevents workers from claiming credit for non-work output.
+        metadata created by the harness, while runtime directories like
+        ``node_modules`` are environment noise. Stripping them prevents workers
+        from claiming credit for non-work output or tripping false scope checks.
         """
-        return [p for p in paths if Path(p).name not in SESSION_ARTIFACTS]
+        return [p for p in paths if not is_ignored_changed_path(p)]
 
     def _campaign_metadata(
         self,
@@ -3352,6 +3506,9 @@ class SwarmSupervisor:
                     },
                 )
             except FileScopeViolationError as exc:
+                for key in ("resource_error", "conflicts"):
+                    item.pop(key, None)
+                item.pop("blockers", None)
                 self._mark_needs_human(
                     item,
                     "worker completion violated file-scope ownership; narrow or split the lane",
@@ -3455,8 +3612,11 @@ class SwarmSupervisor:
                     "merge_gate",
                     "verification_missing_reason",
                     "scope_violation",
+                    "resource_error",
+                    "conflicts",
                 ):
                     item.pop(key, None)
+                item.pop("blockers", None)
                 item["commit_shas"] = []
                 self._mark_needs_human(
                     item,
@@ -3479,8 +3639,11 @@ class SwarmSupervisor:
                     "merge_gate",
                     "verification_missing_reason",
                     "scope_violation",
+                    "resource_error",
+                    "conflicts",
                 ):
                     item.pop(key, None)
+                item.pop("blockers", None)
                 if not _pre_outcome:
                     item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
                 logger.warning(
@@ -3610,6 +3773,15 @@ class SwarmSupervisor:
             return
         if deliverable_present:
             failure_reason = "worker_crash_with_deliverable"
+            for key in (
+                "resource_error",
+                "conflicts",
+                "scope_violation",
+                "merge_gate",
+                "verification_missing_reason",
+            ):
+                item.pop(key, None)
+            item.pop("blockers", None)
             self._mark_needs_human(
                 item,
                 "worker exited non-zero after producing a recoverable deliverable",
@@ -4270,6 +4442,8 @@ class SwarmSupervisor:
             failure_reason="worker_type_blocked",
         )
         self._release_terminal_lease(item)
+        item.pop("lease_id", None)
+        item.pop("owner_session_id", None)
 
     @staticmethod
     def _mark_dispatch_failed(item: dict[str, Any], reason: str) -> None:
@@ -4278,11 +4452,17 @@ class SwarmSupervisor:
         item["review_status"] = "pending"
         item["dispatch_error"] = str(reason)
         for key in (
+            "lease_id",
+            "owner_session_id",
+            "resource_error",
+            "conflicts",
             "receipt_id",
             "confidence",
             "worker_outcome",
             "completed_at",
             "exit_code",
+            "pid",
+            "initial_head",
             "head_sha",
             "commit_shas",
             "changed_paths",
@@ -4297,6 +4477,7 @@ class SwarmSupervisor:
             "pr_url",
             "adopted_pr",
             "scope_violation",
+            "dispatched_at",
             "failure_reason",
             "blocking_question",
             "blocker",
@@ -4312,8 +4493,14 @@ class SwarmSupervisor:
 
     @staticmethod
     def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
-        """Drop stale completion metadata before persisting a pre-launch blocker."""
+        """Drop stale completion and wait-state metadata before a pre-launch blocker."""
         for key in (
+            "dispatch_error",
+            "resource_error",
+            "failure_reason",
+            "blocking_question",
+            "blocker",
+            "conflicts",
             "receipt_id",
             "confidence",
             "worker_outcome",
@@ -4335,6 +4522,7 @@ class SwarmSupervisor:
             "scope_violation",
         ):
             item.pop(key, None)
+        item.pop("blockers", None)
 
     @staticmethod
     def _clear_stale_runtime_deliverable_state(item: dict[str, Any]) -> None:
@@ -4356,6 +4544,9 @@ class SwarmSupervisor:
             "verification_missing_reason",
             "pr_url",
             "adopted_pr",
+            "resource_error",
+            "conflicts",
+            "blockers",
             "scope_violation",
         ):
             item.pop(key, None)
@@ -4397,12 +4588,10 @@ class SwarmSupervisor:
         if session_meta:
             if str(session_meta.get("ended_at", "")).strip():
                 return "session_ended"
-            raw_pid = session_meta.get("pid")
-            try:
-                pid = int(raw_pid)
-            except (TypeError, ValueError):
-                pid = None
+            pid = WorkerLauncher._normalized_pid(session_meta.get("pid"))
             if pid is None:
+                if self._is_managed_worktree(path):
+                    return "managed_worktree_without_active_session"
                 return None
             if WorkerLauncher._is_pid_running(pid):
                 return None
@@ -4854,6 +5043,9 @@ class SwarmSupervisor:
             "waiting_conflict": (
                 "Which overlapping lane should finish, be discarded, or be split before this task can proceed?"
             ),
+            "waiting_resource": (
+                "Which capacity or environment constraint must be resolved before this lane can proceed?"
+            ),
             "clean_exit_no_deliverable": (
                 "What concrete branch, commit, or PR should this lane produce before rerunning?"
             ),
@@ -4998,6 +5190,21 @@ class SwarmSupervisor:
         if not blockers:
             blockers.append("waiting_conflict")
         item["blockers"] = blockers
+
+    @classmethod
+    def _mark_waiting_resource(cls, item: dict[str, Any], resource_error: str) -> None:
+        """Persist a resource-blocked wait state with explicit blocker metadata."""
+        cls._clear_waiting_state(item)
+        normalized_error = str(resource_error).strip() or "waiting_resource"
+        item["status"] = "waiting_resource"
+        item["resource_error"] = normalized_error
+        item["failure_reason"] = "waiting_resource"
+        item["blocking_question"] = cls._default_blocking_question("waiting_resource")
+        item["blocker"] = {
+            "reason": "waiting_resource",
+            "question": item["blocking_question"],
+        }
+        item["blockers"] = [normalized_error]
 
     @staticmethod
     def _clear_waiting_state(item: dict[str, Any]) -> None:
@@ -5259,10 +5466,24 @@ class SwarmSupervisor:
                 if parent not in expanded_scope:
                     expanded_scope.append(parent)
 
+        # Always allow common infrastructure files that workers need to touch
+        always_allowed = {
+            "conftest.py",
+            "__init__.py",
+            "pyproject.toml",
+            ".gitignore",
+            "setup.cfg",
+            "setup.py",
+        }
+
         violations: list[dict[str, Any]] = []
         for path in changed_paths:
             normalized = str(path).strip().removeprefix("./")
             if not normalized:
+                continue
+            # Allow common infrastructure files regardless of scope
+            basename = normalized.rsplit("/", 1)[-1] if "/" in normalized else normalized
+            if basename in always_allowed:
                 continue
             if not any(_path_in_scope(normalized, scope) for scope in expanded_scope):
                 violations.append(

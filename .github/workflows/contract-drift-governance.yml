@@ -19,8 +19,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: contract-drift-governance-${{ github.ref }}
-  cancel-in-progress: false
+  group: contract-drift-governance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   governance:

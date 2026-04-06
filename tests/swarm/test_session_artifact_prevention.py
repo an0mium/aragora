@@ -131,6 +131,11 @@ class TestStripSessionArtifacts:
         result = SwarmSupervisor._strip_session_artifacts(paths)
         assert result == ["aragora/live/app.ts"]
 
+    def test_runtime_node_modules_path_stripped(self) -> None:
+        paths = ["aragora/live/node_modules/react/index.js", "aragora/live/app.ts"]
+        result = SwarmSupervisor._strip_session_artifacts(paths)
+        assert result == ["aragora/live/app.ts"]
+
 
 # ---------------------------------------------------------------------------
 # Worker prompt regression
@@ -140,14 +145,19 @@ class TestStripSessionArtifacts:
 class TestWorkerPromptNoGitAddAll:
     """Verify the worker prompt no longer instructs git add -A."""
 
-    def test_prompt_does_not_instruct_git_add_all(self) -> None:
-        """Prompt must not tell the worker to USE git add -A (warning against it is fine)."""
-        work_order = {
+    @staticmethod
+    def _codex_work_order() -> dict[str, object]:
+        return {
             "title": "Test task",
             "description": "Do something",
             "file_scope": [],
             "metadata": {},
+            "target_agent": "codex",
         }
+
+    def test_prompt_does_not_instruct_git_add_all(self) -> None:
+        """Prompt must not tell the worker to USE git add -A (warning against it is fine)."""
+        work_order = self._codex_work_order()
         prompt = WorkerLauncher._build_prompt(work_order)
         # Must not contain an affirmative instruction to use git add -A
         assert "Stage all changed files with `git add -A`" not in prompt
@@ -155,15 +165,21 @@ class TestWorkerPromptNoGitAddAll:
         assert "Do NOT use `git add -A`" in prompt
 
     def test_prompt_instructs_explicit_staging(self) -> None:
-        work_order = {
-            "title": "Test task",
-            "description": "Do something",
-            "file_scope": [],
-            "metadata": {},
-        }
+        work_order = self._codex_work_order()
         prompt = WorkerLauncher._build_prompt(work_order)
         assert "git add <file>" in prompt
         assert "session metadata files must not be committed" in prompt
+
+    def test_prompt_requires_tty_for_long_lived_exec_sessions(self) -> None:
+        work_order = self._codex_work_order()
+        prompt = WorkerLauncher._build_prompt(work_order)
+        assert "launch it with `tty=true`" in prompt
+        assert "Use non-tty `exec_command` only for one-shot commands" in prompt
+
+    def test_prompt_prefers_python3_for_ad_hoc_probes(self) -> None:
+        work_order = self._codex_work_order()
+        prompt = WorkerLauncher._build_prompt(work_order)
+        assert "prefer `python3` over `python`" in prompt
 
 
 # ---------------------------------------------------------------------------
@@ -498,6 +514,15 @@ class TestWorkingTreeChangeFiltering:
         with patch.object(WorkerLauncher, "_git_output_sync", side_effect=_git_output_sync):
             assert not WorkerLauncher._has_working_tree_changes_sync("/tmp/wt")
 
+    @pytest.mark.asyncio
+    async def test_has_working_tree_changes_ignores_runtime_node_modules(self) -> None:
+        async def _git_output(_worktree_path: str, *args: str) -> str:
+            assert args[:2] == ("status", "--porcelain")
+            return "?? aragora/live/node_modules/react/index.js\n"
+
+        with patch.object(WorkerLauncher, "_git_output", side_effect=_git_output):
+            assert not await WorkerLauncher._has_working_tree_changes("/tmp/wt")
+
 
 # ---------------------------------------------------------------------------
 # _collect_changed_paths filtering
@@ -562,6 +587,24 @@ class TestCollectChangedPathsFiltering:
         assert "real.py" in paths
         assert "subdir/.codex_session_meta.json" not in paths
         assert "subdir/.swarm_worker_stdout.log" not in paths
+
+    def test_collect_excludes_runtime_node_modules(self, repo: Path) -> None:
+        """Runtime dependency directories must not count as deliverable paths."""
+        initial = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+        node_modules = repo / "aragora" / "live" / "node_modules" / "react"
+        node_modules.mkdir(parents=True)
+        (node_modules / "index.js").write_text("module.exports = {}\n", encoding="utf-8")
+        (repo / "real.py").write_text("x = 1\n", encoding="utf-8")
+        _run(repo, "git", "add", "-A")
+        _run(repo, "git", "commit", "-m", "test runtime artifacts")
+        head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+        paths = asyncio.run(
+            WorkerLauncher._collect_changed_paths(str(repo), initial_head=initial, head_sha=head)
+        )
+        assert "real.py" in paths
+        assert "aragora/live/node_modules/react/index.js" not in paths
 
 
 # ---------------------------------------------------------------------------

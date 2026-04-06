@@ -10,8 +10,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: sdk-test-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: sdk-test-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
@@ -19,8 +19,8 @@ jobs:
     timeout-minutes: 5
     name: SDK Change Detection
     outputs:
-      run_python: ${{ steps.filter.outputs.python_sdk }}
-      run_typescript: ${{ steps.filter.outputs.typescript_sdk }}
+      run_python: ${{ steps.scope.outputs.sdk_python }}
+      run_typescript: ${{ steps.scope.outputs.sdk_typescript }}
 
     steps:
       - name: Checkout
@@ -58,18 +58,8 @@ jobs:
           fi
 
       - name: Detect SDK relevant changes
-        id: filter
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            python_sdk:
-              - 'sdk/python/**'
-              - 'tests/sdk/**'
-            typescript_sdk:
-              - 'sdk/typescript/**'
-              - 'openapi/**'
-              - 'package.json'
-              - 'package-lock.json'
+        id: scope
+        uses: ./.github/actions/pr-scope-classifier
 
   python-sdk:
     needs: changes
