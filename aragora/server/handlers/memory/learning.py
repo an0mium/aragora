@@ -39,6 +39,13 @@ MEMORY_WRITE_PERMISSION = "memory:write"
 _learning_limiter = RateLimiter(requests_per_minute=30)
 
 
+def _normalize_legacy_api_path(path: str) -> str:
+    """Normalize legacy v1 endpoints without accepting newer API versions."""
+    if path.startswith("/api/v1/"):
+        return f"/api/{path[len('/api/v1/') :]}"
+    return path
+
+
 class LearningHandler(SecureHandler):
     """Handler for cross-cycle learning analytics endpoints.
 
@@ -59,6 +66,7 @@ class LearningHandler(SecureHandler):
         "/api/v1/learning/agent-evolution",
         "/api/v1/learning/insights",
     ]
+    NORMALIZED_ROUTES = tuple(_normalize_legacy_api_path(route) for route in ROUTES)
 
     _LEGACY_ROUTE_ALIASES = {
         "/api/learning/cycles": "/api/v1/learning/cycles",
@@ -69,13 +77,14 @@ class LearningHandler(SecureHandler):
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        return _normalize_legacy_api_path(path) in self.NORMALIZED_ROUTES
 
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route GET requests with RBAC."""
         path = self._LEGACY_ROUTE_ALIASES.get(path, path)
+        normalized = _normalize_legacy_api_path(path)
 
         # Rate limit check
         client_ip = get_client_ip(handler)
@@ -93,14 +102,14 @@ class LearningHandler(SecureHandler):
             logger.warning("Learning endpoint access denied: %s", e)
             return error_response("Permission denied", 403)
 
-        if path == "/api/v1/learning/cycles":
+        if normalized == "/api/learning/cycles":
             limit = get_clamped_int_param(query_params, "limit", 20, min_val=1, max_val=100)
             return self._get_cycle_summaries(limit)
-        if path == "/api/v1/learning/patterns":
+        if normalized == "/api/learning/patterns":
             return self._get_learned_patterns()
-        if path == "/api/v1/learning/agent-evolution":
+        if normalized == "/api/learning/agent-evolution":
             return self._get_agent_evolution()
-        if path == "/api/v1/learning/insights":
+        if normalized == "/api/learning/insights":
             limit = get_clamped_int_param(query_params, "limit", 50, min_val=1, max_val=200)
             return self._get_aggregated_insights(limit)
         return None

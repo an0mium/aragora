@@ -9,11 +9,67 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import subprocess
 from dataclasses import dataclass
+from fnmatch import fnmatch
 from typing import Any
 
 logger = logging.getLogger(__name__)
+_SCOPE_ROOT_PREFIXES = (
+    "aragora/",
+    "tests/",
+    "scripts/",
+    "docs/",
+    "docs-site/",
+    "sdk/",
+    "contracts/",
+    ".github/",
+)
+_LANE_LABEL_RE = re.compile(r"^(?:lane|area)[:/](?P<lane>[a-z0-9._/\- ]+)$", re.IGNORECASE)
+_LANE_BODY_RE = re.compile(r"(?im)^(?:lane|owner lane|lane id)\s*:\s*(?P<lane>[a-z0-9._/\- ]+)\s*$")
+_LANE_ALIASES = {
+    "api": "server",
+    "backend": "server",
+    "claude": "swarm",
+    "control-plane": "swarm",
+    "docs": "docs",
+    "documentation": "docs",
+    "front-end": "frontend",
+    "frontend": "frontend",
+    "infra": "infra",
+    "live": "frontend",
+    "nomic": "swarm",
+    "sdk": "sdk",
+    "server": "server",
+    "swarm": "swarm",
+    "tooling": "infra",
+    "ui": "frontend",
+}
+_SCOPE_LANE_PREFIXES = (
+    ("aragora/swarm/", "swarm"),
+    ("aragora/nomic/", "swarm"),
+    ("tests/swarm/", "swarm"),
+    ("tests/nomic/", "swarm"),
+    ("aragora/live/", "frontend"),
+    ("tests/live/", "frontend"),
+    ("docs-site/", "frontend"),
+    ("aragora/server/", "server"),
+    ("tests/server/", "server"),
+    ("tests/handlers/", "server"),
+    ("tests/fastapi/", "server"),
+    ("tests/inbox/", "server"),
+    ("tests/pipeline/", "server"),
+    ("sdk/", "sdk"),
+    ("tests/sdk/", "sdk"),
+    ("docs/", "docs"),
+    ("scripts/", "infra"),
+    (".github/", "infra"),
+    ("contracts/", "infra"),
+)
+# Lane aliases are intentionally module-local constants. The taxonomy changes
+# rarely, and keeping the mapping next to normalization avoids a second config
+# surface for a hot-path boss-loop decision.
 
 
 @dataclass(slots=True)
@@ -196,11 +252,193 @@ class GitHubIssueFeed:
         )
 
 
+def _normalize_scope_entry(value: Any) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    text = text.replace("\\`", "`").strip("`").strip()
+    text = text.strip("'\".,;:()[]{}<>").removeprefix("./")
+    if not text:
+        return None
+    if text.endswith("/**"):
+        base = text[:-3].rstrip("/")
+        text = f"{base}/**" if base else ""
+    else:
+        text = text.rstrip("/")
+    if not text or text.startswith(("http://", "https://")) or "/" not in text:
+        return None
+    if not any(text == prefix[:-1] or text.startswith(prefix) for prefix in _SCOPE_ROOT_PREFIXES):
+        return None
+    return text
+
+
+def _normalize_scope_entries(values: list[str] | set[str] | tuple[str, ...]) -> list[str]:
+    normalized: list[str] = []
+    for item in values:
+        value = _normalize_scope_entry(item)
+        if value:
+            normalized.append(value)
+    return list(dict.fromkeys(normalized))
+
+
+def _normalize_lane_name(value: Any) -> str | None:
+    """Normalize a lane hint into the canonical boss-loop lane identifier.
+
+    The normalization keeps label/body/scope inference consistent by:
+    1. lowercasing and trimming surrounding whitespace
+    2. converting separators (underscores, slashes, spaces) to hyphens
+    3. stripping non-alphanumeric characters except hyphens
+    4. collapsing repeated hyphens
+    5. mapping known aliases like ``backend`` -> ``server``
+    """
+    text = str(value or "").strip().lower()
+    if not text:
+        return None
+    text = text.replace("_", "-").replace("/", "-").replace(" ", "-")
+    text = re.sub(r"[^a-z0-9-]+", "", text)
+    text = re.sub(r"-{2,}", "-", text).strip("-")
+    if not text:
+        return None
+    return _LANE_ALIASES.get(text, text)
+
+
+def _infer_lane_from_scope_entry(scope_entry: str) -> str | None:
+    for prefix, lane in _SCOPE_LANE_PREFIXES:
+        normalized_prefix = prefix.rstrip("/")
+        if scope_entry == normalized_prefix or scope_entry.startswith(prefix):
+            return lane
+    return None
+
+
+def infer_issue_lane_hints(issue: GitHubIssue) -> list[str]:
+    lanes: list[str] = []
+
+    for label in issue.labels:
+        match = _LANE_LABEL_RE.match(str(label or "").strip())
+        if not match:
+            continue
+        lane = _normalize_lane_name(match.group("lane"))
+        if lane:
+            lanes.append(lane)
+
+    if lanes:
+        return list(dict.fromkeys(lanes))
+
+    combined = "\n".join(
+        part for part in (str(issue.title or "").strip(), str(issue.body or "").strip()) if part
+    )
+    for match in _LANE_BODY_RE.finditer(combined):
+        lane = _normalize_lane_name(match.group("lane"))
+        if lane:
+            lanes.append(lane)
+    if lanes:
+        return list(dict.fromkeys(lanes))
+
+    for scope_entry in infer_issue_scope_entries(issue):
+        lane = _infer_lane_from_scope_entry(scope_entry)
+        if lane:
+            lanes.append(lane)
+    return list(dict.fromkeys(lanes))
+
+
+def _scope_entry_matches(scope_entry: str, path: str) -> bool:
+    if "*" in scope_entry:
+        return fnmatch(path, scope_entry)
+    basename = scope_entry.rsplit("/", 1)[-1]
+    if "." not in basename:
+        return path == scope_entry or path.startswith(f"{scope_entry}/")
+    return path == scope_entry
+
+
+def scope_entries_overlap(left: str, right: str) -> bool:
+    return _scope_entry_matches(left, right) or _scope_entry_matches(right, left)
+
+
+def infer_issue_scope_entries(issue: GitHubIssue) -> list[str]:
+    from aragora.swarm.spec import SwarmSpec
+
+    combined = "\n".join(
+        part for part in (str(issue.title or "").strip(), str(issue.body or "").strip()) if part
+    )
+    return _normalize_scope_entries(SwarmSpec.infer_file_scope_hints(combined))
+
+
+def issue_overlaps_blocked_scopes(issue: GitHubIssue, blocked_scopes: set[str] | None) -> bool:
+    if not blocked_scopes:
+        return False
+    issue_scopes = infer_issue_scope_entries(issue)
+    if not issue_scopes:
+        return False
+    normalized_blocked = _normalize_scope_entries(blocked_scopes)
+    return any(
+        scope_entries_overlap(issue_scope, blocked_scope)
+        for issue_scope in issue_scopes
+        for blocked_scope in normalized_blocked
+    )
+
+
+def fetch_open_pr_changed_paths(*, repo: str | None = None, limit: int = 100) -> set[str]:
+    cmd = [
+        "gh",
+        "pr",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        str(max(1, min(int(limit), 100))),
+        "--json",
+        "files",
+    ]
+    if repo:
+        cmd.extend(["--repo", repo])
+
+    try:
+        proc = subprocess.run(
+            cmd,
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired) as exc:
+        logger.warning("gh pr list failed: %s", exc)
+        return set()
+
+    if proc.returncode != 0:
+        logger.warning("gh pr list returned %d: %s", proc.returncode, proc.stderr.strip())
+        return set()
+
+    try:
+        raw_prs = json.loads(proc.stdout)
+    except (json.JSONDecodeError, ValueError):
+        logger.warning("gh pr list produced invalid JSON")
+        return set()
+
+    if not isinstance(raw_prs, list):
+        return set()
+
+    blocked: set[str] = set()
+    for item in raw_prs:
+        if not isinstance(item, dict):
+            continue
+        files = item.get("files") or []
+        if not isinstance(files, list):
+            continue
+        for changed in files:
+            if not isinstance(changed, dict):
+                continue
+            path = _normalize_scope_entry(changed.get("path"))
+            if path:
+                blocked.add(path)
+    return blocked
+
+
 def select_eligible_issue(
     issues: list[GitHubIssue],
     *,
     skip_labels: set[str] | None = None,
     require_labels: set[str] | None = None,
+    blocked_scopes: set[str] | None = None,
     use_value_ranking: bool = False,
 ) -> GitHubIssue | None:
     """Select the best open issue that passes eligibility filters.
@@ -210,6 +448,7 @@ def select_eligible_issue(
     - Must have a non-empty title
     - Must not carry any label in ``skip_labels``
     - If ``require_labels`` is set, must carry ALL of them
+    - Must not infer file scope that overlaps ``blocked_scopes``
 
     When ``use_value_ranking`` is True, eligible issues are scored by
     expected value-per-cost and the highest-scored issue is returned.
@@ -227,6 +466,8 @@ def select_eligible_issue(
         if _skip & set(issue.labels):
             continue
         if require_labels and not require_labels.issubset(set(issue.labels)):
+            continue
+        if issue_overlaps_blocked_scopes(issue, blocked_scopes):
             continue
         eligible.append(issue)
 

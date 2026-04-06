@@ -197,6 +197,56 @@ def _parse_slack_ok(raw_value: Any) -> bool:
     raise ValueError("ok must be a boolean")
 
 
+def _parse_token_string(raw_value: Any, *, required: bool) -> str | None:
+    """Parse Slack token fields while rejecting malformed non-string values."""
+    if raw_value is None:
+        if required:
+            raise ValueError("token must be a non-empty string")
+        return None
+    if not isinstance(raw_value, str):
+        raise ValueError("token must be a string")
+    value = raw_value.strip()
+    if not value:
+        if required:
+            raise ValueError("token must be a non-empty string")
+        return None
+    return value
+
+
+def _parse_slack_string_field(raw_value: Any, *, field_name: str, required: bool) -> str | None:
+    """Parse Slack string fields while rejecting malformed non-string values."""
+    if raw_value is None:
+        if required:
+            raise ValueError(f"{field_name} must be a non-empty string")
+        return None
+    if not isinstance(raw_value, str):
+        raise ValueError(f"{field_name} must be a string")
+    value = raw_value.strip()
+    if not value:
+        if required:
+            raise ValueError(f"{field_name} must be a non-empty string")
+        return None
+    return value
+
+
+def _parse_slack_scopes(raw_value: Any) -> list[str]:
+    """Parse Slack scope payloads while rejecting malformed non-string entries."""
+    if raw_value is None or raw_value == "":
+        return []
+    if isinstance(raw_value, str):
+        return [item.strip() for item in raw_value.split(",") if item.strip()]
+    if isinstance(raw_value, (list, tuple, set)):
+        scopes: list[str] = []
+        for entry in raw_value:
+            if not isinstance(entry, str):
+                raise ValueError("scope entries must be strings")
+            value = entry.strip()
+            if value:
+                scopes.append(value)
+        return scopes
+    raise ValueError("scope must be a string or list of strings")
+
+
 def _get_oauth_audit_logger() -> Any:
     """Get or create Slack audit logger for OAuth (lazy initialization)."""
     global _slack_oauth_audit
@@ -1053,7 +1103,13 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Invalid or expired state token", 400)
 
         # Consume only after verifying this state was actually minted for Slack.
-        state_data = state_store.validate_and_consume(state) if store_state_is_slack else None
+        try:
+            state_data = state_store.validate_and_consume(state) if store_state_is_slack else None
+        except Exception:
+            if fallback_state_is_slack:
+                _oauth_states_fallback.pop(state, None)
+            logger.debug("Failed to consume Slack OAuth state", exc_info=True)
+            return error_response("Invalid or expired state token", 400)
         fallback_state_data = (
             _oauth_states_fallback.pop(state, None) if fallback_state_is_slack else None
         )
@@ -1192,22 +1248,22 @@ class SlackOAuthHandler(SecureHandler):
             return error_response(f"Slack OAuth failed: {error_msg}", 400)
 
         # Extract workspace info
-        access_token = data.get("access_token")
+        try:
+            access_token = _parse_token_string(data.get("access_token"), required=True)
+            refresh_token = _parse_token_string(data.get("refresh_token"), required=False)
+        except ValueError:
+            logger.error("[%s] Slack token exchange returned malformed token fields", request_id)
+            return error_response("Invalid response from Slack", 500)
         team_payload = data.get("team")
         team = team_payload if isinstance(team_payload, dict) else {}
-        bot_user_id = data.get("bot_user_id", "")
         authed_user_payload = data.get("authed_user")
         authed_user = authed_user_payload if isinstance(authed_user_payload, dict) else {}
-        raw_scope = data.get("scope", "")
-        if isinstance(raw_scope, str):
-            scope = raw_scope
-        elif isinstance(raw_scope, (list, tuple, set)):
-            scope = ",".join(str(item).strip() for item in raw_scope if str(item).strip())
-        else:
-            scope = str(raw_scope or "").strip()
+        try:
+            scope_entries = _parse_slack_scopes(data.get("scope", ""))
+        except ValueError:
+            logger.error("[%s] Slack token exchange returned malformed scope payload", request_id)
+            return error_response("Invalid response from Slack", 500)
 
-        # Extract token refresh data (if available)
-        refresh_token = data.get("refresh_token")
         try:
             expires_in = _parse_expires_in(data.get("expires_in"))
         except ValueError:
@@ -1215,20 +1271,62 @@ class SlackOAuthHandler(SecureHandler):
             return error_response("Invalid response from Slack", 500)
         token_expires_at = time.time() + expires_in if expires_in is not None else None
 
-        workspace_id = str(
-            team.get("id")
-            or team.get("team_id")
-            or data.get("team_id")
-            or data.get("workspace_id")
-            or ""
-        ).strip()
-        workspace_name = (
-            str(
-                team.get("name") or data.get("team_name") or data.get("workspace_name") or "Unknown"
-            ).strip()
-            or "Unknown"
-        )
-        installed_by = str(authed_user.get("id") or "").strip() or None
+        try:
+            workspace_id = (
+                _parse_slack_string_field(team.get("id"), field_name="team.id", required=False)
+                or _parse_slack_string_field(
+                    team.get("team_id"),
+                    field_name="team.team_id",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("team_id"),
+                    field_name="team_id",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("workspace_id"),
+                    field_name="workspace_id",
+                    required=False,
+                )
+                or ""
+            )
+            workspace_name = (
+                _parse_slack_string_field(
+                    team.get("name"),
+                    field_name="team.name",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("team_name"),
+                    field_name="team_name",
+                    required=False,
+                )
+                or _parse_slack_string_field(
+                    data.get("workspace_name"),
+                    field_name="workspace_name",
+                    required=False,
+                )
+                or "Unknown"
+            )
+            bot_user_id = (
+                _parse_slack_string_field(
+                    data.get("bot_user_id"),
+                    field_name="bot_user_id",
+                    required=False,
+                )
+                or ""
+            )
+            installed_by = _parse_slack_string_field(
+                authed_user.get("id"),
+                field_name="authed_user.id",
+                required=False,
+            )
+        except ValueError:
+            logger.error(
+                "[%s] Slack token exchange returned malformed workspace identity", request_id
+            )
+            return error_response("Invalid response from Slack", 500)
 
         if not workspace_id or not access_token:
             return error_response("Invalid response from Slack", 500)
@@ -1283,7 +1381,7 @@ class SlackOAuthHandler(SecureHandler):
                 bot_user_id=bot_user_id,
                 installed_at=time.time(),
                 installed_by=installed_by,
-                scopes=scope.split(",") if scope else [],
+                scopes=scope_entries,
                 tenant_id=requested_tenant_id or existing_tenant_id,
                 is_active=True,
                 refresh_token=refresh_token,
@@ -1313,7 +1411,7 @@ class SlackOAuthHandler(SecureHandler):
                     action="install",
                     success=True,
                     user_id=installed_by or "",
-                    scopes=scope.split(",") if scope else [],
+                    scopes=scope_entries,
                 )
 
         except ImportError as e:
@@ -1461,11 +1559,41 @@ class SlackOAuthHandler(SecureHandler):
                 logger.warning("Invalid Slack signature")
                 return error_response("Invalid signature", 401)
 
-        event = body.get("event", {})
-        event_type = event.get("type")
+        event_payload = body.get("event")
+        event = event_payload if isinstance(event_payload, dict) else {}
+        try:
+            event_type = (
+                _parse_slack_string_field(
+                    event.get("type"),
+                    field_name="event.type",
+                    required=False,
+                )
+                or ""
+            )
+        except ValueError:
+            logger.warning("Ignoring malformed Slack uninstall event type")
+            event_type = ""
 
         if event_type == "app_uninstalled":
-            workspace_id = body.get("team_id") or event.get("team_id")
+            workspace_id = ""
+            for raw_value, field_name in (
+                (body.get("team_id"), "team_id"),
+                (event.get("team_id"), "event.team_id"),
+            ):
+                try:
+                    candidate_workspace_id = _parse_slack_string_field(
+                        raw_value,
+                        field_name=field_name,
+                        required=False,
+                    )
+                except ValueError:
+                    logger.warning(
+                        "Ignoring malformed Slack uninstall workspace id in %s", field_name
+                    )
+                    continue
+                if candidate_workspace_id:
+                    workspace_id = candidate_workspace_id
+                    break
 
             if workspace_id:
                 try:
@@ -1490,9 +1618,26 @@ class SlackOAuthHandler(SecureHandler):
                     logger.warning("Could not deactivate workspace - store unavailable")
 
         elif event_type == "tokens_revoked":
-            workspace_id = body.get("team_id")
-            tokens = event.get("tokens", {})
-            bot_tokens = tokens.get("bot", [])
+            try:
+                workspace_id = (
+                    _parse_slack_string_field(
+                        body.get("team_id"),
+                        field_name="team_id",
+                        required=False,
+                    )
+                    or ""
+                )
+            except ValueError:
+                logger.warning("Ignoring malformed Slack tokens_revoked workspace id")
+                workspace_id = ""
+            tokens_payload = event.get("tokens")
+            tokens = tokens_payload if isinstance(tokens_payload, dict) else {}
+            bot_payload = tokens.get("bot", [])
+            bot_tokens = (
+                [token.strip() for token in bot_payload if isinstance(token, str) and token.strip()]
+                if isinstance(bot_payload, (list, tuple, set))
+                else []
+            )
 
             if workspace_id and bot_tokens:
                 try:
@@ -1771,12 +1916,49 @@ class SlackOAuthHandler(SecureHandler):
 
             response_workspace_id = ""
             team = data.get("team")
-            if isinstance(team, dict):
-                response_workspace_id = str(team.get("id") or team.get("team_id") or "").strip()
-            if not response_workspace_id:
-                response_workspace_id = str(
-                    data.get("team_id") or data.get("workspace_id") or ""
-                ).strip()
+            try:
+                if isinstance(team, dict):
+                    response_workspace_id = (
+                        _parse_slack_string_field(
+                            team.get("id"),
+                            field_name="team.id",
+                            required=False,
+                        )
+                        or _parse_slack_string_field(
+                            team.get("team_id"),
+                            field_name="team.team_id",
+                            required=False,
+                        )
+                        or ""
+                    )
+                if not response_workspace_id:
+                    response_workspace_id = (
+                        _parse_slack_string_field(
+                            data.get("team_id"),
+                            field_name="team_id",
+                            required=False,
+                        )
+                        or _parse_slack_string_field(
+                            data.get("workspace_id"),
+                            field_name="workspace_id",
+                            required=False,
+                        )
+                        or ""
+                    )
+            except ValueError:
+                logger.error(
+                    "Token refresh returned malformed workspace identity for %s",
+                    workspace_id,
+                )
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed workspace identity",
+                    )
+                return error_response("Invalid token refresh response", 502)
             expected_workspace_id = str(
                 getattr(workspace, "workspace_id", "") or workspace_id
             ).strip()
@@ -1811,7 +1993,20 @@ class SlackOAuthHandler(SecureHandler):
                 return error_response("Invalid token refresh response", 502)
 
             # Update stored tokens
-            new_access_token = data.get("access_token")
+            try:
+                new_access_token = _parse_token_string(data.get("access_token"), required=True)
+                new_refresh_token = _parse_token_string(data.get("refresh_token"), required=False)
+            except ValueError:
+                logger.error("Token refresh returned malformed token fields for %s", workspace_id)
+                audit = _get_oauth_audit_logger()
+                if audit:
+                    audit.log_oauth(
+                        workspace_id=workspace_id,
+                        action="token_refresh",
+                        success=False,
+                        error="Invalid refresh response: malformed token field",
+                    )
+                return error_response("Invalid token refresh response", 502)
             if not str(new_access_token or "").strip():
                 logger.error("Token refresh returned no access token for %s", workspace_id)
                 audit = _get_oauth_audit_logger()
@@ -1823,7 +2018,6 @@ class SlackOAuthHandler(SecureHandler):
                         error="Invalid refresh response: missing access token",
                     )
                 return error_response("Invalid token refresh response", 502)
-            new_refresh_token = data.get("refresh_token")
             if not str(new_refresh_token or "").strip():
                 new_refresh_token = workspace.refresh_token
             try:

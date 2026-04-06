@@ -126,6 +126,21 @@ def _bypass_rate_limit():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _isolate_km_receipt_adapter():
+    """Prevent ambient KM singleton receipts from leaking into handler tests."""
+
+    class _EmptyReceiptAdapter:
+        def list_receipts(self, limit: int = 50) -> list[dict[str, Any]]:
+            return []
+
+    with patch(
+        "aragora.knowledge.mound.adapters.receipt_adapter.get_receipt_adapter",
+        return_value=_EmptyReceiptAdapter(),
+    ):
+        yield
+
+
 # ===========================================================================
 # Constructor / initialization
 # ===========================================================================

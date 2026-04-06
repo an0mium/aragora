@@ -36,8 +36,8 @@ class TestTokenCostCalculation:
     def test_anthropic_opus_pricing(self):
         """Test Anthropic Claude Opus pricing."""
         cost = calculate_token_cost("anthropic", "claude-opus-4", 1_000_000, 100_000)
-        # $15.00 per 1M input + $75.00 per 1M output * 0.1 = $15 + $7.5 = $22.5
-        assert cost == Decimal("22.50")
+        # $5.00 per 1M input + $25.00 per 1M output * 0.1 = $5 + $2.5 = $7.5
+        assert cost == Decimal("7.50")
 
     def test_anthropic_sonnet_pricing(self):
         """Test Anthropic Claude Sonnet pricing."""
@@ -66,8 +66,8 @@ class TestTokenCostCalculation:
     def test_deepseek_pricing(self):
         """Test DeepSeek pricing."""
         cost = calculate_token_cost("deepseek", "deepseek-v3", 10_000_000, 5_000_000)
-        # $0.14 per 1M * 10 + $0.28 per 1M * 5 = $1.40 + $1.40 = $2.80
-        assert cost == Decimal("2.80")
+        # $0.28 per 1M * 10 + $0.42 per 1M * 5 = $2.80 + $2.10 = $4.90
+        assert cost == Decimal("4.90")
 
     def test_unknown_provider_uses_openrouter_default(self):
         """Test that unknown providers use OpenRouter default pricing."""

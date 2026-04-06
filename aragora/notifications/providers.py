@@ -314,9 +314,7 @@ class EmailProvider(NotificationProvider):
 
     def is_configured(self) -> bool:
         host = self.config.smtp_host
-        if not host or host == "localhost":
-            return bool(self.config.smtp_user or self.config.smtp_password)
-        return True
+        return bool(host and host.strip())
 
     async def send(
         self,

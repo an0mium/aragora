@@ -839,10 +839,26 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
     def _deserialize_from_cache(payload: str) -> WebhookConfig:
         """Deserialize cache entries, decrypting cached secrets when present."""
         data = json.loads(payload)
+        if data.get("active") is not True and data.get("active") is not False:
+            raise ValueError("cached webhook active flag must be boolean")
         secret = str(data.get("secret") or "").strip()
         if secret:
             data["secret"] = _decrypt_secret(secret)
         return WebhookConfig(**data)
+
+    @staticmethod
+    def _trusted_cache_revision(value: Any) -> float | None:
+        """Return a revision usable for cache trust decisions.
+
+        Cache payloads are untyped JSON. Reject booleans explicitly because
+        `True == 1.0` and `False == 0.0`, which can accidentally satisfy the
+        durable revision equality check.
+        """
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, (int, float)):
+            return float(value)
+        return None
 
     def register(
         self,
@@ -885,9 +901,11 @@ class RedisWebhookConfigStore(WebhookConfigStoreBackend):
                 if data:
                     cached_webhook = self._deserialize_from_cache(data)
                     durable_revision = self._sqlite.get_cache_revision(webhook_id)
+                    cached_revision = self._trusted_cache_revision(cached_webhook.updated_at)
                     if (
                         durable_revision is not None
-                        and cached_webhook.updated_at == durable_revision
+                        and cached_revision is not None
+                        and cached_revision == durable_revision
                     ):
                         return cached_webhook
             except (
@@ -1314,7 +1332,10 @@ class PostgresWebhookConfigStore(WebhookConfigStoreBackend):
                 )
             if result == "UPDATE 0":
                 return None
-            webhook.updated_at = updated_at
+            durable = await self.get_async(webhook_id)
+            if durable is None:
+                return None
+            return durable
 
         return webhook
 

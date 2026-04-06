@@ -15,7 +15,7 @@ env:
 
 concurrency:
   group: self-hosted-fleet-probe-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   mac-studio-probe:

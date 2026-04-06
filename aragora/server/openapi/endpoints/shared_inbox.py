@@ -174,6 +174,34 @@ INBOX_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/inbox/mentions": {
+        "get": {
+            "tags": ["Inbox", "Mentions"],
+            "summary": "Get mentions",
+            "operationId": "getInboxMentions",
+            "description": "Get @mentions for the current user.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "unacknowledged_only",
+                    "in": "query",
+                    "schema": {"type": "boolean", "default": False},
+                }
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "List of mentions",
+                    {
+                        "mentions": {"type": "array", "items": {"type": "object"}},
+                        "count": {"type": "integer"},
+                    },
+                ),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
     "/api/v1/inbox/routing/rules": {
         "post": {
             "tags": ["Inbox"],
