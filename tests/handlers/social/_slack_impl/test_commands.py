@@ -1612,6 +1612,20 @@ class TestAnswerQuestionAsync:
             mock_orchestrator_mod.Arena.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_summary_used_when_final_answer_missing(self, slack_handler):
+        runtime_patch, *_ = self._patch_answer_runtime(
+            result=SimpleNamespace(summary="Debate answer here", confidence=0.65)
+        )
+        with runtime_patch:
+            slack_handler._post_to_response_url = AsyncMock()
+            await slack_handler._answer_question_async(
+                "Explain deep learning", "https://hooks.slack.com/resp", "U1", "C1"
+            )
+            slack_handler._post_to_response_url.assert_called_once()
+            payload = slack_handler._post_to_response_url.call_args[0][1]
+            assert "Debate answer here" in json.dumps(payload.get("blocks", []))
+
+    @pytest.mark.asyncio
     async def test_low_confidence_posts_fail_closed_message(self, slack_handler):
         runtime_patch, *_ = self._patch_answer_runtime(
             result=SimpleNamespace(final_answer="Maybe", confidence=0.2)
@@ -1643,6 +1657,18 @@ class TestAnswerQuestionAsync:
         runtime_patch, *_ = self._patch_answer_runtime(
             run_side_effect=ValueError("invalid debate result")
         )
+        with runtime_patch:
+            slack_handler._post_to_response_url = AsyncMock()
+            await slack_handler._answer_question_async(
+                "Some question here", "https://hooks.slack.com/resp", "U1", "C1"
+            )
+            payload = slack_handler._post_to_response_url.call_args[0][1]
+            assert "failed" in payload["text"].lower()
+
+    @pytest.mark.asyncio
+    async def test_create_agent_value_error_posts_failure(self, slack_handler):
+        runtime_patch, mock_agents_mod, *_ = self._patch_answer_runtime()
+        mock_agents_mod.create_agent.side_effect = ValueError("bad config")
         with runtime_patch:
             slack_handler._post_to_response_url = AsyncMock()
             await slack_handler._answer_question_async(
