@@ -69,6 +69,8 @@ _PRE_DISPATCH_SAFE_COMMAND_PREFIXES = (
 )
 _BACKTICK_COMMAND_RE = re.compile(r"`(?P<command>[^`]+)`")
 _EXPLICIT_PYTEST_TARGET_RE = re.compile(r"(?<!\S)(?P<path>tests/\S+?\.py)(?:::\S+)?(?!\S)")
+_DECLARED_NEW_FILE_RE = re.compile(r"\(\s*new(?:\s+file)?\s*\)", re.IGNORECASE)
+_BACKTICK_PATH_RE = re.compile(r"`(?P<path>[^`\n]+/[^`\n]+)`")
 
 
 def _ordered_unique_strings(items: list[str]) -> list[str]:
@@ -269,6 +271,26 @@ def find_missing_pre_dispatch_validation_targets(
             if path and not (repo_root / path).exists():
                 missing.append(path)
     return _ordered_unique_strings(missing)
+
+
+def extract_declared_new_file_paths(issue_body: str) -> list[str]:
+    """Return file paths explicitly marked as new in the issue body.
+
+    This keeps the missing-target gate strict for stale contracts while
+    allowing lanes whose acceptance criteria intentionally point at a file the
+    worker is expected to create.
+    """
+
+    declared: list[str] = []
+    for raw_line in str(issue_body or "").splitlines():
+        line = str(raw_line).strip()
+        if not line or not _DECLARED_NEW_FILE_RE.search(line):
+            continue
+        for match in _BACKTICK_PATH_RE.finditer(line):
+            path = str(match.group("path") or "").strip()
+            if path:
+                declared.append(path)
+    return _ordered_unique_strings(declared)
 
 
 def run_pre_dispatch_validation_commands(

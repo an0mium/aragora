@@ -19,6 +19,7 @@ from aragora.swarm.supervisor import (
     LAUNCHER_CONFIG_METADATA_KEY,
     WORKER_TYPE_CIRCUIT_BREAKERS_KEY,
     WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY,
+    SwarmApprovalPolicy,
     SwarmSupervisor,
 )
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
@@ -242,6 +243,48 @@ def test_apply_launcher_snapshot_preserves_null_optional_fields(repo: Path) -> N
     assert supervisor.launcher.config.codex_model is None
     assert supervisor.launcher.config.claude_profile is None
     assert supervisor.launcher.config.claude_profile_script is None
+
+
+def test_apply_launcher_snapshot_rejects_malformed_boolean_fields(repo: Path) -> None:
+    supervisor = SwarmSupervisor(repo_root=repo)
+    supervisor.launcher.config = LaunchConfig(
+        auto_commit=False,
+        use_managed_session_script=False,
+        detach=False,
+        require_explicit_approval=True,
+        allow_claude_dangerously_skip_permissions=False,
+        allow_codex_full_auto=False,
+    )
+
+    supervisor._apply_launcher_config_snapshot(
+        {
+            "auto_commit": "false",
+            "use_managed_session_script": 1,
+            "detach": "false",
+            "require_explicit_approval": 0,
+            "allow_claude_dangerously_skip_permissions": "false",
+            "allow_codex_full_auto": "false",
+        }
+    )
+
+    assert supervisor.launcher.config.auto_commit is False
+    assert supervisor.launcher.config.use_managed_session_script is False
+    assert supervisor.launcher.config.detach is False
+    assert supervisor.launcher.config.require_explicit_approval is True
+    assert supervisor.launcher.config.allow_claude_dangerously_skip_permissions is False
+    assert supervisor.launcher.config.allow_codex_full_auto is False
+
+
+def test_swarm_approval_policy_from_dict_rejects_malformed_booleans() -> None:
+    policy = SwarmApprovalPolicy.from_dict(
+        {
+            "require_merge_approval": 0,
+            "require_external_action_approval": "false",
+        }
+    )
+
+    assert policy.require_merge_approval is True
+    assert policy.require_external_action_approval is True
 
 
 def test_start_run_discards_duplicate_open_non_deliverable_lane(
@@ -3728,6 +3771,38 @@ async def test_collect_results_updates_work_orders(repo: Path, store: DevCoordin
     assert wo["stderr_tail"] == "worker stderr\n"
 
 
+def test_verification_results_from_result_rejects_malformed_values() -> None:
+    normalized = SwarmSupervisor._verification_results_from_result(
+        WorkerProcess(
+            work_order_id="wo-malformed-verification",
+            agent="claude",
+            worktree_path="/tmp/wo-malformed-verification",
+            branch="main",
+            verification_results=[
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "exit_code": 0.0,
+                    "passed": "true",
+                    "stdout": {"line": "ok"},
+                    "stderr": ["bad"],
+                    "duration_seconds": True,
+                }
+            ],
+        )
+    )
+
+    assert normalized == [
+        {
+            "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+            "exit_code": -1,
+            "passed": False,
+            "stdout": "{'line': 'ok'}",
+            "stderr": "['bad']",
+            "duration_seconds": 0.0,
+        }
+    ]
+
+
 @pytest.mark.asyncio
 async def test_collect_results_records_passed_merge_gate_checks(
     repo: Path, store: DevCoordinationStore
@@ -3832,6 +3907,94 @@ async def test_collect_results_records_passed_merge_gate_checks(
         "scope_violation",
     ):
         assert cleared_key not in wo
+
+
+@pytest.mark.asyncio
+async def test_collect_results_blocks_merge_gate_on_malformed_verification_metadata(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="merge-malformed-verification",
+        title="Merge malformed verification lane",
+        owner_agent="claude",
+        owner_session_id="merge-malformed-verification-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["aragora/swarm/supervisor.py"],
+        expected_tests=["python -m pytest tests/swarm/test_supervisor.py -q"],
+    )
+    run_record = store.create_supervisor_run(
+        goal="merge gate malformed verification metadata",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "merge gate malformed verification metadata"},
+        work_orders=[
+            {
+                "work_order_id": "wo-merge-malformed-verification",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "owner_session_id": "merge-malformed-verification-session",
+                "lease_id": lease.lease_id,
+                "review_status": "pending",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    completed_worker = WorkerProcess(
+        work_order_id="wo-merge-malformed-verification",
+        agent="claude",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="merge-malformed-verification-session",
+        pid=100,
+        exit_code=0,
+        completed_at="2026-03-06T20:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        tests_run=["python -m pytest tests/swarm/test_supervisor.py -q"],
+        verification_results=[
+            {
+                "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                "exit_code": 0.0,
+                "passed": "true",
+                "stdout": "1 passed",
+                "stderr": "",
+                "duration_seconds": True,
+            }
+        ],
+    )
+    mock_launcher.get_worker = MagicMock(return_value=completed_worker)
+    mock_launcher.wait = AsyncMock(return_value=completed_worker)
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        launcher=mock_launcher,
+    )
+
+    results = await supervisor.collect_results(run_id)
+    assert len(results) == 1
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "needs_human"
+    assert wo["review_status"] == "changes_requested"
+    assert wo["worker_outcome"] == "merge_gate_failed"
+    assert wo["merge_gate"]["checks_passed"] is False
+    assert wo["verification_results"][0]["exit_code"] == -1
+    assert wo["verification_results"][0]["passed"] is False
+    assert wo["verification_results"][0]["duration_seconds"] == 0.0
+    assert "exit -1" in wo["dispatch_error"]
 
 
 @pytest.mark.asyncio
@@ -4163,6 +4326,28 @@ def test_merge_gate_state_normalizes_python_command_equivalence() -> None:
     assert state["blocked_reasons"] == []
 
 
+def test_merge_gate_state_rejects_nonboolean_passed_field() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "passed": "true",
+                    "exit_code": 0,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is False
+    assert state["merge_eligible"] is False
+    assert "verification failed" in state["blocked_reasons"][0]
+
+
 def test_merge_gate_state_rejects_broader_pytest_with_k_selector() -> None:
     """A recorded command with -k selectors must NOT satisfy an expected check
     via path-based equivalence -- the selectors may filter out the required tests."""
@@ -4185,6 +4370,50 @@ def test_merge_gate_state_rejects_broader_pytest_with_k_selector() -> None:
     assert state["checks_passed"] is False
     assert state["merge_eligible"] is False
     assert len(state["blocked_reasons"]) > 0
+
+
+def test_merge_gate_state_rejects_nonboolean_persisted_passed_flag() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "passed": "false",
+                    "exit_code": 0,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is False
+    assert state["merge_eligible"] is False
+    assert any("verification failed" in reason for reason in state["blocked_reasons"])
+
+
+def test_merge_gate_state_rejects_nonzero_exit_even_when_passed_true() -> None:
+    state = SwarmSupervisor._merge_gate_state(
+        {
+            "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+            "verification_results": [
+                {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "passed": True,
+                    "exit_code": 1,
+                    "stdout": "",
+                    "stderr": "",
+                    "duration_seconds": 1.0,
+                }
+            ],
+        }
+    )
+
+    assert state["checks_passed"] is False
+    assert state["merge_eligible"] is False
+    assert any("verification failed" in reason for reason in state["blocked_reasons"])
 
 
 def test_refresh_run_backfills_missing_receipt_for_completed_deliverable(
@@ -4874,6 +5103,57 @@ async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationSt
     assert wo["metadata"]["last_failure_reason"] == "agent_unavailable"
     assert "CLI not found" in wo["metadata"]["last_failure_detail"]
     assert wo.get("lease_id") is None
+
+
+@pytest.mark.asyncio
+async def test_dispatch_handles_missing_cli_when_sticky_flag_is_malformed(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="missing cli malformed sticky flag test",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "test"},
+        work_orders=[
+            {
+                "work_order_id": "wo-fail",
+                "status": "leased",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "metadata": {
+                    "requested_target_agent": "claude",
+                    "sticky_target_agent": "false",
+                },
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.launch = AsyncMock(side_effect=FileNotFoundError("claude CLI not found"))
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        launcher=mock_launcher,
+    )
+
+    launched = await supervisor.dispatch_workers(run_id)
+    assert len(launched) == 0
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "leased"
+    assert wo["target_agent"] == "codex"
+    assert wo["reviewer_agent"] == "claude"
+    assert wo["metadata"]["requested_target_agent"] == "claude"
+    assert wo["metadata"]["sticky_target_agent"] == "false"
+    assert wo["metadata"]["last_failure_reason"] == "agent_unavailable"
+    assert "fallback_suppressed_reason" not in wo["metadata"]
 
 
 @pytest.mark.asyncio

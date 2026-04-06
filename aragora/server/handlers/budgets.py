@@ -32,6 +32,7 @@ Features:
 from __future__ import annotations
 
 import logging
+import math
 import threading
 from typing import Any
 
@@ -60,6 +61,44 @@ from aragora.resilience.simple_circuit_breaker import SimpleCircuitBreaker as Bu
 # Global circuit breaker instance for the budget manager
 _circuit_breaker = BudgetCircuitBreaker(name="budget", half_open_max_calls=2)
 _circuit_breaker_lock = threading.Lock()
+
+
+def _coerce_finite_float(value: Any) -> float:
+    """Coerce numeric input to a finite float."""
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise ValueError("Value must be finite")
+    return parsed
+
+
+def _coerce_non_empty_string(value: Any, field_name: str) -> str:
+    """Coerce text input to a non-empty stripped string."""
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+    parsed = value.strip()
+    if not parsed:
+        raise ValueError(f"{field_name} cannot be empty")
+    return parsed
+
+
+def _coerce_optional_non_empty_string(value: Any, field_name: str) -> str | None:
+    """Coerce optional text input to a stripped non-empty string."""
+    if value is None:
+        return None
+    return _coerce_non_empty_string(value, field_name)
+
+
+def _coerce_query_bool(value: Any, field_name: str) -> bool:
+    """Coerce a query string boolean expressed as true/false."""
+    if not isinstance(value, str):
+        raise ValueError(f"{field_name} must be a string")
+
+    normalized = value.strip().lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
+    raise ValueError(f"{field_name} must be 'true' or 'false'")
 
 
 def get_budget_circuit_breaker() -> BudgetCircuitBreaker:
@@ -223,7 +262,10 @@ class BudgetHandler(BaseHandler):
 
         # Routes with budget_id
         if len(parts) >= 5 and parts[3] == "budgets":
-            budget_id = parts[4]
+            try:
+                budget_id = _coerce_non_empty_string(parts[4], "budget_id")
+            except ValueError as e:
+                return error_response(str(e), 400)
 
             # GET /api/v1/budgets/:id
             if len(parts) == 5 and method == "GET":
@@ -248,7 +290,10 @@ class BudgetHandler(BaseHandler):
                 and parts[7] == "acknowledge"
                 and method == "POST"
             ):
-                alert_id = parts[6]
+                try:
+                    alert_id = _coerce_non_empty_string(parts[6], "alert_id")
+                except ValueError as e:
+                    return error_response(str(e), 400)
                 return self._acknowledge_alert(alert_id, user_id)
 
             # POST /api/v1/budgets/:id/override
@@ -257,7 +302,10 @@ class BudgetHandler(BaseHandler):
 
             # DELETE /api/v1/budgets/:id/override/:user_id
             if len(parts) == 7 and parts[5] == "override" and method == "DELETE":
-                target_user_id = parts[6]
+                try:
+                    target_user_id = _coerce_non_empty_string(parts[6], "user_id")
+                except ValueError as e:
+                    return error_response(str(e), 400)
                 return self._remove_override(budget_id, org_id, target_user_id)
 
             # POST /api/v1/budgets/:id/reset
@@ -351,7 +399,11 @@ class BudgetHandler(BaseHandler):
                 from urllib.parse import parse_qs
 
                 params = parse_qs(query_str)
-                active_only = params.get("active_only", ["true"])[0].lower() == "true"
+                if "active_only" in params:
+                    try:
+                        active_only = _coerce_query_bool(params["active_only"][0], "active_only")
+                    except ValueError as e:
+                        return error_response(str(e), 400)
 
             budgets = manager.get_budgets_for_org(org_id, active_only=active_only)
 
@@ -401,7 +453,7 @@ class BudgetHandler(BaseHandler):
             if amount_usd is None:
                 return error_response("Missing required field: amount_usd", 400)
             try:
-                amount_usd_float = float(amount_usd)
+                amount_usd_float = _coerce_finite_float(amount_usd)
             except (ValueError, TypeError):
                 return error_response("Invalid amount_usd value: must be a number", 400)
             if amount_usd_float < self.MIN_AMOUNT_USD:
@@ -413,6 +465,9 @@ class BudgetHandler(BaseHandler):
             period_str = body.get("period", "monthly")
             if not isinstance(period_str, str):
                 return error_response("period must be a string", 400)
+            period_str = period_str.strip()
+            if not period_str:
+                return error_response("period cannot be empty", 400)
             try:
                 period = BudgetPeriod(period_str)
             except ValueError:
@@ -534,7 +589,7 @@ class BudgetHandler(BaseHandler):
             amount_usd_float = None
             if amount_usd is not None:
                 try:
-                    amount_usd_float = float(amount_usd)
+                    amount_usd_float = _coerce_finite_float(amount_usd)
                 except (ValueError, TypeError):
                     return error_response("Invalid amount_usd value: must be a number", 400)
                 if amount_usd_float < self.MIN_AMOUNT_USD:
@@ -555,6 +610,9 @@ class BudgetHandler(BaseHandler):
                 status_str = body["status"]
                 if not isinstance(status_str, str):
                     return error_response("status must be a string", 400)
+                status_str = status_str.strip()
+                if not status_str:
+                    return error_response("status cannot be empty", 400)
                 try:
                     status = BudgetStatus(status_str)
                 except ValueError:
@@ -648,14 +706,14 @@ class BudgetHandler(BaseHandler):
                 return error_response("Invalid request body", 400)
 
             estimated_cost = body.get("estimated_cost_usd", 0)
-            if estimated_cost <= 0:
+            try:
+                estimated_cost_float = _coerce_finite_float(estimated_cost)
+            except (ValueError, TypeError):
+                return error_response("Invalid estimated_cost_usd value", 400)
+            if estimated_cost_float <= 0:
                 return error_response("Invalid estimated_cost_usd: must be positive", 400)
 
             manager = self._get_budget_manager()
-            try:
-                estimated_cost_float = float(estimated_cost)
-            except (ValueError, TypeError):
-                return error_response("Invalid estimated_cost_usd value", 400)
             allowed, reason, action = manager.check_budget(
                 org_id=org_id,
                 estimated_cost_usd=estimated_cost_float,
@@ -759,15 +817,22 @@ class BudgetHandler(BaseHandler):
             target_user_id = body.get("user_id")
             if not target_user_id:
                 return error_response("Missing required field: user_id", 400)
+            if not isinstance(target_user_id, str):
+                return error_response("user_id must be a string", 400)
+            target_user_id = target_user_id.strip()
+            if not target_user_id:
+                return error_response("user_id cannot be empty", 400)
 
             duration_hours = body.get("duration_hours")
 
             duration_hours_float = None
             if duration_hours is not None:
                 try:
-                    duration_hours_float = float(duration_hours)
+                    duration_hours_float = _coerce_finite_float(duration_hours)
                 except (ValueError, TypeError):
                     return error_response("Invalid duration_hours value", 400)
+                if duration_hours_float <= 0:
+                    return error_response("duration_hours must be positive", 400)
             manager.add_override(
                 budget_id=budget_id,
                 user_id=target_user_id,
@@ -894,7 +959,16 @@ class BudgetHandler(BaseHandler):
                     date_to = safe_query_float(
                         params, "date_to", default=0.0, min_val=0.0, max_val=float("inf")
                     )
-                user_id = params.get("user_id", [None])[0]
+                try:
+                    user_id = _coerce_optional_non_empty_string(
+                        params.get("user_id", [None])[0],
+                        "user_id",
+                    )
+                except ValueError as e:
+                    return error_response(str(e), 400)
+
+            if date_from is not None and date_to is not None and date_from > date_to:
+                return error_response("date_from must be less than or equal to date_to", 400)
 
             transactions = manager.get_transactions(
                 budget_id=budget_id,
@@ -959,7 +1033,7 @@ class BudgetHandler(BaseHandler):
                 from urllib.parse import parse_qs
 
                 params = parse_qs(query_str)
-                period = params.get("period", ["day"])[0]
+                period = params.get("period", ["day"])[0].strip()
                 limit = safe_query_int(params, "limit", default=30, min_val=1, max_val=365)
 
             if period not in ("hour", "day", "week", "month"):
@@ -1009,7 +1083,7 @@ class BudgetHandler(BaseHandler):
                 from urllib.parse import parse_qs
 
                 params = parse_qs(query_str)
-                period = params.get("period", ["day"])[0]
+                period = params.get("period", ["day"])[0].strip()
                 limit = safe_query_int(params, "limit", default=30, min_val=1, max_val=365)
 
             if period not in ("hour", "day", "week", "month"):
@@ -1063,7 +1137,13 @@ class BudgetHandler(BaseHandler):
                 from urllib.parse import parse_qs
 
                 params = parse_qs(query_str)
-                workspace_id = params.get("workspace_id", [org_id])[0]
+                try:
+                    workspace_id = _coerce_non_empty_string(
+                        params.get("workspace_id", [org_id])[0],
+                        "workspace_id",
+                    )
+                except ValueError as e:
+                    return error_response(str(e), 400)
 
             stats = tracker.get_workspace_stats(workspace_id)
             agent_costs = stats.get("cost_by_agent", {})
@@ -1097,7 +1177,13 @@ class BudgetHandler(BaseHandler):
                 from urllib.parse import parse_qs
 
                 params = parse_qs(query_str)
-                workspace_id = params.get("workspace_id", [org_id])[0]
+                try:
+                    workspace_id = _coerce_non_empty_string(
+                        params.get("workspace_id", [org_id])[0],
+                        "workspace_id",
+                    )
+                except ValueError as e:
+                    return error_response(str(e), 400)
 
             # detect_and_store_anomalies is async, returns (anomalies, advisory)
             try:

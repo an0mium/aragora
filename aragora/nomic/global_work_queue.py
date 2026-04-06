@@ -358,6 +358,7 @@ class GlobalWorkQueue:
 
     async def _save_queue(self) -> None:
         """Save queue to storage."""
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
         queue_file = self.storage_dir / "queue.jsonl"
         temp_file = queue_file.with_suffix(".tmp")
 

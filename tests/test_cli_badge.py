@@ -110,8 +110,8 @@ class TestGenerateBadgeMarkdown:
     def test_default_link_is_aragora_repo(self):
         """Default link points to Aragora repository."""
         markdown, html = generate_badge_markdown()
-        assert "github.com/an0mium/aragora" in markdown
-        assert "github.com/an0mium/aragora" in html
+        assert "github.com/synaptent/aragora" in markdown
+        assert "github.com/synaptent/aragora" in html
 
     def test_custom_repo_in_link(self):
         """Custom repo is included in the link."""

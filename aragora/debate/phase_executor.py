@@ -311,6 +311,14 @@ class PhaseExecutor:
         start_time = time.time()
 
         logger.debug("Starting phase: %s", phase_name)
+        self._emit_trace(
+            "phase_start",
+            {
+                "debate_id": debate_id,
+                "phase": phase_name,
+                "started_at": started_at.isoformat(),
+            },
+        )
 
         # Use OpenTelemetry tracing when enabled
         if self._config.enable_tracing:
@@ -321,6 +329,20 @@ class PhaseExecutor:
             result = await self._execute_without_tracing(
                 phase, phase_name, context, started_at, start_time
             )
+
+        self._emit_trace(
+            "phase_end",
+            {
+                "debate_id": debate_id,
+                "phase": phase_name,
+                "status": result.status.value,
+                "success": result.success,
+                "duration_ms": result.duration_ms,
+                "started_at": result.started_at.isoformat() if result.started_at else None,
+                "completed_at": result.completed_at.isoformat() if result.completed_at else None,
+                "error": result.error,
+            },
+        )
 
         # Execute post-phase callback
         if self._config.post_phase_callback:
@@ -480,6 +502,15 @@ class PhaseExecutor:
 
         finally:
             self._current_phase = None
+
+    def _emit_trace(self, event_type: str, payload: dict[str, Any]) -> None:
+        """Emit a lightweight trace event to the configured callback."""
+        if not self._config.enable_tracing or self._config.trace_callback is None:
+            return
+        try:
+            self._config.trace_callback(event_type, payload)
+        except (RuntimeError, ValueError, TypeError, OSError, AttributeError) as e:
+            logger.debug("Phase trace callback failed for '%s': %s", event_type, e)
 
     def _add_phase_span_attributes(self, span: Any, phase_name: str, context: Any) -> None:
         """Add phase-specific attributes to the tracing span."""
