@@ -127,26 +127,9 @@ class MockRotationResult:
 
 
 @pytest.fixture
-def mock_server_context() -> MagicMock:
-    """Create mock server context."""
-    return MagicMock()
-
-
-@pytest.fixture
-def security_handler(mock_server_context: MagicMock) -> SecurityHandler:
+def security_handler(mock_server_context: dict[str, Any]) -> SecurityHandler:
     """Create security handler for tests."""
     return SecurityHandler(mock_server_context)
-
-
-@pytest.fixture
-def mock_handler() -> MagicMock:
-    """Create mock request handler with auth context."""
-    handler = MagicMock()
-    handler._context = {"user": {"id": "admin-1", "roles": ["admin"]}}
-    handler._auth_context = MagicMock()
-    handler._auth_context.user_id = "admin-1"
-    handler._auth_context.roles = ["admin"]
-    return handler
 
 
 class TestCanHandle:
