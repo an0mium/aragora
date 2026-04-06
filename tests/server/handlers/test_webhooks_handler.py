@@ -458,7 +458,21 @@ class TestWebhookHandlerRegister:
         result = await webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
 
         assert result.status_code == 400
-        assert b"URL is required" in result.body
+        assert b"url must be a non-empty string" in result.body.lower()
+
+    @pytest.mark.asyncio
+    async def test_register_webhook_rejects_nonstring_url(self, webhook_handler):
+        """Registration must reject malformed non-string callback URLs."""
+        body = json.dumps({"url": False, "events": ["debate_start"]}).encode()
+        handler = MockHandler(
+            headers={"Content-Length": str(len(body)), "Content-Type": "application/json"},
+            body=body,
+        )
+
+        result = await webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
+
+        assert result.status_code == 400
+        assert b"url must be a non-empty string" in result.body.lower()
 
     @pytest.mark.asyncio
     async def test_register_webhook_invalid_url(self, webhook_handler):

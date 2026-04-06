@@ -693,9 +693,12 @@ The webhook secret is only returned once on creation - save it securely.""",
         if rbac_error:
             return rbac_error
 
-        url = body.get("url", "").strip()
+        raw_url = body.get("url", "")
+        if not isinstance(raw_url, str):
+            return error_response("URL must be a non-empty string", 400)
+        url = raw_url.strip()
         if not url:
-            return error_response("URL is required", 400)
+            return error_response("URL must be a non-empty string", 400)
 
         # Validate URL format and check for SSRF
         is_valid, error_msg = validate_webhook_url(url, allow_localhost=False)
