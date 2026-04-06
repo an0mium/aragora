@@ -1039,7 +1039,7 @@ class TestRunnerFreshness:
                 }
                 return inspected
 
-        def _make_inspector(runner_type: str, *, env=None, profile=None):
+        def _make_inspector(runner_type: str, *, env=None, profile=None, repo_root=None):
             runner_id = "claude-runner-1" if profile == "max-01" else "claude-runner-2"
             return _Inspector(runner_id)
 
