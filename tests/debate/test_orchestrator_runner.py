@@ -157,6 +157,10 @@ def mock_arena(
     arena.molecule_orchestrator = None
     arena.checkpoint_bridge = None
     arena.prompt_builder = None
+    arena.knowledge_mound = MagicMock()
+    arena.enable_knowledge_retrieval = True
+    arena.enable_knowledge_ingestion = True
+    arena.enable_supermemory = False
     arena.use_performance_selection = False
     arena.enable_auto_execution = False
     arena.enable_result_routing = False
@@ -211,6 +215,7 @@ def mock_debate_result():
     result.rounds_used = 3
     result.final_answer = "Test answer"
     result.bead_id = None
+    result.metadata = {}
     return result
 
 
@@ -1091,6 +1096,40 @@ class TestHandleDebateCompletion:
         assert getattr(execution_state.ctx, "_km_ingest_task", None) is None
 
     @pytest.mark.asyncio
+    async def test_reports_truthful_km_metadata_on_result(self, mock_arena, execution_state):
+        """Observed KM retrieval/writeback is attached to result metadata."""
+        prompt_builder = MagicMock()
+        prompt_builder.get_knowledge_mound_context.return_value = "Institutional context"
+        mock_arena.prompt_builder = prompt_builder
+        execution_state.ctx._prompt_builder = prompt_builder
+        execution_state.ctx._km_item_ids_used = ["km-1", "km-2"]
+
+        await handle_debate_completion(mock_arena, execution_state)
+        result = await cleanup_debate_resources(mock_arena, execution_state)
+
+        km_metadata = result.metadata["knowledge_management"]
+        assert km_metadata["retrieval"]["status"] == "succeeded"
+        assert km_metadata["retrieval"]["observed_context_chars"] == len("Institutional context")
+        assert km_metadata["retrieval"]["observed_item_count"] == 2
+        assert km_metadata["writeback"]["status"] == "succeeded"
+
+    @pytest.mark.asyncio
+    async def test_reports_km_as_not_configured_without_fake_enrichment(
+        self, mock_arena, execution_state
+    ):
+        """Absent KM is reported explicitly instead of inventing enrichment."""
+        mock_arena.knowledge_mound = None
+
+        await handle_debate_completion(mock_arena, execution_state)
+        result = await cleanup_debate_resources(mock_arena, execution_state)
+
+        km_metadata = result.metadata["knowledge_management"]
+        assert km_metadata["context_handoff"]["status"] == "not_configured"
+        assert km_metadata["retrieval"]["status"] == "not_configured"
+        assert km_metadata["writeback"]["status"] == "not_configured"
+        mock_arena._ingest_debate_outcome.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_completes_gupp_tracking_on_success(self, mock_arena, execution_state):
         """Test that GUPP tracking is completed on success."""
         execution_state.gupp_bead_id = "bead-123"
@@ -1468,12 +1507,15 @@ class TestErrorHandlingAndRecovery:
 
     @pytest.mark.asyncio
     async def test_initialize_handles_km_init_error(self, mock_arena):
-        """Test that KM initialization errors are handled."""
+        """Test that KM initialization errors do not block the debate."""
         mock_arena._init_km_context.side_effect = ConnectionError("KM unavailable")
 
-        # The function should propagate this error since it's critical
-        with pytest.raises(ConnectionError):
-            await initialize_debate_context(mock_arena, "corr-123")
+        state = await initialize_debate_context(mock_arena, "corr-123")
+
+        km_metadata = state.ctx._knowledge_management_metadata
+        assert km_metadata["context_handoff"]["status"] == "failed"
+        assert km_metadata["context_handoff"]["error_type"] == "ConnectionError"
+        assert km_metadata["context_handoff"]["error"] == "KM unavailable"
 
     @pytest.mark.asyncio
     async def test_initialize_handles_channel_setup_error(self, mock_arena):
