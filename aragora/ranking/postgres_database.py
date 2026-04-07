@@ -300,6 +300,31 @@ class PostgresEloDatabase(PostgresStore):
                 )
             return [dict(row) for row in rows]
 
+    async def record_match(
+        self,
+        *,
+        winner: str,
+        loser: str,
+        domain: str | None = None,
+        debate_id: str | None = None,
+        winner_elo_before: float = 1500.0,
+        loser_elo_before: float = 1500.0,
+        winner_elo_after: float = 1500.0,
+        loser_elo_after: float = 1500.0,
+    ) -> int:
+        """Record a head-to-head match result using the legacy ELO database API."""
+        return await self.save_match(
+            debate_id=debate_id or f"{winner}-vs-{loser}",
+            winner=winner,
+            participants=[winner, loser],
+            domain=domain,
+            scores={winner: 1.0, loser: 0.0},
+            elo_changes={
+                winner: winner_elo_after - winner_elo_before,
+                loser: loser_elo_after - loser_elo_before,
+            },
+        )
+
     async def save_match(
         self,
         debate_id: str,
@@ -392,6 +417,33 @@ class PostgresEloDatabase(PostgresStore):
                     result["elo_changes"] = json.loads(result["elo_changes"])
                 results.append(result)
             return results
+
+    async def get_match_history(self, agent_name: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Get recent match history for a single agent."""
+        return await self.get_recent_matches(agent_name=agent_name, limit=limit)
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get aggregate ELO database statistics."""
+        async with self.connection() as conn:
+            ratings_row = await conn.fetchrow(
+                """
+                SELECT
+                    COUNT(*) AS total_agents,
+                    COALESCE(AVG(elo), 1500) AS avg_elo,
+                    COALESCE(MAX(elo), 1500) AS max_elo,
+                    COALESCE(MIN(elo), 1500) AS min_elo
+                FROM elo_ratings
+                """
+            )
+            matches_row = await conn.fetchrow("SELECT COUNT(*) AS total_matches FROM elo_matches")
+
+        return {
+            "total_agents": int(ratings_row["total_agents"]) if ratings_row else 0,
+            "avg_elo": float(ratings_row["avg_elo"]) if ratings_row else 1500.0,
+            "max_elo": float(ratings_row["max_elo"]) if ratings_row else 1500.0,
+            "min_elo": float(ratings_row["min_elo"]) if ratings_row else 1500.0,
+            "total_matches": int(matches_row["total_matches"]) if matches_row else 0,
+        }
 
     async def save_elo_history(
         self,

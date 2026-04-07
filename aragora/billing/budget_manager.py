@@ -789,7 +789,11 @@ class BudgetManager:
         Returns:
             Tuple of (allowed, reason, action_required)
         """
-        budgets = self.get_budgets_for_org(org_id, active_only=True)
+        budgets = [
+            budget
+            for budget in self.get_budgets_for_org(org_id, active_only=False)
+            if budget.status != BudgetStatus.CLOSED
+        ]
 
         if not budgets:
             # No budget configured - allow
@@ -798,7 +802,13 @@ class BudgetManager:
         for budget in budgets:
             allowed, reason = budget.can_spend(estimated_cost_usd, user_id)
             if not allowed:
-                return False, reason, budget.current_action
+                if budget.status == BudgetStatus.SUSPENDED:
+                    action_required = BudgetAction.SUSPEND
+                elif budget.is_exceeded:
+                    action_required = BudgetAction.HARD_LIMIT
+                else:
+                    action_required = budget.current_action
+                return False, reason, action_required
 
             # Check if this would trigger a warning
             new_total = budget.spent_usd + estimated_cost_usd
