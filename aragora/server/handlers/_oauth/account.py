@@ -148,10 +148,14 @@ class AccountManagementMixin:
         if body is None:
             return error_response("Invalid JSON body", 400)
 
-        provider = body.get("provider", "").lower()
+        provider = body.get("provider")
         code = body.get("code")
         state = body.get("state")
 
+        if not all(isinstance(value, str) for value in (provider, code, state)):
+            return error_response("provider, code, and state must be strings", 400)
+
+        provider = provider.lower()
         if not provider or not code or not state:
             return error_response("provider, code, and state are required", 400)
 
@@ -249,12 +253,19 @@ class AccountManagementMixin:
         if body is None:
             return error_response("Invalid JSON body", 400)
 
-        provider = body.get("provider", "").lower()
+        provider = body.get("provider")
+        if not isinstance(provider, str):
+            return error_response("Provider must be a string", 400)
+        provider = provider.lower()
         if provider not in ["google", "github", "microsoft", "apple", "oidc"]:
             return error_response("Unsupported provider", 400)
 
         # Return the auth URL for the provider
-        redirect_url = body.get("redirect_url", impl._get_oauth_success_url())
+        redirect_url = body.get("redirect_url")
+        if redirect_url is None:
+            redirect_url = impl._get_oauth_success_url()
+        elif not isinstance(redirect_url, str):
+            return error_response("redirect_url must be a string", 400)
 
         # Validate redirect URL against allowlist (same as start flow)
         if not impl._validate_redirect_url(redirect_url):
@@ -359,7 +370,10 @@ class AccountManagementMixin:
         if body is None:
             return error_response("Invalid JSON body", 400)
 
-        provider = body.get("provider", "").lower()
+        provider = body.get("provider")
+        if not isinstance(provider, str):
+            return error_response("Provider must be a string", 400)
+        provider = provider.lower()
         if provider not in ["google", "github", "microsoft", "apple", "oidc"]:
             return error_response("Unsupported provider", 400)
 
