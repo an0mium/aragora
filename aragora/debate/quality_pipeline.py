@@ -25,6 +25,28 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _parse_config_bool(value: Any) -> bool:
+    """Parse config booleans from JSON-compatible values, failing closed."""
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        if value == 1:
+            return True
+        if value == 0:
+            return False
+        return False
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off", ""}:
+            return False
+        return False
+    return False
+
+
 @dataclass
 class QualityPipelineConfig:
     """Configuration for the post-consensus quality pipeline.
@@ -58,6 +80,7 @@ class QualityPipelineConfig:
         if not isinstance(data, dict):
             return cls()
 
+        defaults = cls()
         sections_raw = data.get("required_sections")
         sections: list[str] | None = None
         if isinstance(sections_raw, list):
@@ -66,11 +89,19 @@ class QualityPipelineConfig:
                 sections = None
 
         return cls(
-            enabled=bool(data.get("enabled", True)),
+            enabled=(
+                defaults.enabled
+                if "enabled" not in data
+                else _parse_config_bool(data.get("enabled"))
+            ),
             output_contract_file=data.get("output_contract_file"),
             required_sections=sections,
             repo_root=data.get("repo_root"),
-            has_context=bool(data.get("has_context", False)),
+            has_context=(
+                defaults.has_context
+                if "has_context" not in data
+                else _parse_config_bool(data.get("has_context"))
+            ),
             quality_min_score=float(data.get("quality_min_score", 9.0)),
             practicality_min_score=float(data.get("practicality_min_score", 5.0)),
         )

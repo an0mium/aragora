@@ -75,10 +75,33 @@ class TestQualityPipelineConfig:
     def test_from_dict_empty(self):
         cfg = QualityPipelineConfig.from_dict({})
         assert cfg.enabled is True
+        assert cfg.has_context is False
 
     def test_from_dict_disabled(self):
         cfg = QualityPipelineConfig.from_dict({"enabled": False})
         assert cfg.enabled is False
+
+    @pytest.mark.parametrize(
+        ("enabled", "has_context", "expected_enabled", "expected_has_context"),
+        [
+            ("true", "yes", True, True),
+            ("1", "on", True, True),
+            ("false", "no", False, False),
+            ("0", "off", False, False),
+            ("", "", False, False),
+            ("not-a-bool", "maybe", False, False),
+        ],
+    )
+    def test_from_dict_string_booleans_fail_closed(
+        self,
+        enabled,
+        has_context,
+        expected_enabled,
+        expected_has_context,
+    ):
+        cfg = QualityPipelineConfig.from_dict({"enabled": enabled, "has_context": has_context})
+        assert cfg.enabled is expected_enabled
+        assert cfg.has_context is expected_has_context
 
     def test_from_dict_with_sections(self):
         cfg = QualityPipelineConfig.from_dict(
