@@ -43,6 +43,11 @@ def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | Non
         "campaign",
         "integrator",
         "tranche",
+        "coord",
+        "assign",
+        "claim-pr",
+        "report",
+        "findings",
     }:
         return str(first), second
     return "run", first
@@ -93,6 +98,77 @@ def _print_table(
     print("  ".join("-" * widths[key] for key, _label in headers))
     for row in rows:
         print("  ".join(str(row.get(key, "") or "").ljust(widths[key]) for key, _label in headers))
+
+
+def _coordination_session_id(args: argparse.Namespace) -> str:
+    explicit = _optional_text(getattr(args, "session_id", None))
+    if explicit:
+        return explicit
+    for env_name in ("ARAGORA_SESSION_ID", "ARAGORA_AGENT_SESSION_ID", "ARAGORA_SWARM_SESSION_ID"):
+        from_env = _optional_text(os.environ.get(env_name))
+        if from_env:
+            return from_env
+    for env_name in ("ARAGORA_AGENT", "ARAGORA_AGENT_NAME"):
+        agent_name = _optional_text(os.environ.get(env_name))
+        if agent_name:
+            return f"{agent_name}-{os.getpid()}"
+    return f"session-{os.getpid()}"
+
+
+def _coordination_assigned_by(args: argparse.Namespace) -> str:
+    explicit = _optional_text(getattr(args, "assigned_by", None))
+    if explicit:
+        return explicit
+    from_env = _optional_text(os.environ.get("ARAGORA_BOSS_SESSION_ID"))
+    if from_env:
+        return from_env
+    return f"boss-{os.getpid()}"
+
+
+def _render_coordination_view(view: dict[str, object]) -> None:
+    summary = view.get("summary", {}) if isinstance(view.get("summary"), dict) else {}
+    print(
+        "coordination directives={directives} sessions={sessions} claims={claims} findings={findings}".format(
+            directives=summary.get("directive_count", 0),
+            sessions=summary.get("session_count", 0),
+            claims=summary.get("claim_count", 0),
+            findings=summary.get("finding_count", 0),
+        )
+    )
+    for directive in [item for item in view.get("directives", []) if isinstance(item, dict)][:5]:
+        print(
+            "directive {target} status={status} task={task}".format(
+                target=directive.get("target", ""),
+                status=directive.get("status", ""),
+                task=directive.get("task", ""),
+            )
+        )
+        scope = [str(item) for item in directive.get("scope", []) if str(item).strip()]
+        constraints = [str(item) for item in directive.get("constraints", []) if str(item).strip()]
+        if scope:
+            print(f"  scope: {', '.join(scope)}")
+        if constraints:
+            print(f"  constraints: {', '.join(constraints)}")
+    for claim in [item for item in view.get("claims", []) if isinstance(item, dict)][:5]:
+        paths = [str(item) for item in claim.get("paths", []) if str(item).strip()]
+        print(
+            "claim session={session} scope={scope} intent={intent}".format(
+                session=claim.get("session_id", ""),
+                scope=", ".join(paths) or "-",
+                intent=claim.get("intent", "") or "-",
+            )
+        )
+    for finding in [item for item in view.get("findings", []) if isinstance(item, dict)][:5]:
+        pr = finding.get("pr")
+        pr_text = f" pr=#{pr}" if pr not in (None, "", 0) else ""
+        print(
+            "finding {session} kind={kind}{pr} {message}".format(
+                session=finding.get("source_session", "") or "-",
+                kind=finding.get("kind", "finding"),
+                pr=pr_text,
+                message=finding.get("message", ""),
+            )
+        )
 
 
 def _trim_command_output(text: str, *, limit: int = 240) -> str | None:
@@ -983,6 +1059,139 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         "metrics": AutonomyLevel.METRICS_DRIVEN,
     }
     autonomy_level = autonomy_map.get(autonomy_str, AutonomyLevel.PROPOSE_APPROVE)
+
+    if action in {"coord", "assign", "claim-pr", "report", "findings"}:
+        from aragora.swarm.session_coordinator import (
+            claim_pr as coord_claim_pr,
+            list_findings as coord_list_findings,
+            read_directives as coord_read,
+            report_finding as coord_report_finding,
+            set_assignment as coord_set_assignment,
+        )
+        from aragora.worktree.fleet import resolve_repo_root
+
+        repo_root = resolve_repo_root(Path.cwd())
+        findings_limit = max(1, int(getattr(args, "findings_limit", 10)))
+        session_id = _coordination_session_id(args)
+
+        if action == "coord":
+            payload = coord_read(repo_root, findings_limit=findings_limit)
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                _render_coordination_view(payload)
+            return
+
+        if action == "assign":
+            target_session = _optional_text(goal)
+            task_text = _optional_text(getattr(args, "swarm_campaign_target", None))
+            if not target_session or not task_text:
+                print('Error: usage: aragora swarm assign <session-id> "task description"')
+                return
+            payload = coord_set_assignment(
+                target_session,
+                task_text,
+                scope=[
+                    str(item) for item in (getattr(args, "scope", None) or []) if str(item).strip()
+                ],
+                constraints=[
+                    str(item)
+                    for item in (getattr(args, "constraint", None) or [])
+                    if str(item).strip()
+                ],
+                status=str(getattr(args, "directive_status", "active") or "active"),
+                issued_by=_coordination_assigned_by(args),
+                repo_root=repo_root,
+            )
+            response = {"mode": "coordination-assign", "directive": payload}
+            if as_json:
+                print(json.dumps(response, indent=2))
+            else:
+                print(f"assigned {payload.get('target', '')}: {payload.get('task', '')}")
+            return
+
+        if action == "claim-pr":
+            pr_text = _optional_text(goal)
+            if not pr_text:
+                print("Error: usage: aragora swarm claim-pr <pr-number>")
+                return
+            try:
+                pr_number = int(pr_text)
+            except ValueError:
+                print(f"Error: invalid PR number: {pr_text}")
+                return
+            payload = coord_claim_pr(
+                pr_number,
+                session_id,
+                intent=_optional_text(getattr(args, "claim_intent", None)) or "",
+                ttl_minutes=max(1, int(getattr(args, "ttl_minutes", 30) or 30)),
+                repo_root=repo_root,
+            )
+            response = {"mode": "coordination-claim-pr", "pr": pr_number, **payload}
+            if as_json:
+                print(json.dumps(response, indent=2))
+            else:
+                status_text = str(payload.get("status", "unknown"))
+                if status_text == "granted":
+                    print(f"claimed PR#{pr_number} for {session_id}")
+                else:
+                    owners = [
+                        str(item.get("session_id", ""))
+                        for item in payload.get("contested_by", [])
+                        if isinstance(item, dict)
+                    ]
+                    print(
+                        f"PR#{pr_number} claim contested for {session_id}"
+                        + (f" (also claimed by {', '.join(owners)})" if owners else "")
+                    )
+            return
+
+        if action == "report":
+            message = _optional_text(goal)
+            if not message:
+                print('Error: usage: aragora swarm report "finding text"')
+                return
+            payload = coord_report_finding(
+                message,
+                session_id,
+                kind=_optional_text(getattr(args, "kind", None)) or "finding",
+                pr=getattr(args, "pr", None),
+                scope=[
+                    str(item) for item in (getattr(args, "scope", None) or []) if str(item).strip()
+                ],
+                repo_root=repo_root,
+            )
+            response = {"mode": "coordination-report", "finding": payload}
+            if as_json:
+                print(json.dumps(response, indent=2))
+            else:
+                print(f"reported {payload.get('kind', 'finding')} from {session_id}")
+            return
+
+        findings = coord_list_findings(
+            limit=findings_limit,
+            session_id=_optional_text(getattr(args, "session_id", None)),
+            kind=_optional_text(getattr(args, "kind", None)),
+            pr=getattr(args, "pr", None),
+            repo_root=repo_root,
+        )
+        if as_json:
+            print(json.dumps({"mode": "coordination-findings", "findings": findings}, indent=2))
+        elif not findings:
+            print("No findings reported yet.")
+        else:
+            for finding in findings:
+                pr_value = finding.get("pr")
+                pr_text = f" pr=#{pr_value}" if pr_value not in (None, "", 0) else ""
+                print(
+                    "[{session}] {kind}{pr} {message}".format(
+                        session=finding.get("source_session", "-") or "-",
+                        kind=finding.get("kind", "finding"),
+                        pr=pr_text,
+                        message=finding.get("message", ""),
+                    )
+                )
+        return
 
     if action == "runner":
         from aragora.swarm.reporter import render_runner_registration_text
@@ -2427,6 +2636,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(render_boss_text(payload))
             return
     if action == "status":
+        from aragora.swarm.session_coordinator import read_directives as coord_read
+
         repo_root = resolve_repo_root(Path.cwd())
         supervisor = SwarmSupervisor(repo_root=repo_root)
         payload = supervisor.status_summary(
@@ -2445,6 +2656,10 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             claims=claims,
             merge_queue=merge_queue,
             coordination=payload.get("coordination", {}),
+        )
+        payload["coordination_view"] = coord_read(
+            repo_root,
+            findings_limit=max(1, int(getattr(args, "findings_limit", 10))),
         )
         if as_json:
             print(json.dumps(payload, indent=2))
@@ -2476,6 +2691,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 if isinstance(run, dict):
                     print("---")
                     _print_supervisor_run(run)
+            print("---")
+            _render_coordination_view(payload["coordination_view"])
         return
 
     if action == "reconcile":
