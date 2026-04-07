@@ -39,6 +39,57 @@ class RunnerFreshnessResult:
         }
 
 
+def _normalized_runner_type(value: Any) -> str | None:
+    normalized = str(value or "").strip().lower()
+    return normalized or None
+
+
+def _verification_runner_type(
+    *,
+    requested_runner_type: str | None,
+    routing: Any,
+) -> str | None:
+    requested = _normalized_runner_type(requested_runner_type)
+    if requested not in {"claude", "codex"}:
+        return None
+    for item in getattr(routing, "selected_runners", []) or []:
+        if not isinstance(item, dict):
+            continue
+        selected_type = _normalized_runner_type(item.get("runner_type"))
+        if selected_type in {"claude", "codex"}:
+            return selected_type
+    return requested
+
+
+def _selected_runner_probe_inspections(
+    *,
+    runner_type: str,
+    routing: Any,
+    make_runner_inspector: Any,
+    env: dict[str, str] | None,
+) -> list[Any]:
+    inspections: list[Any] = []
+    seen_ids: set[str] = set()
+    for item in getattr(routing, "selected_runners", []) or []:
+        if not isinstance(item, dict):
+            continue
+        if _normalized_runner_type(item.get("runner_type")) != runner_type:
+            continue
+        profile = str(item.get("profile", "") or "").strip() or None
+        inspection = make_runner_inspector(
+            runner_type,
+            env=env,
+            profile=profile,
+            repo_root=Path.cwd(),
+        ).inspect()
+        runner_id = str(getattr(inspection, "runner_id", "") or "").strip()
+        if not runner_id or runner_id in seen_ids:
+            continue
+        seen_ids.add(runner_id)
+        inspections.append(inspection)
+    return inspections
+
+
 def check_runner_freshness(
     *,
     freshness_ttl_seconds: float = 300.0,
@@ -83,16 +134,28 @@ def check_runner_freshness(
 
     registry = LocalRunnerRegistry(path=registry_path) if registry_path else LocalRunnerRegistry()
     allowed_profile_set = set(allowed_profiles or configured_claude_runner_profiles(env))
-    discovered: list[Any] = []
-    if requested_runner_type:
+    discovered_by_type: dict[str, list[Any]] = {}
+
+    def _refresh_discovered(runner_type: str | None) -> list[Any]:
+        normalized = _normalized_runner_type(runner_type)
+        if not normalized:
+            return []
+        cached = discovered_by_type.get(normalized)
+        if cached is not None:
+            return cached
         discovered = refresh_discovered_runners(
-            requested_runner_type,
+            normalized,
             registry=registry,
             owner_context=owner_context,
             env=env,
             repo_root=Path.cwd(),
             profiles=allowed_profile_set or None,
         )
+        discovered_by_type[normalized] = discovered
+        return discovered
+
+    if requested_runner_type:
+        _refresh_discovered(requested_runner_type)
     routing = registry.resolve_boss_routing(
         owner_context=owner_context,
         requested_runner_type=requested_runner_type,
@@ -107,9 +170,14 @@ def check_runner_freshness(
         "verified_target": 0,
         "results": [],
     }
-    if requested_runner_type in {"claude", "codex"}:
+    verification_runner_type = _verification_runner_type(
+        requested_runner_type=requested_runner_type,
+        routing=routing,
+    )
+    probe_summary["verification_runner_type"] = verification_runner_type
+    if verification_runner_type in {"claude", "codex"}:
         if verified_runner_target is None:
-            default_verified_target = 2 if requested_runner_type == "claude" else 1
+            default_verified_target = 2 if verification_runner_type == "claude" else 1
             try:
                 verified_target = max(
                     0,
@@ -139,15 +207,30 @@ def check_runner_freshness(
             [
                 item
                 for item in routing.selected_runners
-                if isinstance(item, dict) and str(item.get("probe_status", "")).strip() == "passed"
+                if isinstance(item, dict) and registry._probe_status(item) == "passed"
             ]
         )
         probe_summary["verified_target"] = verified_target
         if selected_verified < verified_target:
+            probe_discoveries = list(_refresh_discovered(verification_runner_type))
+            discovered_ids = {
+                str(getattr(item, "runner_id", "") or "").strip() for item in probe_discoveries
+            }
+            for inspection in _selected_runner_probe_inspections(
+                runner_type=verification_runner_type,
+                routing=routing,
+                make_runner_inspector=make_runner_inspector,
+                env=env,
+            ):
+                runner_id = str(getattr(inspection, "runner_id", "") or "").strip()
+                if not runner_id or runner_id in discovered_ids:
+                    continue
+                probe_discoveries.append(inspection)
+                discovered_ids.add(runner_id)
             candidates = prioritized_probe_candidates(
                 registry=registry,
-                runner_type=requested_runner_type,
-                discovered_inspections=discovered,
+                runner_type=verification_runner_type,
+                discovered_inspections=probe_discoveries,
                 owner_context=owner_context,
                 selected_runners=routing.selected_runners,
             )
@@ -175,6 +258,11 @@ def check_runner_freshness(
                     allowed_profiles=allowed_profile_set or None,
                     rotation_interval_seconds=rotation_interval_seconds,
                 )
+                verification_runner_type = _verification_runner_type(
+                    requested_runner_type=requested_runner_type,
+                    routing=routing,
+                )
+                probe_summary["verification_runner_type"] = verification_runner_type
         selected_verified = len(
             [
                 item
