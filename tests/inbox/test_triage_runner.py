@@ -16,6 +16,7 @@ from aragora.inbox.triage_runner import (
     _create_triage_agents,
     _extract_fast_tier_json,
     _normalize_triage_profile,
+    _result_consensus_reached,
 )
 from aragora.inbox.trust_wedge import (
     InboxWedgeAction,
@@ -91,6 +92,33 @@ def test_extract_fast_tier_json_parses_fenced_payload():
         "confidence": 0.95,
         "rationale": "Promotional email.",
     }
+
+
+@pytest.mark.parametrize(
+    ("debate_result", "rationale", "expected"),
+    [
+        ({"consensus_reached": "true"}, "archive", True),
+        ({"consensus_reached": "1"}, "archive", True),
+        ({"consensus_reached": "yes"}, "archive", True),
+        ({"consensus_reached": "on"}, "archive", True),
+        ({"consensus_reached": "false"}, "archive", False),
+        ({"consensus_reached": "0"}, "archive", False),
+        ({"consensus_reached": "no"}, "archive", False),
+        ({"consensus_reached": "off"}, "archive", False),
+        ({"consensus_reached": ""}, "archive", False),
+        ({"consensus_reached": "maybe"}, "archive", False),
+        ({}, "archive", True),
+        ({"consensus_reached": None}, "archive", True),
+        ({}, "   ", False),
+        ({"consensus_reached": None}, "   ", False),
+    ],
+)
+def test_result_consensus_reached_parses_strings_fail_closed(
+    debate_result: dict[str, object],
+    rationale: str,
+    expected: bool,
+):
+    assert _result_consensus_reached(debate_result, rationale) is expected
 
 
 @pytest.mark.asyncio
