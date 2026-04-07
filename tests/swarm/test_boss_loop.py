@@ -4061,6 +4061,13 @@ async def test_dispatch_auto_publish_records_postprocessed_publish_metadata_in_b
 
     assert result["status"] == "completed"
     assert result["outcome"] == "pr_adopted"
+    assert result["deliverable"]["type"] == "pr"
+    assert result["deliverable"]["branch"] == "codex/issue-45"
+    assert result["deliverable"]["pr_url"] == "https://github.com/synaptent/aragora/pull/2045"
+    assert result["pr_url"] == "https://github.com/synaptent/aragora/pull/2045"
+    assert result["pr_number"] == 2045
+    assert result["receipt_metadata"]["postprocess_promoted_from_status"] == "needs_human"
+    assert result["receipt_metadata"]["postprocess_promoted_from_outcome"] == "blocked"
     assert len(updated_calls) == 2
     assert updated_calls[-1]["status"] == "completed"
     assert updated_calls[-1]["metadata"]["boss_postprocess"]["publish_result"]["action"] == (
@@ -4073,6 +4080,41 @@ async def test_dispatch_auto_publish_records_postprocessed_publish_metadata_in_b
         updated_calls[-1]["metadata"]["boss_postprocess"]["postprocess_promoted_from_status"]
         == "needs_human"
     )
+    assert (
+        updated_calls[-1]["metadata"]["boss_postprocess"]["postprocess_promoted_from_outcome"]
+        == "blocked"
+    )
+
+
+def test_promote_published_branch_deliverable_to_completed_pr_outcome() -> None:
+    worker_result = {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "deliverable": {
+            "type": "branch",
+            "branch": "codex/issue-45",
+            "commit_shas": ["abc123"],
+        },
+        "publish_result": {
+            "published": True,
+            "action": "pr_created",
+            "branch": "codex/issue-45",
+            "pr_url": "https://github.com/synaptent/aragora/pull/2045",
+        },
+    }
+
+    assert BossLoop._promote_published_deliverable(worker_result) is True
+    assert worker_result["status"] == "completed"
+    assert worker_result["outcome"] == "pr_adopted"
+    assert worker_result["deliverable"]["type"] == "pr"
+    assert worker_result["deliverable"]["branch"] == "codex/issue-45"
+    assert (
+        worker_result["deliverable"]["pr_url"] == "https://github.com/synaptent/aragora/pull/2045"
+    )
+    assert worker_result["pr_url"] == "https://github.com/synaptent/aragora/pull/2045"
+    assert worker_result["pr_number"] == 2045
+    assert worker_result["receipt_metadata"]["postprocess_promoted_from_status"] == "needs_human"
+    assert worker_result["receipt_metadata"]["postprocess_promoted_from_outcome"] == "blocked"
 
 
 def test_published_deliverable_helpers_require_boolean_success_flag() -> None:
@@ -4172,10 +4214,17 @@ async def test_dispatch_auto_publish_rejects_malformed_success_flag() -> None:
 
     assert result["status"] == "needs_human"
     assert result["outcome"] == "blocked"
+    assert result["deliverable"]["type"] == "branch"
     assert result["publish_result"]["published"] == "false"
     assert "issue_comment_result" not in result
+    assert "pr_url" not in result
+    assert result["receipt_metadata"]["publish_result"]["published"] == "false"
+    assert "postprocess_promoted_from_status" not in result["receipt_metadata"]
     assert len(updated_calls) == 2
     assert updated_calls[-1]["status"] == "needs_human"
+    assert (
+        updated_calls[-1]["metadata"]["boss_postprocess"]["publish_result"]["published"] == "false"
+    )
     assert (
         "postprocess_promoted_from_status" not in updated_calls[-1]["metadata"]["boss_postprocess"]
     )
