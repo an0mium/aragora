@@ -27,6 +27,7 @@ import pytest
 
 from aragora.swarm.boss_loop import (
     _should_replace_with_focused_tests,
+    build_issue_eligibility_report,
     BossIterationStatus,
     BossLoop,
     BossLoopConfig,
@@ -248,6 +249,18 @@ class TestSelectEligibleIssue:
         assert selected is not None
         assert selected.number == 2
 
+    def test_reports_issues_skipped_by_label(self):
+        issues = [
+            _make_issue(1, "Known stuck", labels=["boss-stuck"]),
+            _make_issue(2, "Ready lane"),
+        ]
+
+        report = build_issue_eligibility_report(issues, skip_labels={"boss-stuck"})
+
+        assert report.eligible_count == 1
+        assert [issue.number for issue in report.eligible] == [2]
+        assert report.skipped_by_label == {"boss-stuck": [1]}
+
 
 class TestBatchIssueSelection:
     def test_blocked_issue_scopes_skips_lookup_without_repo(self, monkeypatch):
@@ -402,6 +415,27 @@ class TestBatchIssueSelection:
             blocked_scopes={"tests/memory/test_tier_ttl_expiration.py"},
         )
 
+        assert [issue.number for issue in selected] == [2]
+
+    def test_parallel_selection_filters_skip_labels_before_semantic_dedup(self, monkeypatch):
+        loop = BossLoop(_boss_config(max_parallel_dispatches=2))
+        issues = [
+            _make_issue(1, "Duplicate lane", labels=["boss-stuck"]),
+            _make_issue(2, "Duplicate lane"),
+        ]
+        seen: dict[str, list[int]] = {}
+
+        def _dedup(candidates: list[GitHubIssue]) -> list[GitHubIssue]:
+            seen["numbers"] = [issue.number for issue in candidates]
+            if any(issue.number == 1 for issue in candidates):
+                return [candidates[0]]
+            return list(candidates)
+
+        monkeypatch.setattr(loop, "_semantic_dedup_issues", _dedup)
+
+        selected = loop._select_issues_for_iteration(issues, limit=2)
+
+        assert seen["numbers"] == [2]
         assert [issue.number for issue in selected] == [2]
 
     def test_skips_issues_with_skip_labels(self):
@@ -3365,6 +3399,26 @@ def test_boss_loop_batch_no_issue_skips_runner_freshness_check() -> None:
 
     assert result.stop_reason == "no_suitable_issue"
     assert result.iterations_completed == 1
+
+
+def test_boss_loop_reports_skip_labeled_issues_and_skips_dispatch() -> None:
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [_make_issue(301, "Known stuck", labels=["boss-stuck"])]
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: (_ for _ in ()).throw(
+            AssertionError("freshness should not be checked for skip-labeled issues")
+        ),
+    )
+
+    result = asyncio.run(loop.run())
+
+    assert result.stop_reason == "no_suitable_issue"
+    assert result.iterations_completed == 1
+    assert result.issues_attempted == []
+    assert "Skipped by label: boss-stuck (1: #301)" in result.needs_human_reasons
+    assert "Skipped by label: boss-stuck (1: #301)" in result.next_actions
 
 
 def test_boss_loop_batch_reports_effective_parallel_dispatches() -> None:
