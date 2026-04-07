@@ -66,30 +66,6 @@ from aragora.connectors.chat.jwt_verify import (
 
 
 @pytest.fixture
-def rsa_key_pair():
-    """Generate an RSA key pair for testing JWT signatures."""
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend(),
-    )
-    public_key = private_key.public_key()
-
-    private_pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-
-    public_pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-
-    return private_key, public_key, private_pem, public_pem
-
-
-@pytest.fixture
 def second_rsa_key_pair():
     """Generate a second RSA key pair for key rotation testing."""
     private_key = rsa.generate_private_key(
@@ -140,15 +116,6 @@ def valid_google_claims():
         "sub": "google-user-id",
         "email": "bot@example.iam.gserviceaccount.com",
     }
-
-
-@pytest.fixture
-def mock_jwks_client():
-    """Create a mock PyJWKClient that returns a controllable signing key."""
-    mock_client = MagicMock()
-    mock_signing_key = MagicMock()
-    mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
-    return mock_client, mock_signing_key
 
 
 @pytest.fixture

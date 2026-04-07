@@ -44,7 +44,7 @@ describe('AgentSelectionAPI', () => {
   describe('Plugin Discovery', () => {
     it('should list all plugins', async () => {
       const mockPlugins = {
-        plugins: [
+        scorers: [
           {
             name: 'elo-scorer',
             type: 'scorer',
@@ -52,7 +52,11 @@ describe('AgentSelectionAPI', () => {
             version: '1.0.0',
             enabled: true,
             config_schema: {},
+            metrics: ['accuracy'],
+            weight_range: { min: 0, max: 1 },
           },
+        ],
+        team_selectors: [
           {
             name: 'diversity-selector',
             type: 'team_selector',
@@ -60,7 +64,11 @@ describe('AgentSelectionAPI', () => {
             version: '1.0.0',
             enabled: true,
             config_schema: {},
+            strategies: ['balanced'],
+            supports_constraints: true,
           },
+        ],
+        role_assigners: [
           {
             name: 'capability-assigner',
             type: 'role_assigner',
@@ -68,6 +76,8 @@ describe('AgentSelectionAPI', () => {
             version: '1.0.0',
             enabled: true,
             config_schema: {},
+            roles: ['lead'],
+            assignment_strategies: ['best-fit'],
           },
         ],
       };
@@ -81,6 +91,53 @@ describe('AgentSelectionAPI', () => {
       );
       expect(result.plugins).toHaveLength(3);
       expect(result.plugins[0].name).toBe('elo-scorer');
+      expect(result.scorers).toHaveLength(1);
+      expect(result.team_selectors).toHaveLength(1);
+      expect(result.role_assigners).toHaveLength(1);
+    });
+
+    it('should preserve legacy flat plugin responses', async () => {
+      const mockPlugins = {
+        plugins: [
+          {
+            name: 'elo-scorer',
+            type: 'scorer' as const,
+            description: 'Scores based on ELO rating',
+            version: '1.0.0',
+            enabled: true,
+            config_schema: {},
+            metrics: ['accuracy'],
+            weight_range: { min: 0, max: 1 },
+          },
+          {
+            name: 'diversity-selector',
+            type: 'team_selector' as const,
+            description: 'Selects diverse teams',
+            version: '1.0.0',
+            enabled: true,
+            config_schema: {},
+            strategies: ['balanced'],
+            supports_constraints: true,
+          },
+          {
+            name: 'capability-assigner',
+            type: 'role_assigner' as const,
+            description: 'Assigns roles by capability',
+            version: '1.0.0',
+            enabled: true,
+            config_schema: {},
+            roles: ['lead'],
+            assignment_strategies: ['best-fit'],
+          },
+        ],
+      };
+      mockClient.request.mockResolvedValueOnce(mockPlugins);
+
+      const result = await api.listPlugins();
+
+      expect(result.scorers).toHaveLength(1);
+      expect(result.team_selectors).toHaveLength(1);
+      expect(result.role_assigners).toHaveLength(1);
     });
 
     it('should get default plugin configuration', async () => {
@@ -519,7 +576,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(mockClient.request).toHaveBeenCalledWith(
         'GET',
-        '/api/v1/agent-selection/scorers/elo-scorer'
+        '/api/v1/selection/scorers/elo-scorer'
       );
       expect(result.metrics).toContain('accuracy');
     });
@@ -541,7 +598,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(mockClient.request).toHaveBeenCalledWith(
         'GET',
-        '/api/v1/agent-selection/team-selectors/diversity-selector'
+        '/api/v1/selection/team-selectors/diversity-selector'
       );
       expect(result.supports_constraints).toBe(true);
     });
@@ -563,7 +620,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(mockClient.request).toHaveBeenCalledWith(
         'GET',
-        '/api/v1/agent-selection/role-assigners/capability-assigner'
+        '/api/v1/selection/role-assigners/capability-assigner'
       );
       expect(result.roles).toContain('lead');
     });
@@ -585,7 +642,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(mockClient.request).toHaveBeenCalledWith(
         'GET',
-        '/api/v1/agent-selection/scorers/custom%2Fscorer'
+        '/api/v1/selection/scorers/custom%2Fscorer'
       );
     });
   });
@@ -596,7 +653,7 @@ describe('AgentSelectionAPI', () => {
 
   describe('Convenience Methods', () => {
     const mockPlugins = {
-      plugins: [
+      scorers: [
         {
           name: 'elo-scorer',
           type: 'scorer' as const,
@@ -617,6 +674,8 @@ describe('AgentSelectionAPI', () => {
           metrics: ['speed'],
           weight_range: { min: 0, max: 1 },
         },
+      ],
+      team_selectors: [
         {
           name: 'diversity-selector',
           type: 'team_selector' as const,
@@ -627,6 +686,8 @@ describe('AgentSelectionAPI', () => {
           strategies: ['balanced'],
           supports_constraints: true,
         },
+      ],
+      role_assigners: [
         {
           name: 'capability-assigner',
           type: 'role_assigner' as const,
@@ -647,6 +708,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(result.scorers).toHaveLength(2);
       expect(result.scorers.every(s => s.type === 'scorer')).toBe(true);
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/agent-selection/plugins');
     });
 
     it('should list team selector plugins only', async () => {
@@ -656,6 +718,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(result.selectors).toHaveLength(1);
       expect(result.selectors[0].name).toBe('diversity-selector');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/agent-selection/plugins');
     });
 
     it('should list role assigner plugins only', async () => {
@@ -665,6 +728,7 @@ describe('AgentSelectionAPI', () => {
 
       expect(result.assigners).toHaveLength(1);
       expect(result.assigners[0].name).toBe('capability-assigner');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/agent-selection/plugins');
     });
 
     it('should select team with alternatives', async () => {
