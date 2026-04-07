@@ -1976,11 +1976,22 @@ class BossLoop:
         deliverable = worker_result.get("deliverable")
         if not isinstance(deliverable, dict):
             return False
+        pr_url = BossLoop._published_pr_url(worker_result)
+        if pr_url is None:
+            return False
         deliverable_type = str(deliverable.get("type", "")).strip().lower()
-        if deliverable_type not in {"pr", "adopted_pr"}:
+        if deliverable_type not in {"branch", "pr", "adopted_pr"}:
             return False
         if str(worker_result.get("status", "")).strip() != "needs_human":
             return False
+        if deliverable_type == "branch":
+            worker_result["deliverable"] = {
+                **dict(deliverable),
+                "type": "pr",
+                "pr_url": pr_url,
+            }
+        worker_result["pr_url"] = pr_url
+        worker_result["pr_number"] = BossLoop._pr_number_from_url(pr_url)
 
         prior_status = str(worker_result.get("status", "")).strip()
         prior_outcome = str(worker_result.get("outcome", "")).strip()
