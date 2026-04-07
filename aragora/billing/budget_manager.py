@@ -800,6 +800,9 @@ class BudgetManager:
             return True, "No budget configured", None
 
         for budget in budgets:
+            if budget.status == BudgetStatus.SUSPENDED:
+                return False, "Budget suspended", BudgetAction.SUSPEND
+
             allowed, reason = budget.can_spend(estimated_cost_usd, user_id)
             if not allowed:
                 if budget.status == BudgetStatus.SUSPENDED:
