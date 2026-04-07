@@ -396,7 +396,7 @@ class TestExecutionSafetyGate:
         assert plan_obj.metadata.get("execution_gate") is not None
         assert str(plan_obj.status).lower().endswith("awaiting_approval")
 
-    def test_execution_plan_blocked_when_gate_evaluation_errors(self):
+    def test_execution_gate_blocks_plan_when_evaluation_errors(self):
         config = PostDebateConfig(
             auto_explain=False,
             auto_create_plan=True,
