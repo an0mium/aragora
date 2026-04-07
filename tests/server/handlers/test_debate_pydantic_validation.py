@@ -242,7 +242,9 @@ class TestValidateDebateRequest:
         assert req is None
         assert err is not None
 
-    def test_unexpected_non_validation_exception_propagates(self, monkeypatch):
+    def test_validate_debate_request_propagates_unexpected_non_validation_exception(
+        self, monkeypatch
+    ):
         """Unexpected exceptions are not turned into fake validation errors."""
         from aragora.server.validation import pydantic_models
 
