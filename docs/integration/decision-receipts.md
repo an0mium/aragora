@@ -6,8 +6,10 @@ Decision Receipts provide cryptographic audit trails for Gauntlet decisions, ena
 
 Every Gauntlet run automatically generates a Decision Receipt that includes:
 - Unique receipt ID and Gauntlet ID linkage
+- Optional debate linkage for jumping back to the originating result
 - Verdict and confidence scores
 - Risk assessment summary
+- Optional cost summary with spend and token usage when available
 - Cryptographic integrity checksum
 - Optional digital signature
 
@@ -103,12 +105,12 @@ GET /api/v2/receipts/{receipt_id}
 GET /api/v2/receipts/{receipt_id}/export?format=pdf
 ```
 
-Supported formats: `json`, `html`, `md`, `pdf`, `sarif`, `csv`
+Supported formats: `json`, `html`, `md`, `pdf`, `sarif`
 
 ### Verify Integrity
 
 ```bash
-POST /api/v2/receipts/{receipt_id}/verify
+GET /api/v2/receipts/{receipt_id}/verify
 ```
 
 Response:
@@ -141,7 +143,7 @@ Response:
 ### Batch Verification
 
 ```bash
-POST /api/v2/receipts/verify-batch
+POST /api/v2/receipts/batch-verify
 Content-Type: application/json
 
 {
@@ -161,6 +163,7 @@ GET /api/v2/receipts/stats
 {
   "receipt_id": "receipt-abc123def456",
   "gauntlet_id": "gauntlet-xyz789",
+  "debate_id": "debate-789xyz",
   "timestamp": "2026-01-24T10:30:00Z",
   "input_summary": "API design review for payment service",
   "input_hash": "sha256:a1b2c3...",
@@ -177,7 +180,22 @@ GET /api/v2/receipts/stats
   "attacks_attempted": 15,
   "attacks_successful": 2,
   "probes_run": 25,
-  "vulnerabilities_found": 9
+  "vulnerabilities_found": 9,
+  "cost_summary": {
+    "total_cost_usd": "0.0234",
+    "total_tokens_in": 3000,
+    "total_tokens_out": 1000,
+    "total_calls": 6,
+    "per_agent": {
+      "claude": {
+        "agent_name": "claude",
+        "total_cost_usd": "0.0150",
+        "total_tokens_in": 2000,
+        "total_tokens_out": 700,
+        "call_count": 4
+      }
+    }
+  }
 }
 ```
 

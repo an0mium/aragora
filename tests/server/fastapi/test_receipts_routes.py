@@ -324,6 +324,37 @@ class TestGetReceipt:
         assert len(data["findings"]) == 1
         assert data["agents_involved"] == ["claude", "codex"]
 
+    def test_get_receipt_preserves_debate_id_and_cost_summary(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """Receipt detail keeps the debate handoff and cost proof payload."""
+        mock_receipt_store.get.return_value = {
+            **sample_receipt_dict,
+            "debate_id": "debate-123",
+            "cost_summary": {
+                "total_cost_usd": "0.0234",
+                "total_tokens_in": 3000,
+                "total_tokens_out": 1000,
+                "total_calls": 6,
+                "per_agent": {
+                    "claude": {
+                        "agent_name": "claude",
+                        "total_cost_usd": "0.0234",
+                        "total_tokens_in": 3000,
+                        "total_tokens_out": 1000,
+                        "call_count": 6,
+                    }
+                },
+            },
+        }
+
+        response = client.get("/api/v2/receipts/rcpt_test123")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["debate_id"] == "debate-123"
+        assert data["cost_summary"]["total_cost_usd"] == "0.0234"
+        assert data["cost_summary"]["per_agent"]["claude"]["call_count"] == 6
+
 
 class TestVerifyReceipt:
     """Tests for GET /api/v2/receipts/{receipt_id}/verify."""
@@ -903,6 +934,7 @@ class TestGetSharedReceipt:
 
     def test_runtime_openapi_has_receipt_share_paths(self, app):
         spec = app.openapi()
+        receipt_detail = spec["components"]["schemas"]["ReceiptDetail"]["properties"]
 
         assert "/api/v2/receipts/share/{token}" in spec["paths"]
         assert "security" not in spec["paths"]["/api/v2/receipts/share/{token}"]["get"]
@@ -925,6 +957,8 @@ class TestGetSharedReceipt:
         assert spec["paths"]["/api/v2/receipts/{receipt_id}/send-to-channel"]["post"][
             "security"
         ] == [{"bearerAuth": []}]
+        assert "debate_id" in receipt_detail
+        assert "cost_summary" in receipt_detail
 
 
 # =============================================================================
