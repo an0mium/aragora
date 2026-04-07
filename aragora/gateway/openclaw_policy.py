@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import fnmatch
 import logging
+import posixpath
 import re
 import time
 from dataclasses import dataclass, field
@@ -424,11 +425,24 @@ class OpenClawPolicy:
 
     def _is_in_workspace(self, request: ActionRequest) -> bool:
         """Check if request targets workspace-scoped resources."""
-        if request.path:
-            # Check if path is within workspace
-            workspace_root = f"/workspace/{request.workspace_id}"
-            return request.path.startswith(workspace_root) or request.path.startswith("/workspace/")
-        return True  # Non-path actions are considered in-workspace
+        raw_path = request.path.strip() if request.path else ""
+        workspace_id = request.workspace_id.strip() if request.workspace_id else ""
+
+        if not raw_path or not workspace_id:
+            return False
+
+        candidate_path = Path(posixpath.normpath(raw_path))
+        workspace_root = Path("/workspace") / workspace_id
+
+        if not candidate_path.is_absolute():
+            return False
+
+        try:
+            candidate_path.relative_to(workspace_root)
+        except ValueError:
+            return False
+
+        return True
 
     def _is_rate_limited(self, key: str, limit: int, window: int) -> bool:
         """Check if action is rate limited."""
