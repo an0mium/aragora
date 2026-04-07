@@ -16,6 +16,7 @@ from aragora.inbox.triage_runner import (
     _create_triage_agents,
     _extract_fast_tier_json,
     _normalize_triage_profile,
+    _result_consensus_reached,
 )
 from aragora.inbox.trust_wedge import (
     InboxWedgeAction,
@@ -223,6 +224,64 @@ async def test_run_triage_executes_auto_approved_receipts():
 
     assert decisions[0].receipt_state == ReceiptState.EXECUTED.value
     wedge_service.execute_receipt.assert_awaited_once_with("receipt-2")
+
+
+@pytest.mark.parametrize(
+    ("raw_value", "expected"),
+    [
+        ("true", True),
+        ("TRUE", True),
+        ("1", True),
+        ("yes", True),
+        ("on", True),
+        ("false", False),
+        ("FALSE", False),
+        ("0", False),
+        ("no", False),
+        ("off", False),
+        ("", False),
+        ("malformed", False),
+        (1, True),
+        (0, False),
+        (True, True),
+        (False, False),
+    ],
+)
+def test_result_consensus_reached_parses_explicit_flags_fail_closed(raw_value, expected):
+    assert _result_consensus_reached({"consensus_reached": raw_value}, "archive") is expected
+
+
+@pytest.mark.asyncio
+async def test_string_false_consensus_blocks_auto_approval_and_execution():
+    gmail = _DummyGmail()
+    wedge_service = SimpleNamespace()
+    wedge_service.execute_receipt = AsyncMock()
+    wedge_service.create_receipt = MagicMock(
+        side_effect=lambda intent, decision, auto_approve=False: _make_envelope(
+            decision,
+            receipt_id="receipt-string-false",
+            state=ReceiptState.APPROVED if auto_approve else ReceiptState.CREATED,
+        )
+    )
+
+    runner = InboxTriageRunner(gmail_connector=gmail, wedge_service=wedge_service)
+    runner._run_debate = AsyncMock(
+        return_value={
+            "final_answer": "archive",
+            "confidence": 0.99,
+            "debate_id": "debate-string-false",
+            "consensus_reached": "false",
+        }
+    )
+
+    decisions = await runner.run_triage(batch_size=1, auto_approve=True)
+
+    decision = decisions[0]
+    assert wedge_service.create_receipt.call_args.kwargs["auto_approve"] is False
+    assert decision.receipt_state == ReceiptState.CREATED.value
+    assert decision.blocked_by_policy is True
+    assert "No consensus reached" in decision.dissent_summary
+    wedge_service.execute_receipt.assert_not_awaited()
 
 
 @pytest.mark.asyncio

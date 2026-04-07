@@ -53,6 +53,8 @@ _TRIAGE_DEBATE_TIMEOUT_SECONDS = 15
 _TRIAGE_ROUND_TIMEOUT_SECONDS = 10
 _TRIAGE_DEBATE_ROUNDS_TIMEOUT_SECONDS = 12
 _TRIAGE_MAX_AGENTS = 2
+_TRUE_FLAG_VALUES = frozenset({"true", "1", "yes", "on"})
+_FALSE_FLAG_VALUES = frozenset({"false", "0", "no", "off", ""})
 _HIGH_RISK_ACTIONS = {InboxWedgeAction.LABEL, InboxWedgeAction.STAR}
 _DEGRADED_DIAGNOSTIC_SEVERITIES = {
     DiagnosticSeverity.BLOCKING.value,
@@ -121,11 +123,29 @@ def _result_confidence(debate_result: Any) -> float:
     return 0.0
 
 
+def _parse_fail_closed_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _TRUE_FLAG_VALUES:
+            return True
+        if normalized in _FALSE_FLAG_VALUES:
+            return False
+        return False
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    return None
+
+
 def _result_consensus_reached(debate_result: Any, rationale: str) -> bool:
     raw_value = _result_field(debate_result, "consensus_reached", None)
     if raw_value is None:
         return bool(rationale.strip())
-    return bool(raw_value)
+    parsed = _parse_fail_closed_bool(raw_value)
+    if parsed is not None:
+        return parsed
+    return False
 
 
 def _result_debate_id(debate_result: Any) -> str:
