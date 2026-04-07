@@ -4574,3 +4574,109 @@ class TestPostprocessConvertsToDraft:
         ):
             loop._postprocess_issue_result(issue, worker_result)
         mock_convert.assert_called_once_with(worker_result)
+
+
+# ---------------------------------------------------------------------------
+# Published PR = terminal (no retry)
+# ---------------------------------------------------------------------------
+
+
+class TestPublishedPrTerminal:
+    """When a worker produces a PR, the issue must be terminal for that run."""
+
+    def test_needs_human_with_pr_url_is_terminal_completed(self):
+        """Worker returns needs_human but produced a PR -> completed, not retried."""
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(42, "Implement widget")]
+
+        pr_url = "https://github.com/synaptent/aragora/pull/100"
+
+        async def _dispatch(issue, freshness):
+            return {
+                "status": "needs_human",
+                "reasons": ["Approval required."],
+                "deliverable": {"type": "pr", "pr_url": pr_url},
+                "pr_url": pr_url,
+            }
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=5,
+                max_retries_per_issue=5,
+                auto_continue_on_needs_human=True,
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _dispatch
+
+        result = asyncio.run(loop.run())
+
+        # The issue should be completed, not failed
+        completed_numbers = {i.get("number") for i in result.issues_completed}
+        failed_numbers = {i.get("number") for i in result.issues_failed}
+        assert 42 in completed_numbers, "Issue should be in completed list"
+        assert 42 not in failed_numbers, "Issue should NOT be in failed list"
+
+        # It should have been dispatched exactly once (terminal on first attempt)
+        dispatch_statuses = [
+            s
+            for s in result.iteration_statuses
+            if (s.get("selected_issue") or {}).get("number") == 42
+            and s.get("worker_status") == "completed"
+        ]
+        assert len(dispatch_statuses) == 1, (
+            f"Issue should be dispatched exactly once, got {len(dispatch_statuses)}"
+        )
+
+        # The next_actions should mention the PR URL
+        actions = dispatch_statuses[0].get("next_actions", [])
+        assert any(pr_url in str(a) for a in actions), (
+            f"next_actions should mention PR URL, got {actions}"
+        )
+
+    def test_existing_open_pr_skips_dispatch(self):
+        """Issue with an existing open boss-harvest PR is skipped in dispatch."""
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(42, "Implement widget")]
+
+        dispatch_called = []
+
+        async def _dispatch(issue, freshness):
+            dispatch_called.append(issue.number)
+            return {"status": "completed"}
+
+        loop = BossLoop(
+            config=_boss_config(max_iterations=3, repo="synaptent/aragora"),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _dispatch
+
+        # Simulate that an open PR already exists for issue #42
+        existing_pr_url = "https://github.com/synaptent/aragora/pull/200"
+        with patch.object(
+            loop,
+            "_has_open_pr_for_issue",
+            return_value=existing_pr_url,
+        ):
+            result = asyncio.run(loop.run())
+
+        # Dispatch should never have been called
+        assert 42 not in dispatch_called, "Issue with existing PR should not be dispatched"
+
+        # The issue should be marked completed
+        completed_numbers = {i.get("number") for i in result.issues_completed}
+        assert 42 in completed_numbers, "Issue should be in completed list"
+
+        # The iteration status should mention the existing PR
+        skipped = [
+            s
+            for s in result.iteration_statuses
+            if (s.get("selected_issue") or {}).get("number") == 42
+        ]
+        assert len(skipped) >= 1
+        actions = skipped[0].get("next_actions", [])
+        assert any(existing_pr_url in str(a) for a in actions), (
+            f"next_actions should mention existing PR, got {actions}"
+        )

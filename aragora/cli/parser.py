@@ -2299,7 +2299,7 @@ def _add_swarm_parser(subparsers) -> None:
         nargs="?",
         help=(
             "Action (run/status/reconcile/campaign/integrator/tranche/coord/assign/"
-            "claim-pr/report/findings) or your goal in plain language"
+            "claim-pr/report/findings/merge-arbiter) or your goal in plain language"
         ),
     )
     swarm_parser.add_argument(
@@ -2620,6 +2620,13 @@ def _add_swarm_parser(subparsers) -> None:
         type=int,
         default=3,
         help="Stop boss-loop or tranche queue after N consecutive hard failures (default: 3)",
+    )
+    swarm_parser.add_argument(
+        "--branch-prefix",
+        dest="boss_branch_prefix",
+        type=str,
+        default=None,
+        help="Comma-separated branch prefixes for merge-arbiter (default: boss-harvest,codex/)",
     )
     swarm_parser.add_argument(
         "--boss-max-parallel-dispatches",

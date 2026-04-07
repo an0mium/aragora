@@ -48,6 +48,7 @@ def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | Non
         "claim-pr",
         "report",
         "findings",
+        "merge-arbiter",
     }:
         return str(first), second
     return "run", first
@@ -1711,6 +1712,34 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             file=sys.stderr,
         )
         sys.exit(1)
+
+    if action == "merge-arbiter":
+        from aragora.swarm.merge_arbiter import MergeArbiter, MergeArbiterConfig
+
+        prefixes_raw = str(getattr(args, "boss_branch_prefix", "") or "boss-harvest,codex/")
+        prefixes = [p.strip() for p in prefixes_raw.split(",") if p.strip()]
+        arbiter_config = MergeArbiterConfig(
+            repo=getattr(args, "boss_repo", None) or "synaptent/aragora",
+            branch_prefixes=prefixes,
+            poll_interval_seconds=float(getattr(args, "interval_seconds", 120.0) or 120.0),
+            max_runtime_hours=float(getattr(args, "max_hours", 12.0) or 12.0),
+            max_consecutive_failures=int(getattr(args, "max_consecutive_failures", 3) or 3),
+            dry_run=bool(getattr(args, "dry_run", False)),
+        )
+        arbiter = MergeArbiter(config=arbiter_config)
+        summary = asyncio.run(arbiter.run())
+        if as_json:
+            print(json.dumps(summary.to_dict(), indent=2))
+        else:
+            print(f"\nMerge arbiter finished: {summary.stop_reason}")
+            print(
+                f"polls={summary.polls} merged={len(summary.merged)} "
+                f"skipped={len(summary.skipped)} failed={len(summary.failed)} "
+                f"elapsed={summary.elapsed_seconds:.1f}s"
+            )
+            if summary.merged:
+                print(f"  merged PRs: {summary.merged}")
+        return
 
     if action == "boss-loop":
         from aragora.swarm.boss_loop import BossLoop, BossLoopConfig
