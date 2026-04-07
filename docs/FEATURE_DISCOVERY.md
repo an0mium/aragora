@@ -6,10 +6,10 @@ The previous root-level mirror had drifted away from the canonical inventory and
 
 ## Verified Snapshot
 
-Verified on April 6, 2026 against the checked-out repo:
+Verified on April 7, 2026 against the checked-out repo:
 
-- `aragora/` Python modules: `3,897`
-- `tests/` Python test files: `5,272`
+- `aragora/` Python modules: `3,911`
+- `tests/` Python test files: `5,284`
 - `docs/api/openapi.json` API surface: `3,206` operations across `2,724` paths
 
 ## Current Sources Of Truth
