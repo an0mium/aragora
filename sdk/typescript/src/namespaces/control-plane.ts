@@ -266,7 +266,10 @@ export class ControlPlaneAPI {
    * @route GET /api/control-plane/health
    */
   async getHealth(): Promise<Record<string, unknown>> {
-    return this.client.getControlPlaneHealth();
+    if ('getControlPlaneHealth' in this.client && typeof this.client.getControlPlaneHealth === 'function') {
+      return this.client.getControlPlaneHealth();
+    }
+    return this.client.request('GET', '/api/control-plane/health') as Promise<Record<string, unknown>>;
   }
 
   /**

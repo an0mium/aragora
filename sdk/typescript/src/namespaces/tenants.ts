@@ -113,7 +113,13 @@ export class TenantsAPI {
    * @route GET /api/v1/tenants/{tenant_id}
    */
   async get(tenantId: string): Promise<Tenant> {
-    return this.client.getTenant(tenantId);
+    if ('getTenant' in this.client && typeof this.client.getTenant === 'function') {
+      return this.client.getTenant(tenantId);
+    }
+    return this.client.request(
+      'GET',
+      `/api/v1/tenants/${encodeURIComponent(tenantId)}`
+    ) as Promise<Tenant>;
   }
 
   /**
@@ -137,7 +143,13 @@ export class TenantsAPI {
    * @route GET /api/v1/tenants/{tenant_id}/quotas
    */
   async getQuotas(tenantId: string): Promise<QuotaStatus> {
-    return this.client.getTenantQuotas(tenantId);
+    if ('getTenantQuotas' in this.client && typeof this.client.getTenantQuotas === 'function') {
+      return this.client.getTenantQuotas(tenantId);
+    }
+    return this.client.request(
+      'GET',
+      `/api/v1/tenants/${encodeURIComponent(tenantId)}/quotas`
+    ) as Promise<QuotaStatus>;
   }
 
   /**
@@ -153,7 +165,14 @@ export class TenantsAPI {
    * @route GET /api/v1/tenants/{tenant_id}/members
    */
   async listMembers(tenantId: string, params?: { limit?: number; offset?: number }): Promise<{ members: TenantMember[] }> {
-    return this.client.listTenantMembers(tenantId, params);
+    if ('listTenantMembers' in this.client && typeof this.client.listTenantMembers === 'function') {
+      return this.client.listTenantMembers(tenantId, params);
+    }
+    return this.client.request(
+      'GET',
+      `/api/v1/tenants/${encodeURIComponent(tenantId)}/members`,
+      { params: params as Record<string, unknown> | undefined }
+    ) as Promise<{ members: TenantMember[] }>;
   }
 
   /**
@@ -161,7 +180,14 @@ export class TenantsAPI {
    * @route POST /api/v1/tenants/{tenant_id}/members/invite
    */
   async inviteMember(tenantId: string, body: { email: string; role?: string }): Promise<TenantMember> {
-    return this.client.addTenantMember(tenantId, body);
+    if ('addTenantMember' in this.client && typeof this.client.addTenantMember === 'function') {
+      return this.client.addTenantMember(tenantId, body);
+    }
+    return this.client.request(
+      'POST',
+      `/api/v1/tenants/${encodeURIComponent(tenantId)}/members/invite`,
+      { body }
+    ) as Promise<TenantMember>;
   }
 
   /**
