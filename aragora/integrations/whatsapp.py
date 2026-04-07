@@ -319,8 +319,13 @@ class WhatsAppIntegration:
         stats = [f"Rounds: {result.rounds_used}"]
         if result.confidence:
             stats.append(f"Confidence: {result.confidence:.0%}")
-        if result.participants:
-            stats.append(f"Agents: {len(result.participants)}")
+        participants = getattr(result, "participants", None) or getattr(
+            result,
+            "participating_agents",
+            None,
+        )
+        if participants:
+            stats.append(f"Agents: {len(participants)}")
 
         lines.extend(["", " | ".join(stats)])
 

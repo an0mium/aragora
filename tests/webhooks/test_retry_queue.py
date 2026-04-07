@@ -835,19 +835,8 @@ class TestWebhookRetryQueue:
         assert final.last_status_code == 200
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        reason="Bug #2233: successful retry should clear last_error and next_retry_at",
-        strict=True,
-    )
     async def test_retry_success_clears_error_fields(self, queue):
-        """Test that a successful retry clears last_error and next_retry_at.
-
-        After failing with HTTP 500 and then succeeding with HTTP 200, the
-        delivery should have last_error=None and next_retry_at=None.
-
-        Currently fails because _attempt_delivery does not clear these fields
-        on the success path.  See issue #2233.
-        """
+        """Test that a successful retry clears last_error and next_retry_at."""
         delivery = WebhookDelivery(
             id="retry-clear-2",
             url="https://example.com/webhook",
@@ -1040,10 +1029,8 @@ class TestHTTPRequests:
         assert stored.status == DeliveryStatus.DELIVERED
         assert stored.attempts == 2
         assert stored.last_status_code == 200
-        # Verify error/retry fields reflect successful state
-        # Note: last_error and next_retry_at retain values from the failed attempt
-        # since _attempt_delivery only sets them on failure, not clears on success.
-        # The delivered status is the authoritative indicator of success.
+        assert stored.last_error is None
+        assert stored.next_retry_at is None
 
     @pytest.mark.asyncio
     async def test_4xx_errors_retry_behavior(self, queue):

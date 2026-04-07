@@ -23,7 +23,7 @@ export function SummaryView() {
     return (
       <div className="flex items-center justify-center h-[500px]">
         <div className="text-center text-text-muted">
-          <div className="w-8 h-8 border-2 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-4" />
           <p className="font-theme-data text-sm">Waiting for events...</p>
         </div>
       </div>
@@ -34,7 +34,7 @@ export function SummaryView() {
     <div className="p-4 space-y-6">
       {/* Debate Topic */}
       {task && (
-        <div className="border border-[var(--accent)]/20 bg-surface/50 p-4">
+        <div className="card-theme p-4">
           <div className="text-[10px] font-theme-data text-text-muted uppercase mb-1">
             Topic
           </div>
@@ -44,24 +44,24 @@ export function SummaryView() {
 
       {/* Progress Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard label="Round" value={`${currentRound}`} color="acid-green" />
+        <StatCard label="Round" value={`${currentRound}`} color="accent" />
         <StatCard label="Agents" value={`${agents.length}`} color="acid-cyan" />
-        <StatCard label="Proposals" value={`${stats.proposalCount}`} color="blue-400" />
-        <StatCard label="Critiques" value={`${stats.critiqueCount}`} color="red-400" />
+        <StatCard label="Proposals" value={`${stats.proposalCount}`} color="acid-cyan" />
+        <StatCard label="Critiques" value={`${stats.critiqueCount}`} color="crimson" />
       </div>
 
       {/* Consensus Indicator */}
-      <div className="border border-border bg-surface/50 p-4">
+      <div className="card-theme p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase">
             Consensus Progress
           </h3>
           <span
-            className={`text-xs font-theme-data px-2 py-0.5 border ${
+            className={`text-xs font-theme-data px-2 py-0.5 border badge-theme ${
               stats.hasConsensus
-                ? 'text-green-400 border-green-400/30 bg-green-400/10'
+                ? 'text-success border-success/30 bg-success/10'
                 : stats.latestConvergence !== null && stats.latestConvergence > 0.7
-                ? 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10'
+                ? 'text-warning border-warning/30 bg-warning/10'
                 : 'text-text-muted border-border bg-surface'
             }`}
           >
@@ -79,10 +79,10 @@ export function SummaryView() {
             <div
               className={`h-full transition-all duration-500 ${
                 stats.hasConsensus
-                  ? 'bg-green-400'
+                  ? 'bg-success'
                   : stats.latestConvergence > 0.7
-                  ? 'bg-yellow-400'
-                  : 'bg-[var(--accent)]'
+                  ? 'bg-warning'
+                  : 'bg-accent'
               }`}
               style={{ width: `${Math.min(stats.latestConvergence * 100, 100)}%` }}
             />
@@ -105,7 +105,7 @@ export function SummaryView() {
       </div>
 
       {/* Agent Activity Summary */}
-      <div className="border border-border bg-surface/50">
+      <div className="card-theme overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
           <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase">
             Agent Activity
@@ -119,25 +119,25 @@ export function SummaryView() {
             return (
               <div key={agent} className="px-4 py-3 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-theme-data text-[var(--acid-cyan)] font-bold truncate">
+                  <span className="text-xs font-theme-data text-acid-cyan font-bold truncate">
                     {agent}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-[10px] font-theme-data text-text-muted shrink-0">
                   {agentStats.proposals > 0 && (
-                    <span className="text-blue-400">{agentStats.proposals}P</span>
+                    <span className="text-acid-cyan">{agentStats.proposals}P</span>
                   )}
                   {agentStats.critiques > 0 && (
-                    <span className="text-red-400">{agentStats.critiques}C</span>
+                    <span className="text-crimson">{agentStats.critiques}C</span>
                   )}
                   {agentStats.votes > 0 && (
-                    <span className="text-yellow-400">{agentStats.votes}V</span>
+                    <span className="text-warning">{agentStats.votes}V</span>
                   )}
                   {agentStats.refines > 0 && (
-                    <span className="text-blue-300">{agentStats.refines}R</span>
+                    <span className="text-accent">{agentStats.refines}R</span>
                   )}
                   {agentStats.lastMetric !== null && (
-                    <span className="text-[var(--accent)]">
+                    <span className="text-accent">
                       ({agentStats.lastMetric.toFixed(2)})
                     </span>
                   )}
@@ -149,7 +149,7 @@ export function SummaryView() {
       </div>
 
       {/* Latest Key Events */}
-      <div className="border border-border bg-surface/50">
+      <div className="card-theme overflow-hidden">
         <div className="px-4 py-3 border-b border-border">
           <h3 className="text-xs font-theme-data text-[var(--accent)] uppercase">
             Key Events
@@ -162,10 +162,10 @@ export function SummaryView() {
             stats.keyEvents.map((ev, i) => (
               <div key={i} className="flex items-start gap-2 text-xs font-theme-data">
                 <span className="text-text-muted shrink-0">R{ev.round ?? 0}</span>
-                <span className={ev.type === 'consensus' ? 'text-green-400' : ev.type === 'vote' ? 'text-yellow-400' : 'text-[var(--acid-cyan)]'}>
+                <span className={ev.type === 'consensus' ? 'text-success' : ev.type === 'vote' ? 'text-warning' : 'text-acid-cyan'}>
                   [{ev.type.toUpperCase()}]
                 </span>
-                {ev.agent && <span className="text-[var(--acid-cyan)]">{ev.agent}</span>}
+                {ev.agent && <span className="text-acid-cyan">{ev.agent}</span>}
                 {ev.details && <span className="text-text truncate">{ev.details}</span>}
               </div>
             ))
@@ -186,7 +186,7 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="border border-border bg-surface/50 p-3">
+    <div className="card-theme p-3">
       <div className="text-[10px] font-theme-data text-text-muted uppercase">
         {label}
       </div>

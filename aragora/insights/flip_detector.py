@@ -233,6 +233,8 @@ class FlipDetector:
             self._similarity_backend = get_backend(preferred="auto")
         text1_lower = text1.lower().strip()
         text2_lower = text2.lower().strip()
+        if text1_lower == text2_lower:
+            return 1.0
         return self._similarity_backend.compute_similarity(text1_lower, text2_lower)
 
     def _classify_flip_type(

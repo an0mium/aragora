@@ -239,6 +239,11 @@ This code review identified **2 critical security issues** that all AI models ag
     }
 
 
+def _parse_review_agents(agents_str: str) -> list[str]:
+    """Parse a comma-separated review agent list."""
+    return [spec.strip() for spec in agents_str.split(",") if spec.strip()]
+
+
 def build_review_prompt(diff: str, focus_areas: list[str] | None = None) -> str:
     """Build a focused code review prompt."""
     focus = focus_areas or ["security", "performance", "quality"]
@@ -308,15 +313,15 @@ async def run_review_debate(
 ) -> DebateResult:
     """Run a code review debate on the given diff."""
 
-    # Parse and create agents
-    agent_specs = []
-    for spec in agents_str.split(","):
-        spec = spec.strip()
-        if spec:
-            agent_specs.append(spec)
+    agent_specs = _parse_review_agents(agents_str)
 
-    if len(agent_specs) < 2:
-        agent_specs = DEFAULT_REVIEW_AGENTS.split(",")
+    if agents_str.strip() == DEFAULT_REVIEW_AGENTS.strip() or len(agent_specs) < 2:
+        available_specs = _parse_review_agents(get_available_agents())
+        if available_specs:
+            agent_specs = available_specs
+
+    if not agent_specs:
+        agent_specs = _parse_review_agents(DEFAULT_REVIEW_AGENTS)
 
     # Create agents with reviewer roles
     agents: list[Agent] = []
