@@ -384,10 +384,13 @@ class PolicyEngine:
             cap_obj.blast_radius,
             tool_obj.cost_multiplier,
         )
+        matched_policy: Policy | None = None
 
         # Check policies (first match wins due to priority sorting)
         for policy in self.policies:
             if policy.matches(agent, tool, capability, context):
+                matched_policy = policy
+
                 # Apply policy multiplier to risk
                 risk_cost *= policy.risk_multiplier
 
@@ -517,13 +520,8 @@ class PolicyEngine:
             agent=agent,
             tool=tool,
         )
-        for policy in self.policies:
-            if (
-                policy.matches(agent, tool, capability, context)
-                and policy.max_uses_per_session is not None
-            ):
-                self._increment_session_policy_count(session_id, policy.name)
-                break
+        if matched_policy is not None and matched_policy.max_uses_per_session is not None:
+            self._increment_session_policy_count(session_id, matched_policy.name)
 
         self._log_action(result)
         return result
