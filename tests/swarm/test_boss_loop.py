@@ -4075,6 +4075,86 @@ async def test_dispatch_auto_publish_records_postprocessed_publish_metadata_in_b
     )
 
 
+@pytest.mark.asyncio
+async def test_dispatch_existing_pr_deliverable_promotes_to_pr_adopted() -> None:
+    issue = _make_issue(45, "Backbone existing PR wiring")
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=1,
+            default_target_agent="codex",
+            auto_publish_deliverables=True,
+        )
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "agent_type": "codex",
+    }
+
+    updated_calls: list[dict[str, Any]] = []
+
+    class MockRuntime:
+        def create_run(self, ledger):
+            return None
+
+        def update_run(self, run_id, **kw):
+            updated_calls.append({"run_id": run_id, **kw})
+
+    pr_url = "https://github.com/synaptent/aragora/pull/2045"
+    fake_result = {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "run_id": "run-45",
+        "receipt_id": "receipt-45",
+        "deliverable": {
+            "type": "pr",
+            "branch": "codex/issue-45",
+            "pr_url": pr_url,
+        },
+    }
+
+    with (
+        patch(
+            "aragora.pipeline.backbone_runtime.BackboneRuntime",
+            MockRuntime,
+        ),
+        patch(
+            "aragora.pipeline.backbone_contracts.RunLedger",
+            side_effect=lambda **kw: SimpleNamespace(**kw),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value=fake_result),
+        ),
+        patch("aragora.ralph.github_control.GitHubControl") as github_control_cls,
+        patch("aragora.swarm.pr_registry.PullRequestRegistry"),
+    ):
+        github_control_cls.return_value.upsert_issue_comment.return_value = {
+            "commented": True,
+            "action": "created",
+            "comment_url": "https://github.com/synaptent/aragora/issues/45#issuecomment-1",
+        }
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    assert result["outcome"] == "pr_adopted"
+    assert result["publish_result"] == {
+        "action": "existing_pr",
+        "published": True,
+        "branch": "codex/issue-45",
+        "pr_url": pr_url,
+    }
+    assert len(updated_calls) == 2
+    assert updated_calls[-1]["status"] == "completed"
+    assert updated_calls[-1]["metadata"]["boss_postprocess"]["publish_result"]["action"] == (
+        "existing_pr"
+    )
+    assert (
+        updated_calls[-1]["metadata"]["boss_postprocess"]["postprocess_promoted_from_status"]
+        == "needs_human"
+    )
+
+
 def test_published_deliverable_helpers_require_boolean_success_flag() -> None:
     worker_result = {
         "status": "needs_human",
@@ -4096,6 +4176,34 @@ def test_published_deliverable_helpers_require_boolean_success_flag() -> None:
     assert BossLoop._promote_published_deliverable(worker_result) is False
     assert worker_result["status"] == "needs_human"
     assert worker_result["outcome"] == "blocked"
+
+
+def test_existing_pr_deliverable_marks_publish_success() -> None:
+    loop = BossLoop(config=_boss_config(auto_publish_deliverables=True))
+    issue = _make_issue(46, "Existing PR publish success")
+    pr_url = "https://github.com/synaptent/aragora/pull/2046"
+    worker_result = {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "deliverable": {
+            "type": "pr",
+            "branch": "codex/issue-46",
+            "pr_url": pr_url,
+        },
+    }
+
+    publish_result = loop._maybe_publish_deliverable(issue, worker_result)
+    assert publish_result == {
+        "action": "existing_pr",
+        "published": True,
+        "branch": "codex/issue-46",
+        "pr_url": pr_url,
+    }
+
+    worker_result["publish_result"] = publish_result
+    assert BossLoop._promote_published_deliverable(worker_result) is True
+    assert worker_result["status"] == "completed"
+    assert worker_result["outcome"] == "pr_adopted"
 
 
 @pytest.mark.asyncio
