@@ -86,32 +86,27 @@ def validate_request(
                 missing = object()
                 for name, validator in path_validators.items():
                     segment = kwargs.get(name, missing)
+                    if segment is None:
+                        segment = missing
 
                     # Try to find the segment in the path
                     # Common patterns: /api/debates/{id}, /api/agent/{name}/history
                     try:
-                        if segment is not missing:
-                            pass
-                        elif name == "debate_id":
+                        if segment is missing and name == "debate_id":
                             segment = parts[2]  # /api/debates/{id}
-                        elif name == "agent":
+                        elif segment is missing and name == "agent":
                             segment = parts[2]  # /api/agent/{name}
-                        else:
-                            segment = missing
-
-                        if segment is missing:
-                            return {
-                                "error": f"Missing required path parameter: {name}",
-                                "status": 400,
-                            }
-                        is_valid, err = validator(segment)
-                        if not is_valid:
-                            return {"error": err, "status": 400}
                     except (IndexError, TypeError):
+                        segment = missing
+
+                    if segment is missing:
                         return {
                             "error": f"Missing required path parameter: {name}",
                             "status": 400,
                         }
+                    is_valid, err = validator(segment)
+                    if not is_valid:
+                        return {"error": err, "status": 400}
 
             # For schemas, we need the body - caller must pass it
             if schema:
