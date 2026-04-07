@@ -26,8 +26,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v2/explorer", tags=["API Explorer"])
 
-# Cache the merged spec for 10 minutes
+# Cache the merged spec for 10 minutes, scoped to the current app instance.
 _spec_cache: dict[str, Any] | None = None
+_spec_cache_app_id: int | None = None
 _spec_cache_time: float = 0.0
 _CACHE_TTL = 600.0
 
@@ -40,10 +41,15 @@ def _generate_full_spec(fastapi_app: Any = None) -> dict[str, Any]:
     """
     import time
 
-    global _spec_cache, _spec_cache_time
+    global _spec_cache, _spec_cache_app_id, _spec_cache_time
 
     now = time.time()
-    if _spec_cache is not None and (now - _spec_cache_time) < _CACHE_TTL:
+    cache_app_id = id(fastapi_app) if fastapi_app is not None else None
+    if (
+        _spec_cache is not None
+        and _spec_cache_app_id == cache_app_id
+        and (now - _spec_cache_time) < _CACHE_TTL
+    ):
         return _spec_cache
 
     # Start with the legacy spec (the comprehensive one)
@@ -124,6 +130,7 @@ def _generate_full_spec(fastapi_app: Any = None) -> dict[str, Any]:
     ]
 
     _spec_cache = spec
+    _spec_cache_app_id = cache_app_id
     _spec_cache_time = now
 
     return spec
@@ -163,6 +170,7 @@ async def get_full_openapi_spec(request: Request) -> JSONResponse:
     "/stats",
     summary="API statistics",
     description="Returns endpoint counts grouped by tag and HTTP method.",
+    include_in_schema=False,
 )
 async def get_api_stats(request: Request) -> dict[str, Any]:
     """Return API statistics: endpoint counts by tag and method."""
@@ -305,6 +313,7 @@ async def redoc_ui() -> HTMLResponse:
 
 def invalidate_cache() -> None:
     """Invalidate the cached spec (call after endpoint registration changes)."""
-    global _spec_cache, _spec_cache_time
+    global _spec_cache, _spec_cache_app_id, _spec_cache_time
     _spec_cache = None
+    _spec_cache_app_id = None
     _spec_cache_time = 0.0

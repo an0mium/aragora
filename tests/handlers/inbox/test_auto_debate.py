@@ -24,6 +24,15 @@ from aragora.server.handlers.inbox.auto_debate import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _reset_inbox_debate_trigger_singleton():
+    import aragora.server.handlers.inbox.auto_debate as mod
+
+    mod._trigger = None
+    yield
+    mod._trigger = None
+
+
 class TestInboxDebateTrigger:
     """Tests for InboxDebateTrigger eligibility checks."""
 
