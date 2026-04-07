@@ -1283,14 +1283,52 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         return
 
     if action == "initiative":
+        from aragora.swarm.initiative_integrator import (
+            DEFAULT_INITIATIVE_MANIFEST,
+            InitiativeIntegrator,
+        )
         from aragora.swarm.initiative_planner import InitiativePlanner
         from aragora.swarm.initiative_store import InitiativeStore
 
         subaction = str(goal or "list").strip().lower() or "list"
-        if subaction not in {"plan", "show", "list"}:
-            raise ValueError("initiative action must be one of: plan, show, list")
+        if subaction not in {"plan", "show", "list", "run", "status", "promote"}:
+            raise ValueError(
+                "initiative action must be one of: plan, show, list, run, status, promote"
+            )
 
         repo_root = resolve_repo_root(Path.cwd())
+        if subaction in {"run", "status", "promote"}:
+            manifest_path = Path(
+                getattr(args, "manifest", None) or DEFAULT_INITIATIVE_MANIFEST
+            ).resolve()
+            if not manifest_path.exists():
+                raise ValueError(f"initiative manifest not found: {manifest_path}")
+
+            integrator = InitiativeIntegrator(
+                manifest_path=manifest_path,
+                repo_root=repo_root,
+                target_branch=target_branch,
+                repo=getattr(args, "boss_repo", None) or "synaptent/aragora",
+            )
+            if subaction == "run":
+                payload = asyncio.run(integrator.run())
+            elif subaction == "status":
+                payload = integrator.status()
+            else:
+                payload = integrator.promote(
+                    project_id=_optional_text(getattr(args, "swarm_campaign_target", None)),
+                    dry_run=bool(getattr(args, "dry_run", False)),
+                )
+
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                if subaction in {"run", "status"}:
+                    _render_initiative_status(payload)
+                else:
+                    print(json.dumps(payload, indent=2))
+            return
+
         initiative_dir = _optional_text(getattr(args, "initiative_dir", None))
         state_dir = Path(initiative_dir).expanduser().resolve() if initiative_dir else None
         store = InitiativeStore(repo_root=repo_root, state_dir=state_dir)
@@ -2052,46 +2090,6 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(f"  needs_human: {reason}")
             for action_text in result.next_actions[:3]:
                 print(f"  next: {action_text}")
-        return
-
-    if action == "initiative":
-        from aragora.swarm.initiative_integrator import (
-            DEFAULT_INITIATIVE_MANIFEST,
-            InitiativeIntegrator,
-        )
-
-        subaction = str(goal or "status").strip().lower() or "status"
-        manifest_path = Path(
-            getattr(args, "manifest", None) or DEFAULT_INITIATIVE_MANIFEST
-        ).resolve()
-        if not manifest_path.exists():
-            raise ValueError(f"initiative manifest not found: {manifest_path}")
-
-        integrator = InitiativeIntegrator(
-            manifest_path=manifest_path,
-            repo_root=Path.cwd(),
-            target_branch=target_branch,
-            repo=getattr(args, "boss_repo", None) or "synaptent/aragora",
-        )
-        if subaction == "run":
-            payload = asyncio.run(integrator.run())
-        elif subaction == "status":
-            payload = integrator.status()
-        elif subaction == "promote":
-            payload = integrator.promote(
-                project_id=_optional_text(getattr(args, "swarm_campaign_target", None)),
-                dry_run=bool(getattr(args, "dry_run", False)),
-            )
-        else:
-            raise ValueError("initiative action must be one of: run, status, promote")
-
-        if as_json:
-            print(json.dumps(payload, indent=2))
-        else:
-            if subaction in {"run", "status"}:
-                _render_initiative_status(payload)
-            else:
-                print(json.dumps(payload, indent=2))
         return
 
     if action == "campaign":
