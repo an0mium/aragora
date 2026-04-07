@@ -2297,7 +2297,10 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "swarm_action_or_goal",
         nargs="?",
-        help="Action (run/status/reconcile/campaign/integrator/tranche) or your goal in plain language",
+        help=(
+            "Action (run/status/reconcile/campaign/integrator/tranche/coord/assign/"
+            "claim-pr/report/findings) or your goal in plain language"
+        ),
     )
     swarm_parser.add_argument(
         "swarm_goal",
@@ -2448,6 +2451,57 @@ def _add_swarm_parser(subparsers) -> None:
         help="Integrator rationale for merge/archive/supersede actions",
     )
     swarm_parser.add_argument(
+        "--session-id",
+        default=None,
+        help="Coordination session id for claim/report actions (defaults from env or pid)",
+    )
+    swarm_parser.add_argument(
+        "--assigned-by",
+        default=None,
+        help="Actor recorded for 'swarm assign' (defaults from env or pid)",
+    )
+    swarm_parser.add_argument(
+        "--directive-status",
+        default="active",
+        choices=["active", "standby", "blocked", "done"],
+        help="Directive status for 'swarm assign' (default: active)",
+    )
+    swarm_parser.add_argument(
+        "--scope",
+        action="append",
+        default=None,
+        help="Shared scope item for coordination actions (repeatable)",
+    )
+    swarm_parser.add_argument(
+        "--constraint",
+        action="append",
+        default=None,
+        help="Constraint for 'swarm assign' (repeatable)",
+    )
+    swarm_parser.add_argument(
+        "--claim-intent",
+        default=None,
+        help="Intent text for 'swarm claim-pr'",
+    )
+    swarm_parser.add_argument(
+        "--ttl-minutes",
+        type=int,
+        default=30,
+        help="Claim TTL in minutes for 'swarm claim-pr' (default: 30)",
+    )
+    swarm_parser.add_argument(
+        "--kind",
+        default=None,
+        choices=["finding", "blocker", "handoff", "status"],
+        help="Finding kind for 'swarm report' and optional filter for 'swarm findings'",
+    )
+    swarm_parser.add_argument(
+        "--pr",
+        type=int,
+        default=None,
+        help="Optional PR number attached to a coordination finding",
+    )
+    swarm_parser.add_argument(
         "--new-pr-url",
         default=None,
         help="Replacement PR URL for 'integrator supersede'",
@@ -2457,6 +2511,12 @@ def _add_swarm_parser(subparsers) -> None:
         type=int,
         default=20,
         help="Maximum runs to show in 'status' (default: 20)",
+    )
+    swarm_parser.add_argument(
+        "--findings-limit",
+        type=int,
+        default=10,
+        help="Maximum coordination findings to show in 'status', 'coord', or 'findings' (default: 10)",
     )
     swarm_parser.add_argument(
         "--refresh-scaling",

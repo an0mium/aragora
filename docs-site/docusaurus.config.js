@@ -43,7 +43,11 @@ const config = {
           showLastUpdateTime: true,
           showLastUpdateAuthor: true,
         },
-        blog: false, // Disable blog for docs-only site
+        blog: {
+          showReadingTime: true,
+          blogSidebarTitle: 'Recent posts',
+          blogSidebarCount: 5,
+        },
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -172,7 +176,7 @@ const config = {
             items: [
               {
                 label: 'Blog',
-                href: 'https://aragora.ai/blog',
+                to: '/blog',
               },
               {
                 label: 'Privacy Policy',
