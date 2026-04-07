@@ -185,6 +185,27 @@ class TestCapabilityProber:
         assert report is not None
         assert report.probes_run >= 1
 
+    @pytest.mark.asyncio
+    async def test_run_probe_reraises_unexpected_run_agent_errors(self):
+        """Unexpected non-agent failures should bubble up."""
+        prober = CapabilityProber()
+        agent = MagicMock(name="buggy-agent")
+        strategy = MagicMock()
+        strategy.probe_type = ProbeType.SYCOPHANCY
+        strategy.generate_probe.return_value = "Probe prompt"
+
+        async def buggy_run(agent, prompt):
+            raise ValueError("Unexpected bug")
+
+        with pytest.raises(ValueError, match="Unexpected bug"):
+            await prober._run_probe(
+                strategy=strategy,
+                target_agent=agent,
+                run_agent_fn=buggy_run,
+                previous_probes=[],
+                context=[],
+            )
+
     def test_generate_report(self):
         """Generates report from probe results."""
         prober = CapabilityProber()
