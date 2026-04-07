@@ -201,7 +201,7 @@ class TestRateLimiting:
 
 class TestPresenceMonitoring:
     @pytest.mark.asyncio
-    async def test_heartbeat_updates_status(self, secure_registry):
+    async def test_heartbeat_updates_status(self, secure_registry, monkeypatch):
         # Pair a device
         request = await secure_registry.request_pairing(
             device_name="Test Device",
@@ -213,6 +213,11 @@ class TestPresenceMonitoring:
             request.verification_code,
         )
 
+        previous_last_seen = device.last_seen
+        assert previous_last_seen is not None
+        heartbeat_time = previous_last_seen + 5.0
+        monkeypatch.setattr("aragora.gateway.device_registry.time.time", lambda: heartbeat_time)
+
         # Send heartbeat
         result = await secure_registry.heartbeat(device.device_id)
         assert result is True
@@ -220,6 +225,7 @@ class TestPresenceMonitoring:
         # Device should be online
         updated = await secure_registry.get(device.device_id)
         assert updated.status == DeviceStatus.ONLINE
+        assert updated.last_seen == heartbeat_time
 
     @pytest.mark.asyncio
     async def test_offline_detection(self, registry):
@@ -310,7 +316,7 @@ class TestDelegatedOperations:
         assert found is None
 
     @pytest.mark.asyncio
-    async def test_block_device(self, secure_registry):
+    async def test_block_device(self, secure_registry, monkeypatch):
         request = await secure_registry.request_pairing(
             device_name="Bad Device",
             device_type="laptop",
@@ -326,3 +332,15 @@ class TestDelegatedOperations:
 
         blocked = await secure_registry.get(device.device_id)
         assert blocked.status == DeviceStatus.BLOCKED
+
+        blocked_last_seen = blocked.last_seen
+        assert blocked_last_seen is not None
+        heartbeat_time = blocked_last_seen + 5.0
+        monkeypatch.setattr("aragora.gateway.device_registry.time.time", lambda: heartbeat_time)
+
+        heartbeat_result = await secure_registry.heartbeat(device.device_id)
+        assert heartbeat_result is True
+
+        blocked_after_heartbeat = await secure_registry.get(device.device_id)
+        assert blocked_after_heartbeat.status == DeviceStatus.BLOCKED
+        assert blocked_after_heartbeat.last_seen == heartbeat_time
