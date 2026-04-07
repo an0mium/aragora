@@ -21,7 +21,9 @@ from aragora.pipeline.plan_store import PlanStore
 from aragora.pipeline.receipt_gate import (
     PlanExecutionGateError,
     PlanReceiptGateError,
+    _synthetic_debate_result,
     _resolve_backbone_run,
+    evaluate_plan_execution_gate,
     ensure_plan_receipt,
 )
 
@@ -187,6 +189,40 @@ async def test_executor_verifies_receipt_before_running_actions() -> None:
     assert stored.state == ReceiptState.EXECUTED
     assert stored.receipt_data["config_used"]["taint_analysis"]["tainted"] is True
     assert stored.receipt_data["config_used"]["execution_gate"]["provider_diversity"] == 2
+
+
+def test_string_flags_fail_closed_for_execution_gate_and_consensus() -> None:
+    blocked_plan = _plan(
+        metadata={
+            "execution_gate": {
+                "allow_auto_execution": "false",
+                "signed_receipt": {"consensus_proof": {"reached": "off"}},
+            },
+            "deliberation_bundle": {"consensus_reached": "not sure"},
+        }
+    )
+
+    blocked_decision = evaluate_plan_execution_gate(blocked_plan)
+    blocked_debate = _synthetic_debate_result(blocked_plan)
+
+    assert blocked_decision.allow_auto_execution is False
+    assert blocked_decision.allow_execution is False
+    assert blocked_decision.reason_codes == ["execution_gate_blocked"]
+    assert blocked_debate.consensus_reached is False
+
+    allowed_plan = _plan(
+        metadata={
+            "execution_gate": {"allow_auto_execution": "yes"},
+            "deliberation_bundle": {"consensus_reached": "on"},
+        }
+    )
+
+    allowed_decision = evaluate_plan_execution_gate(allowed_plan)
+    allowed_debate = _synthetic_debate_result(allowed_plan)
+
+    assert allowed_decision.allow_auto_execution is True
+    assert allowed_decision.allow_execution is True
+    assert allowed_debate.consensus_reached is True
 
 
 @pytest.mark.asyncio
