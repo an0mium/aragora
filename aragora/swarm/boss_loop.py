@@ -1618,6 +1618,7 @@ class BossLoop:
                 worker_result["pr_number"] = self._pr_number_from_url(pr_url)
             return {
                 "action": "existing_pr",
+                "published": True,
                 "branch": str(deliverable.get("branch", "")).strip() or None,
                 "pr_url": pr_url or None,
             }
