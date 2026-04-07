@@ -86,6 +86,9 @@ EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 # Password requirements
 MIN_PASSWORD_LENGTH = 8
 
+# Supported self-service organization plans
+SUPPORTED_SIGNUP_PLANS = {"free", "team", "enterprise"}
+
 
 def _generate_verification_token() -> str:
     """Generate a secure verification token."""
@@ -169,11 +172,28 @@ async def handle_signup(
     }
     """
     try:
-        email = data.get("email", "").lower().strip()
+        email = data.get("email", "")
+        if not isinstance(email, str):
+            return error_response("Email must be a string", status=400)
+        email = email.lower().strip()
+
         password = data.get("password", "")
-        name = data.get("name", "").strip()
-        company_name = data.get("company_name", "").strip()
+        if not isinstance(password, str):
+            return error_response("Password must be a string", status=400)
+
+        name = data.get("name", "")
+        if not isinstance(name, str):
+            return error_response("Name must be a string", status=400)
+        name = name.strip()
+
+        company_name = data.get("company_name", "")
+        if "company_name" in data and not isinstance(company_name, str):
+            return error_response("Company name must be a string", status=400)
+        company_name = company_name.strip()
+
         invite_token = data.get("invite_token")
+        if "invite_token" in data and not isinstance(invite_token, str):
+            return error_response("Invite token must be a string", status=400)
 
         # Validate email
         if not email or not EMAIL_REGEX.match(email):
@@ -422,10 +442,30 @@ async def handle_setup_organization(
         return error
 
     try:
-        name = data.get("name", "").strip()
-        slug = data.get("slug", "").lower().strip()
+        name = data.get("name", "")
+        if not isinstance(name, str):
+            return error_response("Organization name must be a string", status=400)
+        name = name.strip()
+
+        slug = data.get("slug", "")
+        if not isinstance(slug, str):
+            return error_response("Slug must be a string", status=400)
+        slug = slug.lower().strip()
+
         plan = data.get("plan", "free")
-        billing_email = data.get("billing_email", "").lower().strip()
+        if not isinstance(plan, str):
+            return error_response("Plan must be a string", status=400)
+        plan = plan.strip().lower()
+        if plan not in SUPPORTED_SIGNUP_PLANS:
+            return error_response(
+                "Plan must be one of: free, team, enterprise",
+                status=400,
+            )
+
+        billing_email = data.get("billing_email", "")
+        if not isinstance(billing_email, str):
+            return error_response("Billing email must be a string", status=400)
+        billing_email = billing_email.lower().strip()
 
         if not name or len(name) < 2:
             return error_response("Organization name is required", status=400)
