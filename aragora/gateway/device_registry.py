@@ -122,7 +122,10 @@ class DeviceRegistry:
         device = self._devices.get(device_id)
         if device:
             device.last_seen = time.time()
-            if device.status is not DeviceStatus.BLOCKED:
+            status_value = (
+                device.status.value if isinstance(device.status, DeviceStatus) else device.status
+            )
+            if status_value != DeviceStatus.BLOCKED.value:
                 device.status = DeviceStatus.ONLINE
             if self._store:
                 await self._store.save_device(device)
