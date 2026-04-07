@@ -780,10 +780,10 @@ class PostDebateCoordinator:
             return gate
         except ImportError:
             logger.debug("Execution safety gate unavailable")
-            return {"allow_auto_execution": True, "reason_codes": []}
+            return {"allow_auto_execution": False, "reason_codes": ["gate_unavailable"]}
         except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
-            logger.warning("Execution safety gate failed open: %s", e)
-            return {"allow_auto_execution": True, "reason_codes": ["gate_evaluation_failed"]}
+            logger.warning("Execution safety gate failed closed: %s", e)
+            return {"allow_auto_execution": False, "reason_codes": ["gate_evaluation_failed"]}
 
     def _apply_execution_gate_to_plan(
         self,

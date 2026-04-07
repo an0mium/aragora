@@ -396,6 +396,20 @@ class TestExecutionSafetyGate:
         assert plan_obj.metadata.get("execution_gate") is not None
         assert str(plan_obj.status).lower().endswith("awaiting_approval")
 
+    def test_step_execution_gate_fails_closed_when_evaluation_errors(self):
+        coordinator = PostDebateCoordinator()
+
+        with patch(
+            "aragora.debate.execution_safety.evaluate_auto_execution_safety",
+            side_effect=RuntimeError("boom"),
+        ):
+            gate = coordinator._step_execution_gate(_make_debate_result())
+
+        assert gate == {
+            "allow_auto_execution": False,
+            "reason_codes": ["gate_evaluation_failed"],
+        }
+
 
 class TestBackboneWiring:
     """Tests for backbone ledger wiring in PostDebateCoordinator."""
