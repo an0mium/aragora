@@ -146,6 +146,7 @@ describe('Cross SDK Python Compatibility Routes', () => {
 
   it('maps marketplace v2 routes with legacy compatibility preserved', async () => {
     const api = new MarketplaceAPI(mockClient as any);
+    mockClient.request.mockResolvedValue({ average_rating: 4.5 });
 
     await api.list({ search: 'risk', category: 'ops', limit: 3, offset: 1 });
     await api.get('tpl/1');
