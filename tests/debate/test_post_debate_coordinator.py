@@ -335,6 +335,20 @@ class TestStepImplementations:
 class TestExecutionSafetyGate:
     """Test execution gate wiring inside PostDebateCoordinator.run()."""
 
+    def test_execution_gate_denies_when_evaluation_fails(self):
+        coordinator = PostDebateCoordinator()
+
+        with patch(
+            "aragora.debate.execution_safety.evaluate_auto_execution_safety",
+            side_effect=RuntimeError("boom"),
+        ):
+            gate = coordinator._step_execution_gate(_make_debate_result())
+
+        assert gate == {
+            "allow_auto_execution": False,
+            "reason_codes": ["gate_evaluation_failed"],
+        }
+
     def test_execution_plan_blocked_when_gate_denies(self):
         config = PostDebateConfig(
             auto_explain=False,
