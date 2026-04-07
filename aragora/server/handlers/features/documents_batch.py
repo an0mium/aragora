@@ -62,20 +62,26 @@ class DocumentBatchHandler(BaseHandler):
         "/api/v1/knowledge/jobs",
     ]
 
+    @staticmethod
+    def _split_path(path: str) -> list[str]:
+        """Split a request path into non-empty segments."""
+        stripped = path.strip("/")
+        return stripped.split("/") if stripped else []
+
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
         if path in self.ROUTES:
             return True
-        # Handle /api/documents/batch/{job_id} patterns
-        if path.startswith("/api/v1/documents/batch/") and path.count("/") >= 4:
-            return True
-        # Handle /api/documents/{doc_id}/chunks and /api/documents/{doc_id}/context
-        if path.startswith("/api/v1/documents/") and path.count("/") == 5:
-            if path.endswith("/chunks") or path.endswith("/context"):
-                return True
-        # Handle /api/knowledge/jobs/{job_id}
-        if path.startswith("/api/v1/knowledge/jobs/"):
-            return True
+        parts = self._split_path(path)
+        # Handle /api/v1/documents/batch/{job_id} and /results
+        if parts[:4] == ["api", "v1", "documents", "batch"]:
+            return len(parts) == 5 or (len(parts) == 6 and parts[5] == "results")
+        # Handle /api/v1/documents/{doc_id}/chunks and /context
+        if parts[:3] == ["api", "v1", "documents"]:
+            return len(parts) == 5 and parts[4] in {"chunks", "context"}
+        # Handle /api/v1/knowledge/jobs/{job_id}
+        if parts[:4] == ["api", "v1", "knowledge", "jobs"]:
+            return len(parts) == 5 and bool(parts[4])
         return False
 
     @require_permission("documents:read")
@@ -91,44 +97,34 @@ class DocumentBatchHandler(BaseHandler):
             limit = safe_query_int(query_params, "limit", default=100, min_val=1, max_val=1000)
             return self._list_knowledge_jobs(workspace_id, status, limit)
 
+        parts = self._split_path(path)
+
         # GET /api/knowledge/jobs/{job_id} - get specific job status
-        if path.startswith("/api/v1/knowledge/jobs/"):
-            parts = path.split("/")
-            if len(parts) == 5:
-                job_id = parts[4]
-                return self._get_knowledge_job_status(job_id)
+        if parts[:4] == ["api", "v1", "knowledge", "jobs"] and len(parts) == 5:
+            return self._get_knowledge_job_status(parts[4])
 
         # GET /api/documents/batch/{job_id}
-        if path.startswith("/api/v1/documents/batch/"):
-            parts = path.split("/")
-            if len(parts) == 5:  # /api/documents/batch/{job_id}
-                job_id = parts[4]
-                return await self._get_job_status(job_id)
-            elif len(parts) == 6 and parts[5] == "results":
-                job_id = parts[4]
-                return await self._get_job_results(job_id)
+        if parts[:4] == ["api", "v1", "documents", "batch"]:
+            if len(parts) == 5:  # /api/v1/documents/batch/{job_id}
+                return await self._get_job_status(parts[4])
+            if len(parts) == 6 and parts[5] == "results":
+                return await self._get_job_results(parts[4])
 
         # GET /api/documents/{doc_id}/chunks
-        if path.endswith("/chunks"):
-            parts = path.split("/")
-            if len(parts) == 5:
-                doc_id = parts[3]
-                limit = safe_query_int(query_params, "limit", default=100, min_val=1, max_val=1000)
-                offset = safe_query_int(
-                    query_params, "offset", default=0, min_val=0, max_val=1000000
-                )
-                return self._get_document_chunks(doc_id, limit, offset)
+        if parts[:3] == ["api", "v1", "documents"] and len(parts) == 5 and parts[4] == "chunks":
+            doc_id = parts[3]
+            limit = safe_query_int(query_params, "limit", default=100, min_val=1, max_val=1000)
+            offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=1000000)
+            return self._get_document_chunks(doc_id, limit, offset)
 
         # GET /api/documents/{doc_id}/context
-        if path.endswith("/context"):
-            parts = path.split("/")
-            if len(parts) == 5:
-                doc_id = parts[3]
-                max_tokens = safe_query_int(
-                    query_params, "max_tokens", default=4096, min_val=1, max_val=128000
-                )
-                model = query_params.get("model", ["gpt-4"])[0]
-                return self._get_document_context(doc_id, max_tokens, model)
+        if parts[:3] == ["api", "v1", "documents"] and len(parts) == 5 and parts[4] == "context":
+            doc_id = parts[3]
+            max_tokens = safe_query_int(
+                query_params, "max_tokens", default=4096, min_val=1, max_val=128000
+            )
+            model = query_params.get("model", ["gpt-4"])[0]
+            return self._get_document_context(doc_id, max_tokens, model)
 
         return None
 
@@ -148,11 +144,9 @@ class DocumentBatchHandler(BaseHandler):
     @require_permission("documents:delete")
     async def handle_delete(self, path: str, query_params: dict, handler) -> HandlerResult | None:
         """Route DELETE requests."""
-        if path.startswith("/api/v1/documents/batch/"):
-            parts = path.split("/")
-            if len(parts) == 5:
-                job_id = parts[4]
-                return await self._cancel_job(job_id)
+        parts = self._split_path(path)
+        if parts[:4] == ["api", "v1", "documents", "batch"] and len(parts) == 5:
+            return await self._cancel_job(parts[4])
         return None
 
     async def _upload_batch(self, handler) -> HandlerResult:
