@@ -1524,6 +1524,43 @@ class BossLoop:
         except Exception:
             pass
 
+    @staticmethod
+    def _reuse_existing_published_branch_deliverable(
+        worker_result: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        deliverable = worker_result.get("deliverable")
+        if not isinstance(deliverable, dict):
+            return None
+        if str(deliverable.get("type", "")).strip().lower() != "branch":
+            return None
+
+        publish_result = worker_result.get("publish_result")
+        if not BossLoop._publish_result_succeeded(publish_result):
+            return None
+
+        pr_url = BossLoop._published_pr_url(worker_result)
+        if not pr_url or not isinstance(publish_result, dict):
+            return None
+
+        branch = (
+            str(publish_result.get("branch") or deliverable.get("branch") or "").strip() or None
+        )
+        commit_shas = [
+            str(item).strip()
+            for item in deliverable.get("commit_shas", []) or []
+            if str(item).strip()
+        ]
+        worker_result["deliverable"] = {
+            **dict(deliverable),
+            "type": "pr",
+            "branch": branch,
+            "commit_shas": commit_shas,
+            "pr_url": pr_url,
+        }
+        worker_result["pr_url"] = pr_url
+        worker_result["pr_number"] = BossLoop._pr_number_from_url(pr_url)
+        return dict(publish_result)
+
     def _maybe_publish_deliverable(
         self,
         issue: GitHubIssue,
@@ -1533,6 +1570,12 @@ class BossLoop:
             return None
         if str(worker_result.get("status", "")).strip() not in {"completed", "needs_human"}:
             return None
+        deliverable = worker_result.get("deliverable")
+        if not isinstance(deliverable, dict):
+            return None
+        existing_publish = self._reuse_existing_published_branch_deliverable(worker_result)
+        if existing_publish is not None:
+            return existing_publish
         deliverable = worker_result.get("deliverable")
         if not isinstance(deliverable, dict):
             return None
