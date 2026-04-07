@@ -533,24 +533,27 @@ class TestAgentFileFilterGetClient:
             with patch.dict(
                 "sys.modules", {"google.generativeai": mock_genai, "google": MagicMock()}
             ):
-                with pytest.raises(ValueError, match="GEMINI_API_KEY"):
-                    await filter._get_client()
+                with patch("aragora.config.secrets.get_secret", return_value=None):
+                    with pytest.raises(ValueError, match="GEMINI_API_KEY"):
+                        await filter._get_client()
 
     @pytest.mark.asyncio
     async def test_claude_missing_api_key(self):
         filter = AgentFileFilter(model="claude-3-sonnet")
 
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
-                await filter._get_client()
+            with patch("aragora.config.secrets.get_secret", return_value=None):
+                with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
+                    await filter._get_client()
 
     @pytest.mark.asyncio
     async def test_gpt_missing_api_key(self):
         filter = AgentFileFilter(model="gpt-4")
 
         with patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(ValueError, match="OPENAI_API_KEY"):
-                await filter._get_client()
+            with patch("aragora.config.secrets.get_secret", return_value=None):
+                with pytest.raises(ValueError, match="OPENAI_API_KEY"):
+                    await filter._get_client()
 
     @pytest.mark.asyncio
     async def test_client_reused(self):
