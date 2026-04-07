@@ -186,20 +186,18 @@ class TestGetQuickActions:
         body = _body(handler._get_quick_actions())
         assert body["total"] == len(body["actions"])
 
-    def test_has_six_actions(self, handler):
+    def test_has_four_actions(self, handler):
         body = _body(handler._get_quick_actions())
-        assert body["total"] == 6
+        assert body["total"] == 4
 
     def test_action_ids(self, handler):
         body = _body(handler._get_quick_actions())
         ids = {a["id"] for a in body["actions"]}
         expected = {
-            "archive_read",
-            "snooze_low",
-            "mark_spam",
-            "complete_actions",
-            "ai_respond",
-            "sync_inbox",
+            "review_needs_attention",
+            "resume_in_progress",
+            "complete_pending",
+            "inspect_low_confidence",
         }
         assert ids == expected
 
@@ -209,10 +207,10 @@ class TestGetQuickActions:
         for action in body["actions"]:
             assert set(action.keys()) == required_fields
 
-    def test_all_actions_available(self, handler):
+    def test_actions_expose_boolean_availability(self, handler):
         body = _body(handler._get_quick_actions())
         for action in body["actions"]:
-            assert action["available"] is True
+            assert isinstance(action["available"], bool)
 
     def test_actions_have_nonempty_names(self, handler):
         body = _body(handler._get_quick_actions())
@@ -222,7 +220,7 @@ class TestGetQuickActions:
 
     def test_icons_are_strings(self, handler):
         body = _body(handler._get_quick_actions())
-        expected_icons = {"archive", "clock", "slash", "check-circle", "sparkles", "refresh"}
+        expected_icons = {"alert-triangle", "play-circle", "check-circle", "gauge"}
         icons = {a["icon"] for a in body["actions"]}
         assert icons == expected_icons
 
@@ -240,14 +238,14 @@ class TestExecuteQuickAction:
     """Tests for the execute quick action endpoint."""
 
     def test_success(self, handler):
-        result = handler._execute_quick_action("archive_read")
+        result = handler._execute_quick_action("review_needs_attention")
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
-        assert body["action_id"] == "archive_read"
+        assert body["action_id"] == "review_needs_attention"
 
     def test_executed_at_present(self, handler):
-        body = _body(handler._execute_quick_action("test_action"))
+        body = _body(handler._execute_quick_action("review_needs_attention"))
         assert "executed_at" in body
         assert "T" in body["executed_at"]
 
@@ -260,24 +258,20 @@ class TestExecuteQuickAction:
             or "required" in body.get("error", "").lower()
         )
 
-    def test_arbitrary_action_id(self, handler):
+    def test_arbitrary_action_id_returns_not_found(self, handler):
         result = handler._execute_quick_action("custom_action_123")
-        assert _status(result) == 200
+        assert _status(result) == 404
         body = _body(result)
-        assert body["action_id"] == "custom_action_123"
+        assert "not found" in body.get("error", "").lower()
 
     def test_special_characters_in_action_id(self, handler):
         result = handler._execute_quick_action("action/with%special&chars")
-        assert _status(result) == 200
-        body = _body(result)
-        assert body["action_id"] == "action/with%special&chars"
+        assert _status(result) == 404
 
     def test_long_action_id(self, handler):
         long_id = "a" * 1000
         result = handler._execute_quick_action(long_id)
-        assert _status(result) == 200
-        body = _body(result)
-        assert body["action_id"] == long_id
+        assert _status(result) == 404
 
 
 # ===========================================================================
@@ -406,13 +400,14 @@ class TestDismissUrgentItem:
         rows = [("u1", "finance", "in_progress", 0, 0.1, "2026-02-23T10:00:00")]
         storage = InMemoryStorage(rows)
         h = TestableHandler(storage=storage)
-        h._dismiss_urgent_item("u1")
-        # Verify the database was updated
+        body = _body(h._dismiss_urgent_item("u1"))
+        assert body["persisted"] is False
+        # Verify the debate outcome is not rewritten
         with storage.connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT consensus_reached FROM debates WHERE id = ?", ("u1",))
             row = cursor.fetchone()
-            assert row[0] == 1
+            assert row[0] == 0
 
     def test_dismiss_nonexistent_item(self):
         storage = InMemoryStorage([])
@@ -1222,7 +1217,7 @@ class TestIntegration:
     def test_all_endpoints_return_200(self, handler):
         """Every action/analytics endpoint returns 200 with empty handler."""
         assert _status(handler._get_quick_actions()) == 200
-        assert _status(handler._execute_quick_action("test")) == 200
+        assert _status(handler._execute_quick_action("review_needs_attention")) == 200
         assert _status(handler._get_urgent_items(20, 0)) == 200
         assert _status(handler._dismiss_urgent_item("test")) == 200
         assert _status(handler._get_pending_actions(20, 0)) == 200

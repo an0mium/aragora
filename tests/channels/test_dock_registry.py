@@ -13,62 +13,9 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 
+from .conftest import MockDock, VoiceDock
 from aragora.channels.registry import DockRegistry, get_dock_registry
 from aragora.channels.dock import ChannelDock, ChannelCapability
-
-
-class MockDock(ChannelDock):
-    """Mock dock for testing."""
-
-    PLATFORM = "mock"
-    CAPABILITIES = ChannelCapability.RICH_TEXT | ChannelCapability.BUTTONS
-
-    def __init__(self, config=None):
-        self.config = config or {}
-        self._initialized = False
-
-    @property
-    def is_initialized(self):
-        return self._initialized
-
-    async def initialize(self):
-        self._initialized = True
-
-    async def send_message(self, channel_id, message):
-        return None
-
-    async def send_result(self, channel_id, result, **kwargs):
-        return None
-
-    async def send_error(self, channel_id, error, **kwargs):
-        return None
-
-
-class VoiceDock(ChannelDock):
-    """Mock dock with voice support."""
-
-    PLATFORM = "voice_platform"
-    CAPABILITIES = ChannelCapability.RICH_TEXT | ChannelCapability.VOICE
-
-    def __init__(self, config=None):
-        self.config = config or {}
-        self._initialized = False
-
-    @property
-    def is_initialized(self):
-        return self._initialized
-
-    async def initialize(self):
-        self._initialized = True
-
-    async def send_message(self, channel_id, message):
-        return None
-
-    async def send_result(self, channel_id, result, **kwargs):
-        return None
-
-    async def send_error(self, channel_id, error, **kwargs):
-        return None
 
 
 class TestDockRegistry:
