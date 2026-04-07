@@ -1206,9 +1206,15 @@ class TestCmdQuickstart:
         assert artifact_path.exists()
         saved = json.loads(artifact_path.read_text())
         assert saved["mode"] == "demo"
+        assert saved["provider_path"]["blocked"] is True
+        assert saved["provider_path"]["config_present"] is False
+        assert saved["provider_path"]["live_ready"] is False
+        assert saved["provider_path"]["next_action"]
+        assert saved["fallback"]["label"] == "mock/simulated"
 
         output = capsys.readouterr().out
         assert "Falling back to demo mode" in output
+        assert "mock/simulated" in output
 
     def test_live_mode_falls_back_to_demo_on_tls_failure(self, capsys):
         """TLS/provider failures should fall back to demo mode, not exit."""
@@ -1255,6 +1261,66 @@ class TestCmdQuickstart:
         output = capsys.readouterr().out
         assert "Falling back to demo" in output
         assert "RESULT" in output  # Demo result was displayed
+
+    def test_configured_but_unreachable_provider_becomes_blocked_not_live_ready(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should the provider path stay truthful?",
+            demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            json=False,
+            rounds=2,
+            no_browser=True,
+        )
+        demo_result = {
+            "question": args.question,
+            "verdict": "consensus",
+            "confidence": 0.71,
+            "rounds": 2,
+            "agents": ["analyst", "critic", "synthesizer"],
+            "summary": "Fallback was simulated rather than live.",
+            "dissent": [],
+            "mode": "demo",
+        }
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("gemini", "gemini-2.0-flash")],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=AsyncMock(return_value=(False, "connection refused")),
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_demo_debate",
+                return_value=demo_result,
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_live_debate",
+            ) as mock_live_debate,
+        ):
+            cmd_quickstart(args)
+
+        mock_live_debate.assert_not_called()
+        artifact_path = tmp_path / ".aragora" / "receipts" / "quickstart-demo-receipt.json"
+        saved = json.loads(artifact_path.read_text())
+        assert saved["provider_path"]["blocked"] is True
+        assert saved["provider_path"]["config_present"] is True
+        assert saved["provider_path"]["live_ready"] is False
+        assert saved["provider_path"]["reason"] == "providers_unreachable"
+        assert saved["provider_path"]["next_action"]
+        assert saved["fallback"]["label"] == "mock/simulated"
+
+        output = capsys.readouterr().out
+        assert "Live provider path is blocked" in output
+        assert "mock/simulated" in output
 
     def test_live_mode_real_demo_fallback_survives_without_legacy_demo_package(
         self, tmp_path, monkeypatch, capsys
