@@ -26,8 +26,8 @@ When you run `aragora quickstart`, the command:
 
 1. Loads `.env` from the current directory or its parent if present.
 2. Uses `--question`, or prompts interactively for one.
-3. Runs a short debate in `live` mode when supported API keys are detected.
-4. Falls back to `demo` mode with local mock agents when no supported API keys are found.
+3. Runs a short debate in `live` mode only when a configured provider passes fast TLS/connectivity preflight.
+4. Falls back to `demo` mode with local mock agents when credentials are missing or the live provider path is blocked.
 5. Saves one result artifact to disk and prints the exact path.
 6. Optionally opens an HTML view in the browser unless `--no-browser` is set.
 
@@ -84,6 +84,7 @@ aragora quickstart --question "Should we rewrite this service in Go?" --no-brows
 Expected behavior:
 
 - The terminal reports `Run mode: live`
+- Quickstart has already verified at least one configured provider can pass connectivity preflight
 - Quickstart lists the detected live agent providers it will use
 - A saved artifact is written to `.aragora/receipts/quickstart-live-receipt.json` by default
 - The live artifact includes a structured receipt payload with `consensus_proof`, `dissenting_views`, and `artifact_hash`
@@ -95,7 +96,7 @@ aragora receipt inspect .aragora/receipts/quickstart-live-receipt.json
 aragora receipt verify .aragora/receipts/quickstart-live-receipt.json
 ```
 
-If no supported API keys are detected and you did not pass `--demo`, quickstart says it is falling back to demo mode and the saved artifact will reflect `mode: "demo"`.
+If no supported API keys are detected, or no configured provider passes preflight, quickstart says it is falling back to demo mode and the saved artifact will reflect `mode: "demo"` plus provider-path guidance.
 
 ## Browser Behavior
 

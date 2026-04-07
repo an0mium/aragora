@@ -4,10 +4,11 @@ Quickstart CLI command: truthful first-run onboarding in one command.
 Guides new users through a short debate:
 1. Checks for supported API keys (loads .env if present)
 2. Accepts a question via --question or interactive prompt
-3. Runs a live debate when keys are available, otherwise falls back to demo
-4. Can alternatively generate a first-pass execution specification
-5. Saves one deterministic result artifact
-6. Optionally opens an HTML view in the browser
+3. Runs a live debate only when a configured provider passes fast preflight
+4. Otherwise falls back to demo with truthful provider-path guidance
+5. Can alternatively generate a first-pass execution specification
+6. Saves one deterministic result artifact
+7. Optionally opens an HTML view in the browser
 """
 
 from __future__ import annotations
@@ -146,9 +147,10 @@ def add_quickstart_parser(subparsers: Any) -> None:
         description="""
 Run your first adversarial debate with a bounded live onboarding path.
 
-Automatically detects available API keys, picks agents, runs a fast
-live debate, and opens the decision receipt in your browser.
-No configuration needed.
+Automatically detects configured API keys, verifies at least one provider
+passes preflight, runs a fast live debate when available, and opens the
+decision receipt in your browser. If live routing is blocked, quickstart
+falls back to demo mode instead of pretending the run was live.
 
 Examples:
   aragora quickstart --demo                              # Zero-config demo

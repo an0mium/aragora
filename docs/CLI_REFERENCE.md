@@ -435,7 +435,7 @@ aragora publish debate
 
 ### `aragora quickstart`
 
-**Purpose:** CLI-first onboarding: load `.env`, get a question, run a short `live` debate when supported API keys are available or fall back to `demo`, save one result artifact, and optionally open an HTML view in the browser.
+**Purpose:** CLI-first onboarding: load `.env`, get a question, run a short `live` debate only when a configured provider passes connectivity preflight, otherwise fall back to `demo`, save one result artifact, and optionally open an HTML view in the browser.
 
 **Usage:** `aragora quickstart [options]`
 
