@@ -48,9 +48,21 @@ jest.mock('@/hooks/useSWRFetch', () => ({
   useSWRFetch: jest.fn(),
 }));
 
+jest.mock('@/hooks/useAuthenticatedFetch', () => ({
+  useAuthFetch: () => ({
+    getAuthHeaders: () => ({
+      Authorization: 'Bearer test-token',
+      'Content-Type': 'application/json',
+    }),
+  }),
+}));
+
 const mockUseSWRFetch = useSWRFetch as jest.Mock;
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
+
+const mockClipboardWriteText = jest.fn();
+const mockConfirm = jest.fn(() => true);
 
 type ReceiptRecord = Record<string, unknown>;
 
@@ -158,6 +170,12 @@ describe('ReceiptsPage', () => {
     setSearchQuery('');
     configureListMocks();
     configureDetailFetch();
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: mockClipboardWriteText,
+      },
+    });
+    window.confirm = mockConfirm;
   });
 
   it('auto-opens receipt detail when the id query param matches a loaded receipt', async () => {
@@ -335,5 +353,68 @@ describe('ReceiptsPage', () => {
 
     await screen.findByText('Decision Receipt');
     expect(screen.queryByRole('link', { name: 'View result' })).not.toBeInTheDocument();
+  });
+
+  it('creates a receipt share link and copies the public token URL', async () => {
+    const user = userEvent.setup();
+    const detailImplementation = mockFetch.getMockImplementation();
+
+    mockFetch.mockImplementation(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url === 'http://localhost:8080/api/v2/receipts/receipt-123/share') {
+        return {
+          ok: true,
+          json: async () => ({
+            receipt_id: 'receipt-123',
+            share_url: '/api/v2/receipts/share/share-token-123',
+            token: 'share-token-123',
+            expires_at: '2026-03-26T12:34:56Z',
+          }),
+        } as Response;
+      }
+
+      if (detailImplementation) {
+        return detailImplementation(input, init) as Promise<Response>;
+      }
+
+      return {
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    render(<ReceiptsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /Receipt 123 summary/i }));
+    await screen.findByText('Decision Receipt');
+
+    await user.click(screen.getByRole('button', { name: 'Share link' }));
+
+    expect(mockConfirm).toHaveBeenCalledWith(
+      expect.stringContaining('Create a public share link for this receipt?')
+    );
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v2/receipts/receipt-123/share',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer test-token',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ expires_in_hours: 24 }),
+        }
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockClipboardWriteText).toHaveBeenCalledWith(
+        'http://localhost:8080/api/v2/receipts/share/share-token-123'
+      );
+    });
+
+    expect(await screen.findByRole('button', { name: 'Copied!' })).toBeInTheDocument();
   });
 });
