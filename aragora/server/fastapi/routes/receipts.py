@@ -173,8 +173,8 @@ class BatchExportRequest(BaseModel):
         description="Export format (json, html, markdown, md, csv, sarif)",
     )
     raw: bool = Field(
-        False,
-        description="Return a ZIP archive instead of a JSON item bundle.",
+        True,
+        description="Keep the legacy ZIP archive response. Set false to return a JSON item bundle.",
     )
 
 
@@ -954,7 +954,7 @@ async def batch_export_receipts(
     body: BatchExportRequest,
     store=Depends(get_receipt_store),
 ) -> BatchExportResponse | Response:
-    """Export multiple receipts at once (up to 100)."""
+    """Export multiple receipts at once (up to 100), defaulting to the legacy ZIP surface."""
     try:
         items: list[BatchExportItem] = []
         archive_items: list[tuple[str, str, str]] = []

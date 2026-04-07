@@ -997,12 +997,12 @@ class TestBatchExport:
     """Tests for POST /api/v2/receipts/batch-export."""
 
     def test_batch_export_json(self, client, mock_receipt_store, sample_receipt_dict):
-        """Batch export returns exported items."""
+        """Batch export returns exported items when JSON mode is requested explicitly."""
         mock_receipt_store.get.return_value = sample_receipt_dict
 
         response = client.post(
             "/api/v2/receipts/batch-export",
-            json={"receipt_ids": ["rcpt_test123"], "format": "json"},
+            json={"receipt_ids": ["rcpt_test123"], "format": "json", "raw": False},
         )
         assert response.status_code == 200
         data = response.json()
@@ -1018,7 +1018,7 @@ class TestBatchExport:
 
         response = client.post(
             "/api/v2/receipts/batch-export",
-            json={"receipt_ids": ["missing"], "format": "json"},
+            json={"receipt_ids": ["missing"], "format": "json", "raw": False},
         )
         assert response.status_code == 200
         data = response.json()
@@ -1039,7 +1039,7 @@ class TestBatchExport:
 
         response = client.post(
             "/api/v2/receipts/batch-export",
-            json={"receipt_ids": ["rcpt_test123"], "format": "markdown"},
+            json={"receipt_ids": ["rcpt_test123"], "format": "markdown", "raw": False},
         )
         assert response.status_code == 200
         data = response.json()
@@ -1051,7 +1051,7 @@ class TestBatchExport:
 
         response = client.post(
             "/api/v2/receipts/batch-export",
-            json={"receipt_ids": ["rcpt_test123"], "format": "html"},
+            json={"receipt_ids": ["rcpt_test123"], "format": "html", "raw": False},
         )
 
         assert response.status_code == 200
@@ -1065,15 +1065,37 @@ class TestBatchExport:
 
         response = client.post(
             "/api/v2/receipts/batch-export",
-            json={"receipt_ids": ["rcpt_test123"], "format": "md"},
+            json={"receipt_ids": ["rcpt_test123"], "format": "md", "raw": False},
         )
 
         assert response.status_code == 200
         data = response.json()
         assert data["items"][0]["format"] == "markdown"
 
+    def test_batch_export_defaults_to_zip_bundle(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """Batch export defaults to the legacy ZIP bundle."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "html"},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/zip")
+        assert response.headers["content-disposition"] == "attachment; filename=receipts-export.zip"
+
+        archive = zipfile.ZipFile(BytesIO(response.content), "r")
+        assert "receipt-rcpt_test123.html" in archive.namelist()
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["format"] == "html"
+        assert manifest["exported"] == 1
+        assert manifest["failed"] == []
+
     def test_batch_export_raw_zip_bundle(self, client, mock_receipt_store, sample_receipt_dict):
-        """Raw mode returns the legacy ZIP bundle with a manifest."""
+        """Explicit raw mode still returns the legacy ZIP bundle with a manifest."""
         mock_receipt_store.get.return_value = sample_receipt_dict
 
         response = client.post(
