@@ -286,6 +286,49 @@ class TestBuildCommand:
         assert cmd[idx + 1] == str(parent_git.resolve())
         assert "--full-auto" in cmd
 
+    def test_is_admin_approved_rejects_malformed_truthy_values(self):
+        assert WorkerLauncher._is_admin_approved({"admin_approved": "true"}, {}) is False
+        assert WorkerLauncher._is_admin_approved({}, {"admin_approved": 1}) is False
+        assert WorkerLauncher._is_admin_approved({"admin_approved": True}, {}) is True
+
+    @pytest.mark.asyncio
+    async def test_launch_rejects_string_admin_approved_for_codex_git_access(self, tmp_path: Path):
+        launcher = WorkerLauncher(
+            LaunchConfig(
+                detach=False,
+                use_managed_session_script=False,
+                allow_codex_full_auto=True,
+                require_explicit_approval=False,
+            )
+        )
+        mock_proc = AsyncMock()
+        mock_proc.pid = 104
+        mock_proc.stdin = None
+        worktree = tmp_path / "wt"
+        worktree.mkdir()
+        parent_git = tmp_path / "repo" / ".git"
+        real_gitdir = parent_git / "worktrees" / "wt"
+        real_gitdir.mkdir(parents=True)
+        (real_gitdir / "commondir").write_text("../..\n", encoding="utf-8")
+        (worktree / ".git").write_text(f"gitdir: {real_gitdir}\n", encoding="utf-8")
+
+        work_order = {
+            "work_order_id": "wo-admin-bypass",
+            "target_agent": "codex",
+            "title": "Reject malformed admin approval",
+            "metadata": {"admin_approved": "true"},
+        }
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/codex"),
+            patch.object(WorkerLauncher, "_git_output", return_value=""),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+        ):
+            await launcher.launch(work_order, worktree_path=str(worktree), branch="feat")
+
+        launched_cmd = list(mock_exec.call_args.args)
+        assert "--add-dir" not in launched_cmd
+
     def test_codex_no_add_dir_for_regular_repo(self, tmp_path: Path):
         """Regular repos (.git is a directory) should NOT get --add-dir."""
         wt = tmp_path / "repo"

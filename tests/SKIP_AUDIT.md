@@ -1,7 +1,7 @@
 # Test Skip Marker Audit
 
-**Generated**: 2026-02-24
-**Total Skip Markers**: 60
+**Generated**: 2026-04-06
+**Total Skip Markers**: 57
 
 ---
 
@@ -69,7 +69,7 @@
 
 ## Skip Count Baseline
 
-Current baseline: **60** skips
+Current baseline: **57** skips
 
 CI will warn if skip count exceeds this baseline.
 Update `tests/.skip_baseline` when intentionally adding skips.

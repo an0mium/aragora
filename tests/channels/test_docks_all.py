@@ -8,6 +8,7 @@ for message delivery, payload building, and error handling.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
+from .conftest import _make_httpx_response, _make_message
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult, MessageType
 from aragora.channels.normalized import (
     NormalizedMessage,
@@ -15,34 +16,6 @@ from aragora.channels.normalized import (
     MessageButton,
     MessageAttachment,
 )
-
-
-# =============================================================================
-# Shared helpers
-# =============================================================================
-
-
-def _make_message(**kwargs):
-    """Create a NormalizedMessage for testing."""
-    return NormalizedMessage(
-        content=kwargs.get("content", "Test message"),
-        message_type=kwargs.get("message_type", "notification"),
-        format=kwargs.get("format", MessageFormat.MARKDOWN),
-        title=kwargs.get("title"),
-        thread_id=kwargs.get("thread_id"),
-        reply_to=kwargs.get("reply_to"),
-        metadata=kwargs.get("metadata", {}),
-    )
-
-
-def _make_httpx_response(status_code=200, json_data=None, text="OK"):
-    """Create a mock httpx response."""
-    resp = MagicMock()
-    resp.status_code = status_code
-    resp.text = text
-    resp.content = text.encode() if text else b""
-    resp.json.return_value = json_data or {}
-    return resp
 
 
 # =============================================================================

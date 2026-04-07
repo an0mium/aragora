@@ -66,6 +66,13 @@ _training_circuit_breaker: TrainingCircuitBreaker | None = None
 _circuit_breaker_lock = threading.Lock()
 
 
+def _normalize_legacy_api_path(path: str) -> str:
+    """Normalize legacy v1 endpoints without accepting newer API versions."""
+    if path.startswith("/api/v1/"):
+        return f"/api/{path[len('/api/v1/') :]}"
+    return path
+
+
 def _get_training_circuit_breaker() -> TrainingCircuitBreaker:
     """Get or create the global training circuit breaker."""
     global _training_circuit_breaker
@@ -109,6 +116,9 @@ class TrainingHandler(BaseHandler):
         "/api/v1/training/stats": "handle_stats",
         "/api/v1/training/formats": "handle_formats",
         "/api/v1/training/jobs": "handle_list_jobs",
+    }
+    _NORMALIZED_ROUTE_MAP = {
+        _normalize_legacy_api_path(path): handler_name for path, handler_name in _ROUTE_MAP.items()
     }
 
     ROUTES = [
