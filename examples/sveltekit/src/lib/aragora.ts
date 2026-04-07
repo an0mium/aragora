@@ -5,7 +5,7 @@
  */
 
 import { createClient, type AragoraClient } from '@aragora/sdk';
-import { PUBLIC_ARAGORA_API_URL } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 
 // Browser client (singleton)
 let browserClient: AragoraClient | null = null;
@@ -17,7 +17,7 @@ export function getBrowserClient(): AragoraClient {
 
   if (!browserClient) {
     browserClient = createClient({
-      baseUrl: PUBLIC_ARAGORA_API_URL || 'http://localhost:8080',
+      baseUrl: env.PUBLIC_ARAGORA_API_URL || 'http://localhost:8080',
     });
   }
 
