@@ -97,7 +97,12 @@ export class CodebaseAPI {
    * Get dead code report.
    * @route GET /api/v1/codebase/deadcode
    */
-  async getDeadcode(): Promise<Record<string, unknown>> {
+  async getDeadcode(): Promise<Record<string, unknown>>;
+  async getDeadcode(repo: string): Promise<Record<string, unknown>>;
+  async getDeadcode(repo?: string): Promise<Record<string, unknown>> {
+    if (repo) {
+      return this.getRepoDeadcode(repo);
+    }
     return this.client.request('GET', '/api/v1/codebase/deadcode') as Promise<Record<string, unknown>>;
   }
 
@@ -571,5 +576,29 @@ export class CodebaseAPI {
       'GET',
       `/api/v1/codebase/${encodeURIComponent(repo)}/vulnerabilities`
     ) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Start a repo scan.
+   * Compatibility alias used by the core namespace tests.
+   */
+  async startScan(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.startRepoScan(repo, body);
+  }
+
+  /**
+   * List vulnerabilities for a repo.
+   * Compatibility alias used by the core namespace tests.
+   */
+  async listVulnerabilities(repo: string): Promise<Record<string, unknown>> {
+    return this.getRepoVulnerabilities(repo);
+  }
+
+  /**
+   * Run repo metrics analysis.
+   * Compatibility alias used by the core namespace tests.
+   */
+  async analyzeMetrics(repo: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.analyzeRepoMetrics(repo, body);
   }
 }

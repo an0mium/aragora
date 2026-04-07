@@ -26,29 +26,6 @@ from cryptography.hazmat.backends import default_backend
 # ===========================================================================
 
 
-@pytest.fixture
-def rsa_key_pair():
-    """Generate an RSA key pair for testing JWT signatures."""
-
-    private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=2048,
-        backend=default_backend(),
-    )
-    public_key = private_key.public_key()
-
-    return private_key, public_key
-
-
-@pytest.fixture
-def mock_jwks_client():
-    """Create a mock PyJWKClient that returns a controllable signing key."""
-    mock_client = MagicMock()
-    mock_signing_key = MagicMock()
-    mock_client.get_signing_key_from_jwt.return_value = mock_signing_key
-    return mock_client, mock_signing_key
-
-
 # ===========================================================================
 # Default Cache TTL Tests
 # ===========================================================================
@@ -274,7 +251,7 @@ class TestCacheInvalidationOnSignatureFailure:
             MICROSOFT_VALID_ISSUERS,
         )
 
-        private_key, public_key = rsa_key_pair
+        private_key, public_key, *_ = rsa_key_pair
         mock_client, mock_signing_key = mock_jwks_client
         mock_signing_key.key = public_key
 
@@ -321,7 +298,7 @@ class TestCacheInvalidationOnSignatureFailure:
             GOOGLE_VALID_ISSUERS,
         )
 
-        private_key, public_key = rsa_key_pair
+        private_key, public_key, *_ = rsa_key_pair
         mock_client, mock_signing_key = mock_jwks_client
         mock_signing_key.key = public_key
 
@@ -406,7 +383,7 @@ class TestCacheInvalidationOnSignatureFailure:
         )
         from jwt.exceptions import ExpiredSignatureError
 
-        private_key, public_key = rsa_key_pair
+        private_key, public_key, *_ = rsa_key_pair
         mock_client, mock_signing_key = mock_jwks_client
         mock_signing_key.key = public_key
 
@@ -566,7 +543,7 @@ class TestCacheHardeningIntegration:
         )
         from jwt.exceptions import InvalidSignatureError
 
-        private_key, public_key = rsa_key_pair
+        private_key, public_key, *_ = rsa_key_pair
         mock_client, mock_signing_key = mock_jwks_client
         mock_signing_key.key = public_key
 
