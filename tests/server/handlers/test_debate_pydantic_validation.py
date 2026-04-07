@@ -234,7 +234,7 @@ class TestValidateDebateRequest:
         assert isinstance(err, str)
         assert len(err.strip()) > 10
 
-    def test_non_validation_exception_is_not_wrapped(self, monkeypatch):
+    def test_validate_debate_request_non_validation_exception_is_not_wrapped(self, monkeypatch):
         """Unexpected exceptions from model validation should propagate."""
         from aragora.server.validation import pydantic_models
 
