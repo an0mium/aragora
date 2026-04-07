@@ -248,9 +248,8 @@ async def add_email_recipient(body: RecipientRequest):
 
     try:
         from aragora.integrations.email import EmailRecipient
-        from aragora.server.handlers.social.notifications import get_email_integration
 
-        email = get_email_integration()
+        email = await _get_email_integration()
         if not email:
             raise HTTPException(status_code=503, detail="Email integration not configured")
 
@@ -282,9 +281,7 @@ async def remove_email_recipient(email: str):
         raise HTTPException(status_code=400, detail="email parameter required")
 
     try:
-        from aragora.server.handlers.social.notifications import get_email_integration
-
-        integration = get_email_integration()
+        integration = await _get_email_integration()
         if not integration:
             raise HTTPException(status_code=503, detail="Email integration not configured")
 

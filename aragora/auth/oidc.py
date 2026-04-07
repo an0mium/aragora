@@ -36,7 +36,7 @@ import time
 from dataclasses import dataclass, field
 from types import ModuleType
 from typing import Any
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode, urljoin, urlsplit
 import urllib.request
 
 from .sso import (
@@ -79,6 +79,10 @@ async def _urlopen_json(
     """Fetch JSON via urllib in a worker thread when httpx is unavailable."""
 
     def _request() -> dict[str, Any]:
+        scheme = urlsplit(url).scheme.lower()
+        if scheme not in {"http", "https"}:
+            raise OSError(f"Unsupported OIDC URL scheme: {scheme or '<missing>'}")
+
         request_headers = dict(headers or {})
         payload: bytes | None = None
         if data is not None:
@@ -94,7 +98,10 @@ async def _urlopen_json(
             headers=request_headers,
             method=method,
         )
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        # Scheme is restricted to http/https immediately above.
+        with urllib.request.urlopen(  # nosec B310
+            request, timeout=timeout
+        ) as response:
             raw = response.read()
         return json.loads(raw.decode("utf-8"))
 

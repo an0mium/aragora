@@ -10,7 +10,9 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import sys
 import time
+import types as _types_mod
 from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Any, Optional
@@ -19,6 +21,41 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.server.handlers.base import HandlerResult
+
+
+def install_social_slack_stubs() -> None:
+    """Pre-stub Slack modules so social handler imports stay lightweight in tests."""
+
+    slack_attrs = [
+        "SlackHandler",
+        "get_slack_handler",
+        "get_slack_integration",
+        "get_workspace_store",
+        "resolve_workspace",
+        "create_tracked_task",
+        "_validate_slack_url",
+        "SLACK_SIGNING_SECRET",
+        "SLACK_BOT_TOKEN",
+        "SLACK_WEBHOOK_URL",
+        "SLACK_ALLOWED_DOMAINS",
+        "SignatureVerifierMixin",
+        "CommandsMixin",
+        "EventsMixin",
+        "init_slack_handler",
+    ]
+    for module_name in (
+        "aragora.server.handlers.social.slack.handler",
+        "aragora.server.handlers.social.slack",
+        "aragora.server.handlers.social._slack_impl",
+    ):
+        if module_name not in sys.modules:
+            module = _types_mod.ModuleType(module_name)
+            for attr in slack_attrs:
+                setattr(module, attr, None)
+            sys.modules[module_name] = module
+
+
+install_social_slack_stubs()
 
 
 # ===========================================================================
@@ -53,6 +90,7 @@ class MockHandler:
     ):
         self.headers = headers or {}
         self._body = body
+        self.request_body = body
         self.path = path
         self.command = method
         self.rfile = BytesIO(body)
@@ -68,6 +106,9 @@ class MockHandler:
 
     def end_headers(self) -> None:
         pass
+
+    def get_argument(self, name: str, default: str | None = None) -> str | None:
+        return default
 
     @classmethod
     def with_json_body(
@@ -397,11 +438,16 @@ class MockUser:
     """Mock authenticated user for testing secure handlers."""
 
     user_id: str = "test-user-id"
+    id: str | None = None
     org_id: str = "test-org-id"
     email: str = "test@example.com"
     name: str = "Test User"
     roles: list[str] = field(default_factory=lambda: ["member"])
     permissions: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.id is None:
+            self.id = self.user_id
 
 
 @pytest.fixture
@@ -418,6 +464,37 @@ def mock_admin_user():
         roles=["admin"],
         permissions=["notifications.read", "notifications.write", "admin.system"],
     )
+
+
+@pytest.fixture
+def mock_user_store(mock_user):
+    """Create a default user store that resolves the shared mock user."""
+    store = MagicMock()
+    store.get_user_by_id.return_value = mock_user
+    return store
+
+
+@pytest.fixture
+def social_handler_context_builder():
+    """Build common context dictionaries for social handler tests."""
+
+    def _build(**overrides: Any) -> dict[str, Any]:
+        context = {
+            "storage": MagicMock(),
+            "elo_system": MagicMock(),
+            "arena": MagicMock(),
+            "user_store": MagicMock(),
+        }
+        context.update(overrides)
+        return context
+
+    return _build
+
+
+@pytest.fixture
+def handler_context(social_handler_context_builder, mock_user_store):
+    """Default handler context shared across social handler tests."""
+    return social_handler_context_builder(user_store=mock_user_store)
 
 
 # ===========================================================================
