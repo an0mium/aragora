@@ -38,6 +38,104 @@ def _user_admin_schema() -> dict[str, Any]:
     }
 
 
+def _feature_flag_schema() -> dict[str, Any]:
+    """Admin feature-flag payload schema."""
+    return {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "value": {},
+            "default": {},
+            "type": {"type": "string"},
+            "description": {"type": "string"},
+            "category": {"type": "string"},
+            "status": {"type": "string"},
+            "env_var": {"type": ["string", "null"]},
+            "deprecated_since": {"type": ["string", "null"]},
+            "removed_in": {"type": ["string", "null"]},
+            "replacement": {"type": ["string", "null"]},
+            "usage": {
+                "type": "object",
+                "properties": {
+                    "access_count": {"type": "integer"},
+                    "last_accessed": {"type": ["string", "null"]},
+                    "access_locations": {"type": "object"},
+                },
+            },
+        },
+    }
+
+
+def _mfa_compliance_schema() -> dict[str, Any]:
+    """Admin MFA compliance response envelope."""
+    return {
+        "type": "object",
+        "properties": {
+            "data": {
+                "type": "object",
+                "properties": {
+                    "total_admins": {"type": "integer"},
+                    "mfa_enabled": {"type": "integer"},
+                    "mfa_disabled": {"type": "integer"},
+                    "in_grace_period": {"type": "integer"},
+                    "compliance_rate": {"type": "number"},
+                    "details": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "user_id": {"type": "string"},
+                                "role": {"type": "string"},
+                                "mfa_enabled": {"type": "boolean"},
+                                "status": {
+                                    "type": "string",
+                                    "enum": ["compliant", "grace_period", "non_compliant"],
+                                },
+                            },
+                        },
+                    },
+                },
+            }
+        },
+    }
+
+
+def _system_health_overview_schema() -> dict[str, Any]:
+    """Admin system-health overview response envelope."""
+    return {
+        "type": "object",
+        "properties": {
+            "data": {
+                "type": "object",
+                "properties": {
+                    "overall_status": {
+                        "type": "string",
+                        "enum": ["healthy", "degraded", "critical", "unknown"],
+                    },
+                    "subsystems": {"type": "object"},
+                    "circuit_breakers": {"type": "object"},
+                    "slos": {"type": "object"},
+                    "adapters": {"type": "object"},
+                    "agents": {"type": "object"},
+                    "budget": {"type": "object"},
+                    "last_check": {"type": "string", "format": "date-time"},
+                    "collection_time_ms": {"type": "number"},
+                },
+            }
+        },
+    }
+
+
+def _system_health_section_schema() -> dict[str, Any]:
+    """Admin system-health subresource response envelope."""
+    return {
+        "type": "object",
+        "properties": {
+            "data": {"type": "object"},
+        },
+    }
+
+
 ADMIN_ENDPOINTS = {
     # =========================================================================
     # Organization Management
@@ -206,6 +304,171 @@ ADMIN_ENDPOINTS = {
                 },
                 "401": {"description": "Authentication required"},
                 "403": {"description": "Admin privileges required"},
+            },
+            "security": [{"bearerAuth": []}],
+        }
+    },
+    "/api/v1/admin/mfa-compliance": {
+        "get": {
+            "tags": ["Admin", "Security"],
+            "summary": "Get admin MFA compliance",
+            "operationId": "adminGetMfaCompliance",
+            "description": "Aggregate MFA status for administrative users.",
+            "responses": {
+                "200": {
+                    "description": "MFA compliance summary",
+                    "content": {
+                        "application/json": {
+                            "schema": _mfa_compliance_schema(),
+                        }
+                    },
+                },
+                "401": {"description": "Authentication required"},
+                "403": {"description": "Admin privileges required"},
+                "500": {"description": "Failed to retrieve user list"},
+                "501": {"description": "User listing not supported"},
+                "503": {"description": "User store not available"},
+            },
+            "security": [{"bearerAuth": []}],
+        }
+    },
+    "/api/v1/admin/feature-flags/{name}": {
+        "get": {
+            "tags": ["Admin", "Feature Flags"],
+            "summary": "Get admin feature flag",
+            "operationId": "adminGetFeatureFlag",
+            "description": "Get a single feature flag with its current value and usage metadata.",
+            "parameters": [
+                {
+                    "name": "name",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Feature flag name",
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Feature flag details",
+                    "content": {
+                        "application/json": {
+                            "schema": _feature_flag_schema(),
+                        }
+                    },
+                },
+                "400": {"description": "Flag name is required"},
+                "401": {"description": "Authentication required"},
+                "403": {"description": "Admin privileges required"},
+                "404": {"description": "Flag not found"},
+                "503": {"description": "Feature flag system not available"},
+            },
+            "security": [{"bearerAuth": []}],
+        },
+        "put": {
+            "tags": ["Admin", "Feature Flags"],
+            "summary": "Set admin feature flag",
+            "operationId": "adminSetFeatureFlag",
+            "description": "Update a single feature flag value through the admin API.",
+            "parameters": [
+                {
+                    "name": "name",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Feature flag name",
+                }
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["value"],
+                            "properties": {
+                                "value": {},
+                            },
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": {
+                    "description": "Feature flag updated",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "value": {},
+                                    "updated": {"type": "boolean"},
+                                    "env_var": {"type": ["string", "null"]},
+                                },
+                            }
+                        }
+                    },
+                },
+                "400": {"description": "Invalid request body or flag value"},
+                "401": {"description": "Authentication required"},
+                "403": {"description": "Admin privileges required"},
+                "404": {"description": "Flag not found"},
+                "503": {"description": "Feature flag system not available"},
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
+    "/api/v1/admin/system-health": {
+        "get": {
+            "tags": ["Admin", "System"],
+            "summary": "Get admin system health overview",
+            "operationId": "adminGetSystemHealthOverview",
+            "description": "Return the aggregated infrastructure health dashboard.",
+            "responses": {
+                "200": {
+                    "description": "Aggregated system health overview",
+                    "content": {
+                        "application/json": {
+                            "schema": _system_health_overview_schema(),
+                        }
+                    },
+                },
+                "401": {"description": "Authentication required"},
+                "403": {"description": "Admin privileges required"},
+            },
+            "security": [{"bearerAuth": []}],
+        }
+    },
+    "/api/v1/admin/system-health/{section}": {
+        "get": {
+            "tags": ["Admin", "System"],
+            "summary": "Get admin system health section",
+            "operationId": "adminGetSystemHealthSection",
+            "description": "Return one system-health subresource from the admin dashboard.",
+            "parameters": [
+                {
+                    "name": "section",
+                    "in": "path",
+                    "required": True,
+                    "schema": {
+                        "type": "string",
+                        "enum": ["circuit-breakers", "slos", "adapters", "agents", "budget"],
+                    },
+                    "description": "System-health subresource",
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "System-health section data",
+                    "content": {
+                        "application/json": {
+                            "schema": _system_health_section_schema(),
+                        }
+                    },
+                },
+                "401": {"description": "Authentication required"},
+                "403": {"description": "Admin privileges required"},
+                "404": {"description": "Unknown system-health section"},
             },
             "security": [{"bearerAuth": []}],
         }

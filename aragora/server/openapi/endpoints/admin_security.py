@@ -10,6 +10,63 @@ from aragora.server.openapi.helpers import (
 )
 
 ADMIN_SECURITY_ENDPOINTS = {
+    "/api/v1/admin/security/rotation-status": {
+        "get": {
+            "tags": ["Admin", "Security"],
+            "summary": "Get key rotation status",
+            "description": """Get rotation status for managed secrets and scheduler state.
+
+**Requires:** `admin:security:read` permission
+
+**Response includes:**
+- Per-secret rotation status
+- Scheduler health and tracked keys
+- Due and pending rotation summary""",
+            "operationId": "getSecurityRotationStatus",
+            "responses": {
+                "200": {
+                    "description": "Key rotation status",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "data": {
+                                        "type": "object",
+                                        "properties": {
+                                            "timestamp": {
+                                                "type": "string",
+                                                "format": "date-time",
+                                            },
+                                            "secrets": {
+                                                "type": "array",
+                                                "items": {"type": "object"},
+                                            },
+                                            "scheduler": {"type": "object"},
+                                            "summary": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "total_tracked": {"type": "integer"},
+                                                    "due_for_rotation": {"type": "integer"},
+                                                    "pending_rotation": {"type": "integer"},
+                                                    "healthy": {"type": "boolean"},
+                                                },
+                                            },
+                                        },
+                                    }
+                                },
+                            }
+                        }
+                    },
+                },
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
+            "security": [{"bearerAuth": []}],
+        },
+    },
     "/api/v1/admin/security/status": {
         "get": {
             "tags": ["Admin", "Security"],
