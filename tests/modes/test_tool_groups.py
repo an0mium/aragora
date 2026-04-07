@@ -166,10 +166,15 @@ class TestCanUseTool:
         assert can_use_tool(full, "web_fetch")
         assert can_use_tool(full, "debate")
 
-    def test_unknown_tool_allowed_by_default(self):
-        """Unknown tools are allowed by default."""
-        assert can_use_tool(ToolGroup.READ, "unknown_tool")
-        assert can_use_tool(ToolGroup.NONE, "unknown_tool")
+    def test_unknown_tool_denied_by_default(self):
+        """Unknown tools are denied by default."""
+        assert not can_use_tool(ToolGroup.READ, "unknown_tool")
+        assert not can_use_tool(ToolGroup.NONE, "unknown_tool")
+
+    def test_unknown_normalized_tool_denied_by_default(self):
+        """Unknown tools remain denied after normalization."""
+        assert not can_use_tool(ToolGroup.FULL(), "unknown-tool")
+        assert not can_use_tool(ToolGroup.FULL(), "UNKNOWN_TOOL")
 
     def test_none_groups_denies_known_tools(self):
         """NONE groups deny all known tools."""
