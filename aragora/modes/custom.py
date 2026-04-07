@@ -138,10 +138,21 @@ class CustomModeLoader:
 
         # Parse tool groups
         tool_groups = ToolGroup.NONE
-        for group in config.get("tool_groups", ["read"]):
+        raw_groups = config.get("tool_groups", ["read"])
+        unknown_groups: list[str] = []
+        for group in raw_groups:
             group_lower = group.lower()
             if group_lower in self.TOOL_GROUP_MAP:
                 tool_groups |= self.TOOL_GROUP_MAP[group_lower]
+            else:
+                unknown_groups.append(group)
+
+        if unknown_groups:
+            valid_groups = ", ".join(sorted(self.TOOL_GROUP_MAP))
+            unknown_list = ", ".join(sorted(unknown_groups))
+            raise ValueError(
+                f"Unknown tool_groups: {unknown_list}. Valid tool_groups: {valid_groups}"
+            )
 
         return CustomMode(
             name=name,
