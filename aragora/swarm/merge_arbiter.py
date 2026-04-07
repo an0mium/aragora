@@ -73,6 +73,23 @@ class ArbiterSummary:
         }
 
 
+def _classify_required_checks(
+    checks: dict[str, str],
+    *,
+    required_checks: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Split required checks into missing and failing buckets."""
+    missing: list[str] = []
+    failing: list[str] = []
+    for name in required_checks or REQUIRED_CHECKS:
+        status = checks.get(name)
+        if status is None:
+            missing.append(name)
+        elif status != "SUCCESS":
+            failing.append(f"{name}={status}")
+    return missing, failing
+
+
 def _run_gh(args: list[str], *, timeout: float = 30.0) -> subprocess.CompletedProcess[str]:
     """Run a ``gh`` CLI command and return the result."""
     return subprocess.run(
@@ -195,14 +212,7 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
     if not checks:
         return MergeResult(pr_number, branch, False, "no checks found")
 
-    missing = []
-    failing = []
-    for name in REQUIRED_CHECKS:
-        status = checks.get(name)
-        if status is None:
-            missing.append(name)
-        elif status != "SUCCESS":
-            failing.append(f"{name}={status}")
+    missing, failing = _classify_required_checks(checks)
 
     if missing:
         return MergeResult(pr_number, branch, False, f"missing checks: {', '.join(missing)}")

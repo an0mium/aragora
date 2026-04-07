@@ -40,6 +40,7 @@ def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | Non
         "runner",
         "status",
         "reconcile",
+        "initiative",
         "campaign",
         "initiative",
         "integrator",
@@ -144,6 +145,47 @@ def _render_initiative(item: object) -> None:
                 complexity=getattr(slice_item, "estimated_complexity", ""),
                 title=getattr(slice_item, "title", ""),
             )
+        )
+
+
+def _render_initiative_status(payload: dict[str, object]) -> None:
+    print(
+        "initiative_id={initiative_id} completed={completed}/{total} milestones={done}/{count}".format(
+            initiative_id=payload.get("initiative_id", ""),
+            completed=payload.get("completed_slices", 0),
+            total=payload.get("total_slices", 0),
+            done=payload.get("milestones_complete", 0),
+            count=payload.get("milestones_total", 0),
+        )
+    )
+    milestones = [item for item in payload.get("milestones", []) if isinstance(item, dict)]
+    if milestones:
+        print("\nMilestones")
+        _print_table(
+            [
+                ("milestone", "Milestone"),
+                ("completed", "Done"),
+                ("total", "Total"),
+                ("waiting_for_pr", "WaitPR"),
+                ("waiting_for_merge", "WaitMerge"),
+                ("promotable", "Promotable"),
+                ("blocked", "Blocked"),
+            ],
+            milestones,
+        )
+    slices = [item for item in payload.get("slices", []) if isinstance(item, dict)]
+    if slices:
+        print("\nSlices")
+        _print_table(
+            [
+                ("project_id", "Slice"),
+                ("milestone", "Milestone"),
+                ("status", "Status"),
+                ("next_action", "Next"),
+                ("pr_number", "PR"),
+                ("feature_flag", "Flag"),
+            ],
+            slices[:10],
         )
 
 
@@ -2010,6 +2052,46 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(f"  needs_human: {reason}")
             for action_text in result.next_actions[:3]:
                 print(f"  next: {action_text}")
+        return
+
+    if action == "initiative":
+        from aragora.swarm.initiative_integrator import (
+            DEFAULT_INITIATIVE_MANIFEST,
+            InitiativeIntegrator,
+        )
+
+        subaction = str(goal or "status").strip().lower() or "status"
+        manifest_path = Path(
+            getattr(args, "manifest", None) or DEFAULT_INITIATIVE_MANIFEST
+        ).resolve()
+        if not manifest_path.exists():
+            raise ValueError(f"initiative manifest not found: {manifest_path}")
+
+        integrator = InitiativeIntegrator(
+            manifest_path=manifest_path,
+            repo_root=Path.cwd(),
+            target_branch=target_branch,
+            repo=getattr(args, "boss_repo", None) or "synaptent/aragora",
+        )
+        if subaction == "run":
+            payload = asyncio.run(integrator.run())
+        elif subaction == "status":
+            payload = integrator.status()
+        elif subaction == "promote":
+            payload = integrator.promote(
+                project_id=_optional_text(getattr(args, "swarm_campaign_target", None)),
+                dry_run=bool(getattr(args, "dry_run", False)),
+            )
+        else:
+            raise ValueError("initiative action must be one of: run, status, promote")
+
+        if as_json:
+            print(json.dumps(payload, indent=2))
+        else:
+            if subaction in {"run", "status"}:
+                _render_initiative_status(payload)
+            else:
+                print(json.dumps(payload, indent=2))
         return
 
     if action == "campaign":

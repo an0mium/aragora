@@ -2310,7 +2310,7 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "swarm_campaign_target",
         nargs="?",
-        help="Campaign subtarget such as a project id for review",
+        help="Campaign or initiative subtarget such as a project id for review/promotion",
     )
     swarm_parser.add_argument(
         "--spec",
@@ -2746,7 +2746,7 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "--manifest",
         default=DEFAULT_CAMPAIGN_MANIFEST,
-        help="Campaign or tranche manifest path (default: .aragora/campaign_manifest.yaml)",
+        help="Campaign, initiative, or tranche manifest path (default: .aragora/campaign_manifest.yaml)",
     )
     swarm_parser.add_argument(
         "--queue",

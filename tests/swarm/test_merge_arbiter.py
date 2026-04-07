@@ -14,6 +14,7 @@ from aragora.swarm.merge_arbiter import (
     MergeArbiter,
     MergeArbiterConfig,
     MergeResult,
+    _classify_required_checks,
     _evaluate_pr,
     _get_check_status,
     _list_candidate_prs,
@@ -92,6 +93,29 @@ class TestGetCheckStatus:
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
             mock_gh.return_value = _make_gh_result(returncode=1)
             assert _get_check_status(1, "owner/repo") == {}
+
+
+class TestClassifyRequiredChecks:
+    def test_reports_missing_and_failing_required_checks(self):
+        checks = {
+            REQUIRED_CHECKS[0]: "SUCCESS",
+            REQUIRED_CHECKS[1]: "FAILURE",
+            REQUIRED_CHECKS[2]: "SUCCESS",
+        }
+
+        missing, failing = _classify_required_checks(checks)
+
+        assert missing == REQUIRED_CHECKS[3:]
+        assert failing == [f"{REQUIRED_CHECKS[1]}=FAILURE"]
+
+    def test_accepts_custom_required_checks(self):
+        missing, failing = _classify_required_checks(
+            {"custom-a": "SUCCESS", "custom-b": "PENDING"},
+            required_checks=["custom-a", "custom-b", "custom-c"],
+        )
+
+        assert missing == ["custom-c"]
+        assert failing == ["custom-b=PENDING"]
 
 
 # ---------------------------------------------------------------------------
