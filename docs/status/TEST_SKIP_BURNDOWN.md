@@ -1,15 +1,15 @@
 # Test Skip Burndown
 
-Last updated: 2026-03-03
+Last updated: 2026-04-06
 
 This file tracks intentional test-skip debt reduction so `tests/.skip_baseline`
 stays actionable and does not hide regressions.
 
 ## Current Baseline
 
-- Total skip markers: `54`
+- Total skip markers: `57`
 - Source command: `python scripts/audit_test_skips.py --json`
-- CI baseline file: `tests/.skip_baseline` = `54`
+- CI baseline file: `tests/.skip_baseline` = `57`
 - Marker types:
   - `skipif`: `34`
   - `pytest.skip`: `18`
