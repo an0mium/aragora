@@ -1259,6 +1259,8 @@ class TestTTS:
             assert _status(result) == 200
             assert result.content_type == "audio/mpeg"
             assert result.body == fake_audio
+            assert result.headers["Cache-Control"] == "private, no-store, max-age=0"
+            assert result.headers["Pragma"] == "no-cache"
 
     def test_elevenlabs_http_error_returns_502(self, handler):
         import urllib.error

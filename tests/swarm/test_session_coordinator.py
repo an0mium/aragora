@@ -1,0 +1,64 @@
+"""Tests for the swarm session coordinator facade."""
+
+from __future__ import annotations
+
+from aragora.swarm.session_coordinator import (
+    claim_pr,
+    get_my_assignment,
+    list_findings,
+    read_directives,
+    report_finding,
+    set_assignment,
+)
+
+
+class TestSessionCoordinator:
+    def test_set_assignment_roundtrip(self, tmp_path):
+        payload = set_assignment(
+            "codex-a",
+            "SDK parity consolidation",
+            scope=["#2684"],
+            constraints=["no queue drain"],
+            issued_by="boss-codex",
+            repo_root=tmp_path,
+        )
+
+        assert payload["target"] == "codex-a"
+        assignment = get_my_assignment("codex-a", repo_root=tmp_path)
+        assert assignment is not None
+        assert assignment["task"] == "SDK parity consolidation"
+        assert assignment["scope"] == ["#2684"]
+
+    def test_claim_pr_contested(self, tmp_path):
+        first = claim_pr(2684, "codex-a", repo_root=tmp_path)
+        second = claim_pr(2684, "codex-b", repo_root=tmp_path)
+
+        assert first["status"] == "granted"
+        assert second["status"] == "contested"
+        assert second["contested_by"][0]["session_id"] == "codex-a"
+
+    def test_report_and_list_findings(self, tmp_path):
+        report_finding(
+            "Bandit B310 in auth/oidc.py",
+            "codex-b",
+            kind="blocker",
+            pr=2679,
+            scope=["aragora/auth/oidc.py"],
+            repo_root=tmp_path,
+        )
+
+        findings = list_findings(repo_root=tmp_path, kind="blocker", pr=2679)
+        assert len(findings) == 1
+        assert findings[0]["message"] == "Bandit B310 in auth/oidc.py"
+        assert findings[0]["source_session"] == "codex-b"
+
+    def test_read_directives_aggregates_state(self, tmp_path):
+        set_assignment("codex-a", "Own parity lane", repo_root=tmp_path)
+        claim_pr(2684, "codex-a", repo_root=tmp_path)
+        report_finding("Verification route bug", "review-codex", pr=2677, repo_root=tmp_path)
+
+        view = read_directives(repo_root=tmp_path, findings_limit=5)
+        assert view["summary"]["directive_count"] == 1
+        assert view["summary"]["claim_count"] == 1
+        assert view["summary"]["finding_count"] == 1
+        assert view["directives"][0]["target"] == "codex-a"
