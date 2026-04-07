@@ -111,7 +111,58 @@ def test_parse_score_response_handles_missing_fields():
 
 
 # ---------------------------------------------------------------------------
-# 5. load_rubric: custom YAML
+# 5. parse_score_response: malformed score payloads
+# ---------------------------------------------------------------------------
+
+
+def test_parse_score_response_normalizes_malformed_numeric_fields():
+    """Malformed numeric score values fail closed instead of raising."""
+    payload = {
+        "thesis_clarity": "oops",
+        "argument_coherence": "nan",
+        "evidence_grounding": "inf",
+        "rhetorical_force": None,
+        "concision": ["0.4"],
+        "factual_accuracy": {"score": 0.7},
+        "originality": "0.25",
+    }
+
+    score = parse_score_response(json.dumps(payload))
+
+    assert score.thesis_clarity == 0.0
+    assert score.argument_coherence == 0.0
+    assert score.evidence_grounding == 0.0
+    assert score.rhetorical_force == 0.0
+    assert score.concision == 0.0
+    assert score.factual_accuracy == 0.0
+    assert score.originality == 0.25
+    assert score.overall == pytest.approx(0.025)
+
+
+def test_parse_score_response_keeps_scalar_strings_atomic_for_list_fields():
+    """Scalar strings for list-like fields stay as single items."""
+    payload = {
+        "severity_notes": "Weak conclusion",
+        "suggestions": "Add clearer topic sentences",
+        "factual_claims_to_verify": "Verify the 2024 turnout figure",
+    }
+
+    score = parse_score_response(json.dumps(payload))
+
+    assert score.severity_notes == ["Weak conclusion"]
+    assert score.suggestions == ["Add clearer topic sentences"]
+    assert score.factual_claims_to_verify == ["Verify the 2024 turnout figure"]
+
+
+def test_parse_score_response_returns_empty_on_malformed_json_object():
+    """Broken object payloads return the existing empty-score fallback."""
+    text = 'Model output: {"thesis_clarity": 0.7, "severity_notes": [oops]}'
+
+    assert parse_score_response(text) == EssayScore()
+
+
+# ---------------------------------------------------------------------------
+# 6. load_rubric: custom YAML
 # ---------------------------------------------------------------------------
 
 
@@ -141,7 +192,7 @@ def test_load_rubric_from_yaml(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# 6. load_default_rubric
+# 7. load_default_rubric
 # ---------------------------------------------------------------------------
 
 
@@ -158,7 +209,7 @@ def test_load_default_rubric():
 
 
 # ---------------------------------------------------------------------------
-# 7. EssayScore.to_dict
+# 8. EssayScore.to_dict
 # ---------------------------------------------------------------------------
 
 
@@ -183,7 +234,7 @@ def test_essay_score_to_dict():
 
 
 # ---------------------------------------------------------------------------
-# 8. EssayScore.compute_overall with custom weights
+# 9. EssayScore.compute_overall with custom weights
 # ---------------------------------------------------------------------------
 
 
@@ -212,7 +263,7 @@ def test_essay_score_compute_overall_with_custom_weights():
 
 
 # ---------------------------------------------------------------------------
-# 9. parse_score_response: returns empty on garbage
+# 10. parse_score_response: returns empty on garbage
 # ---------------------------------------------------------------------------
 
 
