@@ -7,6 +7,7 @@ import time
 
 import pytest
 
+import aragora.gateway.device_registry as device_registry_module
 from aragora.gateway.device_registry import DeviceRegistry, DeviceStatus
 from aragora.gateway.device_security import (
     PairingRequest,
@@ -201,7 +202,7 @@ class TestRateLimiting:
 
 class TestPresenceMonitoring:
     @pytest.mark.asyncio
-    async def test_heartbeat_updates_status(self, secure_registry):
+    async def test_heartbeat_updates_status(self, secure_registry, monkeypatch):
         # Pair a device
         request = await secure_registry.request_pairing(
             device_name="Test Device",
@@ -212,14 +213,20 @@ class TestPresenceMonitoring:
             request.request_id,
             request.verification_code,
         )
+        initial_last_seen = device.last_seen
+        heartbeat_time = (initial_last_seen or time.time()) + 60.0
+        monkeypatch.setattr(device_registry_module.time, "time", lambda: heartbeat_time)
 
         # Send heartbeat
         result = await secure_registry.heartbeat(device.device_id)
         assert result is True
 
-        # Device should be online
+        # Device should be online and have an updated heartbeat timestamp.
         updated = await secure_registry.get(device.device_id)
         assert updated.status == DeviceStatus.ONLINE
+        assert updated.last_seen == pytest.approx(heartbeat_time)
+        assert initial_last_seen is not None
+        assert updated.last_seen > initial_last_seen
 
     @pytest.mark.asyncio
     async def test_offline_detection(self, registry):
@@ -310,7 +317,7 @@ class TestDelegatedOperations:
         assert found is None
 
     @pytest.mark.asyncio
-    async def test_block_device(self, secure_registry):
+    async def test_block_device(self, secure_registry, monkeypatch):
         request = await secure_registry.request_pairing(
             device_name="Bad Device",
             device_type="laptop",
@@ -326,3 +333,16 @@ class TestDelegatedOperations:
 
         blocked = await secure_registry.get(device.device_id)
         assert blocked.status == DeviceStatus.BLOCKED
+
+        initial_last_seen = blocked.last_seen
+        heartbeat_time = (initial_last_seen or time.time()) + 60.0
+        monkeypatch.setattr(device_registry_module.time, "time", lambda: heartbeat_time)
+
+        heartbeat_result = await secure_registry.heartbeat(device.device_id)
+        assert heartbeat_result is True
+
+        blocked_after_heartbeat = await secure_registry.get(device.device_id)
+        assert blocked_after_heartbeat.status == DeviceStatus.BLOCKED
+        assert blocked_after_heartbeat.last_seen == pytest.approx(heartbeat_time)
+        assert initial_last_seen is not None
+        assert blocked_after_heartbeat.last_seen > initial_last_seen
