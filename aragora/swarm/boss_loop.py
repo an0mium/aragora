@@ -660,6 +660,7 @@ class BossLoop:
 
     def _coordination_blocked_scopes(self) -> set[str]:
         blocked: set[str] = set()
+        current_worktree = Path.cwd().resolve()
         try:
             store = DevCoordinationStore(repo_root=Path.cwd().resolve())
         except Exception:
@@ -670,6 +671,17 @@ class BossLoop:
 
         try:
             for lease in store.list_active_leases():
+                lease_worktree = str(getattr(lease, "worktree_path", "")).strip()
+                if lease_worktree:
+                    try:
+                        if Path(lease_worktree).resolve() == current_worktree:
+                            continue
+                    except Exception:
+                        logger.debug(
+                            "Failed to normalize lease worktree path %s",
+                            lease_worktree,
+                            exc_info=True,
+                        )
                 blocked.update(
                     str(path).strip()
                     for path in [*lease.claimed_paths, *lease.allowed_globs]
