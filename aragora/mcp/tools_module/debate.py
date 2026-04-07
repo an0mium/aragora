@@ -40,6 +40,8 @@ async def run_debate_tool(
     if not question:
         return {"error": "Question is required"}
 
+    explicit_agents = agents is not None
+
     # Resolve defaults from settings
     agent_settings = AgentSettings()
     debate_settings = DebateSettings()
@@ -56,6 +58,7 @@ async def run_debate_tool(
     # Parse and create agents
     agent_names = [a.strip() for a in agents.split(",")]
     agent_list = []
+    failed_agent_names: list[str] = []
     roles = ["proposer", "critic", "synthesizer"]
 
     for i, agent_name in enumerate(agent_names):
@@ -68,7 +71,12 @@ async def run_debate_tool(
             )
             agent_list.append(agent)
         except Exception as e:  # noqa: BLE001 - graceful degradation, skip agent on creation failure
+            failed_agent_names.append(agent_name or "<empty>")
             logger.warning("Could not create agent %s: %s", agent_name, e)
+
+    if explicit_agents and failed_agent_names:
+        failed_agents = ", ".join(failed_agent_names)
+        return {"error": f"Could not create requested agents: {failed_agents}"}
 
     if not agent_list:
         return {"error": "No valid agents could be created. Check API keys."}
