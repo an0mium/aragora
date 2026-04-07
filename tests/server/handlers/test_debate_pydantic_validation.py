@@ -234,6 +234,24 @@ class TestValidateDebateRequest:
         assert isinstance(err, str)
         assert len(err.strip()) > 10
 
+    def test_non_validation_exception_is_not_wrapped(self, monkeypatch):
+        """Unexpected exceptions from model validation should propagate."""
+        from aragora.server.validation import pydantic_models
+
+        def raise_runtime_error(_: object) -> None:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(
+            pydantic_models.DebateRequest,
+            "model_validate",
+            raise_runtime_error,
+        )
+
+        with pytest.raises(RuntimeError, match="boom"):
+            pydantic_models.validate_debate_request(
+                {"question": "Should we adopt microservices architecture?"}
+            )
+
     def test_missing_question_returns_error(self):
         """Missing question field returns error (question is required)."""
         from aragora.server.validation.pydantic_models import validate_debate_request
