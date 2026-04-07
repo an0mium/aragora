@@ -7,6 +7,7 @@ import time
 
 import pytest
 
+from aragora.gateway import device_registry as device_registry_module
 from aragora.gateway.device_registry import DeviceRegistry, DeviceStatus
 from aragora.gateway.device_security import (
     PairingRequest,
@@ -201,7 +202,7 @@ class TestRateLimiting:
 
 class TestPresenceMonitoring:
     @pytest.mark.asyncio
-    async def test_heartbeat_updates_status(self, secure_registry):
+    async def test_heartbeat_updates_status(self, secure_registry, monkeypatch):
         # Pair a device
         request = await secure_registry.request_pairing(
             device_name="Test Device",
@@ -213,13 +214,19 @@ class TestPresenceMonitoring:
             request.verification_code,
         )
 
+        original_last_seen = device.last_seen
+        assert original_last_seen is not None
+        heartbeat_time = original_last_seen + 60.0
+        monkeypatch.setattr(device_registry_module.time, "time", lambda: heartbeat_time)
+
         # Send heartbeat
         result = await secure_registry.heartbeat(device.device_id)
         assert result is True
 
-        # Device should be online
+        # Non-blocked devices should go online and refresh last_seen.
         updated = await secure_registry.get(device.device_id)
         assert updated.status == DeviceStatus.ONLINE
+        assert updated.last_seen == heartbeat_time
 
     @pytest.mark.asyncio
     async def test_offline_detection(self, registry):
@@ -310,7 +317,7 @@ class TestDelegatedOperations:
         assert found is None
 
     @pytest.mark.asyncio
-    async def test_block_device(self, secure_registry):
+    async def test_block_device(self, secure_registry, monkeypatch):
         request = await secure_registry.request_pairing(
             device_name="Bad Device",
             device_type="laptop",
@@ -326,3 +333,11 @@ class TestDelegatedOperations:
 
         blocked = await secure_registry.get(device.device_id)
         assert blocked.status == DeviceStatus.BLOCKED
+
+        for heartbeat_time in (time.time() + 30.0, time.time() + 60.0):
+            monkeypatch.setattr(device_registry_module.time, "time", lambda: heartbeat_time)
+            heartbeat_recorded = await secure_registry.heartbeat(device.device_id)
+
+            assert heartbeat_recorded is True
+            still_blocked = await secure_registry.get(device.device_id)
+            assert still_blocked.status == DeviceStatus.BLOCKED
