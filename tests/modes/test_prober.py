@@ -185,6 +185,22 @@ class TestCapabilityProber:
         assert report is not None
         assert report.probes_run >= 1
 
+    @pytest.mark.asyncio
+    async def test_probe_agent_does_not_swallow_analysis_errors(self):
+        """Propagates internal analysis bugs instead of masking them as agent failures."""
+        prober = CapabilityProber()
+        agent = MagicMock(name="test-agent")
+        strategy = MagicMock()
+        strategy.probe_type = ProbeType.SYCOPHANCY
+        strategy.generate_probe.return_value = "probe prompt"
+        strategy.analyze_response.side_effect = ValueError("analysis bug")
+
+        async def mock_run(agent, prompt):
+            return "response"
+
+        with pytest.raises(ValueError, match="analysis bug"):
+            await prober._run_probe(strategy, agent, mock_run, [], [])
+
     def test_generate_report(self):
         """Generates report from probe results."""
         prober = CapabilityProber()
