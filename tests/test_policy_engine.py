@@ -641,6 +641,105 @@ class TestPolicyEngine:
         assert result.allowed is False
         assert result.requires_human_approval is True
 
+    def test_check_action_uses_per_session_denies_second_matching_action(self, engine):
+        """A session-scoped policy limit should block the second matching action."""
+        engine.add_policy(
+            Policy(
+                name="single_write_per_session",
+                description="Allow one write per session",
+                tools=["file_writer"],
+                capabilities=["write_file"],
+                max_uses_per_session=1,
+                priority=100,
+            )
+        )
+
+        first = engine.check_action(
+            "agent",
+            "file_writer",
+            "write_file",
+            session_id="session-1",
+        )
+        second = engine.check_action(
+            "agent",
+            "file_writer",
+            "write_file",
+            session_id="session-1",
+        )
+
+        assert first.decision == PolicyDecision.ALLOW
+        assert first.allowed is True
+        assert second.decision == PolicyDecision.DENY
+        assert second.allowed is False
+        assert "exceeded max uses per session" in second.reason
+
+    def test_check_action_uses_per_session_is_scoped_to_session_id(self, engine):
+        """Each session ID should get its own allowance for session-scoped policies."""
+        engine.add_policy(
+            Policy(
+                name="single_write_per_session",
+                description="Allow one write per session",
+                tools=["file_writer"],
+                capabilities=["write_file"],
+                max_uses_per_session=1,
+                priority=100,
+            )
+        )
+
+        first_session_first = engine.check_action(
+            "agent",
+            "file_writer",
+            "write_file",
+            session_id="session-1",
+        )
+        second_session_first = engine.check_action(
+            "agent",
+            "file_writer",
+            "write_file",
+            session_id="session-2",
+        )
+        first_session_second = engine.check_action(
+            "agent",
+            "file_writer",
+            "write_file",
+            session_id="session-1",
+        )
+
+        assert first_session_first.allowed is True
+        assert second_session_first.allowed is True
+        assert first_session_second.decision == PolicyDecision.DENY
+        assert first_session_second.allowed is False
+
+    def test_check_action_without_uses_per_session_keeps_current_behavior(self, engine):
+        """Policies without a session-use limit should continue allowing repeated matches."""
+        engine.add_policy(
+            Policy(
+                name="write_policy_without_limit",
+                description="Allow writes without a session cap",
+                tools=["file_writer"],
+                capabilities=["write_file"],
+                priority=100,
+            )
+        )
+
+        first = engine.check_action(
+            "agent",
+            "file_writer",
+            "write_file",
+            session_id="session-1",
+        )
+        second = engine.check_action(
+            "agent",
+            "file_writer",
+            "write_file",
+            session_id="session-1",
+        )
+
+        assert first.decision == PolicyDecision.ALLOW
+        assert first.allowed is True
+        assert second.decision == PolicyDecision.ALLOW
+        assert second.allowed is True
+
     def test_check_action_budget_exceeded(self, engine):
         """Should deny when budget exceeded."""
         # Set a very small budget
