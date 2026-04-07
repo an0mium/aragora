@@ -33,6 +33,8 @@ _HUMAN_OVERRIDE_REASON_CODES = frozenset(
         "untrusted_intake_tier",
     }
 )
+_TRUTHY_BOOL_STRINGS = frozenset({"1", "true", "yes", "y", "on"})
+_FALSY_BOOL_STRINGS = frozenset({"0", "false", "no", "n", "off"})
 
 
 class PlanReceiptGateError(RuntimeError):
@@ -129,6 +131,24 @@ def _list_of_strings(value: Any) -> list[str]:
     return []
 
 
+def _coerce_bool(value: Any, *, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _TRUTHY_BOOL_STRINGS:
+            return True
+        if normalized in _FALSY_BOOL_STRINGS:
+            return False
+    return default
+
+
+def _coerce_mapping_bool(mapping: dict[str, Any], key: str, *, default: bool) -> bool:
+    if key not in mapping:
+        return default
+    return _coerce_bool(mapping.get(key), default=False)
+
+
 def _resolve_backbone_run(plan: Any, plan_store: Any | None = None) -> Any | None:
     metadata = _metadata(plan)
     run_id = str(metadata.get("backbone_run_id", "") or "").strip()
@@ -183,7 +203,7 @@ def evaluate_plan_execution_gate(
         gate = {}
 
     reason_codes = _list_of_strings(gate.get("reason_codes"))
-    allow_auto_execution = bool(gate.get("allow_auto_execution", True))
+    allow_auto_execution = _coerce_mapping_bool(gate, "allow_auto_execution", default=True)
     if "gate_evaluation_failed" in reason_codes:
         allow_auto_execution = False
 
@@ -293,9 +313,9 @@ def _synthetic_debate_result(plan: Any) -> Any:
         or metadata.get("decision_confidence")
         or 0.0
     )
-    consensus_reached = bool(deliberation.get("consensus_reached"))
+    consensus_reached = _coerce_mapping_bool(deliberation, "consensus_reached", default=False)
     if not consensus_reached:
-        consensus_reached = bool(signed_consensus.get("reached"))
+        consensus_reached = _coerce_mapping_bool(signed_consensus, "reached", default=False)
 
     return SimpleNamespace(
         debate_id=str(getattr(plan, "debate_id", "") or getattr(plan, "id", "")),

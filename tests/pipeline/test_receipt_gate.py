@@ -22,7 +22,9 @@ from aragora.pipeline.receipt_gate import (
     PlanExecutionGateError,
     PlanReceiptGateError,
     _resolve_backbone_run,
+    _synthetic_debate_result,
     ensure_plan_receipt,
+    evaluate_plan_execution_gate,
 )
 
 
@@ -213,3 +215,39 @@ async def test_executor_blocks_backbone_taint_without_manual_override(
 
     with pytest.raises(PlanExecutionGateError, match="blocked by execution gate"):
         await executor.execute(plan, execution_mode="workflow")
+
+
+def test_evaluate_plan_execution_gate_fails_closed_on_string_false_flag() -> None:
+    plan = _plan(metadata={"execution_gate": {"allow_auto_execution": "false"}})
+
+    decision = evaluate_plan_execution_gate(plan)
+
+    assert decision.allow_auto_execution is False
+    assert decision.allow_execution is False
+    assert decision.reason_codes == ["execution_gate_blocked"]
+    assert plan.metadata["execution_gate"]["allow_auto_execution"] is False
+
+
+@pytest.mark.parametrize(
+    ("deliberation_reached", "signed_reached", "expected"),
+    [
+        ("false", "false", False),
+        ("false", "true", True),
+        ("true", "false", True),
+    ],
+)
+def test_synthetic_debate_result_parses_string_consensus_flags(
+    deliberation_reached: str,
+    signed_reached: str,
+    expected: bool,
+) -> None:
+    plan = _plan(
+        metadata={
+            "deliberation_bundle": {"consensus_reached": deliberation_reached},
+            "execution_gate": {"signed_receipt": {"consensus_proof": {"reached": signed_reached}}},
+        }
+    )
+
+    result = _synthetic_debate_result(plan)
+
+    assert result.consensus_reached is expected
