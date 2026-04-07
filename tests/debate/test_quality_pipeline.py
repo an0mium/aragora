@@ -110,6 +110,26 @@ class TestQualityPipelineConfig:
         cfg = QualityPipelineConfig.from_dict("not a dict")  # type: ignore[arg-type]
         assert cfg.enabled is True
 
+    @pytest.mark.parametrize(
+        ("field", "raw_value", "expected"),
+        [
+            ("enabled", "true", True),
+            ("enabled", "off", False),
+            ("enabled", "maybe", False),
+            ("has_context", "yes", True),
+            ("has_context", "", False),
+            ("has_context", "wat", False),
+        ],
+    )
+    def test_from_dict_parses_string_booleans_fail_closed(
+        self,
+        field: str,
+        raw_value: str,
+        expected: bool,
+    ):
+        cfg = QualityPipelineConfig.from_dict({field: raw_value})
+        assert getattr(cfg, field) is expected
+
 
 # ---------------------------------------------------------------------------
 # QualityPipelineResult
@@ -215,3 +235,9 @@ class TestApplyPostConsensusQuality:
         result = apply_post_consensus_quality("some answer", long_task, cfg)
         assert result.contract_dict is not None
         assert len(result.contract_dict["required_sections"]) == 7
+
+    def test_has_context_false_string_does_not_enable_standard_contract(self):
+        cfg = QualityPipelineConfig.from_dict({"has_context": "false"})
+        result = apply_post_consensus_quality("some answer", "hello world", cfg)
+        assert result.contract_dict is not None
+        assert result.contract_dict["required_sections"] == []
