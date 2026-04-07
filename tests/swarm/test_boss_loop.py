@@ -4049,6 +4049,7 @@ async def test_dispatch_auto_publish_records_postprocessed_publish_metadata_in_b
                 "pr_url": "https://github.com/synaptent/aragora/pull/2045",
             },
         ),
+        patch.object(loop, "_convert_pr_to_draft"),
         patch("aragora.ralph.github_control.GitHubControl") as github_control_cls,
         patch("aragora.swarm.pr_registry.PullRequestRegistry"),
     ):
@@ -4062,7 +4063,8 @@ async def test_dispatch_auto_publish_records_postprocessed_publish_metadata_in_b
     assert result["status"] == "completed"
     assert result["outcome"] == "pr_adopted"
     assert result["deliverable"]["type"] == "pr"
-    assert result["deliverable"]["branch"] == "codex/issue-45"
+    assert result["deliverable"]["branch"] == "aragora/boss-harvest/issue-45"
+    assert result["deliverable"]["commit_shas"] == ["abc123"]
     assert result["deliverable"]["pr_url"] == "https://github.com/synaptent/aragora/pull/2045"
     assert result["pr_url"] == "https://github.com/synaptent/aragora/pull/2045"
     assert result["pr_number"] == 2045
@@ -4207,6 +4209,7 @@ async def test_dispatch_auto_publish_rejects_malformed_success_flag() -> None:
                 "pr_url": "https://github.com/synaptent/aragora/pull/2046",
             },
         ),
+        patch.object(loop, "_convert_pr_to_draft"),
         patch("aragora.ralph.github_control.GitHubControl") as github_control_cls,
         patch("aragora.swarm.pr_registry.PullRequestRegistry"),
     ):
@@ -4214,10 +4217,13 @@ async def test_dispatch_auto_publish_rejects_malformed_success_flag() -> None:
 
     assert result["status"] == "needs_human"
     assert result["outcome"] == "blocked"
-    assert result["deliverable"]["type"] == "branch"
+    assert result["deliverable"]["type"] == "pr"
+    assert result["deliverable"]["branch"] == "aragora/boss-harvest/issue-46"
+    assert result["deliverable"]["pr_url"] == "https://github.com/synaptent/aragora/pull/2046"
     assert result["publish_result"]["published"] == "false"
     assert "issue_comment_result" not in result
-    assert "pr_url" not in result
+    assert result["pr_url"] == "https://github.com/synaptent/aragora/pull/2046"
+    assert result["pr_number"] == 2046
     assert result["receipt_metadata"]["publish_result"]["published"] == "false"
     assert "postprocess_promoted_from_status" not in result["receipt_metadata"]
     assert len(updated_calls) == 2
