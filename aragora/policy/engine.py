@@ -298,6 +298,7 @@ class PolicyEngine:
         # Action tracking for rate limiting
         self._action_counts: dict[str, dict[str, int]] = {}  # agent -> capability -> count
         self._action_timestamps: dict[str, list[datetime]] = {}  # capability -> timestamps
+        self._session_policy_counts: dict[str, dict[str, int]] = {}  # session_id -> policy -> count
 
         # Audit log
         self._audit_log: list[AuditEntry] = []
@@ -352,6 +353,7 @@ class PolicyEngine:
         """
         context = context or {}
         budget = self.get_budget(session_id)
+        matched_policy: Policy | None = None
 
         # Get tool and capability info
         tool_obj = self.tool_registry.get(tool)
@@ -388,8 +390,30 @@ class PolicyEngine:
         # Check policies (first match wins due to priority sorting)
         for policy in self.policies:
             if policy.matches(agent, tool, capability, context):
+                matched_policy = policy
                 # Apply policy multiplier to risk
                 risk_cost *= policy.risk_multiplier
+
+                if policy.max_uses_per_session is not None:
+                    session_counts = self._session_policy_counts.get(session_id, {})
+                    current_uses = session_counts.get(policy.name, 0)
+                    if current_uses >= policy.max_uses_per_session:
+                        result = PolicyResult(
+                            decision=PolicyDecision.DENY,
+                            allowed=False,
+                            reason=(
+                                f"Exceeded max uses per session for policy '{policy.name}' "
+                                f"({policy.max_uses_per_session})"
+                            ),
+                            agent=agent,
+                            tool=tool,
+                            capability=capability,
+                            context=context,
+                            risk_cost=risk_cost,
+                            budget_remaining=budget.remaining,
+                        )
+                        self._log_action(result)
+                        return result
 
                 if not policy.allow:
                     result = PolicyResult(
@@ -495,6 +519,10 @@ class PolicyEngine:
             agent=agent,
             tool=tool,
         )
+
+        if matched_policy and matched_policy.max_uses_per_session is not None:
+            session_counts = self._session_policy_counts.setdefault(session_id, {})
+            session_counts[matched_policy.name] = session_counts.get(matched_policy.name, 0) + 1
 
         self._log_action(result)
         return result
