@@ -229,6 +229,31 @@ describe('DebateDetailClient bridge actions', () => {
     );
   });
 
+  it('sends auth headers when loading protected debate endpoints', async () => {
+    render(<DebateDetailClient />);
+
+    await screen.findByTestId('decision-package');
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://backend.test/api/v1/debates/debate-123',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-token',
+          'Content-Type': 'application/json',
+        }),
+      }),
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://backend.test/api/v1/debates/debate-123/package',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-token',
+          'Content-Type': 'application/json',
+        }),
+      }),
+    );
+  });
+
   it('creates a public share link and copies the standalone debate URL', async () => {
     const user = userEvent.setup();
 
