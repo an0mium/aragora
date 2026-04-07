@@ -41,6 +41,36 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _load_json_object(path: Path, *, context: str) -> dict[str, Any]:
+    """Load a JSON object from disk, degrading malformed shapes to {}."""
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError as e:
+        logger.warning("Failed to parse %s %s: %s", context, path, e)
+        return {}
+
+    if not isinstance(data, dict):
+        logger.warning("Ignoring non-object %s %s", context, path)
+        return {}
+
+    return data
+
+
+def _parse_json_object_line(line: str, *, source: Path) -> dict[str, Any] | None:
+    """Parse one JSONL line, returning only object-shaped entries."""
+    try:
+        data = json.loads(line)
+    except json.JSONDecodeError as e:
+        logger.warning("Failed to parse event line from %s: %s", source, e)
+        return None
+
+    if not isinstance(data, dict):
+        logger.warning("Skipping non-object replay event in %s", source)
+        return None
+
+    return data
+
+
 class StreamAPIHandlersMixin:
     """
     Mixin class providing HTTP API handlers for the streaming server.
@@ -886,11 +916,7 @@ class StreamAPIHandlersMixin:
                 if replay_path.is_dir():
                     meta_file = replay_path / "meta.json"
                     if meta_file.exists():
-                        try:
-                            meta = json.loads(meta_file.read_text())
-                        except json.JSONDecodeError as e:
-                            logger.warning("Failed to parse replay meta %s: %s", meta_file, e)
-                            meta = {}
+                        meta = _load_json_object(meta_file, context="replay meta")
                         replays.append(
                             {
                                 "id": replay_path.name,
@@ -976,27 +1002,23 @@ class StreamAPIHandlersMixin:
             with events_file.open() as f:
                 for line in f:
                     if line.strip():
-                        try:
-                            events.append(json.loads(line))
-                        except json.JSONDecodeError as e:
-                            logger.warning("Failed to parse event line: %s", e)
-                            continue
+                        event = _parse_json_object_line(line, source=events_file)
+                        if event is not None:
+                            events.append(event)
 
             # Create artifact from events
-            meta = {}
-            if meta_file.exists():
-                try:
-                    meta = json.loads(meta_file.read_text())
-                except json.JSONDecodeError as e:
-                    logger.warning("Failed to parse replay meta %s: %s", meta_file, e)
+            meta = _load_json_object(meta_file, context="replay meta") if meta_file.exists() else {}
             generator = ReplayGenerator()
+            verdict = meta.get("verdict", {})
+            if not isinstance(verdict, dict):
+                verdict = {}
 
             # Simple HTML generation from events
             artifact = ReplayArtifact(
                 debate_id=replay_id,
                 task=meta.get("topic", "Unknown"),
                 scenes=[],
-                verdict=meta.get("verdict", {}),
+                verdict=verdict,
                 metadata=meta,
             )
 
@@ -1004,17 +1026,22 @@ class StreamAPIHandlersMixin:
             round_events: dict[int, list] = {}
             for event in events:
                 round_num = event.get("round", 0)
+                if isinstance(round_num, bool) or not isinstance(round_num, int):
+                    round_num = 0
                 round_events.setdefault(round_num, []).append(event)
 
             for round_num in sorted(round_events.keys()):
                 messages = []
                 for event in round_events[round_num]:
+                    event_data = event.get("data", {})
+                    if not isinstance(event_data, dict):
+                        event_data = {}
                     if event.get("type") in ("agent_message", "propose", "critique"):
                         messages.append(
                             Message(
-                                role=event.get("data", {}).get("role", "unknown"),
+                                role=event_data.get("role", "unknown"),
                                 agent=event.get("agent", "unknown"),
-                                content=event.get("data", {}).get("content", ""),
+                                content=event_data.get("content", ""),
                                 round=round_num,
                             )
                         )

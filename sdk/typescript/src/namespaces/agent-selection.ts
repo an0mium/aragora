@@ -67,6 +67,37 @@ export interface DefaultPluginConfig {
  */
 export interface ListPluginsResponse {
   plugins: SelectionPlugin[];
+  scorers: ScorerPlugin[];
+  team_selectors: TeamSelectorPlugin[];
+  role_assigners: RoleAssignerPlugin[];
+}
+
+interface RawListPluginsResponse {
+  plugins?: SelectionPlugin[];
+  scorers?: ScorerPlugin[];
+  team_selectors?: TeamSelectorPlugin[];
+  role_assigners?: RoleAssignerPlugin[];
+}
+
+function normalizeListPluginsResponse(response: RawListPluginsResponse): ListPluginsResponse {
+  const plugins = response.plugins ?? [
+    ...(response.scorers ?? []),
+    ...(response.team_selectors ?? []),
+    ...(response.role_assigners ?? []),
+  ];
+
+  return {
+    plugins,
+    scorers:
+      response.scorers ??
+      plugins.filter((plugin): plugin is ScorerPlugin => plugin.type === 'scorer'),
+    team_selectors:
+      response.team_selectors ??
+      plugins.filter((plugin): plugin is TeamSelectorPlugin => plugin.type === 'team_selector'),
+    role_assigners:
+      response.role_assigners ??
+      plugins.filter((plugin): plugin is RoleAssignerPlugin => plugin.type === 'role_assigner'),
+  };
 }
 
 // =============================================================================
@@ -325,7 +356,11 @@ export class AgentSelectionAPI {
    * List all available selection plugins.
    */
   async listPlugins(): Promise<ListPluginsResponse> {
-    return this.client.request<ListPluginsResponse>('GET', '/api/v1/agent-selection/plugins');
+    const response = await this.client.request<RawListPluginsResponse>(
+      'GET',
+      '/api/v1/agent-selection/plugins'
+    );
+    return normalizeListPluginsResponse(response);
   }
 
   /**
@@ -470,33 +505,24 @@ export class AgentSelectionAPI {
    * List all scorer plugins via the plugins endpoint.
    */
   async listScorers(): Promise<{ scorers: ScorerPlugin[] }> {
-    return this.client.request<{ scorers: ScorerPlugin[] }>(
-      'GET',
-      '/api/v1/selection/plugins',
-      { params: { type: 'scorers' } }
-    );
+    const response = await this.listPlugins();
+    return { scorers: response.scorers };
   }
 
   /**
    * List all team selector plugins via the plugins endpoint.
    */
   async listTeamSelectors(): Promise<{ selectors: TeamSelectorPlugin[] }> {
-    return this.client.request<{ selectors: TeamSelectorPlugin[] }>(
-      'GET',
-      '/api/v1/selection/plugins',
-      { params: { type: 'team-selectors' } }
-    );
+    const response = await this.listPlugins();
+    return { selectors: response.team_selectors };
   }
 
   /**
    * List all role assigner plugins via the plugins endpoint.
    */
   async listRoleAssigners(): Promise<{ assigners: RoleAssignerPlugin[] }> {
-    return this.client.request<{ assigners: RoleAssignerPlugin[] }>(
-      'GET',
-      '/api/v1/selection/plugins',
-      { params: { type: 'role-assigners' } }
-    );
+    const response = await this.listPlugins();
+    return { assigners: response.role_assigners };
   }
 
   /**
