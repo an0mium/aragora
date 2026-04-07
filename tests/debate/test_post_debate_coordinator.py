@@ -396,6 +396,37 @@ class TestExecutionSafetyGate:
         assert plan_obj.metadata.get("execution_gate") is not None
         assert str(plan_obj.status).lower().endswith("awaiting_approval")
 
+    def test_execution_plan_blocked_when_gate_evaluation_errors(self):
+        config = PostDebateConfig(
+            auto_explain=False,
+            auto_create_plan=True,
+            auto_notify=False,
+            auto_execute_plan=True,
+            auto_persist_receipt=False,
+            auto_execution_bridge=False,
+            plan_min_confidence=0.5,
+            enforce_execution_safety_gate=True,
+        )
+        coordinator = PostDebateCoordinator(config=config)
+        plan_obj = MagicMock()
+        plan_obj.status = "approved"
+
+        with patch.object(coordinator, "_step_create_plan", return_value={"plan": plan_obj}):
+            with patch(
+                "aragora.debate.execution_safety.evaluate_auto_execution_safety",
+                side_effect=RuntimeError("boom"),
+            ):
+                with patch.object(coordinator, "_step_execute_plan") as exec_mock:
+                    result = coordinator.run("d1", _make_debate_result(), confidence=0.9)
+
+        exec_mock.assert_not_called()
+        assert result.execution_gate == {
+            "allow_auto_execution": False,
+            "reason_codes": ["gate_evaluation_failed"],
+        }
+        assert result.execution_result is not None
+        assert result.execution_result.get("reason") == "execution_gate_blocked"
+
 
 class TestBackboneWiring:
     """Tests for backbone ledger wiring in PostDebateCoordinator."""
