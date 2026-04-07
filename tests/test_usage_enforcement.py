@@ -83,15 +83,15 @@ class TestTierLimits:
         limits = TIER_LIMITS[SubscriptionTier.FREE]
         assert limits.debates_per_month == 10
 
-    def test_starter_tier_has_50_debates(self):
-        """Starter tier allows 50 debates per month."""
+    def test_starter_tier_has_100_debates(self):
+        """Starter tier allows 100 debates per month."""
         limits = TIER_LIMITS[SubscriptionTier.STARTER]
-        assert limits.debates_per_month == 50
+        assert limits.debates_per_month == 100
 
-    def test_professional_tier_has_200_debates(self):
-        """Professional tier allows 200 debates per month."""
+    def test_professional_tier_has_1000_debates(self):
+        """Professional tier allows 1000 debates per month."""
         limits = TIER_LIMITS[SubscriptionTier.PROFESSIONAL]
-        assert limits.debates_per_month == 200
+        assert limits.debates_per_month == 1000
 
     def test_enterprise_tier_is_unlimited(self):
         """Enterprise tier has virtually unlimited debates."""
@@ -190,6 +190,7 @@ class TestUsageEndpoint:
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-123",
+            role="owner",
         )
         free_tier_org.debates_used_this_month = 5
 
@@ -208,6 +209,7 @@ class TestUsageEndpoint:
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-123",
+            role="owner",
         )
 
         mock_handler = MagicMock()
@@ -225,6 +227,7 @@ class TestUsageEndpoint:
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-123",
+            role="owner",
         )
         free_tier_org.debates_used_this_month = 7
 
@@ -272,6 +275,7 @@ class TestForecastEndpoint:
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-789",
+            role="owner",
         )
         professional_tier_org.debates_used_this_month = 100
         professional_tier_org.billing_cycle_start = datetime.now(timezone.utc) - timedelta(days=15)
@@ -296,8 +300,9 @@ class TestForecastEndpoint:
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-789",
+            role="owner",
         )
-        professional_tier_org.debates_used_this_month = 180
+        professional_tier_org.debates_used_this_month = 900
         professional_tier_org.billing_cycle_start = datetime.now(timezone.utc) - timedelta(days=25)
 
         mock_handler = MagicMock()
@@ -319,7 +324,7 @@ class TestForecastEndpoint:
             slug="starter-org",
             tier=SubscriptionTier.STARTER,
             owner_id="user-456",
-            debates_used_this_month=45,
+            debates_used_this_month=90,
             billing_cycle_start=datetime.now(timezone.utc) - timedelta(days=20),
         )
         mock_user_store.get_organization_by_id.return_value = starter_org
@@ -332,6 +337,7 @@ class TestForecastEndpoint:
         mock_extract.return_value = Mock(
             is_authenticated=True,
             user_id="user-456",
+            role="owner",
         )
 
         mock_handler = MagicMock()
@@ -379,7 +385,7 @@ class TestDebateLimitEnforcement:
 
         # Free tier at 10 is at limit
         assert free_org.is_at_limit is True
-        # Starter tier at 10 is not at limit (limit is 50)
+        # Starter tier at 10 is not at limit (limit is 100)
         assert starter_org.is_at_limit is False
 
 
@@ -423,9 +429,9 @@ class TestMonthlyReset:
 
         # Usage should be preserved
         assert org.debates_used_this_month == 8
-        # But should no longer be at limit (new tier has 200 limit)
+        # But should no longer be at limit (new tier has 1000 limit)
         assert org.is_at_limit is False
-        assert org.debates_remaining == 192
+        assert org.debates_remaining == 992
 
 
 # =============================================================================
