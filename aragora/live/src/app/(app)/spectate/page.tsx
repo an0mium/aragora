@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Scanlines, CRTVignette } from '@/components/MatrixRain';
+import { ThemeEffects } from '@/components/ThemeEffects';
 import { useRightSidebar } from '@/context/RightSidebarContext';
 import {
   useSpectate,
@@ -339,11 +339,7 @@ export default function SpectatePage() {
 
   return (
     <>
-      {/* CRT effects only render in dark theme via CSS */}
-      <div className="crt-effect">
-        <Scanlines opacity={0.02} />
-        <CRTVignette />
-      </div>
+      <ThemeEffects opacity={0.02} />
 
       <main className="min-h-screen bg-[var(--bg)] text-[var(--text)] relative z-10">
         <div className="max-w-6xl mx-auto px-4 py-8">

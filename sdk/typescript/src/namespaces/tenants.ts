@@ -4,7 +4,22 @@
  * Provides a namespaced interface for multi-tenancy operations.
  */
 
-import type { AragoraClient } from '../client';
+interface TenantsClientInterface {
+  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
+  listTenants(params?: { limit?: number; offset?: number }): Promise<any>;
+  getTenant(tenantId: string): Promise<any>;
+  createTenant(body: CreateTenantRequest): Promise<any>;
+  updateTenant(tenantId: string, body: UpdateTenantRequest): Promise<any>;
+  deleteTenant(tenantId: string): Promise<void>;
+  getTenantQuotas(tenantId: string): Promise<any>;
+  updateTenantQuotas(tenantId: string, body: QuotaUpdate): Promise<any>;
+  listTenantMembers(
+    tenantId: string,
+    params?: { limit?: number; offset?: number }
+  ): Promise<any>;
+  addTenantMember(tenantId: string, body: { email: string; role?: string }): Promise<any>;
+  removeTenantMember(tenantId: string, userId: string): Promise<void>;
+}
 
 /**
  * Tenant object.
@@ -58,7 +73,12 @@ export interface QuotaStatus {
  * Quota update request.
  */
 export interface QuotaUpdate {
-  quotas: Record<string, { limit: number }>;
+  debates_per_month?: number;
+  agents_per_debate?: number;
+  storage_bytes?: number;
+  api_calls_per_minute?: number;
+  members?: number;
+  overage_allowed?: boolean;
 }
 
 /**
@@ -70,16 +90,14 @@ export interface QuotaUpdate {
  * - Member management
  */
 export class TenantsAPI {
-  constructor(private client: AragoraClient) {}
+  constructor(private client: TenantsClientInterface) {}
 
   /**
    * List all tenants.
    * @route GET /api/v1/tenants
    */
   async list(params?: { limit?: number; offset?: number }): Promise<{ tenants: Tenant[] }> {
-    return this.client.request('GET', '/api/v1/tenants', {
-      params: params as Record<string, unknown>,
-    }) as Promise<{ tenants: Tenant[] }>;
+    return this.client.listTenants(params);
   }
 
   /**
@@ -87,9 +105,7 @@ export class TenantsAPI {
    * @route POST /api/v1/tenants
    */
   async create(body: CreateTenantRequest): Promise<Tenant> {
-    return this.client.request('POST', '/api/v1/tenants', {
-      body,
-    }) as Promise<Tenant>;
+    return this.client.createTenant(body);
   }
 
   /**
@@ -97,6 +113,9 @@ export class TenantsAPI {
    * @route GET /api/v1/tenants/{tenant_id}
    */
   async get(tenantId: string): Promise<Tenant> {
+    if ('getTenant' in this.client && typeof this.client.getTenant === 'function') {
+      return this.client.getTenant(tenantId);
+    }
     return this.client.request(
       'GET',
       `/api/v1/tenants/${encodeURIComponent(tenantId)}`
@@ -108,11 +127,7 @@ export class TenantsAPI {
    * @route PATCH /api/v1/tenants/{tenant_id}
    */
   async update(tenantId: string, body: UpdateTenantRequest): Promise<Tenant> {
-    return this.client.request(
-      'PATCH',
-      `/api/v1/tenants/${encodeURIComponent(tenantId)}`,
-      { body }
-    ) as Promise<Tenant>;
+    return this.client.updateTenant(tenantId, body);
   }
 
   /**
@@ -120,10 +135,7 @@ export class TenantsAPI {
    * @route DELETE /api/v1/tenants/{tenant_id}
    */
   async delete(tenantId: string): Promise<void> {
-    return this.client.request(
-      'DELETE',
-      `/api/v1/tenants/${encodeURIComponent(tenantId)}`
-    ) as Promise<void>;
+    return this.client.deleteTenant(tenantId);
   }
 
   /**
@@ -131,6 +143,9 @@ export class TenantsAPI {
    * @route GET /api/v1/tenants/{tenant_id}/quotas
    */
   async getQuotas(tenantId: string): Promise<QuotaStatus> {
+    if ('getTenantQuotas' in this.client && typeof this.client.getTenantQuotas === 'function') {
+      return this.client.getTenantQuotas(tenantId);
+    }
     return this.client.request(
       'GET',
       `/api/v1/tenants/${encodeURIComponent(tenantId)}/quotas`
@@ -142,11 +157,7 @@ export class TenantsAPI {
    * @route PUT /api/v1/tenants/{tenant_id}/quotas
    */
   async updateQuotas(tenantId: string, body: QuotaUpdate): Promise<QuotaStatus> {
-    return this.client.request(
-      'PUT',
-      `/api/v1/tenants/${encodeURIComponent(tenantId)}/quotas`,
-      { body }
-    ) as Promise<QuotaStatus>;
+    return this.client.updateTenantQuotas(tenantId, body);
   }
 
   /**
@@ -154,10 +165,13 @@ export class TenantsAPI {
    * @route GET /api/v1/tenants/{tenant_id}/members
    */
   async listMembers(tenantId: string, params?: { limit?: number; offset?: number }): Promise<{ members: TenantMember[] }> {
+    if ('listTenantMembers' in this.client && typeof this.client.listTenantMembers === 'function') {
+      return this.client.listTenantMembers(tenantId, params);
+    }
     return this.client.request(
       'GET',
       `/api/v1/tenants/${encodeURIComponent(tenantId)}/members`,
-      { params: params as Record<string, unknown> }
+      { params: params as Record<string, unknown> | undefined }
     ) as Promise<{ members: TenantMember[] }>;
   }
 
@@ -166,11 +180,30 @@ export class TenantsAPI {
    * @route POST /api/v1/tenants/{tenant_id}/members/invite
    */
   async inviteMember(tenantId: string, body: { email: string; role?: string }): Promise<TenantMember> {
+    if ('addTenantMember' in this.client && typeof this.client.addTenantMember === 'function') {
+      return this.client.addTenantMember(tenantId, body);
+    }
     return this.client.request(
       'POST',
       `/api/v1/tenants/${encodeURIComponent(tenantId)}/members/invite`,
       { body }
     ) as Promise<TenantMember>;
+  }
+
+  /**
+   * Add a member to a tenant.
+   * Compatibility alias for the flat client method.
+   */
+  async addMember(tenantId: string, body: { email: string; role?: string }): Promise<TenantMember> {
+    return this.client.addTenantMember(tenantId, body);
+  }
+
+  /**
+   * Remove a member from a tenant.
+   * Compatibility alias for the flat client method.
+   */
+  async removeMember(tenantId: string, userId: string): Promise<void> {
+    return this.client.removeTenantMember(tenantId, userId);
   }
 
   /**

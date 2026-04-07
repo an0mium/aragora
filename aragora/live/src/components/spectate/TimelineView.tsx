@@ -30,7 +30,7 @@ export function TimelineView() {
     return (
       <div className="flex items-center justify-center h-[500px]">
         <div className="text-center text-text-muted">
-          <div className="w-8 h-8 border-2 border-[var(--accent)]/30 border-t-acid-green rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-4" />
           <p className="font-theme-data text-sm">Waiting for events...</p>
         </div>
       </div>
@@ -41,7 +41,7 @@ export function TimelineView() {
     <div className="space-y-6 p-4">
       {/* Agent Legend */}
       {agents.length > 0 && (
-        <div className="flex flex-wrap gap-2 pb-4 border-b border-[var(--accent)]/20">
+        <div className="flex flex-wrap gap-2 pb-4 border-b border-border">
           {agents.map((agent) => (
             <span
               key={agent}
@@ -100,7 +100,7 @@ export function TimelineView() {
                 .map((ev, i) => {
                   const style = EVENT_STYLES[ev.type] || {
                     icon: '.',
-                    color: 'text-gray-400',
+                    color: 'text-text-muted',
                     label: 'UNKNOWN',
                   };
                   return (
@@ -130,13 +130,13 @@ export function TimelineView() {
                     {agentEvents.map((ev, i) => {
                       const style = EVENT_STYLES[ev.type] || {
                         icon: '.',
-                        color: 'text-gray-400',
+                        color: 'text-text-muted',
                         label: 'UNKNOWN',
                       };
                       return (
                         <div
                           key={i}
-                          className="group relative flex items-center gap-1 px-2 py-1 bg-surface border border-border hover:border-[var(--accent)]/30 transition-colors"
+                          className="group relative flex items-center gap-1 px-2 py-1 card-theme hover:border-accent/30 transition-colors"
                           title={ev.details || style.label}
                         >
                           <span className="text-xs">{style.icon}</span>

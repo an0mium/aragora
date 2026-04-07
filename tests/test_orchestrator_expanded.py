@@ -61,7 +61,7 @@ class TestOrchestratorRoleRotation:
 
     def test_role_rotator_initialized_when_enabled(self, basic_env, mock_agents):
         """Role rotator should be initialized when protocol enables it."""
-        protocol = DebateProtocol(role_rotation=True)
+        protocol = DebateProtocol(role_rotation=True, role_matching=False)
         arena = Arena(basic_env, mock_agents, protocol)
 
         assert arena.role_rotator is not None
@@ -83,6 +83,7 @@ class TestOrchestratorRoleRotation:
         )
         protocol = DebateProtocol(
             role_rotation=True,
+            role_matching=False,
             role_rotation_config=custom_config,
         )
         arena = Arena(basic_env, mock_agents, protocol)
@@ -93,7 +94,7 @@ class TestOrchestratorRoleRotation:
 
     def test_update_role_assignments(self, basic_env, mock_agents):
         """_update_role_assignments should assign roles to all agents."""
-        protocol = DebateProtocol(role_rotation=True, rounds=5)
+        protocol = DebateProtocol(role_rotation=True, role_matching=False, rounds=5)
         arena = Arena(basic_env, mock_agents, protocol)
 
         # Update for round 0
@@ -105,7 +106,7 @@ class TestOrchestratorRoleRotation:
 
     def test_role_assignments_change_between_rounds(self, basic_env, mock_agents):
         """Role assignments should change between rounds."""
-        protocol = DebateProtocol(role_rotation=True, rounds=5)
+        protocol = DebateProtocol(role_rotation=True, role_matching=False, rounds=5)
         arena = Arena(basic_env, mock_agents, protocol)
 
         # Get assignments for round 0
@@ -128,7 +129,7 @@ class TestOrchestratorRoleRotation:
 
     def test_get_role_context_returns_prompt(self, basic_env, mock_agents):
         """_get_role_context should return role prompt for assigned agent."""
-        protocol = DebateProtocol(role_rotation=True)
+        protocol = DebateProtocol(role_rotation=True, role_matching=False)
         arena = Arena(basic_env, mock_agents, protocol)
         arena._update_role_assignments(round_num=0)
 
@@ -140,7 +141,7 @@ class TestOrchestratorRoleRotation:
 
     def test_get_role_context_empty_when_disabled(self, basic_env, mock_agents):
         """_get_role_context should return empty string when rotation disabled."""
-        protocol = DebateProtocol(role_rotation=False)
+        protocol = DebateProtocol(role_rotation=False, role_matching=False)
         arena = Arena(basic_env, mock_agents, protocol)
 
         context = arena._get_role_context(mock_agents[0])
@@ -274,11 +275,10 @@ class TestArenaInitialization:
     """Tests for Arena initialization edge cases."""
 
     def test_empty_agents_list(self, basic_env):
-        """Arena should handle empty agents list."""
+        """Arena should reject empty agents lists."""
         protocol = DebateProtocol()
-        arena = Arena(basic_env, [], protocol)
-
-        assert arena.agents == []
+        with pytest.raises(ValueError, match="Must specify either 'agents'"):
+            Arena(basic_env, [], protocol)
 
     def test_auto_upgrade_to_elo_judge(self, basic_env, mock_agents):
         """Should auto-upgrade to ELO-ranked judge when ELO system provided."""
@@ -305,7 +305,7 @@ class TestArenaInitialization:
         arena = Arena(basic_env, mock_agents, protocol=None)
 
         assert arena.protocol is not None
-        assert arena.protocol.rounds == 5  # Default value
+        assert arena.protocol.rounds == DebateProtocol().rounds
 
     def test_circuit_breaker_initialized(self, basic_env, mock_agents):
         """Circuit breaker should be initialized even if not provided."""

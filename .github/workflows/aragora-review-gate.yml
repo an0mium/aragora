@@ -130,7 +130,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           bash scripts/ci_install_project.sh --extras dev
-          python -m pip install anthropic openai
+          python -m pip install -e . "pydantic>=2,<3" pydantic-settings aiohttp defusedxml numpy anthropic openai
 
       - name: Run Aragora Review
         id: review
