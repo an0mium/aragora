@@ -19,6 +19,8 @@ DEFAULT_TRANCHE_ARTIFACT_ROOT = ".aragora/tranche_artifacts"
 DEFAULT_TRANCHE_MANIFEST_DIR = ".aragora/tranches"
 _GITHUB_REF_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/(pull|issues)/(\d+)$")
 _REUSABLE_PREPARED_STATUSES = {"prepared", "running"}
+_TRUTHY_BOOL_STRINGS = {"1", "true", "yes", "y", "on"}
+_FALSY_BOOL_STRINGS = {"0", "false", "no", "n", "off"}
 
 
 def _utcnow() -> datetime:
@@ -46,6 +48,18 @@ def _dict_value(value: Any, *, field_name: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{field_name} must be an object.")
     return dict(value)
+
+
+def _coerce_bool(value: Any, *, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _TRUTHY_BOOL_STRINGS:
+            return True
+        if normalized in _FALSY_BOOL_STRINGS:
+            return False
+    return default
 
 
 def _normalize_scope(value: str) -> str:
@@ -823,7 +837,10 @@ class TrancheExecutor:
             project=project,
             worker_model=worker_model,
             review_model=review_model,
-            enforce_cross_model_review=bool(lane.metadata.get("enforce_cross_model_review", True)),
+            enforce_cross_model_review=_coerce_bool(
+                lane.metadata.get("enforce_cross_model_review"),
+                default=True,
+            ),
             run_dict=dict(run_dict),
             budget_context={"project_estimated_cost_usd": _lane_budget_limit_usd(lane)},
             repo_root=self.repo_root,
@@ -1498,7 +1515,10 @@ def _lane_spec_from_manifest(manifest: TrancheManifest, lane: TrancheLane) -> An
         },
         "estimated_complexity": str(lane.metadata.get("estimated_complexity", "medium")).strip()
         or "medium",
-        "approval_required": bool(lane.metadata.get("requires_approval", True)),
+        "approval_required": _coerce_bool(
+            lane.metadata.get("requires_approval"),
+            default=True,
+        ),
         "metadata": {
             "tranche_manifest_id": manifest.manifest_id,
             "tranche_lane_id": lane.lane_id,
@@ -1512,7 +1532,10 @@ def _lane_spec_from_manifest(manifest: TrancheManifest, lane: TrancheLane) -> An
         budget_limit_usd=_lane_budget_limit_usd(lane),
         file_scope_hints=list(dict.fromkeys(file_scope_hints)),
         work_orders=[explicit_work_order],
-        requires_approval=bool(lane.metadata.get("requires_approval", True)),
+        requires_approval=_coerce_bool(
+            lane.metadata.get("requires_approval"),
+            default=True,
+        ),
         user_expertise="developer",
         estimated_complexity=str(lane.metadata.get("estimated_complexity", "medium")).strip()
         or "medium",
@@ -1584,7 +1607,7 @@ def _lane_review_model(lane: TrancheLane, *, target_agent: str) -> str:
     requested = _optional_text(lane.metadata.get("review_model"))
     if requested:
         if (
-            bool(lane.metadata.get("enforce_cross_model_review", True))
+            _coerce_bool(lane.metadata.get("enforce_cross_model_review"), default=True)
             and requested == target_agent
         ):
             return "claude" if target_agent == "codex" else "codex"
