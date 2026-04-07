@@ -134,6 +134,46 @@ class TestRunDebateTool:
 
         assert result["consensus_reached"] is True
 
+    @pytest.mark.asyncio
+    async def test_run_with_explicit_invalid_agent_fails_closed(self):
+        """Test explicit invalid agent selection returns an error and skips debate execution."""
+        mock_agent = MagicMock()
+        mock_agent.name = "claude_proposer"
+
+        def create_agent_side_effect(*args, **kwargs):
+            if kwargs["model_type"] == "claude":
+                return mock_agent
+            if kwargs["model_type"] == "invalid-agent":
+                raise ValueError("Unknown agent type")
+            raise AssertionError(f"Unexpected agent requested: {kwargs['model_type']}")
+
+        with (
+            patch(
+                "aragora.agents.base.create_agent",
+                side_effect=create_agent_side_effect,
+            ),
+            patch(
+                "aragora.debate.orchestrator.Arena",
+            ) as mock_arena,
+            patch(
+                "aragora.config.settings.AgentSettings",
+            ),
+            patch(
+                "aragora.config.settings.DebateSettings",
+            ) as mock_debate_settings,
+        ):
+            mock_debate_settings.return_value.max_rounds = 10
+
+            result = await run_debate_tool(
+                question="Is AI safe?",
+                agents="claude,invalid-agent",
+                rounds=2,
+                consensus="unanimous",
+            )
+
+        assert result == {"error": "Invalid agent selection: could not create invalid-agent"}
+        mock_arena.assert_not_called()
+
 
 class TestGetDebateTool:
     """Tests for get_debate_tool."""
