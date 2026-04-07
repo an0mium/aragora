@@ -11,7 +11,7 @@ import json
 import logging
 import re
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from typing import Any
 
@@ -94,6 +94,22 @@ class GitHubIssue:
             "state": self.state,
             "created_at": self.created_at,
         }
+
+
+@dataclass(slots=True)
+class IssueEligibilityReport:
+    """Eligibility summary for a batch of GitHub issues."""
+
+    eligible: list[GitHubIssue] = field(default_factory=list)
+    skipped_by_label: dict[str, list[int]] = field(default_factory=dict)
+
+    @property
+    def eligible_count(self) -> int:
+        return len(self.eligible)
+
+    @property
+    def skipped_by_label_count(self) -> int:
+        return sum(len(numbers) for numbers in self.skipped_by_label.values())
 
 
 class GitHubIssueFeed:
@@ -456,20 +472,13 @@ def select_eligible_issue(
 
     Returns ``None`` with no improvisation if nothing qualifies.
     """
-    _skip = skip_labels or set()
-    eligible: list[GitHubIssue] = []
-    for issue in issues:
-        if issue.state.upper() != "OPEN":
-            continue
-        if not issue.title:
-            continue
-        if _skip & set(issue.labels):
-            continue
-        if require_labels and not require_labels.issubset(set(issue.labels)):
-            continue
-        if issue_overlaps_blocked_scopes(issue, blocked_scopes):
-            continue
-        eligible.append(issue)
+    report = build_issue_eligibility_report(
+        issues,
+        skip_labels=skip_labels,
+        require_labels=require_labels,
+        blocked_scopes=blocked_scopes,
+    )
+    eligible = report.eligible
 
     if not eligible:
         return None
@@ -508,3 +517,31 @@ def select_eligible_issue(
         logger.debug("Value ranking failed, falling back to first eligible: %s", exc)
 
     return eligible[0]
+
+
+def build_issue_eligibility_report(
+    issues: list[GitHubIssue],
+    *,
+    skip_labels: set[str] | None = None,
+    require_labels: set[str] | None = None,
+    blocked_scopes: set[str] | None = None,
+) -> IssueEligibilityReport:
+    """Summarize which issues are dispatch-eligible and which are skipped by label."""
+    skip = skip_labels or set()
+    report = IssueEligibilityReport()
+    for issue in issues:
+        if issue.state.upper() != "OPEN":
+            continue
+        if not issue.title:
+            continue
+        skipped_labels = sorted(skip & set(issue.labels))
+        if skipped_labels:
+            for label in skipped_labels:
+                report.skipped_by_label.setdefault(label, []).append(issue.number)
+            continue
+        if require_labels and not require_labels.issubset(set(issue.labels)):
+            continue
+        if issue_overlaps_blocked_scopes(issue, blocked_scopes):
+            continue
+        report.eligible.append(issue)
+    return report
