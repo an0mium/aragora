@@ -789,17 +789,19 @@ class BudgetManager:
         Returns:
             Tuple of (allowed, reason, action_required)
         """
-        budgets = [
+        configured_budgets = [
             budget
             for budget in self.get_budgets_for_org(org_id, active_only=False)
             if budget.status != BudgetStatus.CLOSED
         ]
 
-        if not budgets:
+        if not configured_budgets:
             # No budget configured - allow
             return True, "No budget configured", None
 
-        for budget in budgets:
+        warning_result: tuple[bool, str, BudgetAction | None] | None = None
+
+        for budget in configured_budgets:
             if budget.status == BudgetStatus.SUSPENDED:
                 return False, "Budget suspended", BudgetAction.SUSPEND
 
@@ -830,12 +832,15 @@ class BudgetManager:
                     and budget.usage_percentage < threshold.percentage
                 ):
                     # This operation would cross a threshold
-                    if threshold.action == BudgetAction.SOFT_LIMIT:
-                        return (
+                    if threshold.action == BudgetAction.SOFT_LIMIT and warning_result is None:
+                        warning_result = (
                             True,
                             f"Warning: This will use {new_pct:.0%} of budget",
                             threshold.action,
                         )
+
+        if warning_result is not None:
+            return warning_result
 
         return True, "OK", None
 
