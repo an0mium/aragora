@@ -435,6 +435,8 @@ class BudgetHandler(BaseHandler):
             body = self.read_json_body(handler)
             if not body:
                 return error_response("Invalid request body", 400)
+            if not isinstance(body, dict):
+                return error_response("Request body must be a JSON object", 400)
 
             # Validate name
             name = body.get("name")
@@ -560,6 +562,8 @@ class BudgetHandler(BaseHandler):
             body = self.read_json_body(handler)
             if not body:
                 return error_response("Invalid request body", 400)
+            if not isinstance(body, dict):
+                return error_response("Request body must be a JSON object", 400)
 
             # Validate name if provided
             name = body.get("name")
@@ -704,6 +708,8 @@ class BudgetHandler(BaseHandler):
             body = self.read_json_body(handler)
             if not body:
                 return error_response("Invalid request body", 400)
+            if not isinstance(body, dict):
+                return error_response("Request body must be a JSON object", 400)
 
             estimated_cost = body.get("estimated_cost_usd", 0)
             try:
@@ -813,6 +819,8 @@ class BudgetHandler(BaseHandler):
             body = self.read_json_body(handler)
             if not body:
                 return error_response("Invalid request body", 400)
+            if not isinstance(body, dict):
+                return error_response("Request body must be a JSON object", 400)
 
             target_user_id = body.get("user_id")
             if not target_user_id:
