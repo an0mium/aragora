@@ -95,6 +95,12 @@ def _resolve_org_tier(context: Any) -> str | None:
     Attempts to look up the Organization from billing stores. Returns the
     tier string (e.g. "free", "professional") or None if resolution fails.
     """
+    tier = getattr(context, "subscription_tier", None)
+    if tier is not None:
+        tier_str = tier.value if hasattr(tier, "value") else str(tier)
+        if isinstance(tier_str, str) and tier_str in TIER_ORDER:
+            return tier_str
+
     org_id = getattr(context, "org_id", None)
     if not org_id or not isinstance(org_id, str):
         return None
@@ -114,13 +120,6 @@ def _resolve_org_tier(context: Any) -> str | None:
                     return tier_val
         except (ImportError, AttributeError, RuntimeError, TypeError):
             pass
-
-        # Fallback: check if context itself carries tier metadata
-        tier = getattr(context, "subscription_tier", None)
-        if tier is not None:
-            tier_str = tier.value if hasattr(tier, "value") else str(tier)
-            if isinstance(tier_str, str) and tier_str in TIER_ORDER:
-                return tier_str
 
     except ImportError:
         pass
