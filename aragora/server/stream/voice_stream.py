@@ -63,6 +63,22 @@ def _clamp_with_warning(name: str, raw_value: int, min_val: int, max_val: int) -
     return max(min_val, min(raw_value, max_val))
 
 
+def _parse_auto_synthesize(raw_value: object) -> bool:
+    """Parse auto_synthesize config values, failing closed for malformed strings."""
+    if isinstance(raw_value, bool):
+        return raw_value
+
+    if isinstance(raw_value, str):
+        normalized = raw_value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off", ""}:
+            return False
+        return False
+
+    return bool(raw_value)
+
+
 # Chunk size: 1KB to 1MB
 _raw_chunk_size = int(os.getenv("ARAGORA_VOICE_CHUNK_SIZE", str(16000 * 2 * 3)))
 VOICE_CHUNK_SIZE_BYTES = _clamp_with_warning(
@@ -425,7 +441,7 @@ class VoiceStreamHandler:
                 session.language = msg.get("language", "")
                 # Enable/disable auto-synthesis of agent responses
                 if "auto_synthesize" in msg:
-                    session.auto_synthesize = bool(msg["auto_synthesize"])
+                    session.auto_synthesize = _parse_auto_synthesize(msg["auto_synthesize"])
                 # Voice map for specific agents
                 if "voice_map" in msg and isinstance(msg["voice_map"], dict):
                     session.tts_voice_map.update(msg["voice_map"])
