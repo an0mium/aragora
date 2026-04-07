@@ -29,6 +29,7 @@ from . import marketplace
 from . import analytics
 from . import admin
 from . import knowledge_base
+from . import legacy_v1
 
 __all__ = [
     "health",
@@ -60,4 +61,5 @@ __all__ = [
     "analytics",
     "admin",
     "knowledge_base",
+    "legacy_v1",
 ]

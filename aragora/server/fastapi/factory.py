@@ -54,6 +54,7 @@ from .routes import (
     analytics,
     admin,
     knowledge_base,
+    legacy_v1,
 )
 
 logger = logging.getLogger(__name__)
@@ -381,6 +382,7 @@ def create_app(
     app.include_router(analytics.router)
     app.include_router(admin.router)
     app.include_router(knowledge_base.router)
+    app.include_router(legacy_v1.router)
 
     # Setup exception handlers
     setup_exception_handlers(app)
