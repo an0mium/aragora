@@ -167,6 +167,17 @@ def test_string_gate_flags_fail_closed() -> None:
         assert _synthetic_debate_result(plan).consensus_reached is False
 
 
+def test_deliberation_consensus_string_false_does_not_fallback_to_signed_consensus() -> None:
+    plan = _plan(
+        metadata={
+            "deliberation_bundle": {"consensus_reached": "off"},
+            "execution_gate": {"signed_receipt": {"consensus_proof": {"reached": "true"}}},
+        }
+    )
+
+    assert _synthetic_debate_result(plan).consensus_reached is False
+
+
 @pytest.mark.asyncio
 async def test_executor_verifies_receipt_before_running_actions() -> None:
     plan = _plan(

@@ -310,9 +310,11 @@ def _synthetic_debate_result(plan: Any) -> Any:
         or metadata.get("decision_confidence")
         or 0.0
     )
-    consensus_reached = _parse_fail_closed_flag(deliberation.get("consensus_reached", _MISSING))
-    if not consensus_reached:
+    deliberation_consensus = deliberation.get("consensus_reached", _MISSING)
+    if deliberation_consensus is _MISSING:
         consensus_reached = _parse_fail_closed_flag(signed_consensus.get("reached", _MISSING))
+    else:
+        consensus_reached = _parse_fail_closed_flag(deliberation_consensus)
 
     return SimpleNamespace(
         debate_id=str(getattr(plan, "debate_id", "") or getattr(plan, "id", "")),
