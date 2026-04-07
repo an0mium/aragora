@@ -247,8 +247,37 @@ name: minimal
         assert ToolGroup.EDIT in mode.tool_groups
         assert ToolGroup.COMMAND in mode.tool_groups
 
-    def test_parse_config_unknown_group_ignored(self):
-        """Unknown tool groups are ignored."""
+    @pytest.mark.parametrize(
+        ("group_name", "expected_tool_groups"),
+        [
+            ("readonly", ToolGroup.READ | ToolGroup.BROWSER),
+            ("developer", ToolGroup.READ | ToolGroup.EDIT | ToolGroup.COMMAND),
+            (
+                "full",
+                ToolGroup.READ
+                | ToolGroup.EDIT
+                | ToolGroup.COMMAND
+                | ToolGroup.BROWSER
+                | ToolGroup.MCP
+                | ToolGroup.DEBATE,
+            ),
+        ],
+    )
+    def test_parse_config_composite_groups(self, group_name, expected_tool_groups):
+        """Parses known composite tool groups into the expected flags."""
+        loader = CustomModeLoader()
+
+        config = {
+            "name": f"{group_name}-mode",
+            "tool_groups": [group_name],
+        }
+
+        mode = loader._parse_config(config)
+
+        assert mode.tool_groups == expected_tool_groups
+
+    def test_parse_config_unknown_group_raises_value_error(self):
+        """Unknown tool groups raise a clear ValueError."""
         loader = CustomModeLoader()
 
         config = {
@@ -256,11 +285,8 @@ name: minimal
             "tool_groups": ["read", "unknown_tool", "invalid"],
         }
 
-        mode = loader._parse_config(config)
-
-        # Only read should be present
-        assert ToolGroup.READ in mode.tool_groups
-        # No error raised for unknown
+        with pytest.raises(ValueError, match="Unknown tool_groups: invalid, unknown_tool"):
+            loader._parse_config(config)
 
     def test_load_all_from_directory(self, tmp_path):
         """Loads all modes from a directory."""
@@ -289,6 +315,24 @@ name: minimal
         # Should only load valid file
         assert len(modes) == 1
         assert modes[0].name == "valid"
+
+    def test_load_all_skips_and_logs_unknown_tool_groups(self, tmp_path, caplog):
+        """Skips files with unknown tool groups and logs the parsing error."""
+        (tmp_path / "valid.yaml").write_text("name: valid")
+        (tmp_path / "invalid.yaml").write_text(
+            "name: invalid\ntool_groups:\n  - read\n  - unknown_tool\n"
+        )
+
+        loader = CustomModeLoader(search_paths=[str(tmp_path)])
+
+        with caplog.at_level("WARNING"):
+            modes = loader.load_all(tmp_path)
+
+        assert len(modes) == 1
+        assert modes[0].name == "valid"
+        assert "Failed to load" in caplog.text
+        assert "invalid.yaml" in caplog.text
+        assert "Unknown tool_groups: unknown_tool" in caplog.text
 
     def test_load_all_from_default_paths(self, tmp_path):
         """Loads from all search paths when no directory specified."""
