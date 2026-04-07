@@ -350,7 +350,10 @@ class TestRedisBlacklist:
         """
         from aragora.storage.token_blacklist_store import RedisBlacklist
 
-        bl = RedisBlacklist(redis_url, key_prefix="aragora:test:blacklist:")
+        try:
+            bl = RedisBlacklist(redis_url, key_prefix="aragora:test:blacklist:")
+        except Exception as exc:
+            pytest.skip(f"Redis not available for integration test: {exc}")
         # Clear test keys
         bl._client.delete(*bl._client.keys(f"{bl._prefix}*") or ["_dummy"])
         yield bl

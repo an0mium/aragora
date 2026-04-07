@@ -14,11 +14,12 @@ Covers:
 from __future__ import annotations
 
 import asyncio
+from collections import Counter
 import pytest
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from aragora.debate.phases.feedback_phase import FeedbackPhase
 
@@ -624,7 +625,15 @@ class TestGenomeFitness:
 
         phase._update_genome_fitness(mock_context)
 
-        mock_manager.update_fitness.assert_called_once()
+        assert mock_manager.update_fitness.call_args_list == [
+            call(
+                "genome-123",
+                consensus_win=True,
+                critique_accepted=False,
+                prediction_correct=True,
+            ),
+            call("genome-123", fitness_delta=0.1),
+        ]
 
 
 # =============================================================================
@@ -1016,7 +1025,17 @@ class TestFeedbackIntegration:
         # Verify all systems were called
         mock_elo.record_match.assert_called_once()
         assert mock_persona.record_performance.call_count == 3
-        assert mock_calibration.record_prediction.call_count == 3
+        prediction_types = Counter(
+            call.kwargs.get("prediction_type", "vote_calibration")
+            for call in mock_calibration.record_prediction.call_args_list
+        )
+        assert prediction_types == Counter(
+            {
+                "vote_calibration": 3,
+                "consensus_feedback": 2,
+                "selection_feedback": 3,
+            }
+        )
 
     @pytest.mark.asyncio
     async def test_feedback_handles_errors_gracefully(self, mock_context, mock_agents):

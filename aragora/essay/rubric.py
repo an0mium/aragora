@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -81,6 +82,26 @@ class EssayScore:
 # ── Parsing ───────────────────────────────────────────────────────────────────
 
 
+def _normalize_score(value: Any) -> float:
+    """Coerce a model-provided score field into a safe float."""
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return score if math.isfinite(score) else 0.0
+
+
+def _normalize_string_list(value: Any) -> list[str]:
+    """Coerce model output into a list of strings without splitting scalars."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value] if value else []
+    if isinstance(value, list | tuple):
+        return [str(item) for item in value if item is not None]
+    return []
+
+
 def parse_score_response(text: str) -> EssayScore:
     """Extract the first JSON object from *text* and map it to an EssayScore.
 
@@ -94,16 +115,20 @@ def parse_score_response(text: str) -> EssayScore:
         data = json.loads(match.group())
     except json.JSONDecodeError:
         return EssayScore()
+    if not isinstance(data, dict):
+        return EssayScore()
 
     kwargs: dict[str, Any] = {}
     for dim in _DIMENSION_FIELDS:
-        kwargs[dim] = float(data.get(dim, 0.0))
+        kwargs[dim] = _normalize_score(data.get(dim, 0.0))
 
-    kwargs["severity_notes"] = list(data.get("severity_notes", []))
-    kwargs["suggestions"] = list(data.get("suggestions", []))
+    kwargs["severity_notes"] = _normalize_string_list(data.get("severity_notes", []))
+    kwargs["suggestions"] = _normalize_string_list(data.get("suggestions", []))
     kwargs["weakest_paragraph"] = str(data.get("weakest_paragraph", ""))
     kwargs["strongest_paragraph"] = str(data.get("strongest_paragraph", ""))
-    kwargs["factual_claims_to_verify"] = list(data.get("factual_claims_to_verify", []))
+    kwargs["factual_claims_to_verify"] = _normalize_string_list(
+        data.get("factual_claims_to_verify", [])
+    )
     kwargs["evaluator_model"] = str(data.get("evaluator_model", ""))
 
     return EssayScore(**kwargs)

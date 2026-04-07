@@ -104,11 +104,13 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Cycling placeholder examples
   const PLACEHOLDER_EXAMPLES = [
-    'Should we migrate to microservices or keep our monolith?',
-    'Is this contract clause a liability risk?',
+    'Should we use Redis or Memcached for our session cache?',
+    'Is it worth switching from React to Svelte for our dashboard?',
     'Should we raise prices 15% or expand to a new market?',
-    'What are the security risks in our OAuth implementation?',
-    'Should we build or buy our analytics platform?',
+    'Should I negotiate the non-compete clause in this job offer?',
+    'Should we hire a CFO now or outsource to a fractional one?',
+    'Is it safe to refreeze chicken that was thawed in the fridge?',
+    'Should we open-source our internal tool or keep it proprietary?',
   ];
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const cycleTimer = useRef<ReturnType<typeof setInterval>>(null);
