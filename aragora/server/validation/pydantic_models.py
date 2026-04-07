@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from aragora.agents.spec import AgentSpec
 
@@ -131,19 +131,14 @@ def validate_debate_request(body: dict[str, Any]) -> tuple[DebateRequest | None,
     try:
         request = DebateRequest.model_validate(body)
         return request, None
-    except Exception as exc:  # noqa: BLE001 – pydantic.ValidationError is the expected type
-        # Collect all field errors into a single human-readable string
-        try:
-            # pydantic v2 ValidationError
-            errors = exc.errors()  # type: ignore[union-attr]
-            messages = []
-            for err in errors:
-                loc = " -> ".join(str(p) for p in err.get("loc", []))
-                msg = err.get("msg", str(err))
-                messages.append(f"{loc}: {msg}" if loc else msg)
-            return None, "; ".join(messages)
-        except AttributeError:
-            return None, str(exc)
+    except ValidationError as exc:
+        errors = exc.errors()
+        messages = []
+        for err in errors:
+            loc = " -> ".join(str(p) for p in err.get("loc", []))
+            msg = err.get("msg", str(err))
+            messages.append(f"{loc}: {msg}" if loc else msg)
+        return None, "; ".join(messages)
 
 
 __all__ = ["DebateRequest", "validate_debate_request"]
