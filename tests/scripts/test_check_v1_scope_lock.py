@@ -8,7 +8,8 @@ import sys
 from pathlib import Path
 
 
-SCRIPT_PATH = Path("scripts/check_v1_scope_lock.py")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRIPT_PATH = REPO_ROOT / "scripts/check_v1_scope_lock.py"
 
 
 def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -20,6 +21,7 @@ def _run(args: list[str], env: dict[str, str] | None = None) -> subprocess.Compl
         capture_output=True,
         text=True,
         env=merged_env,
+        cwd=REPO_ROOT,
         check=False,
     )
 
@@ -41,6 +43,7 @@ def test_scope_lock_fails_for_blocked_prefix() -> None:
     assert result.returncode == 1
     assert "violation" in result.stderr.lower()
     assert "social/slack.py" in result.stderr
+    assert "ARAGORA_ALLOW_SCOPE_EXPANSION=1" in result.stderr
 
 
 def test_scope_lock_can_be_overridden_by_env() -> None:

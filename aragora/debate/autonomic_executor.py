@@ -403,9 +403,29 @@ class AutonomicExecutor:
         """Return True if a critique is empty or only contains placeholder content."""
         if result is None:
             return True
-        issues = [i.strip() for i in result.issues if isinstance(i, str) and i.strip()]
-        suggestions = [s.strip() for s in result.suggestions if isinstance(s, str) and s.strip()]
+        if isinstance(result, str):
+            return not result.strip()
+
+        raw_issues = getattr(result, "issues", [])
+        raw_suggestions = getattr(result, "suggestions", [])
+        issues = (
+            [i.strip() for i in raw_issues if isinstance(i, str) and i.strip()]
+            if isinstance(raw_issues, (list, tuple, set))
+            else []
+        )
+        suggestions = (
+            [s.strip() for s in raw_suggestions if isinstance(s, str) and s.strip()]
+            if isinstance(raw_suggestions, (list, tuple, set))
+            else []
+        )
         if not issues and not suggestions:
+            if not isinstance(raw_issues, (list, tuple, set)) and not isinstance(
+                raw_suggestions, (list, tuple, set)
+            ):
+                for attr in ("text", "message", "content"):
+                    value = getattr(result, attr, None)
+                    if isinstance(value, str) and value.strip():
+                        return False
             return True
         if len(issues) == 1:
             normalized = issues[0].strip().lower()

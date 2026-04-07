@@ -35,11 +35,13 @@ class TestPlatform:
         assert Platform.DISCORD.value == "discord"
         assert Platform.TEAMS.value == "teams"
         assert Platform.ZOOM.value == "zoom"
+        assert Platform.TELEGRAM.value == "telegram"
+        assert Platform.WHATSAPP.value == "whatsapp"
 
     def test_platform_iteration(self):
         """Test iterating over platforms."""
         platforms = list(Platform)
-        assert len(platforms) == 4
+        assert len(platforms) == 6
 
 
 class TestBotUser:
@@ -262,7 +264,8 @@ class TestBotConfig:
 
         assert config.platform == Platform.SLACK
         assert config.token == "xoxb-123"
-        assert config.api_base == "http://localhost:8080"
+        assert config.api_base == ""
+        assert config.ws_url == ""
         assert config.bot_name == "Aragora"
 
     def test_config_rate_limits(self):

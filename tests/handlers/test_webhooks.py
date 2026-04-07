@@ -261,16 +261,19 @@ class TestWebhookHandlerGetWebhook:
         """Test access denied for other user's webhook."""
         webhook = MagicMock()
         webhook.user_id = "other_user"
+        webhook.workspace_id = None
         mock_store.get.return_value = webhook
 
         mock_handler = MagicMock()
         current_user = MagicMock()
         current_user.user_id = "current_user"
+        current_user.org_id = None
         handler.get_current_user = MagicMock(return_value=current_user)
+        handler._check_rbac_permission = MagicMock(return_value=None)
 
         result = handler._handle_get_webhook("wh_123", mock_handler)
 
-        assert result.status_code == 403
+        assert result.status_code == 404
 
     def test_handle_get_webhook_private_requires_auth(self, handler, mock_store):
         """Test private webhook reads fail before ownership checks when anonymous."""
@@ -398,16 +401,16 @@ class TestWebhookHandlerDelete:
 
     def test_delete_webhook_success(self, handler, mock_store):
         """Test successful webhook deletion."""
-        webhook = MagicMock()
-        webhook.user_id = None
-        webhook.workspace_id = None
-        mock_store.get.return_value = webhook
-
         mock_handler = MagicMock()
         current_user = MagicMock()
         current_user.user_id = "current_user"
         current_user.org_id = None
         handler.get_current_user = MagicMock(return_value=current_user)
+
+        webhook = MagicMock()
+        webhook.user_id = current_user.user_id
+        webhook.workspace_id = None
+        mock_store.get.return_value = webhook
 
         result = handler._handle_delete_webhook("wh_123", mock_handler)
 
@@ -421,16 +424,18 @@ class TestWebhookHandlerDelete:
         """Test deleting other user's webhook."""
         webhook = MagicMock()
         webhook.user_id = "other_user"
+        webhook.workspace_id = None
         mock_store.get.return_value = webhook
 
         mock_handler = MagicMock()
         current_user = MagicMock()
         current_user.user_id = "current_user"
+        current_user.org_id = None
         handler.get_current_user = MagicMock(return_value=current_user)
 
         result = handler._handle_delete_webhook("wh_123", mock_handler)
 
-        assert result.status_code == 403
+        assert result.status_code == 404
 
 
 class TestWebhookHandlerUpdate:
@@ -463,11 +468,6 @@ class TestWebhookHandlerUpdate:
 
     def test_update_webhook_success(self, handler, mock_store):
         """Test successful webhook update."""
-        webhook = MagicMock()
-        webhook.user_id = None
-        webhook.workspace_id = None
-        mock_store.get.return_value = webhook
-
         updated = MagicMock()
         updated.to_dict.return_value = {
             "id": "wh_123",
@@ -481,6 +481,11 @@ class TestWebhookHandlerUpdate:
         current_user.user_id = "current_user"
         current_user.org_id = None
         handler.get_current_user = MagicMock(return_value=current_user)
+
+        webhook = MagicMock()
+        webhook.user_id = current_user.user_id
+        webhook.workspace_id = None
+        mock_store.get.return_value = webhook
 
         with patch(
             "aragora.server.handlers.webhooks.validate_webhook_url",
@@ -496,16 +501,16 @@ class TestWebhookHandlerUpdate:
 
     def test_update_webhook_invalid_events(self, handler, mock_store):
         """Test updating with invalid events."""
-        webhook = MagicMock()
-        webhook.user_id = None
-        webhook.workspace_id = None
-        mock_store.get.return_value = webhook
-
         mock_handler = MagicMock()
         current_user = MagicMock()
         current_user.user_id = "current_user"
         current_user.org_id = None
         handler.get_current_user = MagicMock(return_value=current_user)
+
+        webhook = MagicMock()
+        webhook.user_id = current_user.user_id
+        webhook.workspace_id = None
+        mock_store.get.return_value = webhook
 
         result = handler._handle_update_webhook(
             "wh_123",
@@ -546,18 +551,18 @@ class TestWebhookHandlerTest:
 
     def test_test_webhook_success(self, handler, mock_store):
         """Test successful webhook test."""
-        webhook = MagicMock()
-        webhook.id = "wh_123"
-        webhook.name = "Test Webhook"
-        webhook.user_id = None
-        webhook.workspace_id = None
-        mock_store.get.return_value = webhook
-
         mock_handler = MagicMock()
         current_user = MagicMock()
         current_user.user_id = "current_user"
         current_user.org_id = None
         handler.get_current_user = MagicMock(return_value=current_user)
+
+        webhook = MagicMock()
+        webhook.id = "wh_123"
+        webhook.name = "Test Webhook"
+        webhook.user_id = current_user.user_id
+        webhook.workspace_id = None
+        mock_store.get.return_value = webhook
 
         with patch(
             "aragora.events.dispatcher.dispatch_webhook",
@@ -572,18 +577,18 @@ class TestWebhookHandlerTest:
 
     def test_test_webhook_failure(self, handler, mock_store):
         """Test failed webhook test."""
-        webhook = MagicMock()
-        webhook.id = "wh_123"
-        webhook.name = "Test Webhook"
-        webhook.user_id = None
-        webhook.workspace_id = None
-        mock_store.get.return_value = webhook
-
         mock_handler = MagicMock()
         current_user = MagicMock()
         current_user.user_id = "current_user"
         current_user.org_id = None
         handler.get_current_user = MagicMock(return_value=current_user)
+
+        webhook = MagicMock()
+        webhook.id = "wh_123"
+        webhook.name = "Test Webhook"
+        webhook.user_id = current_user.user_id
+        webhook.workspace_id = None
+        mock_store.get.return_value = webhook
 
         with patch(
             "aragora.events.dispatcher.dispatch_webhook",

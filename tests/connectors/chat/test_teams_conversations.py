@@ -23,6 +23,7 @@ from aragora.connectors.chat.teams_conversations import (
     StoredConversation,
     get_teams_conversation_store,
 )
+from aragora.persistence.db_config import get_nomic_dir
 
 
 # ===========================================================================
@@ -271,9 +272,9 @@ class TestTeamsConversationStoreInit:
         """Test initialization uses default path when not specified."""
         store = TeamsConversationStore()
 
-        # Default path uses nomic directory for consistency with other stores
-        assert ".nomic" in store._db_path or ".aragora" in store._db_path
-        assert "teams_conversations.db" in store._db_path
+        expected_path = (get_nomic_dir() / "teams_conversations.db").resolve()
+
+        assert Path(store._db_path).resolve() == expected_path
 
     def test_schema_created_on_first_access(self, temp_db_path):
         """Test schema is created when database is first accessed."""
