@@ -33,6 +33,8 @@ _HUMAN_OVERRIDE_REASON_CODES = frozenset(
         "untrusted_intake_tier",
     }
 )
+_TRUTHY_BOOL_STRINGS = frozenset({"1", "true", "yes", "y", "on"})
+_FALSY_BOOL_STRINGS = frozenset({"0", "false", "no", "n", "off"})
 
 
 class PlanReceiptGateError(RuntimeError):
@@ -129,6 +131,32 @@ def _list_of_strings(value: Any) -> list[str]:
     return []
 
 
+def _coerce_gate_bool(
+    value: Any,
+    *,
+    default: bool,
+    invalid: bool | None = None,
+) -> bool:
+    """Parse execution-gate booleans without letting junk values fail open."""
+
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if not normalized:
+            return default
+        if normalized in _TRUTHY_BOOL_STRINGS:
+            return True
+        if normalized in _FALSY_BOOL_STRINGS:
+            return False
+        return invalid if invalid is not None else default
+    if isinstance(value, (int, float)) and value in {0, 1}:
+        return bool(value)
+    return invalid if invalid is not None else default
+
+
 def _resolve_backbone_run(plan: Any, plan_store: Any | None = None) -> Any | None:
     metadata = _metadata(plan)
     run_id = str(metadata.get("backbone_run_id", "") or "").strip()
@@ -183,7 +211,11 @@ def evaluate_plan_execution_gate(
         gate = {}
 
     reason_codes = _list_of_strings(gate.get("reason_codes"))
-    allow_auto_execution = bool(gate.get("allow_auto_execution", True))
+    allow_auto_execution = _coerce_gate_bool(
+        gate.get("allow_auto_execution"),
+        default=True,
+        invalid=False,
+    )
     if "gate_evaluation_failed" in reason_codes:
         allow_auto_execution = False
 
@@ -217,6 +249,12 @@ def evaluate_plan_execution_gate(
         requires_human_approval = not human_override_applied
         allow_execution = human_override_applied
 
+    context_taint_detected = _coerce_gate_bool(
+        gate.get("context_taint_detected"),
+        default=False,
+        invalid=True,
+    ) or bool(taint_flags)
+
     gate_payload = {
         **gate,
         "allow_auto_execution": allow_auto_execution and not ordered_reason_codes,
@@ -227,7 +265,7 @@ def evaluate_plan_execution_gate(
         "backbone_run_id": run_id,
         "trust_tiers": trust_tiers,
         "taint_flags": taint_flags,
-        "context_taint_detected": bool(gate.get("context_taint_detected")) or bool(taint_flags),
+        "context_taint_detected": context_taint_detected,
         "taint_summary": taint_summary,
     }
     metadata["execution_gate"] = gate_payload
@@ -293,9 +331,17 @@ def _synthetic_debate_result(plan: Any) -> Any:
         or metadata.get("decision_confidence")
         or 0.0
     )
-    consensus_reached = bool(deliberation.get("consensus_reached"))
+    consensus_reached = _coerce_gate_bool(
+        deliberation.get("consensus_reached"),
+        default=False,
+        invalid=False,
+    )
     if not consensus_reached:
-        consensus_reached = bool(signed_consensus.get("reached"))
+        consensus_reached = _coerce_gate_bool(
+            signed_consensus.get("reached"),
+            default=False,
+            invalid=False,
+        )
 
     return SimpleNamespace(
         debate_id=str(getattr(plan, "debate_id", "") or getattr(plan, "id", "")),
@@ -356,11 +402,16 @@ def _build_receipt(plan: Any) -> DecisionReceipt:
         receipt.settlement_metadata = settlement_metadata
 
     taint_flags = _list_of_strings(deliberation.get("taint_flags"))
-    if gate.get("context_taint_detected"):
+    context_taint_detected = _coerce_gate_bool(
+        gate.get("context_taint_detected"),
+        default=False,
+        invalid=True,
+    )
+    if context_taint_detected:
         taint_flags.append("context_taint_detected")
     if taint_flags or gate:
         taint_analysis = {
-            "tainted": bool(taint_flags) or bool(gate.get("context_taint_detected")),
+            "tainted": bool(taint_flags) or context_taint_detected,
             "flags": sorted(set(taint_flags)),
             "provider_diversity": gate.get("provider_diversity"),
             "model_family_diversity": gate.get("model_family_diversity"),

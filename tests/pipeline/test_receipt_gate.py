@@ -21,8 +21,10 @@ from aragora.pipeline.plan_store import PlanStore
 from aragora.pipeline.receipt_gate import (
     PlanExecutionGateError,
     PlanReceiptGateError,
+    _build_receipt,
     _resolve_backbone_run,
     ensure_plan_receipt,
+    evaluate_plan_execution_gate,
 )
 
 
@@ -213,3 +215,52 @@ async def test_executor_blocks_backbone_taint_without_manual_override(
 
     with pytest.raises(PlanExecutionGateError, match="blocked by execution gate"):
         await executor.execute(plan, execution_mode="workflow")
+
+
+@pytest.mark.parametrize(
+    ("flag_value", "allow_auto_execution", "allow_execution", "reason_codes"),
+    [
+        ("false", False, False, ["execution_gate_blocked"]),
+        ("true", True, True, []),
+        ("not-a-bool", False, False, ["execution_gate_blocked"]),
+    ],
+)
+def test_evaluate_plan_execution_gate_coerces_string_flags_fail_closed(
+    flag_value: str,
+    allow_auto_execution: bool,
+    allow_execution: bool,
+    reason_codes: list[str],
+) -> None:
+    plan = _plan(metadata={"execution_gate": {"allow_auto_execution": flag_value}})
+
+    decision = evaluate_plan_execution_gate(plan)
+
+    assert decision.allow_auto_execution is allow_auto_execution
+    assert decision.allow_execution is allow_execution
+    assert decision.reason_codes == reason_codes
+    assert plan.metadata["execution_gate"]["allow_auto_execution"] is allow_auto_execution
+
+
+@pytest.mark.parametrize(
+    ("metadata", "expected_reached"),
+    [
+        ({"deliberation_bundle": {"consensus_reached": "false"}}, False),
+        (
+            {"execution_gate": {"signed_receipt": {"consensus_proof": {"reached": "false"}}}},
+            False,
+        ),
+        ({"deliberation_bundle": {"consensus_reached": "true"}}, True),
+        (
+            {"execution_gate": {"signed_receipt": {"consensus_proof": {"reached": "true"}}}},
+            True,
+        ),
+    ],
+)
+def test_build_receipt_coerces_string_consensus_flags(
+    metadata: dict[str, object],
+    expected_reached: bool,
+) -> None:
+    receipt = _build_receipt(_plan(metadata=metadata))
+
+    assert receipt.consensus_proof is not None
+    assert receipt.consensus_proof.reached is expected_reached
