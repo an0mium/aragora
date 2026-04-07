@@ -35,10 +35,14 @@ def _patch_report(
         },
         "handler_coverage": [],
     }
-    monkeypatch.setattr(check_sdk_parity, "extract_handler_routes", lambda: {})
+    monkeypatch.setattr(
+        check_sdk_parity,
+        "extract_handler_routes_with_status",
+        lambda: check_sdk_parity.HandlerRouteExtractionResult(routes={}, available=True),
+    )
     monkeypatch.setattr(check_sdk_parity, "extract_sdk_paths_python", lambda: {})
     monkeypatch.setattr(check_sdk_parity, "extract_sdk_paths_typescript", lambda: {})
-    monkeypatch.setattr(check_sdk_parity, "build_parity_report", lambda *_: report)
+    monkeypatch.setattr(check_sdk_parity, "build_parity_report", lambda *_, **__: report)
     monkeypatch.setattr(check_sdk_parity, "print_report", lambda *_: None)
 
 

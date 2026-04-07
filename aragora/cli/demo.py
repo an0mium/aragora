@@ -724,10 +724,16 @@ def main(args: argparse.Namespace) -> None:
         _run_server_demo()
         return
 
+    demo_name = getattr(args, "name", None)
     # Determine topic
     topic = getattr(args, "topic", None)
+    if not topic and demo_name and demo_name not in DEMO_TASKS:
+        print(f"Unknown demo: {demo_name}")
+        print(f"Available demos: {', '.join(DEMO_TASKS.keys())}")
+        return
+
     if not topic:
-        demo_name = getattr(args, "name", None) or _DEFAULT_DEMO
+        demo_name = demo_name or _DEFAULT_DEMO
         topic = DEMO_TASKS.get(demo_name, {}).get(
             "topic", "Should we adopt microservices or keep our monolith?"
         )

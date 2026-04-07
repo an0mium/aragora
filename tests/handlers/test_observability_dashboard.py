@@ -854,17 +854,20 @@ class TestErrorRates:
 
     def test_error_rate_zero_when_no_requests(self, handler):
         """Error rate is 0 when total requests is 0."""
+        metric_family = SimpleNamespace(samples=[])
+        mock_counter = MagicMock()
+        mock_counter.collect.return_value = [metric_family]
+
         with patch(
-            "aragora.observability.metrics.server.get_request_total_count",
-            create=True,
-            return_value=0,
+            "aragora.observability.metrics.request.REQUEST_COUNT",
+            new=mock_counter,
         ):
             with patch(
-                "aragora.observability.metrics.server.get_request_error_count",
-                create=True,
-                return_value=0,
+                "aragora.observability.metrics.request._ensure_init",
             ):
                 result = handler._collect_error_rates()
+                assert result["total_requests"] == 0
+                assert result["total_errors"] == 0
                 assert result["available"] is True
                 assert result["error_rate"] == 0
 
