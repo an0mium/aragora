@@ -139,6 +139,26 @@ def test_configure_email_saves_org_scoped_config(client) -> None:
     configure_system.assert_not_called()
 
 
+def test_configure_email_accepts_legacy_write_permission(client) -> None:
+    _override_auth(client, {"write"})
+    store = MagicMock()
+    store.save_email_config = AsyncMock()
+
+    with (
+        patch.object(notifications_routes, "get_notification_config_store", return_value=store),
+        patch("aragora.server.handlers.social.notifications.invalidate_org_integration_cache"),
+    ):
+        response = client.post(
+            "/api/v2/notifications/email/config",
+            json={"smtp_host": "smtp.example.com"},
+        )
+
+    client.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert store.save_email_config.await_args.args[0].org_id == "org-notify"
+
+
 def test_configure_telegram_saves_org_scoped_config(client) -> None:
     _override_auth(client, {"notifications:write"})
     store = MagicMock()

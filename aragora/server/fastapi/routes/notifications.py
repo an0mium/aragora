@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict
 
 from aragora.integrations.email import EmailConfig, EmailRecipient
 from aragora.rbac.models import AuthorizationContext
-from aragora.server.fastapi.dependencies.auth import require_permission
+from aragora.server.fastapi.dependencies.auth import require_authenticated
 from aragora.storage.notification_config_store import (
     StoredEmailConfig,
     StoredEmailRecipient,
@@ -143,6 +143,30 @@ def _build_email_config(body: EmailConfigRequest) -> EmailConfig:
     )
 
 
+def require_notification_permission(action: str) -> Any:
+    """Preserve legacy notification permission compatibility in FastAPI routes."""
+
+    async def _require_notification_auth(
+        auth: AuthorizationContext = Depends(require_authenticated),
+    ) -> AuthorizationContext:
+        if auth.has_any_role("admin", "owner"):
+            return auth
+
+        if action in auth.permissions:
+            return auth
+
+        for permission in (
+            f"notifications:{action}",
+            f"notification:{action}",
+        ):
+            if auth.has_permission(permission):
+                return auth
+
+        raise HTTPException(status_code=403, detail=f"Permission denied: notifications:{action}")
+
+    return _require_notification_auth
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -150,7 +174,7 @@ def _build_email_config(body: EmailConfigRequest) -> EmailConfig:
 
 @router.get("/notifications/status")
 async def get_notification_status(
-    auth: AuthorizationContext = Depends(require_permission("notifications:read")),
+    auth: AuthorizationContext = Depends(require_notification_permission("read")),
 ):
     """Get status of notification integrations."""
     email = await _get_email_integration(auth.org_id)
@@ -193,7 +217,7 @@ async def get_notification_status(
 
 @router.get("/notifications/email/recipients")
 async def get_email_recipients(
-    auth: AuthorizationContext = Depends(require_permission("notifications:read")),
+    auth: AuthorizationContext = Depends(require_notification_permission("read")),
 ):
     """Get list of email recipients."""
     email = await _get_email_integration(auth.org_id)
@@ -211,7 +235,7 @@ async def get_email_recipients(
 @router.post("/notifications/email/config")
 async def configure_email(
     body: EmailConfigRequest,
-    auth: AuthorizationContext = Depends(require_permission("notifications:write")),
+    auth: AuthorizationContext = Depends(require_notification_permission("write")),
 ):
     """Configure email integration settings."""
     try:
@@ -275,7 +299,7 @@ async def configure_email(
 @router.post("/notifications/telegram/config")
 async def configure_telegram(
     body: TelegramConfigRequest,
-    auth: AuthorizationContext = Depends(require_permission("notifications:write")),
+    auth: AuthorizationContext = Depends(require_notification_permission("write")),
 ):
     """Configure Telegram integration settings."""
     try:
@@ -336,7 +360,7 @@ async def configure_telegram(
 @router.post("/notifications/email/recipient")
 async def add_email_recipient(
     body: RecipientRequest,
-    auth: AuthorizationContext = Depends(require_permission("notifications:write")),
+    auth: AuthorizationContext = Depends(require_notification_permission("write")),
 ):
     """Add an email recipient."""
     if not body.email or "@" not in body.email:
@@ -396,7 +420,7 @@ async def add_email_recipient(
 @router.delete("/notifications/email/recipient")
 async def remove_email_recipient(
     email: str,
-    auth: AuthorizationContext = Depends(require_permission("notifications:delete")),
+    auth: AuthorizationContext = Depends(require_notification_permission("delete")),
 ):
     """Remove an email recipient."""
     if not email:
@@ -449,7 +473,7 @@ async def remove_email_recipient(
 @router.post("/notifications/test")
 async def send_test_notification(
     body: TestNotificationRequest,
-    auth: AuthorizationContext = Depends(require_permission("notifications:write")),
+    auth: AuthorizationContext = Depends(require_notification_permission("write")),
 ):
     """Send a test notification."""
     results: dict[str, Any] = {}
@@ -498,7 +522,7 @@ async def send_test_notification(
 @router.post("/notifications/send")
 async def send_notification(
     body: SendNotificationRequest,
-    auth: AuthorizationContext = Depends(require_permission("notifications:write")),
+    auth: AuthorizationContext = Depends(require_notification_permission("write")),
 ):
     """Send a notification with custom content."""
     results: dict[str, Any] = {}
