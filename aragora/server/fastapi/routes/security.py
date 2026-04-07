@@ -66,12 +66,14 @@ async def get_rbac_coverage(request: Request) -> dict[str, Any]:
         logger.debug("Live RBAC assignments unavailable: %s", exc)
 
     # ----- Endpoint coverage -----
-    # Count total registered routes on the FastAPI app
+    # Count total registered routes on the FastAPI app.
+    # Route counts are more stable than method counts across FastAPI/Starlette
+    # versions, and the dashboard field is endpoint-oriented.
     total_endpoints = 0
     try:
         for route in request.app.routes:
             if hasattr(route, "methods"):
-                total_endpoints += len(route.methods)
+                total_endpoints += 1
     except (RuntimeError, TypeError, AttributeError):
         pass
 
@@ -84,10 +86,10 @@ async def get_rbac_coverage(request: Request) -> dict[str, Any]:
             path = getattr(route, "path", "")
             if path and not path.startswith("/api/"):
                 if hasattr(route, "methods"):
-                    unprotected += len(route.methods)
+                    unprotected += 1
             elif path in ("/api/v2/health", "/api/v2/health/ready", "/api/v2/health/live"):
                 if hasattr(route, "methods"):
-                    unprotected += len(route.methods)
+                    unprotected += 1
     except (RuntimeError, TypeError, AttributeError):
         pass
 
