@@ -86,6 +86,34 @@ EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
 # Password requirements
 MIN_PASSWORD_LENGTH = 8
 
+# Supported organization plans
+SUPPORTED_ORG_PLANS = {"free", "team", "enterprise"}
+
+
+def _get_string_field(
+    data: dict[str, Any],
+    field: str,
+    *,
+    default: str = "",
+    strip: bool = True,
+    lower: bool = False,
+) -> tuple[str, HandlerResult | None]:
+    """Return a normalized string field or a 400 response for invalid types."""
+    if field not in data:
+        value = default
+    else:
+        value = data[field]
+        if not isinstance(value, str):
+            return "", error_response(
+                f"{field.replace('_', ' ').capitalize()} must be a string", status=400
+            )
+
+    if strip:
+        value = value.strip()
+    if lower:
+        value = value.lower()
+    return value, None
+
 
 def _generate_verification_token() -> str:
     """Generate a secure verification token."""
@@ -169,11 +197,21 @@ async def handle_signup(
     }
     """
     try:
-        email = data.get("email", "").lower().strip()
-        password = data.get("password", "")
-        name = data.get("name", "").strip()
-        company_name = data.get("company_name", "").strip()
-        invite_token = data.get("invite_token")
+        email, error = _get_string_field(data, "email", lower=True)
+        if error:
+            return error
+        password, error = _get_string_field(data, "password", strip=False)
+        if error:
+            return error
+        name, error = _get_string_field(data, "name")
+        if error:
+            return error
+        company_name, error = _get_string_field(data, "company_name")
+        if error:
+            return error
+        invite_token, error = _get_string_field(data, "invite_token", strip=False)
+        if error:
+            return error
 
         # Validate email
         if not email or not EMAIL_REGEX.match(email):
@@ -422,13 +460,27 @@ async def handle_setup_organization(
         return error
 
     try:
-        name = data.get("name", "").strip()
-        slug = data.get("slug", "").lower().strip()
-        plan = data.get("plan", "free")
-        billing_email = data.get("billing_email", "").lower().strip()
+        name, error = _get_string_field(data, "name")
+        if error:
+            return error
+        slug, error = _get_string_field(data, "slug", lower=True)
+        if error:
+            return error
+        plan, error = _get_string_field(data, "plan", default="free", lower=True)
+        if error:
+            return error
+        billing_email, error = _get_string_field(data, "billing_email", lower=True)
+        if error:
+            return error
 
         if not name or len(name) < 2:
             return error_response("Organization name is required", status=400)
+
+        if plan not in SUPPORTED_ORG_PLANS:
+            return error_response(
+                f"Invalid plan. Must be one of: {', '.join(sorted(SUPPORTED_ORG_PLANS))}",
+                status=400,
+            )
 
         # Generate slug if not provided
         if not slug:
