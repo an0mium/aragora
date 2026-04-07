@@ -477,12 +477,14 @@ class TestHandleRouteDispatch:
             assert d["status"] == "completed"
 
     @pytest.mark.asyncio
-    async def test_debate_detail_endpoint(self, handler, mock_http):
-        """GET /api/v1/dashboard/debates/{id} returns debate detail stub."""
-        result = await handler.handle("/api/v1/dashboard/debates/d1", {}, mock_http)
+    async def test_debate_detail_endpoint(self, handler_with_storage, mock_http):
+        """GET /api/v1/dashboard/debates/{id} returns debate detail."""
+        result = await handler_with_storage.handle("/api/v1/dashboard/debates/d1", {}, mock_http)
         assert _status(result) == 200
         body = _body(result)
         assert body["debate_id"] == "d1"
+        assert body["id"] == "d1"
+        assert body["domain"] == "finance"
 
     @pytest.mark.asyncio
     async def test_stats_endpoint(self, handler, mock_http):
@@ -651,12 +653,12 @@ class TestHandlePostRouteDispatch:
     async def test_execute_quick_action(self, handler, mock_http):
         """POST /api/v1/dashboard/quick-actions/{id} executes action."""
         result = await handler.handle_post(
-            "/api/v1/dashboard/quick-actions/archive_read", {}, mock_http
+            "/api/v1/dashboard/quick-actions/review_needs_attention", {}, mock_http
         )
         assert _status(result) == 200
         body = _body(result)
         assert body["success"] is True
-        assert body["action_id"] == "archive_read"
+        assert body["action_id"] == "review_needs_attention"
 
     @pytest.mark.asyncio
     async def test_dismiss_urgent_item(self, handler_with_storage, mock_http):
@@ -1303,12 +1305,16 @@ class TestDashboardWithElo:
 
     @pytest.mark.asyncio
     async def test_overview_with_elo(self, handler_with_elo, mock_http):
-        """Overview stats include agent count from ELO."""
+        """Overview remains debate-backed even when ELO data is present."""
         result = await handler_with_elo.handle("/api/v1/dashboard/overview", {}, mock_http)
         body = _body(result)
-        agent_stat = [s for s in body["stats"] if s["label"] == "Total Agents"]
-        assert len(agent_stat) == 1
-        assert agent_stat[0]["value"] == 3
+        labels = {s["label"] for s in body["stats"]}
+        assert labels == {
+            "Total Debates",
+            "Open Debates",
+            "Consensus Rate",
+            "Avg Confidence",
+        }
 
     @pytest.mark.asyncio
     async def test_team_performance_groups_by_provider(self, handler_with_elo, mock_http):
