@@ -102,11 +102,19 @@ def _normalize_string_list(value: Any) -> list[str]:
     return []
 
 
+def _normalize_string(value: Any) -> str:
+    """Coerce model output into a string while failing closed for malformed data."""
+    return value if isinstance(value, str) else ""
+
+
 def parse_score_response(text: str) -> EssayScore:
     """Extract the first JSON object from *text* and map it to an EssayScore.
 
     Returns an empty ``EssayScore`` when parsing fails.
     """
+    if not isinstance(text, str):
+        return EssayScore()
+
     match = _JSON_RE.search(text)
     if not match:
         return EssayScore()
@@ -124,12 +132,12 @@ def parse_score_response(text: str) -> EssayScore:
 
     kwargs["severity_notes"] = _normalize_string_list(data.get("severity_notes", []))
     kwargs["suggestions"] = _normalize_string_list(data.get("suggestions", []))
-    kwargs["weakest_paragraph"] = str(data.get("weakest_paragraph", ""))
-    kwargs["strongest_paragraph"] = str(data.get("strongest_paragraph", ""))
+    kwargs["weakest_paragraph"] = _normalize_string(data.get("weakest_paragraph", ""))
+    kwargs["strongest_paragraph"] = _normalize_string(data.get("strongest_paragraph", ""))
     kwargs["factual_claims_to_verify"] = _normalize_string_list(
         data.get("factual_claims_to_verify", [])
     )
-    kwargs["evaluator_model"] = str(data.get("evaluator_model", ""))
+    kwargs["evaluator_model"] = _normalize_string(data.get("evaluator_model", ""))
 
     return EssayScore(**kwargs)
 
