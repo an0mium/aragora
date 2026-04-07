@@ -544,6 +544,35 @@ class TestTextMessageHandling:
         assert call_data["auto_synthesize"] is False
 
     @pytest.mark.asyncio
+    async def test_handle_config_message_auto_synthesize_string_values(
+        self, voice_handler, mock_websocket
+    ):
+        """Test string config values are parsed conservatively."""
+        from aragora.server.stream.voice_stream import VoiceSession
+
+        truthy_cases = ("true", "1", "yes", "on")
+        falsey_cases = ("false", "0", "no", "off", "", "bogus")
+
+        for raw_value in truthy_cases + falsey_cases:
+            session = VoiceSession(
+                session_id="voice_abc123",
+                debate_id="debate_456",
+                client_ip="192.168.1.100",
+            )
+            mock_websocket.send_json.reset_mock()
+
+            config_msg = json.dumps({"type": "config", "auto_synthesize": raw_value})
+
+            await voice_handler._handle_text_message(session, mock_websocket, config_msg)
+
+            expected = raw_value in truthy_cases
+            assert session.auto_synthesize is expected
+
+            call_data = mock_websocket.send_json.call_args[0][0]
+            assert call_data["type"] == "config_ack"
+            assert call_data["auto_synthesize"] is expected
+
+    @pytest.mark.asyncio
     async def test_handle_end_message(self, voice_handler, mock_websocket):
         """Test handling end message."""
         from aragora.server.stream.voice_stream import VoiceSession
