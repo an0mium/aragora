@@ -17,6 +17,7 @@ from aragora.swarm.merge_arbiter import (
     _evaluate_pr,
     _get_check_status,
     _list_candidate_prs,
+    _merge_pr,
 )
 
 
@@ -36,7 +37,12 @@ def _all_passing_checks() -> list[dict]:
 
 
 def _pr(number: int = 1, branch: str = "boss-harvest/fix-1", draft: bool = False) -> dict:
-    return {"number": number, "headRefName": branch, "isDraft": draft}
+    return {
+        "number": number,
+        "headRefName": branch,
+        "headRefOid": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+        "isDraft": draft,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -45,6 +51,17 @@ def _pr(number: int = 1, branch: str = "boss-harvest/fix-1", draft: bool = False
 
 
 class TestListCandidatePrs:
+    def test_default_scope_excludes_generic_codex_branches(self):
+        prs = [
+            _pr(1, "boss-harvest/fix-1"),
+            _pr(2, "codex/manual-fix"),
+        ]
+        config = MergeArbiterConfig()
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            mock_gh.return_value = _make_gh_result(stdout=json.dumps(prs))
+            result = _list_candidate_prs(config)
+        assert [pr["number"] for pr in result] == [1]
+
     def test_filters_by_prefix(self):
         prs = [
             _pr(1, "boss-harvest/fix-1"),
@@ -95,6 +112,38 @@ class TestGetCheckStatus:
 
 
 # ---------------------------------------------------------------------------
+# _merge_pr
+# ---------------------------------------------------------------------------
+
+
+class TestMergePr:
+    def test_pins_merge_to_reviewed_head_commit(self):
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            mock_gh.return_value = _make_gh_result()
+            success, reason = _merge_pr(
+                12,
+                "owner/repo",
+                "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+            )
+        assert success is True
+        assert reason == "merged"
+        mock_gh.assert_called_once_with(
+            [
+                "pr",
+                "merge",
+                "12",
+                "--repo",
+                "owner/repo",
+                "--admin",
+                "--squash",
+                "--delete-branch",
+                "--match-head-commit",
+                "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+            ]
+        )
+
+
+# ---------------------------------------------------------------------------
 # _evaluate_pr — all checks passing → merge
 # ---------------------------------------------------------------------------
 
@@ -103,16 +152,17 @@ class TestEvaluatePrAllPassing:
     def test_merges_when_all_checks_pass(self):
         config = MergeArbiterConfig()
         checks = _all_passing_checks()
+        pr = _pr(42, "boss-harvest/ok")
         with (
             patch("aragora.swarm.merge_arbiter._get_check_status") as mock_checks,
             patch("aragora.swarm.merge_arbiter._merge_pr") as mock_merge,
         ):
             mock_checks.return_value = {c["name"]: "SUCCESS" for c in checks}
             mock_merge.return_value = (True, "merged")
-            result = _evaluate_pr(_pr(42, "boss-harvest/ok"), config)
+            result = _evaluate_pr(pr, config)
         assert result.success is True
         assert result.pr_number == 42
-        mock_merge.assert_called_once_with(42, config.repo)
+        mock_merge.assert_called_once_with(42, config.repo, pr["headRefOid"])
 
 
 # ---------------------------------------------------------------------------
@@ -169,14 +219,11 @@ class TestEvaluatePrDryRun:
 
 
 class TestEvaluatePrDraft:
-    def test_promotes_draft_pr(self):
+    def test_skips_draft_pr_until_human_promotion(self):
         config = MergeArbiterConfig()
-        with patch("aragora.swarm.merge_arbiter._promote_draft") as mock_promote:
-            mock_promote.return_value = True
-            result = _evaluate_pr(_pr(5, "boss-harvest/draft", draft=True), config)
+        result = _evaluate_pr(_pr(5, "boss-harvest/draft", draft=True), config)
         assert result.success is False
-        assert "promoted" in result.reason
-        mock_promote.assert_called_once_with(5, config.repo)
+        assert result.reason == "draft PR requires manual promotion"
 
 
 # ---------------------------------------------------------------------------

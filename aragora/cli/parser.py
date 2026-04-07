@@ -2626,7 +2626,7 @@ def _add_swarm_parser(subparsers) -> None:
         dest="boss_branch_prefix",
         type=str,
         default=None,
-        help="Comma-separated branch prefixes for merge-arbiter (default: boss-harvest,codex/)",
+        help="Comma-separated branch prefixes for merge-arbiter (default: boss-harvest)",
     )
     swarm_parser.add_argument(
         "--boss-max-parallel-dispatches",
