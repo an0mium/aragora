@@ -130,7 +130,7 @@ describe('RankingNamespace', () => {
 
       const result = await api.get('claude');
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/rankings/claude');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/agent/claude/profile');
       expect(result.elo).toBe(1850);
       expect(result.win_rate).toBe(0.75);
     });
@@ -141,7 +141,7 @@ describe('RankingNamespace', () => {
 
       await api.get('gpt-4-turbo');
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/rankings/gpt-4-turbo');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/agent/gpt-4-turbo/profile');
     });
   });
 

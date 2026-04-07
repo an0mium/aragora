@@ -856,6 +856,25 @@ class TestReplaysHandler:
             call_args = mock_response.call_args[0][0]
             assert len(call_args["replays"]) <= 2
 
+    @pytest.mark.asyncio
+    async def test_treats_non_object_meta_as_empty(self, request_factory, tmp_path):
+        """Valid JSON that is not an object degrades to default replay metadata."""
+        replays_dir = tmp_path / "replays"
+        replay_dir = replays_dir / "replay-non-object-meta"
+        replay_dir.mkdir(parents=True)
+        (replay_dir / "meta.json").write_text("[]")
+
+        handler = ConcreteStreamAPIHandlers(nomic_dir=tmp_path)
+        request = request_factory()
+
+        with patch("aiohttp.web.json_response") as mock_response:
+            mock_response.return_value = MagicMock()
+            await handler._handle_replays(request)
+            call_args = mock_response.call_args[0][0]
+            assert call_args["count"] == 1
+            assert call_args["replays"][0]["id"] == "replay-non-object-meta"
+            assert call_args["replays"][0]["topic"] == "replay-non-object-meta"
+
 
 class TestReplayHtmlHandler:
     """Tests for _handle_replay_html endpoint."""
@@ -912,6 +931,53 @@ class TestReplayHtmlHandler:
             call_kwargs = mock_response.call_args[1]
             assert call_kwargs.get("content_type") == "text/html"
             assert "<html>" in call_kwargs.get("text", "")
+
+    @pytest.mark.asyncio
+    async def test_tolerates_non_object_meta_and_malformed_event_shapes(
+        self, request_factory, tmp_path
+    ):
+        """Replay HTML generation skips malformed JSON shapes instead of returning 500."""
+        replays_dir = tmp_path / "replays"
+        replay_dir = replays_dir / "test-replay"
+        replay_dir.mkdir(parents=True)
+        (replay_dir / "meta.json").write_text("[]")
+        (replay_dir / "events.jsonl").write_text(
+            "\n".join(
+                [
+                    json.dumps("not-an-event"),
+                    json.dumps(
+                        {
+                            "type": "agent_message",
+                            "agent": "claude",
+                            "data": "bad-payload",
+                            "round": [],
+                        }
+                    ),
+                    json.dumps(
+                        {
+                            "type": "critique",
+                            "agent": "gemini",
+                            "data": {"role": "critic", "content": "Hello"},
+                            "round": 1,
+                        }
+                    ),
+                ]
+            )
+        )
+
+        handler = ConcreteStreamAPIHandlers(nomic_dir=tmp_path)
+        request = request_factory(match_info={"replay_id": "test-replay"})
+
+        with (
+            patch("aiohttp.web.Response") as mock_response,
+            patch("aiohttp.web.json_response") as mock_json_response,
+        ):
+            mock_response.return_value = MagicMock()
+            await handler._handle_replay_html(request)
+            mock_json_response.assert_not_called()
+            call_kwargs = mock_response.call_args[1]
+            assert call_kwargs.get("content_type") == "text/html"
+            assert "Hello" in call_kwargs.get("text", "")
 
 
 # ===========================================================================
