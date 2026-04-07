@@ -258,70 +258,9 @@ const MOCK_ELO_TRENDS: EloTrendsData = {
   period: '7d',
 };
 
-const MOCK_PENDING_CHANGES: PendingChangesData = {
-  changes: [
-    {
-      id: 'pc-001',
-      agent_name: 'mistral-large',
-      change_type: 'persona_update',
-      nomic_cycle_id: 'nomic-043',
-      proposed_at: new Date(now - 12 * 60 * 60 * 1000).toISOString(),
-      proposed_by: 'nomic-loop',
-      description: 'Specialize agent as devil\'s advocate to improve dissent coverage in consensus debates',
-      diff_summary: 'Persona: generalist -> devils_advocate | 3 prompt sections modified',
-      old_content: `Role: Generalist Debater
-Approach: Balanced analysis of all perspectives
-Style: Neutral, comprehensive evaluation
-Focus: Cover all angles equally`,
-      new_content: `Role: Devil's Advocate Specialist
-Approach: Actively challenge majority positions
-Style: Constructive contrarian, evidence-based pushback
-Focus: Identify weak assumptions and blind spots in consensus`,
-      impact_estimate: 'Expected +12% dissent detection, -3% consensus speed',
-      status: 'pending',
-    },
-    {
-      id: 'pc-002',
-      agent_name: 'gpt-4-turbo',
-      change_type: 'prompt_rewrite',
-      nomic_cycle_id: 'nomic-043',
-      proposed_at: new Date(now - 10 * 60 * 60 * 1000).toISOString(),
-      proposed_by: 'nomic-loop',
-      description: 'Restructure synthesis prompt to use claim-evidence-reasoning format',
-      diff_summary: 'Prompt v3 -> v4 | Synthesis section rewritten',
-      old_content: `When synthesizing debate outcomes, provide a clear summary
-of the main points discussed and the final recommendation.
-Include any notable disagreements.`,
-      new_content: `When synthesizing debate outcomes, use the CER format:
-- CLAIM: State the conclusion clearly
-- EVIDENCE: List supporting data points from the debate
-- REASONING: Explain the logical chain from evidence to claim
-- DISSENT: Note unresolved counter-arguments with their strength`,
-      impact_estimate: 'Expected +8% receipt clarity score, +5% audit readiness',
-      status: 'pending',
-    },
-    {
-      id: 'pc-003',
-      agent_name: 'deepseek-v3',
-      change_type: 'parameter_tune',
-      nomic_cycle_id: 'nomic-042',
-      proposed_at: new Date(now - 18 * 60 * 60 * 1000).toISOString(),
-      proposed_by: 'nomic-loop',
-      description: 'Adjust temperature from 0.7 to 0.5 for more consistent analytical output',
-      diff_summary: 'temperature: 0.7 -> 0.5 | top_p: 0.9 -> 0.85',
-      old_content: `temperature: 0.7
-top_p: 0.9
-max_tokens: 4096
-frequency_penalty: 0.0`,
-      new_content: `temperature: 0.5
-top_p: 0.85
-max_tokens: 4096
-frequency_penalty: 0.1`,
-      impact_estimate: 'Expected +4% consistency, -2% creativity in proposals',
-      status: 'pending',
-    },
-  ],
-  total_pending: 3,
+const EMPTY_PENDING_CHANGES: PendingChangesData = {
+  changes: [],
+  total_pending: 0,
 };
 
 // ============================================================================
@@ -391,7 +330,7 @@ export function usePendingChanges(
   return {
     ...result,
     pending: result.data?.data ?? null,
-    pendingFallback: MOCK_PENDING_CHANGES,
+    pendingFallback: EMPTY_PENDING_CHANGES,
   };
 }
 
