@@ -1716,7 +1716,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     if action == "merge-arbiter":
         from aragora.swarm.merge_arbiter import MergeArbiter, MergeArbiterConfig
 
-        prefixes_raw = str(getattr(args, "boss_branch_prefix", "") or "boss-harvest,codex/")
+        prefixes_raw = str(getattr(args, "boss_branch_prefix", "") or "boss-harvest")
         prefixes = [p.strip() for p in prefixes_raw.split(",") if p.strip()]
         arbiter_config = MergeArbiterConfig(
             repo=getattr(args, "boss_repo", None) or "synaptent/aragora",
