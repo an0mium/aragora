@@ -651,6 +651,18 @@ author-time 1234567890
 # =============================================================================
 
 
+def _mock_http_pool_response(status_code: int = 200, text: str = ""):
+    response = MagicMock(status_code=status_code, text=text)
+    client = MagicMock()
+    client.get = AsyncMock(return_value=response)
+    session_ctx = MagicMock()
+    session_ctx.__aenter__ = AsyncMock(return_value=client)
+    session_ctx.__aexit__ = AsyncMock(return_value=None)
+    pool = MagicMock()
+    pool.get_session.return_value = session_ctx
+    return pool, session_ctx
+
+
 class TestWebProvenanceTracker:
     """Tests for WebProvenanceTracker class."""
 
@@ -695,18 +707,9 @@ class TestWebProvenanceTracker:
                 content_hash=content_hash,
             )
 
-            mock_response = MagicMock()
-            mock_response.status = 200
-            mock_response.text = AsyncMock(return_value=content)
-            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_response.__aexit__ = AsyncMock(return_value=None)
+            mock_pool, _ = _mock_http_pool_response(status_code=200, text=content)
 
-            mock_session_instance = MagicMock()
-            mock_session_instance.get = MagicMock(return_value=mock_response)
-            mock_session_instance.__aenter__ = AsyncMock(return_value=mock_session_instance)
-            mock_session_instance.__aexit__ = AsyncMock(return_value=None)
-
-            with patch("aiohttp.ClientSession", return_value=mock_session_instance):
+            with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
                 check = await tracker.check_staleness(source_info)
                 assert check.status == StalenessStatus.FRESH
 
@@ -722,18 +725,9 @@ class TestWebProvenanceTracker:
                 content_hash="original_hash",
             )
 
-            mock_response = MagicMock()
-            mock_response.status = 200
-            mock_response.text = AsyncMock(return_value="different content")
-            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_response.__aexit__ = AsyncMock(return_value=None)
+            mock_pool, _ = _mock_http_pool_response(status_code=200, text="different content")
 
-            mock_session_instance = MagicMock()
-            mock_session_instance.get = MagicMock(return_value=mock_response)
-            mock_session_instance.__aenter__ = AsyncMock(return_value=mock_session_instance)
-            mock_session_instance.__aexit__ = AsyncMock(return_value=None)
-
-            with patch("aiohttp.ClientSession", return_value=mock_session_instance):
+            with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
                 check = await tracker.check_staleness(source_info)
                 assert check.status == StalenessStatus.STALE
                 assert "changed" in check.reason.lower()
@@ -750,25 +744,16 @@ class TestWebProvenanceTracker:
                 content_hash="abc123",
             )
 
-            mock_response = MagicMock()
-            mock_response.status = 404
-            mock_response.__aenter__ = AsyncMock(return_value=mock_response)
-            mock_response.__aexit__ = AsyncMock(return_value=None)
+            mock_pool, _ = _mock_http_pool_response(status_code=404)
 
-            mock_session_instance = MagicMock()
-            mock_session_instance.get = MagicMock(return_value=mock_response)
-            mock_session_instance.__aenter__ = AsyncMock(return_value=mock_session_instance)
-            mock_session_instance.__aexit__ = AsyncMock(return_value=None)
-
-            with patch("aiohttp.ClientSession", return_value=mock_session_instance):
+            with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
                 check = await tracker.check_staleness(source_info)
                 assert check.status == StalenessStatus.ERROR
                 assert "404" in check.reason
 
     @pytest.mark.asyncio
     async def test_check_staleness_import_error(self):
-        """Test check_staleness handles aiohttp unavailable gracefully."""
-        # This tests the exception path when aiohttp operations fail
+        """Test check_staleness handles HTTP pool unavailability gracefully."""
         with patch.object(Path, "mkdir"):
             tracker = WebProvenanceTracker()
 
@@ -778,11 +763,13 @@ class TestWebProvenanceTracker:
                 content_hash="abc123",
             )
 
-            # Simulate aiohttp not being available by raising ImportError
-            with patch("aiohttp.ClientSession", side_effect=Exception("aiohttp not available")):
+            with patch(
+                "aragora.server.http_client_pool.get_http_pool",
+                side_effect=ImportError("http pool not available"),
+            ):
                 check = await tracker.check_staleness(source_info)
-                assert check.status == StalenessStatus.ERROR
-                assert "aiohttp not available" in check.reason
+                assert check.status == StalenessStatus.UNKNOWN
+                assert "http pool not available" in check.reason
 
     @pytest.mark.asyncio
     async def test_check_staleness_network_exception(self):
@@ -796,8 +783,10 @@ class TestWebProvenanceTracker:
                 content_hash="abc123",
             )
 
-            with patch("aiohttp.ClientSession") as mock_session:
-                mock_session.return_value.__aenter__.side_effect = Exception("Network error")
+            mock_pool, session_ctx = _mock_http_pool_response()
+            session_ctx.__aenter__.side_effect = RuntimeError("Network error")
+
+            with patch("aragora.server.http_client_pool.get_http_pool", return_value=mock_pool):
                 check = await tracker.check_staleness(source_info)
                 assert check.status == StalenessStatus.ERROR
                 assert "Network error" in check.reason
@@ -938,7 +927,7 @@ class TestEnhancedProvenanceManager:
                 with patch.object(
                     manager.web_tracker,
                     "check_staleness",
-                    return_value=AsyncMock(return_value=fresh_check)(),
+                    new=AsyncMock(return_value=fresh_check),
                 ):
                     checks = await manager.check_all_staleness()
                     assert len(checks) == 2

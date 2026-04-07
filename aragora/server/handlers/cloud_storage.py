@@ -546,7 +546,11 @@ class CloudStorageHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests to appropriate handler method."""
-        body = self.read_json_body(handler) or {}
+        body = self.read_json_body(handler)
+        if body is None:
+            body = {}
+        elif not isinstance(body, dict):
+            return error_response("Request body must be a JSON object", 400)
         query_params = query_params or {}
 
         try:
