@@ -986,6 +986,8 @@ class MemoryManager:
                     logger.warning(
                         "  [continuum] Unexpected error updating memory %s: %s", mem_id, e
                     )
+                except Exception as e:
+                    logger.warning("  [continuum] Failed to update memory %s: %s", mem_id, e)
 
             if updated_count > 0:
                 logger.info(
@@ -1005,6 +1007,8 @@ class MemoryManager:
             # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "continuum")
             logger.exception("  [continuum] Unexpected error updating memory outcomes: %s", msg)
+        except Exception as e:
+            logger.warning("  [continuum] Failed to update memory outcomes: %s", e)
 
     async def update_km_item_confidence(
         self,

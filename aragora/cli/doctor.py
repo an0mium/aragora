@@ -43,8 +43,8 @@ def check_packages() -> list[tuple[str, str, bool | None]]:
         try:
             __import__(pkg)
             checks.append((pkg, "installed", True))
-        except ImportError:
-            checks.append((pkg, "MISSING", False))
+        except Exception as exc:  # noqa: BLE001 - doctor should surface broken imports, not crash
+            checks.append((pkg, f"MISSING ({type(exc).__name__})", False))
 
     # Optional ML packages
     optional_ml = ["torch", "transformers", "sentence_transformers"]
@@ -52,8 +52,8 @@ def check_packages() -> list[tuple[str, str, bool | None]]:
         try:
             __import__(pkg)
             checks.append((f"{pkg} (ML)", "installed", True))
-        except ImportError:
-            checks.append((f"{pkg} (ML)", "not installed", None))
+        except Exception as exc:  # noqa: BLE001 - optional imports may fail due broken transitive deps
+            checks.append((f"{pkg} (ML)", f"not installed ({type(exc).__name__})", None))
 
     # Optional integrations
     optional_int = ["redis", "asyncpg", "boto3", "opentelemetry"]
@@ -61,8 +61,8 @@ def check_packages() -> list[tuple[str, str, bool | None]]:
         try:
             __import__(pkg)
             checks.append((f"{pkg} (integration)", "installed", True))
-        except ImportError:
-            checks.append((f"{pkg} (integration)", "not installed", None))
+        except Exception as exc:  # noqa: BLE001 - doctor should not crash on broken optional deps
+            checks.append((f"{pkg} (integration)", f"not installed ({type(exc).__name__})", None))
 
     return checks
 

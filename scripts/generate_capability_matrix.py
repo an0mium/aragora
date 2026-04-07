@@ -133,7 +133,7 @@ def _count_top_level_commands_in_helper(helper: ast.FunctionDef) -> int:
         if isinstance(node.func, ast.Name):
             delegate_count += 1
 
-    return direct_count or delegate_count
+    return direct_count + delegate_count
 
 
 def _alias_count(call: ast.Call) -> int:
