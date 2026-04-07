@@ -75,7 +75,6 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 - `aragora/server/handlers/spectate_ws.py` now serves `/api/v1/spectate/stream` as a finite buffered SSE snapshot with JSON preview fallback; full real-time streaming on that endpoint still has not shipped.
 - `aragora/server/handlers/sme/slack_workspace.py` now uses the live Slack connector for channel listing, and the SME OAuth helper endpoints delegate into the canonical Slack install/callback flow.
 - `aragora/server/handlers/sme/teams_workspace.py` now uses the live Teams connector for channel listing when `team_id` is supplied, and the SME OAuth helper endpoints delegate into the canonical Teams install/callback flow.
-- `aragora/inbox/triage_runner.py` can still fall back to stub debates when agents or engine wiring are unavailable.
 - `aragora/server/handlers/gauntlet/receipts.py` and the compliance UI still have placeholder or optional anchor-verification paths.
 - `aragora/server/handlers/security_debate.py` exposes an async-status endpoint that is explicitly a placeholder because debates are synchronous and not persisted.
 - `aragora/server/handlers/features/documents_batch.py` returns placeholder chunk retrieval output pending vector-store integration.
