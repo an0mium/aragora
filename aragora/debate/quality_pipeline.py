@@ -24,6 +24,8 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_TRUE_BOOLEAN_STRINGS = {"true", "1", "yes", "on"}
+
 
 @dataclass
 class QualityPipelineConfig:
@@ -52,6 +54,16 @@ class QualityPipelineConfig:
     quality_min_score: float = 9.0
     practicality_min_score: float = 5.0
 
+    @staticmethod
+    def _parse_bool_flag(value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in _TRUE_BOOLEAN_STRINGS
+        if isinstance(value, int) and value in (0, 1):
+            return bool(value)
+        return False
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> QualityPipelineConfig:
         """Construct from a JSON-compatible dict (e.g. API request body)."""
@@ -66,11 +78,13 @@ class QualityPipelineConfig:
                 sections = None
 
         return cls(
-            enabled=bool(data.get("enabled", True)),
+            enabled=cls._parse_bool_flag(data["enabled"]) if "enabled" in data else True,
             output_contract_file=data.get("output_contract_file"),
             required_sections=sections,
             repo_root=data.get("repo_root"),
-            has_context=bool(data.get("has_context", False)),
+            has_context=cls._parse_bool_flag(data["has_context"])
+            if "has_context" in data
+            else False,
             quality_min_score=float(data.get("quality_min_score", 9.0)),
             practicality_min_score=float(data.get("practicality_min_score", 5.0)),
         )
