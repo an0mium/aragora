@@ -189,6 +189,44 @@ class TestOpenAPISchemaContent:
                     f"Missing/invalid stability for {method} {path}"
                 )
 
+    def test_runtime_openapi_has_spend_analytics_paths(self, openapi_schema):
+        """Spend analytics dashboard routes should be published in the runtime schema."""
+        paths = openapi_schema["paths"]
+
+        assert "/api/v1/analytics/spend/summary" in paths
+        summary_operation = paths["/api/v1/analytics/spend/summary"]["get"]
+        assert {param["name"] for param in summary_operation["parameters"]} == {
+            "workspace_id",
+            "org_id",
+        }
+
+        assert "/api/v1/analytics/spend/trends" in paths
+        trends_operation = paths["/api/v1/analytics/spend/trends"]["get"]
+        assert {param["name"] for param in trends_operation["parameters"]} == {
+            "org_id",
+            "period",
+            "days",
+        }
+
+        assert "/api/v1/analytics/spend/by-agent" in paths
+        by_agent_operation = paths["/api/v1/analytics/spend/by-agent"]["get"]
+        assert {param["name"] for param in by_agent_operation["parameters"]} == {
+            "workspace_id",
+        }
+
+        assert "/api/v1/analytics/spend/by-decision" in paths
+        by_decision_operation = paths["/api/v1/analytics/spend/by-decision"]["get"]
+        assert {param["name"] for param in by_decision_operation["parameters"]} == {
+            "workspace_id",
+            "limit",
+        }
+
+        assert "/api/v1/analytics/spend/budget" in paths
+        budget_operation = paths["/api/v1/analytics/spend/budget"]["get"]
+        assert {param["name"] for param in budget_operation["parameters"]} == {
+            "org_id",
+        }
+
 
 # ---------------------------------------------------------------------------
 # Test Class: Tag Inference

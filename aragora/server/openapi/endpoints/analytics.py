@@ -1,6 +1,44 @@
 """Analytics and insights endpoint definitions."""
 
-from aragora.server.openapi.helpers import _ok_response
+from aragora.server.openapi.helpers import STANDARD_ERRORS, _ok_response
+
+_SPEND_AGENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "agent_name": {"type": "string", "description": "Agent type or configured agent name"},
+        "cost_usd": {"type": "string", "description": "Total spend attributed to the agent"},
+        "percentage": {
+            "type": "number",
+            "description": "Percentage of the workspace spend attributed to the agent",
+        },
+    },
+}
+
+_SPEND_DECISION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "debate_id": {"type": "string", "description": "Debate or decision identifier"},
+        "cost_usd": {"type": "string", "description": "Total spend attributed to the decision"},
+    },
+}
+
+_SPEND_BUDGET_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "budget_id": {"type": "string"},
+        "name": {"type": "string"},
+        "amount_usd": {"type": "number"},
+        "spent_usd": {"type": "number"},
+        "remaining_usd": {"type": "number"},
+        "period": {"type": "string"},
+        "period_start": {"type": "number"},
+        "period_start_iso": {"type": ["string", "null"], "format": "date-time"},
+        "period_end": {"type": "number"},
+        "period_end_iso": {"type": ["string", "null"], "format": "date-time"},
+        "status": {"type": "string"},
+        "auto_suspend": {"type": "boolean"},
+    },
+}
 
 ANALYTICS_ENDPOINTS = {
     "/api/analytics/disagreements": {
@@ -258,6 +296,214 @@ ANALYTICS_ENDPOINTS = {
                 {"name": "granularity", "in": "query", "schema": {"type": "string"}},
             ],
             "responses": {"200": _ok_response("Agent trends", "AnalyticsAgentsTrends")},
+        },
+    },
+    "/api/v1/analytics/spend/summary": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Spend analytics summary",
+            "operationId": "getAnalyticsSpendSummary",
+            "description": (
+                "Get aggregate spend, usage, and budget utilization for a workspace or "
+                "organization. Mirrors the live spend analytics dashboard summary card."
+            ),
+            "parameters": [
+                {"name": "workspace_id", "in": "query", "schema": {"type": "string"}},
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Spend summary",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "total_spend_usd": {
+                                "type": "string",
+                                "description": "Formatted total spend for the scope",
+                            },
+                            "total_api_calls": {
+                                "type": "integer",
+                                "description": "Total API calls recorded for the scope",
+                            },
+                            "total_tokens": {
+                                "type": "integer",
+                                "description": "Combined input and output token usage",
+                            },
+                            "budget_limit_usd": {
+                                "type": "number",
+                                "description": "Combined active budget limit for the org",
+                            },
+                            "budget_spent_usd": {
+                                "type": "number",
+                                "description": "Combined spend across active org budgets",
+                            },
+                            "utilization_pct": {
+                                "type": "number",
+                                "description": "Percent of available budget already spent",
+                            },
+                            "trend_direction": {
+                                "type": "string",
+                                "enum": ["stable", "increasing", "decreasing"],
+                                "description": "Projected spend direction relative to current spend",
+                            },
+                            "avg_cost_per_decision": {
+                                "type": "number",
+                                "description": "Average spend per recorded API call",
+                            },
+                        },
+                    },
+                    include_rate_limit_headers=True,
+                ),
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/analytics/spend/trends": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Spend trends",
+            "operationId": "getAnalyticsSpendTrends",
+            "description": "Get daily, weekly, or monthly spend trend points for an organization.",
+            "parameters": [
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+                {
+                    "name": "period",
+                    "in": "query",
+                    "schema": {"type": "string", "enum": ["daily", "weekly", "monthly"]},
+                },
+                {
+                    "name": "days",
+                    "in": "query",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 365},
+                },
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Spend trends",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "org_id": {"type": "string"},
+                            "period": {
+                                "type": "string",
+                                "enum": ["daily", "weekly", "monthly"],
+                            },
+                            "days": {"type": "integer"},
+                            "data_points": {
+                                "type": "array",
+                                "items": {"type": "object", "additionalProperties": True},
+                                "description": "Budget-manager trend rows for the selected period",
+                            },
+                        },
+                    },
+                    include_rate_limit_headers=True,
+                ),
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/analytics/spend/by-agent": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Spend by agent",
+            "operationId": "getAnalyticsSpendByAgent",
+            "description": "Get per-agent spend attribution for a workspace.",
+            "parameters": [
+                {"name": "workspace_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Spend by agent",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "workspace_id": {"type": "string"},
+                            "total_usd": {
+                                "type": "string",
+                                "description": "Formatted total spend for the workspace",
+                            },
+                            "agents": {
+                                "type": "array",
+                                "items": _SPEND_AGENT_SCHEMA,
+                            },
+                        },
+                    },
+                    include_rate_limit_headers=True,
+                ),
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/analytics/spend/by-decision": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Spend by decision",
+            "operationId": "getAnalyticsSpendByDecision",
+            "description": "Get the most expensive debates or decisions for a workspace.",
+            "parameters": [
+                {"name": "workspace_id", "in": "query", "schema": {"type": "string"}},
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 100},
+                },
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Spend by decision",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "workspace_id": {"type": "string"},
+                            "decisions": {
+                                "type": "array",
+                                "items": _SPEND_DECISION_SCHEMA,
+                            },
+                            "count": {"type": "integer"},
+                        },
+                    },
+                    include_rate_limit_headers=True,
+                ),
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/analytics/spend/budget": {
+        "get": {
+            "tags": ["Analytics"],
+            "summary": "Spend budget status",
+            "operationId": "getAnalyticsSpendBudget",
+            "description": "Get budget totals, remaining funds, and exhaustion forecast for an org.",
+            "parameters": [
+                {"name": "org_id", "in": "query", "schema": {"type": "string"}},
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Spend budget status",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "org_id": {"type": "string"},
+                            "budgets": {
+                                "type": "array",
+                                "items": _SPEND_BUDGET_SCHEMA,
+                            },
+                            "total_budget_usd": {"type": "number"},
+                            "total_spent_usd": {"type": "number"},
+                            "total_remaining_usd": {"type": "number"},
+                            "utilization_pct": {"type": "number"},
+                            "forecast_exhaustion_days": {"type": ["number", "null"]},
+                        },
+                    },
+                    include_rate_limit_headers=True,
+                ),
+                "429": STANDARD_ERRORS["429"],
+                "500": STANDARD_ERRORS["500"],
+            },
         },
     },
     "/api/v1/analytics/usage/tokens": {
