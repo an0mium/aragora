@@ -16,6 +16,7 @@ from aragora.inbox.triage_runner import (
     _create_triage_agents,
     _extract_fast_tier_json,
     _normalize_triage_profile,
+    _result_consensus_reached,
 )
 from aragora.inbox.trust_wedge import (
     InboxWedgeAction,
@@ -91,6 +92,24 @@ def test_extract_fast_tier_json_parses_fenced_payload():
         "confidence": 0.95,
         "rationale": "Promotional email.",
     }
+
+
+def test_result_consensus_reached_parses_string_values_fail_closed():
+    assert _result_consensus_reached({"consensus_reached": "true"}, "non-empty rationale") is True
+    assert _result_consensus_reached({"consensus_reached": "1"}, "non-empty rationale") is True
+    assert _result_consensus_reached({"consensus_reached": "yes"}, "non-empty rationale") is True
+    assert _result_consensus_reached({"consensus_reached": "on"}, "non-empty rationale") is True
+    assert _result_consensus_reached({"consensus_reached": "false"}, "non-empty rationale") is False
+    assert _result_consensus_reached({"consensus_reached": "0"}, "non-empty rationale") is False
+    assert _result_consensus_reached({"consensus_reached": "no"}, "non-empty rationale") is False
+    assert _result_consensus_reached({"consensus_reached": "off"}, "non-empty rationale") is False
+    assert _result_consensus_reached({"consensus_reached": ""}, "non-empty rationale") is False
+    assert (
+        _result_consensus_reached({"consensus_reached": "definitely"}, "non-empty rationale")
+        is False
+    )
+    assert _result_consensus_reached({}, "non-empty rationale") is True
+    assert _result_consensus_reached({"consensus_reached": None}, "non-empty rationale") is True
 
 
 @pytest.mark.asyncio
