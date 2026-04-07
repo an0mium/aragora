@@ -125,6 +125,13 @@ def _result_consensus_reached(debate_result: Any, rationale: str) -> bool:
     raw_value = _result_field(debate_result, "consensus_reached", None)
     if raw_value is None:
         return bool(rationale.strip())
+    if isinstance(raw_value, str):
+        normalized = raw_value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off", ""}:
+            return False
+        return False
     return bool(raw_value)
 
 

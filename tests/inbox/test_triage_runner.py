@@ -16,6 +16,7 @@ from aragora.inbox.triage_runner import (
     _create_triage_agents,
     _extract_fast_tier_json,
     _normalize_triage_profile,
+    _result_consensus_reached,
 )
 from aragora.inbox.trust_wedge import (
     InboxWedgeAction,
@@ -289,6 +290,29 @@ async def test_dissent_blocks_auto_approval_before_receipt_execution():
     assert wedge_service.create_receipt.call_args.kwargs["auto_approve"] is False
     assert decisions[0].receipt_state == ReceiptState.CREATED.value
     wedge_service.execute_receipt.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("debate_result", "rationale", "expected"),
+    [
+        ({"consensus_reached": "true"}, "", True),
+        ({"consensus_reached": "1"}, "", True),
+        ({"consensus_reached": "yes"}, "", True),
+        ({"consensus_reached": "on"}, "", True),
+        ({"consensus_reached": "false"}, "archive", False),
+        ({"consensus_reached": "0"}, "archive", False),
+        ({"consensus_reached": "no"}, "archive", False),
+        ({"consensus_reached": "off"}, "archive", False),
+        ({"consensus_reached": ""}, "archive", False),
+        ({"consensus_reached": "malformed"}, "archive", False),
+        ({}, "archive", True),
+        ({"consensus_reached": None}, "archive", True),
+    ],
+)
+def test_result_consensus_reached_parses_string_values_fail_closed(
+    debate_result, rationale, expected
+):
+    assert _result_consensus_reached(debate_result, rationale) is expected
 
 
 @pytest.mark.asyncio
