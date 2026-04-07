@@ -13,8 +13,11 @@ from aragora.swarm.tranche import (
     TrancheExecutor,
     TrancheInspector,
     TrancheLaneArtifact,
+    TrancheLane,
     TrancheManifest,
     TranchePlanner,
+    _lane_review_model,
+    _lane_spec_from_manifest,
     load_tranche_manifest,
     parse_github_reference_url,
 )
@@ -1077,3 +1080,33 @@ async def test_run_allows_explicit_managed_session_script_override(tmp_path: Pat
         await executor.run(manifest, lane_id="pmf_impl", skip_review=True)
 
     assert captured_kwargs.get("use_managed_session_script") is True
+
+
+def test_lane_spec_coerces_string_boolean_metadata() -> None:
+    manifest = TrancheManifest(
+        manifest_id="m1",
+        repo={"name": "synaptent/aragora", "root": "/tmp/repo", "base_ref": "origin/main"},
+        references={},
+        gates={},
+        lanes=[],
+        terminal_outcomes={"success": {"definition": "done"}},
+    )
+    lane = TrancheLane(
+        lane_id="lane-a",
+        owner_role="engineer",
+        allowed_write_scope=["aragora/swarm/**"],
+        verification_commands=[],
+        metadata={
+            "prompt": "Ship the fix.",
+            "target_agent": "codex",
+            "review_model": "codex",
+            "requires_approval": "false",
+            "enforce_cross_model_review": "false",
+        },
+    )
+
+    spec = _lane_spec_from_manifest(manifest, lane)
+
+    assert spec.work_orders[0]["approval_required"] is False
+    assert spec.requires_approval is False
+    assert _lane_review_model(lane, target_agent="codex") == "codex"

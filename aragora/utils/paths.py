@@ -5,6 +5,7 @@ Provides safe path operations to prevent directory traversal attacks.
 """
 
 import logging
+import os
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -71,15 +72,18 @@ def safe_path(
         user_path = decoded_path
         logger.debug("URL-decoded path for validation: %s", decoded_path)
 
-    if raw_path.startswith(("\\\\", "//")):
+    if os.name == "nt":
+        normalized_path = raw_path.replace("\\", "/")
+        if normalized_path != raw_path:
+            raw_path = normalized_path
+            user_path = normalized_path
+
+    if raw_path.startswith("/"):
         logger.warning("Path traversal blocked: %s", user_path)
         raise PathTraversalError(f"Path traversal blocked: {user_path}")
     if len(raw_path) >= 2 and raw_path[1] == ":" and raw_path[0].isalpha():
         logger.warning("Path traversal blocked: %s", user_path)
         raise PathTraversalError(f"Path traversal blocked: {user_path}")
-
-    if isinstance(user_path, str):
-        user_path = raw_path.replace("\\", "/")
 
     base = Path(base_dir).resolve()
     combined = (base / user_path).resolve()

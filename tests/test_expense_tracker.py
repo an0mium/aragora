@@ -33,7 +33,7 @@ from aragora.services.expense_tracker import (
 @pytest.fixture
 def expense_tracker():
     """Create a fresh ExpenseTracker instance."""
-    return ExpenseTracker()
+    return ExpenseTracker(enable_llm_categorization=False)
 
 
 @pytest.fixture
@@ -510,7 +510,7 @@ class TestFailureScenarios:
     @pytest.mark.asyncio
     async def test_circuit_breaker_status(self):
         """Test circuit breaker status reporting."""
-        tracker = ExpenseTracker(enable_circuit_breakers=True)
+        tracker = ExpenseTracker(enable_circuit_breakers=True, enable_llm_categorization=False)
         status = tracker.get_circuit_breaker_status()
 
         assert status["enabled"] is True
@@ -521,7 +521,7 @@ class TestFailureScenarios:
     @pytest.mark.asyncio
     async def test_circuit_breaker_disabled(self):
         """Test with circuit breakers disabled."""
-        tracker = ExpenseTracker(enable_circuit_breakers=False)
+        tracker = ExpenseTracker(enable_circuit_breakers=False, enable_llm_categorization=False)
         status = tracker.get_circuit_breaker_status()
 
         assert status["enabled"] is False
@@ -530,7 +530,7 @@ class TestFailureScenarios:
     @pytest.mark.asyncio
     async def test_ocr_failure_returns_defaults(self):
         """Test that OCR failure returns default expense data."""
-        tracker = ExpenseTracker(enable_ocr=True)
+        tracker = ExpenseTracker(enable_ocr=True, enable_llm_categorization=False)
 
         # Process invalid image data
         expense = await tracker.process_receipt(b"invalid image data")
@@ -572,7 +572,7 @@ class TestFailureScenarios:
     @pytest.mark.asyncio
     async def test_qbo_sync_without_connector(self):
         """Test QBO sync without connector configured."""
-        tracker = ExpenseTracker(qbo_connector=None)
+        tracker = ExpenseTracker(qbo_connector=None, enable_llm_categorization=False)
 
         result = await tracker.sync_to_qbo()
 
@@ -584,7 +584,7 @@ class TestFailureScenarios:
     @pytest.mark.asyncio
     async def test_process_empty_receipt(self):
         """Test processing an empty receipt."""
-        tracker = ExpenseTracker(enable_ocr=True)
+        tracker = ExpenseTracker(enable_ocr=True, enable_llm_categorization=False)
 
         expense = await tracker.process_receipt(b"")
 
@@ -609,7 +609,7 @@ class TestFailureScenarios:
     @pytest.mark.asyncio
     async def test_duplicate_detection_tolerance(self):
         """Test duplicate detection respects tolerance window."""
-        tracker = ExpenseTracker()
+        tracker = ExpenseTracker(enable_llm_categorization=False)
 
         # Create first expense
         expense1 = await tracker.create_expense(
