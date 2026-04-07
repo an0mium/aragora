@@ -33,6 +33,9 @@ _HUMAN_OVERRIDE_REASON_CODES = frozenset(
         "untrusted_intake_tier",
     }
 )
+_MISSING = object()
+_TRUTHY_FLAG_STRINGS = frozenset({"true", "1", "yes", "on"})
+_FALSY_FLAG_STRINGS = frozenset({"false", "0", "no", "off"})
 
 
 class PlanReceiptGateError(RuntimeError):
@@ -129,6 +132,21 @@ def _list_of_strings(value: Any) -> list[str]:
     return []
 
 
+def _parse_metadata_bool_flag(value: Any, *, default: bool) -> bool:
+    if value is _MISSING:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _TRUTHY_FLAG_STRINGS:
+            return True
+        if normalized in _FALSY_FLAG_STRINGS or not normalized:
+            return False
+        return False
+    return bool(value)
+
+
 def _resolve_backbone_run(plan: Any, plan_store: Any | None = None) -> Any | None:
     metadata = _metadata(plan)
     run_id = str(metadata.get("backbone_run_id", "") or "").strip()
@@ -183,7 +201,10 @@ def evaluate_plan_execution_gate(
         gate = {}
 
     reason_codes = _list_of_strings(gate.get("reason_codes"))
-    allow_auto_execution = bool(gate.get("allow_auto_execution", True))
+    allow_auto_execution = _parse_metadata_bool_flag(
+        gate.get("allow_auto_execution", _MISSING),
+        default=True,
+    )
     if "gate_evaluation_failed" in reason_codes:
         allow_auto_execution = False
 
@@ -293,9 +314,15 @@ def _synthetic_debate_result(plan: Any) -> Any:
         or metadata.get("decision_confidence")
         or 0.0
     )
-    consensus_reached = bool(deliberation.get("consensus_reached"))
+    consensus_reached = _parse_metadata_bool_flag(
+        deliberation.get("consensus_reached", _MISSING),
+        default=False,
+    )
     if not consensus_reached:
-        consensus_reached = bool(signed_consensus.get("reached"))
+        consensus_reached = _parse_metadata_bool_flag(
+            signed_consensus.get("reached", _MISSING),
+            default=False,
+        )
 
     return SimpleNamespace(
         debate_id=str(getattr(plan, "debate_id", "") or getattr(plan, "id", "")),
