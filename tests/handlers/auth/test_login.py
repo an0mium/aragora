@@ -506,6 +506,20 @@ class TestLoginInvalidBody:
         result = handler._handle_login(http)
         assert _status(result) == 400
 
+    @pytest.mark.parametrize(
+        ("body", "field_name"),
+        [
+            ({"email": 123, "password": "anything"}, "email"),
+            ({"email": "user@example.com", "password": ["anything"]}, "password"),
+        ],
+    )
+    def test_non_string_credentials_return_400(self, handler, body, field_name):
+        result = handler._handle_login(MockHTTPHandler(body=body))
+        assert _status(result) == 400
+        error = _body(result).get("error", "").lower()
+        assert "string" in error
+        assert field_name in error
+
 
 class TestLoginUserStoreUnavailable:
     """503 when user store is missing."""
