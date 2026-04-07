@@ -15,11 +15,19 @@ import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from aragora.rbac.models import AuthorizationContext
+from aragora.server.fastapi.dependencies.auth import require_authenticated
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v2", tags=["Security"])
+
+
+def _reject_unexpected_query_params(request: Request) -> None:
+    if request.query_params:
+        raise HTTPException(status_code=400, detail="Invalid query")
 
 
 # =============================================================================
@@ -28,7 +36,10 @@ router = APIRouter(prefix="/api/v2", tags=["Security"])
 
 
 @router.get("/security/rbac-coverage")
-async def get_rbac_coverage(request: Request) -> dict[str, Any]:
+async def get_rbac_coverage(
+    request: Request,
+    _auth: AuthorizationContext = Depends(require_authenticated),
+) -> dict[str, Any]:
     """
     Return RBAC coverage metrics for the compliance dashboard.
 
@@ -38,6 +49,7 @@ async def get_rbac_coverage(request: Request) -> dict[str, Any]:
 
     Response wrapped in ``{"data": ...}`` for frontend compatibility.
     """
+    _reject_unexpected_query_params(request)
     roles_defined = 0
     permissions_defined = 0
     assignments_active = 0
@@ -66,12 +78,14 @@ async def get_rbac_coverage(request: Request) -> dict[str, Any]:
         logger.debug("Live RBAC assignments unavailable: %s", exc)
 
     # ----- Endpoint coverage -----
-    # Count total registered routes on the FastAPI app
+    # Count total registered routes on the FastAPI app.
+    # Route counts are more stable than method counts across FastAPI/Starlette
+    # versions, and the dashboard field is endpoint-oriented.
     total_endpoints = 0
     try:
         for route in request.app.routes:
             if hasattr(route, "methods"):
-                total_endpoints += len(route.methods)
+                total_endpoints += 1
     except (RuntimeError, TypeError, AttributeError):
         pass
 
@@ -84,10 +98,10 @@ async def get_rbac_coverage(request: Request) -> dict[str, Any]:
             path = getattr(route, "path", "")
             if path and not path.startswith("/api/"):
                 if hasattr(route, "methods"):
-                    unprotected += len(route.methods)
+                    unprotected += 1
             elif path in ("/api/v2/health", "/api/v2/health/ready", "/api/v2/health/live"):
                 if hasattr(route, "methods"):
-                    unprotected += len(route.methods)
+                    unprotected += 1
     except (RuntimeError, TypeError, AttributeError):
         pass
 
@@ -113,7 +127,10 @@ async def get_rbac_coverage(request: Request) -> dict[str, Any]:
 
 
 @router.get("/security/encryption-status")
-async def get_encryption_status(request: Request) -> dict[str, Any]:
+async def get_encryption_status(
+    request: Request,
+    _auth: AuthorizationContext = Depends(require_authenticated),
+) -> dict[str, Any]:
     """
     Return encryption posture for the compliance dashboard.
 
@@ -123,6 +140,7 @@ async def get_encryption_status(request: Request) -> dict[str, Any]:
 
     Response wrapped in ``{"data": ...}`` for frontend compatibility.
     """
+    _reject_unexpected_query_params(request)
     # ----- At-rest encryption -----
     at_rest_algorithm = "AES-256-GCM"
     at_rest_status: str = "inactive"
