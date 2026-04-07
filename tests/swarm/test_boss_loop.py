@@ -65,7 +65,7 @@ def _make_issue(
     body: str = (
         "The dashboard is slow, improve query performance in aragora/analytics/dashboard.py\n\n"
         "Acceptance Criteria:\n"
-        "- pytest -q tests/analytics/test_dashboard.py\n"
+        "- pytest -q tests/memory/test_tier_ttl_expiration.py\n"
         "- Dashboard query path remains bounded to aragora/analytics/dashboard.py\n"
     ),
     labels: list[str] | None = None,
