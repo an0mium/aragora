@@ -189,6 +189,12 @@ class SessionRegistry:
 
         return sessions
 
+    def known_session_ids(self) -> set[str]:
+        """Return session IDs with registration files, regardless of liveness."""
+        if not self._sessions_dir.exists():
+            return set()
+        return {path.stem for path in self._sessions_dir.glob("*.json")}
+
     def get(self, session_id: str) -> SessionInfo | None:
         """Get a specific session by ID, or None if not found/dead."""
         path = self._sessions_dir / f"{session_id}.json"

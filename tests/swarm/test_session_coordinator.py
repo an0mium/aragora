@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+
+from aragora.coordination.registry import SessionRegistry
 from aragora.swarm.session_coordinator import (
     claim_pr,
     get_my_assignment,
@@ -62,3 +65,17 @@ class TestSessionCoordinator:
         assert view["summary"]["claim_count"] == 1
         assert view["summary"]["finding_count"] == 1
         assert view["directives"][0]["target"] == "codex-a"
+
+    def test_read_directives_skips_stale_session_assignments(self, tmp_path):
+        registry = SessionRegistry(repo_path=tmp_path)
+        live = registry.register("codex", tmp_path, focus="Live lane", pid=os.getpid())
+        stale = registry.register("codex", tmp_path, focus="Stale lane", pid=999999)
+
+        set_assignment(live.session_id, "Own live lane", repo_root=tmp_path)
+        set_assignment(stale.session_id, "Obsolete lane", repo_root=tmp_path)
+
+        view = read_directives(repo_root=tmp_path, findings_limit=5)
+
+        assert view["summary"]["session_count"] == 1
+        assert view["summary"]["directive_count"] == 1
+        assert [directive["target"] for directive in view["directives"]] == [live.session_id]

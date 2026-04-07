@@ -174,8 +174,15 @@ def list_findings(
 
 def read_directives(repo_root: Path | None = None, *, findings_limit: int = 10) -> dict[str, Any]:
     root = _coord_repo_root(repo_root)
-    directives = [item.to_dict() for item in DirectiveBoard(repo_path=root).list()]
-    sessions = [item.to_dict() for item in SessionRegistry(repo_path=root).discover()]
+    registry = SessionRegistry(repo_path=root)
+    known_session_ids = registry.known_session_ids()
+    sessions = [item.to_dict() for item in registry.discover()]
+    live_session_ids = {str(item["session_id"]) for item in sessions}
+    directives = [
+        item.to_dict()
+        for item in DirectiveBoard(repo_path=root).list()
+        if item.target not in known_session_ids or item.target in live_session_ids
+    ]
     claims = [item.to_dict() for item in ClaimManager(repo_path=root).list_all()]
     findings = list_findings(limit=findings_limit, repo_root=root)
     return {
