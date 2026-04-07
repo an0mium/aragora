@@ -40,6 +40,8 @@ from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRe
 from aragora.swarm.boss_feed import (  # noqa: F401
     GitHubIssue,
     GitHubIssueFeed,
+    IssueEligibilityReport,
+    build_issue_eligibility_report,
     fetch_open_pr_changed_paths,
     infer_issue_lane_hints,
     infer_issue_scope_entries,
@@ -1017,6 +1019,43 @@ class BossLoop:
                 ],
             )
         return reasons, next_actions
+
+    @staticmethod
+    def _skip_label_summary(report: IssueEligibilityReport) -> str | None:
+        if not report.skipped_by_label:
+            return None
+        parts: list[str] = []
+        for label, numbers in sorted(report.skipped_by_label.items()):
+            issue_refs = ", ".join(f"#{number}" for number in numbers[:3])
+            if len(numbers) > 3:
+                issue_refs = f"{issue_refs}, +{len(numbers) - 3} more"
+            parts.append(f"{label} ({len(numbers)}: {issue_refs})")
+        return "Skipped by label: " + "; ".join(parts)
+
+    def _log_issue_skip_summary(self, report: IssueEligibilityReport) -> None:
+        summary = self._skip_label_summary(report)
+        if summary:
+            logger.info("Boss loop %s", summary)
+
+    def _no_suitable_issue_guidance(
+        self,
+        *,
+        already_maxed: set[int],
+        report: IssueEligibilityReport,
+    ) -> tuple[list[str], list[str]]:
+        needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
+        next_actions = [
+            "Create a new issue with actionable scope, or adjust label filters.",
+            (
+                "Eligible dispatch candidates after filters: "
+                f"{report.eligible_count}, already maxed retries: {len(already_maxed)}"
+            ),
+        ]
+        summary = self._skip_label_summary(report)
+        if summary:
+            needs_human_reasons.append(summary)
+            next_actions.append(summary)
+        return needs_human_reasons, next_actions
 
     def _emit_terminal_receipt(self, result: BossLoopResult) -> None:
         try:
@@ -2529,6 +2568,13 @@ class BossLoop:
         candidate_issues = [
             i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
         ]
+        eligibility_report = build_issue_eligibility_report(
+            candidate_issues,
+            skip_labels=self.config.skip_labels,
+            require_labels=self.config.require_labels,
+            blocked_scopes=blocked_scopes,
+        )
+        self._log_issue_skip_summary(eligibility_report)
         if pending_handoffs:
             selected: GitHubIssue | None = pending_handoffs[0]
         elif self.config.issue_number is not None:
@@ -2561,11 +2607,10 @@ class BossLoop:
                     self.config.issue_number
                 )
             else:
-                needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
-                next_actions = [
-                    "Create a new issue with actionable scope, or adjust label filters.",
-                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
-                ]
+                needs_human_reasons, next_actions = self._no_suitable_issue_guidance(
+                    already_maxed=already_maxed,
+                    report=eligibility_report,
+                )
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -2703,6 +2748,13 @@ class BossLoop:
         candidate_issues = [
             i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
         ]
+        eligibility_report = build_issue_eligibility_report(
+            candidate_issues,
+            skip_labels=self.config.skip_labels,
+            require_labels=self.config.require_labels,
+            blocked_scopes=blocked_scopes,
+        )
+        self._log_issue_skip_summary(eligibility_report)
         ordered_candidates = pending_handoffs + [
             issue for issue in candidate_issues if issue.number not in pending_issue_numbers
         ]
@@ -2719,11 +2771,10 @@ class BossLoop:
                     self.config.issue_number
                 )
             else:
-                needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
-                next_actions = [
-                    "Create a new issue with actionable scope, or adjust label filters.",
-                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
-                ]
+                needs_human_reasons, next_actions = self._no_suitable_issue_guidance(
+                    already_maxed=already_maxed,
+                    report=eligibility_report,
+                )
             return [
                 BossIterationStatus(
                     iteration=iteration,
