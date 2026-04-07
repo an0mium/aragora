@@ -346,6 +346,54 @@ class TestBatchIssueSelection:
             "aragora/swarm",
         }
 
+    def test_coordination_blocked_scopes_ignores_current_lane_claims(self, monkeypatch):
+        loop = BossLoop(_boss_config(repo="synaptent/aragora"))
+        current_worktree = str(Path.cwd().resolve())
+        current_session_id = Path(current_worktree).name
+
+        class _FakeFleetStore:
+            def reap_stale_claims(self) -> dict[str, int]:
+                return {"released": 0}
+
+            def list_claims(self) -> list[dict[str, str]]:
+                return [
+                    {
+                        "path": "tests/swarm/test_boss_loop.py",
+                        "session_id": current_session_id,
+                        "worktree_path": current_worktree,
+                    },
+                    {
+                        "path": "tests/agents/test_fallback_quota.py",
+                        "session_id": "other-session",
+                    },
+                ]
+
+        class _FakeStore:
+            def __init__(self, repo_root) -> None:
+                self.repo_root = repo_root
+                self.fleet_store = _FakeFleetStore()
+
+            def list_active_leases(self):
+                current_lease = MagicMock()
+                current_lease.owner_session_id = current_session_id
+                current_lease.worktree_path = current_worktree
+                current_lease.claimed_paths = ["aragora/swarm/boss_loop.py"]
+                current_lease.allowed_globs = ["tests/swarm/**"]
+
+                foreign_lease = MagicMock()
+                foreign_lease.owner_session_id = "other-session"
+                foreign_lease.worktree_path = "/tmp/other-worktree"
+                foreign_lease.claimed_paths = ["aragora/swarm/supervisor.py"]
+                foreign_lease.allowed_globs = []
+                return [current_lease, foreign_lease]
+
+        monkeypatch.setattr("aragora.swarm.boss_loop.DevCoordinationStore", _FakeStore)
+
+        assert loop._coordination_blocked_scopes() == {
+            "aragora/swarm/supervisor.py",
+            "tests/agents/test_fallback_quota.py",
+        }
+
     def test_parallel_selection_skips_conflicting_issue_scopes(self):
         loop = BossLoop(_boss_config(max_parallel_dispatches=3))
         issues = [

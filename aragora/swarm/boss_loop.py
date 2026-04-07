@@ -660,6 +660,24 @@ class BossLoop:
 
     def _coordination_blocked_scopes(self) -> set[str]:
         blocked: set[str] = set()
+        current_worktree = Path.cwd().resolve()
+        current_session_id = current_worktree.name
+
+        def _is_current_lane_entry(
+            *,
+            session_id: str | None = None,
+            worktree_path: str | None = None,
+        ) -> bool:
+            if str(session_id or "").strip() == current_session_id:
+                return True
+            raw_worktree_path = str(worktree_path or "").strip()
+            if not raw_worktree_path:
+                return False
+            try:
+                return Path(raw_worktree_path).resolve() == current_worktree
+            except (OSError, RuntimeError, ValueError):
+                return raw_worktree_path == str(current_worktree)
+
         try:
             store = DevCoordinationStore(repo_root=Path.cwd().resolve())
         except Exception:
@@ -670,6 +688,11 @@ class BossLoop:
 
         try:
             for lease in store.list_active_leases():
+                if _is_current_lane_entry(
+                    session_id=getattr(lease, "owner_session_id", None),
+                    worktree_path=getattr(lease, "worktree_path", None),
+                ):
+                    continue
                 blocked.update(
                     str(path).strip()
                     for path in [*lease.claimed_paths, *lease.allowed_globs]
@@ -683,7 +706,12 @@ class BossLoop:
             blocked.update(
                 str(claim.get("path", "")).strip()
                 for claim in store.fleet_store.list_claims()
-                if isinstance(claim, dict) and str(claim.get("path", "")).strip()
+                if isinstance(claim, dict)
+                and not _is_current_lane_entry(
+                    session_id=claim.get("session_id"),
+                    worktree_path=claim.get("worktree_path"),
+                )
+                and str(claim.get("path", "")).strip()
             )
         except Exception:
             logger.debug("Failed to collect active fleet claim scopes", exc_info=True)
