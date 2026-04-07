@@ -107,6 +107,8 @@ SIGNING_KEY_ENV_VAR = "ARAGORA_INBOX_TRUST_WEDGE_SIGNING_KEY"
 AUTO_APPROVAL_THRESHOLD = float(
     os.getenv("ARAGORA_INBOX_TRUST_WEDGE_AUTO_APPROVAL_THRESHOLD", "0.85")
 )
+_TRUE_FLAG_VALUES = frozenset({"true", "1", "yes", "on"})
+_FALSE_FLAG_VALUES = frozenset({"false", "0", "no", "off", ""})
 
 
 def _utcnow() -> datetime:
@@ -129,6 +131,23 @@ def _parse_datetime(value: Any) -> datetime | None:
         return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _parse_bool_flag(value: Any, *, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _TRUE_FLAG_VALUES:
+            return True
+        if normalized in _FALSE_FLAG_VALUES:
+            return False
+        return default
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    return default
 
 
 def _json_default(value: Any) -> Any:
@@ -810,12 +829,12 @@ class InboxTrustWedgeStore:
             confidence=float(decision_dict.get("confidence", 0.0)),
             dissent_summary=decision_dict.get("dissent_summary", ""),
             receipt_id=decision_dict.get("receipt_id"),
-            auto_approval_eligible=bool(decision_dict.get("auto_approval_eligible")),
+            auto_approval_eligible=_parse_bool_flag(decision_dict.get("auto_approval_eligible")),
             receipt_state=decision_dict.get("receipt_state", "created"),
             intent=intent if decision_dict.get("intent") else None,
             provider_route=decision_dict.get("provider_route", row["provider_route"]),
             label_id=decision_dict.get("label_id"),
-            blocked_by_policy=bool(decision_dict.get("blocked_by_policy")),
+            blocked_by_policy=_parse_bool_flag(decision_dict.get("blocked_by_policy")),
             cost_usd=decision_dict.get("cost_usd"),
             latency_seconds=decision_dict.get("latency_seconds"),
             execution_tier=decision_dict.get("execution_tier", "baseline"),
@@ -1180,7 +1199,7 @@ class InboxTrustWedgeStore:
                     "created_at": row["created_at"],
                     "confidence": decision.get("confidence", 0.0),
                     "execution_tier": decision.get("execution_tier", ""),
-                    "blocked": bool(decision.get("blocked_by_policy")),
+                    "blocked": _parse_bool_flag(decision.get("blocked_by_policy")),
                     "subject": intent.get("_subject", ""),
                     "sender": intent.get("_sender", ""),
                     "rationale": intent.get("synthesized_rationale", ""),
@@ -1243,7 +1262,7 @@ class InboxTrustWedgeStore:
             cost = decision.get("cost_usd")
             if cost is not None:
                 total_cost += float(cost)
-            if decision.get("blocked_by_policy"):
+            if _parse_bool_flag(decision.get("blocked_by_policy")):
                 blocked_count += 1
 
             items.append(
@@ -1253,7 +1272,7 @@ class InboxTrustWedgeStore:
                     "subject": intent.get("_subject", ""),
                     "sender": sender,
                     "confidence": conf,
-                    "blocked": bool(decision.get("blocked_by_policy")),
+                    "blocked": _parse_bool_flag(decision.get("blocked_by_policy")),
                 }
             )
 
@@ -1412,7 +1431,7 @@ class InboxTrustWedgeService:
             expires_at=_utcnow() + timedelta(hours=expires_in_hours),
             signer=self.signer,
         )
-        if auto_approve and envelope.decision.auto_approval_eligible:
+        if _parse_bool_flag(auto_approve) and envelope.decision.auto_approval_eligible:
             self.store.approve_receipt(envelope.receipt.receipt_id, review_choice="auto_approve")
             approved = self.store.get_receipt(envelope.receipt.receipt_id)
             if approved is not None:

@@ -35,6 +35,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from aragora.inbox.trust_wedge import _parse_bool_flag
 from aragora.server.handlers.base import (
     error_response,
     success_response,
@@ -160,7 +161,7 @@ async def _maybe_handle_wedge_action(
     )
 
     receipt_id = str(data.get("receipt_id", "") or "").strip()
-    create_receipt = bool(data.get("create_receipt"))
+    create_receipt = _parse_bool_flag(data.get("create_receipt"))
     if not receipt_id and not create_receipt:
         if not require_receipt:
             return None
@@ -251,7 +252,7 @@ async def _maybe_handle_wedge_action(
         confidence=_safe_float(data.get("confidence", data.get("debate_confidence")), 0.0),
         dissent_summary=str(data.get("dissent_summary", "")),
         label_id=label_id,
-        blocked_by_policy=bool(data.get("blocked_by_policy", False)),
+        blocked_by_policy=_parse_bool_flag(data.get("blocked_by_policy")),
         cost_usd=(_safe_float(data.get("cost_usd")) if data.get("cost_usd") is not None else None),
         latency_seconds=(
             _safe_float(data.get("latency_seconds"))
@@ -265,7 +266,7 @@ async def _maybe_handle_wedge_action(
             intent,
             decision,
             expires_in_hours=_safe_float(data.get("expires_in_hours"), 24.0),
-            auto_approve=bool(data.get("auto_approve", False)),
+            auto_approve=_parse_bool_flag(data.get("auto_approve")),
         )
     except ValueError as exc:
         return error_response(str(exc), status=400)
@@ -280,7 +281,7 @@ async def _maybe_handle_wedge_action(
         logger.exception("Failed to create inbox trust wedge receipt")
         return error_response("Receipt creation failed", status=500)
 
-    auto_execute = bool(data.get("auto_execute", False))
+    auto_execute = _parse_bool_flag(data.get("auto_execute"))
     if auto_execute and envelope.receipt.state is ReceiptState.APPROVED:
         try:
             result = await wedge_service.execute_receipt(envelope.receipt.receipt_id)

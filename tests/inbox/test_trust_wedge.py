@@ -223,6 +223,45 @@ def test_auto_approval_stays_narrow(wedge):
     assert blocked_archive.receipt.state == ReceiptState.CREATED
 
 
+def test_string_false_auto_approve_stays_manual(wedge):
+    _, service, _ = wedge
+
+    envelope = service.create_receipt(
+        _build_intent(action="archive"),
+        _build_decision(action="archive", confidence=0.9),
+        auto_approve="false",
+    )
+
+    assert envelope.receipt.state == ReceiptState.CREATED
+
+
+def test_get_receipt_parses_string_false_flags_fail_closed(wedge):
+    store, service, _ = wedge
+    envelope = service.create_receipt(
+        _build_intent(action="archive"),
+        _build_decision(action="archive", confidence=0.9),
+    )
+
+    with store._cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE inbox_trust_receipts
+            SET decision_json = json_set(
+                json_set(decision_json, '$.auto_approval_eligible', 'false'),
+                '$.blocked_by_policy', 'false'
+            )
+            WHERE receipt_id = ?
+            """,
+            (envelope.receipt.receipt_id,),
+        )
+
+    stored = store.get_receipt(envelope.receipt.receipt_id)
+
+    assert stored is not None
+    assert stored.decision.auto_approval_eligible is False
+    assert stored.decision.blocked_by_policy is False
+
+
 def test_action_intent_to_dict_tolerates_string_action():
     intent = ActionIntent(
         provider="gmail",

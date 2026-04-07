@@ -427,6 +427,54 @@ class TestHandleArchiveMessage:
         connector.archive_message.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_archive_string_false_create_receipt_does_not_mint_receipt(self, wedge_service):
+        service, store, connector = wedge_service
+
+        with patch(
+            "aragora.server.handlers.inbox.email_actions.get_inbox_trust_wedge_service_instance",
+            return_value=service,
+        ):
+            result = await handle_archive_message(
+                data={"provider": "gmail", "create_receipt": "false"},
+                message_id="msg-1",
+                user_id="user-1",
+            )
+
+        assert _status(result) == 428
+        assert store.list_receipts() == []
+        connector.archive_message.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_archive_string_false_wedge_flags_fail_closed(self, wedge_service):
+        service, store, connector = wedge_service
+        data = {
+            "provider": "gmail",
+            "create_receipt": True,
+            "confidence": 0.91,
+            "synthesized_rationale": "Debated decision to archive",
+            "provider_route": "openrouter-fallback",
+            "debate_id": "debate-archive-strings",
+            "auto_approve": "false",
+            "auto_execute": "false",
+            "blocked_by_policy": "false",
+        }
+        with patch(
+            "aragora.server.handlers.inbox.email_actions.get_inbox_trust_wedge_service_instance",
+            return_value=service,
+        ):
+            result = await handle_archive_message(data=data, message_id="msg-1", user_id="user-1")
+
+        assert _status(result) == 200
+        body = _body(result)["data"]
+        stored = store.get_receipt(body["receipt"]["receipt_id"])
+        assert body["receipt"]["state"] == "created"
+        assert body["executed"] is False
+        assert body["decision"]["blocked_by_policy"] is False
+        assert stored is not None
+        assert stored.decision.blocked_by_policy is False
+        connector.archive_message.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_archive_with_receipt_id_executes_approved_receipt(self, wedge_service):
         service, store, connector = wedge_service
         envelope = service.create_receipt(
