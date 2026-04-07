@@ -664,6 +664,72 @@ class TestPolicyEngine:
 
         assert budget.remaining < initial_remaining
 
+    def test_check_action_enforces_max_uses_per_session(self, engine):
+        """A matching policy should block a second use in the same session."""
+        engine.add_policy(
+            Policy(
+                name="limit_reads_per_session",
+                description="Only allow one read per session",
+                capabilities=["read_file"],
+                max_uses_per_session=1,
+                priority=100,
+            )
+        )
+
+        first = engine.check_action("agent", "file_writer", "read_file", session_id="session-1")
+        second = engine.check_action("agent", "file_writer", "read_file", session_id="session-1")
+
+        assert first.allowed is True
+        assert second.allowed is False
+        assert second.decision in {PolicyDecision.DENY, PolicyDecision.ESCALATE}
+        assert "max uses per session" in second.reason
+
+    def test_check_action_max_uses_per_session_is_scoped_to_session_id(self, engine):
+        """A different session should get its own independent allowance."""
+        engine.add_policy(
+            Policy(
+                name="limit_reads_per_session",
+                description="Only allow one read per session",
+                capabilities=["read_file"],
+                max_uses_per_session=1,
+                priority=100,
+            )
+        )
+
+        first_session_first = engine.check_action(
+            "agent", "file_writer", "read_file", session_id="session-1"
+        )
+        first_session_second = engine.check_action(
+            "agent", "file_writer", "read_file", session_id="session-1"
+        )
+        second_session_first = engine.check_action(
+            "agent", "file_writer", "read_file", session_id="session-2"
+        )
+
+        assert first_session_first.allowed is True
+        assert first_session_second.allowed is False
+        assert second_session_first.allowed is True
+
+    def test_check_action_policy_without_max_uses_per_session_keeps_current_behavior(self, engine):
+        """Matching policies without a session cap should not block repeated actions."""
+        engine.add_policy(
+            Policy(
+                name="reads_without_session_limit",
+                description="Reads stay allowed without a per-session cap",
+                capabilities=["read_file"],
+                risk_multiplier=1.0,
+                priority=100,
+            )
+        )
+
+        first = engine.check_action("agent", "file_writer", "read_file", session_id="session-1")
+        second = engine.check_action("agent", "file_writer", "read_file", session_id="session-1")
+
+        assert first.decision == PolicyDecision.ALLOW
+        assert second.decision == PolicyDecision.ALLOW
+        assert first.allowed is True
+        assert second.allowed is True
+
     def test_add_policy_sorted_by_priority(self, engine):
         """Policies should be sorted by priority (descending)."""
         engine.add_policy(Policy(name="low", description="Low", priority=10))
