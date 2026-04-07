@@ -605,15 +605,16 @@ class WorkerLauncher:
         return dict(metadata) if isinstance(metadata, dict) else {}
 
     @staticmethod
-    def _truthy(value: Any) -> bool:
+    def _strict_bool(value: Any) -> bool | None:
         if isinstance(value, bool):
             return value
-        return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+        return None
 
     @classmethod
     def _is_admin_approved(cls, work_order: dict[str, Any], metadata: dict[str, Any]) -> bool:
-        return cls._truthy(work_order.get("admin_approved")) or cls._truthy(
-            metadata.get("admin_approved")
+        return (
+            cls._strict_bool(work_order.get("admin_approved")) is True
+            or cls._strict_bool(metadata.get("admin_approved")) is True
         )
 
     @staticmethod

@@ -33,6 +33,10 @@ from typing import Protocol
 logger = logging.getLogger(__name__)
 
 
+class EmbeddingProviderError(RuntimeError):
+    """Raised when embedding operations fail closed."""
+
+
 class EmbeddingFunction(Protocol):
     """Protocol for embedding functions."""
 
@@ -78,9 +82,15 @@ class EmbeddingProvider:
         except ImportError:
             logger.warning("openai package not installed; embedding provider unavailable")
             return cls(provider_name="none")
-        except Exception as exc:
-            logger.warning("Failed to initialize OpenAI embeddings: %s", exc)
-            return cls(provider_name="none")
+        except (
+            AttributeError,
+            OSError,
+            TypeError,
+            ValueError,
+            openai.OpenAIError,
+        ) as exc:
+            logger.warning("Failed to initialize OpenAI embeddings: %s", exc, exc_info=True)
+            raise EmbeddingProviderError("Failed to initialize OpenAI embedding provider") from exc
 
     @classmethod
     def from_sentence_transformers(
@@ -109,9 +119,11 @@ class EmbeddingProvider:
                 "sentence-transformers package not installed; embedding provider unavailable"
             )
             return cls(provider_name="none")
-        except Exception as exc:
-            logger.warning("Failed to initialize sentence-transformers: %s", exc)
-            return cls(provider_name="none")
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            logger.warning("Failed to initialize sentence-transformers: %s", exc, exc_info=True)
+            raise EmbeddingProviderError(
+                "Failed to initialize sentence-transformers embedding provider"
+            ) from exc
 
     @classmethod
     def from_callable(
@@ -145,6 +157,7 @@ class EmbeddingProvider:
 
         Raises:
             RuntimeError: If no embedding function is configured.
+            EmbeddingProviderError: If embedding generation fails.
         """
         if not self._embed_fn:
             raise RuntimeError("No embedding provider configured")
@@ -162,7 +175,41 @@ class EmbeddingProvider:
                 uncached_texts.append(text)
 
         if uncached_texts:
-            new_embeddings = self._embed_fn(uncached_texts)
+            try:
+                new_embeddings = self._embed_fn(uncached_texts)
+            except EmbeddingProviderError:
+                raise
+            except (AttributeError, OSError, RuntimeError, TypeError, ValueError) as exc:
+                logger.warning(
+                    "Embedding generation failed for provider %s: %s",
+                    self.provider_name,
+                    exc,
+                    exc_info=True,
+                )
+                raise EmbeddingProviderError(
+                    f"Embedding generation failed for provider {self.provider_name}"
+                ) from exc
+
+            if len(new_embeddings) != len(uncached_texts):
+                logger.warning(
+                    "Embedding provider %s returned %d embeddings for %d texts",
+                    self.provider_name,
+                    len(new_embeddings),
+                    len(uncached_texts),
+                )
+                raise EmbeddingProviderError(
+                    f"Embedding provider {self.provider_name} returned an invalid embedding batch"
+                )
+
+            if any(not emb for emb in new_embeddings):
+                logger.warning(
+                    "Embedding provider %s returned an empty embedding vector",
+                    self.provider_name,
+                )
+                raise EmbeddingProviderError(
+                    f"Embedding provider {self.provider_name} returned an empty embedding vector"
+                )
+
             for idx, emb in zip(uncached_indices, new_embeddings):
                 key = self._cache_key(texts[idx])
                 self._cache[key] = emb
@@ -189,9 +236,16 @@ class EmbeddingProvider:
         try:
             emb_a, emb_b = self.embed([text_a, text_b])
             return cosine_similarity(emb_a, emb_b)
-        except Exception as exc:
-            logger.warning("Embedding similarity failed: %s", exc)
-            return 0.0
+        except (EmbeddingProviderError, RuntimeError, TypeError, ValueError) as exc:
+            logger.warning(
+                "Embedding similarity failed for provider %s: %s",
+                self.provider_name,
+                exc,
+                exc_info=True,
+            )
+            raise EmbeddingProviderError(
+                f"Embedding similarity failed for provider {self.provider_name}"
+            ) from exc
 
     def clear_cache(self) -> None:
         """Clear the embedding cache."""

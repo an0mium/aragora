@@ -1,44 +1,14 @@
 """Tests for aragora.server.handlers.social.sharing - Sharing Handler."""
 
-import sys
-import types as _types_mod
-
-# Pre-stub Slack modules to prevent import chain failures
-_SLACK_ATTRS = [
-    "SlackHandler",
-    "get_slack_handler",
-    "get_slack_integration",
-    "get_workspace_store",
-    "resolve_workspace",
-    "create_tracked_task",
-    "_validate_slack_url",
-    "SLACK_SIGNING_SECRET",
-    "SLACK_BOT_TOKEN",
-    "SLACK_WEBHOOK_URL",
-    "SLACK_ALLOWED_DOMAINS",
-    "SignatureVerifierMixin",
-    "CommandsMixin",
-    "EventsMixin",
-    "init_slack_handler",
-]
-for _mod_name in (
-    "aragora.server.handlers.social.slack.handler",
-    "aragora.server.handlers.social.slack",
-    "aragora.server.handlers.social._slack_impl",
-):
-    if _mod_name not in sys.modules:
-        _m = _types_mod.ModuleType(_mod_name)
-        for _a in _SLACK_ATTRS:
-            setattr(_m, _a, None)
-        sys.modules[_mod_name] = _m
-
-import json
 from dataclasses import dataclass, field
-from io import BytesIO
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from .conftest import MockHandler, install_social_slack_stubs
+
+install_social_slack_stubs()
 
 from aragora.server.handlers.social.sharing import SharingHandler
 
@@ -46,17 +16,6 @@ from aragora.server.handlers.social.sharing import SharingHandler
 # ===========================================================================
 # Mock Classes
 # ===========================================================================
-
-
-@dataclass
-class MockUser:
-    """Mock authenticated user."""
-
-    user_id: str = "user-123"
-    id: str = "user-123"
-    org_id: str = "org-123"
-    email: str = "test@example.com"
-    name: str = "Test User"
 
 
 @dataclass
@@ -89,36 +48,6 @@ class MockShare:
         }
 
 
-class MockHandler:
-    """Mock HTTP request handler."""
-
-    def __init__(
-        self,
-        body: bytes = b"",
-        headers: dict[str, str] | None = None,
-        path: str = "/",
-        method: str = "GET",
-    ):
-        self._body = body
-        self.headers = headers or {"Content-Length": str(len(body))}
-        self.path = path
-        self.command = method
-        self.rfile = BytesIO(body)
-        self.client_address = ("127.0.0.1", 12345)
-
-    @classmethod
-    def with_json_body(cls, data: dict[str, Any], **kwargs) -> "MockHandler":
-        body = json.dumps(data).encode("utf-8")
-        headers = {
-            "Content-Type": "application/json",
-            "Content-Length": str(len(body)),
-        }
-        return cls(body=body, headers=headers, **kwargs)
-
-    def get_argument(self, name: str, default: str = None) -> str | None:
-        return default
-
-
 # ===========================================================================
 # Fixtures
 # ===========================================================================
@@ -137,18 +66,6 @@ def reset_module_state():
 
 
 @pytest.fixture
-def mock_user():
-    return MockUser()
-
-
-@pytest.fixture
-def mock_user_store(mock_user):
-    store = MagicMock()
-    store.get_user_by_id.return_value = mock_user
-    return store
-
-
-@pytest.fixture
 def mock_share_store():
     store = MagicMock()
     store.get_by_org.return_value = [MockShare()]
@@ -156,11 +73,6 @@ def mock_share_store():
     store.create.return_value = MockShare()
     store.delete.return_value = True
     return store
-
-
-@pytest.fixture
-def handler_context(mock_user_store):
-    return {"user_store": mock_user_store}
 
 
 @pytest.fixture
