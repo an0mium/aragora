@@ -3067,8 +3067,15 @@ class BossLoop:
             )
             return [selected] if selected is not None else []
 
-        # Semantic dedup: LLM clusters near-duplicate issues before dispatch
-        issues = self._semantic_dedup_issues(issues)
+        # Semantic dedup: LLM clusters near-duplicate issues before dispatch.
+        # Skip-labeled issues are excluded first so a quarantined issue like
+        # `boss-stuck` cannot suppress an unlabeled twin in the same cluster.
+        pre_dedup_issues = [
+            issue
+            for issue in issues
+            if not (set(issue.labels) & set(self.config.skip_labels or set()))
+        ]
+        issues = self._semantic_dedup_issues(pre_dedup_issues)
 
         selected_issues: list[GitHubIssue] = []
         # Track file scopes to avoid dispatching overlapping work in parallel.

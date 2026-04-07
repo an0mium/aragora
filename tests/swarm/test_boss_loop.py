@@ -417,6 +417,27 @@ class TestBatchIssueSelection:
 
         assert [issue.number for issue in selected] == [2]
 
+    def test_parallel_selection_filters_skip_labels_before_semantic_dedup(self, monkeypatch):
+        loop = BossLoop(_boss_config(max_parallel_dispatches=2))
+        issues = [
+            _make_issue(1, "Duplicate lane", labels=["boss-stuck"]),
+            _make_issue(2, "Duplicate lane"),
+        ]
+        seen: dict[str, list[int]] = {}
+
+        def _dedup(candidates: list[GitHubIssue]) -> list[GitHubIssue]:
+            seen["numbers"] = [issue.number for issue in candidates]
+            if any(issue.number == 1 for issue in candidates):
+                return [candidates[0]]
+            return list(candidates)
+
+        monkeypatch.setattr(loop, "_semantic_dedup_issues", _dedup)
+
+        selected = loop._select_issues_for_iteration(issues, limit=2)
+
+        assert seen["numbers"] == [2]
+        assert [issue.number for issue in selected] == [2]
+
     def test_skips_issues_with_skip_labels(self):
         issues = [
             _make_issue(1, "Dup", labels=["duplicate"]),
