@@ -276,10 +276,14 @@ class TestGetOverview:
         h = TestableHandler(agent_perf={"total_agents": 3, "avg_elo": 1100})
         result = h._get_overview({}, mock_http)
         body = _body(result)
-        assert len(body["stats"]) == 2
+        assert len(body["stats"]) == 4
         labels = {s["label"] for s in body["stats"]}
-        assert "Total Agents" in labels
-        assert "Avg ELO" in labels
+        assert labels == {
+            "Total Debates",
+            "Open Debates",
+            "Consensus Rate",
+            "Avg Confidence",
+        }
 
     def test_overview_storage_connection_error(self, mock_http):
         h = TestableHandler(storage=ErrorStorage())
@@ -299,13 +303,13 @@ class TestGetOverview:
         assert body["consensus_rate"] == 0.0
 
     def test_overview_agent_perf_error(self, mock_http):
-        """When _get_agent_performance raises, overview still returns."""
+        """Overview no longer depends on agent performance helper."""
         h = TestableHandler(storage=InMemoryStorage())
         h._get_agent_performance = MagicMock(side_effect=TypeError("bad"))
         result = h._get_overview({}, mock_http)
         body = _body(result)
         assert _status(result) == 200
-        assert body["stats"] == []
+        assert len(body["stats"]) == 4
 
 
 # ===========================================================================
@@ -411,11 +415,19 @@ class TestGetDashboardDebates:
 class TestGetDashboardDebate:
     """Tests for the single debate detail endpoint."""
 
-    def test_returns_debate_id(self, handler):
-        result = handler._get_dashboard_debate("abc-123")
+    def test_returns_debate_detail(self):
+        storage = InMemoryStorage(
+            [("abc-123", "finance", "completed", 1, 0.92, "2026-02-23T10:00:00")]
+        )
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_debate("abc-123")
         body = _body(result)
         assert _status(result) == 200
         assert body["debate_id"] == "abc-123"
+        assert body["id"] == "abc-123"
+        assert body["domain"] == "finance"
+        assert body["status"] == "completed"
+        assert body["consensus_reached"] is True
 
     def test_empty_debate_id(self, handler):
         result = handler._get_dashboard_debate("")
@@ -423,8 +435,12 @@ class TestGetDashboardDebate:
         body = _body(result)
         assert "required" in body.get("error", "").lower()
 
-    def test_special_characters_in_id(self, handler):
-        result = handler._get_dashboard_debate("test/special%id")
+    def test_special_characters_in_id(self):
+        storage = InMemoryStorage(
+            [("test/special%id", "tech", "pending", 0, 0.25, "2026-02-23T10:00:00")]
+        )
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_debate("test/special%id")
         body = _body(result)
         assert _status(result) == 200
         assert body["debate_id"] == "test/special%id"
@@ -1039,11 +1055,11 @@ class TestIntegration:
     """Cross-cutting integration tests."""
 
     def test_all_endpoints_return_200(self, mock_http):
-        """Every view endpoint returns 200 with empty handler."""
+        """View endpoints degrade gracefully; detail requires a real debate."""
         h = TestableHandler()
         assert _status(h._get_overview({}, mock_http)) == 200
         assert _status(h._get_dashboard_debates(10, 0, None)) == 200
-        assert _status(h._get_dashboard_debate("x")) == 200
+        assert _status(h._get_dashboard_debate("x")) == 404
         assert _status(h._get_dashboard_stats()) == 200
         assert _status(h._get_stat_cards()) == 200
         assert _status(h._get_team_performance(10, 0)) == 200
@@ -1171,12 +1187,12 @@ class TestOverviewEdgeCases:
         assert body["consensus_rate"] == 0.0
 
     def test_overview_missing_keys_in_agent_perf(self, mock_http):
-        """Agent perf dict missing expected keys uses defaults."""
+        """Overview stats stay debate-backed even if agent perf is empty."""
         h = TestableHandler(agent_perf={})
         result = h._get_overview({}, mock_http)
         body = _body(result)
         stats = body["stats"]
-        assert len(stats) == 2
+        assert len(stats) == 4
         assert stats[0]["value"] == 0
         assert stats[1]["value"] == 0
 
