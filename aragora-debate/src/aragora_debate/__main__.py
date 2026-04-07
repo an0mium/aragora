@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import sys
 
 from aragora_debate.styled_mock import StyledMockAgent
 from aragora_debate.arena import Arena
@@ -207,6 +208,14 @@ def main() -> None:
         help="Enable convergence tracking across rounds",
     )
     args = parser.parse_args()
+
+    if not args.topic or not args.topic.strip():
+        print(
+            "Error: The --topic argument cannot be empty.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     asyncio.run(
         _run_demo(
             args.topic,

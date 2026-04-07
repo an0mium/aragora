@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -199,8 +200,13 @@ class TestCmdPlan:
             subtasks=[],
         )
 
-        # Patch asyncio.run at the module level used by cmd_plan
-        with patch("asyncio.run", return_value=fake_result) as mock_arun:
+        with (
+            patch(
+                "aragora.nomic.task_decomposer.TaskDecomposer.analyze_with_debate",
+                new=AsyncMock(return_value=fake_result),
+            ),
+            patch("asyncio.run", wraps=asyncio.run) as mock_arun,
+        ):
             args = argparse.Namespace(goal="Maximize utility", debate=True, dry_run=True)
             sc.cmd_plan(args)
             mock_arun.assert_called_once()
