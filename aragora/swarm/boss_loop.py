@@ -1554,6 +1554,31 @@ class BossLoop:
             }
         if deliverable_type != "branch":
             return None
+        prior_publish_result = worker_result.get("publish_result")
+        prior_pr_url = self._published_pr_url(worker_result)
+        if self._publish_result_succeeded(prior_publish_result) and prior_pr_url:
+            worker_result["pr_url"] = prior_pr_url
+            worker_result["pr_number"] = self._pr_number_from_url(prior_pr_url)
+            worker_result["deliverable"] = {
+                **dict(deliverable),
+                "pr_url": prior_pr_url,
+            }
+            branch = str(
+                (
+                    prior_publish_result.get("branch")
+                    if isinstance(prior_publish_result, dict)
+                    else None
+                )
+                or deliverable.get("branch", "")
+                or ""
+            ).strip()
+            return {
+                **dict(prior_publish_result),
+                "action": "existing_pr",
+                "branch": branch or None,
+                "pr_url": prior_pr_url,
+                "published": True,
+            }
         branch = str(deliverable.get("branch", "")).strip()
         commit_shas = [
             str(item).strip()
