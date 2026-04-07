@@ -24,6 +24,22 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_MISSING = object()
+_TRUE_BOOLEAN_STRINGS = {"true", "1", "yes", "on"}
+
+
+def _parse_config_bool(value: Any, *, default: bool) -> bool:
+    """Parse config booleans conservatively so malformed values fail closed."""
+    if value is _MISSING:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return value == 1
+    if isinstance(value, str):
+        return value.strip().lower() in _TRUE_BOOLEAN_STRINGS
+    return False
+
 
 @dataclass
 class QualityPipelineConfig:
@@ -66,11 +82,11 @@ class QualityPipelineConfig:
                 sections = None
 
         return cls(
-            enabled=bool(data.get("enabled", True)),
+            enabled=_parse_config_bool(data.get("enabled", _MISSING), default=True),
             output_contract_file=data.get("output_contract_file"),
             required_sections=sections,
             repo_root=data.get("repo_root"),
-            has_context=bool(data.get("has_context", False)),
+            has_context=_parse_config_bool(data.get("has_context", _MISSING), default=False),
             quality_min_score=float(data.get("quality_min_score", 9.0)),
             practicality_min_score=float(data.get("practicality_min_score", 5.0)),
         )
