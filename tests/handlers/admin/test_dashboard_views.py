@@ -101,6 +101,8 @@ class ErrorStorage:
 class TestableHandler(DashboardViewsMixin):
     """Concrete handler exposing mixin methods with controllable deps."""
 
+    __test__ = False  # Helper class for fixtures, not a pytest test case.
+
     def __init__(
         self,
         storage: Any = None,
