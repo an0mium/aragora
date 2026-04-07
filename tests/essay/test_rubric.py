@@ -111,7 +111,60 @@ def test_parse_score_response_handles_missing_fields():
 
 
 # ---------------------------------------------------------------------------
-# 5. load_rubric: custom YAML
+# 5. parse_score_response: normalizes malformed numeric fields
+# ---------------------------------------------------------------------------
+
+
+def test_parse_score_response_normalizes_malformed_numeric_fields():
+    """Malformed numeric fields fail closed to 0.0 instead of raising."""
+    text = json.dumps(
+        {
+            "thesis_clarity": "not-a-number",
+            "argument_coherence": None,
+            "evidence_grounding": {"bad": "shape"},
+            "rhetorical_force": [],
+            "concision": "NaN",
+            "factual_accuracy": "Infinity",
+            "originality": 0.75,
+        }
+    )
+
+    score = parse_score_response(text)
+
+    assert score.thesis_clarity == 0.0
+    assert score.argument_coherence == 0.0
+    assert score.evidence_grounding == 0.0
+    assert score.rhetorical_force == 0.0
+    assert score.concision == 0.0
+    assert score.factual_accuracy == 0.0
+    assert score.originality == 0.75
+    assert score.overall == pytest.approx(0.075)
+
+
+# ---------------------------------------------------------------------------
+# 6. parse_score_response: scalar strings stay whole in list fields
+# ---------------------------------------------------------------------------
+
+
+def test_parse_score_response_keeps_scalar_strings_for_list_fields():
+    """Scalar strings for list-like fields are wrapped, not split into chars."""
+    text = json.dumps(
+        {
+            "severity_notes": "Needs stronger evidence in the middle section",
+            "suggestions": "Add a counter-argument before the conclusion",
+            "factual_claims_to_verify": "The 2024 GDP figure needs a citation",
+        }
+    )
+
+    score = parse_score_response(text)
+
+    assert score.severity_notes == ["Needs stronger evidence in the middle section"]
+    assert score.suggestions == ["Add a counter-argument before the conclusion"]
+    assert score.factual_claims_to_verify == ["The 2024 GDP figure needs a citation"]
+
+
+# ---------------------------------------------------------------------------
+# 7. load_rubric: custom YAML
 # ---------------------------------------------------------------------------
 
 
@@ -141,7 +194,7 @@ def test_load_rubric_from_yaml(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# 6. load_default_rubric
+# 8. load_default_rubric
 # ---------------------------------------------------------------------------
 
 
@@ -158,7 +211,7 @@ def test_load_default_rubric():
 
 
 # ---------------------------------------------------------------------------
-# 7. EssayScore.to_dict
+# 9. EssayScore.to_dict
 # ---------------------------------------------------------------------------
 
 
@@ -183,7 +236,7 @@ def test_essay_score_to_dict():
 
 
 # ---------------------------------------------------------------------------
-# 8. EssayScore.compute_overall with custom weights
+# 10. EssayScore.compute_overall with custom weights
 # ---------------------------------------------------------------------------
 
 
@@ -212,12 +265,18 @@ def test_essay_score_compute_overall_with_custom_weights():
 
 
 # ---------------------------------------------------------------------------
-# 9. parse_score_response: returns empty on garbage
+# 11. parse_score_response: returns empty on garbage
 # ---------------------------------------------------------------------------
 
 
-def test_parse_score_response_returns_empty_on_garbage():
-    """Non-JSON text returns an empty EssayScore."""
-    score = parse_score_response("This is not JSON at all!")
-    assert score.overall == 0.0
-    assert score.thesis_clarity == 0.0
+@pytest.mark.parametrize(
+    "text",
+    [
+        "This is not JSON at all!",
+        "Model output: {not valid json}",
+        "[]",
+    ],
+)
+def test_parse_score_response_returns_empty_on_garbage(text):
+    """Garbage input returns the existing empty EssayScore fallback."""
+    assert parse_score_response(text) == EssayScore()
