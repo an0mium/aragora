@@ -176,7 +176,7 @@ class TestGetDebateTool:
             result = await get_debate_tool(debate_id="nonexistent")
 
         assert "error" in result
-        assert "not found" in result["error"].lower()
+        assert result["error"] == "Debate nonexistent not found"
 
     @pytest.mark.asyncio
     async def test_get_storage_unavailable(self):
@@ -187,7 +187,21 @@ class TestGetDebateTool:
         ):
             result = await get_debate_tool(debate_id="d-001")
 
-        assert "error" in result
+        assert result == {"error": "Storage not available"}
+
+    @pytest.mark.asyncio
+    async def test_get_storage_lookup_error(self):
+        """Test get when storage lookup raises an operational error."""
+        mock_db = MagicMock()
+        mock_db.get.side_effect = RuntimeError("database temporarily unavailable")
+
+        with patch(
+            "aragora.server.storage.get_debates_db",
+            return_value=mock_db,
+        ):
+            result = await get_debate_tool(debate_id="d-001")
+
+        assert result == {"error": "Storage not available"}
 
 
 class TestSearchDebatesTool:
