@@ -2298,7 +2298,7 @@ def _add_swarm_parser(subparsers) -> None:
         "swarm_action_or_goal",
         nargs="?",
         help=(
-            "Action (run/status/reconcile/campaign/integrator/tranche/coord/assign/"
+            "Action (run/status/reconcile/campaign/initiative/integrator/tranche/coord/assign/"
             "claim-pr/report/findings/merge-arbiter) or your goal in plain language"
         ),
     )
@@ -2641,7 +2641,41 @@ def _add_swarm_parser(subparsers) -> None:
     )
     swarm_parser.add_argument(
         "--source-file",
-        help="Campaign planner input markdown/text file",
+        help="Campaign planner or initiative rationale input markdown/text file",
+    )
+    swarm_parser.add_argument(
+        "--initiative-dir",
+        default=None,
+        help="Local initiative artifact directory for 'swarm initiative' commands",
+    )
+    swarm_parser.add_argument(
+        "--feature-flag",
+        default=None,
+        help="Feature flag name to persist on an initiative plan",
+    )
+    swarm_parser.add_argument(
+        "--dependency",
+        action="append",
+        default=None,
+        help="Dependency to persist on an initiative plan (repeatable)",
+    )
+    swarm_parser.add_argument(
+        "--validation",
+        action="append",
+        default=None,
+        help="Validation command to persist on an initiative plan (repeatable)",
+    )
+    swarm_parser.add_argument(
+        "--milestone",
+        action="append",
+        default=None,
+        help="Milestone title to persist on an initiative plan (repeatable)",
+    )
+    swarm_parser.add_argument(
+        "--checkpoint",
+        action="append",
+        default=None,
+        help="Checkpoint title to persist on an initiative plan (repeatable)",
     )
     swarm_parser.add_argument(
         "--issue-list",
