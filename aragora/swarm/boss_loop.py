@@ -1712,6 +1712,22 @@ class BossLoop:
             )
         return open_boss_prs
 
+    def _has_open_pr_for_issue(self, issue_number: int) -> str | None:
+        """Check if there is already an open boss-loop PR for the given issue.
+
+        Returns the PR URL if found, otherwise ``None``.  Uses the cached
+        ``_list_open_boss_harvest_prs`` results when available — the branch
+        naming convention ``aragora/boss-harvest/issue-{N}`` encodes the issue
+        number so a substring match is sufficient.
+        """
+        open_prs = self._list_open_boss_harvest_prs()
+        suffix = f"issue-{issue_number}"
+        for pr in open_prs:
+            head_ref = str(pr.get("headRefName", ""))
+            if head_ref.endswith(suffix) or f"issue-{issue_number}-" in head_ref:
+                return str(pr.get("url") or "")
+        return None
+
     def _harvest_worker_commits_for_publish(
         self,
         *,
@@ -2663,6 +2679,34 @@ class BossLoop:
                 elapsed_seconds=time.monotonic() - iter_start,
             )
 
+        # Step 3b: Pre-dispatch guard — skip issues that already have an open PR
+        existing_pr = self._has_open_pr_for_issue(selected.number)
+        if existing_pr:
+            logger.info(
+                "boss_loop_skip_existing_pr issue=#%s pr=%s",
+                selected.number,
+                existing_pr,
+            )
+            self._completed_issues.append(self._issue_payload(selected))
+            self._issue_attempt_counts[selected.number] = max(
+                self._issue_attempt_counts.get(selected.number, 0),
+                self.config.max_retries_per_issue,
+            )
+            return BossIterationStatus(
+                iteration=iteration,
+                run_id=self.run_id,
+                timestamp=now,
+                runner_freshness=freshness_dict,
+                selected_issue=self._issue_payload(selected),
+                worker_status="completed",
+                stop_reason=None,
+                needs_human_reasons=[],
+                next_actions=[
+                    f"Skipped: issue #{selected.number} already has open PR {existing_pr}."
+                ],
+                elapsed_seconds=time.monotonic() - iter_start,
+            )
+
         # Step 4: Dispatch supervised work for this issue
         issue_dict = self._issue_payload(selected)
         self._attempted_issues.append(issue_dict)
@@ -3230,7 +3274,52 @@ class BossLoop:
                 worker_result
             )
             has_deliverable = bool(normalized_deliverable_type)
+            pr_url = self._published_pr_url(worker_result)
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
+
+            # Deliverable = terminal: the worker produced a concrete artifact
+            # (commit, branch, or PR).  Do NOT retry the issue — it already
+            # has work product that either needs review or was published.
+            if has_deliverable:
+                self._completed_issues.append(issue_dict)
+                self._consecutive_failures = 0
+                # Mark the issue as exhausted so it is never re-dispatched in
+                # this loop run.
+                self._issue_attempt_counts[issue_number] = max(
+                    self._issue_attempt_counts.get(issue_number, 0),
+                    self.config.max_retries_per_issue,
+                )
+                self._log_value_outcome(issue_dict, "completed", elapsed_seconds)
+                logger.info(
+                    "boss_loop_terminal_deliverable issue=#%s pr=%s deliverable_type=%s",
+                    issue_dict.get("number", "?"),
+                    pr_url or "(pending publish)",
+                    normalized_deliverable_type,
+                )
+                self._append_iteration_metrics(
+                    iteration=iteration,
+                    issue_number=issue_number,
+                    worker_result=worker_result,
+                    elapsed_seconds=elapsed_seconds,
+                )
+                return BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=timestamp,
+                    runner_freshness=runner_freshness,
+                    selected_issue=issue_dict,
+                    worker_status="completed",
+                    stop_reason=None,
+                    needs_human_reasons=[],
+                    next_actions=[
+                        f"Terminal: deliverable ({normalized_deliverable_type}) for issue "
+                        f"#{issue_dict.get('number', '?')}"
+                        f"{f' PR {pr_url}' if pr_url else ''}. Proceeding to next issue."
+                    ],
+                    elapsed_seconds=elapsed_seconds,
+                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                )
+
             if self.config.auto_continue_on_needs_human and has_deliverable:
                 self._failed_issues.append(issue_dict)
                 self._consecutive_failures = 0

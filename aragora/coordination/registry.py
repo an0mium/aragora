@@ -49,13 +49,18 @@ class SessionInfo:
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> SessionInfo:
+        pid = data.get("pid", 0)
+        started_at = data.get("started_at", 0)
+        last_heartbeat = data.get("last_heartbeat", 0)
         return cls(
             session_id=str(data.get("session_id", "")),
             agent=str(data.get("agent", "")),
             worktree=str(data.get("worktree", "")),
-            pid=int(data.get("pid", 0)),
-            started_at=float(data.get("started_at", 0)),
-            last_heartbeat=float(data.get("last_heartbeat", 0)),
+            pid=int(pid) if isinstance(pid, (int, float, str)) else 0,
+            started_at=float(started_at) if isinstance(started_at, (int, float, str)) else 0.0,
+            last_heartbeat=float(last_heartbeat)
+            if isinstance(last_heartbeat, (int, float, str))
+            else 0.0,
             focus=str(data.get("focus", "")),
             track=str(data.get("track", "")),
             intent=str(data.get("intent", "")),
@@ -98,6 +103,16 @@ class SessionRegistry:
         self._sessions_dir.mkdir(parents=True, exist_ok=True)
         return self._sessions_dir
 
+    def _session_path(self, session_id: str) -> Path:
+        return self._sessions_dir / f"{session_id}.json"
+
+    def _load_session(self, path: Path) -> SessionInfo | None:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            return SessionInfo.from_dict(data)
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return None
+
     def register(
         self,
         agent: str,
@@ -137,7 +152,7 @@ class SessionRegistry:
 
     def deregister(self, session_id: str) -> bool:
         """Remove a session registration. Returns True if file was removed."""
-        path = self._sessions_dir / f"{session_id}.json"
+        path = self._session_path(session_id)
         if path.exists():
             path.unlink()
             logger.info("session_deregistered id=%s", session_id)
@@ -146,7 +161,7 @@ class SessionRegistry:
 
     def heartbeat(self, session_id: str) -> bool:
         """Update the last_heartbeat timestamp. Returns True if session found."""
-        path = self._sessions_dir / f"{session_id}.json"
+        path = self._session_path(session_id)
         if not path.exists():
             return False
 
@@ -172,10 +187,8 @@ class SessionRegistry:
 
         sessions: list[SessionInfo] = []
         for path in sorted(self._sessions_dir.glob("*.json")):
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-                session = SessionInfo.from_dict(data)
-            except (json.JSONDecodeError, KeyError, TypeError):
+            session = self._load_session(path)
+            if session is None:
                 logger.debug("skipping_corrupt_session path=%s", path)
                 continue
 
@@ -189,18 +202,16 @@ class SessionRegistry:
 
         return sessions
 
-    def get(self, session_id: str) -> SessionInfo | None:
+    def get(self, session_id: str, *, include_dead: bool = False) -> SessionInfo | None:
         """Get a specific session by ID, or None if not found/dead."""
-        path = self._sessions_dir / f"{session_id}.json"
+        path = self._session_path(session_id)
         if not path.exists():
             return None
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            session = SessionInfo.from_dict(data)
-        except (json.JSONDecodeError, KeyError, TypeError):
+        session = self._load_session(path)
+        if session is None:
             return None
 
-        if not session.is_alive:
+        if not include_dead and not session.is_alive:
             return None
         return session
 
