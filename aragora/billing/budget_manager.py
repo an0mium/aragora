@@ -799,7 +799,21 @@ class BudgetManager:
             # No budget configured - allow
             return True, "No budget configured", None
 
+        warning_result: tuple[bool, str, BudgetAction] | None = None
+
         for budget in budgets:
+            if budget.status == BudgetStatus.SUSPENDED:
+                return False, "Budget suspended", BudgetAction.SUSPEND
+
+            if budget.is_exceeded and not (
+                budget.allow_overage or budget.current_action == BudgetAction.ALLOW_WITH_CHARGES
+            ):
+                return (
+                    False,
+                    f"Budget exceeded (${budget.spent_usd:.2f}/${budget.amount_usd:.2f})",
+                    BudgetAction.HARD_LIMIT,
+                )
+
             allowed, reason = budget.can_spend(estimated_cost_usd, user_id)
             if not allowed:
                 if budget.status == BudgetStatus.SUSPENDED:
@@ -820,12 +834,15 @@ class BudgetManager:
                     and budget.usage_percentage < threshold.percentage
                 ):
                     # This operation would cross a threshold
-                    if threshold.action == BudgetAction.SOFT_LIMIT:
-                        return (
+                    if threshold.action == BudgetAction.SOFT_LIMIT and warning_result is None:
+                        warning_result = (
                             True,
                             f"Warning: This will use {new_pct:.0%} of budget",
                             threshold.action,
                         )
+
+        if warning_result is not None:
+            return warning_result
 
         return True, "OK", None
 
