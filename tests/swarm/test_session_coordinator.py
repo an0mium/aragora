@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from aragora.coordination.registry import SessionRegistry
 from aragora.swarm.session_coordinator import (
     claim_pr,
     get_my_assignment,
@@ -62,3 +63,17 @@ class TestSessionCoordinator:
         assert view["summary"]["claim_count"] == 1
         assert view["summary"]["finding_count"] == 1
         assert view["directives"][0]["target"] == "codex-a"
+
+    def test_read_directives_clears_dead_session_assignments(self, tmp_path):
+        session = SessionRegistry(repo_path=tmp_path).register(
+            agent="codex",
+            worktree="/tmp/wt1",
+            pid=999999999,
+        )
+        set_assignment(session.session_id, "Stale assignment", repo_root=tmp_path)
+
+        view = read_directives(repo_root=tmp_path)
+
+        assert view["summary"]["directive_count"] == 0
+        assert view["summary"]["session_count"] == 0
+        assert get_my_assignment(session.session_id, repo_root=tmp_path) is None

@@ -153,6 +153,16 @@ class TestSessionRegistry:
 
         assert reg.get(session_id) is None
 
+    def test_get_include_dead_returns_dead_session(self, tmp_path):
+        reg = SessionRegistry(repo_path=tmp_path)
+        session = reg.register(agent="dead", worktree="/tmp/wt1", pid=999999999)
+
+        found = reg.get(session.session_id, include_dead=True)
+
+        assert found is not None
+        assert found.session_id == session.session_id
+        assert found.is_alive is False
+
     def test_get_missing_returns_none(self, tmp_path):
         reg = SessionRegistry(repo_path=tmp_path)
         assert reg.get("nonexistent") is None
