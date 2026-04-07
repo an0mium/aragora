@@ -298,6 +298,7 @@ class PolicyEngine:
         # Action tracking for rate limiting
         self._action_counts: dict[str, dict[str, int]] = {}  # agent -> capability -> count
         self._action_timestamps: dict[str, list[datetime]] = {}  # capability -> timestamps
+        self._session_policy_counts: dict[str, dict[str, int]] = {}  # session_id -> policy -> count
 
         # Audit log
         self._audit_log: list[AuditEntry] = []
@@ -327,6 +328,15 @@ class PolicyEngine:
                 max_single_action=self._default_budget_config.max_single_action,
             )
         return self._budgets[session_id]
+
+    def _get_session_policy_count(self, session_id: str, policy_name: str) -> int:
+        """Get how many times a policy has allowed an action in a session."""
+        return self._session_policy_counts.get(session_id, {}).get(policy_name, 0)
+
+    def _record_session_policy_use(self, session_id: str, policy_name: str) -> None:
+        """Record a successful policy use for session-scoped limits."""
+        session_counts = self._session_policy_counts.setdefault(session_id, {})
+        session_counts[policy_name] = session_counts.get(policy_name, 0) + 1
 
     def check_action(
         self,
@@ -386,6 +396,7 @@ class PolicyEngine:
         )
 
         # Check policies (first match wins due to priority sorting)
+        matched_policy: Policy | None = None
         for policy in self.policies:
             if policy.matches(agent, tool, capability, context):
                 # Apply policy multiplier to risk
@@ -422,6 +433,29 @@ class PolicyEngine:
                     self._log_action(result)
                     return result
 
+                if (
+                    policy.max_uses_per_session is not None
+                    and self._get_session_policy_count(session_id, policy.name)
+                    >= policy.max_uses_per_session
+                ):
+                    result = PolicyResult(
+                        decision=PolicyDecision.DENY,
+                        allowed=False,
+                        reason=(
+                            f"Policy '{policy.name}' exceeded max uses per session "
+                            f"({policy.max_uses_per_session})"
+                        ),
+                        agent=agent,
+                        tool=tool,
+                        capability=capability,
+                        context=context,
+                        risk_cost=risk_cost,
+                        budget_remaining=budget.remaining,
+                    )
+                    self._log_action(result)
+                    return result
+
+                matched_policy = policy
                 # Policy allows - continue to budget check
                 break
 
@@ -495,6 +529,8 @@ class PolicyEngine:
             agent=agent,
             tool=tool,
         )
+        if matched_policy and matched_policy.max_uses_per_session is not None:
+            self._record_session_policy_use(session_id, matched_policy.name)
 
         self._log_action(result)
         return result
