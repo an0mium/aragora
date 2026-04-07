@@ -82,25 +82,36 @@ def validate_request(
 
             # Validate path segments if validators provided
             if path_validators:
-                parts = path.strip("/").split("/")
+                parts = path.strip("/").split("/") if isinstance(path, str) else []
+                missing = object()
                 for name, validator in path_validators.items():
+                    segment = kwargs.get(name, missing)
+
                     # Try to find the segment in the path
                     # Common patterns: /api/debates/{id}, /api/agent/{name}/history
                     try:
-                        if name == "debate_id" and len(parts) >= 3:
+                        if segment is not missing:
+                            pass
+                        elif name == "debate_id":
                             segment = parts[2]  # /api/debates/{id}
-                        elif name == "agent" and len(parts) >= 3:
+                        elif name == "agent":
                             segment = parts[2]  # /api/agent/{name}
-                        elif name in kwargs:
-                            segment = kwargs[name]
                         else:
-                            continue  # Skip if not found
+                            segment = missing
 
+                        if segment is missing:
+                            return {
+                                "error": f"Missing required path parameter: {name}",
+                                "status": 400,
+                            }
                         is_valid, err = validator(segment)
                         if not is_valid:
                             return {"error": err, "status": 400}
                     except (IndexError, TypeError):
-                        pass  # Path structure doesn't match, skip
+                        return {
+                            "error": f"Missing required path parameter: {name}",
+                            "status": 400,
+                        }
 
             # For schemas, we need the body - caller must pass it
             if schema:

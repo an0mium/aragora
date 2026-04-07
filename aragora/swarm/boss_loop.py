@@ -1537,6 +1537,75 @@ class BossLoop:
         if not isinstance(deliverable, dict):
             return None
         deliverable_type = str(deliverable.get("type", "")).strip().lower()
+        prior_publish_result = worker_result.get("publish_result")
+        if not isinstance(prior_publish_result, dict):
+            receipt_metadata = worker_result.get("receipt_metadata")
+            if isinstance(receipt_metadata, dict):
+                candidate_publish_result = receipt_metadata.get("publish_result")
+                if isinstance(candidate_publish_result, dict):
+                    prior_publish_result = dict(candidate_publish_result)
+        prior_publish_action = (
+            str(prior_publish_result.get("action", "")).strip()
+            if isinstance(prior_publish_result, dict)
+            else ""
+        )
+        existing_pr_url = str(
+            deliverable.get("pr_url")
+            or deliverable.get("adopted_pr")
+            or worker_result.get("pr_url")
+            or (
+                prior_publish_result.get("pr_url") if isinstance(prior_publish_result, dict) else ""
+            )
+            or ""
+        ).strip()
+        if (
+            deliverable_type not in {"pr", "adopted_pr"}
+            and existing_pr_url
+            and (
+                deliverable.get("pr_url")
+                or deliverable.get("adopted_pr")
+                or worker_result.get("pr_url")
+                or (
+                    isinstance(prior_publish_result, dict)
+                    and (
+                        prior_publish_result.get("published") is True
+                        or prior_publish_action
+                        in {"pr_created", "existing_pr", "discovered_after_push"}
+                    )
+                )
+            )
+        ):
+            branch = str(
+                deliverable.get("branch")
+                or (
+                    prior_publish_result.get("branch")
+                    if isinstance(prior_publish_result, dict)
+                    else ""
+                )
+                or ""
+            ).strip()
+            normalized_deliverable = {
+                **dict(deliverable),
+                "type": "pr",
+                "pr_url": existing_pr_url,
+            }
+            if branch:
+                normalized_deliverable["branch"] = branch
+            worker_result["deliverable"] = normalized_deliverable
+            worker_result["pr_url"] = existing_pr_url
+            worker_result["pr_number"] = self._pr_number_from_url(existing_pr_url)
+            normalized_publish_result = (
+                dict(prior_publish_result) if isinstance(prior_publish_result, dict) else {}
+            )
+            normalized_publish_result.update(
+                {
+                    "action": "existing_pr",
+                    "published": True,
+                    "branch": branch or None,
+                    "pr_url": existing_pr_url,
+                }
+            )
+            return normalized_publish_result
         if deliverable_type in {"pr", "adopted_pr"}:
             pr_url = str(
                 deliverable.get("pr_url")
