@@ -6533,21 +6533,23 @@ Authorization: Bearer <token>
 ### Create Shareable Link
 
 ```http
-POST /api/gauntlet/receipts/{receipt_id}/share
+POST /api/v2/receipts/{receipt_id}/share
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "expires_in": 86400,
-  "allow_download": true
+  "expires_in_hours": 24
 }
 ```
 
 **Response:**
 ```json
 {
-  "share_url": "https://app.aragora.ai/receipts/share/abc123",
+  "success": true,
+  "receipt_id": "rcpt_test123",
+  "share_url": "/api/v2/receipts/share/abc123",
   "expires_at": "2026-01-21T11:00:00Z",
+  "max_accesses": null,
   "token": "abc123"
 }
 ```

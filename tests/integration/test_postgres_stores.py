@@ -43,26 +43,23 @@ pytestmark = [
     ),
 ]
 
-# Global pool to avoid recreating for each test
-_global_pool: asyncpg.Pool | None = None
-
 
 @pytest.fixture
 async def postgres_pool() -> AsyncGenerator[asyncpg.Pool, None]:
-    """Create PostgreSQL connection pool for tests (reuses global pool)."""
-    global _global_pool
+    """Create a PostgreSQL connection pool for a single test."""
     if not POSTGRES_DSN:
         pytest.skip("PostgreSQL DSN not configured")
 
-    if _global_pool is None or _global_pool._closed:
-        _global_pool = await asyncpg.create_pool(
-            POSTGRES_DSN,
-            min_size=1,
-            max_size=5,
-            command_timeout=30,
-        )
-    yield _global_pool
-    # Don't close - reuse across tests
+    pool = await asyncpg.create_pool(
+        POSTGRES_DSN,
+        min_size=1,
+        max_size=5,
+        command_timeout=30,
+    )
+    try:
+        yield pool
+    finally:
+        await pool.close()
 
 
 @pytest.fixture

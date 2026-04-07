@@ -146,7 +146,7 @@ def emit_lane_receipt(receipt: LaneCompletionReceipt) -> str | None:
             receipt_id=receipt.receipt_id,
             metadata=receipt.metadata,
         )
-    except Exception as exc:
+    except (ImportError, OSError, TypeError, ValueError) as exc:
         logger.debug("Lane receipt emission failed: %s", exc)
         return None
 
