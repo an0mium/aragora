@@ -800,6 +800,16 @@ class BudgetManager:
             return True, "No budget configured", None
 
         for budget in budgets:
+            if budget.status == BudgetStatus.SUSPENDED:
+                return False, "Budget suspended", BudgetAction.SUSPEND
+
+            if budget.status == BudgetStatus.EXCEEDED or budget.is_exceeded:
+                return (
+                    False,
+                    f"Budget exceeded (${budget.spent_usd:.2f}/${budget.amount_usd:.2f})",
+                    BudgetAction.HARD_LIMIT,
+                )
+
             allowed, reason = budget.can_spend(estimated_cost_usd, user_id)
             if not allowed:
                 if budget.status == BudgetStatus.SUSPENDED:
