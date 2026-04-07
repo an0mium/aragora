@@ -7,9 +7,9 @@ Provides async receipt management endpoints:
 - Create receipt share links
 - Access shared receipts
 - Verify receipt integrity
-- Export receipt in various formats (json, markdown, sarif)
+- Export receipt in various formats (json, html, markdown, pdf, sarif)
 - Batch verify multiple receipts
-- Batch export multiple receipts
+- Batch export multiple receipts in text-safe formats (json, html, markdown, sarif)
 - Search receipts by query/date/debate_id
 - Receipt statistics
 """
@@ -50,6 +50,15 @@ class ExportFormat(str, Enum):
     markdown = "markdown"
     md = "md"
     pdf = "pdf"
+    sarif = "sarif"
+
+
+class BatchExportFormat(str, Enum):
+    """Supported batch export formats."""
+
+    json = "json"
+    html = "html"
+    markdown = "markdown"
     sarif = "sarif"
 
 
@@ -165,7 +174,10 @@ class BatchExportRequest(BaseModel):
     receipt_ids: list[str] = Field(
         ..., min_length=1, max_length=100, description="Receipt IDs to export (max 100)"
     )
-    format: str = Field("json", description="Export format (json, markdown, sarif)")
+    format: BatchExportFormat = Field(
+        BatchExportFormat.json,
+        description="Export format (json, html, markdown, sarif)",
+    )
 
 
 class BatchExportItem(BaseModel):
@@ -904,12 +916,7 @@ async def batch_export_receipts(
         items: list[BatchExportItem] = []
         failed_ids: list[str] = []
 
-        export_format = body.format.lower()
-        if export_format not in ("json", "markdown", "sarif"):
-            raise HTTPException(
-                status_code=422,
-                detail="Unsupported format. Supported: json, markdown, sarif",
-            )
+        export_format = body.format.value
 
         for rid in body.receipt_ids:
             try:
@@ -934,7 +941,9 @@ async def batch_export_receipts(
                     failed_ids.append(rid)
                     continue
 
-                if export_format == "markdown":
+                if export_format == "html":
+                    content = receipt.to_html()
+                elif export_format == "markdown":
                     content = receipt.to_markdown()
                 elif export_format == "sarif":
                     content = receipt.to_sarif_json()

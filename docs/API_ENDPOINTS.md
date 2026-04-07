@@ -2757,7 +2757,7 @@ Batch signing
 
 ### `POST` `/api/v2/receipts/batch-export`
 
-Batch export to ZIP
+Batch export receipt payloads (`json`, `html`, `markdown`, `sarif`)
 
 ### `GET` `/api/v2/receipts/stats`
 

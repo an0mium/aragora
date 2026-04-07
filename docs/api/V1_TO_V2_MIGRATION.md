@@ -154,11 +154,11 @@ All v2 routes use the `/api/v2` prefix. The equivalent v1 routes use `/api/v1` (
 | `/api/v1/receipts` | `/api/v2/receipts` | GET | Paginated with `limit`/`offset`. Adds `verdict` filter |
 | `/api/v1/receipts/{id}` | `/api/v2/receipts/{receipt_id}` | GET | Full detail with findings, claims, agents |
 | `/api/v1/receipts/{id}/verify` | `/api/v2/receipts/{receipt_id}/verify` | GET/POST | Both methods supported. Returns `checksum_match` field |
-| `/api/v1/receipts/{id}/export` | `/api/v2/receipts/{receipt_id}/export` | GET | Supports `json`, `markdown`, `sarif` formats |
+| `/api/v1/receipts/{id}/export` | `/api/v2/receipts/{receipt_id}/export` | GET | Supports `json`, `html`, `markdown`, `pdf`, and `sarif` formats |
 | (none) | `/api/v2/receipts/search` | GET | New. Search by query, date range, verdict, risk level |
 | (none) | `/api/v2/receipts/stats` | GET | New. Aggregate statistics by verdict, risk, framework |
 | (none) | `/api/v2/receipts/batch-verify` | POST | New. Verify up to 100 receipts at once |
-| (none) | `/api/v2/receipts/batch-export` | POST | New. Export up to 100 receipts at once |
+| (none) | `/api/v2/receipts/batch-export` | POST | New. Export up to 100 receipts at once in `json`, `html`, `markdown`, or `sarif` |
 
 ### Gauntlet
 

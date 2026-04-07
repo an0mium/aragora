@@ -1041,3 +1041,25 @@ class TestBatchExport:
         assert response.status_code == 200
         data = response.json()
         assert data["items"][0]["format"] == "markdown"
+
+    def test_batch_export_html_format(self, client, mock_receipt_store, sample_receipt_dict):
+        """Batch export in HTML format."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "html"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"][0]["format"] == "html"
+        assert "<!DOCTYPE html>" in data["items"][0]["content"]
+        assert "rcpt_test123" in data["items"][0]["content"]
+
+    def test_batch_export_pdf_format_is_rejected_by_validation(self, client):
+        """Batch export rejects PDF because the response model is text-only."""
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "pdf"},
+        )
+        assert response.status_code == 422
