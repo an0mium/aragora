@@ -4501,6 +4501,59 @@ class TestListOpenBossHarvestPrs:
 class TestMaybePublishDeliverable:
     """Tests for auto-publish queue capping."""
 
+    def test_reuses_existing_published_pr_for_branch_deliverable(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+                max_open_auto_publish_prs=1,
+            )
+        )
+        issue = _make_issue(number=124)
+        worker_result = {
+            "status": "needs_human",
+            "outcome": "blocked",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/issue-124",
+                "commit_shas": ["abc123"],
+            },
+            "publish_result": {
+                "published": True,
+                "action": "existing_pr",
+                "branch": "codex/issue-124",
+                "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+            },
+        }
+
+        with (
+            patch.object(loop, "_list_open_boss_harvest_prs") as mock_list_open_prs,
+            patch.object(loop, "_harvest_worker_commits_for_publish") as mock_harvest,
+            patch("aragora.swarm.tranche_integrate.publish_lane_deliverable") as mock_publish,
+        ):
+            result = loop._maybe_publish_deliverable(issue, worker_result)
+
+        assert result == {
+            "published": True,
+            "action": "existing_pr",
+            "branch": "codex/issue-124",
+            "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+        }
+        assert worker_result["deliverable"] == {
+            "type": "pr",
+            "branch": "codex/issue-124",
+            "commit_shas": ["abc123"],
+            "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+        }
+        assert worker_result["pr_url"] == "https://github.com/synaptent/aragora/pull/2046"
+        assert worker_result["pr_number"] == 2046
+        assert BossLoop._promote_published_deliverable(worker_result) is True
+        assert worker_result["status"] == "completed"
+        assert worker_result["outcome"] == "pr_adopted"
+        mock_list_open_prs.assert_not_called()
+        mock_harvest.assert_not_called()
+        mock_publish.assert_not_called()
+
     def test_defers_when_open_boss_harvest_pr_already_exists(self) -> None:
         loop = BossLoop(
             config=BossLoopConfig(
