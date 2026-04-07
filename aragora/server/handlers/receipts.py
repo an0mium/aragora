@@ -111,15 +111,81 @@ def _render_shared_receipt_html(receipt: Any, token: str) -> str:
     import html as html_mod
 
     esc = html_mod.escape
-    receipt_id = getattr(receipt, "receipt_id", "unknown")
-    verdict = getattr(receipt, "verdict", "UNKNOWN")
-    confidence = getattr(receipt, "confidence", 0.0)
-    risk_level = getattr(receipt, "risk_level", "unknown")
-    input_summary = getattr(receipt, "input_summary", "Decision receipt")
-    timestamp = getattr(receipt, "timestamp", "")
-    agents = getattr(receipt, "agents_involved", [])
-    findings = getattr(receipt, "findings", [])
-    checksum = getattr(receipt, "checksum", "")
+    payload = _extract_decision_receipt_payload(receipt)
+
+    def payload_value(key: str, default: Any = None) -> Any:
+        value = payload.get(key, getattr(receipt, key, default))
+        return default if value is None else value
+
+    def finding_field(finding: Any, key: str, default: str = "") -> str:
+        if isinstance(finding, dict):
+            value = finding.get(key, default)
+        else:
+            value = getattr(finding, key, default)
+        return "" if value is None else str(value)
+
+    def format_percentage(value: Any) -> str:
+        try:
+            return f"{float(value):.0%}"
+        except (TypeError, ValueError):
+            return "0%"
+
+    def float_value(value: Any, default: float = 0.0) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def format_duration(value: Any) -> str | None:
+        try:
+            duration = float(value)
+        except (TypeError, ValueError):
+            return None
+        if duration <= 0:
+            return None
+        return f"{duration:.1f}s"
+
+    def format_cost(value: Any) -> str | None:
+        try:
+            cost = float(value)
+        except (TypeError, ValueError):
+            return None
+        if cost <= 0:
+            return None
+        return f"${cost:.4f}"
+
+    def format_tokens(value: Any) -> str | None:
+        try:
+            tokens = int(value)
+        except (TypeError, ValueError):
+            return None
+        if tokens <= 0:
+            return None
+        return f"{tokens:,}"
+
+    receipt_id = str(payload_value("receipt_id", "unknown"))
+    verdict = str(payload_value("verdict", "UNKNOWN"))
+    confidence = float_value(payload_value("confidence", 0.0), 0.0)
+    risk_level = str(payload_value("risk_level", "unknown"))
+    input_summary = str(payload_value("input_summary", "Decision receipt"))
+    timestamp = str(payload_value("timestamp", ""))
+    checksum = str(payload_value("checksum", ""))
+    raw_agents = payload_value("agents_involved", [])
+    agents = raw_agents if isinstance(raw_agents, list) else []
+    raw_findings = payload_value("findings", [])
+    findings = raw_findings if isinstance(raw_findings, list) else []
+    robustness_score = payload_value("robustness_score", 0.0)
+    coverage_score = payload_value("coverage_score", 0.0)
+    verification_coverage = payload_value("verification_coverage", 0.0)
+    duration_display = format_duration(payload_value("duration_seconds"))
+    cost_display = format_cost(payload_value("cost_usd"))
+    tokens_used = payload_value("tokens_used")
+    if tokens_used in (None, 0) and isinstance(payload.get("cost_summary"), dict):
+        cost_summary = payload["cost_summary"]
+        tokens_used = int(cost_summary.get("total_tokens_in", 0) or 0) + int(
+            cost_summary.get("total_tokens_out", 0) or 0
+        )
+    tokens_display = format_tokens(tokens_used)
 
     verdict_colors = {
         "APPROVED": "#28a745",
@@ -131,10 +197,10 @@ def _render_shared_receipt_html(receipt: Any, token: str) -> str:
 
     findings_html = ""
     for f in findings:
-        sev = getattr(f, "severity", "UNKNOWN")
-        title = getattr(f, "title", "")
-        desc = getattr(f, "description", "")
-        mit = getattr(f, "mitigation", "")
+        sev = finding_field(f, "severity", "UNKNOWN")
+        title = finding_field(f, "title")
+        desc = finding_field(f, "description")
+        mit = finding_field(f, "mitigation")
         sev_color = {
             "CRITICAL": "#dc3545",
             "HIGH": "#fd7e14",
@@ -151,6 +217,25 @@ def _render_shared_receipt_html(receipt: Any, token: str) -> str:
     og_description = f"Verdict: {verdict} | Confidence: {confidence:.0%} | Risk: {risk_level}"
     if findings:
         og_description += f" | {len(findings)} finding(s)"
+
+    detail_rows = [
+        f'<div class="meta-row"><span class="meta-key">Input</span><span class="meta-val">{esc(str(input_summary)[:100])}</span></div>',
+        f'<div class="meta-row"><span class="meta-key">Timestamp</span><span class="meta-val">{esc(str(timestamp))}</span></div>',
+        f'<div class="meta-row"><span class="meta-key">Agents</span><span class="meta-val">{esc(", ".join(str(agent) for agent in agents[:5]))}{" ..." if len(agents) > 5 else ""}</span></div>',
+        f'<div class="meta-row"><span class="meta-key">Receipt ID</span><span class="meta-val">{esc(receipt_id[:24])}</span></div>',
+    ]
+    if duration_display:
+        detail_rows.append(
+            f'<div class="meta-row"><span class="meta-key">Duration</span><span class="meta-val">{esc(duration_display)}</span></div>'
+        )
+    if cost_display:
+        detail_rows.append(
+            f'<div class="meta-row"><span class="meta-key">Cost</span><span class="meta-val">{esc(cost_display)}</span></div>'
+        )
+    if tokens_display:
+        detail_rows.append(
+            f'<div class="meta-row"><span class="meta-key">Tokens Used</span><span class="meta-val">{esc(tokens_display)}</span></div>'
+        )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -205,15 +290,15 @@ def _render_shared_receipt_html(receipt: Any, token: str) -> str:
             </div>
             <div class="scores">
                 <div class="score">
-                    <div class="score-val">{getattr(receipt, "robustness_score", 0):.0%}</div>
+                    <div class="score-val">{format_percentage(robustness_score)}</div>
                     <div class="score-lbl">Robustness</div>
                 </div>
                 <div class="score">
-                    <div class="score-val">{getattr(receipt, "coverage_score", 0):.0%}</div>
+                    <div class="score-val">{format_percentage(coverage_score)}</div>
                     <div class="score-lbl">Coverage</div>
                 </div>
                 <div class="score">
-                    <div class="score-val">{getattr(receipt, "verification_coverage", 0):.0%}</div>
+                    <div class="score-val">{format_percentage(verification_coverage)}</div>
                     <div class="score-lbl">Verification</div>
                 </div>
             </div>
@@ -221,10 +306,7 @@ def _render_shared_receipt_html(receipt: Any, token: str) -> str:
 
         <div class="card">
             <div class="section-title">Decision Details</div>
-            <div class="meta-row"><span class="meta-key">Input</span><span class="meta-val">{esc(str(input_summary)[:100])}</span></div>
-            <div class="meta-row"><span class="meta-key">Timestamp</span><span class="meta-val">{esc(str(timestamp))}</span></div>
-            <div class="meta-row"><span class="meta-key">Agents</span><span class="meta-val">{esc(", ".join(agents[:5]))}{" ..." if len(agents) > 5 else ""}</span></div>
-            <div class="meta-row"><span class="meta-key">Receipt ID</span><span class="meta-val">{esc(receipt_id[:24])}</span></div>
+            {"".join(detail_rows)}
         </div>
 
         {"<div class='card'><div class='section-title'>Findings (" + str(len(findings)) + ")</div>" + findings_html + "</div>" if findings else ""}
@@ -1565,7 +1647,7 @@ class ReceiptsHandler(BaseHandler):
         accept = headers.get("Accept", headers.get("accept", ""))
         wants_html = fmt == "html" or (not fmt and "text/html" in accept)
 
-        if wants_html and hasattr(receipt, "to_html"):
+        if wants_html:
             html_content = _render_shared_receipt_html(receipt, token)
             return HandlerResult(
                 status_code=200,
