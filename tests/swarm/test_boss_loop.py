@@ -3299,6 +3299,46 @@ async def test_run_iteration_drops_ineligible_pending_handoff_issue() -> None:
     assert issue_b.number not in loop._pending_handoff_prompts
 
 
+@pytest.mark.asyncio
+async def test_run_iteration_emits_existing_pr_published_pr_followup() -> None:
+    issue = _make_issue(1805, "Retry reused published PR")
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [issue]
+
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: _fresh_result(fresh=True),
+    )
+
+    async def _dispatch_issue(issue, freshness):
+        return {
+            "status": "completed",
+            "outcome": "pr_adopted",
+            "pr_url": "https://github.com/synaptent/aragora/pull/2047",
+            "deliverable": {
+                "type": "pr",
+                "branch": "codex/issue-1805",
+                "pr_url": "https://github.com/synaptent/aragora/pull/2047",
+            },
+            "publish_result": {
+                "action": "existing_pr",
+                "published": True,
+                "branch": "codex/issue-1805",
+                "pr_url": "https://github.com/synaptent/aragora/pull/2047",
+            },
+        }
+
+    loop._dispatch_issue = _dispatch_issue
+
+    status = await loop._run_iteration(1)
+
+    assert status.worker_status == "completed"
+    assert status.next_actions == [
+        "Auto-continuing: existing PR https://github.com/synaptent/aragora/pull/2047 captures the deliverable for human review."
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Fixture-backed Boss-loop invocation test
 # ---------------------------------------------------------------------------
@@ -4551,6 +4591,57 @@ class TestMaybePublishDeliverable:
                 }
             ],
         }
+        mock_harvest.assert_not_called()
+        mock_publish.assert_not_called()
+
+    def test_reuses_existing_pr_from_retry_receipt_without_republishing(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+                max_open_auto_publish_prs=1,
+            )
+        )
+        issue = _make_issue(number=124)
+        worker_result = {
+            "status": "needs_human",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/issue-124",
+                "commit_shas": ["abc123"],
+            },
+            "receipt_metadata": {
+                "publish_result": {
+                    "published": True,
+                    "action": "pr_created",
+                    "branch": "codex/issue-124",
+                    "pr_url": "https://github.com/synaptent/aragora/pull/2047",
+                }
+            },
+        }
+
+        with (
+            patch.object(loop, "_list_open_boss_harvest_prs") as mock_list_open,
+            patch.object(loop, "_harvest_worker_commits_for_publish") as mock_harvest,
+            patch("aragora.swarm.tranche_integrate.publish_lane_deliverable") as mock_publish,
+        ):
+            result = loop._maybe_publish_deliverable(issue, worker_result)
+
+        assert result == {
+            "published": True,
+            "action": "existing_pr",
+            "branch": "codex/issue-124",
+            "pr_url": "https://github.com/synaptent/aragora/pull/2047",
+        }
+        assert worker_result["deliverable"] == {
+            "type": "pr",
+            "branch": "codex/issue-124",
+            "commit_shas": ["abc123"],
+            "pr_url": "https://github.com/synaptent/aragora/pull/2047",
+        }
+        assert worker_result["pr_url"] == "https://github.com/synaptent/aragora/pull/2047"
+        assert worker_result["pr_number"] == 2047
+        mock_list_open.assert_not_called()
         mock_harvest.assert_not_called()
         mock_publish.assert_not_called()
 
