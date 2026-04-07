@@ -242,6 +242,20 @@ class TestValidateDebateRequest:
         assert req is None
         assert err is not None
 
+    def test_unexpected_non_validation_exception_propagates(self, monkeypatch):
+        """Unexpected exceptions are not turned into fake validation errors."""
+        from aragora.server.validation import pydantic_models
+
+        def raise_runtime_error(_body):
+            raise RuntimeError("unexpected failure")
+
+        monkeypatch.setattr(pydantic_models.DebateRequest, "model_validate", raise_runtime_error)
+
+        with pytest.raises(RuntimeError, match="unexpected failure"):
+            pydantic_models.validate_debate_request(
+                {"question": "Should we adopt microservices architecture?"}
+            )
+
 
 class TestDebateCreateEndpointPydanticIntegration:
     """Tests that confirm the create endpoint wires in Pydantic validation.
