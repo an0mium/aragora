@@ -134,12 +134,21 @@ async def get_debate_tool(debate_id: str) -> dict[str, Any]:
         from aragora.server.storage import get_debates_db
 
         db = get_debates_db()
-        if db:
-            debate = db.get(debate_id)
-            if debate:
-                return debate
-    except Exception as e:  # noqa: BLE001 - graceful degradation, return not found on error
+    except Exception as e:  # noqa: BLE001 - graceful degradation, surface storage errors
         logger.warning("Could not fetch debate from storage: %s", e)
+        return {"error": "Storage not available"}
+
+    if not db:
+        return {"error": "Storage not available"}
+
+    try:
+        debate = db.get(debate_id)
+    except Exception as e:  # noqa: BLE001 - graceful degradation, surface storage errors
+        logger.warning("Could not fetch debate from storage: %s", e)
+        return {"error": "Storage not available"}
+
+    if debate:
+        return debate
 
     return {"error": f"Debate {debate_id} not found"}
 
