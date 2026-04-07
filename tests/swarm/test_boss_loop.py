@@ -3299,39 +3299,40 @@ async def test_run_iteration_drops_ineligible_pending_handoff_issue() -> None:
     assert issue_b.number not in loop._pending_handoff_prompts
 
 
-@pytest.mark.asyncio
-async def test_run_iteration_emits_existing_pr_published_pr_followup() -> None:
+def test_finalize_worker_result_emits_existing_pr_published_pr_followup() -> None:
     issue = _make_issue(1805, "Retry reused published PR")
-    feed = MagicMock(spec=GitHubIssueFeed)
-    feed.fetch.return_value = [issue]
-
-    loop = BossLoop(
-        config=_boss_config(max_iterations=1),
-        issue_feed=feed,
-        freshness_checker=lambda **kw: _fresh_result(fresh=True),
-    )
-
-    async def _dispatch_issue(issue, freshness):
-        return {
-            "status": "completed",
-            "outcome": "pr_adopted",
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    worker_result = {
+        "status": "completed",
+        "outcome": "pr_adopted",
+        "pr_url": "https://github.com/synaptent/aragora/pull/2047",
+        "deliverable": {
+            "type": "pr",
+            "branch": "codex/issue-1805",
             "pr_url": "https://github.com/synaptent/aragora/pull/2047",
-            "deliverable": {
-                "type": "pr",
-                "branch": "codex/issue-1805",
-                "pr_url": "https://github.com/synaptent/aragora/pull/2047",
-            },
-            "publish_result": {
-                "action": "existing_pr",
-                "published": True,
-                "branch": "codex/issue-1805",
-                "pr_url": "https://github.com/synaptent/aragora/pull/2047",
-            },
-        }
+        },
+        "publish_result": {
+            "action": "existing_pr",
+            "published": True,
+            "branch": "codex/issue-1805",
+            "pr_url": "https://github.com/synaptent/aragora/pull/2047",
+        },
+    }
 
-    loop._dispatch_issue = _dispatch_issue
-
-    status = await loop._run_iteration(1)
+    with (
+        patch.object(loop, "_emit_lane_receipt"),
+        patch.object(loop, "_log_value_outcome"),
+        patch.object(loop, "_append_iteration_metrics"),
+    ):
+        status = loop._finalize_worker_result(
+            iteration=1,
+            timestamp=datetime.now(UTC).isoformat(),
+            runner_freshness=_fresh_result(fresh=True).to_dict(),
+            issue=issue,
+            issue_dict={"number": issue.number, "title": issue.title},
+            worker_result=worker_result,
+            elapsed_seconds=0.25,
+        )
 
     assert status.worker_status == "completed"
     assert status.next_actions == [
