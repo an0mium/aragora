@@ -98,10 +98,23 @@ def handle_register(handler_instance: AuthHandler, handler) -> HandlerResult:
         return error_response("Invalid JSON body", 400)
 
     # Extract and validate fields
-    email = body.get("email", "").strip().lower()
+    email = body.get("email", "")
     password = body.get("password", "")
-    name = body.get("name", "").strip()
-    org_name = body.get("organization", "").strip()
+    name = body.get("name", "")
+    org_name = body.get("organization", "")
+
+    for field_name, value in {
+        "email": email,
+        "password": password,
+        "name": name,
+        "organization": org_name,
+    }.items():
+        if not isinstance(value, str):
+            return error_response(f"{field_name.capitalize()} must be a string", 400)
+
+    email = email.strip().lower()
+    name = name.strip()
+    org_name = org_name.strip()
 
     # Validate email
     valid, err = validate_email(email)
