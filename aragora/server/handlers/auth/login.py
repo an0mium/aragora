@@ -250,8 +250,13 @@ def handle_login(handler_instance: AuthHandler, handler) -> HandlerResult:
     if body is None:
         return error_response("Invalid JSON body", 400)
 
-    email = body.get("email", "").strip().lower()
+    email = body.get("email", "")
     password = body.get("password", "")
+
+    if not isinstance(email, str) or not isinstance(password, str):
+        return error_response("Email and password must be strings", 400)
+
+    email = email.strip().lower()
 
     if not email or not password:
         return error_response("Email and password required", 400)
