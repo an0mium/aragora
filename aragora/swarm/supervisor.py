@@ -71,6 +71,8 @@ SESSION_LOCK_FILES = (
     ".codex_session_active",
     ".nomic-session-active",
 )
+_TRUTHY_BOOL_STRINGS = {"1", "true", "yes", "y", "on"}
+_FALSY_BOOL_STRINGS = {"0", "false", "no", "n", "off"}
 
 
 def _path_in_scope(path: str, scope_pattern: str) -> bool:
@@ -100,6 +102,18 @@ def _is_concrete_repo_path(path: str) -> bool:
 
 def _strict_bool(value: Any) -> bool | None:
     return value if isinstance(value, bool) else None
+
+
+def _coerce_bool(value: Any, *, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in _TRUTHY_BOOL_STRINGS:
+            return True
+        if normalized in _FALSY_BOOL_STRINGS:
+            return False
+    return default
 
 
 def _docs_only_scope_supports_hint(path: str, original_scope: list[str]) -> bool:
@@ -3077,7 +3091,10 @@ class SwarmSupervisor:
                     risk_level=risk_level,
                     target_agent=target_agent,
                     reviewer_agent=reviewer_agent,
-                    approval_required=bool(payload.get("approval_required", False)),
+                    approval_required=_coerce_bool(
+                        payload.get("approval_required"),
+                        default=True,
+                    ),
                     metadata={
                         **dict(payload.get("metadata") or {}),
                         "source": "explicit_spec_work_order",
@@ -3113,7 +3130,6 @@ class SwarmSupervisor:
             item.risk_level = str(item.risk_level).strip() or self._risk_level_for_scope(
                 item.file_scope
             )
-            item.approval_required = True
             item.metadata = {
                 **dict(item.metadata),
                 "acceptance_criteria": list(spec.acceptance_criteria),
@@ -3765,7 +3781,9 @@ class SwarmSupervisor:
             # Salvaged deliverables proceed to completion — the recovery was
             # intentional and the deliverable (commits/PR) is real. Clear any
             # stale blocker metadata from the failed attempt so the lane does
-            # not remain "completed" while still looking blocked.
+            # not remain "completed" while still looking blocked. Also drop any
+            # inherited receipt/confidence so completion backfill records a
+            # fresh receipt for the current salvaged deliverable.
             item["status"] = "completed"
             item["review_status"] = "pending_heterogeneous_review"
             for key in (
@@ -3778,6 +3796,8 @@ class SwarmSupervisor:
                 "merge_gate",
                 "verification_missing_reason",
                 "scope_violation",
+                "receipt_id",
+                "confidence",
             ):
                 item.pop(key, None)
             item.pop("blockers", None)

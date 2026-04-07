@@ -2753,7 +2753,7 @@ class BossLoop:
         )
         freshness_dict = _freshness_to_dict(freshness)
 
-        if not (freshness.fresh if hasattr(freshness, "fresh") else freshness_dict.get("fresh")):
+        if not _freshness_is_fresh(freshness, freshness_dict):
             blocked_reason = (
                 freshness.blocked_reason
                 if hasattr(freshness, "blocked_reason")
