@@ -71,6 +71,8 @@ __all__ = [
     "generate_probe_report_markdown",
 ]
 
+AGENT_PROBE_FAILURES = (RuntimeError, TimeoutError, OSError)
+
 
 class CapabilityProber:
     """
@@ -175,7 +177,7 @@ class CapabilityProber:
         start_time = datetime.now()
         try:
             response = await run_agent_fn(target_agent, probe_prompt)
-        except Exception:  # noqa: BLE001 - Probe can fail in many ways
+        except AGENT_PROBE_FAILURES:
             response = "Error: agent probe failed"
         end_time = datetime.now()
 
