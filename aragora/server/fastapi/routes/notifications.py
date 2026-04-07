@@ -10,8 +10,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
+
+from aragora.rbac.models import AuthorizationContext
+from aragora.server.fastapi.dependencies.auth import require_authenticated
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +86,26 @@ class SendNotificationRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def require_notification_permission(action: str):
+    """Mirror the legacy notification handler's auth model for v2 routes."""
+
+    async def _check_permission(
+        auth: AuthorizationContext = Depends(require_authenticated),
+    ) -> AuthorizationContext:
+        if auth.has_any_role("admin", "owner"):
+            return auth
+
+        if action in auth.permissions:
+            return auth
+
+        if auth.has_permission(f"notifications:{action}"):
+            return auth
+
+        raise HTTPException(status_code=403, detail=f"Permission denied: notifications:{action}")
+
+    return _check_permission
+
+
 async def _get_email_integration(org_id: str | None = None):
     """Get email integration, preferring org-specific config."""
     try:
@@ -107,16 +130,119 @@ async def _get_telegram_integration(org_id: str | None = None):
         return None
 
 
+async def _save_email_config_for_org(body: EmailConfigRequest, org_id: str) -> None:
+    """Persist an email config for a specific organization."""
+    from aragora.server.handlers.social.notifications import invalidate_org_integration_cache
+    from aragora.storage.notification_config_store import (
+        StoredEmailConfig,
+        get_notification_config_store,
+    )
+
+    store = get_notification_config_store()
+    await store.save_email_config(
+        StoredEmailConfig(
+            org_id=org_id,
+            provider=body.provider,
+            smtp_host=body.smtp_host,
+            smtp_port=body.smtp_port,
+            smtp_username=body.smtp_username,
+            smtp_password=body.smtp_password,
+            use_tls=body.use_tls,
+            use_ssl=body.use_ssl,
+            sendgrid_api_key=body.sendgrid_api_key,
+            ses_region=body.ses_region,
+            ses_access_key_id=body.ses_access_key_id,
+            ses_secret_access_key=body.ses_secret_access_key,
+            from_email=body.from_email,
+            from_name=body.from_name,
+            notify_on_consensus=body.notify_on_consensus,
+            notify_on_debate_end=body.notify_on_debate_end,
+            notify_on_error=body.notify_on_error,
+            enable_digest=body.enable_digest,
+            digest_frequency=body.digest_frequency,
+            min_consensus_confidence=body.min_consensus_confidence,
+            max_emails_per_hour=body.max_emails_per_hour,
+        )
+    )
+    invalidate_org_integration_cache(org_id)
+
+
+async def _save_telegram_config_for_org(body: TelegramConfigRequest, org_id: str) -> None:
+    """Persist a telegram config for a specific organization."""
+    from aragora.server.handlers.social.notifications import invalidate_org_integration_cache
+    from aragora.storage.notification_config_store import (
+        StoredTelegramConfig,
+        get_notification_config_store,
+    )
+
+    store = get_notification_config_store()
+    await store.save_telegram_config(
+        StoredTelegramConfig(
+            org_id=org_id,
+            bot_token=body.bot_token,
+            chat_id=body.chat_id,
+            notify_on_consensus=body.notify_on_consensus,
+            notify_on_debate_end=body.notify_on_debate_end,
+            notify_on_error=body.notify_on_error,
+            min_consensus_confidence=body.min_consensus_confidence,
+            max_messages_per_minute=body.max_messages_per_minute,
+        )
+    )
+    invalidate_org_integration_cache(org_id)
+
+
+async def _list_email_recipients_for_org(org_id: str):
+    """Return org-scoped email recipients from the notification config store."""
+    from aragora.storage.notification_config_store import get_notification_config_store
+
+    return await get_notification_config_store().get_recipients(org_id)
+
+
+async def _add_email_recipient_for_org(body: RecipientRequest, org_id: str) -> int:
+    """Persist an org-scoped email recipient and return the new count."""
+    from aragora.server.handlers.social.notifications import invalidate_org_integration_cache
+    from aragora.storage.notification_config_store import (
+        StoredEmailRecipient,
+        get_notification_config_store,
+    )
+
+    store = get_notification_config_store()
+    await store.add_recipient(
+        StoredEmailRecipient(
+            org_id=org_id,
+            email=body.email,
+            name=body.name,
+            preferences=body.preferences,
+        )
+    )
+    invalidate_org_integration_cache(org_id)
+    return len(await store.get_recipients(org_id))
+
+
+async def _remove_email_recipient_for_org(email: str, org_id: str) -> tuple[bool, int]:
+    """Remove an org-scoped email recipient and return removal status plus count."""
+    from aragora.server.handlers.social.notifications import invalidate_org_integration_cache
+    from aragora.storage.notification_config_store import get_notification_config_store
+
+    store = get_notification_config_store()
+    removed = await store.remove_recipient(org_id, email)
+    if removed:
+        invalidate_org_integration_cache(org_id)
+    return removed, len(await store.get_recipients(org_id))
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
 
 @router.get("/notifications/status")
-async def get_notification_status():
+async def get_notification_status(
+    auth: AuthorizationContext = Depends(require_notification_permission("read")),
+):
     """Get status of notification integrations."""
-    email = await _get_email_integration()
-    telegram = await _get_telegram_integration()
+    email = await _get_email_integration(auth.org_id)
+    telegram = await _get_telegram_integration(auth.org_id)
 
     return {
         "data": {
@@ -154,11 +280,23 @@ async def get_notification_status():
 
 
 @router.get("/notifications/email/recipients")
-async def get_email_recipients():
+async def get_email_recipients(
+    auth: AuthorizationContext = Depends(require_notification_permission("read")),
+):
     """Get list of email recipients."""
+    if auth.org_id:
+        recipients = await _list_email_recipients_for_org(auth.org_id)
+        return {
+            "data": {
+                "recipients": [{"email": r.email, "name": r.name} for r in recipients],
+                "count": len(recipients),
+                "org_id": auth.org_id,
+            }
+        }
+
     email = await _get_email_integration()
     if not email:
-        return {"data": {"recipients": [], "error": "Email not configured"}}
+        return {"data": {"recipients": [], "count": 0, "error": "Email not configured"}}
 
     return {
         "data": {
@@ -169,11 +307,24 @@ async def get_email_recipients():
 
 
 @router.post("/notifications/email/config")
-async def configure_email(body: EmailConfigRequest):
+async def configure_email(
+    body: EmailConfigRequest,
+    auth: AuthorizationContext = Depends(require_notification_permission("write")),
+):
     """Configure email integration settings."""
     try:
         from aragora.integrations.email import EmailConfig
         from aragora.server.handlers.social.notifications import configure_email_integration
+
+        if auth.org_id:
+            await _save_email_config_for_org(body, auth.org_id)
+            return {
+                "data": {
+                    "success": True,
+                    "message": f"Email configured for org {auth.org_id} with host: {body.smtp_host}",
+                    "org_id": auth.org_id,
+                }
+            }
 
         config = EmailConfig(
             smtp_host=body.smtp_host,
@@ -209,11 +360,24 @@ async def configure_email(body: EmailConfigRequest):
 
 
 @router.post("/notifications/telegram/config")
-async def configure_telegram(body: TelegramConfigRequest):
+async def configure_telegram(
+    body: TelegramConfigRequest,
+    auth: AuthorizationContext = Depends(require_notification_permission("write")),
+):
     """Configure Telegram integration settings."""
     try:
         from aragora.integrations.telegram import TelegramConfig
         from aragora.server.handlers.social.notifications import configure_telegram_integration
+
+        if auth.org_id:
+            await _save_telegram_config_for_org(body, auth.org_id)
+            return {
+                "data": {
+                    "success": True,
+                    "message": f"Telegram configured for org {auth.org_id}",
+                    "org_id": auth.org_id,
+                }
+            }
 
         config = TelegramConfig(
             bot_token=body.bot_token,
@@ -241,12 +405,26 @@ async def configure_telegram(body: TelegramConfigRequest):
 
 
 @router.post("/notifications/email/recipient")
-async def add_email_recipient(body: RecipientRequest):
+async def add_email_recipient(
+    body: RecipientRequest,
+    auth: AuthorizationContext = Depends(require_notification_permission("write")),
+):
     """Add an email recipient."""
     if not body.email or "@" not in body.email:
         raise HTTPException(status_code=400, detail="Valid email address required")
 
     try:
+        if auth.org_id:
+            recipients_count = await _add_email_recipient_for_org(body, auth.org_id)
+            return {
+                "data": {
+                    "success": True,
+                    "message": f"Recipient added: {body.email}",
+                    "recipients_count": recipients_count,
+                    "org_id": auth.org_id,
+                }
+            }
+
         from aragora.integrations.email import EmailRecipient
 
         email = await _get_email_integration()
@@ -275,12 +453,29 @@ async def add_email_recipient(body: RecipientRequest):
 
 
 @router.delete("/notifications/email/recipient")
-async def remove_email_recipient(email: str):
+async def remove_email_recipient(
+    email: str,
+    auth: AuthorizationContext = Depends(require_notification_permission("delete")),
+):
     """Remove an email recipient."""
     if not email:
         raise HTTPException(status_code=400, detail="email parameter required")
 
     try:
+        if auth.org_id:
+            removed, recipients_count = await _remove_email_recipient_for_org(email, auth.org_id)
+            if not removed:
+                raise HTTPException(status_code=404, detail=f"Recipient not found: {email}")
+
+            return {
+                "data": {
+                    "success": True,
+                    "message": f"Recipient removed: {email}",
+                    "recipients_count": recipients_count,
+                    "org_id": auth.org_id,
+                }
+            }
+
         integration = await _get_email_integration()
         if not integration:
             raise HTTPException(status_code=503, detail="Email integration not configured")
@@ -304,12 +499,15 @@ async def remove_email_recipient(email: str):
 
 
 @router.post("/notifications/test")
-async def send_test_notification(body: TestNotificationRequest):
+async def send_test_notification(
+    body: TestNotificationRequest,
+    auth: AuthorizationContext = Depends(require_notification_permission("write")),
+):
     """Send a test notification."""
     results: dict[str, Any] = {}
 
     if body.type in ("all", "email"):
-        email = await _get_email_integration()
+        email = await _get_email_integration(auth.org_id)
         if email and email.recipients:
             try:
                 success = await email._send_email(
@@ -329,7 +527,7 @@ async def send_test_notification(body: TestNotificationRequest):
             }
 
     if body.type in ("all", "telegram"):
-        telegram = await _get_telegram_integration()
+        telegram = await _get_telegram_integration(auth.org_id)
         if telegram:
             try:
                 from aragora.integrations.telegram import TelegramMessage
@@ -350,13 +548,16 @@ async def send_test_notification(body: TestNotificationRequest):
 
 
 @router.post("/notifications/send")
-async def send_notification(body: SendNotificationRequest):
+async def send_notification(
+    body: SendNotificationRequest,
+    auth: AuthorizationContext = Depends(require_notification_permission("write")),
+):
     """Send a notification with custom content."""
     results: dict[str, Any] = {}
     html_message = body.html_message or f"<p>{body.message}</p>"
 
     if body.type in ("all", "email"):
-        email = await _get_email_integration()
+        email = await _get_email_integration(auth.org_id)
         if email and email.recipients:
             try:
                 sent = 0
@@ -381,7 +582,7 @@ async def send_notification(body: SendNotificationRequest):
             }
 
     if body.type in ("all", "telegram"):
-        telegram = await _get_telegram_integration()
+        telegram = await _get_telegram_integration(auth.org_id)
         if telegram:
             try:
                 from aragora.integrations.telegram import TelegramMessage
