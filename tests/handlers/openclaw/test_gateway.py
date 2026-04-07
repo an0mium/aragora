@@ -121,6 +121,8 @@ def mock_user():
 @pytest.fixture()
 def handler(store, mock_user):
     """OpenClawGatewayHandler with _get_store and get_current_user patched."""
+    store.approve_action = MagicMock(return_value=True)
+    store.deny_action = MagicMock(return_value=True)
     with (
         patch(
             "aragora.server.handlers.openclaw.orchestrator._get_store",

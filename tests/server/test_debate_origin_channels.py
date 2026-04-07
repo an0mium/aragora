@@ -224,7 +224,11 @@ class TestCapabilityEventInResultFormatter:
             {"consensus_reached": True, "final_answer": "Yes", "confidence": 0.9},
             origin,
         )
-        assert "Debate Complete" in result
+        if isinstance(result, dict):
+            header_text = result["blocks"][0]["text"]["text"]
+            assert "Debate Complete" in header_text
+        else:
+            assert "Debate Complete" in result
 
 
 # ---------------------------------------------------------------------------
