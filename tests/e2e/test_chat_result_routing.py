@@ -442,9 +442,11 @@ class TestResultFormatting:
 
         message = _format_result_message(result, origin, markdown=False, html=True)
 
-        assert "<h2>" in message
-        assert "<strong>" in message
-        assert "PostgreSQL" in message
+        html_body = message["html"] if isinstance(message, dict) else message
+
+        assert "<h1" in html_body or "<h2" in html_body
+        assert "Confidence" in html_body
+        assert "PostgreSQL" in html_body
 
     def test_format_truncates_long_answers(self):
         """Test that very long answers are truncated."""

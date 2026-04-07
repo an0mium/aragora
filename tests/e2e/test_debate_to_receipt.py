@@ -245,6 +245,8 @@ def minimal_protocol() -> DebateProtocol:
         enable_calibration=False,
         enable_rhetorical_observer=False,
         enable_trickster=False,
+        enable_trending_injection=False,
+        skip_empty_sidecars=True,
     )
 
 
@@ -341,6 +343,8 @@ class TestDebateToReceiptFlow:
             enable_calibration=False,
             enable_rhetorical_observer=False,
             enable_trickster=False,
+            enable_trending_injection=False,
+            skip_empty_sidecars=True,
         )
 
         arena = Arena(simple_environment, consensus_agents, protocol)
@@ -971,6 +975,8 @@ class TestDebatePerformance:
             enable_calibration=False,
             enable_rhetorical_observer=False,
             enable_trickster=False,
+            enable_trending_injection=False,
+            skip_empty_sidecars=True,
         )
 
         start_time = time.monotonic()

@@ -933,7 +933,7 @@ class TestAgentsTrends:
 
     def test_period_grouping_takes_latest_elo(self, handler, three_agents):
         """When multiple entries in same period, latest ELO wins."""
-        now = datetime.now(timezone.utc)
+        now = datetime(2026, 4, 4, 12, 0, tzinfo=timezone.utc)
         elo_sys = _make_elo_system(agents=three_agents)
         # Two entries on the same day
         elo_sys.get_elo_history.return_value = [
