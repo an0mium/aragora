@@ -701,27 +701,29 @@ class PostgresGauntletRunStore(GenericPostgresStore, GauntletRunStoreBackend):
     async def update_status(
         self, run_id: str, status: str, result_data: dict[str, Any] | None = None
     ) -> bool:
+        now = datetime.now(timezone.utc)
         updates: dict[str, Any] = {
             "status": status,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": now.isoformat(),
         }
+        extra_column_updates: dict[str, Any] = {"status": status}
         if status == "running":
             existing = await self.get(run_id)
             if not existing:
                 return False
             if not existing.get("started_at"):
-                updates["started_at"] = datetime.now(timezone.utc).isoformat()
+                updates["started_at"] = now.isoformat()
+                extra_column_updates["started_at"] = now
         if status in ("completed", "failed", "cancelled"):
-            updates["completed_at"] = datetime.now(timezone.utc).isoformat()
+            updates["completed_at"] = now.isoformat()
+            extra_column_updates["completed_at"] = now
         if result_data is not None:
             updates["result_data"] = result_data
 
         return await self._update_json_field(
             run_id,
             updates,
-            extra_column_updates={
-                k: v for k, v in updates.items() if k in ("status", "started_at", "completed_at")
-            },
+            extra_column_updates=extra_column_updates,
         )
 
     # Sync wrappers - use run_async for sync access:

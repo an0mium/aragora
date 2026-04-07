@@ -1621,6 +1621,17 @@ class TestEdgeCases:
         assert len(q._items) == 0
 
     @pytest.mark.asyncio
+    async def test_save_creates_storage_dir_when_missing(self, tmp_path: Path):
+        """Saving should recreate the queue storage dir if it is missing."""
+        storage_dir = tmp_path / "missing_queue_dir"
+        q = GlobalWorkQueue(storage_dir=storage_dir)
+        q._items["save-test"] = _make_work_item(id="save-test")
+
+        await q._save_queue()
+
+        assert (storage_dir / "queue.jsonl").exists()
+
+    @pytest.mark.asyncio
     async def test_save_cleans_up_temp_on_error(self, queue: GlobalWorkQueue):
         """If saving fails, temp file should be cleaned up."""
         await queue.initialize()
