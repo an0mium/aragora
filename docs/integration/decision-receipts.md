@@ -97,29 +97,36 @@ Query parameters:
 GET /api/v2/receipts/{receipt_id}
 ```
 
+The detail response preserves the debate handoff via `debate_id` and includes
+optional `cost_summary` metadata when the stored receipt captured provider usage.
+
 ### Export Receipt
 
 ```bash
-GET /api/v2/receipts/{receipt_id}/export?format=pdf
+GET /api/v2/receipts/{receipt_id}/export?format=markdown
 ```
 
-Supported formats: `json`, `html`, `md`, `pdf`, `sarif`, `csv`
+Supported formats: `json`, `markdown`, `sarif`
 
 ### Verify Integrity
 
 ```bash
-POST /api/v2/receipts/{receipt_id}/verify
+GET /api/v2/receipts/{receipt_id}/verify
 ```
 
 Response:
 ```json
 {
   "receipt_id": "receipt-abc123",
+  "verified": true,
   "integrity_valid": true,
-  "stored_checksum": "sha256:...",
-  "computed_checksum": "sha256:..."
+  "checksum_match": true,
+  "details": {}
 }
 ```
+
+`POST /api/v2/receipts/{receipt_id}/verify` is also supported for clients that
+prefer a write-safe validation verb.
 
 ### Verify Signature
 
@@ -161,11 +168,18 @@ GET /api/v2/receipts/stats
 {
   "receipt_id": "receipt-abc123def456",
   "gauntlet_id": "gauntlet-xyz789",
+  "debate_id": "debate-xyz789",
   "timestamp": "2026-01-24T10:30:00Z",
   "input_summary": "API design review for payment service",
   "input_hash": "sha256:a1b2c3...",
   "verdict": "APPROVED",
   "confidence": 0.87,
+  "cost_summary": {
+    "total_cost_usd": "0.0234",
+    "total_tokens_in": 3000,
+    "total_tokens_out": 1000,
+    "total_calls": 6
+  },
   "robustness_score": 0.82,
   "risk_summary": {
     "critical": 0,

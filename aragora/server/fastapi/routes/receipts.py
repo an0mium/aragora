@@ -85,6 +85,7 @@ class ReceiptDetail(BaseModel):
 
     receipt_id: str
     gauntlet_id: str
+    debate_id: str | None = None
     timestamp: str | None = None
     input_summary: str = ""
     input_type: str = "spec"
@@ -111,6 +112,7 @@ class ReceiptDetail(BaseModel):
     duration_seconds: float = 0.0
     audit_trail_id: str | None = None
     checksum: str = ""
+    cost_summary: dict[str, Any] | None = None
 
     model_config = {"extra": "allow"}
 
@@ -985,6 +987,7 @@ async def get_receipt(
         return ReceiptDetail(
             receipt_id=data.get("receipt_id", receipt_id),
             gauntlet_id=data.get("gauntlet_id", ""),
+            debate_id=data.get("debate_id"),
             timestamp=data.get("timestamp"),
             input_summary=data.get("input_summary", ""),
             input_type=data.get("input_type", "spec"),
@@ -1011,6 +1014,9 @@ async def get_receipt(
             duration_seconds=data.get("duration_seconds", 0.0),
             audit_trail_id=data.get("audit_trail_id"),
             checksum=data.get("checksum", ""),
+            cost_summary=data.get("cost_summary")
+            if isinstance(data.get("cost_summary"), dict)
+            else None,
         )
 
     except NotFoundError:

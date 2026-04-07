@@ -324,6 +324,27 @@ class TestGetReceipt:
         assert len(data["findings"]) == 1
         assert data["agents_involved"] == ["claude", "codex"]
 
+    def test_get_receipt_from_stored_receipt_preserves_proof_metadata(
+        self, client, mock_receipt_store, sample_stored_receipt
+    ):
+        """StoredReceipt details should preserve debate linkage and cost proof."""
+        sample_stored_receipt.data = dict(sample_stored_receipt.data)
+        sample_stored_receipt.data["cost_summary"] = {
+            "total_cost_usd": "0.0234",
+            "total_tokens_in": 3000,
+            "total_tokens_out": 1000,
+            "total_calls": 6,
+        }
+        mock_receipt_store.get.return_value = sample_stored_receipt
+
+        response = client.get("/api/v2/receipts/rcpt_test123")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["debate_id"] == "debate-123"
+        assert data["cost_summary"]["total_cost_usd"] == "0.0234"
+        assert data["cost_summary"]["total_calls"] == 6
+
 
 class TestVerifyReceipt:
     """Tests for GET /api/v2/receipts/{receipt_id}/verify."""
@@ -925,6 +946,30 @@ class TestGetSharedReceipt:
         assert spec["paths"]["/api/v2/receipts/{receipt_id}/send-to-channel"]["post"][
             "security"
         ] == [{"bearerAuth": []}]
+
+    def test_runtime_openapi_has_receipt_detail_proof_fields(self, app):
+        spec = app.openapi()
+
+        schema = spec["paths"]["/api/v2/receipts/{receipt_id}"]["get"]["responses"]["200"][
+            "content"
+        ]["application/json"]["schema"]
+        ref = schema["$ref"].split("/")[-1]
+        properties = spec["components"]["schemas"][ref]["properties"]
+
+        assert "debate_id" in properties
+        assert "cost_summary" in properties
+
+    def test_canonical_openapi_has_receipt_detail_proof_fields(self):
+        from aragora.server.openapi import generate_openapi_schema
+
+        spec = generate_openapi_schema()
+        properties = spec["paths"]["/api/v2/receipts/{receipt_id}"]["get"]["responses"]["200"][
+            "content"
+        ]["application/json"]["schema"]["properties"]
+
+        assert "receipt_id" in properties
+        assert "debate_id" in properties
+        assert "cost_summary" in properties
 
 
 # =============================================================================
