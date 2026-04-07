@@ -36,17 +36,19 @@ class TestListAgentsTool:
 
     @pytest.mark.asyncio
     async def test_list_fallback_on_error(self):
-        """Test fallback list when error occurs."""
+        """Test fail-closed response when agent discovery errors."""
         with patch(
             "aragora.agents.base.list_available_agents",
             side_effect=Exception("Import error"),
         ):
             result = await list_agents_tool()
 
-        assert result["count"] == 5
-        assert "anthropic-api" in result["agents"]
-        assert "note" in result
-        assert "fallback" in result["note"].lower()
+        assert result["agents"] == []
+        assert result["count"] == 0
+        assert result["error"] == {
+            "message": "Could not list agents",
+            "type": "Exception",
+        }
 
 
 class TestGetAgentHistoryTool:
