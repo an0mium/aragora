@@ -571,16 +571,9 @@ class ExpenseTracker:
                     for page in reader.pages:
                         extracted_text += page.extract_text() or ""
                     confidence = 0.7 if extracted_text.strip() else 0.2
-                except (
-                    ImportError,
-                    ValueError,
-                    OSError,
-                    ConnectionError,
-                    RuntimeError,
-                    TypeError,
-                ) as e:
+                except Exception as e:
                     logger.warning("PDF extraction failed: %s", e)
-            except (ValueError, OSError, ConnectionError, RuntimeError, TypeError) as e:
+            except Exception as e:
                 logger.warning("pdfplumber extraction failed: %s", e)
 
         # Try image OCR with pytesseract if available
