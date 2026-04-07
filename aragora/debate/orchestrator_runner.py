@@ -15,6 +15,12 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from aragora.core import DebateResult
+from aragora.core_types import (
+    DebateStatus,
+    DebateStatusSource,
+    legacy_debate_status,
+    normalize_debate_status,
+)
 from aragora.debate.complexity_governor import (
     classify_task_complexity,
     get_complexity_governor,
@@ -171,8 +177,28 @@ class _DebateExecutionState:
     ctx: DebateContext
     gupp_bead_id: str | None = None
     gupp_hook_entries: dict[str, str] = field(default_factory=dict)
-    debate_status: str = "completed"
+    debate_status: str = DebateStatus.PENDING.value
     debate_start_time: float = 0.0
+
+
+def _apply_result_debate_state(
+    result: DebateResult | None,
+    *,
+    debate_status: DebateStatus | str,
+    legacy_status: str | None = None,
+    source: DebateStatusSource = DebateStatusSource.LIVE,
+) -> None:
+    """Synchronize canonical and legacy debate state fields on the result."""
+    if result is None:
+        return
+
+    canonical = normalize_debate_status(debate_status)
+    result.debate_status = canonical.value
+    result.debate_status_source = source.value
+    result.status = legacy_status or legacy_debate_status(
+        canonical,
+        consensus_reached=bool(getattr(result, "consensus_reached", False)),
+    )
 
 
 def _extract_agent_token_usage(agent: Any) -> tuple[int, int]:
@@ -774,6 +800,7 @@ async def setup_debate_infrastructure(
             logger.debug("GUPP initialization failed (non-critical): %s", e)
 
     # Initialize result early for timeout recovery
+    state.debate_status = DebateStatus.RUNNING.value
     ctx.result = DebateResult(
         task=arena.env.task,
         consensus_reached=False,
@@ -783,6 +810,9 @@ async def setup_debate_infrastructure(
         votes=[],
         rounds_used=0,
         final_answer="",
+        status=DebateStatus.RUNNING.value,
+        debate_status=DebateStatus.RUNNING.value,
+        debate_status_source=DebateStatusSource.LIVE.value,
     )
 
     # Initialize LiveExplainabilityStream if enabled
@@ -984,6 +1014,11 @@ async def execute_debate_phases(
             debate_id=state.debate_id,
         )
         arena._log_phase_failures(execution_result)
+        state.debate_status = DebateStatus.COMPLETED.value
+        _apply_result_debate_state(
+            ctx.result,
+            debate_status=DebateStatus.COMPLETED,
+        )
 
         # Emit latency profile after successful execution
         if latency_profiler and latency_profiler.records:
@@ -997,17 +1032,32 @@ async def execute_debate_phases(
             ctx.result.messages = ctx.partial_messages
             ctx.result.critiques = ctx.partial_critiques
             ctx.result.rounds_used = ctx.partial_rounds
-        state.debate_status = "timeout"
+        state.debate_status = DebateStatus.BLOCKED.value
+        _apply_result_debate_state(
+            ctx.result,
+            debate_status=DebateStatus.BLOCKED,
+            legacy_status="timeout",
+        )
         span.set_attribute("debate.status", "timeout")
         logger.warning("Debate timed out, returning partial results")
 
     except EarlyStopError:
-        state.debate_status = "aborted"
+        state.debate_status = DebateStatus.BLOCKED.value
+        _apply_result_debate_state(
+            ctx.result,
+            debate_status=DebateStatus.BLOCKED,
+            legacy_status="aborted",
+        )
         span.set_attribute("debate.status", "aborted")
         raise
 
     except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-        state.debate_status = "error"
+        state.debate_status = DebateStatus.FAILED.value
+        _apply_result_debate_state(
+            ctx.result,
+            debate_status=DebateStatus.FAILED,
+            legacy_status="error",
+        )
         span.set_attribute("debate.status", "error")
         span.record_exception(e)
         # Mark debate as failed in intervention manager
@@ -1061,10 +1111,10 @@ def record_debate_metrics(
     )
 
     # Record SLO-specific metrics for percentile tracking (p50/p95/p99)
-    if state.debate_status == "completed":
+    if state.debate_status == DebateStatus.COMPLETED.value:
         outcome = "consensus" if consensus_reached else "no_consensus"
-    elif state.debate_status == "timeout":
-        outcome = "timeout"
+    elif state.debate_status == DebateStatus.BLOCKED.value:
+        outcome = "blocked"
     else:
         outcome = "error"
     record_debate_completion_slo(duration, outcome)
@@ -1257,7 +1307,7 @@ async def handle_debate_completion(
     # Complete GUPP hook tracking for crash recovery
     if state.gupp_bead_id and state.gupp_hook_entries:
         try:
-            success = state.debate_status == "completed"
+            success = state.debate_status == DebateStatus.COMPLETED.value
             if ctx.result is not None:
                 await arena._update_debate_bead(state.gupp_bead_id, ctx.result, success)
             await arena._complete_hook_tracking(
@@ -1602,7 +1652,7 @@ async def cleanup_debate_resources(
         await _drain_background_task(km_task, timeout_s=0.75)
 
     # Clean up checkpoints after successful completion
-    if state.debate_status == "completed" and getattr(
+    if state.debate_status == DebateStatus.COMPLETED.value and getattr(
         arena.protocol, "checkpoint_cleanup_on_success", True
     ):
         try:
@@ -1622,6 +1672,15 @@ async def cleanup_debate_resources(
 
     # Finalize the result
     result = ctx.finalize_result()
+    _apply_result_debate_state(
+        result,
+        debate_status=state.debate_status,
+        legacy_status=(
+            None
+            if state.debate_status == DebateStatus.COMPLETED.value
+            else str(getattr(result, "status", "") or "").strip() or None
+        ),
+    )
 
     # Translate conclusions if multi-language support is enabled
     if result and getattr(arena.protocol, "enable_translation", False):

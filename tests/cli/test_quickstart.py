@@ -36,6 +36,7 @@ from aragora.cli.commands.quickstart import (
 from aragora.cli.parser import build_parser
 from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
 from aragora.core import DebateResult
+from aragora.core_types import DebateStatus, DebateStatusSource
 from scripts.check_epistemic_hygiene import validate_receipt
 
 
@@ -423,6 +424,9 @@ class TestLiveQuickstartHelpers:
             confidence=0.82,
             consensus_reached=True,
             rounds_used=2,
+            status="consensus_reached",
+            debate_status=DebateStatus.COMPLETED.value,
+            debate_status_source=DebateStatusSource.LIVE.value,
             dissenting_views=["Timeline risk remains unresolved."],
             proposals={"alpha": "Ship it"},
             votes=[vote_for, vote_against],
@@ -442,6 +446,9 @@ class TestLiveQuickstartHelpers:
 
         assert receipt["receipt_id"] == "debate-123"
         assert receipt["artifact_hash"]
+        assert receipt["debate_status"] == DebateStatus.COMPLETED.value
+        assert receipt["debate_status_source"] == DebateStatusSource.LIVE.value
+        assert receipt["synthetic"] is False
         assert receipt["consensus_proof"]["reached"] is True
         assert receipt["consensus_proof"]["supporting_agents"] == ["alpha"]
         assert receipt["consensus_proof"]["dissenting_agents"] == ["beta"]
@@ -478,6 +485,7 @@ class TestLiveQuickstartHelpers:
         result = DebateResult(
             confidence=0.91,
             consensus_reached=True,
+            debate_status=DebateStatus.COMPLETED.value,
             dissenting_views=[],
             final_answer="Proceed with a phased rollout.",
             participants=["proposer", "critic", "synthesizer"],
@@ -548,6 +556,9 @@ class TestCmdQuickstart:
         result = await _run_demo_debate("Should we ship the fallback fix?", rounds=2)
 
         assert result["mode"] == "demo"
+        assert result["debate_status"] == DebateStatus.COMPLETED.value
+        assert result["debate_status_source"] == DebateStatusSource.SYNTHETIC.value
+        assert result["synthetic"] is True
         assert result["verdict"] == "consensus"
         assert result["confidence"] == 0.85
         assert result["agents"] == ["analyst", "critic", "synthesizer"]

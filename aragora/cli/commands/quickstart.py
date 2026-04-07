@@ -30,6 +30,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, TextIO, cast
 
+from aragora.core_types import (
+    DebateStatus,
+    DebateStatusSource,
+    normalize_debate_status,
+    normalize_debate_status_source,
+)
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_QUESTION = "Should we adopt microservices or keep our monolith?"
@@ -629,6 +636,14 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     rounds = int(payload.get("rounds", 0) or 0)
     question = str(payload.get("question") or payload.get("input_summary") or "")
     mode = str(payload.get("mode", "demo") or "demo").strip().lower() or "demo"
+    debate_status = normalize_debate_status(
+        payload.get("debate_status") or payload.get("status"),
+        default=DebateStatus.COMPLETED if mode == "demo" else DebateStatus.PENDING,
+    ).value
+    debate_status_source = normalize_debate_status_source(
+        payload.get("debate_status_source") or payload.get("status_source") or mode,
+        default=(DebateStatusSource.SYNTHETIC if mode == "demo" else DebateStatusSource.LIVE),
+    ).value
     participants = _coerce_string_list(payload.get("agents") or receipt_info.get("participants"))
     summary = str(payload.get("summary") or payload.get("verdict_reasoning") or "")
     confidence = _clamp_confidence(payload.get("confidence", 0.0))
@@ -816,6 +831,9 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     canonical["summary"] = summary
     canonical["dissent"] = dissent_records
     canonical["mode"] = mode
+    canonical["debate_status"] = debate_status
+    canonical["debate_status_source"] = debate_status_source
+    canonical["synthetic"] = debate_status_source == DebateStatusSource.SYNTHETIC.value
     canonical["votes"] = votes
     canonical["agent_votes"] = votes
     canonical["consensus"] = bool(consensus)
@@ -925,6 +943,10 @@ async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
             "consensus_reached": True,
         },
         "mode": "demo",
+        "status": "completed",
+        "debate_status": DebateStatus.COMPLETED.value,
+        "debate_status_source": DebateStatusSource.SYNTHETIC.value,
+        "synthetic": True,
     }
 
 
@@ -1166,6 +1188,15 @@ def _build_live_receipt(
     final_answer = str(getattr(result, "final_answer", "") or "")
     confidence = _clamp_confidence(getattr(result, "confidence", 0.0))
     consensus_reached = bool(getattr(result, "consensus_reached", False))
+    legacy_status = str(getattr(result, "status", "") or "").strip()
+    debate_status = normalize_debate_status(
+        getattr(result, "debate_status", "") or legacy_status,
+        default=DebateStatus.PENDING,
+    ).value
+    debate_status_source = normalize_debate_status_source(
+        getattr(result, "debate_status_source", ""),
+        default=DebateStatusSource.LIVE,
+    ).value
     verdict = (
         "PASS"
         if consensus_reached and confidence >= 0.75
@@ -1289,6 +1320,10 @@ def _build_live_receipt(
             "summary": final_answer,
             "dissent": dissent,
             "mode": "live",
+            "status": legacy_status,
+            "debate_status": debate_status,
+            "debate_status_source": debate_status_source,
+            "synthetic": debate_status_source == DebateStatusSource.SYNTHETIC.value,
             "settlement_metadata": settlement_metadata,
             "settlement": settlement,
             "receipt": {
@@ -1297,6 +1332,8 @@ def _build_live_receipt(
                 "consensus_reached": consensus_reached,
                 "confidence": confidence,
                 "participants": participants,
+                "debate_status": debate_status,
+                "debate_status_source": debate_status_source,
             },
             "proposals": proposals,
             "votes": vote_records,
