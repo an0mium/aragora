@@ -32,20 +32,6 @@ def connector():
     )
 
 
-@pytest.fixture
-def mock_httpx_response():
-    """Create a mock httpx response."""
-
-    def _create_response(json_data, status_code=200):
-        mock = MagicMock()
-        mock.json.return_value = json_data
-        mock.status_code = status_code
-        mock.content = b"test content"
-        return mock
-
-    return _create_response
-
-
 class TestWhatsAppConnectorInit:
     """Test connector initialization."""
 

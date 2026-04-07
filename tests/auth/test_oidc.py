@@ -660,6 +660,27 @@ class TestDiscovery:
 
             assert result == {}
 
+    @pytest.mark.asyncio
+    async def test_discovery_rejects_non_http_schemes(self):
+        """Test discovery fails closed for unsupported URL schemes."""
+        config = make_oidc_config(
+            client_id="test-client",
+            client_secret="test-secret",
+            issuer_url="file:///tmp/issuer",
+            callback_url="https://app.example.com/callback",
+            entity_id="test-entity",
+        )
+        provider = OIDCProvider(config)
+
+        with (
+            patch("aragora.auth.oidc.HAS_HTTPX", False),
+            patch("aragora.auth.oidc.urllib.request.urlopen") as mock_urlopen,
+        ):
+            result = await provider._discover_endpoints()
+
+        assert result == {}
+        mock_urlopen.assert_not_called()
+
 
 # ============================================================================
 # Provider Presets Tests
