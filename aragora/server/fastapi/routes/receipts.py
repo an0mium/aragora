@@ -18,8 +18,11 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import io
+import json
 import logging
 import os
+import zipfile
 from datetime import datetime, timezone
 from enum import Enum
 from inspect import signature
@@ -165,7 +168,14 @@ class BatchExportRequest(BaseModel):
     receipt_ids: list[str] = Field(
         ..., min_length=1, max_length=100, description="Receipt IDs to export (max 100)"
     )
-    format: str = Field("json", description="Export format (json, markdown, sarif)")
+    format: str = Field(
+        "json",
+        description="Export format (json, html, markdown, md, csv, sarif)",
+    )
+    raw: bool = Field(
+        False,
+        description="Return a ZIP archive instead of a JSON item bundle.",
+    )
 
 
 class BatchExportItem(BaseModel):
@@ -394,6 +404,51 @@ def _build_decision_receipt(receipt: Any) -> Any:
     if not payload:
         raise ValueError("Cannot reconstruct receipt payload")
     return DecisionReceipt.from_dict(payload)
+
+
+def _render_receipt_export_content(receipt: Any, export_format: str) -> tuple[str, str, str]:
+    """Render exported receipt content and a file extension for batch bundles."""
+    normalized = export_format.lower()
+
+    if normalized == "json":
+        return receipt.to_json(), "json", "json"
+    if normalized == "html":
+        return receipt.to_html(), "html", "html"
+    if normalized in ("markdown", "md"):
+        return receipt.to_markdown(), "markdown", "md"
+    if normalized == "csv":
+        return receipt.to_csv(), "csv", "csv"
+    if normalized == "sarif":
+        return receipt.to_sarif_json(), "sarif", "sarif.json"
+
+    raise ValueError(f"Unsupported export format: {export_format}")
+
+
+def _build_batch_export_zip(
+    *,
+    archive_items: list[tuple[str, str, str]],
+    export_format: str,
+    total_requested: int,
+    failed_ids: list[str],
+) -> bytes:
+    """Build a ZIP bundle matching the legacy receipt batch-export surface."""
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for receipt_id, extension, content in archive_items:
+            zip_file.writestr(f"receipt-{receipt_id}.{extension}", content)
+
+        manifest = {
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "format": export_format,
+            "total_requested": total_requested,
+            "exported": len(archive_items),
+            "failed": failed_ids,
+        }
+        zip_file.writestr("manifest.json", json.dumps(manifest, indent=2))
+
+    zip_buffer.seek(0)
+    return zip_buffer.read()
 
 
 # =============================================================================
@@ -898,17 +953,18 @@ async def batch_verify_receipts(
 async def batch_export_receipts(
     body: BatchExportRequest,
     store=Depends(get_receipt_store),
-) -> BatchExportResponse:
+) -> BatchExportResponse | Response:
     """Export multiple receipts at once (up to 100)."""
     try:
         items: list[BatchExportItem] = []
+        archive_items: list[tuple[str, str, str]] = []
         failed_ids: list[str] = []
 
         export_format = body.format.lower()
-        if export_format not in ("json", "markdown", "sarif"):
+        if export_format not in ("json", "html", "markdown", "md", "csv", "sarif"):
             raise HTTPException(
                 status_code=422,
-                detail="Unsupported format. Supported: json, markdown, sarif",
+                detail="Unsupported format. Supported: json, html, markdown, md, csv, sarif",
             )
 
         for rid in body.receipt_ids:
@@ -923,29 +979,32 @@ async def batch_export_receipts(
                     failed_ids.append(rid)
                     continue
 
-                from aragora.export.decision_receipt import DecisionReceipt
+                receipt = _build_decision_receipt(receipt_data)
+                content, response_format, extension = _render_receipt_export_content(
+                    receipt, export_format
+                )
 
-                if isinstance(receipt_data, dict):
-                    data = receipt_data.get("data", receipt_data)
-                    receipt = DecisionReceipt.from_dict(data)
-                elif hasattr(receipt_data, "to_dict"):
-                    receipt = DecisionReceipt.from_dict(receipt_data.to_dict())
-                else:
-                    failed_ids.append(rid)
-                    continue
-
-                if export_format == "markdown":
-                    content = receipt.to_markdown()
-                elif export_format == "sarif":
-                    content = receipt.to_sarif_json()
-                else:
-                    content = receipt.to_json()
-
-                items.append(BatchExportItem(receipt_id=rid, format=export_format, content=content))
+                items.append(
+                    BatchExportItem(receipt_id=rid, format=response_format, content=content)
+                )
+                archive_items.append((rid, extension, content))
 
             except (ImportError, ValueError, TypeError, KeyError, OSError) as e:
                 logger.warning("Batch export failed for %s: %s", rid, e)
                 failed_ids.append(rid)
+
+        if body.raw:
+            zip_bytes = _build_batch_export_zip(
+                archive_items=archive_items,
+                export_format=export_format,
+                total_requested=len(body.receipt_ids),
+                failed_ids=failed_ids,
+            )
+            return Response(
+                content=zip_bytes,
+                media_type="application/zip",
+                headers={"Content-Disposition": "attachment; filename=receipts-export.zip"},
+            )
 
         return BatchExportResponse(
             items=items,

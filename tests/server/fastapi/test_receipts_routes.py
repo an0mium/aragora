@@ -12,6 +12,9 @@ Tests for FastAPI receipt route endpoints.
 
 from __future__ import annotations
 
+import json
+import zipfile
+from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -1041,3 +1044,50 @@ class TestBatchExport:
         assert response.status_code == 200
         data = response.json()
         assert data["items"][0]["format"] == "markdown"
+
+    def test_batch_export_html_format(self, client, mock_receipt_store, sample_receipt_dict):
+        """Batch export supports HTML in the JSON item bundle."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "html"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"][0]["format"] == "html"
+        assert "<!DOCTYPE html>" in data["items"][0]["content"]
+
+    def test_batch_export_md_alias(self, client, mock_receipt_store, sample_receipt_dict):
+        """Batch export normalizes the md alias to markdown content."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "md"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"][0]["format"] == "markdown"
+
+    def test_batch_export_raw_zip_bundle(self, client, mock_receipt_store, sample_receipt_dict):
+        """Raw mode returns the legacy ZIP bundle with a manifest."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "html", "raw": True},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/zip")
+        assert response.headers["content-disposition"] == "attachment; filename=receipts-export.zip"
+
+        archive = zipfile.ZipFile(BytesIO(response.content), "r")
+        assert "receipt-rcpt_test123.html" in archive.namelist()
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["format"] == "html"
+        assert manifest["exported"] == 1
+        assert manifest["failed"] == []
