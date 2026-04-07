@@ -104,6 +104,22 @@ class TestValidateRequest:
         assert result["status"] == 400
         assert "Invalid debate ID format" in result["error"]
 
+    def test_path_validator_debate_id_missing_segment(self):
+        """Should fail closed when the declared path segment is missing."""
+
+        def validate_id(val):
+            return (True, None) if len(val) > 0 else (False, "Invalid ID")
+
+        class Handler:
+            @validate_request(path_validators={"debate_id": validate_id})
+            def handle(self, path, query, handler):
+                return {"success": True}
+
+        h = Handler()
+        result = h.handle("/api/debates", {}, MockHandler())
+        assert result["status"] == 400
+        assert "Missing required path parameter: debate_id" in result["error"]
+
     def test_path_validator_agent_valid(self):
         """Should pass with valid agent name."""
 
