@@ -296,7 +296,7 @@ class PolicyEngine:
         self._default_budget_config = default_budget or RiskBudget()
 
         # Action tracking for rate limiting
-        self._action_counts: dict[str, dict[str, int]] = {}  # agent -> capability -> count
+        self._action_counts: dict[str, dict[str, int]] = {}  # session_id -> policy_name -> count
         self._action_timestamps: dict[str, list[datetime]] = {}  # capability -> timestamps
 
         # Audit log
@@ -390,6 +390,28 @@ class PolicyEngine:
             if policy.matches(agent, tool, capability, context):
                 # Apply policy multiplier to risk
                 risk_cost *= policy.risk_multiplier
+
+                if (
+                    policy.max_uses_per_session is not None
+                    and self._get_session_policy_count(session_id, policy.name)
+                    >= policy.max_uses_per_session
+                ):
+                    result = PolicyResult(
+                        decision=PolicyDecision.DENY,
+                        allowed=False,
+                        reason=(
+                            f"Policy '{policy.name}' exceeded max uses per session "
+                            f"({policy.max_uses_per_session})"
+                        ),
+                        agent=agent,
+                        tool=tool,
+                        capability=capability,
+                        context=context,
+                        risk_cost=risk_cost,
+                        budget_remaining=budget.remaining,
+                    )
+                    self._log_action(result)
+                    return result
 
                 if not policy.allow:
                     result = PolicyResult(
@@ -495,9 +517,25 @@ class PolicyEngine:
             agent=agent,
             tool=tool,
         )
+        for policy in self.policies:
+            if (
+                policy.matches(agent, tool, capability, context)
+                and policy.max_uses_per_session is not None
+            ):
+                self._increment_session_policy_count(session_id, policy.name)
+                break
 
         self._log_action(result)
         return result
+
+    def _get_session_policy_count(self, session_id: str, policy_name: str) -> int:
+        """Get how many times a policy has allowed actions in a session."""
+        return self._action_counts.get(session_id, {}).get(policy_name, 0)
+
+    def _increment_session_policy_count(self, session_id: str, policy_name: str) -> None:
+        """Record a successful policy use in a session."""
+        session_counts = self._action_counts.setdefault(session_id, {})
+        session_counts[policy_name] = session_counts.get(policy_name, 0) + 1
 
     def record_action(
         self,
