@@ -592,6 +592,38 @@ class TestConstants:
         assert MAX_DIFF_SIZE <= 100000  # At most 100KB
 
 
+class TestRunReviewDebate:
+    """Tests for review debate execution helpers."""
+
+    @pytest.mark.asyncio
+    async def test_uses_available_agents_for_default_review_set(self):
+        """Default review debates should avoid unavailable providers."""
+        from aragora.cli.review import run_review_debate
+
+        mock_result = Mock(final_answer="Looks good")
+        mock_arena = Mock()
+        mock_arena.run = AsyncMock(return_value=mock_result)
+
+        with (
+            patch(
+                "aragora.cli.review.get_available_agents",
+                return_value="anthropic-api,openai-api",
+            ),
+            patch(
+                "aragora.cli.review.create_agent",
+                side_effect=lambda **kwargs: Mock(name=kwargs["name"]),
+            ) as create_agent_mock,
+            patch("aragora.cli.review.Arena", return_value=mock_arena),
+        ):
+            result = await run_review_debate("diff --git a/a.py b/a.py", rounds=1)
+
+        assert result is mock_result
+        assert [call.kwargs["model_type"] for call in create_agent_mock.call_args_list] == [
+            "anthropic-api",
+            "openai-api",
+        ]
+
+
 # Integration test that requires API keys
 @pytest.mark.integration
 @pytest.mark.skipif(not HAS_API_KEYS, reason="Requires ANTHROPIC_API_KEY or OPENAI_API_KEY")

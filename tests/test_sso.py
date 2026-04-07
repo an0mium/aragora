@@ -920,7 +920,6 @@ class TestOIDCAuthentication:
         # Mock token exchange and userinfo
         mock_tokens = {
             "access_token": "test-access-token",
-            "id_token": "test-id-token",
             "refresh_token": "test-refresh-token",
             "expires_in": 3600,
         }
@@ -1089,7 +1088,7 @@ class TestOIDCDiscovery:
         provider = OIDCProvider(config)
 
         with patch("aragora.auth.oidc.HAS_HTTPX", False):
-            with patch("urllib.request.urlopen", side_effect=Exception("Network error")):
+            with patch("urllib.request.urlopen", side_effect=OSError("Network error")):
                 result = await provider._discover_endpoints()
 
         assert result == {}  # Returns empty dict on failure

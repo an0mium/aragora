@@ -132,6 +132,16 @@ def _clear_rate_limits(tmp_path, monkeypatch):
     debate_store_module._store = None
 
 
+@pytest.fixture(autouse=True)
+def _disable_playground_cache(monkeypatch):
+    """Prevent persisted cache entries from bypassing rate-limit assertions."""
+    cache_store = MagicMock()
+    cache_store.get_by_cache_key.return_value = None
+    cache_store.save.return_value = None
+    cache_store.save_cache_index.return_value = None
+    monkeypatch.setattr("aragora.storage.debate_store.get_debate_store", lambda: cache_store)
+
+
 # ============================================================================
 # can_handle routing
 # ============================================================================
@@ -1249,6 +1259,8 @@ class TestTTS:
             assert _status(result) == 200
             assert result.content_type == "audio/mpeg"
             assert result.body == fake_audio
+            assert result.headers["Cache-Control"] == "private, no-store, max-age=0"
+            assert result.headers["Pragma"] == "no-cache"
 
     def test_elevenlabs_http_error_returns_502(self, handler):
         import urllib.error

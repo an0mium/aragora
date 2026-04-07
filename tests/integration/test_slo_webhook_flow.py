@@ -337,7 +337,7 @@ class TestSLOWebhookIntegrationFlow:
         import yaml
         from pathlib import Path
 
-        alerts_path = Path("deploy/observability/alerts.rules")
+        alerts_path = Path(__file__).resolve().parents[2] / "deploy/observability/alerts.rules"
         assert alerts_path.exists(), "Prometheus alerts file should exist"
 
         content = alerts_path.read_text()

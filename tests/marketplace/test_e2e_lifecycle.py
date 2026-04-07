@@ -94,7 +94,7 @@ class TestSkillLifecycle:
         from aragora.skills.base import SkillContext
 
         ctx = SkillContext(user_id="e2e-test", permissions=["*"])
-        invoke_result = asyncio.get_event_loop().run_until_complete(
+        invoke_result = asyncio.run(
             skill_registry.invoke("skill-summarize", {"text": "hello"}, ctx)
         )
         # Proxy skill returns failure with known message

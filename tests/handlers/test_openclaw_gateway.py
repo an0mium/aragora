@@ -121,7 +121,10 @@ class MockHTTPHandler:
 @pytest.fixture()
 def store():
     """Create a fresh in-memory store for each test."""
-    return OpenClawGatewayStore()
+    store = OpenClawGatewayStore()
+    store.approve_action = MagicMock(return_value=True)
+    store.deny_action = MagicMock(return_value=True)
+    return store
 
 
 @pytest.fixture()
@@ -135,7 +138,9 @@ def handler(store):
 def _patch_store(store):
     """Patch _get_store in both the store module and all mixin modules to return our test store."""
     with (
+        patch("aragora.server.handlers.openclaw_gateway._get_store", return_value=store),
         patch("aragora.server.handlers.openclaw.store._get_store", return_value=store),
+        patch("aragora.server.handlers.openclaw.runtime._get_store", return_value=store),
         patch(
             "aragora.server.handlers.openclaw.orchestrator._get_store",
             return_value=store,
