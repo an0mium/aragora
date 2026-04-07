@@ -34,8 +34,8 @@ class TestMultiTenantExpenseIsolation:
     @pytest.mark.asyncio
     async def test_separate_tracker_instances_isolated(self):
         """Each tenant should have isolated expense data with separate instances."""
-        tenant_a_tracker = ExpenseTracker()
-        tenant_b_tracker = ExpenseTracker()
+        tenant_a_tracker = ExpenseTracker(enable_llm_categorization=False)
+        tenant_b_tracker = ExpenseTracker(enable_llm_categorization=False)
 
         # Create expense for tenant A
         expense_a = await tenant_a_tracker.create_expense(
@@ -67,8 +67,8 @@ class TestMultiTenantExpenseIsolation:
     @pytest.mark.asyncio
     async def test_expense_operations_isolated(self):
         """Operations on one tenant's expenses don't affect another's."""
-        tenant_a = ExpenseTracker()
-        tenant_b = ExpenseTracker()
+        tenant_a = ExpenseTracker(enable_llm_categorization=False)
+        tenant_b = ExpenseTracker(enable_llm_categorization=False)
 
         # Create expenses
         expense_a = await tenant_a.create_expense(
@@ -121,8 +121,8 @@ class TestMultiTenantExpenseIsolation:
     @pytest.mark.asyncio
     async def test_tenant_stats_isolated(self):
         """Statistics should be isolated per tenant."""
-        tenant_a = ExpenseTracker()
-        tenant_b = ExpenseTracker()
+        tenant_a = ExpenseTracker(enable_llm_categorization=False)
+        tenant_b = ExpenseTracker(enable_llm_categorization=False)
 
         # Create different amounts per tenant
         await tenant_a.create_expense(vendor_name="A1", amount=1000.00)
@@ -145,7 +145,7 @@ class TestMultiTenantExpenseIsolation:
     @pytest.mark.asyncio
     async def test_concurrent_tenant_operations(self):
         """Concurrent operations across tenants should be safe."""
-        tenant_trackers = [ExpenseTracker() for _ in range(5)]
+        tenant_trackers = [ExpenseTracker(enable_llm_categorization=False) for _ in range(5)]
 
         async def create_expenses(tracker, tenant_idx):
             expenses = []
@@ -364,8 +364,8 @@ class TestMultiTenantConfigurationIsolation:
     @pytest.mark.asyncio
     async def test_circuit_breaker_isolation(self):
         """Circuit breakers should be isolated per tenant."""
-        tenant_a = ExpenseTracker(enable_circuit_breakers=True)
-        tenant_b = ExpenseTracker(enable_circuit_breakers=True)
+        tenant_a = ExpenseTracker(enable_circuit_breakers=True, enable_llm_categorization=False)
+        tenant_b = ExpenseTracker(enable_circuit_breakers=True, enable_llm_categorization=False)
 
         # Get circuit breaker status for each
         status_a = tenant_a.get_circuit_breaker_status()
@@ -383,8 +383,8 @@ class TestMultiTenantConfigurationIsolation:
     async def test_qbo_connector_isolation(self):
         """QBO connectors should be tenant-specific."""
         # Create with different configurations (no actual connector)
-        tenant_a = ExpenseTracker(qbo_connector=None)
-        tenant_b = ExpenseTracker(qbo_connector=None)
+        tenant_a = ExpenseTracker(qbo_connector=None, enable_llm_categorization=False)
+        tenant_b = ExpenseTracker(qbo_connector=None, enable_llm_categorization=False)
 
         # Sync should fail gracefully for both
         result_a = await tenant_a.sync_to_qbo()
