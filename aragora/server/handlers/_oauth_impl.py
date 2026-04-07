@@ -126,8 +126,7 @@ def _validate_redirect_url(redirect_url: str) -> bool:
         if host in {"localhost", "127.0.0.1", "::1"} and parsed.scheme == "http":
             return True
 
-        _self = _sys.modules[__name__]
-        self_getter = getattr(_self, "_get_allowed_redirect_hosts", None)
+        self_getter = _get_allowed_redirect_hosts
         pub_getter = None
         try:
             _oauth_pub = _sys.modules.get("aragora.server.handlers.oauth")
