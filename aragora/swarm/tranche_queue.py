@@ -738,12 +738,24 @@ class TrancheQueueItemRunState:
             blocker = {}
         manifest_path = _optional_text(data.get("manifest_path"))
         design_review_recommendation = _optional_text(data.get("design_review_recommendation"))
+        phase_value = data.get("phase")
+        admission = result.get("admission", {})
+        if not isinstance(admission, dict):
+            admission = {}
+        # Legacy queue state predates explicit phase persistence. Preserve the old
+        # "approved means execution-ready" resume semantics when no phase was stored.
+        if (
+            _optional_text(phase_value) is None
+            and design_review_recommendation == "approved"
+            and not _optional_text(admission.get("status"))
+        ):
+            phase_value = QUEUE_ITEM_PHASE_APPROVED
         return cls(
             item_id=str(data.get("item_id", "")).strip(),
             status=str(data.get("status", QUEUE_ITEM_STATUS_PENDING)).strip()
             or QUEUE_ITEM_STATUS_PENDING,
             phase=_derive_queue_item_phase(
-                phase=data.get("phase"),
+                phase=phase_value,
                 manifest_path=manifest_path,
                 design_review_recommendation=design_review_recommendation,
             ),

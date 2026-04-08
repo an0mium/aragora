@@ -1124,6 +1124,18 @@ def test_queue_item_defaults_to_single_lane() -> None:
     assert item.work_class == QUEUE_WORK_CLASS_HARVEST
 
 
+def test_legacy_approved_queue_state_without_phase_loads_as_execution_ready() -> None:
+    item_state = TrancheQueueItemRunState.from_dict(
+        {
+            "item_id": "intake-docs",
+            "manifest_path": "/tmp/tranche.yaml",
+            "design_review_recommendation": "approved",
+        }
+    )
+
+    assert item_state.phase == QUEUE_ITEM_PHASE_APPROVED
+
+
 def test_low_risk_queue_item_keeps_fire_and_forget_and_sets_auto_merge_policy(
     tmp_path: Path,
 ) -> None:
