@@ -46,24 +46,6 @@ def get_response_data(result: HandlerResult) -> dict:
 # ===========================================================================
 
 
-class MockHandler:
-    """Mock HTTP handler for testing."""
-
-    def __init__(
-        self,
-        headers: dict | None = None,
-        body: bytes = b"",
-        path: str = "/",
-        method: str = "GET",
-    ):
-        self.headers = headers or {}
-        self._body = body
-        self.request_body = body
-        self.path = path
-        self.command = method
-        self.client_address = ("127.0.0.1", 12345)
-
-
 class MockUserContext:
     """Mock user context from JWT auth."""
 
@@ -112,25 +94,18 @@ class MockDebateMetadata:
 
 
 @pytest.fixture
-def mock_server_context() -> dict:
-    """Create mock server context."""
-    return {
-        "storage": None,
-        "elo_system": None,
-        "nomic_dir": "/tmp/nomic",
-    }
-
-
-@pytest.fixture
-def system_handler(mock_server_context) -> SystemHandler:
+def system_handler(admin_server_context) -> SystemHandler:
     """Create SystemHandler instance."""
-    return SystemHandler(mock_server_context)
+    admin_server_context["storage"] = None
+    admin_server_context["elo_system"] = None
+    admin_server_context["nomic_dir"] = "/tmp/nomic"
+    return SystemHandler(admin_server_context)
 
 
 @pytest.fixture
-def mock_http_handler() -> MockHandler:
+def mock_http_handler(admin_request_factory):
     """Create mock HTTP handler."""
-    return MockHandler(
+    return admin_request_factory(
         headers={"Content-Type": "application/json"},
         path="/api/debug/test",
         method="GET",

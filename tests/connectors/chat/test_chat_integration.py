@@ -498,26 +498,48 @@ class TestCrossPlatformConsistency:
         }
 
         for name, connector in test_connectors.items():
-            # Mock the HTTP call to fail gracefully
-            with patch("httpx.AsyncClient") as mock_client:
-                mock_client.return_value.__aenter__.return_value.request = AsyncMock(
-                    side_effect=Exception("Network error")
-                )
-                mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                    side_effect=Exception("Network error")
-                )
+            if name == "slack":
+                with patch.object(
+                    connector, "_slack_api_request", new_callable=AsyncMock
+                ) as mock_request:
+                    mock_request.return_value = (False, None, "Network error")
+                    result = await connector.send_message(
+                        channel_id="test-channel",
+                        text="Test message",
+                    )
+            elif name == "teams":
+                with (
+                    patch.object(
+                        connector,
+                        "_get_access_token",
+                        new_callable=AsyncMock,
+                        return_value="test-token",
+                    ),
+                    patch.object(
+                        connector, "_http_request", new_callable=AsyncMock
+                    ) as mock_request,
+                ):
+                    mock_request.return_value = (False, None, "Network error")
+                    result = await connector.send_message(
+                        channel_id="test-channel",
+                        text="Test message",
+                    )
+            else:
+                with patch.object(
+                    connector, "_http_request", new_callable=AsyncMock
+                ) as mock_request:
+                    mock_request.return_value = (False, None, "Network error")
+                    result = await connector.send_message(
+                        channel_id="test-channel",
+                        text="Test message",
+                    )
 
-                result = await connector.send_message(
-                    channel_id="test-channel",
-                    text="Test message",
-                )
-
-                # Must return SendMessageResponse even on failure
-                assert isinstance(result, SendMessageResponse), (
-                    f"{name} should return SendMessageResponse"
-                )
-                assert result.success is False, f"{name} should return success=False on error"
-                assert result.error is not None, f"{name} should include error message"
+            # Must return SendMessageResponse even on failure
+            assert isinstance(result, SendMessageResponse), (
+                f"{name} should return SendMessageResponse"
+            )
+            assert result.success is False, f"{name} should return success=False on error"
+            assert result.error is not None, f"{name} should include error message"
 
 
 # =============================================================================
