@@ -68,6 +68,19 @@ def get_my_assignment(session_id: str, repo_root: Path | None = None) -> dict[st
     return directive.to_dict() if directive is not None else None
 
 
+def _reap_abandoned_coordination_state(root: Path) -> list[dict[str, object]]:
+    board = DirectiveBoard(repo_path=root)
+    registry = SessionRegistry(repo_path=root)
+    claims_manager = ClaimManager(repo_path=root)
+
+    reaped_sessions = registry.reap_abandoned()
+    for session in reaped_sessions:
+        session_id = str(session.get("session_id") or "")
+        session["directive_cleared"] = board.clear(session_id) if session_id else False
+        session["claims_released"] = claims_manager.release(session_id) if session_id else 0
+    return reaped_sessions
+
+
 def claim_pr(
     pr_number: int,
     session_id: str,
@@ -77,6 +90,7 @@ def claim_pr(
     repo_root: Path | None = None,
 ) -> dict[str, object]:
     root = _coord_repo_root(repo_root)
+    _reap_abandoned_coordination_state(root)
     result = ClaimManager(repo_path=root).claim(
         [f"pr:{pr_number}"],
         session_id=session_id,
@@ -174,15 +188,10 @@ def list_findings(
 
 def read_directives(repo_root: Path | None = None, *, findings_limit: int = 10) -> dict[str, Any]:
     root = _coord_repo_root(repo_root)
+    reaped_sessions = _reap_abandoned_coordination_state(root)
     board = DirectiveBoard(repo_path=root)
     registry = SessionRegistry(repo_path=root)
     claims_manager = ClaimManager(repo_path=root)
-
-    reaped_sessions = registry.reap_abandoned()
-    for session in reaped_sessions:
-        session_id = str(session.get("session_id") or "")
-        session["directive_cleared"] = board.clear(session_id) if session_id else False
-        session["claims_released"] = claims_manager.release(session_id) if session_id else 0
 
     directives = [item.to_dict() for item in board.list()]
     sessions = [registry.describe(item) for item in registry.discover()]

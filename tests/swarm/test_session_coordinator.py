@@ -54,6 +54,26 @@ class TestSessionCoordinator:
         assert second["status"] == "contested"
         assert second["contested_by"][0]["session_id"] == "codex-a"
 
+    def test_claim_pr_reaps_stale_session_claims_before_contest(self, tmp_path):
+        registry = SessionRegistry(repo_path=tmp_path, stale_timeout_seconds=1)
+        stale_session = registry.register(
+            agent="codex",
+            worktree="/tmp/wt1",
+            pid=os.getpid(),
+        )
+        first = claim_pr(2684, stale_session.session_id, repo_root=tmp_path)
+        self._rewrite_heartbeat(
+            tmp_path,
+            stale_session.session_id,
+            last_heartbeat=time.time() - 1000,
+        )
+
+        second = claim_pr(2684, "codex-b", repo_root=tmp_path)
+
+        assert first["status"] == "granted"
+        assert second["status"] == "granted"
+        assert second["contested_by"] == []
+
     def test_report_and_list_findings(self, tmp_path):
         report_finding(
             "Bandit B310 in auth/oidc.py",
@@ -103,13 +123,13 @@ class TestSessionCoordinator:
             worktree="/tmp/wt1",
             pid=os.getpid(),
         )
+        set_assignment(session.session_id, "Stale assignment", repo_root=tmp_path)
+        claim_pr(2754, session.session_id, repo_root=tmp_path)
         self._rewrite_heartbeat(
             tmp_path,
             session.session_id,
             last_heartbeat=time.time() - 1000,
         )
-        set_assignment(session.session_id, "Stale assignment", repo_root=tmp_path)
-        claim_pr(2754, session.session_id, repo_root=tmp_path)
 
         view = read_directives(repo_root=tmp_path)
 
