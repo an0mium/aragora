@@ -284,7 +284,7 @@ class TestDebateExecutionState:
         )
         assert state.gupp_bead_id is None
         assert state.gupp_hook_entries == {}
-        assert state.debate_status == "completed"
+        assert state.debate_status == "pending"
         assert state.debate_start_time == 0.0
 
     def test_gupp_fields(self, mock_debate_context):
@@ -706,7 +706,7 @@ class TestExecuteDebatePhases:
         assert execution_state.ctx.result.messages == execution_state.ctx.partial_messages
         assert execution_state.ctx.result.critiques == execution_state.ctx.partial_critiques
         assert execution_state.ctx.result.rounds_used == 2
-        assert execution_state.debate_status == "timeout"
+        assert execution_state.debate_status == "blocked"
         mock_span.set_attribute.assert_called_with("debate.status", "timeout")
 
     @pytest.mark.asyncio
@@ -721,7 +721,7 @@ class TestExecuteDebatePhases:
         with pytest.raises(EarlyStopError):
             await execute_debate_phases(mock_arena, execution_state, mock_span)
 
-        assert execution_state.debate_status == "aborted"
+        assert execution_state.debate_status == "blocked"
         mock_span.set_attribute.assert_called_with("debate.status", "aborted")
 
     @pytest.mark.asyncio
@@ -732,7 +732,7 @@ class TestExecuteDebatePhases:
         with pytest.raises(ValueError):
             await execute_debate_phases(mock_arena, execution_state, mock_span)
 
-        assert execution_state.debate_status == "error"
+        assert execution_state.debate_status == "failed"
         mock_span.set_attribute.assert_called_with("debate.status", "error")
         mock_span.record_exception.assert_called_once()
 
@@ -1643,7 +1643,7 @@ class TestErrorHandlingAndRecovery:
         mock_arena.phase_executor.execute.side_effect = asyncio.TimeoutError()
 
         await execute_debate_phases(mock_arena, state, mock_span)
-        assert state.debate_status == "timeout"
+        assert state.debate_status == "blocked"
 
         # Handle completion with KM error (should be handled)
         mock_arena._ingest_debate_outcome.side_effect = ConnectionError("KM down")

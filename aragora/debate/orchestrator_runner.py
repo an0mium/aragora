@@ -201,6 +201,7 @@ def _apply_result_debate_state(
         consensus_reached=bool(getattr(result, "consensus_reached", False)),
     )
 
+
 _NON_BLOCKING_KM_INIT_ERRORS = (
     asyncio.TimeoutError,
     TimeoutError,
