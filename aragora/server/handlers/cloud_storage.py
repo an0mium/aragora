@@ -457,6 +457,29 @@ class CloudStorageHandler(BaseHandler):
             return False, "Invalid bucket ID"
         return True, ""
 
+    def _validate_tags(self, tags: Any) -> tuple[bool, str]:
+        """Validate tag data supplied in upload requests."""
+        if not isinstance(tags, list):
+            return False, "tags must be a list of strings"
+        if any(not isinstance(tag, str) for tag in tags):
+            return False, "tags must be a list of strings"
+        if any(not tag.strip() for tag in tags):
+            return False, "tags cannot contain empty strings"
+        return True, ""
+
+    def _validate_metadata(self, metadata: Any) -> tuple[bool, str]:
+        """Validate metadata supplied in upload requests."""
+        if not isinstance(metadata, dict):
+            return False, "metadata must be an object"
+
+        for key, value in metadata.items():
+            if not isinstance(key, str) or not key.strip():
+                return False, "metadata keys must be non-empty strings"
+            if isinstance(value, (dict, list, tuple, set, bytes, bytearray)):
+                return False, "metadata values must be JSON scalar values"
+
+        return True, ""
+
     def _generate_file_id(self) -> str:
         """Generate a unique file ID."""
         return f"file_{uuid.uuid4().hex[:16]}"
@@ -812,11 +835,13 @@ class CloudStorageHandler(BaseHandler):
         if not valid_bucket:
             return error_response(bucket_error, 400)
 
-        if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
-            return error_response("tags must be a list of strings", 400)
+        valid_tags, tags_error = self._validate_tags(tags)
+        if not valid_tags:
+            return error_response(tags_error, 400)
 
-        if not isinstance(metadata, dict) or any(not isinstance(key, str) for key in metadata):
-            return error_response("metadata must be an object with string keys", 400)
+        valid_metadata, metadata_error = self._validate_metadata(metadata)
+        if not valid_metadata:
+            return error_response(metadata_error, 400)
 
         # Validate filename
         valid, err = self._validate_filename(filename)
@@ -1082,9 +1107,12 @@ class CloudStorageHandler(BaseHandler):
         provider_value = body.get("provider", "local")
         if not isinstance(provider_value, str):
             return error_response("provider must be a string", 400)
+        provider_name = provider_value.strip().lower()
+        if not provider_name:
+            return error_response("provider must be one of: s3, gcs, azure, local", 400)
 
         try:
-            provider = StorageProvider(provider_value)
+            provider = StorageProvider(provider_name)
         except ValueError:
             return error_response("provider must be one of: s3, gcs, azure, local", 400)
 
