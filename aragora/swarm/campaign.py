@@ -51,6 +51,18 @@ def _optional_text(value: Any) -> str | None:
     return text
 
 
+def _coerce_boolish(value: Any, *, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "y", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "n", "off"}:
+            return False
+    return default
+
+
 # Statuses that represent terminal project transitions (no further retries).
 # Receipt emission fires only for these statuses.
 _TERMINAL_STATUSES: frozenset[str] = frozenset(
@@ -209,11 +221,14 @@ class CampaignProject:
     project_id: str
     title: str
     source_refs: list[str] = field(default_factory=list)
+    milestone: str | None = None
     spec: SwarmSpec = field(default_factory=SwarmSpec)
     file_scope_hints: list[str] = field(default_factory=list)
     acceptance_criteria: list[str] = field(default_factory=list)
     constraints: list[str] = field(default_factory=list)
     dependencies: list[CampaignDependency] = field(default_factory=list)
+    feature_flag: str | None = None
+    feature_flag_required: bool = False
     estimated_cost_usd: float = 0.0
     status: str = CampaignProjectStatus.PENDING.value
     retry_count: int = 0
@@ -233,11 +248,14 @@ class CampaignProject:
             "project_id": self.project_id,
             "title": self.title,
             "source_refs": list(self.source_refs),
+            "milestone": self.milestone,
             "spec": self.spec.to_dict(),
             "file_scope_hints": list(self.file_scope_hints),
             "acceptance_criteria": list(self.acceptance_criteria),
             "constraints": list(self.constraints),
             "dependencies": [item.to_dict() for item in self.dependencies],
+            "feature_flag": self.feature_flag,
+            "feature_flag_required": self.feature_flag_required,
             "estimated_cost_usd": self.estimated_cost_usd,
             "status": self.status,
             "retry_count": self.retry_count,
@@ -259,6 +277,7 @@ class CampaignProject:
             project_id=str(data.get("project_id", "")).strip(),
             title=str(data.get("title", "")).strip(),
             source_refs=[str(item) for item in data.get("source_refs", []) if str(item).strip()],
+            milestone=_optional_text(data.get("milestone")),
             spec=SwarmSpec.from_dict(dict(data.get("spec") or {})),
             file_scope_hints=[
                 str(item) for item in data.get("file_scope_hints", []) if str(item).strip()
@@ -272,6 +291,11 @@ class CampaignProject:
                 for item in data.get("dependencies", [])
                 if isinstance(item, dict)
             ],
+            feature_flag=_optional_text(data.get("feature_flag")),
+            feature_flag_required=_coerce_boolish(
+                data.get("feature_flag_required"),
+                default=False,
+            ),
             estimated_cost_usd=float(data.get("estimated_cost_usd", 0.0) or 0.0),
             status=str(data.get("status", CampaignProjectStatus.PENDING.value)).strip()
             or CampaignProjectStatus.PENDING.value,
