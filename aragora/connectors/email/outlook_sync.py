@@ -368,7 +368,15 @@ class OutlookSyncService:
             )
             return True
 
-        except (OSError, ValueError, KeyError, json.JSONDecodeError) as e:
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            ConnectionError,
+            RuntimeError,
+            json.JSONDecodeError,
+        ) as e:
             self._status = OutlookSyncStatus.ERROR
             if self._state:
                 self._state.last_error = "Sync service failed to start"
@@ -599,7 +607,14 @@ class OutlookSyncService:
                 )
                 return synced_messages
 
-            except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
+            except (
+                OSError,
+                KeyError,
+                ValueError,
+                TypeError,
+                ConnectionError,
+                json.JSONDecodeError,
+            ) as e:
                 self._status = OutlookSyncStatus.ERROR
                 if self._state:
                     self._state.last_error = "Initial sync failed"
@@ -677,7 +692,14 @@ class OutlookSyncService:
                 )
                 return synced_messages
 
-            except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
+            except (
+                OSError,
+                KeyError,
+                ValueError,
+                TypeError,
+                ConnectionError,
+                json.JSONDecodeError,
+            ) as e:
                 self._status = OutlookSyncStatus.ERROR
                 if self._state:
                     self._state.last_error = "Incremental sync failed"
@@ -769,10 +791,22 @@ class OutlookSyncService:
                         self._state.subscription_expiry,
                     )
                 else:
-                    logger.error("[OutlookSync] Failed to create subscription: %s", response.text)
+                    raise RuntimeError(
+                        "Failed to create Outlook subscription: "
+                        f"{response.status_code} {response.text}"
+                    )
 
-        except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
-            logger.error("[OutlookSync] Subscription setup failed: %s", e)
+        except (
+            OSError,
+            KeyError,
+            ValueError,
+            TypeError,
+            ConnectionError,
+            RuntimeError,
+            json.JSONDecodeError,
+        ):
+            logger.exception("[OutlookSync] Subscription setup failed")
+            raise
 
     async def _renew_subscription(self) -> None:
         """Renew the Microsoft Graph subscription."""
@@ -820,10 +854,22 @@ class OutlookSyncService:
                     self._state.subscription_id = None
                     await self._setup_subscription()
                 else:
-                    logger.error("[OutlookSync] Failed to renew subscription: %s", response.text)
+                    raise RuntimeError(
+                        "Failed to renew Outlook subscription: "
+                        f"{response.status_code} {response.text}"
+                    )
 
-        except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
-            logger.error("[OutlookSync] Subscription renewal failed: %s", e)
+        except (
+            OSError,
+            KeyError,
+            ValueError,
+            TypeError,
+            ConnectionError,
+            RuntimeError,
+            json.JSONDecodeError,
+        ):
+            logger.exception("[OutlookSync] Subscription renewal failed")
+            raise
 
     async def _delete_subscription(self) -> None:
         """Delete the Microsoft Graph subscription."""
@@ -848,16 +894,26 @@ class OutlookSyncService:
                 elif response.status_code == 404:
                     logger.debug("[OutlookSync] Subscription already deleted")
                 else:
-                    logger.warning(
-                        "[OutlookSync] Delete subscription returned %s", response.status_code
+                    raise RuntimeError(
+                        "Failed to delete Outlook subscription: "
+                        f"{response.status_code} {response.text}"
                     )
 
             self._state.subscription_id = None
             self._state.subscription_expiry = None
             await self._save_state()
 
-        except (OSError, KeyError, ValueError) as e:
-            logger.warning("[OutlookSync] Failed to delete subscription: %s", e)
+        except (
+            OSError,
+            KeyError,
+            ValueError,
+            TypeError,
+            ConnectionError,
+            RuntimeError,
+            json.JSONDecodeError,
+        ):
+            logger.exception("[OutlookSync] Failed to delete subscription")
+            raise
 
     async def _subscription_renewal_loop(self) -> None:
         """Background task to renew subscription before expiration."""
@@ -883,7 +939,7 @@ class OutlookSyncService:
 
             except asyncio.CancelledError:
                 break
-            except (OSError, ValueError) as e:
+            except (OSError, ValueError, TypeError, ConnectionError, RuntimeError) as e:
                 logger.error("[OutlookSync] Renewal loop error: %s", e)
                 await asyncio.sleep(60)
 
@@ -900,8 +956,16 @@ class OutlookSyncService:
                 await client.close()
                 if data:
                     return OutlookSyncState.from_dict(json.loads(data))
-            except (OSError, ConnectionError, json.JSONDecodeError, KeyError, ValueError) as e:
-                logger.warning("[OutlookSync] Failed to load state from Redis: %s", e)
+            except (
+                OSError,
+                ConnectionError,
+                TypeError,
+                json.JSONDecodeError,
+                KeyError,
+                ValueError,
+            ):
+                logger.exception("[OutlookSync] Failed to load state from Redis")
+                raise
 
         elif self.config.state_backend == "postgres" and self.config.postgres_dsn:
             try:
@@ -915,8 +979,16 @@ class OutlookSyncService:
                 await conn.close()
                 if row:
                     return OutlookSyncState.from_dict(json.loads(row["state"]))
-            except (OSError, ConnectionError, json.JSONDecodeError, KeyError, ValueError) as e:
-                logger.warning("[OutlookSync] Failed to load state from Postgres: %s", e)
+            except (
+                OSError,
+                ConnectionError,
+                TypeError,
+                json.JSONDecodeError,
+                KeyError,
+                ValueError,
+            ):
+                logger.exception("[OutlookSync] Failed to load state from Postgres")
+                raise
 
         return None
 
@@ -935,8 +1007,9 @@ class OutlookSyncService:
                 client = redis.from_url(self.config.redis_url)
                 await client.set(state_key, state_json)
                 await client.close()
-            except (OSError, ConnectionError, TypeError) as e:
-                logger.warning("[OutlookSync] Failed to save state to Redis: %s", e)
+            except (OSError, ConnectionError, TypeError):
+                logger.exception("[OutlookSync] Failed to save state to Redis")
+                raise
 
         elif self.config.state_backend == "postgres" and self.config.postgres_dsn:
             try:
@@ -953,8 +1026,9 @@ class OutlookSyncService:
                     state_json,
                 )
                 await conn.close()
-            except (OSError, ConnectionError, TypeError) as e:
-                logger.warning("[OutlookSync] Failed to save state to Postgres: %s", e)
+            except (OSError, ConnectionError, TypeError):
+                logger.exception("[OutlookSync] Failed to save state to Postgres")
+                raise
 
     def get_stats(self) -> dict[str, Any]:
         """Get sync service statistics."""
