@@ -138,3 +138,86 @@ def test_review_route_can_approve_and_execute(handler, http_post, wedge_service)
     assert stored is not None
     assert stored.receipt.state.value == "executed"
     connector.archive_message.assert_called_once_with("msg-1")
+
+
+def test_create_route_treats_string_false_flags_as_false(handler, http_post, wedge_service):
+    service, store, connector = wedge_service
+
+    with patch.object(
+        handler, "require_permission_or_error", return_value=(MagicMock(user_id="user-1"), None)
+    ):
+        with patch.object(
+            handler,
+            "read_json_body",
+            return_value={
+                "message_id": "msg-2",
+                "provider": "gmail",
+                "action": "archive",
+                "user_id": "user-1",
+                "confidence": 0.95,
+                "auto_approve": "false",
+                "auto_execute": "false",
+                "blocked_by_policy": "false",
+            },
+        ):
+            with patch(
+                "aragora.server.handlers.inbox.trust_wedge_handler.get_inbox_trust_wedge_service_instance",
+                return_value=service,
+            ):
+                result = handler.handle("/api/v1/inbox/wedge/receipts", {}, http_post)
+
+    assert result.status_code == 200
+    body = _body(result)
+    stored = store.get_receipt(body["receipt"]["receipt_id"])
+    assert body["executed"] is False
+    assert body["receipt"]["state"] == "created"
+    assert body["decision"]["blocked_by_policy"] is False
+    assert stored is not None
+    assert stored.receipt.state.value == "created"
+    connector.archive_message.assert_not_called()
+
+
+def test_review_route_treats_string_false_execute_as_false(handler, http_post, wedge_service):
+    service, store, connector = wedge_service
+    envelope = service.create_receipt(
+        ActionIntent.create(
+            provider="gmail",
+            user_id="user-1",
+            message_id="msg-3",
+            action="archive",
+            content_hash=ActionIntent.compute_content_hash("subject", "body"),
+            synthesized_rationale="Archive after review",
+            confidence=0.93,
+            provider_route="openrouter-fallback",
+            debate_id="debate-http-3",
+        ),
+        TriageDecision.create(
+            final_action="archive",
+            confidence=0.93,
+            dissent_summary="",
+        ),
+    )
+
+    with patch.object(
+        handler, "require_permission_or_error", return_value=(MagicMock(user_id="user-1"), None)
+    ):
+        with patch.object(
+            handler, "read_json_body", return_value={"choice": "approve", "execute": "false"}
+        ):
+            with patch(
+                "aragora.server.handlers.inbox.trust_wedge_handler.get_inbox_trust_wedge_service_instance",
+                return_value=service,
+            ):
+                result = handler.handle(
+                    f"/api/v1/inbox/wedge/receipts/{envelope.receipt.receipt_id}/review",
+                    {},
+                    http_post,
+                )
+
+    assert result.status_code == 200
+    body = _body(result)
+    stored = store.get_receipt(envelope.receipt.receipt_id)
+    assert body["executed"] is False
+    assert stored is not None
+    assert stored.receipt.state.value == "approved"
+    connector.archive_message.assert_not_called()

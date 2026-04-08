@@ -424,11 +424,16 @@ class OpenClawPolicy:
 
     def _is_in_workspace(self, request: ActionRequest) -> bool:
         """Check if request targets workspace-scoped resources."""
-        if request.path:
-            # Check if path is within workspace
-            workspace_root = f"/workspace/{request.workspace_id}"
-            return request.path.startswith(workspace_root) or request.path.startswith("/workspace/")
-        return True  # Non-path actions are considered in-workspace
+        if not request.path or not request.workspace_id:
+            return False
+
+        request_path = Path(request.path)
+        if not request_path.is_absolute():
+            return False
+
+        workspace_root = (Path("/workspace") / request.workspace_id).resolve(strict=False)
+        request_path = request_path.resolve(strict=False)
+        return request_path == workspace_root or workspace_root in request_path.parents
 
     def _is_rate_limited(self, key: str, limit: int, window: int) -> bool:
         """Check if action is rate limited."""

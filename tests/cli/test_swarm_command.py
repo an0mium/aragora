@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.cli.commands.swarm import _classify_issue_validation_status, cmd_swarm
+from aragora.swarm.initiative_models import InitiativeRecord, InitiativeSlice
+from aragora.swarm.initiative_store import InitiativeStore
 from aragora.swarm.spec import SwarmSpec
 
 
@@ -92,6 +95,13 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "skip_review": False,
         "output": None,
         "audit_ref": None,
+        "source_file": None,
+        "initiative_dir": None,
+        "feature_flag": None,
+        "dependency": None,
+        "validation": None,
+        "milestone": None,
+        "checkpoint": None,
     }
     defaults.update(overrides)
     return argparse.Namespace(**defaults)
@@ -244,6 +254,36 @@ class TestSwarmParser:
         assert args.run_id == "run-123"
         assert args.watch is True
         assert args.interval_seconds == 1.5
+
+    def test_swarm_initiative_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "initiative",
+                "plan",
+                "Create an initiative registry",
+                "--feature-flag",
+                "initiative_registry",
+                "--dependency",
+                "decision-plan-core",
+                "--validation",
+                "python3 -m pytest tests/swarm/test_initiative_store.py -q",
+                "--milestone",
+                "Planning ready",
+                "--checkpoint",
+                "Registry validated",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "initiative"
+        assert args.swarm_goal == "plan"
+        assert args.swarm_campaign_target == "Create an initiative registry"
+        assert args.feature_flag == "initiative_registry"
+        assert args.dependency == ["decision-plan-core"]
+        assert args.validation == ["python3 -m pytest tests/swarm/test_initiative_store.py -q"]
 
     def test_swarm_runner_parser(self):
         from aragora.cli.parser import build_parser
@@ -2846,3 +2886,83 @@ class TestSwarmCommand:
         reconciler.tick_run.assert_not_called()
         out = capsys.readouterr().out
         assert "work_orders=1 [completed=1]" in out
+
+
+def test_cmd_swarm_initiative_plan_json(tmp_path, capsys):
+    args = _swarm_args(
+        swarm_action_or_goal="initiative",
+        swarm_goal="plan",
+        swarm_campaign_target="Create an initiative registry",
+        initiative_dir=str(tmp_path),
+        feature_flag="initiative_registry",
+        dependency=["decision-plan-core"],
+        validation=["python3 -m pytest tests/swarm/test_initiative_store.py -q"],
+        milestone=["Planning ready"],
+        checkpoint=["Registry validated"],
+        json=True,
+    )
+    initiative = InitiativeRecord(
+        initiative_id="initiative-registry",
+        title="Create an initiative registry",
+        goal="Create an initiative registry",
+        rationale="Create an initiative registry",
+        feature_flag_name="initiative_registry",
+        slices=[
+            InitiativeSlice(
+                slice_id="slice-1",
+                title="Registry",
+                description="Persist initiative artifacts locally.",
+            )
+        ],
+    )
+
+    with patch("aragora.swarm.initiative_planner.InitiativePlanner.plan", return_value=initiative):
+        cmd_swarm(args)
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["mode"] == "initiative-plan"
+    assert payload["initiative"]["initiative_id"] == "initiative-registry"
+    assert Path(payload["path"]).exists()
+
+
+def test_cmd_swarm_initiative_show_and_list(tmp_path, capsys):
+    store = InitiativeStore(state_dir=tmp_path)
+    initiative = InitiativeRecord(
+        initiative_id="initiative-registry",
+        title="Create an initiative registry",
+        goal="Create an initiative registry",
+        rationale="Persist roadmap work locally.",
+        feature_flag_name="initiative_registry",
+        slices=[
+            InitiativeSlice(
+                slice_id="slice-1",
+                title="Registry",
+                description="Persist initiative artifacts locally.",
+            )
+        ],
+    )
+    store.save(initiative)
+
+    show_args = _swarm_args(
+        swarm_action_or_goal="initiative",
+        swarm_goal="show",
+        swarm_campaign_target="initiative-registry",
+        initiative_dir=str(tmp_path),
+        json=True,
+    )
+    cmd_swarm(show_args)
+    show_payload = json.loads(capsys.readouterr().out)
+    assert show_payload["mode"] == "initiative-show"
+    assert show_payload["initiative"]["feature_flag_name"] == "initiative_registry"
+
+    list_args = _swarm_args(
+        swarm_action_or_goal="initiative",
+        swarm_goal="list",
+        initiative_dir=str(tmp_path),
+        json=True,
+    )
+    cmd_swarm(list_args)
+    list_payload = json.loads(capsys.readouterr().out)
+    assert list_payload["mode"] == "initiative-list"
+    assert list_payload["count"] == 1
+    assert list_payload["items"][0]["initiative_id"] == "initiative-registry"
