@@ -2118,6 +2118,60 @@ class TestUninstall:
         mock_workspace_store.deactivate.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_uninstall_malformed_event_payload_still_acks(
+        self, handler, mock_workspace_store, monkeypatch
+    ):
+        monkeypatch.setenv("ARAGORA_ENV", "test")
+        monkeypatch.setenv("SLACK_SIGNING_SECRET", "")
+        body = {
+            "team_id": "W123",
+            "event": True,
+        }
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_workspace_store,
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body,
+                {},
+                {},
+                None,
+            )
+        assert _status(result) == 200
+        assert _body(result).get("ok") is True
+        mock_workspace_store.deactivate.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_tokens_revoked_malformed_bot_tokens_no_deactivation(
+        self, handler, mock_workspace_store, monkeypatch
+    ):
+        monkeypatch.setenv("ARAGORA_ENV", "test")
+        monkeypatch.setenv("SLACK_SIGNING_SECRET", "")
+        body = {
+            "team_id": "W123",
+            "event": {
+                "type": "tokens_revoked",
+                "tokens": {"bot": "xoxb-old"},
+            },
+        }
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_workspace_store,
+        ):
+            result = await handler.handle(
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body,
+                {},
+                {},
+                None,
+            )
+        assert _status(result) == 200
+        mock_workspace_store.deactivate.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_unknown_event_still_acks(self, handler, monkeypatch):
         monkeypatch.setenv("ARAGORA_ENV", "test")
         monkeypatch.setenv("SLACK_SIGNING_SECRET", "")

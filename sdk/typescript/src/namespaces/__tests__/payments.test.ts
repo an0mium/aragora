@@ -52,7 +52,7 @@ describe('PaymentsAPI Namespace', () => {
         description: 'Order #12345',
       });
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/payments/charge', {
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/payments/charge', {
         json: {
           amount: 99.99,
           currency: 'USD',
@@ -73,7 +73,7 @@ describe('PaymentsAPI Namespace', () => {
         payment_method: 'pm_123',
       });
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/payments/charge', {
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/payments/charge', {
         json: { amount: 50.00, payment_method: 'pm_123' },
       });
     });
@@ -96,7 +96,7 @@ describe('PaymentsAPI Namespace', () => {
         capture: false,
       });
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/payments/authorize', {
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/payments/authorize', {
         json: { amount: 150.00, customer_id: 'cus_123', capture: false },
       });
       expect(result.transaction_id).toBe('txn_125');
@@ -111,7 +111,7 @@ describe('PaymentsAPI Namespace', () => {
 
       const result = await api.capture('txn_125', 100.00);
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/payments/capture', {
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/payments/capture', {
         json: { transaction_id: 'txn_125', amount: 100.00, provider: undefined },
       });
       expect(result.success).toBe(true);
@@ -131,7 +131,7 @@ describe('PaymentsAPI Namespace', () => {
         reason: 'Customer request',
       });
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/payments/refund', {
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/payments/refund', {
         json: {
           transaction_id: 'txn_123',
           amount: 50.00,
@@ -146,7 +146,7 @@ describe('PaymentsAPI Namespace', () => {
 
       const result = await api.void('txn_126');
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/payments/void', {
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/payments/void', {
         json: { transaction_id: 'txn_126', provider: undefined },
       });
       expect(result.success).toBe(true);
@@ -169,7 +169,7 @@ describe('PaymentsAPI Namespace', () => {
 
       const result = await api.getTransaction('txn_123');
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/payments/transaction/txn_123');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/payments/transaction/txn_123');
       expect(result.transaction.captured).toBe(true);
     });
   });
@@ -198,7 +198,7 @@ describe('PaymentsAPI Namespace', () => {
         name: 'John Doe',
       });
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/payments/customer', {
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/payments/customer', {
         json: { email: 'customer@example.com', name: 'John Doe' },
       });
       expect(result.customer_id).toBe('cus_new');
@@ -213,7 +213,7 @@ describe('PaymentsAPI Namespace', () => {
         payment_method: 'pm_123',
       });
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/payments/customer', {
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/payments/customer', {
         json: { email: 'customer@example.com', payment_method: 'pm_123' },
       });
     });
@@ -234,7 +234,7 @@ describe('PaymentsAPI Namespace', () => {
 
       const result = await api.getCustomer('cus_123');
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/payments/customer/cus_123');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/payments/customer/cus_123');
       expect(result.customer.payment_methods).toHaveLength(1);
     });
 
@@ -247,7 +247,7 @@ describe('PaymentsAPI Namespace', () => {
 
       const result = await api.updateCustomer('cus_123', { name: 'Jane Doe' });
 
-      expect(mockClient.request).toHaveBeenCalledWith('PUT', '/api/payments/customer/cus_123', {
+      expect(mockClient.request).toHaveBeenCalledWith('PUT', '/api/v1/payments/customer/cus_123', {
         json: { name: 'Jane Doe' },
       });
       expect(result.customer.name).toBe('Jane Doe');
@@ -258,7 +258,7 @@ describe('PaymentsAPI Namespace', () => {
 
       const result = await api.deleteCustomer('cus_123');
 
-      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/payments/customer/cus_123');
+      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/v1/payments/customer/cus_123');
       expect(result.success).toBe(true);
     });
   });
@@ -296,7 +296,7 @@ describe('PaymentsAPI Namespace', () => {
         interval: 'month',
       });
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/payments/subscription', {
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/payments/subscription', {
         json: {
           customer_id: 'cus_123',
           name: 'Pro Plan',
@@ -319,7 +319,7 @@ describe('PaymentsAPI Namespace', () => {
         interval_count: 1,
       });
 
-      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/payments/subscription', {
+      expect(mockClient.request).toHaveBeenCalledWith('POST', '/api/v1/payments/subscription', {
         json: {
           customer_id: 'cus_123',
           name: 'Enterprise',
@@ -343,7 +343,7 @@ describe('PaymentsAPI Namespace', () => {
 
       const result = await api.getSubscription('sub_123');
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/payments/subscription/sub_123');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/payments/subscription/sub_123');
       expect(result.subscription.status).toBe('active');
     });
 
@@ -356,7 +356,7 @@ describe('PaymentsAPI Namespace', () => {
 
       const result = await api.updateSubscription('sub_123', { name: 'Enterprise Plan' });
 
-      expect(mockClient.request).toHaveBeenCalledWith('PUT', '/api/payments/subscription/sub_123', {
+      expect(mockClient.request).toHaveBeenCalledWith('PUT', '/api/v1/payments/subscription/sub_123', {
         json: { name: 'Enterprise Plan' },
       });
     });
@@ -370,7 +370,7 @@ describe('PaymentsAPI Namespace', () => {
 
       const result = await api.cancelSubscription('sub_123', true);
 
-      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/payments/subscription/sub_123', {
+      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/v1/payments/subscription/sub_123', {
         json: { cancel_at_period_end: true },
       });
       expect(result.subscription.cancel_at_period_end).toBe(true);
@@ -385,7 +385,7 @@ describe('PaymentsAPI Namespace', () => {
 
       await api.cancelSubscription('sub_123', false);
 
-      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/payments/subscription/sub_123', {
+      expect(mockClient.request).toHaveBeenCalledWith('DELETE', '/api/v1/payments/subscription/sub_123', {
         json: { cancel_at_period_end: false },
       });
     });

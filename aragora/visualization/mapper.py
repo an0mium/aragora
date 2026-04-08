@@ -454,7 +454,11 @@ class ArgumentCartographer:
         """Emit a graph update event for real-time streaming."""
         try:
             from aragora.events.dispatcher import dispatch_event
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
+            logger.debug("Graph update dispatcher unavailable: %s", e)
+            return
 
+        try:
             dispatch_event(
                 "argument_map_updated",
                 {

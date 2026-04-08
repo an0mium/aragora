@@ -23,6 +23,7 @@ from aragora.gauntlet.receipt import (
     DecisionReceipt,
     ProvenanceRecord,
 )
+from aragora.gauntlet.receipt_models import canonicalize_execution_outcome_linkage
 
 
 # =============================================================================
@@ -72,6 +73,43 @@ class TestProvenanceRecord:
         assert data["description"] == "Final verdict"
         assert "agent" in data
         assert "evidence_hash" in data
+
+
+class TestCanonicalExecutionOutcomeLinkage:
+    def test_normalizes_receipt_result_linkage_to_one_execution_payload(self):
+        payload = canonicalize_execution_outcome_linkage(
+            {
+                "receipt_id": "receipt-123",
+                "artifact_hash": "hash-123",
+                "consensus_proof": {"reached": True, "confidence": 0.82},
+                "agents": ["alpha", "beta"],
+                "receipt": {"id": "stale-receipt", "confidence": 0.1},
+            }
+        )
+
+        assert payload["receipt_id"] == "receipt-123"
+        assert payload["debate_id"] == "receipt-123"
+        assert payload["gauntlet_id"] == "receipt-123"
+        assert payload["checksum"] == "hash-123"
+        assert payload["receipt"]["id"] == "receipt-123"
+        assert payload["receipt"]["artifact_hash"] == "hash-123"
+        assert payload["receipt"]["participants"] == ["alpha", "beta"]
+        assert payload["consensus_reached"] is True
+        assert payload["receipt"]["confidence"] == pytest.approx(0.82)
+
+    def test_preserves_false_string_consensus(self):
+        payload = canonicalize_execution_outcome_linkage(
+            {
+                "receipt_id": "receipt-456",
+                "consensus_reached": "false",
+                "consensus_proof": {"reached": "false", "confidence": 0.25},
+                "receipt": {"consensus_reached": "false"},
+            }
+        )
+
+        assert payload["consensus_reached"] is False
+        assert payload["receipt"]["consensus_reached"] is False
+        assert payload["consensus_proof"]["reached"] is False
 
 
 # =============================================================================

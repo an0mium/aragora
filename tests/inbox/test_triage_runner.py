@@ -16,6 +16,7 @@ from aragora.inbox.triage_runner import (
     _create_triage_agents,
     _extract_fast_tier_json,
     _normalize_triage_profile,
+    _result_consensus_reached,
 )
 from aragora.inbox.trust_wedge import (
     InboxWedgeAction,
@@ -289,6 +290,29 @@ async def test_dissent_blocks_auto_approval_before_receipt_execution():
     assert wedge_service.create_receipt.call_args.kwargs["auto_approve"] is False
     assert decisions[0].receipt_state == ReceiptState.CREATED.value
     wedge_service.execute_receipt.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("debate_result", "rationale", "expected"),
+    [
+        ({"consensus_reached": "true"}, "", True),
+        ({"consensus_reached": "1"}, "", True),
+        ({"consensus_reached": "yes"}, "", True),
+        ({"consensus_reached": "on"}, "", True),
+        ({"consensus_reached": "false"}, "archive", False),
+        ({"consensus_reached": "0"}, "archive", False),
+        ({"consensus_reached": "no"}, "archive", False),
+        ({"consensus_reached": "off"}, "archive", False),
+        ({"consensus_reached": ""}, "archive", False),
+        ({"consensus_reached": "malformed"}, "archive", False),
+        ({}, "archive", True),
+        ({"consensus_reached": None}, "archive", True),
+    ],
+)
+def test_result_consensus_reached_parses_string_values_fail_closed(
+    debate_result, rationale, expected
+):
+    assert _result_consensus_reached(debate_result, rationale) is expected
 
 
 @pytest.mark.asyncio
@@ -1153,3 +1177,78 @@ async def test_debate_dispatch_error_produces_blocked_decision_not_silent_skip()
     assert decision.receipt_state == "blocked"
     assert "RuntimeError" in decision.dissent_summary
     assert decision.final_action == InboxWedgeAction.IGNORE
+
+
+@pytest.mark.asyncio
+async def test_escalated_runtime_error_stays_blocked_and_skips_fast_fallback(monkeypatch):
+    import aragora.core as core_mod
+    import aragora.debate.orchestrator as orch_mod
+    import aragora.debate.protocol as proto_mod
+
+    monkeypatch.setattr(
+        "aragora.inbox.triage_runner._create_triage_agents",
+        lambda **kwargs: [
+            SimpleNamespace(name="triage-proposer", role="proposer", model_type="openai-api"),
+            SimpleNamespace(name="triage-critic", role="critic", model_type="anthropic-api"),
+        ],
+    )
+    monkeypatch.setattr(core_mod, "Environment", lambda **kwargs: SimpleNamespace(**kwargs))
+    monkeypatch.setattr(proto_mod, "DebateProtocol", lambda **kwargs: SimpleNamespace(**kwargs))
+
+    class _BoomArena:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("debate backend down")
+
+    monkeypatch.setattr(orch_mod, "Arena", _BoomArena)
+
+    wedge_service = SimpleNamespace()
+    wedge_service.execute_receipt = AsyncMock()
+    wedge_service.create_receipt = MagicMock(
+        side_effect=lambda intent, decision, auto_approve=False: _make_envelope(
+            decision,
+            receipt_id="receipt-escalated-failure",
+            state=ReceiptState.APPROVED if auto_approve else ReceiptState.CREATED,
+        )
+    )
+
+    runner = InboxTriageRunner(
+        gmail_connector=None,
+        wedge_service=wedge_service,
+        profile="staged_v1",
+    )
+    runner._run_fast_tier_once = AsyncMock(
+        side_effect=[
+            {
+                "final_answer": "star: founder-intent signal",
+                "confidence": 0.97,
+                "consensus_reached": True,
+                "debate_id": "fast-first",
+                "status": "completed",
+            },
+            {
+                "final_answer": "archive: unsafe second guess",
+                "confidence": 0.98,
+                "consensus_reached": True,
+                "debate_id": "fast-second",
+                "status": "completed",
+            },
+        ]
+    )
+
+    decision = await runner._triage_message(
+        {
+            "id": "msg-escalated-failure",
+            "subject": "Founder note",
+            "from_address": "sender@example.com",
+            "body_text": "Please read this",
+        },
+        auto_approve=True,
+    )
+
+    assert decision.final_action == InboxWedgeAction.IGNORE
+    assert decision.blocked_by_policy is True
+    assert decision.receipt_state == ReceiptState.CREATED.value
+    assert decision.execution_tier == "escalated"
+    assert decision.escalation_reasons == ["high_risk_action"]
+    assert "runtime error" in decision.dissent_summary.lower()
+    assert runner._run_fast_tier_once.await_count == 1
