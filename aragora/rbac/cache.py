@@ -657,23 +657,17 @@ class RBACDistributedCache:
         """Record cache hit metric."""
         if not self.config.enable_metrics:
             return
-        try:
-            from aragora.observability.metrics.security import record_rbac_cache_hit
+        from aragora.observability.metrics.security import record_rbac_cache_hit
 
-            record_rbac_cache_hit(cache_type, "l1" if l1 else "l2")
-        except (ImportError, AttributeError):
-            pass
+        record_rbac_cache_hit(cache_type, "l1" if l1 else "l2")
 
     def _record_cache_miss(self, cache_type: str) -> None:
         """Record cache miss metric."""
         if not self.config.enable_metrics:
             return
-        try:
-            from aragora.observability.metrics.security import record_rbac_cache_miss
+        from aragora.observability.metrics.security import record_rbac_cache_miss
 
-            record_rbac_cache_miss(cache_type)
-        except (ImportError, AttributeError):
-            pass
+        record_rbac_cache_miss(cache_type)
 
     def get_stats(self) -> dict[str, Any]:
         """Get comprehensive cache statistics."""
