@@ -106,6 +106,10 @@ def _completed_debate(
     confidence: float = 0.85,
     consensus_reached: bool = True,
     status: str = "completed",
+    debate_status: str | None = None,
+    debate_status_source: str | None = None,
+    synthetic: bool | None = None,
+    mode: str | None = None,
     final_answer: str = "Yes, microservices are recommended.",
     explanation_summary: str = "All agents agreed on microservices.",
     participants: list[str] | None = None,
@@ -115,6 +119,24 @@ def _completed_debate(
     per_agent_cost: dict | None = None,
 ) -> dict[str, Any]:
     """Build a completed debate dict for testing."""
+    result: dict[str, Any] = {
+        "confidence": confidence,
+        "consensus_reached": consensus_reached,
+        "final_answer": final_answer,
+        "explanation_summary": explanation_summary,
+        "participants": participants or ["claude", "gpt-4", "gemini"],
+        "total_cost_usd": total_cost_usd,
+        "per_agent_cost": per_agent_cost or {"claude": 0.0020, "gpt-4": 0.0022},
+    }
+    if debate_status is not None:
+        result["debate_status"] = debate_status
+    if debate_status_source is not None:
+        result["debate_status_source"] = debate_status_source
+    if synthetic is not None:
+        result["synthetic"] = synthetic
+    if mode is not None:
+        result["mode"] = mode
+
     return {
         "debate_id": debate_id,
         "question": question,
@@ -125,15 +147,7 @@ def _completed_debate(
             {"agent": "claude", "role": "proposal", "content": "I propose X.", "round": 1},
             {"agent": "gpt-4", "role": "critique", "content": "I critique X.", "round": 1},
         ],
-        "result": {
-            "confidence": confidence,
-            "consensus_reached": consensus_reached,
-            "final_answer": final_answer,
-            "explanation_summary": explanation_summary,
-            "participants": participants or ["claude", "gpt-4", "gemini"],
-            "total_cost_usd": total_cost_usd,
-            "per_agent_cost": per_agent_cost or {"claude": 0.0020, "gpt-4": 0.0022},
-        },
+        "result": result,
     }
 
 
@@ -1347,6 +1361,22 @@ class TestEdgeCases:
         body = _body(result)
         assert body["status"] == "completed"
 
+    def test_canonical_debate_status_truth_metadata_is_included(self, http_handler):
+        debate = _completed_debate(
+            debate_status="completed",
+            debate_status_source="demo",
+        )
+        storage = _make_storage({"d1": debate})
+        h = DecisionPackageHandler(ctx={"storage": storage})
+
+        result = h.handle("/api/v1/debates/d1/package", {}, http_handler)
+
+        body = _body(result)
+        assert body["status"] == "completed"
+        assert body["debate_status"] == "completed"
+        assert body["debate_status_source"] == "synthetic"
+        assert body["synthetic"] is True
+
     def test_argument_map_with_messages_missing_agent(self, http_handler):
         """Messages missing agent field should still work (fallback to 'role')."""
         debate = _completed_debate(
@@ -1438,6 +1468,9 @@ class TestJSONStructure:
             "id",
             "question",
             "status",
+            "debate_status",
+            "debate_status_source",
+            "synthetic",
             "verdict",
             "confidence",
             "consensus_reached",
