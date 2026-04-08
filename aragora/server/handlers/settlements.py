@@ -49,6 +49,7 @@ class SettlementHandler(BaseHandler):
         "/api/v1/settlements",
         "/api/v1/settlements/",
     ]
+    VALID_OUTCOMES = ("correct", "incorrect", "partial")
 
     def __init__(self, ctx: dict[str, Any] | None = None) -> None:
         """Initialize handler with server context."""
@@ -85,6 +86,84 @@ class SettlementHandler(BaseHandler):
         if limit <= 0:
             return 0, error_response("limit must be greater than 0", 400)
         return limit, None
+
+    def _validate_required_string(
+        self, value: Any, field_name: str
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate a required non-empty string field."""
+        if value is None:
+            return None, error_response(f"{field_name} is required", 400)
+        if not isinstance(value, str):
+            return None, error_response(f"{field_name} must be a string", 400)
+
+        normalized = value.strip()
+        if not normalized:
+            return None, error_response(f"{field_name} must be a non-empty string", 400)
+
+        return normalized, None
+
+    def _validate_optional_string(
+        self, value: Any, field_name: str
+    ) -> tuple[str, HandlerResult | None]:
+        """Validate an optional string field."""
+        if value is None:
+            return "", None
+        if not isinstance(value, str):
+            return "", error_response(f"{field_name} must be a string", 400)
+        return value, None
+
+    def _validate_outcome(
+        self, value: Any, field_name: str = "outcome"
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate a settlement outcome value."""
+        outcome, error = self._validate_required_string(value, field_name)
+        if error is not None:
+            return None, error
+
+        if outcome not in self.VALID_OUTCOMES:
+            allowed = ", ".join(self.VALID_OUTCOMES)
+            return None, error_response(f"{field_name} must be one of: {allowed}", 400)
+
+        return outcome, None
+
+    def _validate_batch_settlement(
+        self, settlement: Any, index: int
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+        """Validate and normalize one batch settlement entry."""
+        field_prefix = f"settlements[{index}]"
+        if not isinstance(settlement, dict):
+            return None, error_response(f"{field_prefix} must be an object", 400)
+
+        settlement_id, error = self._validate_required_string(
+            settlement.get("settlement_id"),
+            f"{field_prefix}.settlement_id",
+        )
+        if error is not None:
+            return None, error
+
+        outcome, error = self._validate_outcome(
+            settlement.get("outcome"),
+            f"{field_prefix}.outcome",
+        )
+        if error is not None:
+            return None, error
+
+        evidence, error = self._validate_optional_string(
+            settlement.get("evidence"),
+            f"{field_prefix}.evidence",
+        )
+        if error is not None:
+            return None, error
+
+        return (
+            {
+                **settlement,
+                "settlement_id": settlement_id,
+                "outcome": outcome,
+                "evidence": evidence,
+            },
+            None,
+        )
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given request."""
@@ -148,8 +227,14 @@ class SettlementHandler(BaseHandler):
             segments = path_clean.split("/")
             settle_idx = segments.index("settle") if "settle" in segments else -1
             if settle_idx > 0:
-                settlement_id = segments[settle_idx - 1]
+                settlement_id, error = self._validate_required_string(
+                    segments[settle_idx - 1],
+                    "settlement_id",
+                )
+                if error is not None:
+                    return error
                 return self._settle_single(settlement_id, body)
+            return error_response("settlement_id is required in URL path", 400)
 
         return None
 
@@ -277,22 +362,18 @@ class SettlementHandler(BaseHandler):
             evidence: str -- Supporting evidence for the outcome
             settled_by: str -- Who/what resolved the settlement
         """
-        outcome = body.get("outcome")
-        if not isinstance(outcome, str) or not outcome.strip():
-            return error_response("outcome is required", 400)
-        outcome = outcome.strip()
+        outcome, error = self._validate_outcome(body.get("outcome"))
+        if error is not None:
+            return error
 
-        if outcome not in ("correct", "incorrect", "partial"):
-            return error_response("outcome must be 'correct', 'incorrect', or 'partial'", 400)
+        evidence, error = self._validate_optional_string(body.get("evidence"), "evidence")
+        if error is not None:
+            return error
 
-        evidence = body.get("evidence", "")
-        if not isinstance(evidence, str):
-            return error_response("evidence must be a string", 400)
-
-        settled_by = body.get("settled_by", "api")
-        if not isinstance(settled_by, str) or not settled_by.strip():
-            return error_response("settled_by must be a non-empty string", 400)
-        settled_by = settled_by.strip()
+        raw_settled_by = body["settled_by"] if "settled_by" in body else "api"
+        settled_by, error = self._validate_required_string(raw_settled_by, "settled_by")
+        if error is not None:
+            return error
 
         tracker = self._get_tracker()
 
@@ -322,47 +403,26 @@ class SettlementHandler(BaseHandler):
             settlements: list[dict]  -- List of {settlement_id, outcome, evidence}
             settled_by: str -- Who/what resolved the settlements
         """
-        settlements = body.get("settlements")
-        if not isinstance(settlements, list) or not settlements:
-            return error_response("settlements list is required", 400)
+        if "settlements" not in body:
+            return error_response("settlements is required", 400)
 
-        settled_by = body.get("settled_by", "api")
-        if not isinstance(settled_by, str) or not settled_by.strip():
-            return error_response("settled_by must be a non-empty string", 400)
-        settled_by = settled_by.strip()
+        settlements = body.get("settlements")
+        if not isinstance(settlements, list):
+            return error_response("settlements must be a list", 400)
+        if not settlements:
+            return error_response("settlements must contain at least one entry", 400)
+
+        raw_settled_by = body["settled_by"] if "settled_by" in body else "api"
+        settled_by, error = self._validate_required_string(raw_settled_by, "settled_by")
+        if error is not None:
+            return error
 
         validated_settlements: list[dict[str, Any]] = []
         for index, settlement in enumerate(settlements):
-            if not isinstance(settlement, dict):
-                return error_response(f"settlements[{index}] must be an object", 400)
-
-            settlement_id = settlement.get("settlement_id")
-            if not isinstance(settlement_id, str) or not settlement_id.strip():
-                return error_response(f"settlements[{index}].settlement_id is required", 400)
-
-            outcome = settlement.get("outcome")
-            if not isinstance(outcome, str) or not outcome.strip():
-                return error_response(f"settlements[{index}].outcome is required", 400)
-            outcome = outcome.strip()
-
-            if outcome not in ("correct", "incorrect", "partial"):
-                return error_response(
-                    f"settlements[{index}].outcome must be 'correct', 'incorrect', or 'partial'",
-                    400,
-                )
-
-            evidence = settlement.get("evidence", "")
-            if not isinstance(evidence, str):
-                return error_response(f"settlements[{index}].evidence must be a string", 400)
-
-            validated_settlements.append(
-                {
-                    **settlement,
-                    "settlement_id": settlement_id.strip(),
-                    "outcome": outcome,
-                    "evidence": evidence,
-                }
-            )
+            validated_settlement, error = self._validate_batch_settlement(settlement, index)
+            if error is not None:
+                return error
+            validated_settlements.append(validated_settlement)
 
         tracker = self._get_tracker()
         results = tracker.settle_batch(
