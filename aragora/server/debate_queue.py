@@ -380,6 +380,18 @@ class DebateQueue:
         self._processor_task: asyncio.Task | None = None
         self._shutdown = False
 
+    def _has_pending_batches_locked(self) -> bool:
+        """Return whether any batch still needs processor attention.
+
+        Callers must hold ``self._processing_lock``.
+        """
+        if self._active_count > 0:
+            return True
+        return any(
+            batch.status in (BatchStatus.PENDING, BatchStatus.PROCESSING)
+            for batch in self._batches.values()
+        )
+
     async def submit_batch(self, batch: BatchRequest) -> str:
         """
         Submit a batch of debates for processing.
@@ -399,14 +411,15 @@ class DebateQueue:
         # Sort items by priority (highest first)
         batch.items.sort(key=lambda x: x.priority, reverse=True)
 
-        # Register batch
-        self._batches[batch.batch_id] = batch
+        async with self._processing_lock:
+            # Register batch
+            self._batches[batch.batch_id] = batch
+
+            # Start processing if not already running
+            if self._processor_task is None or self._processor_task.done():
+                self._processor_task = asyncio.create_task(self._process_batches())
 
         logger.info("Batch %s submitted with %s items", batch.batch_id, len(batch.items))
-
-        # Start processing if not already running
-        if self._processor_task is None or self._processor_task.done():
-            self._processor_task = asyncio.create_task(self._process_batches())
 
         return batch.batch_id
 
@@ -466,19 +479,29 @@ class DebateQueue:
 
     async def _process_batches(self) -> None:
         """Background task that processes batches."""
-        while not self._shutdown:
-            # Find work to do
-            work = await self._get_next_work()
+        try:
+            while not self._shutdown:
+                # Find work to do
+                work = await self._get_next_work()
 
-            if not work:
-                # No work available, wait a bit
-                await asyncio.sleep(0.1)
-                continue
+                if not work:
+                    async with self._processing_lock:
+                        if not self._has_pending_batches_locked():
+                            self._processor_task = None
+                            return
 
-            batch, item = work
+                    # No work available yet, wait a bit
+                    await asyncio.sleep(0.1)
+                    continue
 
-            # Process item
-            await self._process_item(batch, item)
+                batch, item = work
+
+                # Process item
+                await self._process_item(batch, item)
+        finally:
+            current_task = asyncio.current_task()
+            if self._processor_task is current_task:
+                self._processor_task = None
 
     async def _get_next_work(self) -> tuple[BatchRequest, BatchItem] | None:
         """Get the next item to process."""
@@ -533,7 +556,7 @@ class DebateQueue:
         except (RuntimeError, ValueError, TimeoutError, asyncio.CancelledError) as e:
             logger.error("Failed to process item %s: %s", item.item_id, e)
             item.status = ItemStatus.FAILED
-            item.error = "Debate execution failed"
+            item.error = str(e).strip() or "Debate execution failed"
         finally:
             item.completed_at = time.time()
 
@@ -655,6 +678,8 @@ class DebateQueue:
                 await self._processor_task
             except asyncio.CancelledError:
                 pass
+            finally:
+                self._processor_task = None
 
 
 # Global queue instance

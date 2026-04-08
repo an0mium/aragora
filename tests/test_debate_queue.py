@@ -727,6 +727,19 @@ class TestDebateQueue:
         assert max_concurrent <= 2
 
     @pytest.mark.asyncio
+    async def test_processor_stops_when_queue_drains(self, queue, mock_executor):
+        """Processor task should exit once all queued work completes."""
+        queue.debate_executor = mock_executor
+
+        batch = BatchRequest(items=[BatchItem(question="Test")])
+        await queue.submit_batch(batch)
+
+        await asyncio.sleep(0.2)
+
+        assert batch.status == BatchStatus.COMPLETED
+        assert queue._processor_task is None or queue._processor_task.done()
+
+    @pytest.mark.asyncio
     async def test_shutdown(self, queue):
         """shutdown should stop processor task."""
         batch = BatchRequest(items=[BatchItem(question="Test")])
