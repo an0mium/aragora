@@ -349,6 +349,19 @@ class TestValidateRequestDecorator:
         result = h.handle("/api/debates/../../../etc/passwd", {}, None)
         assert result["status"] == 400
 
+    def test_path_validator_missing_segment_returns_error(self):
+        """Missing declared path segment returns error instead of skipping validation."""
+
+        class Handler(MockHandler):
+            @validate_request(path_validators={"debate_id": validate_debate_id})
+            def handle(self, path, query, handler):
+                return {"success": True}
+
+        h = Handler()
+        result = h.handle("/api/debates", {}, None)
+        assert result["status"] == 400
+        assert "Missing required path parameter: debate_id" in result["error"]
+
     def test_schema_validation_valid(self):
         """Valid body passes schema validation."""
 
