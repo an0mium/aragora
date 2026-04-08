@@ -659,11 +659,15 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
         Requires nomic:admin permission (enforced by @require_permission decorator).
         """
         if path == "/api/v1/nomic/control/start":
-            body = self.read_json_body(handler) or {}
+            body, error = self._read_json_object_body(handler)
+            if error:
+                return error
             return self._start_nomic_loop(body)
 
         if path == "/api/v1/nomic/control/stop":
-            body = self.read_json_body(handler) or {}
+            body, error = self._read_json_object_body(handler)
+            if error:
+                return error
             return self._stop_nomic_loop(body)
 
         if path == "/api/v1/nomic/control/pause":
@@ -676,16 +680,79 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             return self._skip_phase()
 
         if path == "/api/v1/nomic/proposals/approve":
-            body = self.read_json_body(handler) or {}
+            body, error = self._read_json_object_body(handler)
+            if error:
+                return error
             return self._approve_proposal(body)
 
         if path == "/api/v1/nomic/proposals/reject":
-            body = self.read_json_body(handler) or {}
+            body, error = self._read_json_object_body(handler)
+            if error:
+                return error
             return self._reject_proposal(body)
 
         return None
 
-    def _start_nomic_loop(self, body: dict) -> HandlerResult:
+    def _read_json_object_body(self, handler: Any) -> tuple[dict[str, Any], HandlerResult | None]:
+        """Read a request body and require a JSON object payload."""
+        body = self.read_json_body(handler)
+        if body is None:
+            return {}, None
+        if not isinstance(body, dict):
+            return {}, error_response("Request body must be a JSON object", 400)
+        return cast(dict[str, Any], body), None
+
+    def _get_bool_body_field(
+        self, body: dict[str, Any], field_name: str, *, default: bool
+    ) -> tuple[bool, HandlerResult | None]:
+        """Return a boolean field or a 400 response for malformed values."""
+        value = body.get(field_name, default)
+        if isinstance(value, bool):
+            return value, None
+        return False, error_response(f"{field_name} must be a boolean", 400)
+
+    def _get_int_body_field(
+        self, body: dict[str, Any], field_name: str, *, default: int
+    ) -> tuple[int, HandlerResult | None]:
+        """Return an integer field or a 400 response for malformed values."""
+        value = body.get(field_name, default)
+        if isinstance(value, bool):
+            return 0, error_response(f"{field_name} must be an integer", 400)
+        if isinstance(value, int):
+            return value, None
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped and (
+                stripped.isdigit()
+                or (stripped[0] in "+-" and len(stripped) > 1 and stripped[1:].isdigit())
+            ):
+                return int(stripped), None
+        return 0, error_response(f"{field_name} must be an integer", 400)
+
+    def _get_required_string_body_field(
+        self, body: dict[str, Any], field_name: str
+    ) -> tuple[str, HandlerResult | None]:
+        """Return a required non-empty string field."""
+        value = body.get(field_name)
+        if value is None:
+            return "", error_response(f"{field_name} is required", 400)
+        if not isinstance(value, str):
+            return "", error_response(f"{field_name} must be a non-empty string", 400)
+        value = value.strip()
+        if not value:
+            return "", error_response(f"{field_name} must be a non-empty string", 400)
+        return value, None
+
+    def _get_string_body_field(
+        self, body: dict[str, Any], field_name: str, *, default: str
+    ) -> tuple[str, HandlerResult | None]:
+        """Return an optional string field or a 400 response for malformed values."""
+        value = body.get(field_name, default)
+        if isinstance(value, str):
+            return value, None
+        return "", error_response(f"{field_name} must be a string", 400)
+
+    def _start_nomic_loop(self, body: dict[str, Any]) -> HandlerResult:
         """Start the nomic loop with optional configuration."""
         nomic_dir = self.get_nomic_dir()
         if not nomic_dir:
@@ -702,24 +769,22 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 if state.get("running"):
                     return error_response("Nomic loop is already running", 409)
 
-            # Extract and validate configuration with strict type checking
-            try:
-                cycles_raw = body.get("cycles", 1)
-                max_cycles_raw = body.get("max_cycles", 10)
-                # Reject non-numeric types explicitly (security hardening)
-                if not isinstance(cycles_raw, (int, float, str)):
-                    return error_response("cycles must be a number", 400)
-                if not isinstance(max_cycles_raw, (int, float, str)):
-                    return error_response("max_cycles must be a number", 400)
-                cycles = int(cycles_raw)
-                max_cycles = int(max_cycles_raw)
-            except (ValueError, TypeError):
-                return error_response("cycles and max_cycles must be integers", 400)
+            cycles, error = self._get_int_body_field(body, "cycles", default=1)
+            if error:
+                return error
+            max_cycles, error = self._get_int_body_field(body, "max_cycles", default=10)
+            if error:
+                return error
+            auto_approve, error = self._get_bool_body_field(body, "auto_approve", default=False)
+            if error:
+                return error
+            dry_run, error = self._get_bool_body_field(body, "dry_run", default=False)
+            if error:
+                return error
 
             # Ensure positive bounds (bounded integer prevents overflow/DoS)
             cycles = max(1, min(cycles, 100))  # Cap at 100 cycles
             max_cycles = max(1, min(max_cycles, 100))
-            auto_approve = bool(body.get("auto_approve", False))
 
             # Security check: verify all subprocess args are bounded integers
             if not isinstance(cycles, int) or not (1 <= cycles <= 100):
@@ -781,7 +846,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 "emit_loop_started",
                 cycles=cycles,
                 auto_approve=auto_approve,
-                dry_run=body.get("dry_run", False),
+                dry_run=dry_run,
             )
 
             # Audit log
@@ -813,7 +878,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             logger.exception("Unexpected error starting nomic loop: %s", e)
             return error_response(safe_error_message(e, "start nomic loop"), 500)
 
-    def _stop_nomic_loop(self, body: dict) -> HandlerResult:
+    def _stop_nomic_loop(self, body: dict[str, Any]) -> HandlerResult:
         """Stop the running nomic loop."""
         nomic_dir = self.get_nomic_dir()
         if not nomic_dir:
@@ -822,6 +887,10 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
         try:
             import signal
             import os
+
+            graceful, error = self._get_bool_body_field(body, "graceful", default=True)
+            if error:
+                return error
 
             state_file = nomic_dir / "nomic_state.json"
             if not state_file.exists():
@@ -846,7 +915,6 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 return json_response({"status": "already_stopped"})
 
             # Send graceful shutdown signal
-            graceful = body.get("graceful", True)
             sig = signal.SIGTERM if graceful else signal.SIGKILL
             os.kill(pid, sig)
 
@@ -1118,15 +1186,18 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             logger.exception("Unexpected error getting proposals: %s", e)
             return error_response(safe_error_message(e, "get proposals"), 500)
 
-    def _approve_proposal(self, body: dict) -> HandlerResult:
+    def _approve_proposal(self, body: dict[str, Any]) -> HandlerResult:
         """Approve a pending proposal."""
         nomic_dir = self.get_nomic_dir()
         if not nomic_dir:
             return error_response("Nomic directory not configured", 503)
 
-        proposal_id = body.get("proposal_id")
-        if not proposal_id:
-            return error_response("proposal_id is required", 400)
+        proposal_id, error = self._get_required_string_body_field(body, "proposal_id")
+        if error:
+            return error
+        approved_by, error = self._get_string_body_field(body, "approved_by", default="user")
+        if error:
+            return error
 
         try:
             proposals_file = nomic_dir / "proposals.json"
@@ -1142,7 +1213,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 if p.get("id") == proposal_id:
                     p["status"] = "approved"
                     p["approved_at"] = datetime.now().isoformat()
-                    p["approved_by"] = body.get("approved_by", "user")
+                    p["approved_by"] = approved_by
                     found = True
                     break
 
@@ -1157,13 +1228,13 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             self._emit_event(
                 "emit_proposal_approved",
                 proposal_id=proposal_id,
-                approved_by=body.get("approved_by", "user"),
+                approved_by=approved_by,
             )
 
             # Audit log (security-sensitive: approves code changes)
             audit_security(
                 event_type="nomic_proposal_approved",
-                actor_id=body.get("approved_by", "user"),
+                actor_id=approved_by,
                 resource_type="nomic_proposal",
                 resource_id=proposal_id,
             )
@@ -1185,15 +1256,21 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             logger.exception("Unexpected error approving proposal: %s", e)
             return error_response(safe_error_message(e, "approve proposal"), 500)
 
-    def _reject_proposal(self, body: dict) -> HandlerResult:
+    def _reject_proposal(self, body: dict[str, Any]) -> HandlerResult:
         """Reject a pending proposal."""
         nomic_dir = self.get_nomic_dir()
         if not nomic_dir:
             return error_response("Nomic directory not configured", 503)
 
-        proposal_id = body.get("proposal_id")
-        if not proposal_id:
-            return error_response("proposal_id is required", 400)
+        proposal_id, error = self._get_required_string_body_field(body, "proposal_id")
+        if error:
+            return error
+        rejected_by, error = self._get_string_body_field(body, "rejected_by", default="user")
+        if error:
+            return error
+        reason, error = self._get_string_body_field(body, "reason", default="")
+        if error:
+            return error
 
         try:
             proposals_file = nomic_dir / "proposals.json"
@@ -1209,8 +1286,8 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 if p.get("id") == proposal_id:
                     p["status"] = "rejected"
                     p["rejected_at"] = datetime.now().isoformat()
-                    p["rejected_by"] = body.get("rejected_by", "user")
-                    p["rejection_reason"] = body.get("reason", "")
+                    p["rejected_by"] = rejected_by
+                    p["rejection_reason"] = reason
                     found = True
                     break
 
@@ -1225,17 +1302,17 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             self._emit_event(
                 "emit_proposal_rejected",
                 proposal_id=proposal_id,
-                rejected_by=body.get("rejected_by", "user"),
-                reason=body.get("reason", ""),
+                rejected_by=rejected_by,
+                reason=reason,
             )
 
             # Audit log (security-sensitive: rejects code changes)
             audit_security(
                 event_type="nomic_proposal_rejected",
-                actor_id=body.get("rejected_by", "user"),
+                actor_id=rejected_by,
                 resource_type="nomic_proposal",
                 resource_id=proposal_id,
-                rejection_reason=body.get("reason", ""),
+                rejection_reason=reason,
             )
 
             return json_response(
