@@ -206,6 +206,51 @@ class RLMContextHandler(BaseHandler):
 
         return error_response("Method not allowed", 405)
 
+    def _require_non_empty_string_field(
+        self,
+        body: dict[str, Any],
+        field_name: str,
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate that a required request field is a non-blank string."""
+        value = body.get(field_name)
+        if not isinstance(value, str):
+            return None, error_response(f"'{field_name}' field required and must be a string", 400)
+        if not value.strip():
+            return None, error_response(f"'{field_name}' field must not be blank", 400)
+        return value, None
+
+    def _optional_non_empty_string_field(
+        self,
+        body: dict[str, Any],
+        field_name: str,
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate that an optional request field is either absent or non-blank."""
+        value = body.get(field_name)
+        if value is None:
+            return None, None
+        if not isinstance(value, str):
+            return None, error_response(f"'{field_name}' must be a string", 400)
+        if not value.strip():
+            return None, error_response(f"'{field_name}' must not be blank", 400)
+        return value, None
+
+    def _require_context_id_field(
+        self,
+        body: dict[str, Any],
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate a required context ID field in a JSON request body."""
+        context_id, error = self._require_non_empty_string_field(body, "context_id")
+        if error is not None:
+            return None, error
+
+        from aragora.server.validation import SAFE_ID_PATTERN, validate_path_segment
+
+        is_valid, err = validate_path_segment(context_id, "context_id", SAFE_ID_PATTERN)
+        if not is_valid:
+            return None, error_response(err or "Invalid context ID", 400)
+
+        return context_id, None
+
     # ============================================================================
     # Static Route Handlers
     # ============================================================================
@@ -460,15 +505,17 @@ class RLMContextHandler(BaseHandler):
         if error is not None:
             return error
 
-        content = body.get("content")
-        if not content or not isinstance(content, str):
-            return error_response("'content' field required and must be a string", 400)
+        content, error = self._require_non_empty_string_field(body, "content")
+        if error is not None:
+            return error
 
         # Validate content size
         if len(content) > 10_000_000:  # 10MB limit
             return error_response("Content too large (max 10MB)", 413)
 
         source_type = body.get("source_type", "text")
+        if not isinstance(source_type, str) or not source_type.strip():
+            return error_response("'source_type' must be a non-empty string", 400)
         if source_type not in ("text", "code", "debate"):
             return error_response(
                 "Invalid source_type. Must be 'text', 'code', or 'debate'",
@@ -579,13 +626,12 @@ class RLMContextHandler(BaseHandler):
         if error is not None:
             return error
 
-        context_id = body.get("context_id")
-        query = body.get("query")
-
-        if not context_id or not isinstance(context_id, str):
-            return error_response("'context_id' field required and must be a string", 400)
-        if not query or not isinstance(query, str):
-            return error_response("'query' field required and must be a string", 400)
+        context_id, error = self._require_context_id_field(body)
+        if error is not None:
+            return error
+        query, error = self._require_non_empty_string_field(body, "query")
+        if error is not None:
+            return error
 
         # Validate query length
         if len(query) > 10000:
@@ -598,9 +644,12 @@ class RLMContextHandler(BaseHandler):
         context_data = self._contexts[context_id]
         context = context_data["context"]
 
-        strategy = body.get("strategy", "auto")
+        strategy, error = self._optional_non_empty_string_field(body, "strategy")
+        if error is not None:
+            return error
+        strategy = strategy or "auto"
         valid_strategies = ["peek", "grep", "partition_map", "summarize", "hierarchical", "auto"]
-        if not isinstance(strategy, str) or strategy not in valid_strategies:
+        if strategy not in valid_strategies:
             return error_response(
                 f"Invalid strategy. Must be one of: {', '.join(valid_strategies)}",
                 400,
@@ -911,7 +960,8 @@ class RLMContextHandler(BaseHandler):
                 return None
 
             raw_body = handler.rfile.read(content_length)
-            return json.loads(raw_body.decode("utf-8"))
+            body = json.loads(raw_body.decode("utf-8"))
+            return body if isinstance(body, dict) else None
         except (json.JSONDecodeError, ValueError, AttributeError) as e:
             logger.debug("Failed to parse JSON body: %s", e)
             return None
@@ -1001,9 +1051,9 @@ class RLMContextHandler(BaseHandler):
         if error is not None:
             return error
 
-        context_id = body.get("context_id")
-        if not context_id or not isinstance(context_id, str):
-            return error_response("'context_id' field required and must be a string", 400)
+        context_id, error = self._require_context_id_field(body)
+        if error is not None:
+            return error
 
         if context_id not in self._contexts:
             return error_response(f"Context not found: {context_id}", 404)
@@ -1012,16 +1062,19 @@ class RLMContextHandler(BaseHandler):
         context = context_data["context"]
 
         # Parse streaming configuration
-        mode_str = body.get("mode", "top_down")
-        query = body.get("query")
-        level = body.get("level")
+        mode_str, error = self._optional_non_empty_string_field(body, "mode")
+        if error is not None:
+            return error
+        query, error = self._optional_non_empty_string_field(body, "query")
+        if error is not None:
+            return error
+        level, error = self._optional_non_empty_string_field(body, "level")
+        if error is not None:
+            return error
+        mode_str = mode_str or "top_down"
         chunk_size = body.get("chunk_size", 500)
         include_metadata = body.get("include_metadata", True)
 
-        if query is not None and not isinstance(query, str):
-            return error_response("'query' must be a string", 400)
-        if level is not None and not isinstance(level, str):
-            return error_response("'level' must be a string", 400)
         if (
             isinstance(chunk_size, bool)
             or not isinstance(chunk_size, int)
@@ -1046,7 +1099,7 @@ class RLMContextHandler(BaseHandler):
                 "targeted": StreamMode.TARGETED,
                 "progressive": StreamMode.PROGRESSIVE,
             }
-            if not isinstance(mode_str, str) or mode_str not in mode_map:
+            if mode_str not in mode_map:
                 return error_response(
                     "Invalid mode. Must be one of: top_down, bottom_up, targeted, progressive",
                     400,
