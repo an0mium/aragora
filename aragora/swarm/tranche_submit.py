@@ -158,6 +158,8 @@ def submit_intake_bundle(
     intake_path = tranche_dir / "intake_bundle.yaml"
     normalized_path = tranche_dir / "normalized_bundle.yaml"
     manifest_path = tranche_dir / "tranche.yaml"
+    inspection_path = tranche_dir / "inspection.yaml"
+    run_state_path = tranche_dir / "run_state.yaml"
     _write_yaml_like(intake_path, raw_bundle)
     _write_yaml_like(normalized_path, normalized_bundle)
 
@@ -171,6 +173,7 @@ def submit_intake_bundle(
         reference_client=_StaticOpenReferenceClient() if skip_github_resolution else client,
     )
     inspection = inspector.inspect(manifest)
+    _write_yaml_like(inspection_path, dict(inspection))
     inspection_status = str(inspection.get("preflight_status", "blocked")).strip() or "blocked"
     submission_status, recommended_action = _submission_decision(
         manifest,
@@ -186,10 +189,14 @@ def submit_intake_bundle(
             for lane in manifest.lanes
         },
     )
-    state.save(tranche_dir / "run_state.yaml")
+    state.save(run_state_path)
     return {
         "manifest_id": manifest.manifest_id,
+        "intake_path": str(intake_path),
+        "normalized_bundle_path": str(normalized_path),
         "manifest_path": str(manifest_path),
+        "inspection_path": str(inspection_path),
+        "run_state_path": str(run_state_path),
         "inspection_status": inspection_status,
         "submission_status": submission_status,
         "recommended_action": recommended_action,

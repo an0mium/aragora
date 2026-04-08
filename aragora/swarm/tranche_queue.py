@@ -61,6 +61,10 @@ QUEUE_ITEM_STATUS_RUNNING = "running"
 QUEUE_ITEM_STATUS_COMPLETED = "completed"
 QUEUE_ITEM_STATUS_NEEDS_HUMAN = "needs_human"
 QUEUE_ITEM_STATUS_STOPPED = "stopped"
+QUEUE_ITEM_PHASE_QUEUED = "queued"
+QUEUE_ITEM_PHASE_EXPLORED = "explored"
+QUEUE_ITEM_PHASE_PLANNED = "planned"
+QUEUE_ITEM_PHASE_APPROVED = "approved"
 
 _QUEUE_TERMINAL_STATUSES = frozenset(
     {
@@ -76,6 +80,12 @@ _QUEUE_ITEM_TERMINAL_STATUSES = frozenset(
     }
 )
 _SAFE_QUEUE_AUTONOMY_MODES = frozenset({"adaptive", "checkpoint"})
+_QUEUE_ITEM_PHASE_ORDER = {
+    QUEUE_ITEM_PHASE_QUEUED: 0,
+    QUEUE_ITEM_PHASE_EXPLORED: 1,
+    QUEUE_ITEM_PHASE_PLANNED: 2,
+    QUEUE_ITEM_PHASE_APPROVED: 3,
+}
 _SYSTEMIC_REVIEW_MARKERS = (
     "no configured reviewer candidate succeeded",
     "review blocked (billing):",
@@ -154,8 +164,89 @@ def _coerce_optional_datetime(value: Any) -> datetime | None:
     return _coerce_datetime(value) if _optional_text(value) else None
 
 
-def _load_structured_object(path: Path) -> dict[str, Any]:
-    raw = path.read_text(encoding="utf-8")
+def _derive_queue_item_phase(
+    *,
+    phase: Any = None,
+    manifest_path: Any = None,
+    design_review_recommendation: Any = None,
+) -> str:
+    normalized = _optional_text(phase)
+    recommendation = _optional_text(design_review_recommendation)
+    if recommendation == "approved":
+        inferred = QUEUE_ITEM_PHASE_APPROVED
+    elif recommendation:
+        inferred = QUEUE_ITEM_PHASE_PLANNED
+    elif _optional_text(manifest_path):
+        inferred = QUEUE_ITEM_PHASE_EXPLORED
+    else:
+        inferred = QUEUE_ITEM_PHASE_QUEUED
+    if normalized not in _QUEUE_ITEM_PHASE_ORDER:
+        return inferred
+    if _QUEUE_ITEM_PHASE_ORDER[inferred] > _QUEUE_ITEM_PHASE_ORDER[normalized]:
+        return inferred
+    return str(normalized)
+
+
+def _promote_queue_item_phase(
+    item_state: TrancheQueueItemRunState | None,
+    phase: str,
+) -> None:
+    if item_state is None:
+        return
+    normalized = _derive_queue_item_phase(
+        phase=phase,
+        manifest_path=item_state.manifest_path,
+        design_review_recommendation=item_state.design_review_recommendation,
+    )
+    current = _derive_queue_item_phase(
+        phase=item_state.phase,
+        manifest_path=item_state.manifest_path,
+        design_review_recommendation=item_state.design_review_recommendation,
+    )
+    target = (
+        normalized
+        if _QUEUE_ITEM_PHASE_ORDER[normalized] > _QUEUE_ITEM_PHASE_ORDER[current]
+        else current
+    )
+    if item_state.phase != target:
+        item_state.phase = target
+        item_state.phase_updated_at = _utcnow()
+    elif not item_state.phase:
+        item_state.phase = current
+        item_state.phase_updated_at = item_state.phase_updated_at or _utcnow()
+
+
+def _queue_item_is_execution_ready(item_state: TrancheQueueItemRunState) -> bool:
+    phase = _derive_queue_item_phase(
+        phase=item_state.phase,
+        manifest_path=item_state.manifest_path,
+        design_review_recommendation=item_state.design_review_recommendation,
+    )
+    return phase == QUEUE_ITEM_PHASE_APPROVED
+
+
+def _queue_item_next_action(item_state: TrancheQueueItemRunState) -> str | None:
+    if item_state.status in {QUEUE_ITEM_STATUS_COMPLETED, QUEUE_ITEM_STATUS_RUNNING}:
+        return None
+    phase = _derive_queue_item_phase(
+        phase=item_state.phase,
+        manifest_path=item_state.manifest_path,
+        design_review_recommendation=item_state.design_review_recommendation,
+    )
+    if phase == QUEUE_ITEM_PHASE_QUEUED:
+        return "explore-queue"
+    if phase in {QUEUE_ITEM_PHASE_EXPLORED, QUEUE_ITEM_PHASE_PLANNED}:
+        return "plan-queue"
+    if (
+        phase == QUEUE_ITEM_PHASE_APPROVED
+        and item_state.status not in _QUEUE_ITEM_TERMINAL_STATUSES
+    ):
+        return "run-queue"
+    return None
+
+
+def _load_structured_object(path: str | Path) -> dict[str, Any]:
+    raw = Path(path).resolve().read_text(encoding="utf-8")
     try:
         import yaml
 
@@ -420,10 +511,14 @@ class TrancheQueueSourceManifest:
 class TrancheQueueItemRunState:
     item_id: str
     status: str = QUEUE_ITEM_STATUS_PENDING
+    phase: str = QUEUE_ITEM_PHASE_QUEUED
     attempts: int = 0
     manifest_id: str | None = None
     manifest_path: str | None = None
     tranche_dir: str | None = None
+    intake_path: str | None = None
+    normalized_bundle_path: str | None = None
+    inspection_path: str | None = None
     requested_autonomy_mode: str | None = None
     effective_autonomy_mode: str | None = None
     submission_status: str | None = None
@@ -440,6 +535,7 @@ class TrancheQueueItemRunState:
     blocking_question: str | None = None
     blocking_lane_id: str | None = None
     started_at: datetime | None = None
+    phase_updated_at: datetime | None = None
     updated_at: datetime | None = None
     finished_at: datetime | None = None
     result: dict[str, Any] = field(default_factory=dict)
@@ -473,10 +569,14 @@ class TrancheQueueItemRunState:
         return {
             "item_id": self.item_id,
             "status": self.status,
+            "phase": self.phase,
             "attempts": self.attempts,
             "manifest_id": self.manifest_id,
             "manifest_path": self.manifest_path,
             "tranche_dir": self.tranche_dir,
+            "intake_path": self.intake_path,
+            "normalized_bundle_path": self.normalized_bundle_path,
+            "inspection_path": self.inspection_path,
             "requested_autonomy_mode": self.requested_autonomy_mode,
             "effective_autonomy_mode": self.effective_autonomy_mode,
             "submission_status": self.submission_status,
@@ -493,6 +593,9 @@ class TrancheQueueItemRunState:
             "blocking_question": self.blocking_question,
             "blocking_lane_id": self.blocking_lane_id,
             "started_at": self.started_at.isoformat() if self.started_at else None,
+            "phase_updated_at": self.phase_updated_at.isoformat()
+            if self.phase_updated_at
+            else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "finished_at": self.finished_at.isoformat() if self.finished_at else None,
             "result": dict(self.result),
@@ -505,20 +608,30 @@ class TrancheQueueItemRunState:
         blocker = result.get("blocker", {})
         if not isinstance(blocker, dict):
             blocker = {}
+        manifest_path = _optional_text(data.get("manifest_path"))
+        design_review_recommendation = _optional_text(data.get("design_review_recommendation"))
         return cls(
             item_id=str(data.get("item_id", "")).strip(),
             status=str(data.get("status", QUEUE_ITEM_STATUS_PENDING)).strip()
             or QUEUE_ITEM_STATUS_PENDING,
+            phase=_derive_queue_item_phase(
+                phase=data.get("phase"),
+                manifest_path=manifest_path,
+                design_review_recommendation=design_review_recommendation,
+            ),
             attempts=max(0, int(data.get("attempts", 0) or 0)),
             manifest_id=_optional_text(data.get("manifest_id")),
-            manifest_path=_optional_text(data.get("manifest_path")),
+            manifest_path=manifest_path,
             tranche_dir=_optional_text(data.get("tranche_dir")),
+            intake_path=_optional_text(data.get("intake_path")),
+            normalized_bundle_path=_optional_text(data.get("normalized_bundle_path")),
+            inspection_path=_optional_text(data.get("inspection_path")),
             requested_autonomy_mode=_optional_text(data.get("requested_autonomy_mode")),
             effective_autonomy_mode=_optional_text(data.get("effective_autonomy_mode")),
             submission_status=_optional_text(data.get("submission_status")),
             inspection_status=_optional_text(data.get("inspection_status")),
             recommended_action=_optional_text(data.get("recommended_action")),
-            design_review_recommendation=_optional_text(data.get("design_review_recommendation")),
+            design_review_recommendation=design_review_recommendation,
             design_review_path=_optional_text(data.get("design_review_path")),
             tranche_status=_optional_text(data.get("tranche_status")),
             pr_urls=_string_list(data.get("pr_urls")),
@@ -532,6 +645,7 @@ class TrancheQueueItemRunState:
             blocking_lane_id=_optional_text(data.get("blocking_lane_id"))
             or _optional_text(blocker.get("lane_id")),
             started_at=_coerce_optional_datetime(data.get("started_at")),
+            phase_updated_at=_coerce_optional_datetime(data.get("phase_updated_at")),
             updated_at=_coerce_optional_datetime(data.get("updated_at")),
             finished_at=_coerce_optional_datetime(data.get("finished_at")),
             result=result,
@@ -1458,13 +1572,18 @@ class TrancheQueueExecutor:
                     "kind": item.kind,
                     "source": item.source,
                     "status": status,
+                    "phase": item_state.phase,
                     "merge_class": item.merge_class,
+                    "intake_path": item_state.intake_path,
+                    "normalized_bundle_path": item_state.normalized_bundle_path,
                     "requested_autonomy_mode": item_state.requested_autonomy_mode,
                     "effective_autonomy_mode": item_state.effective_autonomy_mode,
                     "manifest_id": item_state.manifest_id,
                     "manifest_path": item_state.manifest_path,
+                    "inspection_path": item_state.inspection_path,
                     "submission_status": item_state.submission_status,
                     "inspection_status": item_state.inspection_status,
+                    "recommended_action": item_state.recommended_action,
                     "design_review_recommendation": item_state.design_review_recommendation,
                     "tranche_status": tranche_status,
                     "pr_urls": list(item_state.pr_urls),
@@ -1473,8 +1592,14 @@ class TrancheQueueExecutor:
                     "blocked_reason": item_state.blocked_reason,
                     "blocking_question": item_state.blocking_question,
                     "blocking_lane_id": item_state.blocking_lane_id,
+                    "next_action": _queue_item_next_action(item_state),
                     "started_at": (
                         item_state.started_at.isoformat() if item_state.started_at else None
+                    ),
+                    "phase_updated_at": (
+                        item_state.phase_updated_at.isoformat()
+                        if item_state.phase_updated_at
+                        else None
                     ),
                     "finished_at": (
                         item_state.finished_at.isoformat() if item_state.finished_at else None
@@ -1576,9 +1701,11 @@ class TrancheQueueExecutor:
         manifest: TrancheQueueManifest,
         item_state: TrancheQueueItemRunState,
         current_item_id: str | None,
+        queue_status: str | None = QUEUE_STATUS_RUNNING,
     ) -> None:
         state = TrancheQueueRunState.load(self.state_path, manifest=manifest)
-        state.status = QUEUE_STATUS_RUNNING
+        if queue_status is not None:
+            state.status = queue_status
         state.current_item_id = current_item_id
         state.item_states[item_state.item_id] = TrancheQueueItemRunState.from_dict(
             item_state.to_dict()
@@ -1586,19 +1713,27 @@ class TrancheQueueExecutor:
         state.updated_at = _utcnow()
         state.save(self.state_path)
 
-    async def _process_item(
+    def _pre_execution_item_setup(
         self,
         *,
         manifest: TrancheQueueManifest,
         item: TrancheQueueItem,
         item_state: TrancheQueueItemRunState,
-        deadline: datetime,
-    ) -> str | None:
-        item_state.status = QUEUE_ITEM_STATUS_RUNNING
-        item_state.attempts += 1
-        item_state.started_at = item_state.started_at or _utcnow()
+        count_attempt: bool,
+        queue_status: str | None,
+    ) -> str:
+        if count_attempt:
+            item_state.status = QUEUE_ITEM_STATUS_RUNNING
+            item_state.attempts += 1
+            item_state.started_at = item_state.started_at or _utcnow()
+            item_state.finished_at = None
+        elif item_state.status not in {
+            QUEUE_ITEM_STATUS_COMPLETED,
+            QUEUE_ITEM_STATUS_RUNNING,
+        }:
+            item_state.status = QUEUE_ITEM_STATUS_PENDING
+            item_state.finished_at = None
         item_state.updated_at = _utcnow()
-        item_state.finished_at = None
         item_state.stop_reason = None
         item_state.clear_blocker()
         item_state.events = _truncate_events(item_state.events)
@@ -1619,19 +1754,48 @@ class TrancheQueueExecutor:
             manifest=manifest,
             item_state=item_state,
             current_item_id=item.item_id,
+            queue_status=queue_status,
         )
+        return effective_autonomy
 
+    def _load_normalized_bundle_for_item(
+        self, item_state: TrancheQueueItemRunState
+    ) -> dict[str, Any]:
+        normalized_path = _optional_text(item_state.normalized_bundle_path)
+        if not normalized_path and item_state.manifest_path:
+            normalized_path = str(
+                Path(item_state.manifest_path).resolve().with_name("normalized_bundle.yaml")
+            )
+            item_state.normalized_bundle_path = normalized_path
+        if not normalized_path:
+            return {}
+        return _load_structured_object(normalized_path)
+
+    async def _ensure_item_explored(
+        self,
+        *,
+        manifest: TrancheQueueManifest,
+        item: TrancheQueueItem,
+        item_state: TrancheQueueItemRunState,
+        effective_autonomy_mode: str,
+        queue_status: str | None,
+    ) -> tuple[Path | None, Any | None, dict[str, Any] | None]:
         if not item_state.manifest_path:
-            bundle = self._bundle_for_item(item, effective_autonomy_mode=effective_autonomy)
+            bundle = self._bundle_for_item(item, effective_autonomy_mode=effective_autonomy_mode)
             submit_payload = submit_intake_bundle(
                 bundle,
                 repo_root=self.repo_root,
-                autonomy_mode=effective_autonomy,
+                autonomy_mode=effective_autonomy_mode,
                 planner=self._planner(),
             )
             item_state.manifest_id = _optional_text(submit_payload.get("manifest_id"))
+            item_state.intake_path = _optional_text(submit_payload.get("intake_path"))
             item_state.manifest_path = _optional_text(submit_payload.get("manifest_path"))
             item_state.tranche_dir = _optional_text(submit_payload.get("tranche_dir"))
+            item_state.normalized_bundle_path = _optional_text(
+                submit_payload.get("normalized_bundle_path")
+            )
+            item_state.inspection_path = _optional_text(submit_payload.get("inspection_path"))
             item_state.submission_status = _optional_text(submit_payload.get("submission_status"))
             item_state.inspection_status = _optional_text(submit_payload.get("inspection_status"))
             item_state.recommended_action = _optional_text(submit_payload.get("recommended_action"))
@@ -1641,6 +1805,7 @@ class TrancheQueueExecutor:
                 manifest=manifest,
                 item_state=item_state,
                 current_item_id=item.item_id,
+                queue_status=queue_status,
             )
 
         if not item_state.manifest_path:
@@ -1652,24 +1817,31 @@ class TrancheQueueExecutor:
             )
             item_state.finished_at = _utcnow()
             self._append_finding(item_state, "Queue item did not produce a tranche manifest path.")
-            return None
+            return None, None, None
 
         manifest_path = Path(item_state.manifest_path).resolve()
         tranche_manifest = load_tranche_manifest(manifest_path)
         inspection = TrancheInspector(repo_root=self.repo_root).inspect(tranche_manifest)
         item_state.inspection_status = _optional_text(inspection.get("preflight_status"))
+        item_state.inspection_path = item_state.inspection_path or str(
+            manifest_path.with_name("inspection.yaml")
+        )
+        item_state.result["inspection"] = dict(inspection)
+        _promote_queue_item_phase(item_state, QUEUE_ITEM_PHASE_EXPLORED)
+
         if str(inspection.get("preflight_status", "")).strip() == "blocked":
             item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
             item_state.stop_reason = "preflight_blocked"
+            item_state.recommended_action = (
+                _optional_text(
+                    inspection.get("recommended_action", {}).get("kind")
+                    if isinstance(inspection.get("recommended_action"), dict)
+                    else None
+                )
+                or "stop_and_replan"
+            )
             item_state.set_blocker(
-                reason=(
-                    _optional_text(
-                        inspection.get("recommended_action", {}).get("kind")
-                        if isinstance(inspection.get("recommended_action"), dict)
-                        else None
-                    )
-                    or "preflight_blocked"
-                ),
+                reason=item_state.recommended_action or "preflight_blocked",
                 question=(
                     "Which preflight blocker must be resolved before this lane can be prepared or rerun?"
                 ),
@@ -1677,33 +1849,71 @@ class TrancheQueueExecutor:
             item_state.finished_at = _utcnow()
             for finding in _string_list(inspection.get("preflight_blockers")):
                 self._append_finding(item_state, finding)
-            item_state.result["inspection"] = dict(inspection)
-            return None
+            return manifest_path, tranche_manifest, inspection
+
+        if item_state.status != QUEUE_ITEM_STATUS_RUNNING:
+            item_state.status = QUEUE_ITEM_STATUS_PENDING
+        item_state.recommended_action = "plan-queue"
+        item_state.updated_at = _utcnow()
+        self._persist_item_progress(
+            manifest=manifest,
+            item_state=item_state,
+            current_item_id=item.item_id,
+            queue_status=queue_status,
+        )
+        return manifest_path, tranche_manifest, inspection
+
+    async def _ensure_item_planned(
+        self,
+        *,
+        manifest: TrancheQueueManifest,
+        item: TrancheQueueItem,
+        item_state: TrancheQueueItemRunState,
+        queue_status: str | None,
+    ) -> bool:
+        effective_autonomy = _optional_text(item_state.effective_autonomy_mode) or "adaptive"
+        manifest_path, tranche_manifest, inspection = await self._ensure_item_explored(
+            manifest=manifest,
+            item=item,
+            item_state=item_state,
+            effective_autonomy_mode=effective_autonomy,
+            queue_status=queue_status,
+        )
+        if manifest_path is None or tranche_manifest is None or inspection is None:
+            return False
+        if item_state.status == QUEUE_ITEM_STATUS_NEEDS_HUMAN:
+            return False
 
         design_review_path = manifest_path.with_name("design_review.yaml")
         item_state.design_review_path = str(design_review_path)
         design_review_recommendation = item_state.design_review_recommendation
+        design_review_payload: dict[str, Any] | None = None
+        if design_review_path.exists():
+            record = load_design_review(design_review_path)
+            design_review_recommendation = record.recommendation
+            design_review_payload = {
+                "record": record.to_dict(),
+                "recommendation": record.recommendation,
+            }
         if not design_review_recommendation:
-            if design_review_path.exists():
-                record = load_design_review(design_review_path)
-                design_review_recommendation = record.recommendation
-            else:
-                normalized_path = manifest_path.with_name("normalized_bundle.yaml")
-                normalized_bundle = _load_structured_object(normalized_path)
-                design_review_payload = await run_design_review(
-                    manifest=tranche_manifest,
-                    normalized_bundle=normalized_bundle,
-                    inspection=inspection,
-                )
-                save_design_review(
-                    design_review_path,
-                    DesignReviewRecord.from_dict(design_review_payload.get("record")),
-                )
-                design_review_recommendation = _optional_text(
-                    design_review_payload.get("recommendation")
-                )
-                item_state.result["design_review"] = dict(design_review_payload)
+            normalized_bundle = self._load_normalized_bundle_for_item(item_state)
+            design_review_payload = await run_design_review(
+                manifest=tranche_manifest,
+                normalized_bundle=normalized_bundle,
+                inspection=inspection,
+            )
+            save_design_review(
+                design_review_path,
+                DesignReviewRecord.from_dict(design_review_payload.get("record")),
+            )
+            design_review_recommendation = _optional_text(
+                design_review_payload.get("recommendation")
+            )
+        if isinstance(design_review_payload, dict):
+            item_state.result["design_review"] = dict(design_review_payload)
+
         item_state.design_review_recommendation = design_review_recommendation
+        _promote_queue_item_phase(item_state, QUEUE_ITEM_PHASE_PLANNED)
         if design_review_recommendation != "approved":
             item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
             item_state.stop_reason = (
@@ -1718,6 +1928,7 @@ class TrancheQueueExecutor:
                     else {}
                 )
             )
+            item_state.recommended_action = "plan-queue"
             item_state.set_blocker(
                 reason=f"design_review_{design_review_recommendation or 'awaiting_confirmation'}",
                 question=_design_review_blocking_question(design_review_payload),
@@ -1727,11 +1938,126 @@ class TrancheQueueExecutor:
                 item_state,
                 f"Design review did not approve execution: {design_review_recommendation or 'unknown'}.",
             )
-            return None
+            self._persist_item_progress(
+                manifest=manifest,
+                item_state=item_state,
+                current_item_id=item.item_id,
+                queue_status=queue_status,
+            )
+            return False
+
+        _promote_queue_item_phase(item_state, QUEUE_ITEM_PHASE_APPROVED)
+        if item_state.status != QUEUE_ITEM_STATUS_RUNNING:
+            item_state.status = QUEUE_ITEM_STATUS_PENDING
+        item_state.stop_reason = None
+        item_state.finished_at = None
+        item_state.clear_blocker()
+        item_state.recommended_action = "run-queue"
+        item_state.updated_at = _utcnow()
         self._persist_item_progress(
             manifest=manifest,
             item_state=item_state,
             current_item_id=item.item_id,
+            queue_status=queue_status,
+        )
+        return True
+
+    async def explore(self) -> dict[str, Any]:
+        manifest = TrancheQueueManifest.load(self.queue_path)
+        state = TrancheQueueRunState.load(self.state_path, manifest=manifest)
+        state.ensure_manifest(manifest)
+        state.current_item_id = None
+        state.updated_at = _utcnow()
+        state.save(self.state_path)
+        for item in manifest.items:
+            item_state = state.item_states[item.item_id]
+            if item_state.status == QUEUE_ITEM_STATUS_COMPLETED:
+                continue
+            effective_autonomy = self._pre_execution_item_setup(
+                manifest=manifest,
+                item=item,
+                item_state=item_state,
+                count_attempt=False,
+                queue_status=None,
+            )
+            await self._ensure_item_explored(
+                manifest=manifest,
+                item=item,
+                item_state=item_state,
+                effective_autonomy_mode=effective_autonomy,
+                queue_status=None,
+            )
+            self._persist_item_progress(
+                manifest=manifest,
+                item_state=item_state,
+                current_item_id=None,
+                queue_status=None,
+            )
+        return tranche_queue_status(queue_path=self.queue_path, repo_root=self.repo_root)
+
+    async def plan(self) -> dict[str, Any]:
+        manifest = TrancheQueueManifest.load(self.queue_path)
+        state = TrancheQueueRunState.load(self.state_path, manifest=manifest)
+        state.ensure_manifest(manifest)
+        state.current_item_id = None
+        state.updated_at = _utcnow()
+        state.save(self.state_path)
+        for item in manifest.items:
+            item_state = state.item_states[item.item_id]
+            if item_state.status == QUEUE_ITEM_STATUS_COMPLETED:
+                continue
+            self._pre_execution_item_setup(
+                manifest=manifest,
+                item=item,
+                item_state=item_state,
+                count_attempt=False,
+                queue_status=None,
+            )
+            await self._ensure_item_planned(
+                manifest=manifest,
+                item=item,
+                item_state=item_state,
+                queue_status=None,
+            )
+            self._persist_item_progress(
+                manifest=manifest,
+                item_state=item_state,
+                current_item_id=None,
+                queue_status=None,
+            )
+        return tranche_queue_status(queue_path=self.queue_path, repo_root=self.repo_root)
+
+    async def _process_item(
+        self,
+        *,
+        manifest: TrancheQueueManifest,
+        item: TrancheQueueItem,
+        item_state: TrancheQueueItemRunState,
+        deadline: datetime,
+    ) -> str | None:
+        self._pre_execution_item_setup(
+            manifest=manifest,
+            item=item,
+            item_state=item_state,
+            count_attempt=True,
+            queue_status=QUEUE_STATUS_RUNNING,
+        )
+        ready_to_execute = await self._ensure_item_planned(
+            manifest=manifest,
+            item=item,
+            item_state=item_state,
+            queue_status=QUEUE_STATUS_RUNNING,
+        )
+        if not ready_to_execute or not _queue_item_is_execution_ready(item_state):
+            return None
+
+        manifest_path = Path(item_state.manifest_path).resolve()
+        tranche_manifest = load_tranche_manifest(manifest_path)
+        self._persist_item_progress(
+            manifest=manifest,
+            item_state=item_state,
+            current_item_id=item.item_id,
+            queue_status=QUEUE_STATUS_RUNNING,
         )
 
         systemic_reason = await self._drive_manifest(
@@ -2286,6 +2612,58 @@ async def run_tranche_queue(
     return await executor.run()
 
 
+async def explore_tranche_queue(
+    *,
+    queue_path: str | Path,
+    repo_root: str | Path,
+    planner_model: str = "claude",
+    planner_strategy: str = "heuristic",
+    worker_model: str = "codex",
+    review_model: str = "claude",
+    enforce_cross_model_review: bool = True,
+    max_parallel_lanes: int = 1,
+) -> dict[str, Any]:
+    executor = TrancheQueueExecutor(
+        queue_path=queue_path,
+        repo_root=repo_root,
+        planner_model=planner_model,
+        planner_strategy=planner_strategy,
+        worker_model=worker_model,
+        review_model=review_model,
+        enforce_cross_model_review=enforce_cross_model_review,
+        max_parallel_lanes=max_parallel_lanes,
+    )
+    payload = await executor.explore()
+    payload["mode"] = "tranche-queue-explore"
+    return payload
+
+
+async def plan_tranche_queue(
+    *,
+    queue_path: str | Path,
+    repo_root: str | Path,
+    planner_model: str = "claude",
+    planner_strategy: str = "heuristic",
+    worker_model: str = "codex",
+    review_model: str = "claude",
+    enforce_cross_model_review: bool = True,
+    max_parallel_lanes: int = 1,
+) -> dict[str, Any]:
+    executor = TrancheQueueExecutor(
+        queue_path=queue_path,
+        repo_root=repo_root,
+        planner_model=planner_model,
+        planner_strategy=planner_strategy,
+        worker_model=worker_model,
+        review_model=review_model,
+        enforce_cross_model_review=enforce_cross_model_review,
+        max_parallel_lanes=max_parallel_lanes,
+    )
+    payload = await executor.plan()
+    payload["mode"] = "tranche-queue-plan"
+    return payload
+
+
 def tranche_queue_status(
     *,
     queue_path: str | Path,
@@ -2300,22 +2678,37 @@ def tranche_queue_status(
     now = _utcnow()
 
     counts: dict[str, int] = {}
+    phase_counts: dict[str, int] = {}
     items: list[dict[str, Any]] = []
     for item in manifest.items:
         item_state = state.item_states[item.item_id]
         counts[item_state.status] = counts.get(item_state.status, 0) + 1
+        phase_counts[item_state.phase] = phase_counts.get(item_state.phase, 0) + 1
         pr_urls = list(dict.fromkeys(item_state.pr_urls))
         worker_branches = _queue_item_worker_branches(item_state, artifact_store=artifact_store)
         items.append(
             {
                 "item_id": item.item_id,
                 "status": item_state.status,
+                "phase": item_state.phase,
+                "next_action": _queue_item_next_action(item_state),
                 "pr_url": pr_urls[0] if pr_urls else None,
                 "pr_urls": pr_urls,
                 "worker_branch": worker_branches[0] if len(worker_branches) == 1 else None,
                 "worker_branches": worker_branches,
+                "manifest_path": item_state.manifest_path,
+                "normalized_bundle_path": item_state.normalized_bundle_path,
+                "inspection_path": item_state.inspection_path,
+                "design_review_path": item_state.design_review_path,
+                "submission_status": item_state.submission_status,
+                "inspection_status": item_state.inspection_status,
+                "recommended_action": item_state.recommended_action,
+                "design_review_recommendation": item_state.design_review_recommendation,
                 "elapsed_seconds": _queue_item_elapsed_seconds(item_state, now=now),
                 "started_at": item_state.started_at.isoformat() if item_state.started_at else None,
+                "phase_updated_at": item_state.phase_updated_at.isoformat()
+                if item_state.phase_updated_at
+                else None,
                 "finished_at": item_state.finished_at.isoformat()
                 if item_state.finished_at
                 else None,
@@ -2335,6 +2728,7 @@ def tranche_queue_status(
         "updated_at": state.updated_at.isoformat(),
         "finished_at": state.finished_at.isoformat() if state.finished_at else None,
         "counts": counts,
+        "phase_counts": phase_counts,
         "items": items,
     }
 

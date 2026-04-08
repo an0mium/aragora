@@ -765,6 +765,8 @@ def _render_tranche_queue_status(payload: dict[str, object]) -> None:
             {
                 "item_id": str(item.get("item_id", "")).strip(),
                 "status": str(item.get("status", "")).strip(),
+                "phase": str(item.get("phase", "")).strip() or "-",
+                "next_action": str(item.get("next_action", "")).strip() or "-",
                 "pr_url": str(item.get("pr_url", "")).strip() or "-",
                 "worker_branch": (
                     str(item.get("worker_branch", "")).strip() or ", ".join(worker_branches) or "-"
@@ -777,6 +779,8 @@ def _render_tranche_queue_status(payload: dict[str, object]) -> None:
         [
             ("item_id", "item_id"),
             ("status", "status"),
+            ("phase", "phase"),
+            ("next_action", "next_action"),
             ("pr_url", "pr_url"),
             ("worker_branch", "worker_branch"),
             ("elapsed", "elapsed"),
@@ -2312,7 +2316,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         )
         from aragora.swarm.tranche_queue import (
             compile_tranche_queue,
+            explore_tranche_queue,
             harvest_tranche_queue,
+            plan_tranche_queue,
             reconcile_tranche_queue,
             run_tranche_queue,
             tranche_queue_status,
@@ -2407,14 +2413,54 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             else:
                 _render_tranche_queue_status(payload)
             return
-        if subaction in {"run-queue", "reconcile-queue", "harvest-queue"}:
+        if subaction in {
+            "explore-queue",
+            "plan-queue",
+            "run-queue",
+            "reconcile-queue",
+            "harvest-queue",
+        }:
             queue_arg = str(getattr(args, "queue", "") or "").strip()
             if not queue_arg:
                 raise ValueError(f"tranche {subaction} requires --queue <path>")
             queue_path = Path(queue_arg).resolve()
             if not queue_path.exists():
                 raise ValueError(f"tranche queue manifest not found: {queue_path}")
-            if subaction == "run-queue":
+            if subaction == "explore-queue":
+                payload = asyncio.run(
+                    explore_tranche_queue(
+                        queue_path=queue_path,
+                        repo_root=repo_root,
+                        planner_model=str(getattr(args, "planner_model", "claude") or "claude"),
+                        planner_strategy=str(
+                            getattr(args, "planner_strategy", "heuristic") or "heuristic"
+                        ),
+                        worker_model=str(getattr(args, "worker_model", "codex") or "codex"),
+                        review_model=str(getattr(args, "review_model", "claude") or "claude"),
+                        max_parallel_lanes=int(getattr(args, "max_parallel_lanes", 1) or 1),
+                        enforce_cross_model_review=not bool(
+                            getattr(args, "allow_same_model_review", False)
+                        ),
+                    )
+                )
+            elif subaction == "plan-queue":
+                payload = asyncio.run(
+                    plan_tranche_queue(
+                        queue_path=queue_path,
+                        repo_root=repo_root,
+                        planner_model=str(getattr(args, "planner_model", "claude") or "claude"),
+                        planner_strategy=str(
+                            getattr(args, "planner_strategy", "heuristic") or "heuristic"
+                        ),
+                        worker_model=str(getattr(args, "worker_model", "codex") or "codex"),
+                        review_model=str(getattr(args, "review_model", "claude") or "claude"),
+                        max_parallel_lanes=int(getattr(args, "max_parallel_lanes", 1) or 1),
+                        enforce_cross_model_review=not bool(
+                            getattr(args, "allow_same_model_review", False)
+                        ),
+                    )
+                )
+            elif subaction == "run-queue":
                 payload = asyncio.run(
                     run_tranche_queue(
                         queue_path=queue_path,
@@ -2461,7 +2507,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 if subaction == "harvest-queue":
                     _render_tranche_queue_harvest_table(payload)
                 else:
-                    print(json.dumps(payload, indent=2))
+                    _render_tranche_queue_status(payload)
             return
         if subaction == "plan":
             prompt_arg = str(getattr(args, "from_prompts", "") or "").strip()
@@ -2871,6 +2917,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         else:
             raise ValueError(
                 "tranche action must be one of: submit, plan, inspect, watch, list, design-review, review, integrate, prepare, run, status, compile-queue, run-queue, reconcile-queue, harvest-queue"
+                ", explore-queue, plan-queue"
             )
         payload["action"] = subaction
         payload["manifest_path"] = str(manifest_path)
