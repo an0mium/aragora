@@ -54,6 +54,92 @@ class Verdict(str, Enum):
     REJECTED = "rejected"
 
 
+class DebateStatus(str, Enum):
+    """Canonical lifecycle state for backend debate execution."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    BLOCKED = "blocked"
+    FAILED = "failed"
+    COMPLETED = "completed"
+
+
+class DebateStatusSource(str, Enum):
+    """Source classification for a debate result state."""
+
+    LIVE = "live"
+    SYNTHETIC = "synthetic"
+
+
+def normalize_debate_status(
+    value: Any,
+    *,
+    default: DebateStatus = DebateStatus.PENDING,
+) -> DebateStatus:
+    """Coerce legacy and canonical debate status strings into the shared model."""
+    if isinstance(value, DebateStatus):
+        return value
+
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return default
+
+    if normalized in {"pending", "queued", "created", "initialized"}:
+        return DebateStatus.PENDING
+    if normalized in {"running", "in_progress", "active", "started"}:
+        return DebateStatus.RUNNING
+    if normalized in {"blocked", "timeout", "timed_out", "aborted", "paused"}:
+        return DebateStatus.BLOCKED
+    if normalized in {
+        "failed",
+        "failure",
+        "error",
+        "process_verification_failed",
+        "verification_failed",
+    }:
+        return DebateStatus.FAILED
+    if normalized in {
+        "completed",
+        "complete",
+        "consensus_reached",
+        "success",
+        "succeeded",
+        "settled",
+        "no_consensus",
+    }:
+        return DebateStatus.COMPLETED
+
+    return default
+
+
+def normalize_debate_status_source(
+    value: Any,
+    *,
+    default: DebateStatusSource = DebateStatusSource.LIVE,
+) -> DebateStatusSource:
+    """Coerce live/demo/mock labels into the shared debate status source model."""
+    if isinstance(value, DebateStatusSource):
+        return value
+
+    normalized = str(value or "").strip().lower()
+    if normalized in {"synthetic", "demo", "mock"}:
+        return DebateStatusSource.SYNTHETIC
+    if normalized in {"live", "real"}:
+        return DebateStatusSource.LIVE
+    return default
+
+
+def legacy_debate_status(
+    debate_status: DebateStatus,
+    *,
+    consensus_reached: bool = False,
+) -> str:
+    """Project the canonical lifecycle model into the legacy status field."""
+    if debate_status == DebateStatus.COMPLETED:
+        return "consensus_reached" if consensus_reached else "completed"
+    return debate_status.value
+
+
 @dataclass
 class Message:
     """A message in a debate."""
@@ -228,7 +314,10 @@ class DebateResult:
         confidence: Overall confidence score (0.0-1.0).
         consensus_reached: Whether agents reached agreement.
         rounds_used: Number of debate rounds executed.
-        status: Current state ("consensus_reached", "completed", "failed").
+        status: Legacy state string preserved for backward compatibility.
+        debate_status: Canonical lifecycle state ("pending", "running",
+            "blocked", "failed", "completed").
+        debate_status_source: Whether the result came from a live or synthetic path.
 
     Participant Data:
         participants: List of agent names that participated.
@@ -293,6 +382,8 @@ class DebateResult:
     rounds_used: int = 0
     rounds_completed: int = 0
     status: str = ""
+    debate_status: str = DebateStatus.PENDING.value
+    debate_status_source: str = DebateStatusSource.LIVE.value
     participants: list[str] = field(default_factory=list)
     agent_failures: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     proposals: dict[str, str] = field(default_factory=dict)
@@ -371,8 +462,27 @@ class DebateResult:
         elif self.rounds_completed != self.rounds_used:
             self.rounds_used = self.rounds_completed
 
-        if not self.status:
-            self.status = "consensus_reached" if self.consensus_reached else "completed"
+        status_text = str(self.status or "").strip()
+        debate_status_text = str(self.debate_status or "").strip()
+        if status_text and (
+            not debate_status_text or debate_status_text == DebateStatus.PENDING.value
+        ):
+            debate_status_text = status_text
+        debate_status = normalize_debate_status(
+            debate_status_text,
+            default=DebateStatus.PENDING,
+        )
+        self.debate_status = debate_status.value
+        self.debate_status_source = normalize_debate_status_source(
+            self.debate_status_source,
+            default=DebateStatusSource.LIVE,
+        ).value
+
+        if not status_text:
+            self.status = legacy_debate_status(
+                debate_status,
+                consensus_reached=bool(self.consensus_reached),
+            )
 
     @property
     def history(self) -> list[Message]:
@@ -385,6 +495,8 @@ class DebateResult:
             "debate_id": self.debate_id,
             "task": self.task,
             "status": self.status,
+            "debate_status": self.debate_status,
+            "debate_status_source": self.debate_status_source,
             "final_answer": self.final_answer,
             "consensus_reached": self.consensus_reached,
             "confidence": self.confidence,
@@ -423,6 +535,8 @@ class DebateResult:
             debate_id=data.get("debate_id", ""),
             task=data.get("task", ""),
             status=data.get("status", ""),
+            debate_status=data.get("debate_status", ""),
+            debate_status_source=data.get("debate_status_source", ""),
             final_answer=data.get("final_answer", ""),
             consensus_reached=data.get("consensus_reached", False),
             confidence=data.get("confidence", 0.0),
