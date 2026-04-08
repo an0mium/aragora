@@ -254,6 +254,86 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         return normalized_values, None
 
+    def _optional_string_list_field(
+        self, body: dict[str, Any], field_name: str, invalid_code: str
+    ) -> tuple[list[str] | None, HandlerResult]:
+        """Validate that an optional field is a non-empty list of non-empty strings."""
+        value = body.get(field_name)
+        if value is None:
+            return None, None
+        if not isinstance(value, list) or not value:
+            return None, error_response(
+                f"{field_name} must be a non-empty list of strings", 400, code=invalid_code
+            )
+
+        normalized_values: list[str] = []
+        for index, item in enumerate(value):
+            if not isinstance(item, str):
+                return None, error_response(
+                    f"{field_name}[{index}] must be a string", 400, code=invalid_code
+                )
+            item = item.strip()
+            if not item:
+                return None, error_response(
+                    f"{field_name}[{index}] must be a non-empty string",
+                    400,
+                    code=invalid_code,
+                )
+            normalized_values.append(item)
+
+        return normalized_values, None
+
+    def _optional_number_field(
+        self,
+        body: dict[str, Any],
+        field_name: str,
+        invalid_code: str,
+        *,
+        minimum: float | None = None,
+        maximum: float | None = None,
+    ) -> tuple[float | int | None, HandlerResult]:
+        """Validate that an optional field is a number within an optional range."""
+        value = body.get(field_name)
+        if value is None:
+            return None, None
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            return None, error_response(f"{field_name} must be a number", 400, code=invalid_code)
+        if minimum is not None and value < minimum:
+            return None, error_response(
+                f"{field_name} must be greater than or equal to {minimum}",
+                400,
+                code=invalid_code,
+            )
+        if maximum is not None and value > maximum:
+            return None, error_response(
+                f"{field_name} must be less than or equal to {maximum}",
+                400,
+                code=invalid_code,
+            )
+        return value, None
+
+    def _optional_string_or_object_field(
+        self, body: dict[str, Any], field_name: str, invalid_code: str
+    ) -> tuple[str | dict[str, Any] | None, HandlerResult]:
+        """Validate that an optional field is a non-empty string or JSON object."""
+        value = body.get(field_name)
+        if value is None:
+            return None, None
+        if isinstance(value, dict):
+            return value, None
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return None, error_response(
+                    f"{field_name} must be a non-empty string or object",
+                    400,
+                    code=invalid_code,
+                )
+            return value, None
+        return None, error_response(
+            f"{field_name} must be a non-empty string or object", 400, code=invalid_code
+        )
+
     # =========================================================================
     # RBAC Helper Methods
     # =========================================================================
@@ -689,6 +769,20 @@ class ExternalIntegrationsHandler(SecureHandler):
         )
         if field_error:
             return field_error
+        debate_tags, field_error = self._optional_string_list_field(
+            body, "debate_tags", "INVALID_DEBATE_TAGS"
+        )
+        if field_error:
+            return field_error
+        min_confidence, field_error = self._optional_number_field(
+            body,
+            "min_confidence",
+            "INVALID_MIN_CONFIDENCE",
+            minimum=0.0,
+            maximum=1.0,
+        )
+        if field_error:
+            return field_error
 
         is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
         if not is_valid:
@@ -700,8 +794,8 @@ class ExternalIntegrationsHandler(SecureHandler):
             trigger_type=trigger_type,
             webhook_url=webhook_url,
             workspace_id=workspace_id,
-            debate_tags=body.get("debate_tags"),
-            min_confidence=body.get("min_confidence"),
+            debate_tags=debate_tags,
+            min_confidence=min_confidence,
         )
 
         if trigger:
@@ -916,6 +1010,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         )
         if field_error:
             return field_error
+        event_filter, field_error = self._optional_string_or_object_field(
+            body, "event_filter", "INVALID_EVENT_FILTER"
+        )
+        if field_error:
+            return field_error
 
         is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
         if not is_valid:
@@ -927,7 +1026,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             module_type=module_type,
             webhook_url=webhook_url,
             workspace_id=workspace_id,
-            event_filter=body.get("event_filter"),
+            event_filter=event_filter,
         )
 
         if webhook:
