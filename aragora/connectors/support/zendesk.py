@@ -316,8 +316,12 @@ class ZendeskConnector:
                         if ra:
                             try:
                                 delay = float(ra)
-                            except (ValueError, TypeError):
-                                pass
+                            except (ValueError, TypeError) as exc:
+                                raise ZendeskError(
+                                    f"Invalid Retry-After header from Zendesk: {ra!r}",
+                                    status_code=response.status_code,
+                                    details={"header": "Retry-After", "value": ra},
+                                ) from exc
                         logger.warning(
                             "Zendesk %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
                             method,
@@ -661,8 +665,11 @@ def _parse_datetime(value: str | None) -> datetime | None:
         return None
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        return None
+    except (ValueError, AttributeError) as exc:
+        raise ZendeskError(
+            f"Invalid Zendesk datetime value: {value!r}",
+            details={"value": value},
+        ) from exc
 
 
 def get_mock_ticket() -> Ticket:
