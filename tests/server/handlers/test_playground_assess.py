@@ -144,6 +144,20 @@ class TestHandleAssess:
         assert body["type"] == "ready"
         mock_call.assert_not_called()
 
+    def test_non_string_question_returns_400_without_model(
+        self, handler: PlaygroundHandler
+    ) -> None:
+        """Malformed JSON values should fail closed before model calls."""
+        http_handler = _make_http_handler({"question": {"bad": "shape"}})
+
+        with patch.object(handler, "_call_frontier_model") as mock_call:
+            result = handler._handle_assess(http_handler)
+
+        body = json.loads(result.body)
+        assert result.status_code == 400
+        assert "string" in body["error"].lower()
+        mock_call.assert_not_called()
+
     def test_long_question_short_circuits_to_ready_without_model(
         self, handler: PlaygroundHandler
     ) -> None:

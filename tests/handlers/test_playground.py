@@ -1306,6 +1306,21 @@ class TestTTS:
             result = handler._handle_tts(mock_h)
             assert _status(result) == 429
 
+    def test_non_string_text_returns_400_without_tts_call(self, handler):
+        with (
+            patch(
+                "aragora.config.secrets.get_secret",
+                return_value="fake-key",
+            ),
+            patch("urllib.request.urlopen") as mock_urlopen,
+        ):
+            mock_h = _MockHTTPHandler("POST", body={"text": {"bad": "shape"}})
+            result = handler._handle_tts(mock_h)
+
+        assert _status(result) == 400
+        assert "string" in _body(result).get("error", "").lower()
+        mock_urlopen.assert_not_called()
+
     def test_text_truncated_to_max(self, handler):
         fake_audio = b"\xff\xfb\x90\x00"
         with (

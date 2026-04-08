@@ -2794,7 +2794,14 @@ class PlaygroundHandler(BaseHandler):
         body = self.read_json_body(handler) if handler else {}
         if body is None:
             body = {}
-        text = str(body.get("text", "") or "").strip()
+        if not isinstance(body, dict):
+            return error_response("Invalid TTS payload", 400)
+
+        raw_text = body.get("text", "")
+        if "text" in body and not isinstance(raw_text, str):
+            return error_response("Text must be a string", 400)
+
+        text = raw_text.strip()
         if not text:
             return error_response("Missing 'text' field", 400)
         if len(text) > self._TTS_MAX_TEXT:
@@ -3079,7 +3086,12 @@ class PlaygroundHandler(BaseHandler):
             body = {}
         if not isinstance(body, dict):
             return error_response("Invalid assess payload", 400)
-        question = str(body.get("question", "")).strip()
+
+        raw_question = body.get("question", "")
+        if "question" in body and not isinstance(raw_question, str):
+            return error_response("Question must be a string", 400)
+
+        question = raw_question.strip()
         if not question:
             return json_response({"type": "ready", "option": self._build_ready_option("")})
 
