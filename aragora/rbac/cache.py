@@ -183,6 +183,7 @@ class RBACDistributedCache:
 
         # Invalidation callbacks
         self._invalidation_callbacks: list[Callable[[str], None]] = []
+        self._logged_metric_errors: set[str] = set()
 
     @property
     def stats(self) -> CacheStats:
@@ -653,6 +654,14 @@ class RBACDistributedCache:
     # Metrics
     # --------------------------------------------------------------------------
 
+    def _record_metric_error(self, metric_name: str, error: Exception) -> None:
+        """Track metric-recording failures without silently swallowing them."""
+        self._stats.errors += 1
+        if metric_name in self._logged_metric_errors:
+            return
+        self._logged_metric_errors.add(metric_name)
+        logger.warning("Failed to record RBAC cache %s metric: %s", metric_name, error)
+
     def _record_cache_hit(self, cache_type: str, l1: bool) -> None:
         """Record cache hit metric."""
         if not self.config.enable_metrics:
@@ -661,8 +670,8 @@ class RBACDistributedCache:
             from aragora.observability.metrics.security import record_rbac_cache_hit
 
             record_rbac_cache_hit(cache_type, "l1" if l1 else "l2")
-        except (ImportError, AttributeError):
-            pass
+        except (ImportError, AttributeError) as e:
+            self._record_metric_error("hit", e)
 
     def _record_cache_miss(self, cache_type: str) -> None:
         """Record cache miss metric."""
@@ -672,8 +681,8 @@ class RBACDistributedCache:
             from aragora.observability.metrics.security import record_rbac_cache_miss
 
             record_rbac_cache_miss(cache_type)
-        except (ImportError, AttributeError):
-            pass
+        except (ImportError, AttributeError) as e:
+            self._record_metric_error("miss", e)
 
     def get_stats(self) -> dict[str, Any]:
         """Get comprehensive cache statistics."""
