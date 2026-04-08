@@ -97,6 +97,20 @@ class TestCanonicalExecutionOutcomeLinkage:
         assert payload["consensus_reached"] is True
         assert payload["receipt"]["confidence"] == pytest.approx(0.82)
 
+    def test_preserves_false_string_consensus(self):
+        payload = canonicalize_execution_outcome_linkage(
+            {
+                "receipt_id": "receipt-456",
+                "consensus_reached": "false",
+                "consensus_proof": {"reached": "false", "confidence": 0.25},
+                "receipt": {"consensus_reached": "false"},
+            }
+        )
+
+        assert payload["consensus_reached"] is False
+        assert payload["receipt"]["consensus_reached"] is False
+        assert payload["consensus_proof"]["reached"] is False
+
 
 # =============================================================================
 # ConsensusProof Tests

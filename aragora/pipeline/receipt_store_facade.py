@@ -44,6 +44,10 @@ class ReceiptStoreFacade:
 
         canonical_receipt = canonicalize_execution_outcome_linkage(receipt_data)
         resolved_receipt_id = str(canonical_receipt.get("receipt_id") or receipt_id or "").strip()
+        if resolved_receipt_id:
+            stamped_receipt = dict(canonical_receipt)
+            stamped_receipt["receipt_id"] = resolved_receipt_id
+            canonical_receipt = canonicalize_execution_outcome_linkage(stamped_receipt)
         gauntlet = get_receipt_store()
         gauntlet.persist(
             resolved_receipt_id,

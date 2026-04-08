@@ -114,6 +114,23 @@ def _clamp_receipt_confidence(value: Any, *, default: float = 0.0) -> float:
     return numeric
 
 
+def _normalize_receipt_boolean(value: Any, *, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, int | float):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "y", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "n", "off", ""}:
+            return False
+        return default
+    return default
+
+
 def canonicalize_execution_outcome_linkage(payload: dict[str, Any]) -> dict[str, Any]:
     """Normalize receipt/result linkage onto one canonical execution payload."""
 
@@ -141,7 +158,7 @@ def canonicalize_execution_outcome_linkage(payload: dict[str, Any]) -> dict[str,
         consensus = canonical["consensus_proof"].get("reached")
     if consensus is None:
         consensus = receipt_view.get("consensus_reached")
-    consensus_reached = bool(consensus)
+    consensus_reached = _normalize_receipt_boolean(consensus)
 
     default_confidence = receipt_view.get("confidence", 0.0)
     if isinstance(canonical.get("consensus_proof"), dict):

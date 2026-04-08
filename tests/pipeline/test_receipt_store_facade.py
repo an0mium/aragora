@@ -94,11 +94,10 @@ class TestPersistAndSave:
         facade = ReceiptStoreFacade()
         mock_storage = MagicMock()
         payload = {
-            "receipt_id": "r-004",
             "verdict": "APPROVED",
             "confidence": 0.95,
             "artifact_hash": "hash-004",
-            "receipt": {"id": "r-004"},
+            "receipt": {},
         }
 
         with patch(
@@ -111,7 +110,11 @@ class TestPersistAndSave:
         stored = gauntlet.get("r-004")
         assert stored is not None
         assert mock_storage.save.call_args.args[0] == stored.receipt_data
+        assert stored.receipt_data["receipt_id"] == "r-004"
+        assert stored.receipt_data["debate_id"] == "r-004"
+        assert stored.receipt_data["gauntlet_id"] == "r-004"
         assert stored.receipt_data["checksum"] == "hash-004"
+        assert stored.receipt_data["receipt"]["id"] == "r-004"
         assert stored.receipt_data["receipt"]["artifact_hash"] == "hash-004"
 
 
