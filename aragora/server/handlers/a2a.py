@@ -70,6 +70,19 @@ MAX_CONTEXT_CONTENT_LENGTH = 100000
 MAX_METADATA_KEYS = 20
 MAX_METADATA_VALUE_LENGTH = 1000
 MAX_BODY_SIZE = 1024 * 1024  # 1 MB
+VALID_CAPABILITIES = {
+    "debate",
+    "consensus",
+    "critique",
+    "synthesis",
+    "audit",
+    "verification",
+    "code_review",
+    "document_analysis",
+    "research",
+    "reasoning",
+}
+VALID_PRIORITIES = {"low", "normal", "high", "urgent"}
 
 
 def validate_agent_name(name: str) -> tuple[bool, str | None]:
@@ -114,7 +127,7 @@ def validate_task_id(task_id: str) -> tuple[bool, str | None]:
     return True, None
 
 
-def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
+def validate_task_request_body(data: dict[str, Any]) -> tuple[bool, str | None]:
     """Validate the task submission request body.
 
     Args:
@@ -127,11 +140,13 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
     if not isinstance(data, dict):
         return False, "Request body must be a JSON object"
 
-    instruction = data.get("instruction")
-    if not instruction:
+    if "instruction" not in data:
         return False, "Missing required field: instruction"
+    instruction = data["instruction"]
     if not isinstance(instruction, str):
         return False, "instruction must be a string"
+    if not instruction.strip():
+        return False, "instruction must not be empty"
     if len(instruction) > MAX_INSTRUCTION_LENGTH:
         return False, f"instruction must be {MAX_INSTRUCTION_LENGTH} characters or less"
 
@@ -149,22 +164,10 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
         capability = data["capability"]
         if not isinstance(capability, str):
             return False, "capability must be a string"
-        valid_capabilities = {
-            "debate",
-            "consensus",
-            "critique",
-            "synthesis",
-            "audit",
-            "verification",
-            "code_review",
-            "document_analysis",
-            "research",
-            "reasoning",
-        }
-        if capability.lower() not in valid_capabilities:
+        if capability.lower() not in VALID_CAPABILITIES:
             return (
                 False,
-                f"Invalid capability: {capability}. Must be one of: {', '.join(sorted(valid_capabilities))}",
+                f"Invalid capability: {capability}. Must be one of: {', '.join(sorted(VALID_CAPABILITIES))}",
             )
 
     # Validate priority if provided
@@ -172,11 +175,10 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
         priority = data["priority"]
         if not isinstance(priority, str):
             return False, "priority must be a string"
-        valid_priorities = {"low", "normal", "high", "urgent"}
-        if priority.lower() not in valid_priorities:
+        if priority.lower() not in VALID_PRIORITIES:
             return (
                 False,
-                f"Invalid priority: {priority}. Must be one of: {', '.join(sorted(valid_priorities))}",
+                f"Invalid priority: {priority}. Must be one of: {', '.join(sorted(VALID_PRIORITIES))}",
             )
 
     # Validate context if provided
@@ -190,17 +192,18 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
         for i, ctx in enumerate(context):
             if not isinstance(ctx, dict):
                 return False, f"context[{i}] must be an object"
+            if "content" not in ctx:
+                return False, f"context[{i}].content is required"
             if "type" in ctx and not isinstance(ctx.get("type"), str):
                 return False, f"context[{i}].type must be a string"
-            if "content" in ctx:
-                content = ctx["content"]
-                if not isinstance(content, str):
-                    return False, f"context[{i}].content must be a string"
-                if len(content) > MAX_CONTEXT_CONTENT_LENGTH:
-                    return (
-                        False,
-                        f"context[{i}].content must be {MAX_CONTEXT_CONTENT_LENGTH} characters or less",
-                    )
+            content = ctx["content"]
+            if not isinstance(content, str):
+                return False, f"context[{i}].content must be a string"
+            if len(content) > MAX_CONTEXT_CONTENT_LENGTH:
+                return (
+                    False,
+                    f"context[{i}].content must be {MAX_CONTEXT_CONTENT_LENGTH} characters or less",
+                )
             if "metadata" in ctx and not isinstance(ctx.get("metadata"), dict):
                 return False, f"context[{i}].metadata must be an object"
 
@@ -227,6 +230,13 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
             return False, "timeout_ms must be an integer"
         if timeout < 1000 or timeout > 3600000:  # 1 second to 1 hour
             return False, "timeout_ms must be between 1000 and 3600000"
+
+    if "deadline" in data:
+        deadline = data["deadline"]
+        if not isinstance(deadline, str):
+            return False, "deadline must be a string"
+        if not deadline.strip():
+            return False, "deadline must not be empty"
 
     return True, None
 
@@ -392,18 +402,27 @@ class A2AHandler(BaseHandler):
 
         try:
             content_length = int(handler.headers.get("Content-Length", 0))
-            if content_length > MAX_BODY_SIZE:
-                return error_response(
-                    f"Request body too large. Maximum size is {MAX_BODY_SIZE} bytes", 413
-                )
+        except ValueError:
+            return error_response("Content-Length must be an integer", 400)
+
+        if content_length < 0:
+            return error_response("Content-Length must be non-negative", 400)
+        if content_length > MAX_BODY_SIZE:
+            return error_response(
+                f"Request body too large. Maximum size is {MAX_BODY_SIZE} bytes", 413
+            )
+
+        try:
             body = handler.rfile.read(content_length).decode("utf-8")
-            data = json.loads(body) if body else {}
-        except (json.JSONDecodeError, ValueError):
-            logger.exception("Invalid JSON in task submission request")
-            return error_response("Invalid request body", 400)
         except UnicodeDecodeError:
             logger.exception("Invalid UTF-8 encoding in task submission request")
             return error_response("Request body must be valid UTF-8", 400)
+
+        try:
+            data = json.loads(body) if body else {}
+        except json.JSONDecodeError:
+            logger.exception("Invalid JSON in task submission request")
+            return error_response("Request body must be valid JSON", 400)
 
         # Validate request body schema
         is_valid, err = validate_task_request_body(data)
@@ -418,7 +437,7 @@ class A2AHandler(BaseHandler):
         capability: AgentCapability | None = None
         if data.get("capability"):
             try:
-                capability = AgentCapability(data["capability"])
+                capability = AgentCapability(data["capability"].lower())
             except ValueError:
                 pass
 
@@ -426,7 +445,7 @@ class A2AHandler(BaseHandler):
         priority = TaskPriority.NORMAL
         if data.get("priority"):
             try:
-                priority = TaskPriority(data["priority"])
+                priority = TaskPriority(data["priority"].lower())
             except ValueError:
                 pass
 
