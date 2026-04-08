@@ -456,10 +456,9 @@ class RLMContextHandler(BaseHandler):
             context_id: str - ID for retrieving the compressed context
             compression_result: dict - Statistics about the compression
         """
-        # Read request body
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Request body required", 400)
+        body, error = self._read_json_object_body(handler)
+        if error is not None:
+            return error
 
         content = body.get("content")
         if not content or not isinstance(content, str):
@@ -477,7 +476,7 @@ class RLMContextHandler(BaseHandler):
             )
 
         levels = body.get("levels", 4)
-        if not isinstance(levels, int) or levels < 1 or levels > 5:
+        if isinstance(levels, bool) or not isinstance(levels, int) or levels < 1 or levels > 5:
             return error_response("'levels' must be an integer between 1 and 5", 400)
 
         compressor = self._get_compressor()
@@ -576,16 +575,15 @@ class RLMContextHandler(BaseHandler):
             answer: str - The answer to the query
             metadata: dict - Query execution metadata
         """
-        # Read request body
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Request body required", 400)
+        body, error = self._read_json_object_body(handler)
+        if error is not None:
+            return error
 
         context_id = body.get("context_id")
         query = body.get("query")
 
-        if not context_id:
-            return error_response("'context_id' field required", 400)
+        if not context_id or not isinstance(context_id, str):
+            return error_response("'context_id' field required and must be a string", 400)
         if not query or not isinstance(query, str):
             return error_response("'query' field required and must be a string", 400)
 
@@ -602,16 +600,24 @@ class RLMContextHandler(BaseHandler):
 
         strategy = body.get("strategy", "auto")
         valid_strategies = ["peek", "grep", "partition_map", "summarize", "hierarchical", "auto"]
-        if strategy not in valid_strategies:
+        if not isinstance(strategy, str) or strategy not in valid_strategies:
             return error_response(
                 f"Invalid strategy. Must be one of: {', '.join(valid_strategies)}",
                 400,
             )
 
         refine = body.get("refine", False)
+        if not isinstance(refine, bool):
+            return error_response("'refine' must be a boolean", 400)
+
         max_iterations = body.get("max_iterations", 3)
-        if not isinstance(max_iterations, int) or max_iterations < 1 or max_iterations > 10:
-            max_iterations = 3
+        if (
+            isinstance(max_iterations, bool)
+            or not isinstance(max_iterations, int)
+            or max_iterations < 1
+            or max_iterations > 10
+        ):
+            return error_response("'max_iterations' must be an integer between 1 and 10", 400)
 
         rlm = self._get_rlm()
         if rlm is None:
@@ -840,6 +846,45 @@ class RLMContextHandler(BaseHandler):
     # Utility Methods
     # ============================================================================
 
+    def _read_json_object_body(
+        self,
+        handler: Any,
+        max_size: int | None = None,
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+        """Read and validate a JSON object request body."""
+        if handler is None:
+            return None, error_response("Request body required", 400)
+
+        effective_max_size = max_size if max_size is not None else 10_000_000
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+        except (TypeError, ValueError, AttributeError):
+            return None, error_response("Invalid Content-Length header", 400)
+
+        if content_length <= 0:
+            return None, error_response("Request body required", 400)
+        if content_length > effective_max_size:
+            return None, error_response(
+                f"Request body too large (max {effective_max_size} bytes)",
+                413,
+            )
+
+        try:
+            raw_body = handler.rfile.read(content_length)
+            body = json.loads(raw_body.decode("utf-8"))
+        except AttributeError:
+            return None, error_response("Request body required", 400)
+        except UnicodeDecodeError:
+            return None, error_response("Request body must be valid UTF-8 JSON", 400)
+        except (json.JSONDecodeError, ValueError):
+            return None, error_response("Request body must be valid JSON", 400)
+
+        if not isinstance(body, dict):
+            return None, error_response("Request body must be a JSON object", 400)
+
+        return body, None
+
     def read_json_body(self, handler: Any, max_size: int | None = None) -> dict[str, Any] | None:
         """Read and parse JSON body from request.
 
@@ -952,13 +997,13 @@ class RLMContextHandler(BaseHandler):
         Returns:
             Streamed chunks with content at different abstraction levels.
         """
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("JSON body required", 400)
+        body, error = self._read_json_object_body(handler)
+        if error is not None:
+            return error
 
         context_id = body.get("context_id")
-        if not context_id:
-            return error_response("'context_id' field required", 400)
+        if not context_id or not isinstance(context_id, str):
+            return error_response("'context_id' field required and must be a string", 400)
 
         if context_id not in self._contexts:
             return error_response(f"Context not found: {context_id}", 404)
@@ -972,6 +1017,20 @@ class RLMContextHandler(BaseHandler):
         level = body.get("level")
         chunk_size = body.get("chunk_size", 500)
         include_metadata = body.get("include_metadata", True)
+
+        if query is not None and not isinstance(query, str):
+            return error_response("'query' must be a string", 400)
+        if level is not None and not isinstance(level, str):
+            return error_response("'level' must be a string", 400)
+        if (
+            isinstance(chunk_size, bool)
+            or not isinstance(chunk_size, int)
+            or chunk_size < 1
+            or chunk_size > 100000
+        ):
+            return error_response("'chunk_size' must be an integer between 1 and 100000", 400)
+        if not isinstance(include_metadata, bool):
+            return error_response("'include_metadata' must be a boolean", 400)
 
         try:
             from aragora.rlm.streaming import (
@@ -987,13 +1046,18 @@ class RLMContextHandler(BaseHandler):
                 "targeted": StreamMode.TARGETED,
                 "progressive": StreamMode.PROGRESSIVE,
             }
-            mode = mode_map.get(mode_str, StreamMode.TOP_DOWN)
+            if not isinstance(mode_str, str) or mode_str not in mode_map:
+                return error_response(
+                    "Invalid mode. Must be one of: top_down, bottom_up, targeted, progressive",
+                    400,
+                )
+            mode = mode_map[mode_str]
 
             # Create streaming config
             config = StreamConfig(
                 mode=mode,
-                chunk_size=int(chunk_size),
-                include_metadata=bool(include_metadata),
+                chunk_size=chunk_size,
+                include_metadata=include_metadata,
             )
 
             # Create streaming query
