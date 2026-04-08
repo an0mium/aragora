@@ -646,9 +646,11 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
 
     def _read_json_object_body(self, handler: Any) -> tuple[dict[str, Any], HandlerResult | None]:
         """Read a JSON request body and require an object payload."""
-        body = self.read_json_body(handler)
+        body, error = self.read_json_body_validated(handler)
+        if error:
+            return {}, error
         if body is None:
-            return {}, None
+            return {}, error_response("Request body must be valid JSON", 400)
         if not isinstance(body, dict):
             return {}, error_response("Request body must be a JSON object", 400)
         return body, None
@@ -668,6 +670,29 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
         if field_name in body and not isinstance(body[field_name], str):
             return error_response(f"{field_name} must be a string", 400)
         return None
+
+    def _validate_optional_integer_field(
+        self, body: dict[str, Any], field_name: str
+    ) -> HandlerResult | None:
+        """Validate an optional integer request field."""
+        if field_name not in body:
+            return None
+
+        value = body[field_name]
+        if isinstance(value, bool):
+            return error_response(f"{field_name} must be an integer", 400)
+
+        if isinstance(value, int):
+            return None
+
+        if isinstance(value, str):
+            try:
+                int(value.strip())
+                return None
+            except (TypeError, ValueError):
+                pass
+
+        return error_response(f"{field_name} must be an integer", 400)
 
     def _require_non_empty_string_field(
         self, body: dict[str, Any], field_name: str
@@ -692,8 +717,16 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
 
         Requires nomic:admin permission (enforced by @require_permission decorator).
         """
-        if path == "/api/v1/nomic/control/start":
+        path = strip_version_prefix(path)
+
+        if path == "/api/nomic/control/start":
             body, error = self._read_json_object_body(handler)
+            if error:
+                return error
+            error = self._validate_optional_integer_field(body, "cycles")
+            if error:
+                return error
+            error = self._validate_optional_integer_field(body, "max_cycles")
             if error:
                 return error
             error = self._validate_optional_bool_field(body, "auto_approve")
@@ -704,7 +737,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 return error
             return self._start_nomic_loop(body)
 
-        if path == "/api/v1/nomic/control/stop":
+        if path == "/api/nomic/control/stop":
             body, error = self._read_json_object_body(handler)
             if error:
                 return error
@@ -713,22 +746,31 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
                 return error
             return self._stop_nomic_loop(body)
 
-        if path == "/api/v1/nomic/control/pause":
+        if path == "/api/nomic/control/pause":
+            _, error = self._read_json_object_body(handler)
+            if error:
+                return error
             return self._pause_nomic_loop()
 
-        if path == "/api/v1/nomic/control/resume":
+        if path == "/api/nomic/control/resume":
+            _, error = self._read_json_object_body(handler)
+            if error:
+                return error
             return self._resume_nomic_loop()
 
-        if path == "/api/v1/nomic/control/skip-phase":
+        if path == "/api/nomic/control/skip-phase":
+            _, error = self._read_json_object_body(handler)
+            if error:
+                return error
             return self._skip_phase()
 
-        if path == "/api/v1/nomic/proposals/approve":
+        if path == "/api/nomic/proposals/approve":
             body, error = self._read_json_object_body(handler)
             if error:
                 return error
             return self._approve_proposal(body)
 
-        if path == "/api/v1/nomic/proposals/reject":
+        if path == "/api/nomic/proposals/reject":
             body, error = self._read_json_object_body(handler)
             if error:
                 return error
