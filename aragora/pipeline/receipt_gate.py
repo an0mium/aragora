@@ -33,6 +33,8 @@ _HUMAN_OVERRIDE_REASON_CODES = frozenset(
         "untrusted_intake_tier",
     }
 )
+_MISSING = object()
+_TRUE_FLAG_VALUES = frozenset({"true", "1", "yes", "on"})
 
 
 class PlanReceiptGateError(RuntimeError):
@@ -129,6 +131,18 @@ def _list_of_strings(value: Any) -> list[str]:
     return []
 
 
+def _parse_fail_closed_flag(value: Any, *, default: bool = False) -> bool:
+    if value is _MISSING:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in _TRUE_FLAG_VALUES
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    return False
+
+
 def _resolve_backbone_run(plan: Any, plan_store: Any | None = None) -> Any | None:
     metadata = _metadata(plan)
     run_id = str(metadata.get("backbone_run_id", "") or "").strip()
@@ -183,7 +197,10 @@ def evaluate_plan_execution_gate(
         gate = {}
 
     reason_codes = _list_of_strings(gate.get("reason_codes"))
-    allow_auto_execution = bool(gate.get("allow_auto_execution", True))
+    allow_auto_execution = _parse_fail_closed_flag(
+        gate.get("allow_auto_execution", _MISSING),
+        default=True,
+    )
     if "gate_evaluation_failed" in reason_codes:
         allow_auto_execution = False
 
@@ -293,9 +310,9 @@ def _synthetic_debate_result(plan: Any) -> Any:
         or metadata.get("decision_confidence")
         or 0.0
     )
-    consensus_reached = bool(deliberation.get("consensus_reached"))
+    consensus_reached = _parse_fail_closed_flag(deliberation.get("consensus_reached", _MISSING))
     if not consensus_reached:
-        consensus_reached = bool(signed_consensus.get("reached"))
+        consensus_reached = _parse_fail_closed_flag(signed_consensus.get("reached", _MISSING))
 
     return SimpleNamespace(
         debate_id=str(getattr(plan, "debate_id", "") or getattr(plan, "id", "")),

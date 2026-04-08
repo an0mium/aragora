@@ -20,7 +20,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.core_types import Critique, DebateResult, Message, Vote
+from aragora.core_types import (
+    Critique,
+    DebateResult,
+    DebateStatus,
+    DebateStatusSource,
+    Message,
+    Vote,
+)
 
 pytestmark = [pytest.mark.smoke]
 
@@ -98,6 +105,8 @@ class TestDebateCreationAndCompletion:
             consensus_reached=True,
             rounds_used=1,
             status="consensus_reached",
+            debate_status=DebateStatus.COMPLETED.value,
+            debate_status_source=DebateStatusSource.LIVE.value,
             participants=[a.name for a in smoke_agents],
             proposals={a.name: f"Proposal from {a.name}" for a in smoke_agents},
             messages=[
@@ -121,6 +130,7 @@ class TestDebateCreationAndCompletion:
         assert result.consensus_reached is True
         assert result.confidence == pytest.approx(0.88)
         assert result.final_answer != ""
+        assert result.debate_status == DebateStatus.COMPLETED.value
         assert result.rounds_used == 1
         assert len(result.participants) == len(smoke_agents)
         assert len(result.messages) >= 1
@@ -171,6 +181,9 @@ class TestDebateCreationAndCompletion:
         # Should get a partial result (timeout path)
         assert isinstance(result, DebateResult)
         assert result.task == smoke_env.task
+        assert result.debate_status == DebateStatus.PENDING.value
+        assert result.debate_status_source == DebateStatusSource.LIVE.value
+        assert result.status == DebateStatus.PENDING.value
 
 
 # ============================================================================
