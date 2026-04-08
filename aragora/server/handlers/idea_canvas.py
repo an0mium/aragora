@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import re
 import uuid
 from typing import Any
@@ -51,6 +52,7 @@ IDEAS_EDGES = re.compile(r"^/api/v1/ideas/([a-zA-Z0-9_-]+)/edges$")
 IDEAS_EDGE = re.compile(r"^/api/v1/ideas/([a-zA-Z0-9_-]+)/edges/([a-zA-Z0-9_-]+)$")
 IDEAS_EXPORT = re.compile(r"^/api/v1/ideas/([a-zA-Z0-9_-]+)/export$")
 IDEAS_PROMOTE = re.compile(r"^/api/v1/ideas/([a-zA-Z0-9_-]+)/promote$")
+IDENTIFIER_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 
 class IdeaCanvasHandler(SecureHandler):
@@ -164,10 +166,21 @@ class IdeaCanvasHandler(SecureHandler):
             raise ValueError(f"{field} must be a non-empty string")
         return value
 
+    def _validate_body_object(self, body: Any) -> dict[str, Any]:
+        if not isinstance(body, dict):
+            raise ValueError("Request body must be a JSON object")
+        return body
+
     def _validate_required_string(self, value: Any, field: str) -> str:
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"{field} must be a non-empty string")
         return value
+
+    def _validate_identifier(self, value: Any, field: str) -> str:
+        identifier = self._validate_required_string(value, field)
+        if not IDENTIFIER_PATTERN.fullmatch(identifier):
+            raise ValueError(f"{field} must contain only letters, numbers, underscores, or hyphens")
+        return identifier
 
     def _validate_optional_object(
         self,
@@ -184,7 +197,10 @@ class IdeaCanvasHandler(SecureHandler):
     def _validate_number(self, value: Any, field: str) -> float:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError(f"{field} must be a number")
-        return float(value)
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError(f"{field} must be a finite number")
+        return number
 
     def _validate_position(self, body: dict[str, Any]) -> dict[str, float]:
         if "position" not in body:
@@ -387,7 +403,10 @@ class IdeaCanvasHandler(SecureHandler):
         workspace_id: str | None,
     ) -> HandlerResult:
         try:
+            body = self._validate_body_object(body)
             canvas_id = self._validate_optional_string(body, "id", allow_empty=False)
+            if canvas_id is not None:
+                canvas_id = self._validate_identifier(canvas_id, "id")
             name = (
                 self._validate_optional_string(body, "name", allow_empty=False) or "Untitled Ideas"
             )
@@ -447,6 +466,10 @@ class IdeaCanvasHandler(SecureHandler):
         body: dict[str, Any],
         user_id: str | None,
     ) -> HandlerResult:
+        try:
+            body = self._validate_body_object(body)
+        except ValueError as e:
+            return error_response(str(e), 400)
         if not any(field in body for field in ("name", "description", "metadata")):
             return error_response(
                 "At least one of name, description, or metadata is required",
@@ -503,6 +526,7 @@ class IdeaCanvasHandler(SecureHandler):
         user_id: str | None,
     ) -> HandlerResult:
         try:
+            body = self._validate_body_object(body)
             label = self._validate_optional_string(body, "label") or ""
             idea_type = (
                 self._validate_optional_string(body, "idea_type", allow_empty=False) or "concept"
@@ -558,6 +582,10 @@ class IdeaCanvasHandler(SecureHandler):
         body: dict[str, Any],
         user_id: str | None,
     ) -> HandlerResult:
+        try:
+            body = self._validate_body_object(body)
+        except ValueError as e:
+            return error_response(str(e), 400)
         if not any(field in body for field in ("position", "label", "data")):
             return error_response("At least one of position, label, or data is required", 400)
         try:
@@ -624,6 +652,7 @@ class IdeaCanvasHandler(SecureHandler):
         user_id: str | None,
     ) -> HandlerResult:
         try:
+            body = self._validate_body_object(body)
             source_id = self._validate_required_string(
                 body.get("source_id") or body.get("source"),
                 "source_id",
@@ -716,6 +745,7 @@ class IdeaCanvasHandler(SecureHandler):
         user_id: str | None,
     ) -> HandlerResult:
         try:
+            body = self._validate_body_object(body)
             node_ids = self._validate_required_string_list(body, "node_ids")
         except ValueError as e:
             return error_response(str(e), 400)
