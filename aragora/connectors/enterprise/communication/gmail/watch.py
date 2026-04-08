@@ -383,7 +383,9 @@ class GmailWatchMixin(GmailBaseMethods):
                         msg = await self.get_message(msg_id)
                         new_messages.append(msg)
                     except (OSError, ValueError, KeyError, RuntimeError) as e:
-                        logger.warning("[Gmail] Failed to fetch message %s: %s", msg_id, e)
+                        raise RuntimeError(
+                            f"Failed to fetch message {msg_id} during webhook handling"
+                        ) from e
 
                 if history_id:
                     new_history_id = history_id
