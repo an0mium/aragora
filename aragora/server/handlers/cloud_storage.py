@@ -434,6 +434,14 @@ class CloudStorageHandler(BaseHandler):
             return False, f"File extension not allowed: {ext}"
         return True, ""
 
+    def _validate_query_params(self, query_params: Any) -> tuple[dict[str, Any], str | None]:
+        """Validate the query-parameter container before reading fields from it."""
+        if query_params is None:
+            return {}, None
+        if not isinstance(query_params, dict):
+            return {}, "Query parameters must be an object"
+        return query_params, None
+
     def _validate_bucket_name(self, bucket: Any) -> tuple[bool, str]:
         """Validate a bucket name used in requests."""
         if not isinstance(bucket, str):
@@ -467,6 +475,31 @@ class CloudStorageHandler(BaseHandler):
                 return False, f"{field_name}[{index}] must be a string"
             if not item.strip():
                 return False, f"{field_name}[{index}] must not be empty"
+
+        return True, ""
+
+    def _validate_query_int(
+        self,
+        field_name: str,
+        value: Any,
+        *,
+        min_value: int,
+        max_value: int,
+    ) -> tuple[bool, str]:
+        """Validate integer query params before coercing them."""
+        if value is None:
+            return True, ""
+
+        if isinstance(value, bool):
+            return False, f"{field_name} must be an integer between {min_value} and {max_value}"
+
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return False, f"{field_name} must be an integer between {min_value} and {max_value}"
+
+        if parsed < min_value or parsed > max_value:
+            return False, f"{field_name} must be between {min_value} and {max_value}"
 
         return True, ""
 
@@ -510,7 +543,9 @@ class CloudStorageHandler(BaseHandler):
         if method != "GET":
             return None
 
-        query_params = query_params or {}
+        query_params, query_params_error = self._validate_query_params(query_params)
+        if query_params_error:
+            return error_response(query_params_error, 400)
 
         try:
             # Check circuit breaker
@@ -604,7 +639,9 @@ class CloudStorageHandler(BaseHandler):
             body = raw_body
         else:
             return error_response("Request body must be a JSON object", 400)
-        query_params = query_params or {}
+        query_params, query_params_error = self._validate_query_params(query_params)
+        if query_params_error:
+            return error_response(query_params_error, 400)
 
         try:
             # Check circuit breaker
@@ -671,6 +708,10 @@ class CloudStorageHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route DELETE requests to appropriate handler method."""
+        query_params, query_params_error = self._validate_query_params(query_params)
+        if query_params_error:
+            return error_response(query_params_error, 400)
+
         try:
             # Check circuit breaker
             cb = self._get_circuit_breaker()
@@ -740,6 +781,24 @@ class CloudStorageHandler(BaseHandler):
 
         if prefix is not None and not isinstance(prefix, str):
             return error_response("prefix must be a string", 400)
+
+        valid_limit, limit_error = self._validate_query_int(
+            "limit",
+            query_params.get("limit"),
+            min_value=1,
+            max_value=100,
+        )
+        if not valid_limit:
+            return error_response(limit_error, 400)
+
+        valid_offset, offset_error = self._validate_query_int(
+            "offset",
+            query_params.get("offset"),
+            min_value=0,
+            max_value=10000,
+        )
+        if not valid_offset:
+            return error_response(offset_error, 400)
 
         limit = safe_query_int(query_params, "limit", default=20, min_val=1, max_val=100)
         offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=10000)
