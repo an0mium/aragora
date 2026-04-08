@@ -73,6 +73,10 @@ def _directive_task_id(directive: SessionDirective) -> str | None:
     return _constraint_value(list(directive.constraints), _TASK_PREFIX)
 
 
+def _directive_is_active(directive: SessionDirective) -> bool:
+    return _status(directive.status, default=STATUS_ACTIVE) in _ACTIVE_DIRECTIVE_STATUSES
+
+
 def _ordered_unique(values: list[str]) -> list[str]:
     result: list[str] = []
     seen: set[str] = set()
@@ -174,30 +178,49 @@ class InitiativeExecutor:
             self.coordination_store.list_completion_receipts(limit=1000)
         )
 
+        direct_statuses: dict[str, str | None] = {}
+        slice_context: dict[
+            str,
+            tuple[
+                dict[str, object],
+                SessionDirective | None,
+                WorkLease | None,
+                CompletionReceipt | None,
+            ],
+        ] = {}
         slice_statuses: dict[str, str] = {}
         owner_targets: dict[str, str] = {}
         for slice_record in initiative.slices:
             task_id = _task_id_for_slice(initiative.initiative_id, slice_record.slice_id)
             metadata = dict(slice_record.metadata)
             metadata["coordination_task_id"] = task_id
+            directive = directive_by_task.get(task_id)
+            lease = active_leases.get(task_id)
+            receipt = latest_receipts.get(task_id)
+            slice_context[slice_record.slice_id] = (metadata, directive, lease, receipt)
+            direct_statuses[slice_record.slice_id] = self._slice_activity_status(
+                current_status=slice_record.status,
+                metadata=metadata,
+                directive=directive,
+                lease=lease,
+                receipt=receipt,
+            )
+
+        for slice_record in initiative.slices:
+            task_id = _task_id_for_slice(initiative.initiative_id, slice_record.slice_id)
+            metadata, directive, lease, receipt = slice_context[slice_record.slice_id]
             blocked_by = [
                 dep
                 for dep in slice_record.dependencies
-                if slice_statuses.get(dep) not in _TERMINAL_SLICE_STATUSES
+                if direct_statuses.get(dep) not in _TERMINAL_SLICE_STATUSES
             ]
-
             status = self._slice_status(
-                current_status=slice_record.status,
-                metadata=metadata,
+                direct_status=direct_statuses[slice_record.slice_id],
                 blocked_by=blocked_by,
-                directive=directive_by_task.get(task_id),
-                lease=active_leases.get(task_id),
-                receipt=latest_receipts.get(task_id),
             )
             metadata["blocked_by"] = list(blocked_by)
             metadata["coordination_task_id"] = task_id
 
-            directive = directive_by_task.get(task_id)
             if directive is not None:
                 metadata["owner_target"] = directive.target
                 owner_targets[slice_record.slice_id] = directive.target
@@ -206,12 +229,10 @@ class InitiativeExecutor:
                 if owner_target:
                     owner_targets[slice_record.slice_id] = owner_target
 
-            lease = active_leases.get(task_id)
             if lease is not None:
                 metadata["lease_id"] = lease.lease_id
                 metadata["lease_owner_session_id"] = lease.owner_session_id
 
-            receipt = latest_receipts.get(task_id)
             if receipt is not None:
                 metadata["receipt_id"] = receipt.receipt_id
                 metadata["pr_url"] = receipt.pr_url or metadata.get("pr_url") or ""
@@ -266,14 +287,13 @@ class InitiativeExecutor:
         initiative = snapshot.initiative
         directives = self.directive_board.list()
         busy_targets = {
-            directive.target
-            for directive in directives
-            if _status(directive.status, default="active") in _ACTIVE_DIRECTIVE_STATUSES
+            directive.target for directive in directives if _directive_is_active(directive)
         }
-        directive_task_ids = {
+        active_directive_task_ids = {
             task_id
             for directive in directives
-            if (task_id := _directive_task_id(directive)) is not None
+            if _directive_is_active(directive)
+            and (task_id := _directive_task_id(directive)) is not None
         }
         available_targets = [
             target for target in _ordered_unique(owner_targets) if target not in busy_targets
@@ -285,7 +305,7 @@ class InitiativeExecutor:
             if slice_record.slice_id not in snapshot.ready_slice_ids:
                 continue
             task_id = _task_id_for_slice(initiative.initiative_id, slice_record.slice_id)
-            if task_id in directive_task_ids:
+            if task_id in active_directive_task_ids:
                 continue
             try:
                 target = next(target_iter)
@@ -323,13 +343,24 @@ class InitiativeExecutor:
     def _slice_status(
         self,
         *,
+        direct_status: str | None,
+        blocked_by: list[str],
+    ) -> str:
+        if direct_status is not None:
+            return direct_status
+        if blocked_by:
+            return STATUS_BLOCKED
+        return STATUS_QUEUED
+
+    def _slice_activity_status(
+        self,
+        *,
         current_status: str,
         metadata: dict[str, object],
-        blocked_by: list[str],
         directive: SessionDirective | None,
         lease: WorkLease | None,
         receipt: CompletionReceipt | None,
-    ) -> str:
+    ) -> str | None:
         explicit_terminal = self._explicit_terminal_status(
             current_status=current_status, metadata=metadata
         )
@@ -339,14 +370,9 @@ class InitiativeExecutor:
             return self._receipt_terminal_status(receipt)
         if lease is not None:
             return STATUS_ACTIVE
-        if (
-            directive is not None
-            and _status(directive.status, default=STATUS_ACTIVE) in _ACTIVE_DIRECTIVE_STATUSES
-        ):
+        if directive is not None and _directive_is_active(directive):
             return STATUS_ACTIVE
-        if blocked_by:
-            return STATUS_BLOCKED
-        return STATUS_QUEUED
+        return None
 
     def _explicit_terminal_status(
         self, *, current_status: str, metadata: dict[str, object]

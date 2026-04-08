@@ -1408,6 +1408,59 @@ class TestReceiptsHandlerGetShared:
         assert "text/html" in result.content_type
 
     @pytest.mark.asyncio
+    async def test_get_shared_html_uses_stored_payload_fields(
+        self, handler_with_share_store, mock_receipt_store, mock_share_store
+    ):
+        """HTML shares render proof fields stored in the receipt payload."""
+        mock_receipt_store.save(
+            {
+                "receipt_id": "r-proof",
+                "gauntlet_id": "g-proof",
+                "verdict": "APPROVED",
+                "confidence": 0.91,
+                "risk_level": "LOW",
+                "input_summary": "Stored proof summary",
+                "timestamp": "2026-04-07T01:00:00Z",
+                "agents_involved": ["claude", "gpt-4"],
+                "findings": [
+                    {
+                        "severity": "HIGH",
+                        "title": "Need audit trail",
+                        "description": "missing receipt proof",
+                    }
+                ],
+                "robustness_score": 0.8,
+                "coverage_score": 0.7,
+                "verification_coverage": 0.6,
+                "duration_seconds": 18.2,
+                "cost_usd": 0.42,
+                "tokens_used": 12345,
+            }
+        )
+        future_time = datetime.now(timezone.utc).timestamp() + 86400
+        mock_share_store.shares["proof-token"] = {
+            "token": "proof-token",
+            "receipt_id": "r-proof",
+            "expires_at": future_time,
+            "max_accesses": None,
+            "access_count": 0,
+        }
+
+        result = await handler_with_share_store.handle(
+            "GET",
+            "/api/v2/receipts/share/proof-token",
+            headers={"Accept": "text/html"},
+        )
+
+        assert result.status_code == 200
+        body = result.body.decode("utf-8")
+        assert "Stored proof summary" in body
+        assert "Need audit trail" in body
+        assert "$0.4200" in body
+        assert "12,345" in body
+        assert "18.2s" in body
+
+    @pytest.mark.asyncio
     async def test_get_shared_json_default_for_api(
         self, handler_with_share_store, mock_receipt_store, mock_share_store
     ):
