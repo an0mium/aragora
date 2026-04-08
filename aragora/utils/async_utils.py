@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from pathlib import Path
 from typing import Any, TypeVar
 from collections.abc import Coroutine
@@ -20,15 +21,41 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+def _run_async_in_worker_thread(coro: Coroutine[Any, Any, T], timeout: float) -> T:
+    """Run a coroutine on a dedicated worker thread when the current loop cannot be re-entered."""
+
+    result: dict[str, Any] = {"value": None, "error": None}
+
+    def _runner() -> None:
+        try:
+            result["value"] = asyncio.run(asyncio.wait_for(coro, timeout=timeout))
+        except BaseException as exc:  # noqa: BLE001 - preserve original exception
+            result["error"] = exc
+
+    thread = threading.Thread(target=_runner, name="run_async_worker", daemon=True)
+    thread.start()
+    thread.join(timeout + 1.0)
+
+    if thread.is_alive():
+        raise TimeoutError(f"run_async() worker thread timed out after {timeout:.1f}s")
+    if result["error"] is not None:
+        raise result["error"]
+    return result["value"]
+
+
 def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
     """Run async coroutine from sync context, dispatching to the correct event loop.
 
-    Handles three scenarios:
+    Handles five scenarios:
     1. Already on the main event loop (sync handler called from async handle()):
        Uses loop.run_until_complete() with nest_asyncio support.
-    2. In a different thread with no running loop (sync HTTP handler thread):
+    2. Already on a different async event loop while the shared pool loop is alive:
+       Dispatches to the shared loop via run_coroutine_threadsafe().
+    3. Already on an async event loop with no shared pool loop to re-enter:
+       Runs the coroutine on a dedicated worker thread.
+    4. In a different thread with no running loop (sync HTTP handler thread):
        Dispatches to the main event loop via run_coroutine_threadsafe().
-    3. No shared pool (CLI/SQLite mode):
+    5. No shared pool (CLI/SQLite mode):
        Creates a temporary event loop via asyncio.run().
 
     Args:
@@ -50,22 +77,33 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
     except RuntimeError:
         pass  # No running loop - handled below
 
-    # Wrap coroutine with asyncio.wait_for to enforce timeout on all paths
-    timed_coro = asyncio.wait_for(coro, timeout=timeout)
-
     if running_loop is not None:
         # We're on an event loop. Check if it's the main pool loop
         # (sync handler called from async handle() on the main loop).
         # nest_asyncio is applied to the main loop in pool_manager, so
         # loop.run_until_complete() works for nested calls.
+        main_loop: asyncio.AbstractEventLoop | None = None
         try:
             from aragora.storage.pool_manager import get_pool_event_loop
 
             main_loop = get_pool_event_loop()
-            if running_loop is main_loop:
-                return running_loop.run_until_complete(timed_coro)
         except ImportError:
             pass
+
+        if main_loop is not None and main_loop.is_running():
+            if running_loop is main_loop:
+                try:
+                    return running_loop.run_until_complete(asyncio.wait_for(coro, timeout=timeout))
+                except RuntimeError as exc:
+                    message = str(exc)
+                    if "already running" in message or "Cannot enter into task" in message:
+                        return _run_async_in_worker_thread(coro, timeout)
+                    raise
+            future = asyncio.run_coroutine_threadsafe(
+                asyncio.wait_for(coro, timeout=timeout),
+                main_loop,
+            )
+            return future.result(timeout=timeout)
 
         # Fallback: apply nest_asyncio to allow nested run_until_complete
         # (covers test environments and CLI where pool_manager is absent)
@@ -73,12 +111,16 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
             import nest_asyncio
 
             nest_asyncio.apply(running_loop)
-            return running_loop.run_until_complete(timed_coro)
-        except (ImportError, RuntimeError):
-            pass
+            return running_loop.run_until_complete(asyncio.wait_for(coro, timeout=timeout))
+        except ImportError:
+            return _run_async_in_worker_thread(coro, timeout)
+        except RuntimeError as exc:
+            message = str(exc)
+            if "already running" in message or "Cannot enter into task" in message:
+                return _run_async_in_worker_thread(coro, timeout)
 
         # Running loop but NOT the main pool loop - caller bug
-        timed_coro.close()
+        coro.close()
         raise RuntimeError(
             "run_async() cannot be called from an async context. "
             "asyncpg connection pools are bound to specific event loops. "
@@ -93,13 +135,16 @@ def run_async(coro: Coroutine[Any, Any, T], timeout: float = 30.0) -> T:
 
         main_loop = get_pool_event_loop()
         if main_loop is not None and main_loop.is_running():
-            future = asyncio.run_coroutine_threadsafe(timed_coro, main_loop)
+            future = asyncio.run_coroutine_threadsafe(
+                asyncio.wait_for(coro, timeout=timeout),
+                main_loop,
+            )
             return future.result(timeout=timeout)
     except ImportError:
         pass
 
     # Fallback: no shared pool / CLI mode - create temporary event loop
-    return asyncio.run(timed_coro)
+    return asyncio.run(asyncio.wait_for(coro, timeout=timeout))
 
 
 def sync_wrapper(async_method: Any) -> Any:
