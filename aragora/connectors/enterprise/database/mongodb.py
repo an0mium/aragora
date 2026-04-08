@@ -382,6 +382,7 @@ class MongoDBConnector(EnterpriseConnector):
         results = []
 
         collections = self.collections or await self._discover_collections()
+        from pymongo.errors import OperationFailure
 
         for collection_name in collections[:5]:  # Limit to first 5 collections
             try:
@@ -406,8 +407,14 @@ class MongoDBConnector(EnterpriseConnector):
                             }
                         )
                     continue
-                except (OSError, ConnectionError, ValueError, KeyError) as e:
-                    logger.debug("Text search not available, falling back to regex: %s", e)
+                except OperationFailure as e:
+                    if "text index required" not in str(e).lower():
+                        raise
+                    logger.debug(
+                        "Text search not available for %s, falling back to regex: %s",
+                        collection_name,
+                        e,
+                    )
 
                 # Fallback to regex search on string fields
                 # Get a sample document to find string fields
@@ -534,8 +541,10 @@ class MongoDBConnector(EnterpriseConnector):
                     try:
                         resume_after = json.loads(resume_token)
                         logger.info("[%s] Resuming change stream from token", self.name)
-                    except json.JSONDecodeError:
-                        logger.warning("[%s] Invalid resume token, starting fresh", self.name)
+                    except json.JSONDecodeError as e:
+                        error_message = f"{self.name}: invalid resume token"
+                        logger.exception("[%s] Invalid resume token", self.name)
+                        raise RuntimeError(error_message) from e
 
                 # Start change stream with resume support
                 watch_kwargs: dict[str, Any] = {"pipeline": pipeline}
