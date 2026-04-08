@@ -19,17 +19,22 @@ esac
 if [ "$#" -gt 0 ]; then
   ROUTES=("$@")
 else
+  # Default smoke coverage should reflect the public/demo funnel that deploy
+  # and uptime workflows rely on, not only authenticated app-shell routes.
   ROUTES=(
     "/"
+    "/landing/"
+    "/demo/"
+    "/quickstart/"
     "/oracle/"
     "/debates/"
     "/about/"
     "/pricing/"
-    "/settings/"
+    "/docs/"
   )
 fi
 
-NOT_FOUND_PATTERN='404 - PAGE NOT FOUND|The requested route does not exist in the Aragora network'
+NOT_FOUND_PATTERN="PAGE NOT FOUND|This page doesn't exist or has been moved\\.|The requested route does not exist in the Aragora network"
 ERRORS=0
 
 echo "Verifying frontend routes at ${BASE_URL}"
@@ -54,7 +59,7 @@ for route in "${ROUTES[@]}"; do
   if [ "${status}" != "200" ]; then
     echo "::${ANNOTATION_LEVEL}::Route check failed for ${url} (status ${status})"
     ERRORS=1
-  elif grep -Eq "${NOT_FOUND_PATTERN}" "${cleaned_file}"; then
+  elif grep -Eiq "${NOT_FOUND_PATTERN}" "${cleaned_file}"; then
     echo "::${ANNOTATION_LEVEL}::Route check failed for ${url} (rendered not-found content)"
     ERRORS=1
   else
