@@ -11,6 +11,7 @@ Verifies that:
 from __future__ import annotations
 
 import asyncio
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -395,6 +396,29 @@ class TestExecutionSafetyGate:
         assert result.plan is not None
         assert plan_obj.metadata.get("execution_gate") is not None
         assert str(plan_obj.status).lower().endswith("awaiting_approval")
+
+    def test_execution_gate_fails_closed_when_evaluation_errors_or_is_unavailable(self):
+        coordinator = PostDebateCoordinator()
+        debate_result = _make_debate_result()
+
+        with patch(
+            "aragora.debate.execution_safety.evaluate_auto_execution_safety",
+            side_effect=RuntimeError("boom"),
+        ):
+            errored_gate = coordinator._step_execution_gate(debate_result)
+
+        assert errored_gate == {
+            "allow_auto_execution": False,
+            "reason_codes": ["gate_evaluation_failed"],
+        }
+
+        with patch.dict(sys.modules, {"aragora.debate.execution_safety": None}):
+            unavailable_gate = coordinator._step_execution_gate(debate_result)
+
+        assert unavailable_gate == {
+            "allow_auto_execution": False,
+            "reason_codes": ["gate_unavailable"],
+        }
 
 
 class TestBackboneWiring:
