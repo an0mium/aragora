@@ -158,9 +158,7 @@ class DebateInterventionHandler(BaseHandler):
 
         return None
 
-    def _submit_intervention(
-        self, debate_id: str, body: dict[str, Any], handler: Any
-    ) -> HandlerResult:
+    def _submit_intervention(self, debate_id: str, body: Any, handler: Any) -> HandlerResult:
         """Submit a mid-debate intervention.
 
         Args:
@@ -174,10 +172,16 @@ class DebateInterventionHandler(BaseHandler):
         if not self.queue:
             return error_response("Intervention module not available", 503)
 
+        if not isinstance(body, dict):
+            return error_response("Request body must be a JSON object", 400)
+
         # Validate required fields
         intervention_type = body.get("type")
-        if not intervention_type:
+        if intervention_type is None:
             return error_response("Missing required field: type", 400)
+        if not isinstance(intervention_type, str) or not intervention_type.strip():
+            return error_response("Field 'type' must be a non-empty string", 400)
+        intervention_type = intervention_type.strip()
 
         valid_types = ["redirect", "constraint", "challenge", "evidence_request"]
         if intervention_type not in valid_types:
@@ -187,18 +191,37 @@ class DebateInterventionHandler(BaseHandler):
             )
 
         content = body.get("content")
-        if not content or not str(content).strip():
+        if content is None:
             return error_response("Missing required field: content", 400)
+        if not isinstance(content, str) or not content.strip():
+            return error_response("Field 'content' must be a non-empty string", 400)
 
         # Sanitize content length
-        content = str(content).strip()[:2000]
+        content = content.strip()[:2000]
 
         apply_at_round = body.get("apply_at_round", 0)
-        if not isinstance(apply_at_round, int) or apply_at_round < 0:
+        if apply_at_round is None:
             apply_at_round = 0
+        elif (
+            isinstance(apply_at_round, bool)
+            or not isinstance(apply_at_round, int)
+            or apply_at_round < 0
+        ):
+            return error_response("Field 'apply_at_round' must be a non-negative integer", 400)
+
+        metadata = body.get("metadata", {})
+        if metadata is None:
+            metadata = {}
+        elif not isinstance(metadata, dict):
+            return error_response("Field 'metadata' must be an object", 400)
 
         # Extract user info from auth context if available
         user_id = body.get("user_id", "")
+        if user_id is None:
+            user_id = ""
+        elif not isinstance(user_id, str):
+            return error_response("Field 'user_id' must be a string", 400)
+
         if not user_id:
             try:
                 from aragora.billing.jwt_auth import extract_user_from_request
@@ -216,7 +239,7 @@ class DebateInterventionHandler(BaseHandler):
                 content=content,
                 user_id=user_id,
                 apply_at_round=apply_at_round,
-                metadata=body.get("metadata", {}),
+                metadata=metadata,
             )
 
             return json_response(
