@@ -434,8 +434,8 @@ class WalmartConnector(ProductionConnectorMixin):
                         code=error.get("code"),
                         details=error_data,
                     )
-                except (ValueError, KeyError):
-                    raise WalmartError(f"HTTP {response.status_code}: {response.text}")
+                except ValueError as exc:
+                    raise WalmartError(f"HTTP {response.status_code}: {response.text}") from exc
 
             if response.status_code == 204:
                 return {}
@@ -962,6 +962,7 @@ def _parse_datetime(value: str | None) -> datetime | None:
         raise TypeError(f"Expected datetime string, got {type(value).__name__}")
 
     # Handle various formats
+    last_error: ValueError | None = None
     for fmt in [
         "%Y-%m-%dT%H:%M:%S.%fZ",
         "%Y-%m-%dT%H:%M:%SZ",
@@ -970,10 +971,10 @@ def _parse_datetime(value: str | None) -> datetime | None:
     ]:
         try:
             return datetime.strptime(value, fmt)
-        except ValueError:
-            continue
+        except ValueError as exc:
+            last_error = exc
 
-    raise ValueError(f"Unsupported Walmart datetime format: {value!r}")
+    raise ValueError(f"Unsupported Walmart datetime format: {value!r}") from last_error
 
 
 def get_mock_order() -> WalmartOrder:
