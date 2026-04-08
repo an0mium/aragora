@@ -996,21 +996,23 @@ class HubSpotConnector:
 
 def _parse_datetime(value: str | None) -> datetime | None:
     """Parse ISO datetime string."""
-    if not value:
+    if value is None:
         return None
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except (ValueError, AttributeError) as exc:
+    except (TypeError, ValueError, AttributeError) as exc:
         raise ValueError(f"Invalid HubSpot datetime value: {value!r}") from exc
 
 
 def _from_timestamp(value: int | None) -> datetime | None:
     """Convert millisecond timestamp to datetime."""
-    if not value:
+    if value is None:
         return None
     try:
+        if isinstance(value, bool):
+            raise TypeError("Boolean values are not valid timestamps")
         return datetime.fromtimestamp(value / 1000)
-    except (ValueError, OSError) as exc:
+    except (TypeError, ValueError, OSError) as exc:
         raise ValueError(f"Invalid HubSpot timestamp value: {value!r}") from exc
 
 
