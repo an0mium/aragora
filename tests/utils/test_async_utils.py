@@ -65,6 +65,18 @@ class TestRunAsync:
         result = run_async(inner(), timeout=0.1)
         assert result == "nested"
 
+    @pytest.mark.asyncio
+    async def test_works_in_async_context_without_nest_asyncio(self, monkeypatch):
+        """Falls back to a worker thread when nest_asyncio is unavailable."""
+
+        async def inner():
+            return "worker-thread"
+
+        monkeypatch.setitem(sys.modules, "nest_asyncio", None)
+
+        result = run_async(inner(), timeout=0.1)
+        assert result == "worker-thread"
+
     def test_works_from_sync_context(self):
         """Works when called from sync context (no running loop)."""
 

@@ -160,7 +160,10 @@ def handle_forgot_password(handler_instance: AuthHandler, handler) -> HandlerRes
     if body is None:
         return error_response("Invalid JSON body", 400)
 
-    email = body.get("email", "").strip().lower()
+    email = body.get("email", "")
+    if not isinstance(email, str):
+        return error_response("Email must be a string", 400)
+    email = email.strip().lower()
     if not email:
         return error_response("Email is required", 400)
 
@@ -373,8 +376,21 @@ def handle_reset_password(handler_instance: AuthHandler, handler) -> HandlerResu
     if body is None:
         return error_response("Invalid JSON body", 400)
 
-    token = body.get("token", "").strip()
-    new_password = body.get("password", "") or body.get("new_password", "")
+    token = body.get("token", "")
+    password = body.get("password", "")
+    new_password = body.get("new_password", "")
+
+    if not isinstance(token, str):
+        return error_response("Reset token must be a string", 400)
+
+    if not isinstance(password, str):
+        return error_response("Password must be a string", 400)
+
+    if not isinstance(new_password, str):
+        return error_response("New password must be a string", 400)
+
+    token = token.strip()
+    new_password = password or new_password
 
     if not token:
         return error_response("Reset token is required", 400)

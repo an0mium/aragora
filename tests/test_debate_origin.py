@@ -342,11 +342,12 @@ class TestRouteDebateResult:
             patch.dict("os.environ", {"TELEGRAM_BOT_TOKEN": "test_token"}),
             patch("httpx.AsyncClient") as mock_client,
         ):
-            mock_response = MagicMock()
-            mock_response.is_success = True
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=mock_response
-            )
+            mock_response = MagicMock(status_code=200)
+            mock_response.json.return_value = {"ok": True, "result": {"message_id": 123}}
+            mock_http_client = MagicMock()
+            mock_http_client.post = AsyncMock(return_value=mock_response)
+            mock_http_client.aclose = AsyncMock()
+            mock_client.return_value = mock_http_client
 
             result = await route_debate_result(
                 "test-tg",
@@ -388,11 +389,12 @@ class TestRouteDebateResult:
             ),
             patch("httpx.AsyncClient") as mock_client,
         ):
-            mock_response = MagicMock()
-            mock_response.is_success = True
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=mock_response
-            )
+            mock_response = MagicMock(status_code=200)
+            mock_response.json.return_value = {"messages": [{"id": "wamid.test"}]}
+            mock_http_client = MagicMock()
+            mock_http_client.post = AsyncMock(return_value=mock_response)
+            mock_http_client.aclose = AsyncMock()
+            mock_client.return_value = mock_http_client
 
             result = await route_debate_result(
                 "test-wa",
