@@ -83,6 +83,8 @@ CLOUD_STORAGE_CB_COOLDOWN_SECONDS = 30
 # Safe filename pattern
 SAFE_FILENAME_PATTERN = re.compile(r"^[\w\-. ]+$")
 SAFE_BUCKET_PATTERN = re.compile(r"^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$")
+SAFE_FILE_ID_PATTERN = re.compile(r"^file_[0-9a-f]{16}$")
+SAFE_BUCKET_ID_PATTERN = re.compile(r"^(?:default|bucket_[0-9a-f]{12})$")
 
 
 class StorageProvider(str, Enum):
@@ -443,6 +445,18 @@ class CloudStorageHandler(BaseHandler):
             )
         return True, ""
 
+    def _validate_file_id(self, file_id: Any) -> tuple[bool, str]:
+        """Validate a file ID used in request paths."""
+        if not isinstance(file_id, str) or not SAFE_FILE_ID_PATTERN.match(file_id):
+            return False, "Invalid file ID"
+        return True, ""
+
+    def _validate_bucket_id(self, bucket_id: Any) -> tuple[bool, str]:
+        """Validate a bucket ID used in request paths."""
+        if not isinstance(bucket_id, str) or not SAFE_BUCKET_ID_PATTERN.match(bucket_id):
+            return False, "Invalid bucket ID"
+        return True, ""
+
     def _generate_file_id(self) -> str:
         """Generate a unique file ID."""
         return f"file_{uuid.uuid4().hex[:16]}"
@@ -495,13 +509,18 @@ class CloudStorageHandler(BaseHandler):
             if path.startswith("/api/v2/storage/files/"):
                 parts = path.split("/")
                 # Path: /api/v2/storage/files/:file_id -> ["", "api", "v2", "storage", "files", file_id]
-                if len(parts) < 6:
+                if len(parts) not in (6, 7):
                     return error_response("Invalid file path", 400)
 
                 file_id = parts[5]
+                valid_file_id, file_id_error = self._validate_file_id(file_id)
+                if not valid_file_id:
+                    return error_response(file_id_error, 400)
 
                 # Download endpoint
-                if len(parts) > 6 and parts[6] == "download":
+                if len(parts) == 7:
+                    if parts[6] != "download":
+                        return error_response("Invalid file path", 400)
                     return await self._download_file(file_id, handler)
 
                 # Get file metadata
@@ -511,10 +530,13 @@ class CloudStorageHandler(BaseHandler):
             if path.startswith("/api/v2/storage/buckets/"):
                 parts = path.split("/")
                 # Path: /api/v2/storage/buckets/:bucket_id -> ["", "api", "v2", "storage", "buckets", bucket_id]
-                if len(parts) < 6:
+                if len(parts) != 6:
                     return error_response("Invalid bucket path", 400)
 
                 bucket_id = parts[5]
+                valid_bucket_id, bucket_id_error = self._validate_bucket_id(bucket_id)
+                if not valid_bucket_id:
+                    return error_response(bucket_id_error, 400)
                 return await self._get_bucket(bucket_id, handler)
 
             return None
@@ -546,10 +568,12 @@ class CloudStorageHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests to appropriate handler method."""
-        body = self.read_json_body(handler)
-        if body is None:
-            body = {}
-        elif not isinstance(body, dict):
+        raw_body = self.read_json_body(handler)
+        if raw_body is None:
+            body: dict[str, Any] = {}
+        elif isinstance(raw_body, dict):
+            body = raw_body
+        else:
             return error_response("Request body must be a JSON object", 400)
         query_params = query_params or {}
 
@@ -575,14 +599,19 @@ class CloudStorageHandler(BaseHandler):
             if path.startswith("/api/v2/storage/files/"):
                 parts = path.split("/")
                 # Path: /api/v2/storage/files/:file_id/presign -> ["", "api", "v2", "storage", "files", file_id, "presign"]
-                if len(parts) < 6:
+                if len(parts) != 7:
                     return error_response("Invalid file path", 400)
 
                 file_id = parts[5]
+                valid_file_id, file_id_error = self._validate_file_id(file_id)
+                if not valid_file_id:
+                    return error_response(file_id_error, 400)
 
                 # Presigned URL endpoint
-                if len(parts) > 6 and parts[6] == "presign":
+                if parts[6] == "presign":
                     return await self._generate_presigned_url(file_id, body, handler)
+
+                return error_response("Invalid file path", 400)
 
             return None
 
@@ -627,18 +656,24 @@ class CloudStorageHandler(BaseHandler):
             if path.startswith("/api/v2/storage/files/"):
                 parts = path.split("/")
                 # Path: /api/v2/storage/files/:file_id -> ["", "api", "v2", "storage", "files", file_id]
-                if len(parts) < 6:
+                if len(parts) != 6:
                     return error_response("Invalid file path", 400)
                 file_id = parts[5]
+                valid_file_id, file_id_error = self._validate_file_id(file_id)
+                if not valid_file_id:
+                    return error_response(file_id_error, 400)
                 return await self._delete_file(file_id, handler)
 
             # Delete bucket
             if path.startswith("/api/v2/storage/buckets/"):
                 parts = path.split("/")
                 # Path: /api/v2/storage/buckets/:bucket_id -> ["", "api", "v2", "storage", "buckets", bucket_id]
-                if len(parts) < 6:
+                if len(parts) != 6:
                     return error_response("Invalid bucket path", 400)
                 bucket_id = parts[5]
+                valid_bucket_id, bucket_id_error = self._validate_bucket_id(bucket_id)
+                if not valid_bucket_id:
+                    return error_response(bucket_id_error, 400)
                 return await self._delete_bucket(bucket_id, handler)
 
             return None
