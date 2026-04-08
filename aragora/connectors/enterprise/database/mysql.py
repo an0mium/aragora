@@ -380,9 +380,9 @@ class MySQLConnector(EnterpriseConnector):
                                     }
                                 )
 
-                    except (ValueError, RuntimeError, OSError) as e:
-                        logger.debug("Search failed on %s: %s", table, e)
-                        continue
+                    except (ValueError, RuntimeError, OSError):
+                        logger.exception("Search failed on %s", table)
+                        raise
 
         return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
 
@@ -435,9 +435,9 @@ class MySQLConnector(EnterpriseConnector):
 
                     return None
 
-        except (ValueError, RuntimeError, OSError, KeyError) as e:
-            logger.error("[%s] Fetch failed: %s", self.name, e)
-            return None
+        except (ValueError, RuntimeError, OSError, KeyError):
+            logger.exception("[%s] Fetch failed", self.name)
+            raise
 
     async def start_binlog_cdc(self) -> None:
         """
