@@ -432,6 +432,31 @@ class TestExpenseUploadReceipt:
         assert result is not None
         assert result.status_code == 400
 
+    @pytest.mark.asyncio
+    async def test_upload_receipt_truncated_pdf_degrades_gracefully(self):
+        """Malformed PDFs should not bubble parser exceptions to the API."""
+        pdf_data = base64.b64encode(b"%PDF-1.4\n% truncated").decode()
+
+        from aragora.services.expense_tracker import ExpenseTracker
+
+        expenses_module.reset_expense_circuit_breaker()
+        tracker = ExpenseTracker(enable_llm_categorization=False)
+
+        with patch.object(expenses_module, "get_expense_tracker", return_value=tracker):
+            result = await handle_upload_receipt(
+                {
+                    "receipt_data": pdf_data,
+                    "content_type": "application/pdf",
+                    "employee_id": "emp_001",
+                }
+            )
+
+        assert result is not None
+        assert result.status_code == 200
+        data = json.loads(result.body)
+        assert data["expense"]["id"].startswith("exp_")
+        assert data["expense"]["employeeId"] == "emp_001"
+
 
 # ===========================================================================
 # Test Create Expense (POST /api/v1/accounting/expenses)
