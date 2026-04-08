@@ -643,7 +643,12 @@ def _normalize_quickstart_settlement(
 
 def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     """Normalize quickstart debate results into a receipt-compatible artifact payload."""
-    from aragora.gauntlet.receipt_models import ConsensusProof, DecisionReceipt, ProvenanceRecord
+    from aragora.gauntlet.receipt_models import (
+        ConsensusProof,
+        DecisionReceipt,
+        ProvenanceRecord,
+        canonicalize_execution_outcome_linkage,
+    )
 
     payload = dict(result)
     receipt_info = payload.get("receipt", {})
@@ -864,7 +869,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         "confidence": confidence,
         "participants": participants,
     }
-    return canonical
+    return canonicalize_execution_outcome_linkage(canonical)
 
 
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
@@ -1881,20 +1886,15 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
 
     # Persist to receipt store so API/dashboard/CLI-list can serve it
     try:
-        from aragora.storage.receipt_store import get_receipt_store
+        from aragora.pipeline.receipt_store_facade import get_receipt_store_facade
 
-        store = get_receipt_store()
-        receipt_nested = canonical_result.get("receipt", {}) or {}
-        store_payload = dict(canonical_result)
-        store_payload.setdefault("receipt_id", receipt_nested.get("id", ""))
-        store_payload.setdefault(
-            "debate_id",
-            str(canonical_result.get("debate_id") or canonical_result.get("receipt_id") or ""),
+        facade = get_receipt_store_facade()
+        facade.persist_and_save(
+            str(canonical_result.get("receipt_id") or ""),
+            canonical_result,
+            state="CREATED",
         )
-        store_payload.setdefault("verdict", canonical_result.get("verdict", ""))
-        store_payload.setdefault("checksum", canonical_result.get("artifact_hash", ""))
-        store.save(store_payload)
-        logger.info("receipt_persisted id=%s", store_payload.get("receipt_id", ""))
+        logger.info("receipt_persisted id=%s", canonical_result.get("receipt_id", ""))
     except Exception:  # noqa: BLE001 - best-effort, local file is primary
         logger.debug("receipt_store_persist_skipped", exc_info=True)
 
@@ -1911,7 +1911,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     no_browser = getattr(args, "no_browser", False) or output_json
     if not no_browser:
         browser_path = _open_receipt_in_browser(
-            result,
+            canonical_result,
             saved_artifact if saved_artifact.suffix.lower() == ".html" else None,
         )
         if browser_path:

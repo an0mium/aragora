@@ -1,0 +1,192 @@
+name: Auto PR Publisher
+
+on:
+  push:
+    branches:
+      - "codex/**"
+      - "factory/**"
+      - "aragora/boss-harvest/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: auto-pr-publisher-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-draft-pr:
+    if: github.event.deleted != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Publish draft PR for automation branch
+        id: publish
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.ref.replace("refs/heads/", "");
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const head = `${owner}:${branch}`;
+            const backlogLimit = 20;
+
+            function isAutomationBranch(ref) {
+              return (
+                ref.startsWith("codex/") ||
+                ref.startsWith("factory/") ||
+                ref.startsWith("aragora/boss-harvest/")
+              );
+            }
+
+            function isAutomationPull(pr) {
+              const labels = Array.isArray(pr.labels) ? pr.labels : [];
+              const hasAutomationLabel = labels.some((label) => {
+                const name = typeof label === "string" ? label : label?.name;
+                return String(name || "").toLowerCase() === "automation";
+              });
+              return hasAutomationLabel || isAutomationBranch(String(pr.head?.ref || ""));
+            }
+
+            function commitSubject() {
+              const message = String(context.payload.head_commit?.message || "").trim();
+              if (!message) {
+                return `Automation update from ${branch}`;
+              }
+              return message.split("\n")[0].trim().slice(0, 240) || `Automation update from ${branch}`;
+            }
+
+            async function ensureAutomationLabel() {
+              try {
+                await github.rest.issues.getLabel({
+                  owner,
+                  repo,
+                  name: "automation",
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+                try {
+                  await github.rest.issues.createLabel({
+                    owner,
+                    repo,
+                    name: "automation",
+                    color: "0E8A16",
+                    description: "Opened automatically for automation branches",
+                  });
+                } catch (createError) {
+                  const message = String(createError?.message || createError).toLowerCase();
+                  if (createError.status === 422 && message.includes("already exists")) {
+                    core.info("automation label already exists");
+                    return;
+                  }
+                  throw createError;
+                }
+              }
+            }
+
+            const existing = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: "all",
+              head,
+              per_page: 100,
+            });
+
+            if (existing.length > 0) {
+              const pr = existing[0];
+              core.notice(`pr_exists #${pr.number} ${pr.state}`);
+              core.setOutput("status", "pr_exists");
+              core.setOutput("pr_number", String(pr.number));
+              return;
+            }
+
+            const openPulls = await github.paginate(github.rest.pulls.list, {
+              owner,
+              repo,
+              state: "open",
+              per_page: 100,
+            });
+            const automationBacklog = openPulls.filter(isAutomationPull).length;
+            core.info(`Open automation PR backlog: ${automationBacklog}`);
+
+            if (automationBacklog > backlogLimit) {
+              core.notice(`backlog_full count=${automationBacklog} limit=${backlogLimit}`);
+              core.setOutput("status", "backlog_full");
+              core.setOutput("backlog_count", String(automationBacklog));
+              return;
+            }
+
+            const title = commitSubject();
+            const body = [
+              "## Automation Publisher",
+              "",
+              "This draft PR was opened automatically from a pushed automation branch.",
+              "",
+              `- Branch: \`${branch}\``,
+              `- Commit: \`${context.sha}\``,
+              "",
+              "If a PR already existed for this head branch, this workflow would have skipped creation.",
+            ].join("\n");
+
+            try {
+              await ensureAutomationLabel();
+
+              const { data: pr } = await github.rest.pulls.create({
+                owner,
+                repo,
+                title,
+                head: branch,
+                base: "main",
+                body,
+                draft: true,
+              });
+
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: pr.number,
+                labels: ["automation"],
+              });
+
+              core.notice(`pr_created #${pr.number}`);
+              core.setOutput("status", "pr_created");
+              core.setOutput("pr_number", String(pr.number));
+              core.setOutput("pr_url", pr.html_url);
+            } catch (error) {
+              const message = String(error?.message || error);
+              const lowered = message.toLowerCase();
+              const status = Number(error?.status || 0);
+              const forbidden =
+                status === 403 ||
+                status === 401 ||
+                status === 422 ||
+                lowered.includes("resource not accessible by integration") ||
+                lowered.includes("github actions is not permitted to create pull requests") ||
+                lowered.includes("not permitted to create or approve pull requests") ||
+                lowered.includes("pull request creation is not allowed") ||
+                lowered.includes("pull request creation is disabled");
+
+              if (forbidden) {
+                core.warning(`pr_creation_forbidden ${message}`);
+                core.setOutput("status", "pr_creation_forbidden");
+                return;
+              }
+
+              throw error;
+            }
+
+      - name: Log outcome
+        shell: bash
+        run: |
+          echo "auto_pr_status=${{ steps.publish.outputs.status }}"
+          if [ -n "${{ steps.publish.outputs.pr_number }}" ]; then
+            echo "auto_pr_number=${{ steps.publish.outputs.pr_number }}"
+          fi
+          if [ -n "${{ steps.publish.outputs.pr_url }}" ]; then
+            echo "auto_pr_url=${{ steps.publish.outputs.pr_url }}"
+          fi

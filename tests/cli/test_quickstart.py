@@ -1117,7 +1117,9 @@ class TestCmdQuickstart:
         assert "Receipt:    debate-quickstart-1" in output
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    def test_quickstart_persists_receipt_payload_to_store(self, tmp_path, monkeypatch):
+    def test_quickstart_persists_same_canonical_payload_to_artifact_and_store(
+        self, tmp_path, monkeypatch
+    ):
         monkeypatch.chdir(tmp_path)
         args = argparse.Namespace(
             question="Should we persist the quickstart receipt?",
@@ -1148,7 +1150,8 @@ class TestCmdQuickstart:
             "artifact_hash": "abc123def4567890",
             "consensus_proof": {"reached": True},
         }
-        mock_store = MagicMock()
+        mock_facade = MagicMock()
+        saved_artifact = tmp_path / "quickstart.json"
 
         with (
             patch(
@@ -1160,17 +1163,27 @@ class TestCmdQuickstart:
                 return_value=live_result,
             ),
             patch(
-                "aragora.storage.receipt_store.get_receipt_store",
-                return_value=mock_store,
+                "aragora.cli.commands.quickstart._save_receipt",
+                return_value=saved_artifact,
+            ) as save_receipt,
+            patch(
+                "aragora.pipeline.receipt_store_facade.get_receipt_store_facade",
+                return_value=mock_facade,
             ),
         ):
             cmd_quickstart(args)
 
-        mock_store.save.assert_called_once()
-        store_payload = mock_store.save.call_args.args[0]
+        save_receipt.assert_called_once()
+        mock_facade.persist_and_save.assert_called_once()
+        artifact_payload = save_receipt.call_args.args[0]
+        store_payload = mock_facade.persist_and_save.call_args.args[1]
+        assert artifact_payload == store_payload
         assert store_payload["receipt_id"] == "debate-quickstart-1"
         assert store_payload["debate_id"] == "debate-quickstart-1"
+        assert store_payload["gauntlet_id"] == "debate-quickstart-1"
         assert store_payload["checksum"] == "abc123def4567890"
+        assert store_payload["receipt"]["id"] == "debate-quickstart-1"
+        assert store_payload["receipt"]["artifact_hash"] == "abc123def4567890"
         assert store_payload["verdict"] == "PASS"
 
     def test_no_keys_fall_back_to_demo_and_report_demo_artifact(
