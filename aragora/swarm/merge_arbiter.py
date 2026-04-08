@@ -34,7 +34,7 @@ class MergeArbiterConfig:
     """Configuration for the merge arbiter polling loop."""
 
     repo: str = "synaptent/aragora"
-    branch_prefixes: list[str] = field(default_factory=lambda: ["boss-harvest", "codex/"])
+    branch_prefixes: list[str] = field(default_factory=lambda: ["boss-harvest"])
     poll_interval_seconds: float = 120.0
     max_runtime_hours: float = 12.0
     max_consecutive_failures: int = 3
@@ -73,6 +73,23 @@ class ArbiterSummary:
         }
 
 
+def _classify_required_checks(
+    checks: dict[str, str],
+    *,
+    required_checks: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Split required checks into missing and failing buckets."""
+    missing: list[str] = []
+    failing: list[str] = []
+    for name in required_checks or REQUIRED_CHECKS:
+        status = checks.get(name)
+        if status is None:
+            missing.append(name)
+        elif status != "SUCCESS":
+            failing.append(f"{name}={status}")
+    return missing, failing
+
+
 def _run_gh(args: list[str], *, timeout: float = 30.0) -> subprocess.CompletedProcess[str]:
     """Run a ``gh`` CLI command and return the result."""
     return subprocess.run(
@@ -94,7 +111,7 @@ def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
             "--state",
             "open",
             "--json",
-            "number,headRefName,isDraft",
+            "number,headRefName,headRefOid,isDraft",
             "--limit",
             "100",
         ]
@@ -141,38 +158,21 @@ def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
     return {c["name"]: c.get("state", "").upper() for c in checks if "name" in c}
 
 
-def _promote_draft(pr_number: int, repo: str) -> bool:
-    """Convert a draft PR to ready-for-review."""
-    result = _run_gh(
-        [
-            "pr",
-            "ready",
-            str(pr_number),
-            "--repo",
-            repo,
-        ]
-    )
-    if result.returncode != 0:
-        logger.warning("Failed to promote draft PR #%d: %s", pr_number, result.stderr.strip())
-        return False
-    logger.info("Promoted draft PR #%d to ready", pr_number)
-    return True
-
-
-def _merge_pr(pr_number: int, repo: str) -> tuple[bool, str]:
+def _merge_pr(pr_number: int, repo: str, head_sha: str | None) -> tuple[bool, str]:
     """Squash-merge a PR with admin override.  Returns (success, reason)."""
-    result = _run_gh(
-        [
-            "pr",
-            "merge",
-            str(pr_number),
-            "--repo",
-            repo,
-            "--admin",
-            "--squash",
-            "--delete-branch",
-        ]
-    )
+    args = [
+        "pr",
+        "merge",
+        str(pr_number),
+        "--repo",
+        repo,
+        "--admin",
+        "--squash",
+        "--delete-branch",
+    ]
+    if head_sha:
+        args.extend(["--match-head-commit", head_sha])
+    result = _run_gh(args)
     if result.returncode != 0:
         reason = result.stderr.strip() or "unknown error"
         return False, reason
@@ -183,26 +183,17 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
     """Evaluate a single PR and merge it if all required checks pass."""
     pr_number: int = pr["number"]
     branch: str = pr.get("headRefName", "")
+    head_sha = pr.get("headRefOid")
     is_draft: bool = pr.get("isDraft", False)
 
     if is_draft:
-        if not _promote_draft(pr_number, config.repo):
-            return MergeResult(pr_number, branch, False, "failed to promote draft")
-        # After promoting, checks may not have run yet -- skip this cycle
-        return MergeResult(pr_number, branch, False, "promoted from draft, waiting for checks")
+        return MergeResult(pr_number, branch, False, "draft PR requires manual promotion")
 
     checks = _get_check_status(pr_number, config.repo)
     if not checks:
         return MergeResult(pr_number, branch, False, "no checks found")
 
-    missing = []
-    failing = []
-    for name in REQUIRED_CHECKS:
-        status = checks.get(name)
-        if status is None:
-            missing.append(name)
-        elif status != "SUCCESS":
-            failing.append(f"{name}={status}")
+    missing, failing = _classify_required_checks(checks)
 
     if missing:
         return MergeResult(pr_number, branch, False, f"missing checks: {', '.join(missing)}")
@@ -214,7 +205,7 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
         logger.info("[dry-run] Would merge PR #%d (%s)", pr_number, branch)
         return MergeResult(pr_number, branch, True, "dry-run: would merge")
 
-    ok, reason = _merge_pr(pr_number, config.repo)
+    ok, reason = _merge_pr(pr_number, config.repo, head_sha)
     if ok:
         logger.info("Merged PR #%d (%s)", pr_number, branch)
     else:
