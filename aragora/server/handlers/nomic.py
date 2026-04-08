@@ -662,10 +662,24 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             body, error = self._read_json_object_body(handler)
             if error:
                 return error
+            error = self._validate_body_fields(
+                body,
+                {
+                    "cycles": "int",
+                    "max_cycles": "int",
+                    "auto_approve": "bool",
+                    "dry_run": "bool",
+                },
+            )
+            if error:
+                return error
             return self._start_nomic_loop(body)
 
         if path == "/api/v1/nomic/control/stop":
             body, error = self._read_json_object_body(handler)
+            if error:
+                return error
+            error = self._validate_body_fields(body, {"graceful": "bool"})
             if error:
                 return error
             return self._stop_nomic_loop(body)
@@ -680,27 +694,109 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             return self._skip_phase()
 
         if path == "/api/v1/nomic/proposals/approve":
-            body, error = self._read_json_object_body(handler)
+            body, error = self._read_json_object_body(handler, allow_empty=False)
+            if error:
+                return error
+            error = self._validate_body_fields(
+                body,
+                {
+                    "proposal_id": "required_string",
+                    "approved_by": "string",
+                },
+            )
             if error:
                 return error
             return self._approve_proposal(body)
 
         if path == "/api/v1/nomic/proposals/reject":
-            body, error = self._read_json_object_body(handler)
+            body, error = self._read_json_object_body(handler, allow_empty=False)
+            if error:
+                return error
+            error = self._validate_body_fields(
+                body,
+                {
+                    "proposal_id": "required_string",
+                    "rejected_by": "string",
+                    "reason": "string",
+                },
+            )
             if error:
                 return error
             return self._reject_proposal(body)
 
         return None
 
-    def _read_json_object_body(self, handler: Any) -> tuple[dict[str, Any], HandlerResult | None]:
+    def _read_json_object_body(
+        self, handler: Any, *, allow_empty: bool = True
+    ) -> tuple[dict[str, Any], HandlerResult | None]:
         """Read a request body and require a JSON object payload."""
-        body = self.read_json_body(handler)
-        if body is None:
-            return {}, None
+        try:
+            content_length = int(handler.headers.get("Content-Length", "0"))
+        except (AttributeError, TypeError, ValueError):
+            return {}, error_response("Content-Length header must be a valid integer", 400)
+
+        if content_length < 0:
+            return {}, error_response("Content-Length header must be non-negative", 400)
+
+        if content_length == 0:
+            if allow_empty:
+                return {}, None
+            return {}, error_response("Request body is required", 400)
+
+        try:
+            raw_body = handler.rfile.read(content_length)
+        except OSError:
+            logger.warning("Failed to read nomic request body", exc_info=True)
+            return {}, error_response("Failed to read request body", 400)
+
+        if not raw_body.strip():
+            if allow_empty:
+                return {}, None
+            return {}, error_response("Request body is required", 400)
+
+        try:
+            body = json.loads(raw_body.decode("utf-8"))
+        except UnicodeDecodeError:
+            return {}, error_response("Request body must be valid UTF-8 JSON", 400)
+        except json.JSONDecodeError:
+            return {}, error_response("Request body must be valid JSON", 400)
+
         if not isinstance(body, dict):
             return {}, error_response("Request body must be a JSON object", 400)
         return cast(dict[str, Any], body), None
+
+    def _validate_body_fields(
+        self, body: dict[str, Any], schema: dict[str, str]
+    ) -> HandlerResult | None:
+        """Validate supported body fields and reject malformed payloads early."""
+        unexpected_fields = sorted(set(body) - set(schema))
+        if unexpected_fields:
+            label = "field" if len(unexpected_fields) == 1 else "fields"
+            return error_response(
+                f"Unexpected request {label}: {', '.join(unexpected_fields)}",
+                400,
+            )
+
+        for field_name, field_type in schema.items():
+            if field_name not in body:
+                continue
+
+            if field_type == "bool":
+                _, error = self._get_bool_body_field(body, field_name, default=False)
+            elif field_type == "int":
+                _, error = self._get_int_body_field(body, field_name, default=0)
+            elif field_type == "string":
+                _, error = self._get_string_body_field(body, field_name, default="")
+            elif field_type == "required_string":
+                _, error = self._get_required_string_body_field(body, field_name)
+            else:
+                logger.error("Unsupported nomic body schema type: %s", field_type)
+                return error_response("Server misconfiguration for request validation", 500)
+
+            if error:
+                return error
+
+        return None
 
     def _get_bool_body_field(
         self, body: dict[str, Any], field_name: str, *, default: bool
