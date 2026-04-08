@@ -749,13 +749,49 @@ def _build_runner_probe_payload(
 
 
 def _render_tranche_queue_status(payload: dict[str, object]) -> None:
+    elapsed = _format_elapsed_seconds(payload.get("elapsed_seconds"))
     print(
-        "queue_id={queue_id} status={status} current_item_id={current_item_id}".format(
+        "queue_id={queue_id} status={status} current_item_id={current_item_id} elapsed={elapsed}".format(
             queue_id=payload.get("queue_id", ""),
             status=payload.get("status", ""),
             current_item_id=payload.get("current_item_id", "") or "none",
+            elapsed=elapsed,
         )
     )
+    stop_reason = str(payload.get("stop_reason", "") or "").strip()
+    if stop_reason:
+        print(f"stop_reason={stop_reason}")
+    counts = payload.get("counts", {})
+    if isinstance(counts, dict):
+        counts_text = ", ".join(
+            f"{key}={value}" for key, value in sorted(counts.items()) if int(value or 0) > 0
+        )
+        if counts_text:
+            print(f"counts={counts_text}")
+    terminal_counts = payload.get("terminal_counts", {})
+    if isinstance(terminal_counts, dict):
+        terminal_text = ", ".join(
+            f"{key}={value}"
+            for key, value in sorted(terminal_counts.items())
+            if int(value or 0) > 0
+        )
+        if terminal_text:
+            print(f"terminal_counts={terminal_text}")
+    current_item = payload.get("current_item", {})
+    if isinstance(current_item, dict) and str(current_item.get("item_id", "")).strip():
+        blocker = str(current_item.get("blocking_question", "") or "").strip()
+        pr_urls = [
+            str(pr_url).strip() for pr_url in current_item.get("pr_urls", []) if str(pr_url).strip()
+        ]
+        print(
+            "current_item next_action={next_action} status={status} pr_urls={pr_urls}".format(
+                next_action=str(current_item.get("next_action", "")).strip() or "-",
+                status=str(current_item.get("status", "")).strip() or "-",
+                pr_urls=", ".join(pr_urls) if pr_urls else "-",
+            )
+        )
+        if blocker:
+            print(f"current_item_blocker={blocker}")
     rows: list[dict[str, object]] = []
     for item in [entry for entry in payload.get("items", []) if isinstance(entry, dict)]:
         worker_branches = [

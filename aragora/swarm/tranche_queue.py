@@ -806,11 +806,13 @@ class TrancheQueueRunState:
     item_states: dict[str, TrancheQueueItemRunState] = field(default_factory=dict)
 
     def ensure_manifest(self, manifest: TrancheQueueManifest) -> None:
+        changed = False
         for item in manifest.items:
-            self.item_states.setdefault(
-                item.item_id, TrancheQueueItemRunState(item_id=item.item_id)
-            )
-        self.updated_at = _utcnow()
+            if item.item_id not in self.item_states:
+                self.item_states[item.item_id] = TrancheQueueItemRunState(item_id=item.item_id)
+                changed = True
+        if changed:
+            self.updated_at = _utcnow()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1361,6 +1363,97 @@ def _queue_item_elapsed_seconds(
     return max(0.0, (end_time - item_state.started_at).total_seconds())
 
 
+def _queue_elapsed_seconds(
+    state: TrancheQueueRunState,
+    *,
+    now: datetime,
+) -> float | None:
+    if state.started_at is None:
+        return None
+    end_time = state.finished_at or state.updated_at or now
+    return max(0.0, (end_time - state.started_at).total_seconds())
+
+
+def _queue_terminal_counts(counts: dict[str, int]) -> dict[str, int]:
+    return {
+        status: counts.get(status, 0)
+        for status in (
+            QUEUE_ITEM_STATUS_COMPLETED,
+            QUEUE_ITEM_STATUS_NEEDS_HUMAN,
+            QUEUE_ITEM_STATUS_STOPPED,
+        )
+        if counts.get(status, 0)
+    }
+
+
+def _queue_item_status_payload(
+    *,
+    item: TrancheQueueItem,
+    item_state: TrancheQueueItemRunState,
+    artifact_store: TrancheArtifactStore,
+    now: datetime,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    pr_urls = list(dict.fromkeys(item_state.pr_urls))
+    worker_branches = _queue_item_worker_branches(item_state, artifact_store=artifact_store)
+    payload: dict[str, Any] = {
+        "item_id": item.item_id,
+        "kind": item.kind,
+        "source": item.source,
+        "work_class": _classify_queue_item_work_class(item),
+        "status": item_state.status,
+        "phase": item_state.phase,
+        "next_action": _queue_item_next_action(item_state),
+        "merge_class": item.merge_class,
+        "intake_path": item_state.intake_path,
+        "normalized_bundle_path": item_state.normalized_bundle_path,
+        "requested_autonomy_mode": item_state.requested_autonomy_mode,
+        "effective_autonomy_mode": item_state.effective_autonomy_mode,
+        "manifest_id": item_state.manifest_id,
+        "manifest_path": item_state.manifest_path,
+        "inspection_path": item_state.inspection_path,
+        "submission_status": item_state.submission_status,
+        "inspection_status": item_state.inspection_status,
+        "recommended_action": item_state.recommended_action,
+        "design_review_recommendation": item_state.design_review_recommendation,
+        "design_review_path": item_state.design_review_path,
+        "tranche_status": item_state.tranche_status,
+        "pr_url": pr_urls[0] if pr_urls else None,
+        "pr_urls": pr_urls,
+        "worker_branch": worker_branches[0] if len(worker_branches) == 1 else None,
+        "worker_branches": worker_branches,
+        "findings": list(item_state.findings),
+        "stop_reason": item_state.stop_reason,
+        "blocked_reason": item_state.blocked_reason,
+        "blocking_question": item_state.blocking_question,
+        "blocking_lane_id": item_state.blocking_lane_id,
+        "elapsed_seconds": _queue_item_elapsed_seconds(item_state, now=now),
+        "started_at": item_state.started_at.isoformat() if item_state.started_at else None,
+        "phase_updated_at": item_state.phase_updated_at.isoformat()
+        if item_state.phase_updated_at
+        else None,
+        "updated_at": item_state.updated_at.isoformat() if item_state.updated_at else None,
+        "finished_at": item_state.finished_at.isoformat() if item_state.finished_at else None,
+    }
+    if extra:
+        payload.update(extra)
+    return payload
+
+
+def _queue_current_item_payload(
+    items: list[dict[str, Any]],
+    *,
+    current_item_id: str | None,
+) -> dict[str, Any] | None:
+    current = _optional_text(current_item_id)
+    if not current:
+        return None
+    for item in items:
+        if str(item.get("item_id", "")).strip() == current:
+            return dict(item)
+    return None
+
+
 def _design_review_blocking_question(payload: dict[str, Any]) -> str:
     unresolved = _string_list(payload.get("unresolved_assumptions"))
     if not unresolved and isinstance(payload.get("record"), dict):
@@ -1635,6 +1728,7 @@ class TrancheQueueExecutor:
         manifest = TrancheQueueManifest.load(self.queue_path)
         state = TrancheQueueRunState.load(self.state_path, manifest=manifest)
         artifact_store = TrancheArtifactStore(repo_root=self.repo_root)
+        now = _utcnow()
         try:
             store: DevCoordinationStore | None = DevCoordinationStore(repo_root=self.repo_root)
         except RuntimeError:
@@ -1711,44 +1805,16 @@ class TrancheQueueExecutor:
             else:
                 status = item_state.status
             items.append(
-                {
-                    "item_id": item.item_id,
-                    "kind": item.kind,
-                    "source": item.source,
-                    "status": status,
-                    "phase": item_state.phase,
-                    "merge_class": item.merge_class,
-                    "intake_path": item_state.intake_path,
-                    "normalized_bundle_path": item_state.normalized_bundle_path,
-                    "requested_autonomy_mode": item_state.requested_autonomy_mode,
-                    "effective_autonomy_mode": item_state.effective_autonomy_mode,
-                    "manifest_id": item_state.manifest_id,
-                    "manifest_path": item_state.manifest_path,
-                    "inspection_path": item_state.inspection_path,
-                    "submission_status": item_state.submission_status,
-                    "inspection_status": item_state.inspection_status,
-                    "recommended_action": item_state.recommended_action,
-                    "design_review_recommendation": item_state.design_review_recommendation,
-                    "tranche_status": tranche_status,
-                    "pr_urls": list(item_state.pr_urls),
-                    "findings": list(item_state.findings),
-                    "stop_reason": item_state.stop_reason,
-                    "blocked_reason": item_state.blocked_reason,
-                    "blocking_question": item_state.blocking_question,
-                    "blocking_lane_id": item_state.blocking_lane_id,
-                    "next_action": _queue_item_next_action(item_state),
-                    "started_at": (
-                        item_state.started_at.isoformat() if item_state.started_at else None
-                    ),
-                    "phase_updated_at": (
-                        item_state.phase_updated_at.isoformat()
-                        if item_state.phase_updated_at
-                        else None
-                    ),
-                    "finished_at": (
-                        item_state.finished_at.isoformat() if item_state.finished_at else None
-                    ),
-                }
+                _queue_item_status_payload(
+                    item=item,
+                    item_state=item_state,
+                    artifact_store=artifact_store,
+                    now=now,
+                    extra={
+                        "status": status,
+                        "tranche_status": tranche_status,
+                    },
+                )
             )
         running_items = [
             item_id
@@ -1760,6 +1826,21 @@ class TrancheQueueExecutor:
             for item_id, item_state in state.item_states.items()
             if item_state.status == QUEUE_ITEM_STATUS_PENDING
         ]
+        blocked_items = [
+            item.item_id
+            for item in manifest.items
+            if state.item_states[item.item_id].status == QUEUE_ITEM_STATUS_NEEDS_HUMAN
+        ]
+        blocked_items.extend(
+            item.item_id
+            for item in manifest.items
+            if state.item_states[item.item_id].status == QUEUE_ITEM_STATUS_STOPPED
+        )
+        preserve_blocked_stop = bool(blocked_items) and (
+            state.status == QUEUE_STATUS_STOPPED
+            or state.current_item_id in blocked_items
+            or state.stop_reason is not None
+        )
         if running_items:
             next_current = running_items[0]
             if state.current_item_id != next_current:
@@ -1779,6 +1860,27 @@ class TrancheQueueExecutor:
                 state.stop_reason = state.stop_reason or "driver_stopped"
                 state.finished_at = state.finished_at or _utcnow()
                 changed = True
+        elif preserve_blocked_stop:
+            next_current = (
+                state.current_item_id
+                if state.current_item_id in blocked_items
+                else blocked_items[0]
+            )
+            if state.current_item_id != next_current:
+                state.current_item_id = next_current
+                changed = True
+            if state.status != QUEUE_STATUS_STOPPED:
+                state.status = QUEUE_STATUS_STOPPED
+                changed = True
+            if not state.stop_reason:
+                state.stop_reason = state.item_states[next_current].stop_reason or "driver_stopped"
+                changed = True
+            if state.finished_at is None:
+                current_item_state = state.item_states[next_current]
+                state.finished_at = (
+                    current_item_state.finished_at or current_item_state.updated_at or _utcnow()
+                )
+                changed = True
         else:
             if state.current_item_id is not None:
                 state.current_item_id = None
@@ -1794,6 +1896,7 @@ class TrancheQueueExecutor:
         counts = {}
         for item_state in state.item_states.values():
             counts[item_state.status] = counts.get(item_state.status, 0) + 1
+        terminal_counts = _queue_terminal_counts(counts)
         return {
             "mode": "tranche-queue",
             "queue_id": manifest.queue_id,
@@ -1802,12 +1905,17 @@ class TrancheQueueExecutor:
             "status": state.status,
             "stop_reason": state.stop_reason,
             "current_item_id": state.current_item_id,
+            "current_item": _queue_current_item_payload(
+                items, current_item_id=state.current_item_id
+            ),
             "consecutive_failures": state.consecutive_failures,
             "created_at": state.created_at.isoformat(),
             "started_at": state.started_at.isoformat() if state.started_at else None,
             "updated_at": state.updated_at.isoformat(),
             "finished_at": state.finished_at.isoformat() if state.finished_at else None,
+            "elapsed_seconds": _queue_elapsed_seconds(state, now=now),
             "counts": counts,
+            "terminal_counts": terminal_counts,
             "items": items,
         }
 
@@ -2884,42 +2992,21 @@ def tranche_queue_status(
         item_state = state.item_states[item.item_id]
         counts[item_state.status] = counts.get(item_state.status, 0) + 1
         phase_counts[item_state.phase] = phase_counts.get(item_state.phase, 0) + 1
-        pr_urls = list(dict.fromkeys(item_state.pr_urls))
-        worker_branches = _queue_item_worker_branches(item_state, artifact_store=artifact_store)
         items.append(
-            {
-                "item_id": item.item_id,
-                "work_class": _classify_queue_item_work_class(item),
-                "status": item_state.status,
-                "phase": item_state.phase,
-                "next_action": _queue_item_next_action(item_state),
-                "pr_url": pr_urls[0] if pr_urls else None,
-                "pr_urls": pr_urls,
-                "worker_branch": worker_branches[0] if len(worker_branches) == 1 else None,
-                "worker_branches": worker_branches,
-                "manifest_path": item_state.manifest_path,
-                "normalized_bundle_path": item_state.normalized_bundle_path,
-                "inspection_path": item_state.inspection_path,
-                "design_review_path": item_state.design_review_path,
-                "submission_status": item_state.submission_status,
-                "inspection_status": item_state.inspection_status,
-                "recommended_action": item_state.recommended_action,
-                "blocked_reason": item_state.blocked_reason,
-                "blocking_question": item_state.blocking_question,
-                "design_review_recommendation": item_state.design_review_recommendation,
-                "admission": dict(item_state.result.get("admission", {}))
-                if isinstance(item_state.result.get("admission"), dict)
-                else None,
-                "elapsed_seconds": _queue_item_elapsed_seconds(item_state, now=now),
-                "started_at": item_state.started_at.isoformat() if item_state.started_at else None,
-                "phase_updated_at": item_state.phase_updated_at.isoformat()
-                if item_state.phase_updated_at
-                else None,
-                "finished_at": item_state.finished_at.isoformat()
-                if item_state.finished_at
-                else None,
-            }
+            _queue_item_status_payload(
+                item=item,
+                item_state=item_state,
+                artifact_store=artifact_store,
+                now=now,
+                extra={
+                    "admission": dict(item_state.result.get("admission", {}))
+                    if isinstance(item_state.result.get("admission"), dict)
+                    else None,
+                },
+            )
         )
+
+    terminal_counts = _queue_terminal_counts(counts)
 
     return {
         "mode": "tranche-queue-status",
@@ -2929,11 +3016,14 @@ def tranche_queue_status(
         "status": state.status,
         "stop_reason": state.stop_reason,
         "current_item_id": state.current_item_id,
+        "current_item": _queue_current_item_payload(items, current_item_id=state.current_item_id),
         "created_at": state.created_at.isoformat(),
         "started_at": state.started_at.isoformat() if state.started_at else None,
         "updated_at": state.updated_at.isoformat(),
         "finished_at": state.finished_at.isoformat() if state.finished_at else None,
+        "elapsed_seconds": _queue_elapsed_seconds(state, now=now),
         "counts": counts,
+        "terminal_counts": terminal_counts,
         "phase_counts": phase_counts,
         "items": items,
     }
@@ -3007,6 +3097,8 @@ def harvest_tranche_queue(
     state_path = queue_state_path_for_queue(resolved_queue_path)
     state = TrancheQueueRunState.load(state_path, manifest=manifest)
     github = GitHubControl(repo_root=resolved_repo_root)
+    artifact_store = TrancheArtifactStore(repo_root=resolved_repo_root)
+    now = _utcnow()
 
     pr_counts: dict[str, int] = {}
     executed_merges: list[dict[str, Any]] = []
@@ -3054,22 +3146,19 @@ def harvest_tranche_queue(
                 pr_counts["error"] = pr_counts.get("error", 0) + 1
             pr_records.append(pr_record)
 
-        item_record = {
-            "item_id": item.item_id,
-            "kind": item.kind,
-            "source": item.source,
-            "status": item_state.status,
-            "merge_class": item.merge_class,
-            "tranche_status": item_state.tranche_status,
-            "pr_urls": list(item_state.pr_urls),
-            "findings": list(item_state.findings),
-            "stop_reason": item_state.stop_reason,
-            "prs": pr_records,
-        }
+        item_record = _queue_item_status_payload(
+            item=item,
+            item_state=item_state,
+            artifact_store=artifact_store,
+            now=now,
+            extra={"prs": pr_records},
+        )
         item_record["summary_outcome"] = _harvest_item_outcome(item_record)
         items.append(item_record)
 
     summary = _harvest_summary(items)
+    counts = dict(reconciled.get("counts") or {})
+    terminal_counts = dict(reconciled.get("terminal_counts") or _queue_terminal_counts(counts))
 
     return {
         "mode": "tranche-queue-harvest",
@@ -3079,7 +3168,10 @@ def harvest_tranche_queue(
         "status": state.status,
         "stop_reason": state.stop_reason,
         "current_item_id": state.current_item_id,
-        "counts": dict(reconciled.get("counts") or {}),
+        "current_item": _queue_current_item_payload(items, current_item_id=state.current_item_id),
+        "elapsed_seconds": _queue_elapsed_seconds(state, now=now),
+        "counts": counts,
+        "terminal_counts": terminal_counts,
         "pr_counts": pr_counts,
         "summary": summary,
         "execute_merge": bool(execute_merge),

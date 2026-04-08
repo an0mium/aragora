@@ -7,7 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from aragora.cli.commands.swarm import _render_tranche_queue_harvest_table
+from aragora.cli.commands.swarm import (
+    _render_tranche_queue_harvest_table,
+    _render_tranche_queue_status,
+)
 from aragora.swarm.tranche_queue import (
     QUEUE_ITEM_PHASE_APPROVED,
     QUEUE_ITEM_PHASE_EXPLORED,
@@ -370,6 +373,41 @@ def test_render_harvest_queue_summary_table_prints_counts(
     }
 
 
+def test_render_tranche_queue_status_prints_terminal_truth(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _render_tranche_queue_status(
+        {
+            "queue_id": "overnight",
+            "status": "stopped",
+            "current_item_id": "intake-docs",
+            "elapsed_seconds": 95.0,
+            "stop_reason": "driver_stopped",
+            "counts": {"completed": 1, "needs_human": 1, "pending": 1},
+            "terminal_counts": {"completed": 1, "needs_human": 1},
+            "current_item": {
+                "item_id": "intake-docs",
+                "status": "needs_human",
+                "next_action": "stop_and_replan",
+                "blocking_question": "What should be fixed before this lane is rerun?",
+                "pr_urls": ["https://example.test/pr/42"],
+            },
+            "items": [],
+        }
+    )
+
+    output = capsys.readouterr().out
+    assert "queue_id=overnight status=stopped current_item_id=intake-docs elapsed=1m 35s" in output
+    assert "stop_reason=driver_stopped" in output
+    assert "counts=completed=1, needs_human=1, pending=1" in output
+    assert "terminal_counts=completed=1, needs_human=1" in output
+    assert (
+        "current_item next_action=stop_and_replan status=needs_human pr_urls=https://example.test/pr/42"
+        in output
+    )
+    assert "current_item_blocker=What should be fixed before this lane is rerun?" in output
+
+
 def test_tranche_queue_status_reads_pr_url_branch_and_elapsed(tmp_path: Path) -> None:
     queue_path = tmp_path / "overnight.yaml"
     manifest = _write_queue(queue_path)
@@ -385,6 +423,7 @@ def test_tranche_queue_status_reads_pr_url_branch_and_elapsed(tmp_path: Path) ->
         updated_at=finished_at,
     )
     state.ensure_manifest(manifest)
+    state.updated_at = finished_at
     state.item_states["issue-1046"] = TrancheQueueItemRunState(
         item_id="issue-1046",
         status=QUEUE_ITEM_STATUS_COMPLETED,
@@ -427,6 +466,9 @@ def test_tranche_queue_status_reads_pr_url_branch_and_elapsed(tmp_path: Path) ->
         "completed": 1,
         "pending": 2,
     }
+    assert payload["terminal_counts"] == {"completed": 1}
+    assert payload["elapsed_seconds"] == 300.0
+    assert payload["current_item"] is None
     issue = next(item for item in payload["items"] if item["item_id"] == "issue-1046")
     assert issue["phase"] == QUEUE_ITEM_PHASE_EXPLORED
     assert issue["next_action"] is None
@@ -1791,7 +1833,88 @@ def test_reconcile_queue_reports_truthful_counts(tmp_path: Path) -> None:
     assert payload["stop_reason"] == "driver_stopped"
     assert payload["current_item_id"] is None
     assert payload["counts"] == {"completed": 1, "needs_human": 1, "pending": 1}
+    assert payload["terminal_counts"] == {"completed": 1, "needs_human": 1}
     assert payload["items"][1]["findings"] == ["Missing source material."]
+
+
+def test_tranche_queue_status_surfaces_current_item_truth(tmp_path: Path) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    manifest = _write_queue(queue_path)
+    started_at = datetime(2026, 3, 20, 12, 0, tzinfo=timezone.utc)
+    updated_at = started_at + timedelta(minutes=2)
+    state = TrancheQueueRunState(
+        queue_id=manifest.queue_id,
+        status=QUEUE_STATUS_STOPPED,
+        current_item_id="intake-docs",
+        stop_reason="driver_stopped",
+        started_at=started_at,
+        updated_at=updated_at,
+    )
+    state.ensure_manifest(manifest)
+    state.updated_at = updated_at
+    state.item_states["issue-1046"] = TrancheQueueItemRunState(
+        item_id="issue-1046",
+        status=QUEUE_ITEM_STATUS_COMPLETED,
+    )
+    state.item_states["intake-docs"] = TrancheQueueItemRunState(
+        item_id="intake-docs",
+        status=QUEUE_ITEM_STATUS_NEEDS_HUMAN,
+        phase=QUEUE_ITEM_PHASE_EXPLORED,
+        stop_reason="preflight_blocked",
+        blocked_reason="stop_and_replan",
+        blocking_question="Which prerequisite should be fixed before rerunning this item?",
+        pr_urls=["https://example.test/pr/9"],
+        started_at=started_at,
+        updated_at=updated_at,
+    )
+    state.item_states["issue-1047"] = TrancheQueueItemRunState(
+        item_id="issue-1047",
+        status=QUEUE_ITEM_STATUS_STOPPED,
+        stop_reason="processing_error",
+    )
+    state.save(queue_state_path_for_queue(queue_path))
+
+    payload = tranche_queue_status(queue_path=queue_path, repo_root=tmp_path)
+
+    assert payload["stop_reason"] == "driver_stopped"
+    assert payload["elapsed_seconds"] == 120.0
+    assert payload["terminal_counts"] == {
+        "completed": 1,
+        "needs_human": 1,
+        "stopped": 1,
+    }
+    current = payload["current_item"]
+    assert current is not None
+    assert current["item_id"] == "intake-docs"
+    assert current["status"] == QUEUE_ITEM_STATUS_NEEDS_HUMAN
+    assert (
+        current["blocking_question"]
+        == "Which prerequisite should be fixed before rerunning this item?"
+    )
+    assert current["pr_urls"] == ["https://example.test/pr/9"]
+    assert current["elapsed_seconds"] == 120.0
+
+
+def test_tranche_queue_status_nulls_stale_current_item_payload(tmp_path: Path) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    manifest = _write_queue(queue_path)
+    state = TrancheQueueRunState(
+        queue_id=manifest.queue_id,
+        status=QUEUE_STATUS_STOPPED,
+        current_item_id="missing",
+        stop_reason="driver_stopped",
+    )
+    state.ensure_manifest(manifest)
+    state.item_states["issue-1046"] = TrancheQueueItemRunState(
+        item_id="issue-1046",
+        status=QUEUE_ITEM_STATUS_COMPLETED,
+    )
+    state.save(queue_state_path_for_queue(queue_path))
+
+    payload = tranche_queue_status(queue_path=queue_path, repo_root=tmp_path)
+
+    assert payload["current_item_id"] == "missing"
+    assert payload["current_item"] is None
 
 
 def test_reconcile_queue_terminalizes_stale_running_item_and_stops_queue(
@@ -1940,6 +2063,70 @@ def test_reconcile_queue_surfaces_blocker_context_from_tranche_artifact(
     repaired = TrancheQueueRunState.load(queue_state_path_for_queue(queue_path), manifest=manifest)
     assert repaired.item_states["intake-docs"].blocked_reason == "required_checks_pending"
     assert repaired.item_states["intake-docs"].blocking_lane_id == "lane-a"
+
+
+def test_harvest_queue_preserves_needs_human_truth(
+    tmp_path: Path,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    manifest = _write_queue(queue_path)
+    started_at = datetime(2026, 3, 20, 12, 0, tzinfo=timezone.utc)
+    updated_at = started_at + timedelta(minutes=3)
+    state = TrancheQueueRunState(
+        queue_id=manifest.queue_id,
+        status=QUEUE_STATUS_STOPPED,
+        stop_reason="driver_stopped",
+        current_item_id="intake-docs",
+        started_at=started_at,
+        updated_at=updated_at,
+    )
+    state.ensure_manifest(manifest)
+    state.updated_at = updated_at
+    state.item_states["issue-1046"] = TrancheQueueItemRunState(
+        item_id="issue-1046",
+        status=QUEUE_ITEM_STATUS_COMPLETED,
+    )
+    state.item_states["intake-docs"] = TrancheQueueItemRunState(
+        item_id="intake-docs",
+        status=QUEUE_ITEM_STATUS_NEEDS_HUMAN,
+        phase=QUEUE_ITEM_PHASE_PLANNED,
+        stop_reason="awaiting_confirmation",
+        blocked_reason="design_review_awaiting_confirmation",
+        blocking_question="Can you confirm the design assumption before rerunning the lane?",
+        started_at=started_at,
+        updated_at=updated_at,
+    )
+    state.item_states["issue-1047"] = TrancheQueueItemRunState(
+        item_id="issue-1047",
+        status=QUEUE_ITEM_STATUS_STOPPED,
+        stop_reason="processing_error",
+    )
+    state.save(queue_state_path_for_queue(queue_path))
+
+    payload = harvest_tranche_queue(queue_path=queue_path, repo_root=tmp_path)
+
+    assert payload["status"] == QUEUE_STATUS_STOPPED
+    assert payload["stop_reason"] == "driver_stopped"
+    assert payload["current_item_id"] == "intake-docs"
+    assert payload["terminal_counts"] == {
+        "completed": 1,
+        "needs_human": 1,
+        "stopped": 1,
+    }
+    assert payload["elapsed_seconds"] == 180.0
+    current = payload["current_item"]
+    assert current is not None
+    assert current["item_id"] == "intake-docs"
+    intake = next(item for item in payload["items"] if item["item_id"] == "intake-docs")
+    assert intake["summary_outcome"] == "needs_human"
+    assert intake["stop_reason"] == "awaiting_confirmation"
+    assert intake["blocked_reason"] == "design_review_awaiting_confirmation"
+    assert (
+        intake["blocking_question"]
+        == "Can you confirm the design assumption before rerunning the lane?"
+    )
+    assert intake["pr_url"] is None
+    assert intake["pr_urls"] == []
 
 
 @pytest.mark.asyncio
