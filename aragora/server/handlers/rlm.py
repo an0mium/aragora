@@ -192,6 +192,23 @@ class RLMContextHandler(BaseHandler):
             return default, error_response(f"'{field_name}' must be at most {max_value}", 400)
         return value, None
 
+    def _require_context_id_field(
+        self,
+        body: dict[str, Any],
+        field_name: str = "context_id",
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate that a body field is a safe context identifier."""
+        context_id, context_id_error = self._require_string_field(body, field_name)
+        if context_id_error:
+            return None, context_id_error
+
+        from aragora.server.validation import SAFE_ID_PATTERN, validate_path_segment
+
+        is_valid, err = validate_path_segment(context_id, field_name, SAFE_ID_PATTERN)
+        if not is_valid:
+            return None, error_response(err or f"Invalid {field_name}", 400)
+        return context_id, None
+
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
         if path in self.ROUTES:
@@ -680,7 +697,7 @@ class RLMContextHandler(BaseHandler):
         if body_error:
             return body_error
 
-        context_id, context_id_error = self._require_string_field(body, "context_id")
+        context_id, context_id_error = self._require_context_id_field(body, "context_id")
         if context_id_error:
             return context_id_error
         query, query_error = self._require_string_field(body, "query")
@@ -1067,7 +1084,7 @@ class RLMContextHandler(BaseHandler):
         if body_error:
             return body_error
 
-        context_id, context_id_error = self._require_string_field(body, "context_id")
+        context_id, context_id_error = self._require_context_id_field(body, "context_id")
         if context_id_error:
             return context_id_error
 
