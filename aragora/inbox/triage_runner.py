@@ -125,6 +125,13 @@ def _result_consensus_reached(debate_result: Any, rationale: str) -> bool:
     raw_value = _result_field(debate_result, "consensus_reached", None)
     if raw_value is None:
         return bool(rationale.strip())
+    if isinstance(raw_value, str):
+        normalized = raw_value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off", ""}:
+            return False
+        return False
     return bool(raw_value)
 
 
@@ -1026,24 +1033,25 @@ class InboxTriageRunner:
                     "status": "insufficient_participation",
                 }
             except (RuntimeError, OSError, ValueError, TypeError) as exc:
-                logger.warning("Debate failed (%s), falling back to fast-tier", exc)
-                # Fall back to fast-tier rather than blocking — a single-model
-                # decision is better than no decision on escalated emails.
-                try:
-                    fast_fallback = await self._run_fast_tier_once(msg)
-                    fast_fallback["metadata"] = {
-                        **(fast_fallback.get("metadata") or {}),
-                        "debate_fallback": True,
+                logger.warning("Debate failed (%s), returning blocked triage result", exc)
+                record_triage_diagnostic(
+                    code="debate_runtime_error",
+                    severity=DiagnosticSeverity.BLOCKING,
+                    logger_name=__name__,
+                    summary="Escalated triage debate failed; returning blocked result.",
+                    details=str(exc)[:200],
+                    message_id=str(msg.get("id", "") or "") or None,
+                    tier=tier,
+                )
+                return {
+                    "final_answer": "",
+                    "confidence": 0.0,
+                    "debate_id": f"err-{uuid.uuid4().hex[:8]}",
+                    "status": "runtime_error",
+                    "metadata": {
                         "debate_error": str(exc)[:200],
-                    }
-                    return fast_fallback
-                except Exception:
-                    return {
-                        "final_answer": "",
-                        "confidence": 0.0,
-                        "debate_id": f"err-{uuid.uuid4().hex[:8]}",
-                        "status": "failed",
-                    }
+                    },
+                }
 
     async def _execute_action(self, decision: TriageDecision) -> None:
         """Execute an approved triage action via the Gmail connector.
