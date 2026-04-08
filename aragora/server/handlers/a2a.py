@@ -127,11 +127,13 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
     if not isinstance(data, dict):
         return False, "Request body must be a JSON object"
 
-    instruction = data.get("instruction")
-    if not instruction:
+    if "instruction" not in data:
         return False, "Missing required field: instruction"
+    instruction = data["instruction"]
     if not isinstance(instruction, str):
         return False, "instruction must be a string"
+    if not instruction.strip():
+        return False, "instruction must not be empty"
     if len(instruction) > MAX_INSTRUCTION_LENGTH:
         return False, f"instruction must be {MAX_INSTRUCTION_LENGTH} characters or less"
 
@@ -190,17 +192,22 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
         for i, ctx in enumerate(context):
             if not isinstance(ctx, dict):
                 return False, f"context[{i}] must be an object"
-            if "type" in ctx and not isinstance(ctx.get("type"), str):
+            if "type" not in ctx:
+                return False, f"context[{i}].type is required"
+            if not isinstance(ctx["type"], str):
                 return False, f"context[{i}].type must be a string"
-            if "content" in ctx:
-                content = ctx["content"]
-                if not isinstance(content, str):
-                    return False, f"context[{i}].content must be a string"
-                if len(content) > MAX_CONTEXT_CONTENT_LENGTH:
-                    return (
-                        False,
-                        f"context[{i}].content must be {MAX_CONTEXT_CONTENT_LENGTH} characters or less",
-                    )
+            if not ctx["type"].strip():
+                return False, f"context[{i}].type must not be empty"
+            if "content" not in ctx:
+                return False, f"context[{i}].content is required"
+            content = ctx["content"]
+            if not isinstance(content, str):
+                return False, f"context[{i}].content must be a string"
+            if len(content) > MAX_CONTEXT_CONTENT_LENGTH:
+                return (
+                    False,
+                    f"context[{i}].content must be {MAX_CONTEXT_CONTENT_LENGTH} characters or less",
+                )
             if "metadata" in ctx and not isinstance(ctx.get("metadata"), dict):
                 return False, f"context[{i}].metadata must be an object"
 
@@ -223,10 +230,18 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
     # Validate timeout_ms if provided
     if "timeout_ms" in data:
         timeout = data["timeout_ms"]
-        if not isinstance(timeout, int):
+        if isinstance(timeout, bool) or not isinstance(timeout, int):
             return False, "timeout_ms must be an integer"
         if timeout < 1000 or timeout > 3600000:  # 1 second to 1 hour
             return False, "timeout_ms must be between 1000 and 3600000"
+
+    # Validate deadline if provided
+    if "deadline" in data:
+        deadline = data["deadline"]
+        if not isinstance(deadline, str):
+            return False, "deadline must be a string"
+        if not deadline.strip():
+            return False, "deadline must not be empty"
 
     return True, None
 
@@ -391,16 +406,22 @@ class A2AHandler(BaseHandler):
             return error_response("Content-Type must be application/json", 415)
 
         try:
-            content_length = int(handler.headers.get("Content-Length", 0))
+            content_length_header = handler.headers.get("Content-Length", "0")
+            content_length = int(content_length_header)
+            if content_length < 0:
+                return error_response("Content-Length must be a non-negative integer", 400)
             if content_length > MAX_BODY_SIZE:
                 return error_response(
                     f"Request body too large. Maximum size is {MAX_BODY_SIZE} bytes", 413
                 )
             body = handler.rfile.read(content_length).decode("utf-8")
             data = json.loads(body) if body else {}
-        except (json.JSONDecodeError, ValueError):
+        except json.JSONDecodeError:
             logger.exception("Invalid JSON in task submission request")
             return error_response("Invalid request body", 400)
+        except ValueError:
+            logger.exception("Invalid Content-Length in task submission request")
+            return error_response("Content-Length must be a non-negative integer", 400)
         except UnicodeDecodeError:
             logger.exception("Invalid UTF-8 encoding in task submission request")
             return error_response("Request body must be valid UTF-8", 400)
