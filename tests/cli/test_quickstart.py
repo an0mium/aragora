@@ -36,6 +36,7 @@ from aragora.cli.commands.quickstart import (
 from aragora.cli.parser import build_parser
 from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
 from aragora.core import DebateResult
+from aragora.core_types import DebateStatus, DebateStatusSource
 from scripts.check_epistemic_hygiene import validate_receipt
 
 
@@ -423,6 +424,9 @@ class TestLiveQuickstartHelpers:
             confidence=0.82,
             consensus_reached=True,
             rounds_used=2,
+            status="consensus_reached",
+            debate_status=DebateStatus.COMPLETED.value,
+            debate_status_source=DebateStatusSource.LIVE.value,
             dissenting_views=["Timeline risk remains unresolved."],
             proposals={"alpha": "Ship it"},
             votes=[vote_for, vote_against],
@@ -442,6 +446,9 @@ class TestLiveQuickstartHelpers:
 
         assert receipt["receipt_id"] == "debate-123"
         assert receipt["artifact_hash"]
+        assert receipt["debate_status"] == DebateStatus.COMPLETED.value
+        assert receipt["debate_status_source"] == DebateStatusSource.LIVE.value
+        assert receipt["synthetic"] is False
         assert receipt["consensus_proof"]["reached"] is True
         assert receipt["consensus_proof"]["supporting_agents"] == ["alpha"]
         assert receipt["consensus_proof"]["dissenting_agents"] == ["beta"]
@@ -478,6 +485,7 @@ class TestLiveQuickstartHelpers:
         result = DebateResult(
             confidence=0.91,
             consensus_reached=True,
+            debate_status=DebateStatus.COMPLETED.value,
             dissenting_views=[],
             final_answer="Proceed with a phased rollout.",
             participants=["proposer", "critic", "synthesizer"],
@@ -548,6 +556,9 @@ class TestCmdQuickstart:
         result = await _run_demo_debate("Should we ship the fallback fix?", rounds=2)
 
         assert result["mode"] == "demo"
+        assert result["debate_status"] == DebateStatus.COMPLETED.value
+        assert result["debate_status_source"] == DebateStatusSource.SYNTHETIC.value
+        assert result["synthetic"] is True
         assert result["verdict"] == "consensus"
         assert result["confidence"] == 0.85
         assert result["agents"] == ["analyst", "critic", "synthesizer"]
@@ -1106,7 +1117,9 @@ class TestCmdQuickstart:
         assert "Receipt:    debate-quickstart-1" in output
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    def test_quickstart_persists_receipt_payload_to_store(self, tmp_path, monkeypatch):
+    def test_quickstart_persists_same_canonical_payload_to_artifact_and_store(
+        self, tmp_path, monkeypatch
+    ):
         monkeypatch.chdir(tmp_path)
         args = argparse.Namespace(
             question="Should we persist the quickstart receipt?",
@@ -1137,7 +1150,8 @@ class TestCmdQuickstart:
             "artifact_hash": "abc123def4567890",
             "consensus_proof": {"reached": True},
         }
-        mock_store = MagicMock()
+        mock_facade = MagicMock()
+        saved_artifact = tmp_path / "quickstart.json"
 
         with (
             patch(
@@ -1149,17 +1163,27 @@ class TestCmdQuickstart:
                 return_value=live_result,
             ),
             patch(
-                "aragora.storage.receipt_store.get_receipt_store",
-                return_value=mock_store,
+                "aragora.cli.commands.quickstart._save_receipt",
+                return_value=saved_artifact,
+            ) as save_receipt,
+            patch(
+                "aragora.pipeline.receipt_store_facade.get_receipt_store_facade",
+                return_value=mock_facade,
             ),
         ):
             cmd_quickstart(args)
 
-        mock_store.save.assert_called_once()
-        store_payload = mock_store.save.call_args.args[0]
+        save_receipt.assert_called_once()
+        mock_facade.persist_and_save.assert_called_once()
+        artifact_payload = save_receipt.call_args.args[0]
+        store_payload = mock_facade.persist_and_save.call_args.args[1]
+        assert artifact_payload == store_payload
         assert store_payload["receipt_id"] == "debate-quickstart-1"
         assert store_payload["debate_id"] == "debate-quickstart-1"
+        assert store_payload["gauntlet_id"] == "debate-quickstart-1"
         assert store_payload["checksum"] == "abc123def4567890"
+        assert store_payload["receipt"]["id"] == "debate-quickstart-1"
+        assert store_payload["receipt"]["artifact_hash"] == "abc123def4567890"
         assert store_payload["verdict"] == "PASS"
 
     def test_no_keys_fall_back_to_demo_and_report_demo_artifact(
@@ -1206,9 +1230,15 @@ class TestCmdQuickstart:
         assert artifact_path.exists()
         saved = json.loads(artifact_path.read_text())
         assert saved["mode"] == "demo"
+        assert saved["provider_path"]["blocked"] is True
+        assert saved["provider_path"]["config_present"] is False
+        assert saved["provider_path"]["live_ready"] is False
+        assert saved["provider_path"]["next_action"]
+        assert saved["fallback"]["label"] == "mock/simulated"
 
         output = capsys.readouterr().out
         assert "Falling back to demo mode" in output
+        assert "mock/simulated" in output
 
     def test_live_mode_falls_back_to_demo_on_tls_failure(self, capsys):
         """TLS/provider failures should fall back to demo mode, not exit."""
@@ -1255,6 +1285,66 @@ class TestCmdQuickstart:
         output = capsys.readouterr().out
         assert "Falling back to demo" in output
         assert "RESULT" in output  # Demo result was displayed
+
+    def test_configured_but_unreachable_provider_becomes_blocked_not_live_ready(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        monkeypatch.chdir(tmp_path)
+        args = argparse.Namespace(
+            question="Should the provider path stay truthful?",
+            demo=False,
+            provider=None,
+            api_key=None,
+            save_key=False,
+            output=None,
+            format="json",
+            json=False,
+            rounds=2,
+            no_browser=True,
+        )
+        demo_result = {
+            "question": args.question,
+            "verdict": "consensus",
+            "confidence": 0.71,
+            "rounds": 2,
+            "agents": ["analyst", "critic", "synthesizer"],
+            "summary": "Fallback was simulated rather than live.",
+            "dissent": [],
+            "mode": "demo",
+        }
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._detect_agents",
+                return_value=[("gemini", "gemini-2.0-flash")],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=AsyncMock(return_value=(False, "connection refused")),
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_demo_debate",
+                return_value=demo_result,
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._run_live_debate",
+            ) as mock_live_debate,
+        ):
+            cmd_quickstart(args)
+
+        mock_live_debate.assert_not_called()
+        artifact_path = tmp_path / ".aragora" / "receipts" / "quickstart-demo-receipt.json"
+        saved = json.loads(artifact_path.read_text())
+        assert saved["provider_path"]["blocked"] is True
+        assert saved["provider_path"]["config_present"] is True
+        assert saved["provider_path"]["live_ready"] is False
+        assert saved["provider_path"]["reason"] == "providers_unreachable"
+        assert saved["provider_path"]["next_action"]
+        assert saved["fallback"]["label"] == "mock/simulated"
+
+        output = capsys.readouterr().out
+        assert "Live provider path is blocked" in output
+        assert "mock/simulated" in output
 
     def test_live_mode_real_demo_fallback_survives_without_legacy_demo_package(
         self, tmp_path, monkeypatch, capsys

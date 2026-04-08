@@ -1,6 +1,6 @@
 # Connector Status Matrix
 
-Last updated: 2026-02-23
+Last updated: 2026-04-07
 
 ## Summary
 
