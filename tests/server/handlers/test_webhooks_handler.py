@@ -545,6 +545,26 @@ class TestWebhookHandlerRegister:
         assert result.status_code == 400
         assert b"list of strings" in result.body.lower()
 
+    @pytest.mark.asyncio
+    async def test_register_webhook_rejects_nonstring_name(self, webhook_handler):
+        """Registration must reject malformed non-string webhook names."""
+        body = json.dumps(
+            {
+                "url": "https://example.com",
+                "events": ["debate_start"],
+                "name": False,
+            }
+        ).encode()
+        handler = MockHandler(
+            headers={"Content-Length": str(len(body)), "Content-Type": "application/json"},
+            body=body,
+        )
+
+        result = await webhook_handler.handle_post("/api/v1/webhooks", {}, handler)
+
+        assert result.status_code == 400
+        assert b"name must be a string" in result.body.lower()
+
 
 class TestWebhookHandlerList:
     """Tests for GET /api/webhooks endpoint."""
@@ -948,6 +968,24 @@ class TestWebhookHandlerUpdate:
 
         assert result.status_code == 400
         assert b"active must be a boolean" in result.body.lower()
+
+    def test_update_webhook_rejects_nonstring_description(self, webhook_handler, server_context):
+        """PATCH must not persist malformed non-string descriptions."""
+        store = server_context["webhook_store"]
+        webhook = store.register(
+            url="https://example.com", events=["debate_start"], user_id="test-user-001"
+        )
+
+        body = json.dumps({"description": {"nested": "value"}}).encode()
+        handler = MockHandler(
+            headers={"Content-Length": str(len(body)), "Content-Type": "application/json"},
+            body=body,
+        )
+
+        result = webhook_handler.handle_patch(f"/api/v1/webhooks/{webhook.id}", {}, handler)
+
+        assert result.status_code == 400
+        assert b"description must be a string" in result.body.lower()
 
     def test_update_webhook_hides_workspace_mismatch(self, server_context):
         from aragora.server.handlers.webhooks import WebhookHandler
