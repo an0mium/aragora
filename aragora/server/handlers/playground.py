@@ -38,6 +38,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
 
+from aragora.agents.errors import AgentError
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -94,6 +95,38 @@ _LANDING_EVENT_TYPE_ORDER = (
 )
 _LANDING_EVENT_TYPES = set(_LANDING_EVENT_TYPE_ORDER)
 _LANDING_REVIEW_STATUSES = frozenset({"pending", "reviewed", "resolved", "dismissed"})
+
+
+def _ensure_unique_public_share_id(response: dict[str, Any]) -> str:
+    """Keep public playground share IDs immutable across persisted results.
+
+    Public playground callers may provide a debate ID early so the frontend can
+    bind spectate context before the HTTP response returns. That ID must not be
+    allowed to replace an already-persisted public debate. If the requested ID
+    is already in use, mint a fresh server-side ID for persistence and return it
+    in the response instead.
+    """
+    debate_id = str(response.get("id", "") or "").strip() or uuid.uuid4().hex[:16]
+
+    try:
+        from aragora.storage.debate_store import DebateResultStore, get_debate_store
+
+        store = get_debate_store()
+        if isinstance(store, DebateResultStore):
+            original_id = debate_id
+            while store.get(debate_id) is not None:
+                debate_id = uuid.uuid4().hex[:16]
+            if debate_id != original_id:
+                logger.warning(
+                    "Rejected colliding public playground debate id %s; issued %s instead",
+                    original_id,
+                    debate_id,
+                )
+    except (ImportError, OSError, RuntimeError, ValueError):
+        logger.debug("Could not verify public debate id uniqueness", exc_info=True)
+
+    response["id"] = debate_id
+    return debate_id
 
 
 def _check_rate_limit(
@@ -2075,6 +2108,52 @@ def _build_tentacle_prompt(
     return f"{context}{summary_block}\n\nYOUR ROLE: {role_prompt}\n\nThe question: {question}"
 
 
+def _assess_proposal_consensus(
+    question: str,
+    proposals: dict[str, str],
+) -> tuple[bool, float]:
+    """Assess whether agent proposals reached consensus using a frontier model.
+
+    Returns (consensus_reached, confidence) where confidence is 0.0-1.0.
+    On failure, falls back to a simple heuristic: consensus if 2+ proposals exist.
+    """
+    if len(proposals) < 2:
+        return False, 0.0
+
+    prompt = (
+        "You are evaluating whether multiple AI agents reached consensus on a question.\n\n"
+        f"Question: {question}\n\n"
+    )
+    for agent, text in proposals.items():
+        prompt += f"{agent}: {text[:400]}\n\n"
+    prompt += (
+        "Do the agents substantially agree on the answer? "
+        "Respond with JSON only: "
+        '{"consensus": true/false, "confidence": 0.0-1.0, "verdict": "agree|disagree|partial"}\n'
+        "JSON:"
+    )
+
+    try:
+        import re as _re
+
+        handler = PlaygroundHandler.__new__(PlaygroundHandler)
+        raw = handler._call_frontier_model(prompt, timeout=5.0)
+        json_match = _re.search(r"\{.*\}", raw, _re.DOTALL)
+        if json_match:
+            parsed = json.loads(json_match.group())
+        else:
+            parsed = json.loads(raw)
+
+        reached = bool(parsed.get("consensus", False))
+        conf = float(parsed.get("confidence", 0.0))
+        conf = max(0.0, min(1.0, conf))  # clamp
+        return reached, conf
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Consensus assessment failed, using heuristic: %s", exc)
+        # Fallback: if 2+ agents responded, assume moderate agreement
+        return len(proposals) >= 2, 0.7
+
+
 def _try_oracle_tentacles(
     mode: str,
     question: str,
@@ -2189,13 +2268,17 @@ def _try_oracle_tentacles(
                 "code": "landing_preview_needs_clarification",
                 "is_live": False,
             }
-    consensus_reached = False if is_landing_preview else len(results) >= 2
-    confidence = 0.0 if is_landing_preview else 0.7
+    # Assess consensus from proposals using frontier model intelligence
+    consensus_reached, confidence = _assess_proposal_consensus(
+        question,
+        results,
+    )
+    verdict_label = "consensus_reached" if consensus_reached else "needs_review"
     debate_id = client_debate_id or uuid.uuid4().hex[:16]
     now_iso = datetime.now(timezone.utc).isoformat()
     receipt_id = f"LV-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{uuid.uuid4().hex[:6]}"
     receipt_hash = hashlib.sha256(
-        f"{receipt_id}:{question}:needs_review:{confidence}".encode()
+        f"{receipt_id}:{question}:{verdict_label}:{confidence}".encode()
     ).hexdigest()
 
     payload: dict[str, Any] = {
@@ -2205,7 +2288,7 @@ def _try_oracle_tentacles(
         "rounds_used": 1,
         "consensus_reached": consensus_reached,
         "confidence": confidence,
-        "verdict": "needs_review",
+        "verdict": verdict_label,
         "duration_seconds": round(duration, 3),
         "participants": participants,
         "proposals": results,
@@ -2217,11 +2300,11 @@ def _try_oracle_tentacles(
         "receipt": {
             "receipt_id": receipt_id,
             "question": question,
-            "verdict": "needs_review",
+            "verdict": verdict_label,
             "confidence": confidence,
             "consensus": {
                 "reached": consensus_reached,
-                "method": "landing_preview" if is_landing_preview else "multi_perspective",
+                "method": "frontier_model_assessment",
                 "confidence": confidence,
                 "supporting_agents": participants,
                 "dissenting_agents": [],
@@ -2417,11 +2500,12 @@ def _persist_playground_debate(response: dict[str, Any]) -> None:
     Non-fatal: if persistence fails, the debate still works but won't
     have a shareable link.
     """
+    debate_id = _ensure_unique_public_share_id(response)
+
     try:
         from aragora.persistence.repositories.debate import DebateEntity, DebateRepository
 
         topic = response.get("topic", "debate")
-        debate_id = response.get("id", uuid.uuid4().hex[:16])
 
         # Generate URL-friendly slug
         slug_base = re.sub(r"[^a-z0-9]+", "-", topic[:60].lower()).strip("-")
@@ -2450,7 +2534,7 @@ def _persist_playground_debate(response: dict[str, Any]) -> None:
     try:
         from aragora.storage.debate_store import get_debate_store
 
-        store_debate_id = response.get("id", uuid.uuid4().hex[:16])
+        store_debate_id = response.get("id", debate_id)
         store_topic = response.get("topic", "debate")
         store_source = response.get("source", "playground")
         store = get_debate_store()
@@ -2756,7 +2840,10 @@ class PlaygroundHandler(BaseHandler):
             content_type="audio/mpeg",
             body=audio_bytes,
             headers={
-                "Cache-Control": "public, max-age=3600",
+                # User-supplied speech can contain sensitive content and should
+                # never be retained by shared caches.
+                "Cache-Control": "private, no-store, max-age=0",
+                "Pragma": "no-cache",
             },
         )
 
@@ -2820,6 +2907,10 @@ class PlaygroundHandler(BaseHandler):
         # Client-provided debate ID — allows the frontend to subscribe to
         # spectate WebSocket events *before* the HTTP POST returns.
         client_debate_id = str(body.get("debate_id", "") or "").strip() or None
+        if client_debate_id and (
+            len(str(client_debate_id)) > 64 or not str(client_debate_id).isascii()
+        ):
+            client_debate_id = None
 
         try:
             rounds = int(body.get("rounds", _DEFAULT_ROUNDS))
@@ -2992,11 +3083,16 @@ class PlaygroundHandler(BaseHandler):
         if not question:
             return json_response({"type": "ready", "option": self._build_ready_option("")})
 
-        # Rate limit: reuse the existing per-IP check (10 per 60s for assess)
+        if len(question) > _MAX_TOPIC_LENGTH:
+            return json_response(
+                {"type": "ready", "option": self._build_ready_option(question[:200])}
+            )
+
+        # Rate limit: reuse the existing per-IP check (5 per 60s for assess)
         client_ip = _extract_client_ip(handler)
         allowed, retry_after = _check_rate_limit(
             f"assess:{client_ip}",
-            limit=10,
+            limit=5,
             window=60.0,
         )
         if not allowed:
@@ -3171,7 +3267,14 @@ class PlaygroundHandler(BaseHandler):
 
         try:
             return self._call_frontier_model(prompt, timeout=5.0)
-        except (TimeoutError, OSError, RuntimeError, ConnectionError, ValueError) as exc:
+        except (
+            AgentError,
+            TimeoutError,
+            OSError,
+            RuntimeError,
+            ConnectionError,
+            ValueError,
+        ) as exc:
             logger.debug("TL;DR synthesis failed, using fallback: %s", exc)
 
         # Fallback: extract first sentence from fallback_text
@@ -3363,6 +3466,7 @@ class PlaygroundHandler(BaseHandler):
             data = _normalize_public_debate_payload(json.loads(body_bytes.decode("utf-8")))
             debate_id = data.get("id", "")
             if debate_id:
+                debate_id = _ensure_unique_public_share_id(data)
                 # Inject share fields and source into data BEFORE persisting
                 # so the public viewer's _is_shareable() check passes.
                 data["share_url"] = f"/debate/{debate_id}"
@@ -3723,6 +3827,7 @@ class PlaygroundHandler(BaseHandler):
                 agent_count=agent_count,
                 max_rounds=rounds,
                 timeout=_LIVE_TIMEOUT,
+                debate_id=debate_id,
             )
         except TimeoutError:
             return json_response(
@@ -3894,6 +3999,7 @@ def start_playground_debate(
     agent_count: int = 3,
     max_rounds: int = 2,
     timeout: int = 60,
+    debate_id: str | None = None,
 ) -> dict[str, Any]:
     """Run a simplified live debate for the playground.
 
@@ -3905,6 +4011,8 @@ def start_playground_debate(
         agent_count: Number of agents (2-5)
         max_rounds: Maximum rounds (1-2)
         timeout: Timeout in seconds
+        debate_id: Optional debate ID to bind spectate context before the HTTP
+            response returns.
 
     Returns:
         Dict with debate result fields
@@ -3937,8 +4045,14 @@ def start_playground_debate(
 
             arena = factory.create_arena(config)
 
+            try:
+                from aragora.spectate.ws_bridge import bind_spectate_context
+            except ImportError:
+                from contextlib import nullcontext as bind_spectate_context  # type: ignore[assignment]
+
             async def _run_arena():
-                return await asyncio.wait_for(arena.run(), timeout=timeout)
+                with bind_spectate_context(debate_id=debate_id):
+                    return await asyncio.wait_for(arena.run(), timeout=timeout)
 
             result = asyncio.run(_run_arena())
 

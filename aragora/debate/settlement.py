@@ -29,6 +29,7 @@ import hashlib
 import json
 import logging
 import uuid
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -36,6 +37,37 @@ from pathlib import Path
 from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
+
+
+def _coerce_iso_datetime(value: datetime | str | None) -> datetime:
+    """Normalize optional datetimes into timezone-aware UTC datetimes."""
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        raw = value.strip()
+        if raw.endswith("Z"):
+            raw = f"{raw[:-1]}+00:00"
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except ValueError:
+            return datetime.now(timezone.utc)
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+    return datetime.now(timezone.utc)
+
+
+def _coerce_text_list(values: Any) -> list[str]:
+    """Return a clean list of strings from a heterogeneous value."""
+    if isinstance(values, str):
+        text = values.strip()
+        return [text] if text else []
+    if not isinstance(values, Iterable):
+        return []
+    cleaned: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if text:
+            cleaned.append(text)
+    return cleaned
 
 
 # ---------------------------------------------------------------------------
@@ -1551,6 +1583,7 @@ class EpistemicSettlementTracker:
         *,
         review_horizon_days: int = 30,
         domain: str = "general",
+        settled_at: datetime | str | None = None,
     ) -> SettlementMetadata:
         """Capture settlement metadata from a completed debate.
 
@@ -1564,11 +1597,12 @@ class EpistemicSettlementTracker:
             receipt: Optional DecisionReceipt for additional metadata.
             review_horizon_days: Days until this decision should be reviewed.
             domain: Problem domain for categorization.
+            settled_at: Optional canonical settlement timestamp to reuse.
 
         Returns:
             The captured SettlementMetadata.
         """
-        now = datetime.now(timezone.utc)
+        now = _coerce_iso_datetime(settled_at)
         debate_id = (
             getattr(debate_result, "debate_id", "")
             or getattr(debate_result, "id", "")
@@ -1752,6 +1786,11 @@ class EpistemicSettlementTracker:
                 for agent in getattr(proof, "dissenting_agents", []):
                     falsifiers.append(f"Agent {agent} dissented from consensus")
 
+        # From explicit verification criteria when the debate surface
+        # provides them directly instead of a richer claims kernel.
+        for criteria in _coerce_text_list(getattr(debate_result, "verification_criteria", None)):
+            falsifiers.append(f"Verifiable: {criteria[:200]}")
+
         # From explicit claims if available
         claims_kernel = getattr(debate_result, "claims_kernel", None)
         if claims_kernel and hasattr(claims_kernel, "get_claims"):
@@ -1763,7 +1802,14 @@ class EpistemicSettlementTracker:
             except (AttributeError, TypeError):
                 pass
 
-        return falsifiers
+        deduped: list[str] = []
+        seen: set[str] = set()
+        for entry in falsifiers:
+            text = str(entry).strip()
+            if text and text not in seen:
+                seen.add(text)
+                deduped.append(text)
+        return deduped
 
     def _extract_alternatives(self, debate_result: Any, receipt: Any | None) -> list[str]:
         """Extract rejected alternatives from the debate."""

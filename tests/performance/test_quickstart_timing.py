@@ -75,6 +75,12 @@ class TestEvaluateStep:
         assert step.error == "boom"
         assert step.detail == "extra"
 
+    def test_thresholded_step_with_error_fails_closed(self):
+        """Thresholded steps should fail when the measurement reports an error."""
+        step = evaluate_step("test", 1.0, 5.0, error="boom")
+        assert step.passed is False
+        assert step.status == "FAIL"
+
     def test_duration_rounded_to_three_decimals(self):
         """Duration is rounded to 3 decimal places."""
         step = evaluate_step("test", 1.23456789, 5.0)
@@ -142,6 +148,28 @@ class TestMeasureRepoSize:
             assert dur == -1.0
             assert size_mb == 0.0
 
+    def test_worktree_git_file_uses_common_git_storage(self, tmp_path):
+        """Worktree .git files should resolve through commondir to the shared git dir."""
+        repo_root = tmp_path / "repo"
+        worktree_gitdir = repo_root / ".real-git" / "worktrees" / "bench"
+        common_gitdir = repo_root / ".real-git"
+        fake_script = repo_root / "scripts" / "fake.py"
+
+        fake_script.parent.mkdir(parents=True, exist_ok=True)
+        common_gitdir.mkdir(parents=True, exist_ok=True)
+        worktree_gitdir.mkdir(parents=True, exist_ok=True)
+        fake_script.touch()
+
+        (repo_root / ".git").write_text("gitdir: .real-git/worktrees/bench\n")
+        (worktree_gitdir / "commondir").write_text("../..\n")
+        (common_gitdir / "objects.pack").write_bytes(b"x" * 4096)
+
+        with patch("scripts.measure_quickstart_time.__file__", str(fake_script)):
+            dur, size_mb = measure_repo_size()
+
+        assert dur >= 0
+        assert size_mb > 0
+
 
 class TestMeasureImportTime:
     """Tests for measure_import_time()."""
@@ -158,6 +186,22 @@ class TestMeasureImportTime:
         step = measure_import_time()
         # Should import at least aragora itself
         assert "imported" in step.detail
+
+    def test_subprocess_failure_marks_step_failed(self):
+        """Non-zero subprocess exits should fail the import step."""
+        failed = subprocess.CompletedProcess(
+            args=["python3", "-c", "import aragora"],
+            returncode=1,
+            stdout="",
+            stderr="No module named 'aragora'",
+        )
+
+        with patch("scripts.measure_quickstart_time.subprocess.run", return_value=failed):
+            step = measure_import_time()
+
+        assert step.passed is False
+        assert step.status == "FAIL"
+        assert "exit=1" in step.error
 
 
 class TestMeasureReceiptGeneration:

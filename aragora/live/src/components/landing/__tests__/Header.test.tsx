@@ -59,6 +59,16 @@ describe('Header', () => {
         '/login',
       );
     });
+
+    it('uses the login callback when provided', async () => {
+      const user = userEvent.setup();
+      const onLoginClick = jest.fn();
+      renderWithProviders(<Header onLoginClick={onLoginClick} />);
+
+      await user.click(screen.getAllByRole('button', { name: /log in/i })[0]);
+
+      expect(onLoginClick).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('mobile menu', () => {

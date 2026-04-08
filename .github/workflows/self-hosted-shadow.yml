@@ -4,6 +4,20 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+    paths:
+      - 'sdk/typescript/**'
+      - 'aragora/agents/**'
+      - 'aragora/cli/**'
+      - 'aragora/core.py'
+      - 'aragora/demo/**'
+      - 'tests/cli/test_offline_golden_path.py'
+      - 'scripts/ci_install_project.sh'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - '.github/workflows/self-hosted-shadow.yml'
+      - '.github/actions/pr-scope-classifier/**'
+      - '.github/actions/setup-node-safe/**'
+      - '.github/actions/setup-python-safe/**'
   workflow_dispatch:
 
 permissions:
@@ -13,13 +27,39 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 concurrency:
-  group: self-hosted-shadow-${{ github.ref }}
-  cancel-in-progress: false
+  group: self-hosted-shadow-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  scope:
+    name: Shadow Scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      run_shadow: ${{ steps.decision.outputs.run_shadow }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          path: repo
+
+      - uses: ./repo/.github/actions/pr-scope-classifier
+        id: scope
+
+      - name: Decide shadow scope
+        id: decision
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "run_shadow=${{ steps.scope.outputs.self_host_shadow }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_shadow=true" >> "$GITHUB_OUTPUT"
+          fi
+
   mac-sdk-typecheck-shadow:
     name: Mac TypeScript SDK Shadow
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.scope.outputs.run_shadow == 'true'
     runs-on:
       - self-hosted
       - aragora
@@ -27,6 +67,7 @@ jobs:
       - ARM64
       - mac-studio
     timeout-minutes: 10
+    needs: scope
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -65,7 +106,7 @@ jobs:
 
   hetzner-offline-golden-path-shadow:
     name: Hetzner Offline Golden Path Shadow
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.scope.outputs.run_shadow == 'true'
     runs-on:
       - self-hosted
       - aragora
@@ -73,6 +114,7 @@ jobs:
       - X64
       - hetzner
     timeout-minutes: 15
+    needs: scope
     steps:
       - name: Checkout
         uses: actions/checkout@v6

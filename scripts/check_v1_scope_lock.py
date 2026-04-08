@@ -26,6 +26,7 @@ BLOCKED_PREFIXES = (
     "aragora/server/handlers/features/plugins.py",
     "aragora/blockchain/contracts/staking.py",
 )
+SCOPE_EXPANSION_MARKER = "ARAGORA_ALLOW_SCOPE_EXPANSION=1"
 
 
 def _is_truthy(value: str | None) -> bool:
@@ -94,7 +95,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if _is_truthy(os.environ.get("ARAGORA_ALLOW_SCOPE_EXPANSION")):
-        print("V1 scope lock gate bypassed via ARAGORA_ALLOW_SCOPE_EXPANSION")
+        print(f"V1 scope lock gate bypassed via {SCOPE_EXPANSION_MARKER}")
         return 0
 
     lock_file = Path(args.lock_file)
@@ -121,8 +122,9 @@ def main(argv: list[str] | None = None) -> int:
         for path in violations:
             print(f"  - {path}", file=sys.stderr)
         print(
-            "If scope expansion is intentional, set ARAGORA_ALLOW_SCOPE_EXPANSION=1 "
-            "and document rationale in PR description.",
+            f"If scope expansion is intentional, add `{SCOPE_EXPANSION_MARKER}` "
+            "and rationale to the PR description, or set the same environment variable "
+            "when running the gate intentionally.",
             file=sys.stderr,
         )
         return 1

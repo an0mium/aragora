@@ -12,6 +12,9 @@ Tests for FastAPI receipt route endpoints.
 
 from __future__ import annotations
 
+import json
+import zipfile
+from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -401,6 +404,17 @@ class TestExportReceipt:
         assert data["format"] == "markdown"
         assert "Decision Receipt" in data["content"]
 
+    def test_export_receipt_markdown_raw_mode(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """Raw mode returns markdown bytes for the live download surfaces."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=md&raw=true")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/markdown")
+        assert "Decision Receipt" in response.text
+
     def test_export_receipt_md_alias_format(self, client, mock_receipt_store, sample_receipt_dict):
         """Export receipt accepts the legacy md alias used by the live UI."""
         mock_receipt_store.get.return_value = sample_receipt_dict
@@ -422,6 +436,16 @@ class TestExportReceipt:
         assert "<!DOCTYPE html>" in data["content"]
         assert "Decision Receipt" in data["content"]
 
+    def test_export_receipt_html_raw_mode(self, client, mock_receipt_store, sample_receipt_dict):
+        """Raw HTML mode returns an inline document for onboarding receipt links."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=html&raw=true")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+        assert "<!DOCTYPE html>" in response.text
+        assert "Decision Receipt" in response.text
+
     def test_export_receipt_sarif_format(self, client, mock_receipt_store, sample_receipt_dict):
         """Export receipt in SARIF format."""
         mock_receipt_store.get.return_value = sample_receipt_dict
@@ -434,6 +458,54 @@ class TestExportReceipt:
 
         sarif = json.loads(data["content"])
         assert sarif["version"] == "2.1.0"
+
+    def test_export_receipt_json_raw_mode(self, client, mock_receipt_store, sample_receipt_dict):
+        """Raw JSON mode serves the receipt body directly for file downloads."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.get("/api/v2/receipts/rcpt_test123/export?format=json&raw=true")
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/json")
+        assert response.json()["receipt_id"] == "rcpt_test123"
+
+    def test_export_receipt_pdf_format_returns_pdf_bytes(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """PDF export should return raw bytes for browser/download flows."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        mock_receipt = MagicMock()
+        mock_receipt.to_pdf.return_value = b"%PDF-1.4..."
+
+        with patch(
+            "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt
+        ):
+            response = client.get("/api/v2/receipts/rcpt_test123/export?format=pdf")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/pdf")
+        assert response.content == b"%PDF-1.4..."
+
+    def test_export_receipt_pdf_fallback_returns_printable_html(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """When PDF generation is unavailable, export falls back to printable HTML."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        mock_receipt = MagicMock()
+        mock_receipt.to_pdf.side_effect = ImportError("weasyprint not found")
+        mock_receipt.to_html.return_value = "<div>Receipt Content</div>"
+
+        with patch(
+            "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt
+        ):
+            response = client.get("/api/v2/receipts/rcpt_test123/export?format=pdf")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+        assert response.headers["x-pdf-fallback"] == "true"
+        assert "PDF export is unavailable" in response.text
+        assert "Receipt Content" in response.text
 
     def test_export_receipt_from_stored_receipt_uses_full_payload(
         self, client, mock_receipt_store, sample_stored_receipt
@@ -925,12 +997,12 @@ class TestBatchExport:
     """Tests for POST /api/v2/receipts/batch-export."""
 
     def test_batch_export_json(self, client, mock_receipt_store, sample_receipt_dict):
-        """Batch export returns exported items."""
+        """Batch export returns exported items when JSON mode is requested explicitly."""
         mock_receipt_store.get.return_value = sample_receipt_dict
 
         response = client.post(
             "/api/v2/receipts/batch-export",
-            json={"receipt_ids": ["rcpt_test123"], "format": "json"},
+            json={"receipt_ids": ["rcpt_test123"], "format": "json", "raw": False},
         )
         assert response.status_code == 200
         data = response.json()
@@ -946,7 +1018,7 @@ class TestBatchExport:
 
         response = client.post(
             "/api/v2/receipts/batch-export",
-            json={"receipt_ids": ["missing"], "format": "json"},
+            json={"receipt_ids": ["missing"], "format": "json", "raw": False},
         )
         assert response.status_code == 200
         data = response.json()
@@ -967,8 +1039,77 @@ class TestBatchExport:
 
         response = client.post(
             "/api/v2/receipts/batch-export",
-            json={"receipt_ids": ["rcpt_test123"], "format": "markdown"},
+            json={"receipt_ids": ["rcpt_test123"], "format": "markdown", "raw": False},
         )
         assert response.status_code == 200
         data = response.json()
         assert data["items"][0]["format"] == "markdown"
+
+    def test_batch_export_html_format(self, client, mock_receipt_store, sample_receipt_dict):
+        """Batch export supports HTML in the JSON item bundle."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "html", "raw": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"][0]["format"] == "html"
+        assert "<!DOCTYPE html>" in data["items"][0]["content"]
+
+    def test_batch_export_md_alias(self, client, mock_receipt_store, sample_receipt_dict):
+        """Batch export normalizes the md alias to markdown content."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "md", "raw": False},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"][0]["format"] == "markdown"
+
+    def test_batch_export_defaults_to_zip_bundle(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """Batch export defaults to the legacy ZIP bundle."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "html"},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/zip")
+        assert response.headers["content-disposition"] == "attachment; filename=receipts-export.zip"
+
+        archive = zipfile.ZipFile(BytesIO(response.content), "r")
+        assert "receipt-rcpt_test123.html" in archive.namelist()
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["format"] == "html"
+        assert manifest["exported"] == 1
+        assert manifest["failed"] == []
+
+    def test_batch_export_raw_zip_bundle(self, client, mock_receipt_store, sample_receipt_dict):
+        """Explicit raw mode still returns the legacy ZIP bundle with a manifest."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "html", "raw": True},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/zip")
+        assert response.headers["content-disposition"] == "attachment; filename=receipts-export.zip"
+
+        archive = zipfile.ZipFile(BytesIO(response.content), "r")
+        assert "receipt-rcpt_test123.html" in archive.namelist()
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["format"] == "html"
+        assert manifest["exported"] == 1
+        assert manifest["failed"] == []

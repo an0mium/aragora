@@ -105,7 +105,7 @@ class JudgeScoringMixin:
             rating = self._elo_system.get_rating(agent_name)
             cal_score = rating.calibration_score
             return 0.5 + cal_score
-        except (AttributeError, TypeError, KeyError, ValueError) as e:
+        except (AttributeError, TypeError, KeyError, ValueError, RuntimeError) as e:
             logger.debug("Calibration weight lookup failed for %s: %s", agent_name, e)
             return 1.0
 
@@ -130,7 +130,7 @@ class JudgeScoringMixin:
 
             # Weighted combination: 70% ELO, 30% calibration
             return (elo_normalized * 0.7) + (cal_score * 0.3)
-        except (AttributeError, TypeError, KeyError, ValueError) as e:
+        except (AttributeError, TypeError, KeyError, ValueError, RuntimeError) as e:
             logger.debug("Composite score calculation failed for %s: %s", agent_name, e)
             return 0.0
 
@@ -147,7 +147,11 @@ class JudgeScoringMixin:
         ratings = {}
         if self._elo_system:
             agent_names = [a.name for a in agents]
-            ratings = self._elo_system.get_ratings_batch(agent_names)
+            try:
+                ratings = self._elo_system.get_ratings_batch(agent_names)
+            except (AttributeError, TypeError, KeyError, ValueError, RuntimeError) as e:
+                logger.debug("Batch rating lookup failed for %s: %s", agent_names, e)
+                ratings = {}
 
         scores = []
         for agent in agents:
@@ -247,8 +251,9 @@ class EloRankedStrategy(JudgeSelectionStrategy, JudgeScoringMixin):
         try:
             leaderboard = self._elo_system.get_leaderboard(limit=len(agent_names))
             for entry in leaderboard:
-                # AgentRating uses agent_name attribute (not agent)
-                entry_agent_name = entry.agent_name
+                entry_agent_name = getattr(entry, "agent_name", None)
+                if not isinstance(entry_agent_name, str) or not entry_agent_name:
+                    entry_agent_name = getattr(entry, "agent", None)
                 if entry_agent_name in agent_names:
                     judge = next((a for a in agents if a.name == entry_agent_name), None)
                     if judge:

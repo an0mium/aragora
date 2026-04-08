@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, patch, PropertyMock
 import pytest
 
 from aragora.server.handlers.base import error_response
+from aragora.server.handlers.marketplace import reset_marketplace_circuit_breaker
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +265,14 @@ def mock_registry():
         tags=["builtin"],
     )
     return registry
+
+
+@pytest.fixture(autouse=True)
+def reset_circuit_breaker_state():
+    """Keep the module-global marketplace circuit breaker isolated per test."""
+    reset_marketplace_circuit_breaker()
+    yield
+    reset_marketplace_circuit_breaker()
 
 
 @pytest.fixture

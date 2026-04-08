@@ -358,7 +358,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                         # Update cursor
                         state.cursor = f"{table}:{pk_value}"
 
-            except Exception as e:  # noqa: BLE001 - DB driver (asyncpg) raises its own exception hierarchy without hard dependency
+            except (ValueError, RuntimeError, OSError, TypeError, KeyError) as e:
                 logger.warning("Failed to sync table %s (%s): %s", table, type(e).__name__, e)
                 state.errors.append(f"{table}: sync failed")
                 continue
@@ -375,6 +375,8 @@ class PostgreSQLConnector(EnterpriseConnector):
         Requires tables to have tsvector columns for best results.
         """
         pool = await self._get_pool()
+        import asyncpg
+
         results = []
 
         tables = self.tables or await self._discover_tables()
@@ -406,7 +408,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                                     "rank": row.get("rank", 0),
                                 }
                             )
-                    except (ValueError, RuntimeError, OSError) as e:
+                    except (ValueError, asyncpg.PostgresError) as e:
                         # Fallback to ILIKE search (FTS may not be configured)
                         logger.debug("FTS query failed on %s, falling back to ILIKE: %s", table, e)
                         columns = await self._get_table_columns(table)
@@ -439,7 +441,7 @@ class PostgreSQLConnector(EnterpriseConnector):
                                     }
                                 )
 
-                except (ValueError, RuntimeError, OSError) as e:
+                except (ValueError, asyncpg.PostgresError, asyncpg.InterfaceError) as e:
                     logger.debug("Search failed on %s: %s", table, e)
                     continue
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -320,6 +319,15 @@ class RepoGroundingReport:
         }
 
 
+def _default_repo_root() -> Path:
+    """Resolve a stable repository root even when the current working directory differs."""
+    cwd = Path.cwd().resolve()
+    for candidate in (cwd, *cwd.parents):
+        if (candidate / "aragora").is_dir() and (candidate / "tests").is_dir():
+            return candidate
+    return Path(__file__).resolve().parents[2]
+
+
 def _fuzzy_path_exists(root: Path, rel_path: str) -> bool:
     """Check if a close match for rel_path exists in the repository.
 
@@ -359,7 +367,7 @@ def assess_repo_grounding(
     path_source = owner_text or text
     extracted_paths = extract_repo_paths(path_source)
 
-    root = Path(repo_root or os.getcwd())
+    root = Path(repo_root).resolve() if repo_root else _default_repo_root()
     mentioned_paths: list[str] = []
     _seen_mentioned: set[str] = set()
     existing_paths: list[str] = []

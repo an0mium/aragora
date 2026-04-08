@@ -4,13 +4,10 @@
  * All active debate flow lives in HeroSection.tsx.
  * TODO: Remove once confirmed no routes import this file.
  *
- * NOTE (audit 2026-04-03): This file IS still actively imported by
- * aragora/live/src/app/(app)/HomePage.tsx for the unauthenticated visitor view.
- * It accepts apiBase/wsUrl/onEnterDashboard props and contains LiveDebatePanel
- * (spectate/live-preview logic) that has no equivalent in HeroSection.tsx.
- * Before removing, either migrate LiveDebatePanel into the canonical landing/
- * components and update HomePage.tsx to use landing/LandingPage, or confirm
- * the unauthenticated route is fully replaced.
+ * NOTE (audit 2026-04-04): HomePage now uses the canonical
+ * components/landing/LandingPage.tsx path. Keep this file only as a
+ * compatibility shim for legacy imports/tests until the remaining callers
+ * are removed.
  */
 'use client';
 
