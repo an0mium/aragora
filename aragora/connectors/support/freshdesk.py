@@ -342,8 +342,12 @@ class FreshdeskConnector:
                         if retry_after:
                             try:
                                 delay = float(retry_after)
-                            except (ValueError, TypeError):
-                                pass
+                            except (ValueError, TypeError) as exc:
+                                raise FreshdeskError(
+                                    f"Invalid Retry-After header from Freshdesk: {retry_after!r}",
+                                    status_code=response.status_code,
+                                    details={"retry_after": retry_after},
+                                ) from exc
                         logger.warning(
                             "Freshdesk %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
                             method,
