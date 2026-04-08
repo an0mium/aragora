@@ -69,6 +69,9 @@ class MakeWebhook:
                 return False
 
         if self.event_filter:
+            if not isinstance(self.event_filter, dict):
+                logger.warning("Ignoring Make webhook %s with invalid event_filter type", self.id)
+                return False
             for key, value in self.event_filter.items():
                 if event.get(key) != value:
                     return False
@@ -304,6 +307,10 @@ class MakeIntegration(BaseIntegration):
         is_valid, error = _validate_webhook_url(webhook_url)
         if not is_valid:
             logger.warning("Webhook URL blocked by SSRF protection: %s", error)
+            return None
+
+        if event_filter is not None and not isinstance(event_filter, dict):
+            logger.warning("Invalid event_filter for Make webhook %s: expected object", module_type)
             return None
 
         webhook_id = f"webhook_{secrets.token_hex(8)}"

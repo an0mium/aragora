@@ -312,27 +312,16 @@ class ExternalIntegrationsHandler(SecureHandler):
             )
         return value, None
 
-    def _optional_string_or_object_field(
+    def _optional_object_field(
         self, body: dict[str, Any], field_name: str, invalid_code: str
-    ) -> tuple[str | dict[str, Any] | None, HandlerResult]:
-        """Validate that an optional field is a non-empty string or JSON object."""
+    ) -> tuple[dict[str, Any] | None, HandlerResult]:
+        """Validate that an optional field is a JSON object when provided."""
         value = body.get(field_name)
         if value is None:
             return None, None
         if isinstance(value, dict):
             return value, None
-        if isinstance(value, str):
-            value = value.strip()
-            if not value:
-                return None, error_response(
-                    f"{field_name} must be a non-empty string or object",
-                    400,
-                    code=invalid_code,
-                )
-            return value, None
-        return None, error_response(
-            f"{field_name} must be a non-empty string or object", 400, code=invalid_code
-        )
+        return None, error_response(f"{field_name} must be an object", 400, code=invalid_code)
 
     # =========================================================================
     # RBAC Helper Methods
@@ -1010,7 +999,7 @@ class ExternalIntegrationsHandler(SecureHandler):
         )
         if field_error:
             return field_error
-        event_filter, field_error = self._optional_string_or_object_field(
+        event_filter, field_error = self._optional_object_field(
             body, "event_filter", "INVALID_EVENT_FILTER"
         )
         if field_error:

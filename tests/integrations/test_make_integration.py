@@ -70,6 +70,15 @@ class TestMakeWebhook:
         assert webhook.matches_event({"status": "completed"}) is True
         assert webhook.matches_event({"status": "started"}) is False
 
+    def test_matches_event_invalid_filter_fails_closed(self):
+        webhook = MakeWebhook(
+            id="wh1",
+            module_type="watch_debates",
+            webhook_url="https://test.webhook.com/hook",
+            event_filter="status",
+        )
+        assert webhook.matches_event({"status": "completed"}) is False
+
 
 # =============================================================================
 # MakeConnection Tests
@@ -152,6 +161,16 @@ class TestMakeIntegration:
     def test_register_webhook_invalid_connection(self, integration):
         result = integration.register_webhook(
             "bad", "watch_debates", "https://test.webhook.com/hook"
+        )
+        assert result is None
+
+    def test_register_webhook_rejects_invalid_event_filter(self, integration_with_connection):
+        integ, conn = integration_with_connection
+        result = integ.register_webhook(
+            conn.id,
+            "watch_debates",
+            "https://test.webhook.com/hook",
+            event_filter="status",
         )
         assert result is None
 

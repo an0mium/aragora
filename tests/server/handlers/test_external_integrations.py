@@ -793,6 +793,25 @@ class TestMakeWebhookOperations:
         assert "module_type" in get_error_message(body)
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
+    def test_register_webhook_rejects_string_event_filter(self, integrations_handler):
+        """Register webhook should reject non-object event filters."""
+        handler = make_mock_handler()
+        result = integrations_handler._handle_register_make_webhook(
+            {
+                "connection_id": "conn-123",
+                "module_type": "watch_debates",
+                "webhook_url": "https://hook.make.com/test",
+                "event_filter": "status",
+            },
+            handler,
+        )
+
+        assert result is not None
+        assert get_status(result) == 400
+        body = get_body(result)
+        assert "event_filter must be an object" in get_error_message(body)
+
+    @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_unregister_webhook_success(self, integrations_handler):
         """Unregister Make webhook should succeed for existing webhook."""
         handler = make_mock_handler()
