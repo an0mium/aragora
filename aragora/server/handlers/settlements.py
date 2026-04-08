@@ -90,6 +90,39 @@ class SettlementHandler(BaseHandler):
 
         return limit, None
 
+    def _validate_optional_string(
+        self, value: Any, field_name: str
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate an optional string field from request input."""
+        if value is None:
+            return None, None
+
+        if not isinstance(value, str):
+            return None, error_response(f"{field_name} must be a string", 400)
+
+        value = value.strip()
+        if not value:
+            return None, error_response(f"{field_name} must not be empty", 400)
+
+        return value, None
+
+    def _validate_required_string(
+        self, value: Any, field_name: str
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate a required string field from request input."""
+        if not isinstance(value, str):
+            return None, error_response(
+                f"{field_name} is required and must be a non-empty string", 400
+            )
+
+        value = value.strip()
+        if not value:
+            return None, error_response(
+                f"{field_name} is required and must be a non-empty string", 400
+            )
+
+        return value, None
+
     def _validate_single_settlement_body(
         self, body: Any
     ) -> tuple[dict[str, str] | None, HandlerResult | None]:
@@ -257,8 +290,16 @@ class SettlementHandler(BaseHandler):
         """
         tracker = self._get_tracker()
 
-        debate_id = query_params.get("debate_id")
-        domain = query_params.get("domain")
+        debate_id, error = self._validate_optional_string(
+            query_params.get("debate_id"), "debate_id"
+        )
+        if error is not None:
+            return error
+
+        domain, error = self._validate_optional_string(query_params.get("domain"), "domain")
+        if error is not None:
+            return error
+
         limit, error = self._parse_limit(query_params.get("limit"))
         if error is not None:
             return error
@@ -294,8 +335,16 @@ class SettlementHandler(BaseHandler):
         """
         tracker = self._get_tracker()
 
-        debate_id = query_params.get("debate_id")
-        author = query_params.get("author")
+        debate_id, error = self._validate_optional_string(
+            query_params.get("debate_id"), "debate_id"
+        )
+        if error is not None:
+            return error
+
+        author, error = self._validate_optional_string(query_params.get("author"), "author")
+        if error is not None:
+            return error
+
         limit, error = self._parse_limit(query_params.get("limit"))
         if error is not None:
             return error
@@ -334,6 +383,10 @@ class SettlementHandler(BaseHandler):
     @handle_errors("get settlement")
     def _get_settlement(self, settlement_id: str) -> HandlerResult:
         """Get a specific settlement by ID."""
+        settlement_id, error = self._validate_required_string(settlement_id, "settlement_id")
+        if error is not None:
+            return error
+
         tracker = self._get_tracker()
         record = tracker.get_settlement(settlement_id)
 
@@ -349,6 +402,10 @@ class SettlementHandler(BaseHandler):
     @handle_errors("get agent accuracy")
     def _get_agent_accuracy(self, agent: str) -> HandlerResult:
         """Get accuracy statistics for a specific agent."""
+        agent, error = self._validate_required_string(agent, "agent")
+        if error is not None:
+            return error
+
         tracker = self._get_tracker()
         accuracy = tracker.get_agent_accuracy(agent)
         return json_response({"data": accuracy})
@@ -366,6 +423,10 @@ class SettlementHandler(BaseHandler):
             evidence: str -- Supporting evidence for the outcome
             settled_by: str -- Who/what resolved the settlement
         """
+        settlement_id, error = self._validate_required_string(settlement_id, "settlement_id")
+        if error is not None:
+            return error
+
         validated_body, error = self._validate_single_settlement_body(body)
         if error is not None:
             return error
