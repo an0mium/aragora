@@ -283,7 +283,7 @@ class BossLoopConfig:
     # Autonomous post-processing: publish verified branch deliverables and
     # optionally close already-resolved no-op issues.
     auto_publish_deliverables: bool = False
-    max_open_auto_publish_prs: int = 1
+    max_open_auto_publish_prs: int = 4
     auto_close_already_done_issues: bool = False
 
     # Reporting
@@ -1524,6 +1524,43 @@ class BossLoop:
         except Exception:
             pass
 
+    @staticmethod
+    def _reuse_existing_published_branch_deliverable(
+        worker_result: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        deliverable = worker_result.get("deliverable")
+        if not isinstance(deliverable, dict):
+            return None
+        if str(deliverable.get("type", "")).strip().lower() != "branch":
+            return None
+
+        publish_result = worker_result.get("publish_result")
+        if not BossLoop._publish_result_succeeded(publish_result):
+            return None
+
+        pr_url = BossLoop._published_pr_url(worker_result)
+        if not pr_url or not isinstance(publish_result, dict):
+            return None
+
+        branch = (
+            str(publish_result.get("branch") or deliverable.get("branch") or "").strip() or None
+        )
+        commit_shas = [
+            str(item).strip()
+            for item in deliverable.get("commit_shas", []) or []
+            if str(item).strip()
+        ]
+        worker_result["deliverable"] = {
+            **dict(deliverable),
+            "type": "pr",
+            "branch": branch,
+            "commit_shas": commit_shas,
+            "pr_url": pr_url,
+        }
+        worker_result["pr_url"] = pr_url
+        worker_result["pr_number"] = BossLoop._pr_number_from_url(pr_url)
+        return dict(publish_result)
+
     def _maybe_publish_deliverable(
         self,
         issue: GitHubIssue,
@@ -1536,7 +1573,82 @@ class BossLoop:
         deliverable = worker_result.get("deliverable")
         if not isinstance(deliverable, dict):
             return None
+        existing_publish = self._reuse_existing_published_branch_deliverable(worker_result)
+        if existing_publish is not None:
+            return existing_publish
+        deliverable = worker_result.get("deliverable")
+        if not isinstance(deliverable, dict):
+            return None
         deliverable_type = str(deliverable.get("type", "")).strip().lower()
+        prior_publish_result = worker_result.get("publish_result")
+        if not isinstance(prior_publish_result, dict):
+            receipt_metadata = worker_result.get("receipt_metadata")
+            if isinstance(receipt_metadata, dict):
+                candidate_publish_result = receipt_metadata.get("publish_result")
+                if isinstance(candidate_publish_result, dict):
+                    prior_publish_result = dict(candidate_publish_result)
+        prior_publish_action = (
+            str(prior_publish_result.get("action", "")).strip()
+            if isinstance(prior_publish_result, dict)
+            else ""
+        )
+        existing_pr_url = str(
+            deliverable.get("pr_url")
+            or deliverable.get("adopted_pr")
+            or worker_result.get("pr_url")
+            or (
+                prior_publish_result.get("pr_url") if isinstance(prior_publish_result, dict) else ""
+            )
+            or ""
+        ).strip()
+        if (
+            deliverable_type not in {"pr", "adopted_pr"}
+            and existing_pr_url
+            and (
+                deliverable.get("pr_url")
+                or deliverable.get("adopted_pr")
+                or worker_result.get("pr_url")
+                or (
+                    isinstance(prior_publish_result, dict)
+                    and (
+                        prior_publish_result.get("published") is True
+                        or prior_publish_action
+                        in {"pr_created", "existing_pr", "discovered_after_push"}
+                    )
+                )
+            )
+        ):
+            branch = str(
+                deliverable.get("branch")
+                or (
+                    prior_publish_result.get("branch")
+                    if isinstance(prior_publish_result, dict)
+                    else ""
+                )
+                or ""
+            ).strip()
+            normalized_deliverable = {
+                **dict(deliverable),
+                "type": "pr",
+                "pr_url": existing_pr_url,
+            }
+            if branch:
+                normalized_deliverable["branch"] = branch
+            worker_result["deliverable"] = normalized_deliverable
+            worker_result["pr_url"] = existing_pr_url
+            worker_result["pr_number"] = self._pr_number_from_url(existing_pr_url)
+            normalized_publish_result = (
+                dict(prior_publish_result) if isinstance(prior_publish_result, dict) else {}
+            )
+            normalized_publish_result.update(
+                {
+                    "action": "existing_pr",
+                    "published": True,
+                    "branch": branch or None,
+                    "pr_url": existing_pr_url,
+                }
+            )
+            return normalized_publish_result
         if deliverable_type in {"pr", "adopted_pr"}:
             pr_url = str(
                 deliverable.get("pr_url")
@@ -1549,6 +1661,7 @@ class BossLoop:
                 worker_result["pr_number"] = self._pr_number_from_url(pr_url)
             return {
                 "action": "existing_pr",
+                "published": True,
                 "branch": str(deliverable.get("branch", "")).strip() or None,
                 "pr_url": pr_url or None,
             }

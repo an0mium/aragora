@@ -96,34 +96,31 @@ def _resolve_org_tier(context: Any) -> str | None:
     tier string (e.g. "free", "professional") or None if resolution fails.
     """
     org_id = getattr(context, "org_id", None)
-    if not org_id or not isinstance(org_id, str):
-        return None
-
-    try:
-        from aragora.billing.models import Organization  # noqa: F401 — availability check
-
-        # Try to get org from server-side store (if available)
+    if org_id and isinstance(org_id, str):
         try:
-            from aragora.storage.repositories.org import get_org_repository
+            from aragora.billing.models import Organization  # noqa: F401 — availability check
 
-            repo = get_org_repository()
-            org = repo.get(org_id)
-            if org and hasattr(org, "tier"):
-                tier_val = org.tier.value if hasattr(org.tier, "value") else str(org.tier)
-                if isinstance(tier_val, str) and tier_val in TIER_ORDER:
-                    return tier_val
-        except (ImportError, AttributeError, RuntimeError, TypeError):
+            # Try to get org from server-side store (if available)
+            try:
+                from aragora.storage.repositories.org import get_org_repository
+
+                repo = get_org_repository()
+                org = repo.get(org_id)
+                if org and hasattr(org, "tier"):
+                    tier_val = org.tier.value if hasattr(org.tier, "value") else str(org.tier)
+                    if isinstance(tier_val, str) and tier_val in TIER_ORDER:
+                        return tier_val
+            except (ImportError, AttributeError, RuntimeError, TypeError):
+                pass
+        except ImportError:
             pass
 
-        # Fallback: check if context itself carries tier metadata
-        tier = getattr(context, "subscription_tier", None)
-        if tier is not None:
-            tier_str = tier.value if hasattr(tier, "value") else str(tier)
-            if isinstance(tier_str, str) and tier_str in TIER_ORDER:
-                return tier_str
-
-    except ImportError:
-        pass
+    # Fallback: check if context itself carries tier metadata, even without org_id
+    tier = getattr(context, "subscription_tier", None)
+    if tier is not None:
+        tier_str = tier.value if hasattr(tier, "value") else str(tier)
+        if isinstance(tier_str, str) and tier_str in TIER_ORDER:
+            return tier_str
 
     return None
 
