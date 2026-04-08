@@ -427,7 +427,8 @@ class SlackMessageQueue:
             metadata=metadata or {},
         )
 
-        self._store.insert(message)
+        if not self._store.insert(message):
+            raise RuntimeError(f"Failed to persist queued Slack message {message_id}")
         logger.info("Enqueued message %s for %s/%s", message_id, workspace_id, channel_id)
 
         return message_id
