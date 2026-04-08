@@ -28,7 +28,6 @@ interface DemoDebate {
   confidence: number;
   verdict: string;
   events: DemoEvent[];
-  receipt_hash: string;
 }
 
 const DEMO_DEBATE: DemoDebate = {
@@ -40,7 +39,6 @@ const DEMO_DEBATE: DemoDebate = {
   confidence: 0.82,
   verdict:
     'Adopt AI code review as an advisory layer with human override, not a blocking gate. Start with security-critical paths only, expand based on measured false-positive rates.',
-  receipt_hash: 'a7f3c91b2d4e8f06',
   events: [
     {
       type: 'proposal',
@@ -343,9 +341,18 @@ export default function InstantDemoPage() {
               MULTI-AGENT DECISION VETTING
             </h1>
             <p className="text-sm font-theme-data text-[var(--text-muted)] max-w-2xl mx-auto">
-              Watch 5 AI models from different providers debate a real decision.
-              Each agent proposes, critiques, and votes independently.
-              Consensus is measured, not assumed.
+              Watch a cached synthetic replay of five models debating a sample decision.
+              Live debates and canonical receipts are generated on the real debate path, not on this demo page.
+            </p>
+          </div>
+
+          <div className="mb-6 p-4 bg-[var(--surface)] border border-yellow-500/30">
+            <div className="text-[10px] font-theme-data text-yellow-300 uppercase mb-1">
+              Synthetic Replay
+            </div>
+            <p className="text-xs font-theme-data text-[var(--text-muted)]">
+              This page is a scripted demonstration. It does not publish a live receipt, proof link,
+              or cryptographic artifact.
             </p>
           </div>
 
@@ -405,13 +412,13 @@ export default function InstantDemoPage() {
           {showVerdict && (
             <div className="mb-8 p-4 bg-[var(--acid-green)]/5 border border-[var(--acid-green)]/40 transition-all duration-700">
               <div className="text-[10px] font-theme-data text-[var(--acid-green)] uppercase mb-2">
-                Consensus Verdict
+                Synthetic Consensus Snapshot
               </div>
               <p className="text-sm font-theme-data text-[var(--text)] leading-relaxed mb-3">
                 {DEMO_DEBATE.verdict}
               </p>
               <div className="flex items-center gap-4 text-[10px] font-theme-data text-[var(--text-muted)]">
-                <span>Receipt sample (not cryptographic): {DEMO_DEBATE.receipt_hash}</span>
+                <span>Synthetic demo only. No canonical receipt or proof link is generated here.</span>
                 <span>Agents: {DEMO_DEBATE.agents.length}</span>
                 <span>Rounds: {DEMO_DEBATE.rounds}</span>
                 <span>Confidence: {Math.round(DEMO_DEBATE.confidence * 100)}%</span>
@@ -434,9 +441,9 @@ export default function InstantDemoPage() {
               </p>
             </div>
             <div className="p-4 bg-[var(--surface)] border border-[var(--border)]">
-              <div className="text-sm font-theme-data text-[var(--acid-green)] mb-2">$ Auditable</div>
+              <div className="text-sm font-theme-data text-[var(--acid-green)] mb-2">$ Live Proofs</div>
               <p className="text-xs font-theme-data text-[var(--text-muted)]">
-                Every decision gets a cryptographic receipt. Full provenance trail. Audit-ready.
+                Live debates can publish canonical receipts and provenance. This replay is synthetic and does not.
               </p>
             </div>
           </div>
