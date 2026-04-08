@@ -621,14 +621,29 @@ class AuthorizationAuditor:
                 TypeError,
                 RuntimeError,
                 AttributeError,
-                ImportError,
-                LookupError,
+                KeyError,
                 ConnectionError,
                 TimeoutError,
                 PermissionError,
             ) as e:
                 logger.error("Error in audit handler: %s", e)
                 # Continue to next handler
+            except (
+                ArithmeticError,
+                AssertionError,
+                BufferError,
+                EOFError,
+                ImportError,
+                LookupError,
+                NameError,
+                RecursionError,
+                ReferenceError,
+                StopAsyncIteration,
+                StopIteration,
+                SyntaxError,
+                SystemError,
+            ) as e:
+                logger.error("Unexpected error in audit handler: %s", e)
 
         # Buffer for batch processing
         self._event_buffer.append(event)
@@ -1182,7 +1197,15 @@ def compute_endpoint_coverage() -> dict[str, Any]:
 
     try:
         result = _compute_endpoint_coverage_uncached()
-    except (OSError, SyntaxError, ValueError) as exc:
+    except (
+        AttributeError,
+        OSError,
+        RecursionError,
+        RuntimeError,
+        SyntaxError,
+        TypeError,
+        ValueError,
+    ) as exc:
         logger.debug("Endpoint coverage scan failed: %s", exc)
         result = {"covered_endpoints": 0, "total_endpoints": 0, "coverage_pct": 0.0}
 

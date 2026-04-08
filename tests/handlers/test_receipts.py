@@ -35,6 +35,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.server.handlers.receipts import ReceiptsHandler, _render_shared_receipt_html
+from aragora.storage.receipt_store import StoredReceipt
 
 
 # ---------------------------------------------------------------------------
@@ -1781,6 +1782,49 @@ class TestRenderSharedReceiptHtml:
         receipt = MockReceipt(findings=findings)
         html = _render_shared_receipt_html(receipt, "test-token")
         assert "Mitigation:" not in html
+
+    def test_renders_stored_receipt_payload_fields(self):
+        receipt = StoredReceipt(
+            receipt_id="stored-001",
+            gauntlet_id="gauntlet-001",
+            debate_id="debate-001",
+            created_at=1700000000.0,
+            expires_at=None,
+            verdict="APPROVED",
+            confidence=0.91,
+            risk_level="LOW",
+            risk_score=0.2,
+            checksum="stored-checksum",
+            data={
+                "receipt_id": "stored-001",
+                "gauntlet_id": "gauntlet-001",
+                "timestamp": "2026-04-07T01:00:00Z",
+                "input_summary": "Stored proof summary",
+                "agents_involved": ["claude", "gpt-4"],
+                "findings": [
+                    {
+                        "severity": "HIGH",
+                        "title": "Need audit trail",
+                        "description": "missing receipt proof",
+                    }
+                ],
+                "robustness_score": 0.8,
+                "coverage_score": 0.7,
+                "verification_coverage": 0.6,
+                "duration_seconds": 18.2,
+                "cost_usd": 0.42,
+                "tokens_used": 12345,
+            },
+        )
+
+        html = _render_shared_receipt_html(receipt, "test-token")
+
+        assert "Stored proof summary" in html
+        assert "Need audit trail" in html
+        assert "80%" in html
+        assert "$0.4200" in html
+        assert "12,345" in html
+        assert "18.2s" in html
 
 
 # ---------------------------------------------------------------------------
