@@ -5,24 +5,82 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
     paths:
-      - 'aragora/**'
-      - 'tests/**'
+      - 'aragora/agents/**'
+      - 'aragora/cli/**'
+      - 'aragora/control_plane/**'
+      - 'aragora/core.py'
+      - 'aragora/debate/**'
+      - 'aragora/demo/**'
+      - 'aragora/server/**'
+      - 'tests/cli/test_offline_golden_path.py'
+      - 'tests/e2e/test_server_smoke.py'
+      - 'scripts/test_tiers.sh'
       - 'pyproject.toml'
+      - 'requirements*.txt'
+      - '.github/workflows/smoke.yml'
+      - '.github/actions/pr-scope-classifier/**'
   schedule:
     # Nightly at 2:00 UTC
     - cron: '0 2 * * *'
   workflow_dispatch:
 
 concurrency:
-  group: smoke-${{ github.ref }}
-  cancel-in-progress: false
+  group: smoke-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  scope:
+    name: Smoke Scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      run_smoke: ${{ steps.decision.outputs.run_smoke }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}"
+            git reset --hard FETCH_HEAD
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::Standard recovery failed; attempting archive restore"
+            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            git archive "${GITHUB_SHA:-HEAD}" | tar -x || git archive HEAD | tar -x
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
+
+      - uses: ./.github/actions/pr-scope-classifier
+        id: scope
+
+      - name: Decide smoke scope
+        id: decision
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "run_smoke=${{ steps.scope.outputs.smoke }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_smoke=true" >> "$GITHUB_OUTPUT"
+          fi
+
   smoke:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && needs.scope.outputs.run_smoke == 'true'
     name: Smoke Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: scope
 
     steps:
       - name: Checkout
@@ -81,10 +139,11 @@ jobs:
           echo "- Error handling and performance baselines" >> $GITHUB_STEP_SUMMARY
 
   offline-golden-path:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && needs.scope.outputs.run_smoke == 'true'
     name: Offline Golden Path
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: scope
 
     steps:
       - name: Checkout
@@ -138,10 +197,11 @@ jobs:
           python -m aragora.cli.main ask "Offline mode smoke" --demo --rounds 1
 
   server-smoke:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && needs.scope.outputs.run_smoke == 'true'
     name: Server Smoke Tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: scope
 
     steps:
       - name: Checkout
@@ -199,10 +259,11 @@ jobs:
           echo "- Server startup within 30s SLO" >> $GITHUB_STEP_SUMMARY
 
   decision-action-smoke:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && needs.scope.outputs.run_smoke == 'true'
     name: Decision-to-Action Smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    needs: scope
 
     steps:
       - name: Checkout

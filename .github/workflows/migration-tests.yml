@@ -20,8 +20,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: migration-tests-${{ github.ref }}
-  cancel-in-progress: false
+  group: migration-tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   migration-tests:

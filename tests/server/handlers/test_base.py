@@ -1206,6 +1206,18 @@ class TestBaseHandler:
 
         assert result == {}
 
+    def test_read_json_body_uses_raw_body_fallback(self, server_context):
+        """Should parse lightweight handlers that expose pre-buffered body bytes."""
+        from aragora.server.handlers.base import BaseHandler
+
+        mock = MagicMock()
+        mock.body = b'{"question":"Should we use Kubernetes?"}'
+
+        handler = BaseHandler(server_context)
+        result = handler.read_json_body(mock)
+
+        assert result == {"question": "Should we use Kubernetes?"}
+
     def test_read_json_body_invalid(self, server_context):
         """Should return None for invalid JSON."""
         from aragora.server.handlers.base import BaseHandler

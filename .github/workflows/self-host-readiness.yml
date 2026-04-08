@@ -2,22 +2,83 @@ name: Self-Host Readiness
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+    paths:
+      - '.env.production.example'
+      - 'docker-compose*.yml'
+      - 'compose*.yml'
+      - 'deploy/**'
+      - 'scripts/check_self_host_compose.py'
+      - 'scripts/check_self_host_runtime.py'
+      - 'pyproject.toml'
+      - 'requirements*.txt'
+      - '.github/workflows/self-host-readiness.yml'
+      - '.github/actions/pr-scope-classifier/**'
+      - '.github/actions/setup-python-safe/**'
   merge_group:
   workflow_dispatch:
 
 concurrency:
   group: self-host-readiness-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 permissions:
   contents: read
 
 jobs:
+  scope:
+    name: Self-Host Scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      run_self_host: ${{ steps.decision.outputs.run_self_host }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}"
+            git reset --hard FETCH_HEAD
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::Standard recovery failed; attempting archive restore"
+            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            git archive "${GITHUB_SHA:-HEAD}" | tar -x || git archive HEAD | tar -x
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
+
+      - uses: ./.github/actions/pr-scope-classifier
+        id: scope
+
+      - name: Decide self-host readiness scope
+        id: decision
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "run_self_host=${{ steps.scope.outputs.self_host_readiness }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_self_host=true" >> "$GITHUB_OUTPUT"
+          fi
+
   self-host-compose-smoke:
     name: Self-Host Compose Smoke
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && needs.scope.outputs.run_self_host == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    needs: scope
 
     steps:
       - name: Checkout

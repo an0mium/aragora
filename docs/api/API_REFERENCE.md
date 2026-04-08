@@ -513,16 +513,37 @@ Trigger a multi-agent security debate on vulnerability findings.
 
 ### GET /api/v1/audit/security/debate/{id}
 
-Get the status of a previously triggered security debate. Currently debates are synchronous,
-so this endpoint returns `not_found` for any ID (placeholder for future async support).
+Get the status of a previously triggered security debate. Debates are still synchronous,
+but completed results are cached in-process so callers can re-fetch the latest result payload
+when it is still available. If no cached result is present, the endpoint returns `not_found`.
 
 **Response (200):**
 
 ```json
 {
     "debate_id": "the-id",
+    "status": "completed",
+    "debate_status": "completed",
+    "debate_status_source": "live",
+    "repository": "repo-name",
+    "findings_count": 2,
+    "consensus_reached": true,
+    "confidence": 0.85,
+    "final_answer": "Remediation recommendations...",
+    "completed_at": "2026-04-07T21:30:00+00:00",
+    "message": "Cached security debate result available."
+}
+```
+
+When the cache is empty:
+
+```json
+{
+    "debate_id": "the-id",
     "status": "not_found",
-    "message": "Debate results are not persisted. Use POST to trigger a new debate."
+    "debate_status": "pending",
+    "debate_status_source": "live",
+    "message": "No cached security debate result found. Use POST to trigger a new debate."
 }
 ```
 
@@ -6533,21 +6554,23 @@ Authorization: Bearer <token>
 ### Create Shareable Link
 
 ```http
-POST /api/gauntlet/receipts/{receipt_id}/share
+POST /api/v2/receipts/{receipt_id}/share
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "expires_in": 86400,
-  "allow_download": true
+  "expires_in_hours": 24
 }
 ```
 
 **Response:**
 ```json
 {
-  "share_url": "https://app.aragora.ai/receipts/share/abc123",
+  "success": true,
+  "receipt_id": "rcpt_test123",
+  "share_url": "/api/v2/receipts/share/abc123",
   "expires_at": "2026-01-21T11:00:00Z",
+  "max_accesses": null,
   "token": "abc123"
 }
 ```

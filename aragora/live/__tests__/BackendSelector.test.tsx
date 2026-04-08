@@ -85,7 +85,7 @@ describe('BackendSelector', () => {
     it('selects development by default on localhost', async () => {
       render(<BackendSelector compact />);
       const devButton = screen.getByText('DEV');
-      expect(devButton.closest('button')).toHaveClass('bg-acid-cyan');
+      expect(devButton.closest('button')).toHaveClass('bg-[var(--acid-cyan)]');
       await waitForDevAvailability(false);
     });
 
@@ -137,12 +137,12 @@ describe('BackendSelector', () => {
 
       // Development is selected by default on localhost
       const devButton = screen.getByText('DEV').closest('button');
-      expect(devButton).toHaveClass('bg-acid-cyan');
+      expect(devButton).toHaveClass('bg-[var(--acid-cyan)]');
 
       // Switch to production
       const prodButton = screen.getByText('PROD').closest('button');
       fireEvent.click(prodButton!);
-      expect(prodButton).toHaveClass('bg-acid-green');
+      expect(prodButton).toHaveClass('bg-[var(--accent)]');
     });
 
     it('persists production selection to localStorage', async () => {
@@ -166,7 +166,7 @@ describe('BackendSelector', () => {
 
       await waitFor(() => {
         const devButton = screen.getByText('DEV').closest('button');
-        expect(devButton).toHaveClass('bg-acid-cyan');
+        expect(devButton).toHaveClass('bg-[var(--acid-cyan)]');
       });
       await waitForDevAvailability(false);
     });

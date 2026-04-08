@@ -216,6 +216,11 @@ class SecretsConfig:
     # Cache settings
     cache_ttl_seconds: int = 300
 
+    # AWS client settings
+    aws_connect_timeout_seconds: float = 2.0
+    aws_read_timeout_seconds: float = 2.0
+    aws_max_attempts: int = 1
+
     @classmethod
     def from_env(cls) -> SecretsConfig:
         """Load config from environment.
@@ -257,6 +262,16 @@ class SecretsConfig:
             aws_regions=regions,
             secret_name=os.environ.get("ARAGORA_SECRET_NAME", "aragora/production"),
             use_aws=use_aws,
+            aws_connect_timeout_seconds=float(
+                os.environ.get("ARAGORA_AWS_SECRET_CONNECT_TIMEOUT_SECONDS", "2.0")
+            ),
+            aws_read_timeout_seconds=float(
+                os.environ.get("ARAGORA_AWS_SECRET_READ_TIMEOUT_SECONDS", "2.0")
+            ),
+            aws_max_attempts=max(
+                1,
+                int(os.environ.get("ARAGORA_AWS_SECRET_MAX_ATTEMPTS", "1")),
+            ),
         )
 
 
@@ -323,8 +338,17 @@ class SecretManager:
 
         try:
             import boto3  # type: ignore[import-untyped, import-not-found]
+            from botocore.config import Config  # type: ignore[import-untyped, import-not-found]
 
-            client = boto3.client("secretsmanager", region_name=region)
+            config = Config(
+                connect_timeout=self.config.aws_connect_timeout_seconds,
+                read_timeout=self.config.aws_read_timeout_seconds,
+                retries={
+                    "max_attempts": self.config.aws_max_attempts,
+                    "mode": "standard",
+                },
+            )
+            client = boto3.client("secretsmanager", region_name=region, config=config)
             self._aws_clients[region] = client
             return client
         except ImportError:

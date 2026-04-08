@@ -20,15 +20,15 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: lint-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: lint-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     outputs:
-      python: ${{ steps.filter.outputs.python }}
+      python: ${{ steps.scope.outputs.lint_python }}
     steps:
       - uses: actions/checkout@v4
 
@@ -56,20 +56,8 @@ jobs:
             exit 1
           fi
 
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            python:
-              - 'aragora/**'
-              - 'tests/**'
-              - 'scripts/**'
-              - 'pyproject.toml'
-              - 'requirements*.txt'
-              - '.github/workflows/**'
-              - 'deploy/**'
-              - 'security/policies/**'
-              - 'aragora-operator/**'
+      - uses: ./.github/actions/pr-scope-classifier
+        id: scope
 
   lint-run:
     needs: changes

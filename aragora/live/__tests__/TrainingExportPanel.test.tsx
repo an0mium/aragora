@@ -172,7 +172,7 @@ describe('TrainingExportPanel', () => {
 
       // SFT button should be selected (has the active class)
       const sftButton = screen.getByText('SFT');
-      expect(sftButton).toHaveClass('bg-acid-green/20');
+      expect(sftButton).toHaveClass('bg-[var(--accent)]/20');
     });
 
     it('switches to DPO export type', async () => {
@@ -186,7 +186,7 @@ describe('TrainingExportPanel', () => {
 
       // DPO button should now be selected
       const dpoButton = screen.getByText('DPO');
-      expect(dpoButton).toHaveClass('bg-acid-green/20');
+      expect(dpoButton).toHaveClass('bg-[var(--accent)]/20');
     });
 
     it('switches to Gauntlet export type', async () => {
@@ -200,7 +200,7 @@ describe('TrainingExportPanel', () => {
 
       // Gauntlet button should now be selected
       const gauntletButton = screen.getByText('GAUNTLET');
-      expect(gauntletButton).toHaveClass('bg-acid-green/20');
+      expect(gauntletButton).toHaveClass('bg-[var(--accent)]/20');
     });
   });
 
@@ -226,7 +226,7 @@ describe('TrainingExportPanel', () => {
       });
 
       const jsonButton = screen.getByText('JSON');
-      expect(jsonButton).toHaveClass('bg-acid-cyan/20');
+      expect(jsonButton).toHaveClass('bg-[var(--acid-cyan)]/20');
     });
 
     it('switches to JSONL format', async () => {
@@ -239,7 +239,7 @@ describe('TrainingExportPanel', () => {
       fireEvent.click(screen.getByText('JSONL'));
 
       const jsonlButton = screen.getByText('JSONL');
-      expect(jsonlButton).toHaveClass('bg-acid-cyan/20');
+      expect(jsonlButton).toHaveClass('bg-[var(--acid-cyan)]/20');
     });
   });
 

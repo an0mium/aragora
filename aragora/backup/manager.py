@@ -36,6 +36,20 @@ logger = logging.getLogger(__name__)
 _VALID_SQL_IDENTIFIER = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
+def get_default_backup_source_path() -> Path:
+    """Return the canonical database path to use for default backups."""
+    from aragora.persistence.db_config import DatabaseType, get_db_path, get_default_data_dir
+
+    primary = get_db_path(DatabaseType.DEBATES)
+    legacy = get_default_data_dir() / "aragora_debates.db"
+
+    if primary.exists():
+        return primary
+    if legacy.exists():
+        return legacy
+    return primary
+
+
 def _validate_sql_identifier(name: str, context: str = "identifier") -> str:
     """Validate SQL identifier to prevent SQL injection.
 

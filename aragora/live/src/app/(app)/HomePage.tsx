@@ -31,7 +31,7 @@ import { useRightSidebar } from '@/context/RightSidebarContext';
 import { useLayout } from '@/context/LayoutContext';
 import { useTheme } from '@/context/ThemeContext';
 import { HeroSection } from '@/components/landing/HeroSection';
-import { LandingPage } from '@/components/LandingPage';
+import { LandingPage } from '@/components/landing/LandingPage';
 import { DebateResultPreview, type DebateResponse } from '@/components/DebateResultPreview';
 import { RecentReceipts } from '@/components/RecentReceipts';
 import { DebateThisButton } from '@/components/DebateThisButton';
@@ -40,7 +40,6 @@ import { DashboardFooter } from './components';
 import { useAuth } from '@/context/AuthContext';
 import { DEFAULT_AGENTS } from '@/config';
 import { ArgumentGraph } from '@/components/debate/ArgumentGraph';
-import { normalizeReturnUrl, RETURN_URL_STORAGE_KEY } from '@/utils/returnUrl';
 
 // Dynamic imports - code-split for bundle size optimization
 import {
@@ -396,34 +395,12 @@ export default function Home() {
   // If authLoading is still true (first render before useEffect), show landing page
   // rather than a blank spinner. Once auth resolves, the appropriate view renders.
   if (authLoading && !isAuthenticated) {
-    return (
-      <LandingPage
-        apiBase={apiBase}
-        wsUrl={wsUrl}
-        onEnterDashboard={() => router.push('/auth/login')}
-      />
-    );
+    return <LandingPage />;
   }
 
   // Show marketing landing page for unauthenticated visitors (skip in demo mode)
   if (!isAuthenticated && !isDemoMode) {
-    // Store the current path so the user is redirected back after login
-    const currentPath = typeof window !== 'undefined'
-      ? normalizeReturnUrl(window.location.pathname + window.location.search)
-      : '/';
-    const handleEnterDashboard = () => {
-      if (currentPath && currentPath !== '/' && currentPath !== '/auth/login') {
-        sessionStorage.setItem(RETURN_URL_STORAGE_KEY, currentPath);
-      }
-      router.push('/auth/login');
-    };
-    return (
-      <LandingPage
-        apiBase={apiBase}
-        wsUrl={wsUrl}
-        onEnterDashboard={handleEnterDashboard}
-      />
-    );
+    return <LandingPage />;
   }
 
   // Simple mode: clean dashboard with just debate input + recent debates

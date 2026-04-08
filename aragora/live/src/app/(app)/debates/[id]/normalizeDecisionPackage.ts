@@ -40,6 +40,14 @@ export interface DecisionPackageReceipt {
   cost_summary: DecisionPackageReceiptCostSummary | null;
 }
 
+export interface DecisionPackageProviderRouting {
+  routing_applied: boolean;
+  routing_strategy: string;
+  routed_agent_names: string[];
+  provider_matches: Record<string, string>;
+  provider_hint_scores: Record<string, number>;
+}
+
 export interface DecisionPackage {
   id: string;
   question: string;
@@ -67,6 +75,9 @@ export interface DecisionPackage {
     action: string;
     priority: 'high' | 'medium' | 'low';
   }>;
+  provider_names: string[];
+  provider_hints: string[];
+  provider_routing: DecisionPackageProviderRouting | null;
   created_at: string;
   duration_seconds: number;
 }
@@ -92,6 +103,28 @@ function asNumber(value: unknown, fallback = 0): number {
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === 'string');
+}
+
+function asStringRecord(value: unknown): Record<string, string> {
+  const obj = asObject(value);
+  if (!obj) return {};
+
+  return Object.fromEntries(
+    Object.entries(obj).filter(
+      (entry): entry is [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string'
+    )
+  );
+}
+
+function asNumberRecord(value: unknown): Record<string, number> {
+  const obj = asObject(value);
+  if (!obj) return {};
+
+  return Object.fromEntries(
+    Object.entries(obj)
+      .map(([key, rawValue]) => [key, asNumber(rawValue, Number.NaN)] as const)
+      .filter((entry) => Number.isFinite(entry[1]))
+  );
 }
 
 function hasObjectEntries(value: Record<string, unknown> | null): value is Record<string, unknown> {
@@ -309,6 +342,34 @@ function normalizeNextSteps(value: unknown): DecisionPackage['next_steps'] {
     .filter((item): item is DecisionPackage['next_steps'][number] => item !== null);
 }
 
+function normalizeProviderRouting(value: unknown): DecisionPackageProviderRouting | null {
+  const obj = asObject(value);
+  if (!obj) return null;
+
+  const providerMatches = asStringRecord(obj.provider_matches);
+  const providerHintScores = asNumberRecord(obj.provider_hint_scores);
+  const routedAgentNames = asStringArray(obj.routed_agent_names);
+  const routingStrategy = asString(obj.routing_strategy);
+
+  if (
+    !('routing_applied' in obj) &&
+    !routingStrategy &&
+    routedAgentNames.length === 0 &&
+    Object.keys(providerMatches).length === 0 &&
+    Object.keys(providerHintScores).length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    routing_applied: Boolean(obj.routing_applied),
+    routing_strategy: routingStrategy,
+    routed_agent_names: routedAgentNames,
+    provider_matches: providerMatches,
+    provider_hint_scores: providerHintScores,
+  };
+}
+
 export function normalizeDecisionPackage(raw: unknown, fallbackId: string): DecisionPackage {
   const obj = asObject(raw) ?? {};
   const agents = asStringArray(obj.agents);
@@ -339,6 +400,9 @@ export function normalizeDecisionPackage(raw: unknown, fallbackId: string): Deci
     total_cost: asNumber(obj.total_cost, asNumber(cost?.total_cost_usd, 0)),
     receipt: normalizeReceipt(rawReceipt, createdAt),
     next_steps: normalizeNextSteps(obj.next_steps),
+    provider_names: asStringArray(obj.provider_names),
+    provider_hints: asStringArray(obj.provider_hints),
+    provider_routing: normalizeProviderRouting(obj.provider_routing),
     created_at: createdAt,
     duration_seconds: asNumber(obj.duration_seconds, 0),
   };

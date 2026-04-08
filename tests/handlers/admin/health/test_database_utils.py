@@ -111,12 +111,11 @@ class TestHealthHandlerProtocol:
         """FakeHandler satisfies the _HealthHandlerProtocol at runtime."""
         assert isinstance(handler, _HealthHandlerProtocol)
 
-    def test_magicmock_with_ctx_implements_protocol(self):
-        """A MagicMock with ctx attribute satisfies the protocol."""
+    def test_magicmock_with_ctx_does_not_satisfy_protocol(self):
+        """A plain MagicMock is not a structural match for the runtime protocol."""
         mock = MagicMock()
         mock.ctx = {}
-        # MagicMock auto-generates get_storage, get_elo_system, get_nomic_dir
-        assert isinstance(mock, _HealthHandlerProtocol)
+        assert not isinstance(mock, _HealthHandlerProtocol)
 
     def test_object_without_ctx_does_not_satisfy(self):
         """A plain object without the required attrs does not satisfy the protocol."""
