@@ -165,6 +165,10 @@ class OperatorInterventionHandler(BaseHandler):
         if not isinstance(body, dict):
             return error_response("Request body must be a JSON object", 400)
 
+        validation_error = self._validate_request_body(action, body)
+        if validation_error is not None:
+            return validation_error
+
         if action == "pause":
             return self._pause_debate(debate_id, body)
         if action == "resume":
@@ -185,6 +189,47 @@ class OperatorInterventionHandler(BaseHandler):
         if _get_operator_manager is None:
             return None
         return _get_operator_manager()
+
+    def _validate_request_body(self, action: str, body: dict[str, Any]) -> HandlerResult | None:
+        """Validate endpoint-specific request bodies before dispatch."""
+        allowed_fields: dict[str, set[str]] = {
+            "pause": {"reason"},
+            "resume": set(),
+            "restart": {"from_round"},
+            "inject": {"context"},
+        }
+        required_fields: dict[str, set[str]] = {
+            "pause": set(),
+            "resume": set(),
+            "restart": set(),
+            "inject": {"context"},
+        }
+
+        unexpected_fields = sorted(set(body) - allowed_fields.get(action, set()))
+        if unexpected_fields:
+            fields = ", ".join(unexpected_fields)
+            return error_response(f"Unexpected field(s) for {action}: {fields}", 400)
+
+        missing_fields = sorted(required_fields.get(action, set()) - set(body))
+        if missing_fields:
+            fields = ", ".join(missing_fields)
+            return error_response(f"Missing required field(s) for {action}: {fields}", 400)
+
+        if action == "pause" and "reason" in body and body["reason"] is not None:
+            if not isinstance(body["reason"], str):
+                return error_response("reason must be a string", 400)
+
+        if action == "restart" and "from_round" in body:
+            from_round = body["from_round"]
+            if isinstance(from_round, bool) or not isinstance(from_round, int) or from_round < 0:
+                return error_response("from_round must be a non-negative integer", 400)
+
+        if action == "inject":
+            context = body["context"]
+            if not isinstance(context, str) or not context.strip():
+                return error_response("context must be a non-empty string", 400)
+
+        return None
 
     def _pause_debate(self, debate_id: str, body: dict[str, Any]) -> HandlerResult:
         """Pause a running debate.
