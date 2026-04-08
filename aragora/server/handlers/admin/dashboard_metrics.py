@@ -129,6 +129,14 @@ def _coerce_int(value: Any) -> int | None:
     return int(numeric)
 
 
+def _coerce_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = value if isinstance(value, str) else str(value)
+    text = text.strip()
+    return text or None
+
+
 def _load_json_payload(raw_payload: Any) -> dict[str, Any] | None:
     if raw_payload is None:
         return None
@@ -172,6 +180,21 @@ def _artifact_size_bytes(raw_payload: Any) -> int:
         return 0
 
 
+def _get_nested(payload: dict[str, Any] | None, *path: str) -> Any:
+    current: Any = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
+
+
+def _get_mapping_value(value: Any, key: str) -> Any:
+    if isinstance(value, dict):
+        return value.get(key)
+    return getattr(value, key, None)
+
+
 def _find_first_numeric(payload: Any, keys: tuple[str, ...]) -> float | None:
     if isinstance(payload, dict):
         for key in keys:
@@ -189,6 +212,242 @@ def _find_first_numeric(payload: Any, keys: tuple[str, ...]) -> float | None:
             if numeric is not None:
                 return numeric
     return None
+
+
+def _normalize_string_list(values: Any) -> list[str]:
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(values, list):
+        return []
+
+    normalized: list[str] = []
+    for value in values:
+        text = _coerce_text(value)
+        if text is not None:
+            normalized.append(text)
+    return normalized
+
+
+def _normalize_float_dict(values: Any) -> dict[str, float]:
+    if not isinstance(values, dict):
+        return {}
+
+    normalized: dict[str, float] = {}
+    for key, value in values.items():
+        key_text = _coerce_text(key)
+        numeric = _coerce_float(value)
+        if key_text is not None and numeric is not None:
+            normalized[key_text] = numeric
+    return normalized
+
+
+def _get_receipt_store() -> Any:
+    from aragora.storage.receipt_store import get_receipt_store
+
+    return get_receipt_store()
+
+
+def _extract_receipt_per_agent_cost(cost_summary: Any) -> dict[str, float]:
+    if not isinstance(cost_summary, dict):
+        return {}
+
+    per_agent = cost_summary.get("per_agent")
+    if not isinstance(per_agent, dict):
+        return {}
+
+    costs: dict[str, float] = {}
+    for agent_name, raw_value in per_agent.items():
+        agent_key = _coerce_text(agent_name)
+        if agent_key is None:
+            continue
+        if isinstance(raw_value, dict):
+            numeric = _coerce_float(raw_value.get("total_cost_usd"))
+            if numeric is None:
+                numeric = _coerce_float(raw_value.get("cost"))
+        else:
+            numeric = _coerce_float(raw_value)
+        if numeric is not None:
+            costs[agent_key] = numeric
+    return costs
+
+
+def _extract_dashboard_proof(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not payload:
+        return None
+
+    cost_summary = _get_nested(payload, "receipt", "cost_summary")
+
+    proof: dict[str, Any] = {}
+
+    for candidate in (
+        _get_nested(payload, "receipt", "receipt_id"),
+        payload.get("receipt_id"),
+        _get_nested(payload, "result", "receipt_id"),
+        _get_nested(payload, "metadata", "receipt_id"),
+    ):
+        receipt_id = _coerce_text(candidate)
+        if receipt_id is not None:
+            proof["receipt_id"] = receipt_id
+            break
+
+    for candidate in (
+        payload.get("receipt_hash"),
+        _get_nested(payload, "result", "receipt_hash"),
+        _get_nested(payload, "receipt", "artifact_hash"),
+        _get_nested(payload, "receipt", "checksum"),
+        _get_nested(payload, "receipt", "hash"),
+        _get_nested(payload, "receipt", "signature"),
+    ):
+        receipt_hash = _coerce_text(candidate)
+        if receipt_hash is not None:
+            proof["receipt_hash"] = receipt_hash
+            break
+
+    for candidate in (
+        _get_nested(payload, "receipt", "timestamp"),
+        _get_nested(payload, "receipt", "created_at"),
+        _get_nested(payload, "result", "receipt_timestamp"),
+    ):
+        receipt_timestamp = _coerce_text(candidate)
+        if receipt_timestamp is not None:
+            proof["receipt_timestamp"] = receipt_timestamp
+            break
+
+    for candidate in (
+        payload.get("provider"),
+        _get_nested(payload, "metadata", "provider"),
+    ):
+        provider = _coerce_text(candidate)
+        if provider is not None:
+            proof["provider"] = provider
+            break
+
+    for candidate in (
+        payload.get("provider_route"),
+        _get_nested(payload, "metadata", "provider_route"),
+    ):
+        provider_route = _coerce_text(candidate)
+        if provider_route is not None:
+            proof["provider_route"] = provider_route
+            break
+
+    provider_names = _normalize_string_list(
+        payload.get("provider_names")
+        or _get_nested(payload, "result", "provider_names")
+        or _get_nested(payload, "metadata", "provider_names")
+    )
+    if provider_names:
+        proof["provider_names"] = provider_names
+
+    provider_hints = _normalize_string_list(
+        payload.get("provider_hints")
+        or _get_nested(payload, "result", "provider_hints")
+        or _get_nested(payload, "metadata", "provider_hints")
+    )
+    if provider_hints:
+        proof["provider_hints"] = provider_hints
+
+    provider_routing = (
+        payload.get("provider_routing")
+        or _get_nested(payload, "result", "provider_routing")
+        or _get_nested(payload, "metadata", "provider_routing")
+    )
+    if isinstance(provider_routing, dict) and provider_routing:
+        proof["provider_routing"] = provider_routing
+
+    for candidate in (
+        payload.get("total_cost_usd"),
+        _get_nested(payload, "result", "total_cost_usd"),
+        _get_nested(payload, "cost", "total_cost_usd"),
+        _get_nested(payload, "receipt", "cost_summary", "total_cost_usd"),
+        payload.get("cost_usd"),
+        _get_nested(payload, "result", "cost_usd"),
+    ):
+        total_cost_usd = _coerce_float(candidate)
+        if total_cost_usd is not None:
+            proof["total_cost_usd"] = total_cost_usd
+            break
+
+    per_agent_cost = _normalize_float_dict(
+        payload.get("per_agent_cost")
+        or _get_nested(payload, "result", "per_agent_cost")
+        or _get_nested(payload, "cost", "per_agent_cost")
+    )
+    if not per_agent_cost:
+        per_agent_cost = _extract_receipt_per_agent_cost(cost_summary)
+    if per_agent_cost:
+        proof["per_agent_cost"] = per_agent_cost
+
+    return proof or None
+
+
+def _receipt_lookup_candidates(debate_id: str) -> list[str]:
+    candidates = [debate_id]
+    if debate_id and not debate_id.startswith("debate-"):
+        candidates.append(f"debate-{debate_id}")
+    return candidates
+
+
+def build_debate_proof(record: dict[str, Any]) -> dict[str, Any] | None:
+    proof = dict(record.get("proof") or {}) if isinstance(record.get("proof"), dict) else {}
+    debate_id = _coerce_text(record.get("id"))
+    if debate_id is None:
+        return proof or None
+
+    needs_receipt_backfill = any(
+        field not in proof for field in ("receipt_id", "receipt_hash", "total_cost_usd")
+    )
+    if not needs_receipt_backfill:
+        return proof or None
+
+    try:
+        store = _get_receipt_store()
+    except (ImportError, RuntimeError, OSError):
+        return proof or None
+
+    receipt = None
+    for candidate in _receipt_lookup_candidates(debate_id):
+        try:
+            receipt = store.get_by_gauntlet(candidate)
+        except AttributeError:
+            return proof or None
+        if receipt is not None:
+            break
+
+    if receipt is None:
+        return proof or None
+
+    receipt_id = _coerce_text(_get_mapping_value(receipt, "receipt_id"))
+    if receipt_id is not None and "receipt_id" not in proof:
+        proof["receipt_id"] = receipt_id
+
+    receipt_hash = _coerce_text(
+        _get_mapping_value(receipt, "checksum") or _get_mapping_value(receipt, "artifact_hash")
+    )
+    if receipt_hash is not None and "receipt_hash" not in proof:
+        proof["receipt_hash"] = receipt_hash
+
+    receipt_timestamp = _get_mapping_value(receipt, "created_at")
+    if receipt_timestamp is not None and "receipt_timestamp" not in proof:
+        if hasattr(receipt_timestamp, "isoformat"):
+            proof["receipt_timestamp"] = receipt_timestamp.isoformat()
+        else:
+            text = _coerce_text(receipt_timestamp)
+            if text is not None:
+                proof["receipt_timestamp"] = text
+
+    cost_summary = _get_mapping_value(receipt, "cost_summary")
+    if "total_cost_usd" not in proof:
+        total_cost_usd = _find_first_numeric(cost_summary, ("total_cost_usd", "cost_usd"))
+        if total_cost_usd is not None:
+            proof["total_cost_usd"] = total_cost_usd
+
+    if "per_agent_cost" not in proof:
+        per_agent_cost = _extract_receipt_per_agent_cost(cost_summary)
+        if per_agent_cost:
+            proof["per_agent_cost"] = per_agent_cost
+
+    return proof or None
 
 
 def _extract_total_tokens(payload: dict[str, Any] | None) -> int:
@@ -377,6 +636,7 @@ def load_debate_records(storage: Any) -> list[dict[str, Any]]:
                         "task": str(
                             row_map.get("task") or (payload.get("task") if payload else "") or ""
                         ),
+                        "proof": _extract_dashboard_proof(payload),
                         "review_state": review_state,
                         "needs_attention": review_state != "dismissed"
                         and (

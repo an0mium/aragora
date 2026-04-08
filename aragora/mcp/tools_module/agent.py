@@ -29,19 +29,12 @@ async def list_agents_tool() -> dict[str, Any]:
             "agents": agents,
             "count": len(agents),
         }
-    except Exception as e:  # noqa: BLE001 - graceful degradation, provide fallback agent list
+    except Exception as e:  # noqa: BLE001 - graceful degradation, fail closed
         logger.warning("Could not list agents: %s", e)
-        # Fallback list
         return {
-            "agents": [
-                "anthropic-api",
-                "openai-api",
-                "gemini",
-                "grok",
-                "deepseek",
-            ],
-            "count": 5,
-            "note": "Fallback list - some agents may not be available",
+            "agents": [],
+            "count": 0,
+            "error": "Could not list agents",
         }
 
 
