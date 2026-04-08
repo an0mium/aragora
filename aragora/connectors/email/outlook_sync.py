@@ -769,10 +769,11 @@ class OutlookSyncService:
                         self._state.subscription_expiry,
                     )
                 else:
-                    logger.error("[OutlookSync] Failed to create subscription: %s", response.text)
+                    raise ValueError(f"Failed to create subscription: HTTP {response.status_code}")
 
         except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
             logger.error("[OutlookSync] Subscription setup failed: %s", e)
+            raise
 
     async def _renew_subscription(self) -> None:
         """Renew the Microsoft Graph subscription."""
@@ -820,10 +821,11 @@ class OutlookSyncService:
                     self._state.subscription_id = None
                     await self._setup_subscription()
                 else:
-                    logger.error("[OutlookSync] Failed to renew subscription: %s", response.text)
+                    raise ValueError(f"Failed to renew subscription: HTTP {response.status_code}")
 
         except (OSError, KeyError, ValueError, json.JSONDecodeError) as e:
             logger.error("[OutlookSync] Subscription renewal failed: %s", e)
+            raise
 
     async def _delete_subscription(self) -> None:
         """Delete the Microsoft Graph subscription."""
@@ -901,7 +903,8 @@ class OutlookSyncService:
                 if data:
                     return OutlookSyncState.from_dict(json.loads(data))
             except (OSError, ConnectionError, json.JSONDecodeError, KeyError, ValueError) as e:
-                logger.warning("[OutlookSync] Failed to load state from Redis: %s", e)
+                logger.error("[OutlookSync] Failed to load state from Redis: %s", e)
+                raise
 
         elif self.config.state_backend == "postgres" and self.config.postgres_dsn:
             try:
@@ -916,7 +919,8 @@ class OutlookSyncService:
                 if row:
                     return OutlookSyncState.from_dict(json.loads(row["state"]))
             except (OSError, ConnectionError, json.JSONDecodeError, KeyError, ValueError) as e:
-                logger.warning("[OutlookSync] Failed to load state from Postgres: %s", e)
+                logger.error("[OutlookSync] Failed to load state from Postgres: %s", e)
+                raise
 
         return None
 
@@ -936,7 +940,8 @@ class OutlookSyncService:
                 await client.set(state_key, state_json)
                 await client.close()
             except (OSError, ConnectionError, TypeError) as e:
-                logger.warning("[OutlookSync] Failed to save state to Redis: %s", e)
+                logger.error("[OutlookSync] Failed to save state to Redis: %s", e)
+                raise
 
         elif self.config.state_backend == "postgres" and self.config.postgres_dsn:
             try:
@@ -954,7 +959,8 @@ class OutlookSyncService:
                 )
                 await conn.close()
             except (OSError, ConnectionError, TypeError) as e:
-                logger.warning("[OutlookSync] Failed to save state to Postgres: %s", e)
+                logger.error("[OutlookSync] Failed to save state to Postgres: %s", e)
+                raise
 
     def get_stats(self) -> dict[str, Any]:
         """Get sync service statistics."""
