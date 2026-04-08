@@ -38,11 +38,12 @@ from aragora.reasoning.provenance import SourceType
 
 # Optional dependency for async MySQL - pre-declare for type checker
 aiomysql: Any = None
+_aiomysql_import_error: ImportError | None = None
 
 try:
     import aiomysql  # type: ignore[no-redef]
-except ImportError:
-    pass  # aiomysql stays as None fallback
+except ImportError as exc:
+    _aiomysql_import_error = exc
 
 logger = logging.getLogger(__name__)
 
@@ -161,28 +162,27 @@ class MySQLConnector(EnterpriseConnector):
         if self._pool is not None:
             return self._pool
 
-        try:
-            import aiomysql
-
-            # Get credentials
-            username = await self.credentials.get_credential("MYSQL_USER") or "root"
-            password = await self.credentials.get_credential("MYSQL_PASSWORD") or ""
-
-            self._pool = await aiomysql.create_pool(
-                host=self.host,
-                port=self.port,
-                db=self.database,
-                user=username,
-                password=password,
-                minsize=1,
-                maxsize=self.pool_size,
-                autocommit=True,
-            )
-            return self._pool
-
-        except ImportError:
+        if aiomysql is None:
             logger.error("aiomysql not installed. Run: pip install aiomysql")
-            raise
+            raise ImportError("aiomysql not installed. Run: pip install aiomysql") from (
+                _aiomysql_import_error
+            )
+
+        # Get credentials
+        username = await self.credentials.get_credential("MYSQL_USER") or "root"
+        password = await self.credentials.get_credential("MYSQL_PASSWORD") or ""
+
+        self._pool = await aiomysql.create_pool(
+            host=self.host,
+            port=self.port,
+            db=self.database,
+            user=username,
+            password=password,
+            minsize=1,
+            maxsize=self.pool_size,
+            autocommit=True,
+        )
+        return self._pool
 
     async def _discover_tables(self) -> list[str]:
         """Discover tables in the database."""
