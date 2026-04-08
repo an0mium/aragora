@@ -60,6 +60,9 @@ describe('normalizeDecisionPackage', () => {
       {
         debate_id: 'debate-42',
         question: 'Should we ship?',
+        status: 'consensus_reached',
+        debate_status: 'completed',
+        debate_status_source: 'demo',
         verdict: 'APPROVED',
         confidence: 0.91,
         consensus_reached: true,
@@ -88,6 +91,10 @@ describe('normalizeDecisionPackage', () => {
     );
 
     expect(normalized.id).toBe('debate-42');
+    expect(normalized.status).toBe('consensus_reached');
+    expect(normalized.debate_status).toBe('completed');
+    expect(normalized.debate_status_source).toBe('synthetic');
+    expect(normalized.synthetic).toBe(true);
     expect(normalized.explanation).toBe('Agents aligned on shipping with minor caveats.');
     expect(normalized.agents).toEqual(['claude', 'gpt-4']);
     expect(normalized.total_cost).toBe(0.0042);
@@ -166,5 +173,20 @@ describe('normalizeDecisionPackage', () => {
         call_count: 4,
       }),
     ]);
+  });
+
+  it('derives synthetic truth metadata from the legacy mode flag when the explicit source is absent', () => {
+    const normalized = normalizeDecisionPackage(
+      {
+        debate_id: 'debate-44',
+        mode: 'demo',
+        status: 'completed',
+      },
+      'fallback-id'
+    );
+
+    expect(normalized.debate_status).toBe('completed');
+    expect(normalized.debate_status_source).toBe('synthetic');
+    expect(normalized.synthetic).toBe(true);
   });
 });
