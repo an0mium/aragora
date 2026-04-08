@@ -134,6 +134,22 @@ class TestValidateRequest:
         result = h.handle("/api/test", {}, MockHandler(), custom_id="valid")
         assert result["success"] is True
 
+    def test_path_validator_missing_from_path_and_kwargs(self):
+        """Should fail closed when declared path param cannot be extracted."""
+
+        def validate_id(val):
+            return (True, None) if val else (False, "Invalid")
+
+        class Handler:
+            @validate_request(path_validators={"custom_id": validate_id})
+            def handle(self, path, query, handler, custom_id=None):
+                return {"success": True}
+
+        h = Handler()
+        result = h.handle("/api/test", {}, MockHandler())
+        assert result["status"] == 400
+        assert "Missing required path parameter: custom_id" in result["error"]
+
     def test_schema_validation_valid(self):
         """Should pass with valid body against schema."""
         # Custom schema format: field -> {type, required, ...}
