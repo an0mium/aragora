@@ -379,11 +379,8 @@ class GmailWatchMixin(GmailBaseMethods):
 
                 # Fetch full messages
                 for msg_id in new_message_ids:
-                    try:
-                        msg = await self.get_message(msg_id)
-                        new_messages.append(msg)
-                    except (OSError, ValueError, KeyError, RuntimeError) as e:
-                        logger.warning("[Gmail] Failed to fetch message %s: %s", msg_id, e)
+                    msg = await self.get_message(msg_id)
+                    new_messages.append(msg)
 
                 if history_id:
                     new_history_id = history_id
