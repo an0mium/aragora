@@ -40,11 +40,18 @@ class ReceiptStoreFacade:
         """Write to both stores.  Gauntlet for state machine, storage for durability."""
 
         from aragora.gauntlet.receipt_store import ReceiptState, get_receipt_store
+        from aragora.gauntlet.receipt_models import canonicalize_execution_outcome_linkage
 
+        canonical_receipt = canonicalize_execution_outcome_linkage(receipt_data)
+        resolved_receipt_id = str(canonical_receipt.get("receipt_id") or receipt_id or "").strip()
+        if resolved_receipt_id:
+            stamped_receipt = dict(canonical_receipt)
+            stamped_receipt["receipt_id"] = resolved_receipt_id
+            canonical_receipt = canonicalize_execution_outcome_linkage(stamped_receipt)
         gauntlet = get_receipt_store()
         gauntlet.persist(
-            receipt_id,
-            receipt_data,
+            resolved_receipt_id,
+            canonical_receipt,
             signature=signature,
             signature_key_id=signature_key_id,
             signed_at=signed_at,
@@ -67,19 +74,27 @@ class ReceiptStoreFacade:
                         "timestamp": signed_at or "",
                     },
                 }
-            storage.save(receipt_data, signed_receipt=signed_receipt_data)
+            storage.save(canonical_receipt, signed_receipt=signed_receipt_data)
         except Exception as exc:  # noqa: BLE001 - durable store is best-effort only
-            logger.debug("Storage store write skipped for %s: %s", receipt_id, exc)
+            logger.debug("Storage store write skipped for %s: %s", resolved_receipt_id, exc)
 
     def get_canonical(self, receipt_id: str) -> dict[str, Any] | None:
         """Read from gauntlet store first (state), fall back to storage store."""
 
         from aragora.gauntlet.receipt_store import get_receipt_store
+        from aragora.gauntlet.receipt_models import canonicalize_execution_outcome_linkage
 
         gauntlet = get_receipt_store()
         stored = gauntlet.get(receipt_id)
         if stored is not None:
-            return stored.to_dict()
+            canonical = canonicalize_execution_outcome_linkage(stored.receipt_data)
+            canonical.setdefault("receipt_id", receipt_id)
+            canonical["state"] = stored.state.value
+            canonical.setdefault("signature", stored.signature)
+            canonical.setdefault("signature_key_id", stored.signature_key_id)
+            canonical.setdefault("signed_at", stored.signed_at)
+            canonical.setdefault("signature_algorithm", stored.signature_algorithm)
+            return canonical
 
         # Fall back to storage store
         try:
@@ -88,7 +103,10 @@ class ReceiptStoreFacade:
             storage = get_storage_store()
             durable = storage.get(receipt_id)
             if durable is not None:
-                return durable.to_dict()
+                to_full_dict = getattr(durable, "to_full_dict", None)
+                if callable(to_full_dict):
+                    return canonicalize_execution_outcome_linkage(to_full_dict())
+                return canonicalize_execution_outcome_linkage(durable.to_dict())
         except (ImportError, RuntimeError, OSError, ValueError) as exc:
             logger.debug("Storage store read failed for %s: %s", receipt_id, exc)
 
