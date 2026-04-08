@@ -35,6 +35,7 @@ from aragora.swarm.terminal_truth import (
     qualify_run_terminal_state,
 )
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
+from aragora.swarm.merge_arbiter import classify_automation_branch_ownership
 
 # Backwards-compatible re-exports from extracted modules
 from aragora.swarm.boss_feed import (  # noqa: F401
@@ -2280,13 +2281,7 @@ class BossLoop:
     @staticmethod
     def _draft_promotion_ownership(head_ref_name: object) -> str | None:
         """Classify whether a draft PR is explicitly owned by automation."""
-        if not isinstance(head_ref_name, str):
-            return None
-        if head_ref_name.startswith("aragora/boss-harvest/"):
-            return "boss-owned"
-        if head_ref_name.startswith("codex/swarm-"):
-            return "queue-owned"
-        return None
+        return classify_automation_branch_ownership(head_ref_name)
 
     @staticmethod
     def _all_required_checks_passed(pr_number: int, repo: str) -> bool:

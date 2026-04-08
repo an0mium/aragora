@@ -4435,13 +4435,15 @@ class TestAllRequiredChecksPassed:
 class TestPromoteReadyDrafts:
     """Tests for _promote_ready_drafts."""
 
-    def test_identifies_queue_and_boss_owned_draft_branches(self) -> None:
+    def test_identifies_automation_and_boss_owned_draft_branches(self) -> None:
+        assert BossLoop._draft_promotion_ownership("codex/issue-101") == "queue-owned"
+        assert BossLoop._draft_promotion_ownership("codex/ordinary-branch") == "queue-owned"
+        assert BossLoop._draft_promotion_ownership("factory/manual-fix") == "queue-owned"
         assert BossLoop._draft_promotion_ownership("codex/swarm-2c4959f7-micro-2") == "queue-owned"
         assert (
             BossLoop._draft_promotion_ownership("aragora/boss-harvest/issue-10-boss-aaa")
             == "boss-owned"
         )
-        assert BossLoop._draft_promotion_ownership("codex/ordinary-branch") is None
         assert BossLoop._draft_promotion_ownership("feature/human-draft") is None
         assert BossLoop._draft_promotion_ownership(None) is None
 

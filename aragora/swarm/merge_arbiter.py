@@ -132,6 +132,22 @@ def _normalize_branch_prefixes(branch_prefixes: list[str] | None) -> list[str]:
     return normalized or list(AUTOMATION_BRANCH_PREFIXES)
 
 
+def classify_automation_branch_ownership(
+    head_ref_name: object,
+    *,
+    branch_prefixes: list[str] | None = None,
+) -> str | None:
+    """Classify an automation branch as boss- or queue-owned."""
+    if not isinstance(head_ref_name, str):
+        return None
+    for prefix in _normalize_branch_prefixes(branch_prefixes):
+        if head_ref_name.startswith(prefix):
+            if prefix == "aragora/boss-harvest/":
+                return "boss-owned"
+            return "queue-owned"
+    return None
+
+
 @lru_cache(maxsize=8)
 def _get_required_checks(repo: str, base_branch: str = "main") -> list[str]:
     """Load required branch-protection contexts, with a local fallback."""
@@ -225,7 +241,7 @@ def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
     candidates = []
     for pr in prs:
         branch = pr.get("headRefName", "")
-        if any(branch.startswith(prefix) for prefix in prefixes):
+        if classify_automation_branch_ownership(branch, branch_prefixes=prefixes) is not None:
             candidates.append(pr)
     return candidates
 
