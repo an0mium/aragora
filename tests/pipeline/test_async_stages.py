@@ -144,6 +144,15 @@ class TestRunIdeation:
         }
         mock_arena = MagicMock()
         mock_arena.run = AsyncMock(return_value=mock_result)
+        mock_explanation = MagicMock(
+            conclusion="Adopt the proposal",
+            confidence=0.91,
+            evidence=["e1", "e2"],
+            vote_pivots=["judge"],
+            counterfactuals=["extra-round"],
+        )
+        mock_builder = MagicMock()
+        mock_builder.build = AsyncMock(return_value=mock_explanation)
 
         with (
             patch(
@@ -151,6 +160,10 @@ class TestRunIdeation:
                 return_value=mock_arena,
                 create=True,
             ) as mock_cls,
+            patch(
+                "aragora.explainability.builder.ExplanationBuilder",
+                return_value=mock_builder,
+            ),
             patch.dict(
                 "sys.modules",
                 {
@@ -165,6 +178,14 @@ class TestRunIdeation:
             sr = await pipeline._run_ideation("pipe-1", "Test debate", config)
 
         assert sr.status == "completed"
+        assert sr.output["explanation"] == {
+            "conclusion": "Adopt the proposal",
+            "confidence": 0.91,
+            "evidence_count": 2,
+            "vote_pivots": ["judge"],
+            "counterfactuals": ["extra-round"],
+        }
+        mock_builder.build.assert_awaited_once_with(mock_result)
 
 
 # =============================================================================
