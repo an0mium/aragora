@@ -612,8 +612,8 @@ def _parse_datetime(value: str | None) -> datetime | None:
         if "T" in value:
             return datetime.fromisoformat(value.replace("Z", "+00:00"))
         return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-    except (ValueError, TypeError):
-        return None
+    except (ValueError, TypeError) as exc:
+        raise PipedriveError(f"Invalid Pipedrive datetime value: {value!r}") from exc
 
 
 def _parse_date(value: str | None) -> datetime | None:
@@ -622,8 +622,8 @@ def _parse_date(value: str | None) -> datetime | None:
         return None
     try:
         return datetime.strptime(value, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-    except (ValueError, TypeError):
-        return None
+    except (ValueError, TypeError) as exc:
+        raise PipedriveError(f"Invalid Pipedrive date value: {value!r}") from exc
 
 
 # =============================================================================
@@ -731,8 +731,11 @@ class PipedriveClient:
                         if retry_after:
                             try:
                                 delay = float(retry_after)
-                            except (ValueError, TypeError):
-                                pass
+                            except (ValueError, TypeError) as exc:
+                                raise PipedriveError(
+                                    f"Invalid Retry-After header from Pipedrive: {retry_after!r}",
+                                    status_code=response.status_code,
+                                ) from exc
                         logger.warning(
                             "Pipedrive %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
                             method,
