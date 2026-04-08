@@ -210,6 +210,10 @@ class ReceiptStatsResponse(BaseModel):
 
     total: int = 0
     verified: int = 0
+    delivered: int = 0
+    pending: int = 0
+    failed: int = 0
+    delivery_rate: float | None = None
     by_verdict: dict[str, int] = Field(default_factory=dict)
     by_risk_level: dict[str, int] = Field(default_factory=dict)
     by_framework: dict[str, int] = Field(default_factory=dict)
@@ -454,6 +458,96 @@ def _build_batch_export_zip(
 # =============================================================================
 # Helpers
 # =============================================================================
+
+
+def _coerce_int(value: Any) -> int | None:
+    """Return an int for numeric-like values, preserving zero."""
+
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            return int(float(value))
+        except ValueError:
+            return None
+    return None
+
+
+def _coerce_float(value: Any) -> float | None:
+    """Return a float for numeric-like values, preserving zero."""
+
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _derive_delivery_aggregates_from_history() -> tuple[int, int, int, float | None]:
+    """Summarize the shared delivery-history bridge for truthful receipt metrics."""
+
+    from aragora.server.handlers.utils.receipt_delivery_history import (
+        get_receipt_delivery_history_store,
+    )
+
+    delivered = 0
+    pending = 0
+    failed = 0
+
+    for item in get_receipt_delivery_history_store():
+        status = str(item.get("status") or "").strip().lower()
+        if status in {"delivered", "success"}:
+            delivered += 1
+        elif status in {"failed", "error"}:
+            failed += 1
+        else:
+            pending += 1
+
+    delivery_rate = delivered / (delivered + failed) if delivered + failed > 0 else None
+    return delivered, pending, failed, delivery_rate
+
+
+def _resolve_delivery_aggregates(stats: dict[str, Any]) -> tuple[int, int, int, float | None]:
+    """Prefer store-provided delivery aggregates, then backfill from history."""
+
+    delivered = _coerce_int(stats.get("delivered"))
+    if delivered is None:
+        delivered = _coerce_int(stats.get("delivered_count"))
+
+    pending = _coerce_int(stats.get("pending"))
+    if pending is None:
+        pending = _coerce_int(stats.get("pending_count"))
+
+    failed = _coerce_int(stats.get("failed"))
+    if failed is None:
+        failed = _coerce_int(stats.get("failed_count"))
+
+    delivery_rate = _coerce_float(stats.get("delivery_rate"))
+    if delivery_rate is None:
+        delivery_rate = _coerce_float(stats.get("delivery_success_rate"))
+
+    if None not in (delivered, pending, failed, delivery_rate):
+        return delivered or 0, pending or 0, failed or 0, delivery_rate
+
+    history_delivered, history_pending, history_failed, history_delivery_rate = (
+        _derive_delivery_aggregates_from_history()
+    )
+
+    return (
+        delivered if delivered is not None else history_delivered,
+        pending if pending is not None else history_pending,
+        failed if failed is not None else history_failed,
+        delivery_rate if delivery_rate is not None else history_delivery_rate,
+    )
 
 
 def _to_receipt_summary(r: Any) -> ReceiptSummary:
@@ -788,9 +882,15 @@ async def get_receipt_stats(
             if isinstance(raw_stats, dict):
                 stats = raw_stats
 
+        delivered, pending, failed, delivery_rate = _resolve_delivery_aggregates(stats)
+
         return ReceiptStatsResponse(
             total=stats.get("total", stats.get("total_count", 0)),
             verified=stats.get("verified", stats.get("verified_count", 0)),
+            delivered=delivered,
+            pending=pending,
+            failed=failed,
+            delivery_rate=delivery_rate,
             by_verdict=stats.get("by_verdict", {}),
             by_risk_level=stats.get("by_risk_level", {}),
             by_framework=stats.get("by_framework", {}),

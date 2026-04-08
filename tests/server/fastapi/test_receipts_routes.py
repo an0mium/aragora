@@ -23,6 +23,9 @@ from fastapi.testclient import TestClient
 from aragora.rbac.models import AuthorizationContext
 from aragora.server.fastapi import create_app
 from aragora.server.fastapi.dependencies.auth import require_authenticated
+from aragora.server.handlers.utils.receipt_delivery_history import (
+    get_receipt_delivery_history_store,
+)
 from aragora.storage.receipt_store import StoredReceipt
 
 
@@ -66,6 +69,15 @@ def client(app, mock_receipt_store, mock_receipt_share_store):
         "receipt_share_store": mock_receipt_share_store,
     }
     return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture(autouse=True)
+def clear_receipt_delivery_history():
+    """Keep shared receipt delivery history isolated per test."""
+    history = get_receipt_delivery_history_store()
+    history.clear()
+    yield
+    history.clear()
 
 
 def _override_auth(
@@ -663,6 +675,63 @@ class TestReceiptStats:
         assert response.status_code == 200
         data = response.json()
         assert data["total"] == 0
+
+    def test_stats_preserve_delivery_aggregates_from_store(self, client, mock_receipt_store):
+        """Stats should keep delivery aggregates surfaced by the store."""
+        mock_receipt_store.get_stats = MagicMock(
+            return_value={
+                "total": 12,
+                "verified": 10,
+                "delivered": 8,
+                "pending": 3,
+                "failed": 1,
+                "delivery_rate": 0.8889,
+            }
+        )
+
+        response = client.get("/api/v2/receipts/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["delivered"] == 8
+        assert data["pending"] == 3
+        assert data["failed"] == 1
+        assert data["delivery_rate"] == pytest.approx(0.8889)
+
+    def test_stats_backfill_delivery_aggregates_from_history(self, client, mock_receipt_store):
+        """Stats should derive delivery aggregates when the store omits them."""
+        mock_receipt_store.get_stats = MagicMock(return_value={"total": 5, "verified": 4})
+        get_receipt_delivery_history_store().extend(
+            [
+                {
+                    "receiptId": "r-1",
+                    "status": "delivered",
+                    "deliveredAt": "2026-04-08T00:00:00Z",
+                },
+                {
+                    "receiptId": "r-2",
+                    "status": "success",
+                    "deliveredAt": "2026-04-08T00:01:00Z",
+                },
+                {
+                    "receiptId": "r-3",
+                    "status": "pending",
+                    "deliveredAt": "2026-04-08T00:02:00Z",
+                },
+                {
+                    "receiptId": "r-4",
+                    "status": "failed",
+                    "deliveredAt": "2026-04-08T00:03:00Z",
+                },
+            ]
+        )
+
+        response = client.get("/api/v2/receipts/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["delivered"] == 2
+        assert data["pending"] == 1
+        assert data["failed"] == 1
+        assert data["delivery_rate"] == pytest.approx(2 / 3)
 
 
 class TestShareReceipt:

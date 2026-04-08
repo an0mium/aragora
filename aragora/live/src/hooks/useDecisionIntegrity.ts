@@ -98,6 +98,14 @@ interface ReceiptStatsApiResponse {
     verified?: number;
     verified_count?: number;
     signed?: number;
+    delivered?: number;
+    delivered_count?: number;
+    pending?: number;
+    pending_count?: number;
+    failed?: number;
+    failed_count?: number;
+    delivery_rate?: number;
+    delivery_success_rate?: number;
     by_verdict?: Record<string, number>;
     by_risk_level?: Record<string, number>;
   };
@@ -106,6 +114,14 @@ interface ReceiptStatsApiResponse {
   verified?: number;
   verified_count?: number;
   signed?: number;
+  delivered?: number;
+  delivered_count?: number;
+  pending?: number;
+  pending_count?: number;
+  failed?: number;
+  failed_count?: number;
+  delivery_rate?: number;
+  delivery_success_rate?: number;
   by_verdict?: Record<string, number>;
   by_risk_level?: Record<string, number>;
   generated_at?: string;
@@ -211,8 +227,9 @@ function computeIntegrityMetrics(
     : 0;
 
   const receiptDeliveryRate = receipts?.delivery_rate
+    !== undefined
     ? Math.round(receipts.delivery_rate * 100)
-    : receipts?.total_receipts && receipts.delivered
+    : receipts?.total_receipts !== undefined && receipts.delivered !== undefined
       ? Math.round((receipts.delivered / receipts.total_receipts) * 100)
       : 0;
 
@@ -285,8 +302,18 @@ function normalizeReceiptStats(
   const delivered = recent.filter((delivery) => delivery.status === 'delivered').length;
   const pending = recent.filter((delivery) => delivery.status === 'pending').length;
   const failed = recent.filter((delivery) => delivery.status === 'failed').length;
+  const aggregateDelivered =
+    resolvedStats?.delivered ?? resolvedStats?.delivered_count ?? delivered;
+  const aggregatePending =
+    resolvedStats?.pending ?? resolvedStats?.pending_count ?? pending;
+  const aggregateFailed =
+    resolvedStats?.failed ?? resolvedStats?.failed_count ?? failed;
   const deliveryRate =
-    delivered + failed > 0 ? delivered / (delivered + failed) : undefined;
+    resolvedStats?.delivery_rate ??
+    resolvedStats?.delivery_success_rate ??
+    (aggregateDelivered + aggregateFailed > 0
+      ? aggregateDelivered / (aggregateDelivered + aggregateFailed)
+      : undefined);
 
   return {
     total_receipts:
@@ -297,9 +324,9 @@ function normalizeReceiptStats(
       resolvedStats?.verified ??
       resolvedStats?.verified_count ??
       resolvedStats?.signed,
-    delivered,
-    pending,
-    failed,
+    delivered: aggregateDelivered,
+    pending: aggregatePending,
+    failed: aggregateFailed,
     delivery_rate: deliveryRate,
     by_verdict: resolvedStats?.by_verdict ?? {},
     by_risk_level: resolvedStats?.by_risk_level ?? {},
