@@ -117,22 +117,54 @@ class RLMContextHandler(BaseHandler):
             return None, error_response(required_message, 400)
 
         effective_max_size = max_size if max_size is not None else 10_000_000
+        content_type_error = self.validate_json_content_type(handler)
+        if content_type_error:
+            return None, content_type_error
 
-        try:
-            content_length = int(handler.headers.get("Content-Length", 0))
-        except (TypeError, ValueError, AttributeError):
-            return None, error_response("Invalid Content-Length header", 400)
+        raw_body: bytes | None = None
+        for buffered_body in (
+            getattr(handler, "body", None),
+            getattr(getattr(handler, "request", None), "body", None),
+        ):
+            if isinstance(buffered_body, str):
+                buffered_body = buffered_body.encode("utf-8")
+            if isinstance(buffered_body, (bytes, bytearray)):
+                raw_body = bytes(buffered_body)
+                break
 
-        if content_length <= 0:
+        if raw_body is None:
+            try:
+                content_length = int(handler.headers.get("Content-Length", 0))
+            except (TypeError, ValueError, AttributeError):
+                return None, error_response("Invalid Content-Length header", 400)
+
+            is_chunked = "chunked" in (handler.headers.get("Transfer-Encoding", "") or "").lower()
+            if content_length < 0:
+                return None, error_response("Invalid Content-Length header", 400)
+            if content_length > effective_max_size:
+                return None, error_response(
+                    f"Request body too large (max {effective_max_size} bytes)",
+                    413,
+                )
+            if content_length == 0 and not is_chunked:
+                return None, error_response(required_message, 400)
+
+            try:
+                read_size = content_length if content_length > 0 else effective_max_size
+                raw_body = handler.rfile.read(read_size)
+            except (AttributeError, OSError, ValueError) as e:
+                logger.debug("Failed to read request body: %s", e)
+                return None, error_response("Could not read request body", 400)
+
+        if not raw_body:
             return None, error_response(required_message, 400)
-        if content_length > effective_max_size:
+        if len(raw_body) > effective_max_size:
             return None, error_response(
                 f"Request body too large (max {effective_max_size} bytes)",
                 413,
             )
 
         try:
-            raw_body = handler.rfile.read(content_length)
             body = json.loads(raw_body.decode("utf-8"))
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError, AttributeError) as e:
             logger.debug("Failed to parse JSON body: %s", e)
@@ -157,6 +189,26 @@ class RLMContextHandler(BaseHandler):
         if not allow_empty and not value.strip():
             return None, error_response(
                 f"'{field_name}' field required and must be a non-empty string",
+                400,
+            )
+        return value, None
+
+    def _require_context_id_field(
+        self,
+        body: dict[str, Any],
+        field_name: str = "context_id",
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate that a body field contains a safe context identifier."""
+        value, value_error = self._require_string_field(body, field_name)
+        if value_error:
+            return None, value_error
+
+        from aragora.server.validation import SAFE_ID_PATTERN, validate_path_segment
+
+        is_valid, _ = validate_path_segment(value, field_name, SAFE_ID_PATTERN)
+        if not is_valid:
+            return None, error_response(
+                f"'{field_name}' must be 1-64 characters of letters, numbers, underscores, or hyphens",
                 400,
             )
         return value, None
@@ -680,7 +732,7 @@ class RLMContextHandler(BaseHandler):
         if body_error:
             return body_error
 
-        context_id, context_id_error = self._require_string_field(body, "context_id")
+        context_id, context_id_error = self._require_context_id_field(body, "context_id")
         if context_id_error:
             return context_id_error
         query, query_error = self._require_string_field(body, "query")
@@ -1067,7 +1119,7 @@ class RLMContextHandler(BaseHandler):
         if body_error:
             return body_error
 
-        context_id, context_id_error = self._require_string_field(body, "context_id")
+        context_id, context_id_error = self._require_context_id_field(body, "context_id")
         if context_id_error:
             return context_id_error
 
@@ -1093,6 +1145,8 @@ class RLMContextHandler(BaseHandler):
                 return error_response("'level' must be a string when provided", 400)
             if not level.strip():
                 return error_response("'level' must be a non-empty string when provided", 400)
+        if mode_str == "targeted" and level is None:
+            return error_response("'level' is required when mode is 'targeted'", 400)
         chunk_size, chunk_size_error = self._optional_int_field(
             body,
             "chunk_size",
