@@ -464,9 +464,19 @@ class OutlookSyncService:
                         if synced:
                             synced_messages.append(synced)
                     except (OSError, KeyError, ValueError) as e:
-                        logger.warning(
-                            "[OutlookSync] Failed to fetch message %s: %s", message_id, e
+                        self._status = OutlookSyncStatus.ERROR
+                        if self._state:
+                            self._state.last_error = (
+                                f"Webhook processing failed for message {message_id}"
+                            )
+                            self._state.sync_errors += 1
+                        logger.exception(
+                            "[OutlookSync] Failed to fetch message %s during webhook processing",
+                            message_id,
                         )
+                        raise RuntimeError(
+                            f"Failed to process Outlook webhook message {message_id}"
+                        ) from e
 
         # Callback for batch
         if synced_messages and self._on_batch_complete:
@@ -580,9 +590,13 @@ class OutlookSyncService:
                                 if synced:
                                     synced_messages.append(synced)
                             except (OSError, KeyError, ValueError) as e:
-                                logger.warning(
-                                    "[OutlookSync] Failed to fetch message %s: %s", msg_id, e
+                                logger.exception(
+                                    "[OutlookSync] Failed to fetch message %s during initial sync",
+                                    msg_id,
                                 )
+                                raise RuntimeError(
+                                    f"Initial sync failed while fetching Outlook message {msg_id}"
+                                ) from e
 
                         if not page_token:
                             break
@@ -671,7 +685,13 @@ class OutlookSyncService:
                         if synced:
                             synced_messages.append(synced)
                     except (OSError, KeyError, ValueError) as e:
-                        logger.warning("[OutlookSync] Failed to fetch message %s: %s", msg_id, e)
+                        logger.exception(
+                            "[OutlookSync] Failed to fetch message %s during incremental sync",
+                            msg_id,
+                        )
+                        raise RuntimeError(
+                            f"Incremental sync failed while fetching Outlook message {msg_id}"
+                        ) from e
 
                 # Update state
                 self._state.last_sync = datetime.now(timezone.utc)
@@ -724,10 +744,14 @@ class OutlookSyncService:
                 )
                 if self._state:
                     self._state.total_messages_prioritized += 1
-            except asyncio.TimeoutError:
-                logger.warning("[OutlookSync] Prioritization timeout for %s", message.id)
+            except asyncio.TimeoutError as e:
+                logger.exception("[OutlookSync] Prioritization timeout for %s", message.id)
+                raise RuntimeError(
+                    f"Prioritization timed out for Outlook message {message.id}"
+                ) from e
             except (ValueError, KeyError, TypeError, OSError) as e:
-                logger.warning("[OutlookSync] Prioritization failed for %s: %s", message.id, e)
+                logger.exception("[OutlookSync] Prioritization failed for %s", message.id)
+                raise RuntimeError(f"Prioritization failed for Outlook message {message.id}") from e
 
         synced = OutlookSyncedMessage(
             message=message,
@@ -940,8 +964,12 @@ class OutlookSyncService:
             except asyncio.CancelledError:
                 break
             except (OSError, ValueError, TypeError, ConnectionError, RuntimeError) as e:
-                logger.error("[OutlookSync] Renewal loop error: %s", e)
-                await asyncio.sleep(60)
+                self._status = OutlookSyncStatus.ERROR
+                if self._state:
+                    self._state.last_error = "Subscription renewal loop failed"
+                    self._state.sync_errors += 1
+                logger.exception("[OutlookSync] Renewal loop failed")
+                raise RuntimeError("Outlook subscription renewal loop failed") from e
 
     async def _load_state(self) -> OutlookSyncState | None:
         """Load sync state from backend."""
