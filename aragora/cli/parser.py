@@ -2298,8 +2298,8 @@ def _add_swarm_parser(subparsers) -> None:
         "swarm_action_or_goal",
         nargs="?",
         help=(
-            "Action (run/status/reconcile/campaign/integrator/tranche/coord/assign/"
-            "claim-pr/report/findings) or your goal in plain language"
+            "Action (run/status/reconcile/campaign/initiative/integrator/tranche/coord/assign/"
+            "claim-pr/report/findings/merge-arbiter) or your goal in plain language"
         ),
     )
     swarm_parser.add_argument(
@@ -2310,7 +2310,7 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "swarm_campaign_target",
         nargs="?",
-        help="Campaign subtarget such as a project id for review",
+        help="Campaign or initiative subtarget such as a project id for review/promotion",
     )
     swarm_parser.add_argument(
         "--spec",
@@ -2622,6 +2622,13 @@ def _add_swarm_parser(subparsers) -> None:
         help="Stop boss-loop or tranche queue after N consecutive hard failures (default: 3)",
     )
     swarm_parser.add_argument(
+        "--branch-prefix",
+        dest="boss_branch_prefix",
+        type=str,
+        default=None,
+        help="Comma-separated branch prefixes for merge-arbiter (default: boss-harvest)",
+    )
+    swarm_parser.add_argument(
         "--boss-max-parallel-dispatches",
         type=int,
         default=1,
@@ -2634,7 +2641,41 @@ def _add_swarm_parser(subparsers) -> None:
     )
     swarm_parser.add_argument(
         "--source-file",
-        help="Campaign planner input markdown/text file",
+        help="Campaign planner or initiative rationale input markdown/text file",
+    )
+    swarm_parser.add_argument(
+        "--initiative-dir",
+        default=None,
+        help="Local initiative artifact directory for 'swarm initiative' commands",
+    )
+    swarm_parser.add_argument(
+        "--feature-flag",
+        default=None,
+        help="Feature flag name to persist on an initiative plan",
+    )
+    swarm_parser.add_argument(
+        "--dependency",
+        action="append",
+        default=None,
+        help="Dependency to persist on an initiative plan (repeatable)",
+    )
+    swarm_parser.add_argument(
+        "--validation",
+        action="append",
+        default=None,
+        help="Validation command to persist on an initiative plan (repeatable)",
+    )
+    swarm_parser.add_argument(
+        "--milestone",
+        action="append",
+        default=None,
+        help="Milestone title to persist on an initiative plan (repeatable)",
+    )
+    swarm_parser.add_argument(
+        "--checkpoint",
+        action="append",
+        default=None,
+        help="Checkpoint title to persist on an initiative plan (repeatable)",
     )
     swarm_parser.add_argument(
         "--issue-list",
@@ -2705,7 +2746,7 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "--manifest",
         default=DEFAULT_CAMPAIGN_MANIFEST,
-        help="Campaign or tranche manifest path (default: .aragora/campaign_manifest.yaml)",
+        help="Campaign, initiative, or tranche manifest path (default: .aragora/campaign_manifest.yaml)",
     )
     swarm_parser.add_argument(
         "--queue",
