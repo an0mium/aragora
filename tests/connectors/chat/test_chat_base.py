@@ -250,11 +250,11 @@ class TestWithRetry:
 
     @pytest.mark.asyncio
     async def test_records_failure_on_circuit_breaker(self, connector):
-        func = AsyncMock(side_effect=RuntimeError("boom"))
+        func = AsyncMock(side_effect=ConnectionError("boom"))
         cb = connector._get_circuit_breaker()
         with patch.object(cb, "record_failure") as mock_fail:
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                with pytest.raises(RuntimeError):
+                with pytest.raises(ConnectionError):
                     await connector._with_retry(
                         "test_op",
                         func,
