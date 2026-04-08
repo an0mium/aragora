@@ -731,8 +731,11 @@ class PipedriveClient:
                         if retry_after:
                             try:
                                 delay = float(retry_after)
-                            except (ValueError, TypeError):
-                                pass
+                            except (ValueError, TypeError) as exc:
+                                raise PipedriveError(
+                                    f"Invalid Retry-After header from Pipedrive: {retry_after!r}",
+                                    status_code=response.status_code,
+                                ) from exc
                         logger.warning(
                             "Pipedrive %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
                             method,
