@@ -7,6 +7,10 @@ describe('DecisionPackageView', () => {
     render(
       <DecisionPackageView
         pkg={{
+          status: 'completed',
+          debate_status: 'completed',
+          debate_status_source: 'live',
+          synthetic: false,
           explanation: 'Routing explanation',
           agents: ['claude', 'gpt'],
           rounds: 3,
@@ -41,5 +45,35 @@ describe('DecisionPackageView', () => {
     expect(screen.getByText('provider_router_selection')).toBeInTheDocument();
     expect(screen.getByText('claude-sonnet-4')).toBeInTheDocument();
     expect(screen.getByText('gpt-4o')).toBeInTheDocument();
+  });
+
+  it('renders a truth badge for simulated debate packages', () => {
+    render(
+      <DecisionPackageView
+        pkg={{
+          status: 'completed',
+          debate_status: 'completed',
+          debate_status_source: 'synthetic',
+          synthetic: true,
+          explanation: '',
+          agents: ['demo-agent'],
+          rounds: 1,
+          consensus_reached: true,
+          confidence: 1,
+          total_cost: 0,
+          cost_breakdown: [],
+          next_steps: [],
+          provider_names: [],
+          provider_hints: [],
+          provider_routing: null,
+          duration_seconds: 0,
+        }}
+      />
+    );
+
+    expect(screen.getByText(/truth status/i)).toBeInTheDocument();
+    expect(screen.getByText('SIMULATED')).toBeInTheDocument();
+    expect(screen.getByText('COMPLETED')).toBeInTheDocument();
+    expect(screen.getByText(/not a live provider-backed debate/i)).toBeInTheDocument();
   });
 });
