@@ -490,6 +490,31 @@ def test_start_run_discards_duplicate_explicit_lane_by_tranche_lane_id(
     assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
 
 
+def test_start_run_coerces_string_approval_required_for_explicit_work_orders(repo: Path) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+    spec = SwarmSpec(
+        raw_goal="Run the explicit work order without a human gate.",
+        refined_goal="Run the explicit work order without a human gate.",
+        work_orders=[
+            {
+                "work_order_id": "explicit-1",
+                "title": "Explicit lane",
+                "description": "Verify malformed booleans do not force approval.",
+                "file_scope": ["README.md"],
+                "approval_required": "false",
+            }
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, refresh_scaling=False)
+
+    assert run.work_orders[0]["approval_required"] is False
+
+
 def test_start_run_discards_duplicate_scope_less_open_lane(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -4207,7 +4232,8 @@ async def test_collect_results_backfills_receipt_for_salvaged_deliverable(
                 "lease_id": lease.lease_id,
                 "review_status": "pending",
                 "file_scope": ["aragora/swarm/supervisor.py"],
-                "receipt_id": None,
+                "receipt_id": "receipt-stale",
+                "confidence": 0.91,
                 "dispatch_error": "old crash",
                 "failure_reason": "worker_crash",
                 "blocking_question": "Old blocker?",
@@ -4252,6 +4278,7 @@ async def test_collect_results_backfills_receipt_for_salvaged_deliverable(
     assert wo["review_status"] == "pending_heterogeneous_review"
     assert wo["worker_outcome"] == "crash_with_salvage"
     assert wo["receipt_id"] is not None
+    assert wo["receipt_id"] != "receipt-stale"
     receipt = store.get_completion_receipt(wo["receipt_id"])
     assert receipt is not None
     assert receipt.outcome == "deliverable_created"
@@ -5103,6 +5130,57 @@ async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationSt
     assert wo["metadata"]["last_failure_reason"] == "agent_unavailable"
     assert "CLI not found" in wo["metadata"]["last_failure_detail"]
     assert wo.get("lease_id") is None
+
+
+@pytest.mark.asyncio
+async def test_dispatch_handles_missing_cli_when_sticky_flag_is_malformed(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    run_record = store.create_supervisor_run(
+        goal="missing cli malformed sticky flag test",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "test"},
+        work_orders=[
+            {
+                "work_order_id": "wo-fail",
+                "status": "leased",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "claude",
+                "metadata": {
+                    "requested_target_agent": "claude",
+                    "sticky_target_agent": "false",
+                },
+            }
+        ],
+        status="active",
+    )
+    run_id = run_record["run_id"]
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.launch = AsyncMock(side_effect=FileNotFoundError("claude CLI not found"))
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        launcher=mock_launcher,
+    )
+
+    launched = await supervisor.dispatch_workers(run_id)
+    assert len(launched) == 0
+
+    updated = store.get_supervisor_run(run_id)
+    assert updated is not None
+    wo = updated["work_orders"][0]
+    assert wo["status"] == "leased"
+    assert wo["target_agent"] == "codex"
+    assert wo["reviewer_agent"] == "claude"
+    assert wo["metadata"]["requested_target_agent"] == "claude"
+    assert wo["metadata"]["sticky_target_agent"] == "false"
+    assert wo["metadata"]["last_failure_reason"] == "agent_unavailable"
+    assert "fallback_suppressed_reason" not in wo["metadata"]
 
 
 @pytest.mark.asyncio
