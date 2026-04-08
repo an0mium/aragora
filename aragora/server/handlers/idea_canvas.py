@@ -106,7 +106,13 @@ class IdeaCanvasHandler(SecureHandler):
         )
 
         workspace_id = query_params.get("workspace_id") or workspace_id
-        body = self._get_request_body(handler)
+        body, body_error = self._get_request_body(handler)
+        if body_error:
+            return error_response(body_error, 400)
+
+        validation_error = self._validate_request_body(method, path, body)
+        if validation_error:
+            return validation_error
 
         try:
             return self._route_request(
@@ -123,15 +129,148 @@ class IdeaCanvasHandler(SecureHandler):
             logger.warning("Permission denied: %s", perm)
             return error_response("Permission denied", 403)
 
-    def _get_request_body(self, handler: Any) -> dict[str, Any]:
+    def _get_request_body(self, handler: Any) -> tuple[dict[str, Any], str | None]:
         try:
             if hasattr(handler, "request") and hasattr(handler.request, "body"):
                 raw = handler.request.body
                 if raw:
-                    return json.loads(raw.decode("utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                    decoded = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else raw
+                    parsed = json.loads(decoded)
+                    if not isinstance(parsed, dict):
+                        return {}, "Request body must be a JSON object"
+                    return parsed, None
+        except (AttributeError, TypeError, json.JSONDecodeError, UnicodeDecodeError) as e:
             logger.debug("Failed to parse request body: %s", e)
-        return {}
+            return {}, "Request body must be valid JSON"
+        return {}, None
+
+    def _validate_request_body(
+        self,
+        method: str,
+        path: str,
+        body: dict[str, Any],
+    ) -> HandlerResult | None:
+        if method not in {"POST", "PUT"}:
+            return None
+
+        if IDEAS_LIST.match(path) and method == "POST":
+            return (
+                self._validate_string_field(body, "id")
+                or self._validate_string_field(body, "name")
+                or self._validate_string_field(body, "description")
+                or self._validate_dict_field(body, "metadata")
+            )
+
+        if IDEAS_NODES.match(path) and method == "POST":
+            return (
+                self._validate_string_field(body, "label")
+                or self._validate_string_field(body, "idea_type")
+                or self._validate_dict_field(body, "data")
+                or self._validate_position_field(body)
+            )
+
+        if IDEAS_NODE.match(path) and method == "PUT":
+            if not any(field in body for field in ("position", "label", "data")):
+                return error_response(
+                    "Request body must include at least one of: position, label, data",
+                    400,
+                )
+            return (
+                self._validate_string_field(body, "label")
+                or self._validate_dict_field(body, "data")
+                or self._validate_position_field(body)
+            )
+
+        if IDEAS_EDGES.match(path) and method == "POST":
+            return (
+                self._validate_required_string_alias(body, ("source_id", "source"), "source_id")
+                or self._validate_required_string_alias(body, ("target_id", "target"), "target_id")
+                or self._validate_string_field(body, "type")
+                or self._validate_string_field(body, "label")
+                or self._validate_dict_field(body, "data")
+            )
+
+        if IDEAS_PROMOTE.match(path) and method == "POST":
+            node_ids = body.get("node_ids")
+            if node_ids is None:
+                return error_response("node_ids is required", 400)
+            if not isinstance(node_ids, list) or not node_ids:
+                return error_response("node_ids must be a non-empty list", 400)
+            if any(not isinstance(node_id, str) or not node_id.strip() for node_id in node_ids):
+                return error_response("node_ids must contain only non-empty strings", 400)
+            return None
+
+        if IDEAS_BY_ID.match(path) and method == "PUT":
+            if not any(field in body for field in ("name", "description", "metadata")):
+                return error_response(
+                    "Request body must include at least one of: name, description, metadata",
+                    400,
+                )
+            return (
+                self._validate_string_field(body, "name")
+                or self._validate_string_field(body, "description")
+                or self._validate_dict_field(body, "metadata")
+            )
+
+        return None
+
+    def _validate_string_field(
+        self,
+        body: dict[str, Any],
+        field_name: str,
+    ) -> HandlerResult | None:
+        if field_name not in body:
+            return None
+
+        value = body[field_name]
+        if not isinstance(value, str):
+            return error_response(f"{field_name} must be a string", 400)
+        return None
+
+    def _validate_required_string_alias(
+        self,
+        body: dict[str, Any],
+        field_names: tuple[str, ...],
+        label: str,
+    ) -> HandlerResult | None:
+        present_fields = [field_name for field_name in field_names if field_name in body]
+        if not present_fields:
+            return error_response(f"{label} is required", 400)
+
+        for field_name in present_fields:
+            value = body[field_name]
+            if not isinstance(value, str) or not value.strip():
+                return error_response(f"{field_name} must be a non-empty string", 400)
+        return None
+
+    def _validate_dict_field(
+        self,
+        body: dict[str, Any],
+        field_name: str,
+    ) -> HandlerResult | None:
+        if field_name not in body:
+            return None
+
+        if not isinstance(body[field_name], dict):
+            return error_response(f"{field_name} must be an object", 400)
+        return None
+
+    def _validate_position_field(self, body: dict[str, Any]) -> HandlerResult | None:
+        if "position" not in body:
+            return None
+
+        position = body["position"]
+        if not isinstance(position, dict):
+            return error_response("position must be an object", 400)
+
+        for axis in ("x", "y"):
+            if axis not in position:
+                continue
+            try:
+                float(position[axis])
+            except (TypeError, ValueError):
+                return error_response(f"position.{axis} must be a number", 400)
+        return None
 
     def _route_request(
         self,
