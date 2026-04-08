@@ -502,9 +502,11 @@ class ZendeskConnector:
         )
         # Return the last comment
         comments = await self.get_ticket_comments(ticket_id)
-        return (
-            comments[-1] if comments else TicketComment(id=0, body=body, author_id=0, public=public)
-        )
+        if not comments:
+            raise ZendeskError(
+                f"Ticket {ticket_id} comment creation could not be verified: no comments returned"
+            )
+        return comments[-1]
 
     # =========================================================================
     # Users
