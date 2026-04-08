@@ -1130,6 +1130,57 @@ class TestHandleDebateCompletion:
         mock_arena._ingest_debate_outcome.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_preserves_failed_retrieval_state_in_result_metadata(
+        self, mock_arena, mock_debate_result
+    ):
+        """Failed KM handoff remains failed in final metadata."""
+        mock_arena._init_km_context.side_effect = ConnectionError("KM unavailable")
+
+        state = await initialize_debate_context(mock_arena, "corr-123")
+        state.ctx.result = mock_debate_result
+        state.ctx.finalize_result = MagicMock(return_value=mock_debate_result)
+
+        await handle_debate_completion(mock_arena, state)
+        result = await cleanup_debate_resources(mock_arena, state)
+
+        km_metadata = result.metadata["knowledge_management"]
+        assert km_metadata["context_handoff"]["status"] == "failed"
+        assert km_metadata["retrieval"]["status"] == "failed"
+        assert km_metadata["retrieval"]["error_type"] == "ConnectionError"
+        assert km_metadata["retrieval"]["error"] == "KM unavailable"
+
+    @pytest.mark.asyncio
+    async def test_failed_handoff_ignores_stale_prompt_builder_km_context(
+        self, mock_arena, mock_debate_result
+    ):
+        """Stale prompt-builder KM state does not fake current-debate enrichment."""
+        prompt_state = {"context": "stale knowledge", "item_ids": ["old-item"]}
+        prompt_builder = MagicMock()
+        prompt_builder.get_knowledge_mound_context.side_effect = lambda: prompt_state["context"]
+
+        def _set_knowledge_context(context: str, item_ids: list[str] | None = None) -> None:
+            prompt_state["context"] = context
+            prompt_state["item_ids"] = list(item_ids or [])
+
+        prompt_builder.set_knowledge_context.side_effect = _set_knowledge_context
+        mock_arena.prompt_builder = prompt_builder
+        mock_arena._init_km_context.side_effect = ConnectionError("KM unavailable")
+
+        state = await initialize_debate_context(mock_arena, "corr-123")
+        state.ctx.result = mock_debate_result
+        state.ctx.finalize_result = MagicMock(return_value=mock_debate_result)
+
+        await handle_debate_completion(mock_arena, state)
+        result = await cleanup_debate_resources(mock_arena, state)
+
+        km_metadata = result.metadata["knowledge_management"]
+        assert km_metadata["context_handoff"]["status"] == "failed"
+        assert km_metadata["retrieval"]["status"] == "failed"
+        assert km_metadata["retrieval"]["observed_context_chars"] == 0
+        assert km_metadata["retrieval"]["observed_item_count"] == 0
+        assert prompt_builder.set_knowledge_context.call_args_list[0] == call("", [])
+
+    @pytest.mark.asyncio
     async def test_completes_gupp_tracking_on_success(self, mock_arena, execution_state):
         """Test that GUPP tracking is completed on success."""
         execution_state.gupp_bead_id = "bead-123"
