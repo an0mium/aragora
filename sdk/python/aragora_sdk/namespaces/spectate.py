@@ -52,6 +52,10 @@ class SpectateAPI:
             params["debate_id"] = debate_id
         return self._client.request("GET", "/api/v1/spectate/stream", params=params)
 
+    def emit(self, **kwargs: Any) -> dict[str, Any]:
+        """Inject one or more events into the spectate bridge."""
+        return self._client.request("POST", "/api/v1/spectate/emit", json=kwargs)
+
 
 class AsyncSpectateAPI:
     """
@@ -90,3 +94,7 @@ class AsyncSpectateAPI:
         if debate_id:
             params["debate_id"] = debate_id
         return await self._client.request("GET", "/api/v1/spectate/stream", params=params)
+
+    async def emit(self, **kwargs: Any) -> dict[str, Any]:
+        """Inject one or more events into the spectate bridge."""
+        return await self._client.request("POST", "/api/v1/spectate/emit", json=kwargs)

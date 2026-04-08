@@ -496,6 +496,23 @@ class TestMethodInference:
         assert methods == ["get"]
         assert inferred is False
 
+    def test_manual_public_surface_specs_override_placeholder_methods(self):
+        """Canonical specs should pin real methods for playground and spectate public routes."""
+        from aragora.server.openapi_impl import generate_openapi_schema
+
+        schema = generate_openapi_schema()
+        paths = schema["paths"]
+
+        assert set(paths["/api/v1/spectate/recent"]) == {"get"}
+        assert set(paths["/api/v1/spectate/status"]) == {"get"}
+        assert set(paths["/api/v1/spectate/stream"]) == {"get"}
+        assert set(paths["/api/v1/spectate/emit"]) == {"post"}
+        assert set(paths["/api/v1/playground/assess"]) == {"post"}
+        assert set(paths["/api/v1/playground/landing/events"]) == {"post"}
+        assert set(paths["/api/v1/playground/landing/events/summary"]) == {"get"}
+        assert set(paths["/api/v1/playground/landing/feedback"]) == {"get", "post"}
+        assert set(paths["/api/v1/playground/landing/feedback/review"]) == {"post"}
+
 
 # ---------------------------------------------------------------------------
 # Test Class: Request Validation Against Schema
