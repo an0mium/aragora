@@ -81,6 +81,7 @@ ROUTES = [
 AUTH_REQUIRED_ENDPOINTS = [
     "/api/v1/debates/batch",  # Batch submission requires auth
     "/export/",  # Export debate data
+    "/package",  # Decision package payloads include full debate details
     "/citations",  # Evidence citations
     "/fork",  # Fork debate
     "/followup",  # Create follow-up debate
