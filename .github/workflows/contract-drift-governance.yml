@@ -62,7 +62,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
+          bash scripts/ci_install_project.sh --extras dev
+          USER_BASE="$(python -m site --user-base)"
+          echo "${USER_BASE}/bin" >> "$GITHUB_PATH"
 
       - name: Generate drift summary and planning artifacts
         run: |

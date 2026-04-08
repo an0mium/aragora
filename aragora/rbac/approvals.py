@@ -717,9 +717,6 @@ class ApprovalWorkflow:
         ) as e:
             logger.warning("Error finding default approvers: %s", e)
             return []
-        except Exception as e:  # noqa: BLE001 - catch-all for unexpected errors (e.g., database driver errors) to avoid breaking approval flow
-            logger.warning("Unexpected error finding default approvers: %s", e)
-            return []
 
     async def _grant_temporary_permission(self, request: ApprovalRequest) -> None:
         """

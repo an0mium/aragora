@@ -19,6 +19,10 @@ def _format_result_message(
     html: bool = False,
 ) -> str | dict[str, Any]:
     """Format debate result as a message."""
+    # Capability events are pre-formatted; return as-is
+    if result.get("_capability_event"):
+        return result.get("final_answer", "")
+
     # Try rich channel-specific formatter first
     try:
         from aragora.channels.debate_formatter import format_result_for_channel
@@ -30,10 +34,6 @@ def _format_result_message(
                 return formatted
     except ImportError:
         pass
-
-    # Capability events are pre-formatted; return as-is
-    if result.get("_capability_event"):
-        return result.get("final_answer", "")
 
     event_type = result.get("event")
     if (

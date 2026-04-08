@@ -115,11 +115,14 @@ class MockWebhookStore:
     def list(
         self,
         user_id: str | None = None,
+        workspace_id: str | None = None,
         active_only: bool = False,
     ) -> builtins.list[WebhookConfig]:
         result = list(self._webhooks.values())
         if user_id:
             result = [w for w in result if w.user_id == user_id]
+        if workspace_id:
+            result = [w for w in result if w.workspace_id == workspace_id]
         if active_only:
             result = [w for w in result if w.active]
         return result

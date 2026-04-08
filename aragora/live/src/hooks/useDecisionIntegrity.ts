@@ -92,8 +92,20 @@ export interface ReceiptStats {
 type RecentReceipt = NonNullable<ReceiptStats['recent']>[number];
 
 interface ReceiptStatsApiResponse {
+  stats?: {
+    total?: number;
+    total_receipts?: number;
+    verified?: number;
+    verified_count?: number;
+    signed?: number;
+    by_verdict?: Record<string, number>;
+    by_risk_level?: Record<string, number>;
+  };
   total?: number;
+  total_receipts?: number;
   verified?: number;
+  verified_count?: number;
+  signed?: number;
   by_verdict?: Record<string, number>;
   by_risk_level?: Record<string, number>;
   generated_at?: string;
@@ -252,6 +264,8 @@ function normalizeReceiptStats(
 ): ReceiptStats | null {
   if (!stats && !history) return null;
 
+  const resolvedStats = stats?.stats ?? stats;
+
   const recent: RecentReceipt[] = (history?.deliveries ?? []).flatMap((delivery) => {
     const id = delivery.receiptId ?? delivery.receipt_id ?? delivery.id;
     if (!id) return [];
@@ -275,14 +289,20 @@ function normalizeReceiptStats(
     delivered + failed > 0 ? delivered / (delivered + failed) : undefined;
 
   return {
-    total_receipts: stats?.total ?? recent.length,
-    verified_count: stats?.verified,
+    total_receipts:
+      resolvedStats?.total ??
+      resolvedStats?.total_receipts ??
+      recent.length,
+    verified_count:
+      resolvedStats?.verified ??
+      resolvedStats?.verified_count ??
+      resolvedStats?.signed,
     delivered,
     pending,
     failed,
     delivery_rate: deliveryRate,
-    by_verdict: stats?.by_verdict ?? {},
-    by_risk_level: stats?.by_risk_level ?? {},
+    by_verdict: resolvedStats?.by_verdict ?? {},
+    by_risk_level: resolvedStats?.by_risk_level ?? {},
     generated_at: stats?.generated_at,
     recent,
   };

@@ -8,6 +8,7 @@ import { useBackend } from '@/components/BackendSelector';
 import { ErrorWithRetry } from '@/components/ErrorWithRetry';
 import { DeliveryModal } from '@/components/receipts';
 import { PanelErrorBoundary } from '@/components/PanelErrorBoundary';
+import { useAuthFetch } from '@/hooks/useAuthenticatedFetch';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 
 type ReceiptVerdict = 'PASS' | 'CONDITIONAL' | 'FAIL';
@@ -107,6 +108,12 @@ interface ApiListResponse {
   results?: Array<Record<string, unknown>>;
   receipts?: Array<Record<string, unknown>>;
   data?: Array<Record<string, unknown>>;
+}
+
+interface ShareReceiptResponse {
+  share_url?: string;
+  token?: string;
+  expires_at?: string;
 }
 
 const EMPTY_RISK_SUMMARY: RiskSummary = {
@@ -731,9 +738,27 @@ function buildReceiptsHref(
   return query ? `${pathname}?${query}` : pathname;
 }
 
+function buildReceiptShareUrl(
+  backendUrl: string,
+  response: ShareReceiptResponse
+): string | null {
+  const sharePath = safeString(response.share_url);
+  if (sharePath) {
+    return new URL(sharePath, backendUrl).toString();
+  }
+
+  const token = safeString(response.token);
+  if (!token) {
+    return null;
+  }
+
+  return new URL(`/api/v2/receipts/share/${encodeURIComponent(token)}`, backendUrl).toString();
+}
+
 export default function ReceiptsPage() {
   const { config } = useBackend();
   const backendUrl = config.api;
+  const { getAuthHeaders } = useAuthFetch();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -747,6 +772,9 @@ export default function ReceiptsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | ReceiptVerdict>('all');
   const [deliveryModalOpen, setDeliveryModalOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [sharePending, setSharePending] = useState(false);
 
   const {
     data: gauntletReceiptsData,
@@ -912,6 +940,12 @@ export default function ReceiptsPage() {
   }, [syncReceiptQuery]);
 
   useEffect(() => {
+    setShareUrl(null);
+    setShareCopied(false);
+    setSharePending(false);
+  }, [selectedReceipt?.receipt_id]);
+
+  useEffect(() => {
     if (!requestedReceiptId || receiptLoading) return;
     if (selectedItem && matchesReceiptId(selectedItem, requestedReceiptId)) return;
 
@@ -960,6 +994,65 @@ export default function ReceiptsPage() {
       setError(err instanceof Error ? err.message : 'Download failed');
     }
   };
+
+  const copyReceiptShareUrl = useCallback(async (url: string) => {
+    if (!navigator.clipboard?.writeText) {
+      throw new Error('Clipboard access is unavailable in this browser');
+    }
+
+    await navigator.clipboard.writeText(url);
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+  }, []);
+
+  const handleShareReceipt = useCallback(async () => {
+    if (!selectedReceipt) {
+      return;
+    }
+
+    try {
+      setError(null);
+
+      if (shareUrl) {
+        await copyReceiptShareUrl(shareUrl);
+        return;
+      }
+
+      const confirmed = window.confirm(
+        'Create a public share link for this receipt? Anyone with the tokenized URL can view the receipt until the link expires.'
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      setSharePending(true);
+      const response = await fetch(
+        `${backendUrl}/api/v2/receipts/${encodeURIComponent(selectedReceipt.receipt_id)}/share`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ expires_in_hours: 24 }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to create share link (HTTP ${response.status})`);
+      }
+
+      const data = (await response.json()) as ShareReceiptResponse;
+      const resolvedShareUrl = buildReceiptShareUrl(backendUrl, data);
+      if (!resolvedShareUrl) {
+        throw new Error('Receipt share response did not include a usable link');
+      }
+
+      setShareUrl(resolvedShareUrl);
+      await copyReceiptShareUrl(resolvedShareUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create share link');
+    } finally {
+      setSharePending(false);
+    }
+  }, [backendUrl, copyReceiptShareUrl, getAuthHeaders, selectedReceipt, shareUrl]);
 
   const getVerdictColor = (verdict?: string) => {
     switch (normalizeVerdict(verdict)) {
@@ -1132,6 +1225,13 @@ export default function ReceiptsPage() {
     const resultHref = receipt.debate_id
       ? `/debates/${encodeURIComponent(receipt.debate_id)}`
       : null;
+    const shareButtonLabel = sharePending
+      ? 'Sharing...'
+      : shareCopied
+        ? 'Copied!'
+        : shareUrl
+          ? 'Copy link'
+          : 'Share link';
 
     return (
       <div className="space-y-6">
@@ -1158,6 +1258,13 @@ export default function ReceiptsPage() {
                 View result
               </Link>
             )}
+            <button
+              onClick={() => void handleShareReceipt()}
+              disabled={sharePending}
+              className="px-3 py-1 text-sm font-theme-data bg-[var(--accent)]/20 border border-[var(--accent)] text-[var(--accent)] rounded hover:bg-[var(--accent)]/30 disabled:opacity-60 disabled:cursor-wait"
+            >
+              {shareButtonLabel}
+            </button>
             <button
               onClick={() => setDeliveryModalOpen(true)}
               className="px-3 py-1 text-sm font-theme-data bg-blue-500/20 border border-blue-500 text-blue-400 rounded hover:bg-blue-500/30"
