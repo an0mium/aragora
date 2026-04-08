@@ -127,11 +127,13 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
     if not isinstance(data, dict):
         return False, "Request body must be a JSON object"
 
-    instruction = data.get("instruction")
-    if not instruction:
+    if "instruction" not in data:
         return False, "Missing required field: instruction"
+    instruction = data["instruction"]
     if not isinstance(instruction, str):
         return False, "instruction must be a string"
+    if not instruction.strip():
+        return False, "instruction must not be empty"
     if len(instruction) > MAX_INSTRUCTION_LENGTH:
         return False, f"instruction must be {MAX_INSTRUCTION_LENGTH} characters or less"
 
@@ -223,7 +225,7 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
     # Validate timeout_ms if provided
     if "timeout_ms" in data:
         timeout = data["timeout_ms"]
-        if not isinstance(timeout, int):
+        if isinstance(timeout, bool) or not isinstance(timeout, int):
             return False, "timeout_ms must be an integer"
         if timeout < 1000 or timeout > 3600000:  # 1 second to 1 hour
             return False, "timeout_ms must be between 1000 and 3600000"
@@ -390,20 +392,38 @@ class A2AHandler(BaseHandler):
         if content_type and not content_type.startswith("application/json"):
             return error_response("Content-Type must be application/json", 415)
 
+        content_length_header = handler.headers.get("Content-Length", "0")
         try:
-            content_length = int(handler.headers.get("Content-Length", 0))
-            if content_length > MAX_BODY_SIZE:
-                return error_response(
-                    f"Request body too large. Maximum size is {MAX_BODY_SIZE} bytes", 413
-                )
+            content_length = int(content_length_header)
+        except ValueError:
+            logger.exception("Invalid Content-Length in task submission request")
+            return error_response("Content-Length must be an integer", 400)
+
+        if content_length < 0:
+            return error_response("Content-Length must be non-negative", 400)
+
+        if content_length > MAX_BODY_SIZE:
+            return error_response(
+                f"Request body too large. Maximum size is {MAX_BODY_SIZE} bytes", 413
+            )
+
+        try:
             body = handler.rfile.read(content_length).decode("utf-8")
-            data = json.loads(body) if body else {}
-        except (json.JSONDecodeError, ValueError):
-            logger.exception("Invalid JSON in task submission request")
-            return error_response("Invalid request body", 400)
+        except ValueError:
+            logger.exception("Invalid request body length in task submission request")
+            return error_response("Invalid request body length", 400)
         except UnicodeDecodeError:
             logger.exception("Invalid UTF-8 encoding in task submission request")
             return error_response("Request body must be valid UTF-8", 400)
+
+        if not body:
+            return error_response("Request body is required", 400)
+
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError:
+            logger.exception("Invalid JSON in task submission request")
+            return error_response("Request body must be valid JSON", 400)
 
         # Validate request body schema
         is_valid, err = validate_task_request_body(data)
