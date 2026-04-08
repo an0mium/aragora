@@ -396,7 +396,11 @@ class HubSpotConnector:
                             try:
                                 delay = float(retry_after)
                             except (ValueError, TypeError):
-                                pass
+                                raise HubSpotError(
+                                    f"Invalid Retry-After header: {retry_after!r}",
+                                    status_code=response.status_code,
+                                    details={"retry_after": retry_after},
+                                ) from None
                         logger.warning(
                             "HubSpot %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
                             method,
