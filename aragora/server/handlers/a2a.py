@@ -95,6 +95,43 @@ def _validate_iso8601_timestamp(value: str) -> bool:
     return True
 
 
+def validate_context_items(context: list[dict[str, Any]]) -> tuple[bool, str | None]:
+    """Validate context items required by the handler before constructing ContextItem objects."""
+    for i, ctx in enumerate(context):
+        if "content" in ctx:
+            content = ctx["content"]
+            if not isinstance(content, str):
+                return False, f"context[{i}].content must be a string"
+            if len(content) > MAX_CONTEXT_CONTENT_LENGTH:
+                return (
+                    False,
+                    f"context[{i}].content must be {MAX_CONTEXT_CONTENT_LENGTH} characters or less",
+                )
+        else:
+            return False, f"context[{i}].content is required"
+
+        if "type" in ctx:
+            ctx_type = ctx["type"]
+            if not isinstance(ctx_type, str):
+                return False, f"context[{i}].type must be a string"
+            if not ctx_type.strip():
+                return False, f"context[{i}].type must not be empty"
+        else:
+            return False, f"context[{i}].type is required"
+
+        if "mime_type" in ctx:
+            mime_type = ctx["mime_type"]
+            if not isinstance(mime_type, str):
+                return False, f"context[{i}].mime_type must be a string"
+            if not mime_type.strip():
+                return False, f"context[{i}].mime_type must not be empty"
+
+        if "metadata" in ctx and not isinstance(ctx.get("metadata"), dict):
+            return False, f"context[{i}].metadata must be an object"
+
+    return True, None
+
+
 def validate_agent_name(name: str) -> tuple[bool, str | None]:
     """Validate an A2A agent name.
 
@@ -210,22 +247,17 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
         for i, ctx in enumerate(context):
             if not isinstance(ctx, dict):
                 return False, f"context[{i}] must be an object"
-            if "type" not in ctx:
-                return False, f"context[{i}].type is required"
-            if not isinstance(ctx.get("type"), str):
+            if "type" in ctx and not isinstance(ctx.get("type"), str):
                 return False, f"context[{i}].type must be a string"
-            if not ctx["type"].strip():
-                return False, f"context[{i}].type must not be empty"
-            if "content" not in ctx:
-                return False, f"context[{i}].content is required"
-            content = ctx["content"]
-            if not isinstance(content, str):
-                return False, f"context[{i}].content must be a string"
-            if len(content) > MAX_CONTEXT_CONTENT_LENGTH:
-                return (
-                    False,
-                    f"context[{i}].content must be {MAX_CONTEXT_CONTENT_LENGTH} characters or less",
-                )
+            if "content" in ctx:
+                content = ctx["content"]
+                if not isinstance(content, str):
+                    return False, f"context[{i}].content must be a string"
+                if len(content) > MAX_CONTEXT_CONTENT_LENGTH:
+                    return (
+                        False,
+                        f"context[{i}].content must be {MAX_CONTEXT_CONTENT_LENGTH} characters or less",
+                    )
             if "mime_type" in ctx:
                 mime_type = ctx["mime_type"]
                 if not isinstance(mime_type, str):
@@ -477,6 +509,10 @@ class A2AHandler(BaseHandler):
 
         # Validate request body schema
         is_valid, err = validate_task_request_body(data)
+        if not is_valid:
+            return error_response(err, 400)
+
+        is_valid, err = validate_context_items(data.get("context", []))
         if not is_valid:
             return error_response(err, 400)
 
