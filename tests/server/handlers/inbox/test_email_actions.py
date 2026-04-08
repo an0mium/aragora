@@ -21,7 +21,10 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
+from aragora.gauntlet.signing import HMACSigner, ReceiptSigner
+from aragora.inbox.trust_wedge import InboxTrustWedgeService, InboxTrustWedgeStore
 from aragora.server.handlers.inbox import email_actions
+from aragora.services.email_actions import EmailActionsService
 
 
 # ===========================================================================
@@ -907,6 +910,78 @@ class TestExportActionLogs:
             body, status = parse_response(result)
 
             assert status == 400
+
+
+class TestWedgeActionFlags:
+    @pytest.mark.asyncio
+    async def test_string_false_create_receipt_does_not_mint_receipt(self, tmp_path):
+        signer = ReceiptSigner(HMACSigner(secret_key=b"\x09" * 32, key_id="email-wedge-key"))
+        store = InboxTrustWedgeStore(db_path=str(tmp_path / "email-wedge.db"))
+        service = InboxTrustWedgeService(
+            email_actions_service=EmailActionsService(),
+            store=store,
+            signer=signer,
+        )
+        try:
+            with patch.object(
+                email_actions, "get_inbox_trust_wedge_service_instance", return_value=service
+            ):
+                result = await email_actions._maybe_handle_wedge_action(
+                    {
+                        "create_receipt": "false",
+                        "auto_approve": "false",
+                        "auto_execute": "false",
+                    },
+                    message_id="msg-1",
+                    user_id="user-1",
+                    action="archive",
+                    provider="gmail",
+                    action_name="archive",
+                )
+        finally:
+            store.close()
+
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_string_false_auto_flags_do_not_execute_receipt(self, tmp_path):
+        signer = ReceiptSigner(HMACSigner(secret_key=b"\x0a" * 32, key_id="email-wedge-key"))
+        store = InboxTrustWedgeStore(db_path=str(tmp_path / "email-wedge-execute.db"))
+        email_service = EmailActionsService()
+        connector = AsyncMock()
+        connector.archive_message = AsyncMock(return_value={"archived": True})
+        email_service._connectors["gmail:user-1"] = connector
+        service = InboxTrustWedgeService(
+            email_actions_service=email_service,
+            store=store,
+            signer=signer,
+        )
+        try:
+            with patch.object(
+                email_actions, "get_inbox_trust_wedge_service_instance", return_value=service
+            ):
+                result = await email_actions._maybe_handle_wedge_action(
+                    {
+                        "create_receipt": "true",
+                        "auto_approve": "false",
+                        "auto_execute": "false",
+                        "blocked_by_policy": "false",
+                    },
+                    message_id="msg-2",
+                    user_id="user-1",
+                    action="archive",
+                    provider="gmail",
+                    action_name="archive",
+                )
+                body, status = parse_response(result)
+        finally:
+            store.close()
+
+        assert status == 200
+        assert body["executed"] is False
+        assert body["receipt"]["state"] == "created"
+        assert body["decision"]["blocked_by_policy"] is False
+        connector.archive_message.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_export_logs_exceeds_90_days(self, mock_service):

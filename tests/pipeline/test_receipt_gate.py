@@ -22,6 +22,8 @@ from aragora.pipeline.receipt_gate import (
     PlanExecutionGateError,
     PlanReceiptGateError,
     _resolve_backbone_run,
+    _synthetic_debate_result,
+    evaluate_plan_execution_gate,
     ensure_plan_receipt,
 )
 
@@ -126,6 +128,43 @@ def test_resolve_backbone_run_logs_warning_when_lookup_fails(
         assert _resolve_backbone_run(plan, plan_store=store) is None
 
     assert "Backbone run lookup failed for run-lookup-fail: lookup unavailable" in caplog.text
+
+
+def test_string_gate_flags_fail_closed() -> None:
+    truthy_values = ("true", "1", "yes", "on")
+    falsey_values = ("false", "0", "no", "off", "", "malformed")
+
+    for raw_value in truthy_values:
+        plan = _plan(metadata={"execution_gate": {"allow_auto_execution": raw_value}})
+        decision = evaluate_plan_execution_gate(plan)
+        assert decision.allow_auto_execution is True
+        assert decision.reason_codes == []
+
+        plan = _plan(metadata={"deliberation_bundle": {"consensus_reached": raw_value}})
+        assert _synthetic_debate_result(plan).consensus_reached is True
+
+        plan = _plan(
+            metadata={
+                "execution_gate": {"signed_receipt": {"consensus_proof": {"reached": raw_value}}}
+            }
+        )
+        assert _synthetic_debate_result(plan).consensus_reached is True
+
+    for raw_value in falsey_values:
+        plan = _plan(metadata={"execution_gate": {"allow_auto_execution": raw_value}})
+        decision = evaluate_plan_execution_gate(plan)
+        assert decision.allow_auto_execution is False
+        assert decision.reason_codes == ["execution_gate_blocked"]
+
+        plan = _plan(metadata={"deliberation_bundle": {"consensus_reached": raw_value}})
+        assert _synthetic_debate_result(plan).consensus_reached is False
+
+        plan = _plan(
+            metadata={
+                "execution_gate": {"signed_receipt": {"consensus_proof": {"reached": raw_value}}}
+            }
+        )
+        assert _synthetic_debate_result(plan).consensus_reached is False
 
 
 @pytest.mark.asyncio
