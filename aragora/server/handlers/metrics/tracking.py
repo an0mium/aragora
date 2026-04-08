@@ -18,6 +18,15 @@ _error_counts: dict[str, int] = {}
 _metrics_lock = threading.Lock()
 _start_time = time.time()
 MAX_TRACKED_ENDPOINTS = 1000  # Prevent unbounded dict growth
+_VALID_VERIFICATION_STATUSES = frozenset(
+    {
+        "z3_verified",
+        "z3_disproved",
+        "z3_timeout",
+        "z3_translation_failed",
+        "confidence_fallback",
+    }
+)
 
 # Verification metrics tracking (thread-safe)
 _verification_stats: dict[str, int | float] = {
@@ -48,10 +57,20 @@ def track_verification(
                 'z3_translation_failed', 'confidence_fallback'
         verification_time_ms: Time taken for verification in milliseconds
     """
+    if not isinstance(status, str) or not status.strip():
+        raise ValueError("status is required and must be a non-empty string")
+    if status not in _VALID_VERIFICATION_STATUSES:
+        raise ValueError(
+            f"status must be one of: {', '.join(sorted(_VALID_VERIFICATION_STATUSES))}"
+        )
+    if isinstance(verification_time_ms, bool) or not isinstance(verification_time_ms, int | float):
+        raise TypeError("verification_time_ms must be a number")
+    if verification_time_ms < 0:
+        raise ValueError("verification_time_ms must be non-negative")
+
     with _verification_lock:
         _verification_stats["total_claims_processed"] += 1
-        if status in _verification_stats:
-            _verification_stats[status] += 1
+        _verification_stats[status] += 1
         _verification_stats["total_verification_time_ms"] += verification_time_ms
 
 
@@ -74,6 +93,11 @@ def get_verification_stats() -> dict[str, Any]:
 
 def track_request(endpoint: str, is_error: bool = False) -> None:
     """Track a request for metrics (thread-safe)."""
+    if not isinstance(endpoint, str) or not endpoint.strip():
+        raise ValueError("endpoint is required and must be a non-empty string")
+    if not isinstance(is_error, bool):
+        raise TypeError("is_error must be a boolean")
+
     with _metrics_lock:
         # Enforce max size - remove oldest entries if at capacity
         if endpoint not in _request_counts and len(_request_counts) >= MAX_TRACKED_ENDPOINTS:
