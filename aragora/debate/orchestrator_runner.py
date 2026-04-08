@@ -8,6 +8,7 @@ metrics recording, completion handling, and resource cleanup.
 from __future__ import annotations
 
 import asyncio
+import copy
 import os
 import time
 from dataclasses import dataclass, field
@@ -15,6 +16,12 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from aragora.core import DebateResult
+from aragora.core_types import (
+    DebateStatus,
+    DebateStatusSource,
+    legacy_debate_status,
+    normalize_debate_status,
+)
 from aragora.debate.complexity_governor import (
     classify_task_complexity,
     get_complexity_governor,
@@ -171,8 +178,181 @@ class _DebateExecutionState:
     ctx: DebateContext
     gupp_bead_id: str | None = None
     gupp_hook_entries: dict[str, str] = field(default_factory=dict)
-    debate_status: str = "completed"
+    debate_status: str = DebateStatus.PENDING.value
     debate_start_time: float = 0.0
+
+
+def _apply_result_debate_state(
+    result: DebateResult | None,
+    *,
+    debate_status: DebateStatus | str,
+    legacy_status: str | None = None,
+    source: DebateStatusSource = DebateStatusSource.LIVE,
+) -> None:
+    """Synchronize canonical and legacy debate state fields on the result."""
+    if result is None:
+        return
+
+    canonical = normalize_debate_status(debate_status)
+    result.debate_status = canonical.value
+    result.debate_status_source = source.value
+    result.status = legacy_status or legacy_debate_status(
+        canonical,
+        consensus_reached=bool(getattr(result, "consensus_reached", False)),
+    )
+
+
+_NON_BLOCKING_KM_INIT_ERRORS = (
+    asyncio.TimeoutError,
+    TimeoutError,
+    ConnectionError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    AttributeError,
+    ImportError,
+)
+
+
+def _read_arena_attr(arena: Arena, name: str, default: Any = None) -> Any:
+    """Prefer explicitly assigned arena attributes over MagicMock fallbacks."""
+    arena_dict = getattr(arena, "__dict__", None)
+    if isinstance(arena_dict, dict) and name in arena_dict:
+        return arena_dict[name]
+    return getattr(arena, name, default)
+
+
+def _build_km_metadata_template(arena: Arena) -> dict[str, Any]:
+    """Construct truthful KM metadata defaults for the default debate route."""
+    template = _read_arena_attr(arena, "_km_metadata_template", None)
+    if isinstance(template, dict):
+        return copy.deepcopy(template)
+
+    knowledge_mound_present = _read_arena_attr(arena, "knowledge_mound", None) is not None
+    retrieval_enabled = bool(_read_arena_attr(arena, "enable_knowledge_retrieval", True))
+    writeback_enabled = bool(_read_arena_attr(arena, "enable_knowledge_ingestion", True))
+    supermemory_enabled = bool(_read_arena_attr(arena, "enable_supermemory", False))
+
+    return {
+        "knowledge_mound_present": knowledge_mound_present,
+        "supermemory_enabled": supermemory_enabled,
+        "context_handoff": {
+            "status": "pending" if knowledge_mound_present else "not_configured",
+            "non_blocking": True,
+        },
+        "retrieval": {
+            "enabled": retrieval_enabled,
+            "status": (
+                "pending"
+                if retrieval_enabled and knowledge_mound_present
+                else "disabled"
+                if not retrieval_enabled
+                else "not_configured"
+            ),
+            "observed_context_chars": 0,
+            "observed_item_count": 0,
+        },
+        "writeback": {
+            "enabled": writeback_enabled,
+            "status": "pending" if writeback_enabled else "disabled",
+            "attempts": 0,
+        },
+    }
+
+
+def _get_km_metadata(ctx: DebateContext, arena: Arena) -> dict[str, Any]:
+    """Get or initialize debate-scoped KM metadata."""
+    metadata = getattr(ctx, "_knowledge_management_metadata", None)
+    if isinstance(metadata, dict):
+        return metadata
+    metadata = _build_km_metadata_template(arena)
+    setattr(ctx, "_knowledge_management_metadata", metadata)
+    return metadata
+
+
+def _clear_stale_km_prompt_state(arena: Arena) -> None:
+    """Reset shared prompt-builder KM state before a new debate starts."""
+    prompt_builder = _read_arena_attr(arena, "prompt_builder", None)
+    if prompt_builder and hasattr(prompt_builder, "set_knowledge_context"):
+        try:
+            prompt_builder.set_knowledge_context("", [])
+        except (RuntimeError, TypeError, AttributeError):
+            pass
+
+
+def _update_observed_km_retrieval(
+    arena: Arena,
+    ctx: DebateContext,
+    km_metadata: dict[str, Any],
+) -> None:
+    """Record whether the finalized debate actually carried KM context."""
+    retrieval = km_metadata.setdefault("retrieval", {})
+    if not retrieval.get("enabled", False):
+        retrieval["status"] = "disabled"
+        retrieval["observed_context_chars"] = 0
+        retrieval["observed_item_count"] = 0
+        return
+
+    context_handoff = km_metadata.get("context_handoff", {})
+    handoff_status = context_handoff.get("status")
+
+    prompt_builder = _read_arena_attr(arena, "prompt_builder", None) or getattr(
+        ctx, "_prompt_builder", None
+    )
+    knowledge_context = ""
+    if prompt_builder and hasattr(prompt_builder, "get_knowledge_mound_context"):
+        try:
+            raw_context = prompt_builder.get_knowledge_mound_context()
+            if isinstance(raw_context, str):
+                knowledge_context = raw_context
+        except (RuntimeError, TypeError, AttributeError):
+            knowledge_context = ""
+
+    raw_item_ids = getattr(ctx, "_km_item_ids_used", None) or []
+    item_ids = list(raw_item_ids) if isinstance(raw_item_ids, (list, tuple, set)) else []
+
+    retrieval["observed_context_chars"] = len(knowledge_context)
+    retrieval["observed_item_count"] = len(item_ids)
+
+    if knowledge_context or item_ids:
+        retrieval["status"] = "succeeded"
+        retrieval.pop("error_type", None)
+        retrieval.pop("error", None)
+    elif handoff_status == "failed":
+        retrieval["status"] = "failed"
+        retrieval["error_type"] = context_handoff.get("error_type")
+        retrieval["error"] = context_handoff.get("error")
+    elif not km_metadata.get("knowledge_mound_present", False):
+        retrieval["status"] = "not_configured"
+    else:
+        retrieval["status"] = "not_observed"
+
+
+def _attach_truthful_km_metadata(
+    arena: Arena,
+    ctx: DebateContext,
+    result: DebateResult,
+) -> None:
+    """Attach truthful KM state to the finalized debate result metadata."""
+    km_metadata = _get_km_metadata(ctx, arena)
+    _update_observed_km_retrieval(arena, ctx, km_metadata)
+
+    writeback = km_metadata.setdefault("writeback", {})
+    if not writeback.get("enabled", False):
+        writeback["status"] = "disabled"
+    elif (
+        writeback.get("status") in {"pending", "pending_background"}
+        and not km_metadata.get("knowledge_mound_present", False)
+        and not km_metadata.get("supermemory_enabled", False)
+    ):
+        writeback["status"] = "not_configured"
+
+    metadata = getattr(result, "metadata", None)
+    if not isinstance(metadata, dict):
+        metadata = {}
+    metadata["knowledge_management"] = km_metadata
+    result.metadata = metadata
 
 
 def _extract_agent_token_usage(agent: Any) -> tuple[int, int]:
@@ -517,9 +697,11 @@ async def initialize_debate_context(
 
     # Reinitialize convergence detector with debate-scoped cache
     arena._reinit_convergence_for_debate(debate_id)
+    _clear_stale_km_prompt_state(arena)
 
     # Extract domain early for metrics
     domain = arena._extract_debate_domain()
+    km_metadata = _build_km_metadata_template(arena)
 
     # Initialize Knowledge Mound context and culture hints concurrently.
     # Latency optimization (issue #268): these two independent I/O
@@ -533,10 +715,28 @@ async def initialize_debate_context(
             arena._apply_culture_hints(culture_hints)
 
     _gather_results = await asyncio.gather(_init_km(), _init_culture(), return_exceptions=True)
-    # KM init (index 0) is critical – propagate its errors.
-    # Culture hints (index 1) are best-effort.
-    if isinstance(_gather_results[0], BaseException):
-        raise _gather_results[0]
+    # KM init failures should not block the default debate route; report them
+    # truthfully in result metadata instead of inventing successful enrichment.
+    km_init_result = _gather_results[0]
+    if isinstance(km_init_result, BaseException):
+        if isinstance(km_init_result, (asyncio.CancelledError, KeyboardInterrupt, SystemExit)):
+            raise km_init_result
+        if isinstance(km_init_result, _NON_BLOCKING_KM_INIT_ERRORS):
+            km_metadata["context_handoff"] = {
+                "status": "failed",
+                "non_blocking": True,
+                "error_type": type(km_init_result).__name__,
+                "error": str(km_init_result),
+            }
+            logger.warning(
+                "Knowledge Mound context initialization failed (non-blocking) for debate %s: %s",
+                debate_id,
+                km_init_result,
+            )
+        else:
+            raise km_init_result
+    elif km_metadata["context_handoff"].get("status") == "pending":
+        km_metadata["context_handoff"]["status"] = "succeeded"
 
     _init_elapsed_ms = (time.perf_counter() - _init_start) * 1000
     logger.debug("debate_context_setup elapsed_ms=%.1f", _init_elapsed_ms)
@@ -562,6 +762,7 @@ async def initialize_debate_context(
     # Wire PromptBuilder onto context so ContextInitializer can inject
     # Knowledge Mound context as a structured prompt section
     ctx._prompt_builder = arena.prompt_builder  # type: ignore[attr-defined]
+    ctx._knowledge_management_metadata = km_metadata  # type: ignore[attr-defined]
 
     # Initialize BeliefNetwork with KM seeding if enabled
     if getattr(arena.protocol, "enable_km_belief_sync", False):
@@ -774,6 +975,7 @@ async def setup_debate_infrastructure(
             logger.debug("GUPP initialization failed (non-critical): %s", e)
 
     # Initialize result early for timeout recovery
+    state.debate_status = DebateStatus.RUNNING.value
     ctx.result = DebateResult(
         task=arena.env.task,
         consensus_reached=False,
@@ -783,6 +985,9 @@ async def setup_debate_infrastructure(
         votes=[],
         rounds_used=0,
         final_answer="",
+        status=DebateStatus.RUNNING.value,
+        debate_status=DebateStatus.RUNNING.value,
+        debate_status_source=DebateStatusSource.LIVE.value,
     )
 
     # Initialize LiveExplainabilityStream if enabled
@@ -984,6 +1189,11 @@ async def execute_debate_phases(
             debate_id=state.debate_id,
         )
         arena._log_phase_failures(execution_result)
+        state.debate_status = DebateStatus.COMPLETED.value
+        _apply_result_debate_state(
+            ctx.result,
+            debate_status=DebateStatus.COMPLETED,
+        )
 
         # Emit latency profile after successful execution
         if latency_profiler and latency_profiler.records:
@@ -997,17 +1207,32 @@ async def execute_debate_phases(
             ctx.result.messages = ctx.partial_messages
             ctx.result.critiques = ctx.partial_critiques
             ctx.result.rounds_used = ctx.partial_rounds
-        state.debate_status = "timeout"
+        state.debate_status = DebateStatus.BLOCKED.value
+        _apply_result_debate_state(
+            ctx.result,
+            debate_status=DebateStatus.BLOCKED,
+            legacy_status="timeout",
+        )
         span.set_attribute("debate.status", "timeout")
         logger.warning("Debate timed out, returning partial results")
 
     except EarlyStopError:
-        state.debate_status = "aborted"
+        state.debate_status = DebateStatus.BLOCKED.value
+        _apply_result_debate_state(
+            ctx.result,
+            debate_status=DebateStatus.BLOCKED,
+            legacy_status="aborted",
+        )
         span.set_attribute("debate.status", "aborted")
         raise
 
     except (RuntimeError, ValueError, TypeError, OSError, ConnectionError) as e:
-        state.debate_status = "error"
+        state.debate_status = DebateStatus.FAILED.value
+        _apply_result_debate_state(
+            ctx.result,
+            debate_status=DebateStatus.FAILED,
+            legacy_status="error",
+        )
         span.set_attribute("debate.status", "error")
         span.record_exception(e)
         # Mark debate as failed in intervention manager
@@ -1061,10 +1286,10 @@ def record_debate_metrics(
     )
 
     # Record SLO-specific metrics for percentile tracking (p50/p95/p99)
-    if state.debate_status == "completed":
+    if state.debate_status == DebateStatus.COMPLETED.value:
         outcome = "consensus" if consensus_reached else "no_consensus"
-    elif state.debate_status == "timeout":
-        outcome = "timeout"
+    elif state.debate_status == DebateStatus.BLOCKED.value:
+        outcome = "blocked"
     else:
         outcome = "error"
     record_debate_completion_slo(duration, outcome)
@@ -1102,6 +1327,7 @@ async def handle_debate_completion(
     - Supabase sync queuing
     """
     ctx = state.ctx
+    km_metadata = _get_km_metadata(ctx, arena)
 
     # Notify subsystem coordinator of debate completion
     if ctx.result:
@@ -1129,47 +1355,70 @@ async def handle_debate_completion(
     # Ingest high-confidence consensus into Knowledge Mound (background, non-blocking)
     if ctx.result:
         result = ctx.result
+        writeback = km_metadata.setdefault("writeback", {})
+        writeback_enabled = bool(writeback.get("enabled", False))
+        km_writeback_available = bool(km_metadata.get("knowledge_mound_present", False)) or bool(
+            km_metadata.get("supermemory_enabled", False)
+        )
 
-        async def _km_ingest_background() -> None:
-            _ingestion_succeeded = False
-            _last_error: Exception | None = None
-            for _attempt in range(3):
-                try:
-                    await arena._ingest_debate_outcome(result)
-                    _ingestion_succeeded = True
-                    break
-                except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
-                    _last_error = e
-                    if _attempt < 2:
-                        await asyncio.sleep(2**_attempt)  # 1s, 2s backoff
-            if not _ingestion_succeeded and _last_error is not None:
-                logger.warning(
-                    "Knowledge Mound ingestion failed after 3 attempts for debate %s: %s",
-                    state.debate_id,
-                    _last_error,
-                )
-                try:
-                    from aragora.knowledge.mound.ingestion_queue import IngestionDeadLetterQueue
-
-                    dlq = IngestionDeadLetterQueue()
-                    result_dict = result.to_dict() if hasattr(result, "to_dict") else {}
-                    dlq.enqueue(state.debate_id, result_dict, str(_last_error))
-                except (ImportError, OSError, ValueError, TypeError, RuntimeError) as dlq_err:
-                    logger.debug("DLQ enqueue failed: %s", dlq_err)
-
-        if os.environ.get("PYTEST_CURRENT_TEST"):
-            await _km_ingest_background()
-            setattr(ctx, "_km_ingest_task", None)
+        if not writeback_enabled:
+            writeback["status"] = "disabled"
+        elif not km_writeback_available:
+            writeback["status"] = "not_configured"
         else:
-            _km_task = asyncio.create_task(_km_ingest_background())
-            setattr(ctx, "_km_ingest_task", _km_task)
-            _km_task.add_done_callback(
-                lambda t: logger.warning(
-                    "[km-ingest] Background ingestion error: %s", t.exception()
+            writeback["status"] = "pending_background"
+
+            async def _km_ingest_background() -> None:
+                _ingestion_succeeded = False
+                _last_error: Exception | None = None
+                for _attempt in range(3):
+                    writeback["attempts"] = _attempt + 1
+                    try:
+                        await arena._ingest_debate_outcome(result)
+                        writeback["status"] = "succeeded"
+                        writeback.pop("error", None)
+                        writeback.pop("error_type", None)
+                        _ingestion_succeeded = True
+                        break
+                    except (ConnectionError, OSError, ValueError, TypeError, AttributeError) as e:
+                        _last_error = e
+                        if _attempt < 2:
+                            await asyncio.sleep(2**_attempt)  # 1s, 2s backoff
+                if not _ingestion_succeeded and _last_error is not None:
+                    writeback["status"] = "failed"
+                    writeback["error_type"] = type(_last_error).__name__
+                    writeback["error"] = str(_last_error)
+                    logger.warning(
+                        "Knowledge Mound ingestion failed after 3 attempts for debate %s: %s",
+                        state.debate_id,
+                        _last_error,
+                    )
+                    try:
+                        from aragora.knowledge.mound.ingestion_queue import IngestionDeadLetterQueue
+
+                        dlq = IngestionDeadLetterQueue()
+                        result_dict = result.to_dict() if hasattr(result, "to_dict") else {}
+                        dlq.enqueue(state.debate_id, result_dict, str(_last_error))
+                    except (ImportError, OSError, ValueError, TypeError, RuntimeError) as dlq_err:
+                        logger.debug("DLQ enqueue failed: %s", dlq_err)
+
+            if os.environ.get("PYTEST_CURRENT_TEST"):
+                await _km_ingest_background()
+                setattr(ctx, "_km_ingest_task", None)
+            else:
+                _km_task = asyncio.create_task(_km_ingest_background())
+                setattr(ctx, "_km_ingest_task", _km_task)
+                _km_task.add_done_callback(
+                    lambda t: logger.warning(
+                        "[km-ingest] Background ingestion error: %s", t.exception()
+                    )
+                    if not t.cancelled() and t.exception()
+                    else None
                 )
-                if not t.cancelled() and t.exception()
-                else None
-            )
+    else:
+        writeback = km_metadata.setdefault("writeback", {})
+        if writeback.get("enabled", False):
+            writeback["status"] = "skipped_no_result"
 
     # Capture epistemic settlement metadata for future review
     if ctx.result:
@@ -1257,7 +1506,7 @@ async def handle_debate_completion(
     # Complete GUPP hook tracking for crash recovery
     if state.gupp_bead_id and state.gupp_hook_entries:
         try:
-            success = state.debate_status == "completed"
+            success = state.debate_status == DebateStatus.COMPLETED.value
             if ctx.result is not None:
                 await arena._update_debate_bead(state.gupp_bead_id, ctx.result, success)
             await arena._complete_hook_tracking(
@@ -1602,7 +1851,7 @@ async def cleanup_debate_resources(
         await _drain_background_task(km_task, timeout_s=0.75)
 
     # Clean up checkpoints after successful completion
-    if state.debate_status == "completed" and getattr(
+    if state.debate_status == DebateStatus.COMPLETED.value and getattr(
         arena.protocol, "checkpoint_cleanup_on_success", True
     ):
         try:
@@ -1622,6 +1871,17 @@ async def cleanup_debate_resources(
 
     # Finalize the result
     result = ctx.finalize_result()
+    _apply_result_debate_state(
+        result,
+        debate_status=state.debate_status,
+        legacy_status=(
+            None
+            if state.debate_status == DebateStatus.COMPLETED.value
+            else str(getattr(result, "status", "") or "").strip() or None
+        ),
+    )
+    if result:
+        _attach_truthful_km_metadata(arena, ctx, result)
 
     # Translate conclusions if multi-language support is enabled
     if result and getattr(arena.protocol, "enable_translation", False):
