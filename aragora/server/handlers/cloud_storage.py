@@ -480,6 +480,20 @@ class CloudStorageHandler(BaseHandler):
 
         return True, ""
 
+    def _validate_request_fields(
+        self,
+        body: dict[str, Any],
+        allowed_fields: set[str],
+    ) -> tuple[bool, str]:
+        """Reject unexpected JSON fields in request bodies."""
+        unexpected_fields = sorted(set(body) - allowed_fields)
+        if not unexpected_fields:
+            return True, ""
+
+        if len(unexpected_fields) == 1:
+            return False, f"Unexpected field: {unexpected_fields[0]}"
+        return False, f"Unexpected fields: {', '.join(unexpected_fields)}"
+
     def _generate_file_id(self) -> str:
         """Generate a unique file ID."""
         return f"file_{uuid.uuid4().hex[:16]}"
@@ -820,6 +834,17 @@ class CloudStorageHandler(BaseHandler):
     @require_permission("storage:write")
     async def _upload_file(self, body: dict[str, Any], handler: Any) -> HandlerResult:
         """Upload a new file."""
+        valid_fields, fields_error = self._validate_request_fields(
+            body,
+            {"filename", "content", "bucket", "tags", "metadata"},
+        )
+        if not valid_fields:
+            return error_response(fields_error, 400)
+        if "filename" not in body:
+            return error_response("Filename is required", 400)
+        if "content" not in body:
+            return error_response("File content is required", 400)
+
         filename = body.get("filename", "")
         content_b64 = body.get("content")  # Base64 encoded content
         bucket = body.get("bucket", "default")
@@ -962,6 +987,13 @@ class CloudStorageHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult:
         """Generate a presigned URL for file access."""
+        valid_fields, fields_error = self._validate_request_fields(
+            body,
+            {"expires_in_seconds", "method"},
+        )
+        if not valid_fields:
+            return error_response(fields_error, 400)
+
         file_meta = self._files.get(file_id)
         if not file_meta:
             return error_response("File not found", 404)
@@ -1093,6 +1125,15 @@ class CloudStorageHandler(BaseHandler):
     @require_permission("storage:admin")
     async def _create_bucket(self, body: dict[str, Any], handler: Any) -> HandlerResult:
         """Create a new bucket."""
+        valid_fields, fields_error = self._validate_request_fields(
+            body,
+            {"name", "provider", "region", "is_public", "versioning_enabled"},
+        )
+        if not valid_fields:
+            return error_response(fields_error, 400)
+        if "name" not in body:
+            return error_response("Bucket name is required", 400)
+
         raw_name = body.get("name", "")
         if not isinstance(raw_name, str):
             return error_response("Bucket name must be a string", 400)
