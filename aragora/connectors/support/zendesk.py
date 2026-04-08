@@ -296,12 +296,9 @@ class ZendeskConnector:
             try:
                 client = await self._get_client()
                 # Normalize AsyncMock side_effect lists (test safety).
-                try:
-                    se = getattr(client.request, "side_effect", None)
-                    if isinstance(se, list):
-                        client.request.side_effect = iter(se)  # type: ignore[attr-defined]
-                except (AttributeError, TypeError) as exc:
-                    logger.debug("Mock side_effect normalization skipped: %s", exc)
+                se = getattr(client.request, "side_effect", None)
+                if isinstance(se, list):
+                    client.request.side_effect = iter(se)  # type: ignore[attr-defined]
                 response = await client.request(
                     method,
                     path,
@@ -316,8 +313,10 @@ class ZendeskConnector:
                         if ra:
                             try:
                                 delay = float(ra)
-                            except (ValueError, TypeError):
-                                pass
+                            except (ValueError, TypeError) as exc:
+                                raise ZendeskError(
+                                    f"Invalid Retry-After header for {method} {path}: {ra!r}"
+                                ) from exc
                         logger.warning(
                             "Zendesk %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
                             method,
@@ -655,12 +654,9 @@ class ZendeskConnector:
 
 def _parse_datetime(value: str | None) -> datetime | None:
     """Parse ISO datetime string."""
-    if not value:
+    if value is None or value == "":
         return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        return None
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 def get_mock_ticket() -> Ticket:
