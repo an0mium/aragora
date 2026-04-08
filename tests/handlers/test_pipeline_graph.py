@@ -16,6 +16,7 @@ Covers all 11 endpoints:
 
 from __future__ import annotations
 
+import inspect
 import json
 from unittest.mock import MagicMock, patch
 
@@ -27,6 +28,13 @@ from aragora.server.handlers.pipeline_graph import PipelineGraphHandler
 def _body(result: object) -> dict:
     """Extract JSON body from a HandlerResult."""
     return json.loads(result.body)
+
+
+async def _resolve_handler_result(result: object) -> object:
+    """Match the registry's awaitable-aware handler dispatch."""
+    if inspect.isawaitable(result):
+        return await result
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -157,53 +165,78 @@ class TestCanHandle:
 
 
 class TestDispatch:
-    def test_handle_dispatches_get_graph(self, handler, mock_store):
+    @pytest.mark.asyncio
+    async def test_handle_dispatches_get_graph(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
-        result = handler.handle("/api/v1/pipeline/graph/g-1", {}, None)
+        result = await _resolve_handler_result(
+            handler.handle("/api/v1/pipeline/graph/g-1", {}, None)
+        )
         assert result is not None
 
-    def test_handle_dispatches_list_graphs(self, handler, mock_store):
-        result = handler.handle("/api/v1/pipeline/graph", {}, None)
+    @pytest.mark.asyncio
+    async def test_handle_dispatches_list_graphs(self, handler, mock_store):
+        result = await _resolve_handler_result(handler.handle("/api/v1/pipeline/graph", {}, None))
         assert result is not None
 
-    def test_handle_dispatches_react_flow(self, handler, mock_store):
+    @pytest.mark.asyncio
+    async def test_handle_dispatches_react_flow(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
-        result = handler.handle("/api/v1/pipeline/graph/g-1/react-flow", {}, None)
+        result = await _resolve_handler_result(
+            handler.handle("/api/v1/pipeline/graph/g-1/react-flow", {}, None)
+        )
         assert result is not None
 
-    def test_handle_dispatches_integrity(self, handler, mock_store):
+    @pytest.mark.asyncio
+    async def test_handle_dispatches_integrity(self, handler, mock_store):
         mock_store.get.return_value = _make_graph()
-        result = handler.handle("/api/v1/pipeline/graph/g-1/integrity", {}, None)
+        result = await _resolve_handler_result(
+            handler.handle("/api/v1/pipeline/graph/g-1/integrity", {}, None)
+        )
         assert result is not None
 
-    def test_handle_dispatches_provenance(self, handler, mock_store):
-        result = handler.handle("/api/v1/pipeline/graph/g-1/provenance/n-1", {}, None)
+    @pytest.mark.asyncio
+    async def test_handle_dispatches_provenance(self, handler, mock_store):
+        result = await _resolve_handler_result(
+            handler.handle("/api/v1/pipeline/graph/g-1/provenance/n-1", {}, None)
+        )
         assert result is not None
 
-    def test_handle_dispatches_query_nodes(self, handler, mock_store):
-        result = handler.handle("/api/v1/pipeline/graph/g-1/nodes", {}, None)
+    @pytest.mark.asyncio
+    async def test_handle_dispatches_query_nodes(self, handler, mock_store):
+        result = await _resolve_handler_result(
+            handler.handle("/api/v1/pipeline/graph/g-1/nodes", {}, None)
+        )
         assert result is not None
 
     def test_handle_returns_none_for_unknown(self, handler, mock_store):
         result = handler.handle("/api/v1/pipeline/unknown", {}, None)
         assert result is None
 
-    def test_handle_post_dispatches_create(self, handler, mock_store):
+    @pytest.mark.asyncio
+    async def test_handle_post_dispatches_create(self, handler, mock_store):
         mock_handler = MagicMock()
         mock_handler.request.body = b"{}"
-        result = handler.handle_post("/api/v1/pipeline/graph", {}, mock_handler)
+        result = await _resolve_handler_result(
+            handler.handle_post("/api/v1/pipeline/graph", {}, mock_handler)
+        )
         assert result is not None
 
-    def test_handle_post_dispatches_add_node(self, handler, mock_store):
+    @pytest.mark.asyncio
+    async def test_handle_post_dispatches_add_node(self, handler, mock_store):
         mock_handler = MagicMock()
         mock_handler.request.body = b"{}"
-        result = handler.handle_post("/api/v1/pipeline/graph/g-1/node", {}, mock_handler)
+        result = await _resolve_handler_result(
+            handler.handle_post("/api/v1/pipeline/graph/g-1/node", {}, mock_handler)
+        )
         assert result is not None
 
-    def test_handle_post_dispatches_promote(self, handler, mock_store):
+    @pytest.mark.asyncio
+    async def test_handle_post_dispatches_promote(self, handler, mock_store):
         mock_handler = MagicMock()
         mock_handler.request.body = b"{}"
-        result = handler.handle_post("/api/v1/pipeline/graph/g-1/promote", {}, mock_handler)
+        result = await _resolve_handler_result(
+            handler.handle_post("/api/v1/pipeline/graph/g-1/promote", {}, mock_handler)
+        )
         assert result is not None
 
     def test_handle_post_returns_none_for_unknown(self, handler, mock_store):
@@ -212,12 +245,18 @@ class TestDispatch:
         result = handler.handle_post("/api/v1/pipeline/unknown", {}, mock_handler)
         assert result is None
 
-    def test_handle_delete_dispatches_graph(self, handler, mock_store):
-        result = handler.handle_delete("/api/v1/pipeline/graph/g-1", {}, None)
+    @pytest.mark.asyncio
+    async def test_handle_delete_dispatches_graph(self, handler, mock_store):
+        result = await _resolve_handler_result(
+            handler.handle_delete("/api/v1/pipeline/graph/g-1", {}, None)
+        )
         assert result is not None
 
-    def test_handle_delete_dispatches_node(self, handler, mock_store):
-        result = handler.handle_delete("/api/v1/pipeline/graph/g-1/node/n-1", {}, None)
+    @pytest.mark.asyncio
+    async def test_handle_delete_dispatches_node(self, handler, mock_store):
+        result = await _resolve_handler_result(
+            handler.handle_delete("/api/v1/pipeline/graph/g-1/node/n-1", {}, None)
+        )
         assert result is not None
 
     def test_handle_delete_returns_none_for_unknown(self, handler, mock_store):

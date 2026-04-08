@@ -105,6 +105,8 @@ class MyHandler(BaseHandler, PaginatedHandlerMixin, CachedHandlerMixin):
 Handlers are registered in `__init__.py` and connected to the unified server:
 
 ```python
+import inspect
+
 # In handlers/__init__.py
 from .my_feature import MyFeatureHandler
 
@@ -115,7 +117,14 @@ my_handler = MyFeatureHandler(ctx)
 # Route matching
 if my_handler.can_handle(path):
     result = my_handler.handle(path, query_params, request_handler)
+    if inspect.isawaitable(result):
+        result = await result
 ```
+
+`handle()`, `handle_post()`, and `handle_delete()` may return either a `HandlerResult`
+directly or an awaitable. The unified handler registry and FastAPI compatibility layer
+resolve awaitables before writing the response, and direct tests or utility callers
+should do the same.
 
 ## Authentication & RBAC
 
@@ -325,6 +334,9 @@ def handle_api_call(self, handler, query_params) -> HandlerResult:
 Handler tests use pytest with fixtures:
 
 ```python
+import inspect
+import json
+
 # tests/server/handlers/test_my_feature.py
 import pytest
 from aragora.server.handlers.features.my_feature import MyFeatureHandler
@@ -334,10 +346,13 @@ def handler():
     ctx = {"storage": mock_storage}
     return MyFeatureHandler(ctx)
 
-def test_list_returns_items(handler):
+@pytest.mark.asyncio
+async def test_list_returns_items(handler):
     result = handler.handle("/api/my-feature/list", {}, mock_request)
-    assert result[1] == 200
-    data = json.loads(result[0])
+    if inspect.isawaitable(result):
+        result = await result
+    assert result.status_code == 200
+    data = json.loads(result.body)
     assert "items" in data
 ```
 

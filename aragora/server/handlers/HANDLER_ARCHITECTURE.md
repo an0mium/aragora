@@ -121,6 +121,8 @@ def init_handlers(cls, ctx: dict):
     # ...
 
 # Routing (in _try_modular_handler)
+import asyncio
+
 handlers = [
     self._system_handler,
     self._debates_handler,
@@ -130,6 +132,8 @@ handlers = [
 for handler in handlers:
     if handler and handler.can_handle(path):
         result = handler.handle(path, query_dict, self)
+        if asyncio.iscoroutine(result):
+            result = _run_handler_coroutine(result)
         if result:
             # Send response
             return True
@@ -306,6 +310,8 @@ class UnifiedServer:
 4. **Add tests** (`tests/test_handlers.py`):
 
 ```python
+import inspect
+
 class TestMyFeatureHandler:
     @pytest.fixture
     def handler(self, tmp_path):
@@ -321,8 +327,11 @@ class TestMyFeatureHandler:
     def test_cannot_handle_unrelated(self, handler):
         assert handler.can_handle("/api/debates") is False
 
-    def test_list_returns_items(self, handler):
+    @pytest.mark.asyncio
+    async def test_list_returns_items(self, handler):
         result = handler.handle("/api/myfeature", {}, Mock())
+        if inspect.isawaitable(result):
+            result = await result
         assert result.status_code == 200
 ```
 
