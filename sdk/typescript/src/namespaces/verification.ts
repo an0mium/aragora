@@ -4,7 +4,16 @@
  * Provides a namespaced interface for claim and debate verification operations.
  */
 
-import type { AragoraClient } from '../client';
+interface VerificationClientInterface {
+  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
+  verifyClaim(request: VerifyClaimRequest): Promise<any>;
+  getVerificationStatus(): Promise<any>;
+  verifyDebateConclusion(
+    debateId: string,
+    options?: DebateConclusionVerifyOptions
+  ): Promise<any>;
+  getVerificationReport(debateId: string): Promise<any>;
+}
 
 /**
  * Verification result.
@@ -69,14 +78,14 @@ export interface DebateConclusionVerifyOptions {
  * - System verification status
  */
 export class VerificationAPI {
-  constructor(private client: AragoraClient) {}
+  constructor(private client: VerificationClientInterface) {}
 
   /**
    * Get verification system status.
    * @route GET /api/v1/verification/status
    */
   async getStatus(): Promise<VerificationStatus> {
-    return this.client.request('GET', '/api/v1/verification/status') as Promise<VerificationStatus>;
+    return this.client.getVerificationStatus();
   }
 
   /**
@@ -87,6 +96,41 @@ export class VerificationAPI {
     return this.client.request('POST', '/api/v1/verification/formal-verify', {
       body: request,
     }) as Promise<VerificationResult>;
+  }
+
+  /**
+   * Verify a claim.
+   * Compatibility alias for the flat client method.
+   */
+  async verifyClaim(request: VerifyClaimRequest): Promise<VerificationResult> {
+    return this.client.verifyClaim(request);
+  }
+
+  /**
+   * Get verification status.
+   * Compatibility alias used by the namespace tests.
+   */
+  async status(): Promise<VerificationStatus> {
+    return this.client.getVerificationStatus();
+  }
+
+  /**
+   * Verify a debate conclusion.
+   * Compatibility alias for the flat client method.
+   */
+  async verifyConclusion(
+    debateId: string,
+    options?: DebateConclusionVerifyOptions
+  ): Promise<VerificationResult> {
+    return this.client.verifyDebateConclusion(debateId, options);
+  }
+
+  /**
+   * Get a debate verification report.
+   * Compatibility alias for the flat client method.
+   */
+  async getReport(debateId: string): Promise<VerificationReport> {
+    return this.client.getVerificationReport(debateId);
   }
 
   /**
