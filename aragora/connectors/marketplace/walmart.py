@@ -956,7 +956,7 @@ class WalmartConnector(ProductionConnectorMixin):
 
 def _parse_datetime(value: str | None) -> datetime | None:
     """Parse ISO datetime string."""
-    if not value:
+    if value is None:
         return None
     if not isinstance(value, str):
         raise TypeError(f"Expected datetime string, got {type(value).__name__}")
