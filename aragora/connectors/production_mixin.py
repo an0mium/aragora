@@ -223,10 +223,14 @@ class ProductionConnectorMixin:
                     # Rate limit - check Retry-After header
                     retry_after = None
                     if "Retry-After" in e.response.headers:
+                        retry_after_header = e.response.headers["Retry-After"]
                         try:
-                            retry_after = float(e.response.headers["Retry-After"])
-                        except (ValueError, TypeError):
-                            pass
+                            retry_after = float(retry_after_header)
+                        except (ValueError, TypeError) as exc:
+                            raise RuntimeError(
+                                f"{operation} received invalid Retry-After header "
+                                f"{retry_after_header!r}"
+                            ) from exc
 
                     last_error = e
                     logger.warning(
