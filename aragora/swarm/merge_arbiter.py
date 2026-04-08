@@ -1,11 +1,12 @@
-"""Admin merge arbiter for the boss loop.
+"""Admin merge arbiter for automation PRs.
 
-Polls open PRs matching configured branch prefixes and auto-merges them
-when all 5 required CI checks pass.  Designed to run alongside the boss
-loop for unattended overnight operation.
+Polls open automation PRs matching configured branch prefixes and auto-merges
+only ready PRs whose branch-protection checks and ready-only full-suite checks
+have all passed. Draft PRs are never auto-merged here; the boss loop owns draft
+promotion separately.
 
 Usage:
-    arbiter = MergeArbiter(MergeArbiterConfig(branch_prefixes=["boss-harvest"]))
+    arbiter = MergeArbiter()
     await arbiter.run()
 """
 
@@ -17,6 +18,7 @@ import logging
 import subprocess
 import time
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,24 @@ REQUIRED_CHECKS: list[str] = [
     "Generate & Validate",
     "TypeScript SDK Type Check",
 ]
+AUTOMATION_BRANCH_PREFIXES: list[str] = [
+    "codex/",
+    "factory/",
+    "aragora/boss-harvest/",
+]
+PASSING_CHECK_STATES = frozenset({"SUCCESS", "NEUTRAL", "SKIPPED"})
+READY_SUITE_GATE_CHECKS = frozenset({"Prioritize Required Checks"})
+REDUCED_LANE_ONLY_CHECKS = frozenset(
+    {
+        "PR Admission Signal (Advisory)",
+        "Prioritize Required Checks",
+        "OpenAPI Scope",
+        "SDK Change Detection",
+        "publish-draft-pr",
+        "review",
+        "changes",
+    }
+)
 
 
 @dataclass
@@ -34,7 +54,7 @@ class MergeArbiterConfig:
     """Configuration for the merge arbiter polling loop."""
 
     repo: str = "synaptent/aragora"
-    branch_prefixes: list[str] = field(default_factory=lambda: ["boss-harvest"])
+    branch_prefixes: list[str] = field(default_factory=lambda: list(AUTOMATION_BRANCH_PREFIXES))
     poll_interval_seconds: float = 120.0
     max_runtime_hours: float = 12.0
     max_consecutive_failures: int = 3
@@ -90,6 +110,83 @@ def _classify_required_checks(
     return missing, failing
 
 
+def _normalize_branch_prefixes(branch_prefixes: list[str] | None) -> list[str]:
+    """Normalize configured prefixes to the canonical automation branch forms."""
+    raw_prefixes = list(branch_prefixes or AUTOMATION_BRANCH_PREFIXES)
+    normalized: list[str] = []
+    seen: set[str] = set()
+    aliases = {
+        "boss-harvest": "aragora/boss-harvest/",
+        "boss-harvest/": "aragora/boss-harvest/",
+        "aragora/boss-harvest": "aragora/boss-harvest/",
+        "codex": "codex/",
+        "factory": "factory/",
+    }
+    for prefix in raw_prefixes:
+        value = aliases.get(str(prefix or "").strip(), str(prefix or "").strip())
+        if not value:
+            continue
+        if value not in seen:
+            seen.add(value)
+            normalized.append(value)
+    return normalized or list(AUTOMATION_BRANCH_PREFIXES)
+
+
+@lru_cache(maxsize=8)
+def _get_required_checks(repo: str, base_branch: str = "main") -> list[str]:
+    """Load required branch-protection contexts, with a local fallback."""
+    result = _run_gh(
+        [
+            "api",
+            f"repos/{repo}/branches/{base_branch}/protection",
+            "--jq",
+            ".required_status_checks.contexts",
+        ]
+    )
+    if result.returncode != 0:
+        return list(REQUIRED_CHECKS)
+    try:
+        contexts = json.loads(result.stdout or "[]")
+    except (json.JSONDecodeError, TypeError):
+        return list(REQUIRED_CHECKS)
+    if not isinstance(contexts, list):
+        return list(REQUIRED_CHECKS)
+    normalized = [str(item).strip() for item in contexts if str(item).strip()]
+    return normalized or list(REQUIRED_CHECKS)
+
+
+def _classify_non_passing_checks(
+    checks: dict[str, str],
+    *,
+    ignored_checks: set[str] | None = None,
+) -> tuple[list[str], list[str]]:
+    """Split non-passing checks into waiting and failing buckets."""
+    waiting: list[str] = []
+    failing: list[str] = []
+    ignored = ignored_checks or set()
+    for name in sorted(checks):
+        if name in ignored:
+            continue
+        status = checks.get(name, "")
+        if status in PASSING_CHECK_STATES:
+            continue
+        detail = f"{name}={status}"
+        if status in {"PENDING", "QUEUED", "IN_PROGRESS", "EXPECTED", "WAITING", "REQUESTED"}:
+            waiting.append(detail)
+        else:
+            failing.append(detail)
+    return waiting, failing
+
+
+def _ready_suite_check_names(
+    checks: dict[str, str],
+    *,
+    required_checks: list[str],
+) -> list[str]:
+    ignored = set(required_checks) | set(REDUCED_LANE_ONLY_CHECKS)
+    return sorted(name for name in checks if name not in ignored)
+
+
 def _run_gh(args: list[str], *, timeout: float = 30.0) -> subprocess.CompletedProcess[str]:
     """Run a ``gh`` CLI command and return the result."""
     return subprocess.run(
@@ -102,6 +199,7 @@ def _run_gh(args: list[str], *, timeout: float = 30.0) -> subprocess.CompletedPr
 
 def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
     """Return open PRs whose head branch matches any configured prefix."""
+    prefixes = _normalize_branch_prefixes(config.branch_prefixes)
     result = _run_gh(
         [
             "pr",
@@ -127,7 +225,7 @@ def _list_candidate_prs(config: MergeArbiterConfig) -> list[dict]:
     candidates = []
     for pr in prs:
         branch = pr.get("headRefName", "")
-        if any(branch.startswith(prefix) for prefix in config.branch_prefixes):
+        if any(branch.startswith(prefix) for prefix in prefixes):
             candidates.append(pr)
     return candidates
 
@@ -195,48 +293,88 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
     branch: str = pr.get("headRefName", "")
     head_sha = pr.get("headRefOid")
     is_draft: bool = pr.get("isDraft", False)
+    required_checks = _get_required_checks(config.repo)
 
     if is_draft:
-        # Auto-promote drafts: check if required checks pass, then mark ready
         checks = _get_check_status(pr_number, config.repo)
-        if checks:
-            missing, failing = _classify_required_checks(checks)
-            if not missing and not failing:
-                if _promote_draft(pr_number, config.repo):
-                    logger.info("Promoted draft PR #%d to ready", pr_number)
-                    is_draft = False
-                    # Fall through to merge logic below
-                else:
-                    return MergeResult(
-                        pr_number,
-                        branch,
-                        False,
-                        "draft promotion failed: gh pr ready returned non-zero",
-                    )
-            else:
-                reason_parts = []
-                if missing:
-                    reason_parts.append(f"missing: {', '.join(missing)}")
-                if failing:
-                    reason_parts.append(f"failing: {', '.join(failing)}")
-                return MergeResult(
-                    pr_number, branch, False, f"draft waiting on checks ({'; '.join(reason_parts)})"
-                )
-        else:
-            return MergeResult(pr_number, branch, False, "draft with no checks yet")
+        if not checks:
+            return MergeResult(
+                pr_number,
+                branch,
+                False,
+                "draft PR: never auto-merged; no fast required checks reported yet",
+            )
+        missing, failing = _classify_required_checks(checks, required_checks=required_checks)
+        if missing or failing:
+            reason_parts = ["draft PR: never auto-merged"]
+            if missing:
+                reason_parts.append(f"fast required checks missing: {', '.join(missing)}")
+            if failing:
+                reason_parts.append(f"fast required checks failing: {', '.join(failing)}")
+            return MergeResult(pr_number, branch, False, "; ".join(reason_parts))
+        return MergeResult(
+            pr_number,
+            branch,
+            False,
+            "draft PR: fast required checks passed; waiting for boss-loop promotion to ready",
+        )
 
     checks = _get_check_status(pr_number, config.repo)
     if not checks:
         return MergeResult(pr_number, branch, False, "no checks found")
 
-    missing, failing = _classify_required_checks(checks)
+    missing, failing = _classify_required_checks(checks, required_checks=required_checks)
 
     if missing:
-        return MergeResult(pr_number, branch, False, f"missing checks: {', '.join(missing)}")
+        return MergeResult(
+            pr_number,
+            branch,
+            False,
+            f"missing required checks: {', '.join(missing)}",
+        )
     if failing:
-        return MergeResult(pr_number, branch, False, f"failing checks: {', '.join(failing)}")
+        return MergeResult(
+            pr_number,
+            branch,
+            False,
+            f"failing required checks: {', '.join(failing)}",
+        )
 
-    # All required checks pass
+    missing_ready_gates = sorted(name for name in READY_SUITE_GATE_CHECKS if name not in checks)
+    if missing_ready_gates:
+        return MergeResult(
+            pr_number,
+            branch,
+            False,
+            f"ready PR missing full-suite gate checks: {', '.join(missing_ready_gates)}",
+        )
+
+    ready_suite_checks = _ready_suite_check_names(checks, required_checks=required_checks)
+    if not ready_suite_checks:
+        return MergeResult(
+            pr_number,
+            branch,
+            False,
+            "ready PR still only has reduced fast-lane checks; no full-suite checks reported yet",
+        )
+
+    ready_suite_statuses = {name: checks[name] for name in ready_suite_checks}
+    waiting_ready, failing_ready = _classify_non_passing_checks(ready_suite_statuses)
+    if waiting_ready:
+        return MergeResult(
+            pr_number,
+            branch,
+            False,
+            f"waiting on full-suite checks: {', '.join(waiting_ready)}",
+        )
+    if failing_ready:
+        return MergeResult(
+            pr_number,
+            branch,
+            False,
+            f"failing full-suite checks: {', '.join(failing_ready)}",
+        )
+
     if config.dry_run:
         logger.info("[dry-run] Would merge PR #%d (%s)", pr_number, branch)
         return MergeResult(pr_number, branch, True, "dry-run: would merge")

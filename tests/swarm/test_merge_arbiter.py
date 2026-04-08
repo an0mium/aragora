@@ -38,7 +38,16 @@ def _all_passing_checks() -> list[dict]:
     return [{"name": name, "state": "SUCCESS"} for name in REQUIRED_CHECKS]
 
 
-def _pr(number: int = 1, branch: str = "boss-harvest/fix-1", draft: bool = False) -> dict:
+def _all_passing_ready_checks(*extra_names: str) -> dict[str, str]:
+    names = list(REQUIRED_CHECKS) + ["Prioritize Required Checks", "Quality Gates", *extra_names]
+    return dict.fromkeys(names, "SUCCESS")
+
+
+def _pr(
+    number: int = 1,
+    branch: str = "aragora/boss-harvest/fix-1",
+    draft: bool = False,
+) -> dict:
     return {
         "number": number,
         "headRefName": branch,
@@ -53,25 +62,27 @@ def _pr(number: int = 1, branch: str = "boss-harvest/fix-1", draft: bool = False
 
 
 class TestListCandidatePrs:
-    def test_default_scope_excludes_generic_codex_branches(self):
+    def test_default_scope_matches_real_automation_branches(self):
         prs = [
-            _pr(1, "boss-harvest/fix-1"),
+            _pr(1, "aragora/boss-harvest/fix-1"),
             _pr(2, "codex/manual-fix"),
+            _pr(3, "factory/manual-fix"),
+            _pr(4, "feat/manual-fix"),
         ]
         config = MergeArbiterConfig()
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
             mock_gh.return_value = _make_gh_result(stdout=json.dumps(prs))
             result = _list_candidate_prs(config)
-        assert [pr["number"] for pr in result] == [1]
+        assert [pr["number"] for pr in result] == [1, 2, 3]
 
-    def test_filters_by_prefix(self):
+    def test_filters_by_prefix_and_normalizes_legacy_boss_prefix(self):
         prs = [
-            _pr(1, "boss-harvest/fix-1"),
+            _pr(1, "aragora/boss-harvest/fix-1"),
             _pr(2, "codex/task-2"),
             _pr(3, "dependabot/npm"),
             _pr(4, "feat/manual-feature"),
         ]
-        config = MergeArbiterConfig(branch_prefixes=["boss-harvest", "codex/"])
+        config = MergeArbiterConfig(branch_prefixes=["boss-harvest", "codex"])
         with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
             mock_gh.return_value = _make_gh_result(stdout=json.dumps(prs))
             result = _list_candidate_prs(config)
@@ -195,15 +206,19 @@ class TestMergePr:
 
 
 class TestEvaluatePrAllPassing:
-    def test_merges_when_all_checks_pass(self):
+    def test_merges_ready_pr_when_required_and_full_suite_checks_pass(self):
         config = MergeArbiterConfig()
-        checks = _all_passing_checks()
-        pr = _pr(42, "boss-harvest/ok")
+        checks = _all_passing_ready_checks("Status Doc Reconciliation")
+        pr = _pr(42, "codex/ok")
         with (
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
             patch("aragora.swarm.merge_arbiter._get_check_status") as mock_checks,
             patch("aragora.swarm.merge_arbiter._merge_pr") as mock_merge,
         ):
-            mock_checks.return_value = {c["name"]: "SUCCESS" for c in checks}
+            mock_checks.return_value = checks
             mock_merge.return_value = (True, "merged")
             result = _evaluate_pr(pr, config)
         assert result.success is True
@@ -219,24 +234,65 @@ class TestEvaluatePrAllPassing:
 class TestEvaluatePrFailingCheck:
     def test_skips_when_check_fails(self):
         config = MergeArbiterConfig()
-        status = dict.fromkeys(REQUIRED_CHECKS, "SUCCESS")
+        status = _all_passing_ready_checks()
         status["lint"] = "FAILURE"
-        with patch("aragora.swarm.merge_arbiter._get_check_status") as mock_checks:
+        with (
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
+            patch("aragora.swarm.merge_arbiter._get_check_status") as mock_checks,
+        ):
             mock_checks.return_value = status
-            result = _evaluate_pr(_pr(10, "boss-harvest/bad"), config)
+            result = _evaluate_pr(_pr(10, "codex/bad"), config)
         assert result.success is False
         assert "failing" in result.reason
         assert "lint" in result.reason
 
     def test_skips_when_check_missing(self):
         config = MergeArbiterConfig()
-        # Only return 4 of 5 checks
         status = dict.fromkeys(REQUIRED_CHECKS[:4], "SUCCESS")
-        with patch("aragora.swarm.merge_arbiter._get_check_status") as mock_checks:
+        with (
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
+            patch("aragora.swarm.merge_arbiter._get_check_status") as mock_checks,
+        ):
             mock_checks.return_value = status
-            result = _evaluate_pr(_pr(11, "boss-harvest/partial"), config)
+            result = _evaluate_pr(_pr(11, "codex/partial"), config)
         assert result.success is False
-        assert "missing" in result.reason
+        assert "missing required" in result.reason
+
+    def test_ready_pr_waits_for_full_suite_signal(self):
+        config = MergeArbiterConfig()
+        status = dict.fromkeys([*REQUIRED_CHECKS, "Prioritize Required Checks"], "SUCCESS")
+        with (
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
+            patch("aragora.swarm.merge_arbiter._get_check_status", return_value=status),
+        ):
+            result = _evaluate_pr(_pr(12, "codex/reduced"), config)
+        assert result.success is False
+        assert "reduced fast-lane checks" in result.reason
+
+    def test_ready_pr_blocks_on_failing_full_suite_check(self):
+        config = MergeArbiterConfig()
+        status = _all_passing_ready_checks("Status Doc Reconciliation")
+        status["Quality Gates"] = "FAILURE"
+        with (
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
+            patch("aragora.swarm.merge_arbiter._get_check_status", return_value=status),
+        ):
+            result = _evaluate_pr(_pr(13, "codex/full-suite-fail"), config)
+        assert result.success is False
+        assert "failing full-suite checks" in result.reason
+        assert "Quality Gates=FAILURE" in result.reason
 
 
 # ---------------------------------------------------------------------------
@@ -247,13 +303,17 @@ class TestEvaluatePrFailingCheck:
 class TestEvaluatePrDryRun:
     def test_dry_run_does_not_merge(self):
         config = MergeArbiterConfig(dry_run=True)
-        checks = dict.fromkeys(REQUIRED_CHECKS, "SUCCESS")
+        checks = _all_passing_ready_checks("Status Doc Reconciliation")
         with (
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
             patch("aragora.swarm.merge_arbiter._get_check_status") as mock_checks,
             patch("aragora.swarm.merge_arbiter._merge_pr") as mock_merge,
         ):
             mock_checks.return_value = checks
-            result = _evaluate_pr(_pr(99, "boss-harvest/dry"), config)
+            result = _evaluate_pr(_pr(99, "codex/dry"), config)
         assert result.success is True
         assert "dry-run" in result.reason
         mock_merge.assert_not_called()
@@ -267,25 +327,36 @@ class TestEvaluatePrDryRun:
 class TestEvaluatePrDraft:
     def test_draft_pr_with_no_checks_skipped(self):
         config = MergeArbiterConfig()
-        with patch("aragora.swarm.merge_arbiter._get_check_status", return_value={}):
-            result = _evaluate_pr(_pr(5, "boss-harvest/draft", draft=True), config)
+        with (
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
+            patch("aragora.swarm.merge_arbiter._get_check_status", return_value={}),
+        ):
+            result = _evaluate_pr(_pr(5, "codex/draft", draft=True), config)
         assert result.success is False
-        assert "no checks" in result.reason
+        assert "never auto-merged" in result.reason
 
-    def test_draft_pr_auto_promoted_when_checks_pass(self):
+    def test_draft_pr_is_not_auto_promoted_or_merged_when_checks_pass(self):
         config = MergeArbiterConfig()
         checks = dict.fromkeys(REQUIRED_CHECKS, "SUCCESS")
         with (
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
             patch("aragora.swarm.merge_arbiter._get_check_status", return_value=checks),
             patch("aragora.swarm.merge_arbiter._promote_draft", return_value=True) as promote_draft,
             patch(
                 "aragora.swarm.merge_arbiter._merge_pr", return_value=(True, "merged")
             ) as merge_pr,
         ):
-            result = _evaluate_pr(_pr(5, "boss-harvest/draft", draft=True), config)
-        assert result.success is True
-        promote_draft.assert_called_once_with(5, config.repo)
-        merge_pr.assert_called_once()
+            result = _evaluate_pr(_pr(5, "codex/draft", draft=True), config)
+        assert result.success is False
+        assert "waiting for boss-loop promotion" in result.reason
+        promote_draft.assert_not_called()
+        merge_pr.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -303,8 +374,8 @@ class TestCircuitBreaker:
         )
         arbiter = MergeArbiter(config=config)
 
-        failing_pr = _pr(1, "boss-harvest/fail")
-        failing_checks = dict.fromkeys(REQUIRED_CHECKS, "SUCCESS")
+        failing_pr = _pr(1, "codex/fail")
+        failing_checks = _all_passing_ready_checks()
         failing_checks["lint"] = "FAILURE"
 
         call_count = 0
@@ -316,6 +387,10 @@ class TestCircuitBreaker:
 
         with (
             patch("aragora.swarm.merge_arbiter._list_candidate_prs", side_effect=fake_list),
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
             patch("aragora.swarm.merge_arbiter._get_check_status", return_value=failing_checks),
         ):
             summary = await arbiter.run()
@@ -359,11 +434,15 @@ class TestFullRun:
         )
         arbiter = MergeArbiter(config=config)
 
-        pr = _pr(7, "boss-harvest/good")
-        checks = dict.fromkeys(REQUIRED_CHECKS, "SUCCESS")
+        pr = _pr(7, "codex/good")
+        checks = _all_passing_ready_checks("Status Doc Reconciliation")
 
         with (
             patch("aragora.swarm.merge_arbiter._list_candidate_prs", return_value=[pr]),
+            patch(
+                "aragora.swarm.merge_arbiter._get_required_checks",
+                return_value=list(REQUIRED_CHECKS),
+            ),
             patch("aragora.swarm.merge_arbiter._get_check_status", return_value=checks),
             patch("aragora.swarm.merge_arbiter._merge_pr", return_value=(True, "merged")),
         ):
