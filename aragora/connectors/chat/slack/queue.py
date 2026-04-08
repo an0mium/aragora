@@ -147,35 +147,31 @@ class SlackMessageQueueStore:
     def insert(self, message: QueuedMessage) -> bool:
         """Insert a new message into the queue."""
         conn = self._get_connection()
-        try:
-            conn.execute(
-                """
-                INSERT INTO queued_messages
-                (id, workspace_id, channel_id, text, blocks, thread_ts, status,
-                 retries, last_error, created_at, next_retry_at, delivered_at, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    message.id,
-                    message.workspace_id,
-                    message.channel_id,
-                    message.text,
-                    json.dumps(message.blocks) if message.blocks else None,
-                    message.thread_ts,
-                    message.status.value,
-                    message.retries,
-                    message.last_error,
-                    message.created_at,
-                    message.next_retry_at,
-                    message.delivered_at,
-                    json.dumps(message.metadata),
-                ),
-            )
-            conn.commit()
-            return True
-        except (OSError, ValueError, RuntimeError) as e:
-            logger.error("Failed to insert message: %s", e)
-            return False
+        conn.execute(
+            """
+            INSERT INTO queued_messages
+            (id, workspace_id, channel_id, text, blocks, thread_ts, status,
+             retries, last_error, created_at, next_retry_at, delivered_at, metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                message.id,
+                message.workspace_id,
+                message.channel_id,
+                message.text,
+                json.dumps(message.blocks) if message.blocks else None,
+                message.thread_ts,
+                message.status.value,
+                message.retries,
+                message.last_error,
+                message.created_at,
+                message.next_retry_at,
+                message.delivered_at,
+                json.dumps(message.metadata),
+            ),
+        )
+        conn.commit()
+        return True
 
     def get_pending(self, limit: int = 100) -> list[QueuedMessage]:
         """Get messages ready for retry."""
