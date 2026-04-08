@@ -162,6 +162,79 @@ def test_dispatch_ready_slices_assigns_one_owner_per_slice_without_duplicates(tm
     assert len(executor.directive_board.list()) == 2
 
 
+def test_refresh_dependency_readiness_is_order_independent(tmp_path) -> None:
+    repo = _init_repo(tmp_path)
+    store, executor, _coordination = _store_and_executor(repo)
+    store.save(
+        _record(
+            slices=[
+                InitiativeSlice(
+                    slice_id="slice-2",
+                    title="Second",
+                    description="Second slice",
+                    dependencies=["slice-1"],
+                ),
+                InitiativeSlice(
+                    slice_id="slice-1",
+                    title="First",
+                    description="First slice",
+                    status=STATUS_MERGED,
+                ),
+            ]
+        )
+    )
+
+    snapshot = executor.refresh("initiative-executor")
+
+    assert snapshot.slice_statuses["slice-1"] == STATUS_MERGED
+    assert snapshot.slice_statuses["slice-2"] == STATUS_QUEUED
+    assert snapshot.ready_slice_ids == ["slice-2"]
+    assert snapshot.status == STATUS_QUEUED
+
+
+def test_dispatch_ready_slices_ignores_completed_directives_for_redispatch(tmp_path) -> None:
+    repo = _init_repo(tmp_path)
+    store, executor, _coordination = _store_and_executor(repo)
+    store.save(
+        _record(
+            slices=[
+                InitiativeSlice(slice_id="slice-1", title="One", description="One"),
+            ]
+        )
+    )
+
+    first = executor.dispatch_ready_slices(
+        "initiative-executor",
+        owner_targets=["codex-a"],
+        assigned_by="initiative-boss",
+    )
+    assert first.dispatched_slice_ids == ["slice-1"]
+
+    directive = executor.directive_board.get("codex-a")
+    assert directive is not None
+    executor.directive_board.assign(
+        "codex-a",
+        directive.task,
+        scope=directive.scope,
+        constraints=directive.constraints,
+        assigned_by=directive.assigned_by,
+        status="completed",
+    )
+
+    refreshed = executor.refresh("initiative-executor")
+    assert refreshed.slice_statuses["slice-1"] == STATUS_QUEUED
+    assert refreshed.ready_slice_ids == ["slice-1"]
+
+    redispatched = executor.dispatch_ready_slices(
+        "initiative-executor",
+        owner_targets=["codex-a"],
+        assigned_by="initiative-boss",
+    )
+
+    assert redispatched.dispatched_slice_ids == ["slice-1"]
+    assert redispatched.slice_statuses["slice-1"] == STATUS_ACTIVE
+
+
 def test_receipt_backed_slice_becomes_terminal_and_checkpoint_blocks_follow_on_dispatch(
     tmp_path,
 ) -> None:
