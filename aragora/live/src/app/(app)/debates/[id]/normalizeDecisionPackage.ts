@@ -48,9 +48,16 @@ export interface DecisionPackageProviderRouting {
   provider_hint_scores: Record<string, number>;
 }
 
+export type DecisionPackageStatus = 'pending' | 'running' | 'blocked' | 'failed' | 'completed';
+export type DecisionPackageStatusSource = 'live' | 'synthetic';
+
 export interface DecisionPackage {
   id: string;
   question: string;
+  status: string;
+  debate_status: DecisionPackageStatus;
+  debate_status_source: DecisionPackageStatusSource;
+  synthetic: boolean;
   verdict: string;
   confidence: number;
   consensus_reached: boolean;
@@ -97,6 +104,34 @@ function asNumber(value: unknown, fallback = 0): number {
     const parsed = Number(value);
     if (Number.isFinite(parsed)) return parsed;
   }
+  return fallback;
+}
+
+function normalizeDebateStatus(
+  value: unknown,
+  fallback: DecisionPackageStatus = 'pending'
+): DecisionPackageStatus {
+  const normalized = asString(value).trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (['pending', 'queued', 'created', 'initialized'].includes(normalized)) return 'pending';
+  if (['running', 'in_progress', 'active', 'started'].includes(normalized)) return 'running';
+  if (['blocked', 'timeout', 'timed_out', 'aborted', 'paused'].includes(normalized)) return 'blocked';
+  if (['failed', 'failure', 'error', 'process_verification_failed', 'verification_failed'].includes(normalized)) {
+    return 'failed';
+  }
+  if (['completed', 'complete', 'consensus_reached', 'success', 'succeeded', 'settled', 'no_consensus'].includes(normalized)) {
+    return 'completed';
+  }
+  return fallback;
+}
+
+function normalizeDebateStatusSource(
+  value: unknown,
+  fallback: DecisionPackageStatusSource = 'live'
+): DecisionPackageStatusSource {
+  const normalized = asString(value).trim().toLowerCase();
+  if (['synthetic', 'demo', 'mock'].includes(normalized)) return 'synthetic';
+  if (['live', 'real'].includes(normalized)) return 'live';
   return fallback;
 }
 
@@ -381,10 +416,23 @@ export function normalizeDecisionPackage(raw: unknown, fallbackId: string): Deci
   const cost = hasObjectEntries(explicitCost) ? explicitCost : receiptCostSummary;
   const tokenMap = asObject(obj.per_agent_tokens) ?? tokenMapFromCostSummary(receiptCostSummary);
   const createdAt = asString(obj.created_at, asString(obj.assembled_at, new Date().toISOString()));
+  const debateStatus = normalizeDebateStatus(obj.debate_status ?? obj.status, 'completed');
+  const syntheticFlag =
+    typeof obj.synthetic === 'boolean' ? obj.synthetic : undefined;
+  const debateStatusSource = normalizeDebateStatusSource(
+    obj.debate_status_source ??
+      obj.status_source ??
+      (syntheticFlag === undefined ? obj.mode : syntheticFlag ? 'synthetic' : 'live'),
+    'live'
+  );
 
   return {
     id: asString(obj.id, asString(obj.debate_id, fallbackId)),
     question: asString(obj.question, asString(obj.task)),
+    status: asString(obj.status, debateStatus),
+    debate_status: debateStatus,
+    debate_status_source: debateStatusSource,
+    synthetic: debateStatusSource === 'synthetic',
     verdict: asString(obj.verdict, asString(rawReceipt?.verdict)),
     confidence: asNumber(obj.confidence, asNumber(rawReceipt?.confidence, 0)),
     consensus_reached: Boolean(obj.consensus_reached),

@@ -20,6 +20,12 @@ import logging
 import time
 from typing import Any
 
+from aragora.core_types import (
+    DebateStatus,
+    DebateStatusSource,
+    normalize_debate_status,
+    normalize_debate_status_source,
+)
 from aragora.rbac.decorators import require_permission
 from aragora.server.handlers.base import (
     BaseHandler,
@@ -614,6 +620,27 @@ class DecisionPackageHandler(BaseHandler):
         if not isinstance(metadata, dict):
             metadata = {}
 
+        debate_status = normalize_debate_status(
+            result_data.get("debate_status") or status,
+            default=DebateStatus.COMPLETED,
+        ).value
+        source_hint = (
+            result_data.get("debate_status_source")
+            or result_data.get("status_source")
+            or metadata.get("debate_status_source")
+            or metadata.get("status_source")
+            or debate.get("debate_status_source")
+            or debate.get("status_source")
+            or ("synthetic" if result_data.get("synthetic") or metadata.get("synthetic") else "")
+            or result_data.get("mode")
+            or metadata.get("mode")
+        )
+        debate_status_source = normalize_debate_status_source(
+            source_hint,
+            default=DebateStatusSource.LIVE,
+        ).value
+        synthetic = debate_status_source == DebateStatusSource.SYNTHETIC.value
+
         # -- Cost --
         per_agent_cost = result_data.get("per_agent_cost", {})
         if not isinstance(per_agent_cost, dict):
@@ -668,6 +695,9 @@ class DecisionPackageHandler(BaseHandler):
             "id": debate_id,
             "question": question,
             "status": status,
+            "debate_status": debate_status,
+            "debate_status_source": debate_status_source,
+            "synthetic": synthetic,
             "verdict": verdict,
             "confidence": confidence,
             "consensus_reached": consensus_reached,
