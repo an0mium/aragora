@@ -615,6 +615,36 @@ async def test_run_queue_does_not_dispatch_planned_but_unapproved_item(
     assert item["next_action"] == "plan-queue"
 
 
+def test_tranche_queue_status_surfaces_blocked_replan_next_action(tmp_path: Path) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    manifest = TrancheQueueManifest.from_dict(
+        {
+            "queue_id": "overnight",
+            "items": [{"id": "intake-docs", "kind": "intake", "source": "bundle.yaml"}],
+        }
+    )
+    queue_path.write_text(manifest.to_yaml(), encoding="utf-8")
+
+    state = TrancheQueueRunState(queue_id=manifest.queue_id, status=QUEUE_STATUS_PENDING)
+    state.ensure_manifest(manifest)
+    state.item_states["intake-docs"] = TrancheQueueItemRunState(
+        item_id="intake-docs",
+        status=QUEUE_ITEM_STATUS_NEEDS_HUMAN,
+        phase=QUEUE_ITEM_PHASE_EXPLORED,
+        manifest_path=str(tmp_path / "tranche.yaml"),
+        recommended_action="stop_and_replan",
+        inspection_status="blocked",
+    )
+    state.save(queue_state_path_for_queue(queue_path))
+
+    payload = tranche_queue_status(queue_path=queue_path, repo_root=tmp_path)
+
+    item = payload["items"][0]
+    assert item["status"] == QUEUE_ITEM_STATUS_NEEDS_HUMAN
+    assert item["phase"] == QUEUE_ITEM_PHASE_EXPLORED
+    assert item["next_action"] == "stop_and_replan"
+
+
 @pytest.mark.asyncio
 async def test_process_item_resumes_legacy_approved_manifest_without_resubmitting(
     tmp_path: Path,

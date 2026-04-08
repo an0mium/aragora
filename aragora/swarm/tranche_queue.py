@@ -228,6 +228,16 @@ def _queue_item_is_execution_ready(item_state: TrancheQueueItemRunState) -> bool
 def _queue_item_next_action(item_state: TrancheQueueItemRunState) -> str | None:
     if item_state.status in {QUEUE_ITEM_STATUS_COMPLETED, QUEUE_ITEM_STATUS_RUNNING}:
         return None
+    recommended_action = _optional_text(item_state.recommended_action)
+    if (
+        item_state.status
+        in {
+            QUEUE_ITEM_STATUS_NEEDS_HUMAN,
+            QUEUE_ITEM_STATUS_STOPPED,
+        }
+        and recommended_action
+    ):
+        return recommended_action
     phase = _derive_queue_item_phase(
         phase=item_state.phase,
         manifest_path=item_state.manifest_path,

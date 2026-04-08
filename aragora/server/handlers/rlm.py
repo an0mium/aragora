@@ -36,11 +36,6 @@ from .utils.rate_limit import rate_limit
 
 logger = logging.getLogger(__name__)
 
-VALID_SOURCE_TYPES = ("text", "code", "debate")
-VALID_QUERY_STRATEGIES = ("peek", "grep", "partition_map", "summarize", "hierarchical", "auto")
-VALID_STREAM_MODES = ("top_down", "bottom_up", "targeted", "progressive")
-VALID_STREAM_LEVELS = ("abstract", "summary", "detailed", "full")
-
 
 class RLMContextHandler(BaseHandler):
     """Handler for RLM context compression and query endpoints.
@@ -196,47 +191,6 @@ class RLMContextHandler(BaseHandler):
         if max_value is not None and value > max_value:
             return default, error_response(f"'{field_name}' must be at most {max_value}", 400)
         return value, None
-
-    def _optional_string_field(
-        self,
-        body: dict[str, Any],
-        field_name: str,
-        *,
-        allow_empty: bool = False,
-        strip: bool = False,
-    ) -> tuple[str | None, HandlerResult | None]:
-        """Validate an optional string field."""
-        if field_name not in body or body[field_name] is None:
-            return None, None
-
-        value = body[field_name]
-        if not isinstance(value, str):
-            return None, error_response(f"'{field_name}' must be a string when provided", 400)
-
-        normalized = value.strip() if strip else value
-        if not allow_empty and not normalized.strip():
-            return None, error_response(
-                f"'{field_name}' must be a non-empty string when provided",
-                400,
-            )
-        return normalized, None
-
-    def _require_context_id_field(
-        self,
-        body: dict[str, Any],
-        field_name: str = "context_id",
-    ) -> tuple[str | None, HandlerResult | None]:
-        """Validate that a body field is a safe context identifier."""
-        context_id, context_id_error = self._require_string_field(body, field_name)
-        if context_id_error:
-            return None, context_id_error
-
-        from aragora.server.validation import SAFE_ID_PATTERN, validate_path_segment
-
-        is_valid, err = validate_path_segment(context_id, field_name, SAFE_ID_PATTERN)
-        if not is_valid:
-            return None, error_response(err or f"Invalid {field_name}", 400)
-        return context_id, None
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
@@ -607,8 +561,7 @@ class RLMContextHandler(BaseHandler):
         source_type = body.get("source_type", "text")
         if not isinstance(source_type, str):
             return error_response("'source_type' must be a string", 400)
-        source_type = source_type.strip()
-        if source_type not in VALID_SOURCE_TYPES:
+        if source_type not in ("text", "code", "debate"):
             return error_response(
                 "Invalid source_type. Must be 'text', 'code', or 'debate'",
                 400,
@@ -727,7 +680,7 @@ class RLMContextHandler(BaseHandler):
         if body_error:
             return body_error
 
-        context_id, context_id_error = self._require_context_id_field(body, "context_id")
+        context_id, context_id_error = self._require_string_field(body, "context_id")
         if context_id_error:
             return context_id_error
         query, query_error = self._require_string_field(body, "query")
@@ -748,10 +701,10 @@ class RLMContextHandler(BaseHandler):
         strategy = body.get("strategy", "auto")
         if not isinstance(strategy, str):
             return error_response("'strategy' must be a string", 400)
-        strategy = strategy.strip()
-        if strategy not in VALID_QUERY_STRATEGIES:
+        valid_strategies = ["peek", "grep", "partition_map", "summarize", "hierarchical", "auto"]
+        if strategy not in valid_strategies:
             return error_response(
-                f"Invalid strategy. Must be one of: {', '.join(VALID_QUERY_STRATEGIES)}",
+                f"Invalid strategy. Must be one of: {', '.join(valid_strategies)}",
                 400,
             )
 
@@ -1114,7 +1067,7 @@ class RLMContextHandler(BaseHandler):
         if body_error:
             return body_error
 
-        context_id, context_id_error = self._require_context_id_field(body, "context_id")
+        context_id, context_id_error = self._require_string_field(body, "context_id")
         if context_id_error:
             return context_id_error
 
@@ -1128,38 +1081,23 @@ class RLMContextHandler(BaseHandler):
         mode_str = body.get("mode", "top_down")
         if not isinstance(mode_str, str):
             return error_response("'mode' must be a string", 400)
-        mode_str = mode_str.strip()
-        if not mode_str:
-            return error_response("'mode' must be a non-empty string", 400)
-        if mode_str not in VALID_STREAM_MODES:
-            return error_response(
-                f"Invalid mode. Must be one of: {', '.join(VALID_STREAM_MODES)}",
-                400,
-            )
-
-        query, query_error = self._optional_string_field(body, "query")
-        if query_error:
-            return query_error
-        if query is not None and len(query) > 10_000:
-            return error_response("Query too long (max 10000 characters)", 400)
-
-        level, level_error = self._optional_string_field(body, "level", strip=True)
-        if level_error:
-            return level_error
-        if level is not None and level.lower() not in VALID_STREAM_LEVELS:
-            return error_response(
-                f"Invalid level. Must be one of: {', '.join(VALID_STREAM_LEVELS)}",
-                400,
-            )
-        if mode_str == "targeted" and level is None:
-            return error_response("'level' is required when mode is 'targeted'", 400)
-
+        query = body.get("query")
+        level = body.get("level")
+        if query is not None:
+            if not isinstance(query, str):
+                return error_response("'query' must be a string when provided", 400)
+            if not query.strip():
+                return error_response("'query' must be a non-empty string when provided", 400)
+        if level is not None:
+            if not isinstance(level, str):
+                return error_response("'level' must be a string when provided", 400)
+            if not level.strip():
+                return error_response("'level' must be a non-empty string when provided", 400)
         chunk_size, chunk_size_error = self._optional_int_field(
             body,
             "chunk_size",
             500,
             min_value=1,
-            max_value=10_000,
         )
         if chunk_size_error:
             return chunk_size_error
@@ -1178,12 +1116,18 @@ class RLMContextHandler(BaseHandler):
                 StreamingRLMQuery,
             )
 
+            # Map mode string to enum
             mode_map = {
                 "top_down": StreamMode.TOP_DOWN,
                 "bottom_up": StreamMode.BOTTOM_UP,
                 "targeted": StreamMode.TARGETED,
                 "progressive": StreamMode.PROGRESSIVE,
             }
+            if mode_str not in mode_map:
+                return error_response(
+                    "Invalid mode. Must be one of: top_down, bottom_up, targeted, progressive",
+                    400,
+                )
             mode = mode_map[mode_str]
 
             # Create streaming config
