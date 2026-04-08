@@ -973,6 +973,159 @@ _MEDIA_SCHEMA_ENDPOINTS = {
 
 
 # ---------------------------------------------------------------------------
+# Spectate
+# ---------------------------------------------------------------------------
+_SPECTATE_ENDPOINTS = {
+    "/api/v1/spectate/recent": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Recent spectate events",
+            "operationId": "getRecentSpectateEvents",
+            "description": "Get buffered public spectate events for recent live debate activity.",
+            "security": [],
+            "parameters": [
+                {
+                    "name": "count",
+                    "in": "query",
+                    "description": "Maximum number of buffered events to return.",
+                    "schema": {
+                        "type": "integer",
+                        "default": 50,
+                        "minimum": 1,
+                        "maximum": 500,
+                    },
+                },
+                {
+                    "name": "debate_id",
+                    "in": "query",
+                    "description": "Optional debate scope filter.",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "pipeline_id",
+                    "in": "query",
+                    "description": "Optional pipeline scope filter.",
+                    "schema": {"type": "string"},
+                },
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Buffered spectate events",
+                    {
+                        "events": {"type": "array", "items": {"type": "object"}},
+                        "count": {"type": "integer"},
+                    },
+                ),
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/spectate/status": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Spectate bridge status",
+            "operationId": "getSpectateStatus",
+            "description": "Get readiness and recent activity summary for the public spectate bridge.",
+            "security": [],
+            "responses": {
+                "200": _ok_response(
+                    "Spectate bridge status",
+                    {
+                        "active": {"type": "boolean"},
+                        "subscribers": {"type": "integer"},
+                        "buffer_size": {"type": "integer"},
+                        "bridge_state": {"type": "string"},
+                        "last_event_at": {"type": ["string", "null"], "format": "date-time"},
+                        "activity_age_seconds": {"type": ["number", "null"]},
+                        "recent_activity_window_seconds": {"type": "integer"},
+                        "recent_event_count": {"type": "integer"},
+                        "live_debate_count": {"type": "integer"},
+                        "live_debate_ids": {"type": "array", "items": {"type": "string"}},
+                        "live_debates": {"type": "array", "items": {"type": "object"}},
+                        "unattributed_recent_event_count": {"type": "integer"},
+                    },
+                ),
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/spectate/stream": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Spectate stream snapshot",
+            "operationId": "getSpectateStreamSnapshot",
+            "description": (
+                "Get a finite spectate snapshot as JSON, or request a one-shot SSE response "
+                "by setting `format=sse` or sending `Accept: text/event-stream`."
+            ),
+            "security": [],
+            "parameters": [
+                {
+                    "name": "count",
+                    "in": "query",
+                    "description": "Maximum number of buffered events to include in the snapshot.",
+                    "schema": {
+                        "type": "integer",
+                        "default": 50,
+                        "minimum": 1,
+                        "maximum": 500,
+                    },
+                },
+                {
+                    "name": "debate_id",
+                    "in": "query",
+                    "description": "Optional debate scope filter.",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "pipeline_id",
+                    "in": "query",
+                    "description": "Optional pipeline scope filter.",
+                    "schema": {"type": "string"},
+                },
+                {
+                    "name": "format",
+                    "in": "query",
+                    "description": "Use `sse` for a finite SSE snapshot response.",
+                    "schema": {"type": "string", "enum": ["sse"]},
+                },
+            ],
+            "responses": {
+                "200": {
+                    "description": "Spectate snapshot",
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "events": {"type": "array", "items": {"type": "object"}},
+                                    "count": {"type": "integer"},
+                                    "mode": {"type": "string"},
+                                    "transport": {"type": "string"},
+                                    "readiness": {"type": "string"},
+                                    "streaming_ready": {"type": "boolean"},
+                                    "message": {"type": "string"},
+                                    "debate_id": {"type": "string"},
+                                    "pipeline_id": {"type": "string"},
+                                },
+                            }
+                        },
+                        "text/event-stream": {
+                            "schema": {
+                                "type": "string",
+                                "description": "Finite SSE snapshot frames for recent spectate events.",
+                            }
+                        },
+                    },
+                },
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+}
+
+
+# ---------------------------------------------------------------------------
 # Combined export
 # ---------------------------------------------------------------------------
 RESPONSE_SCHEMA_ENDPOINTS = {
@@ -981,6 +1134,7 @@ RESPONSE_SCHEMA_ENDPOINTS = {
     **_SYSTEM_SCHEMA_ENDPOINTS,
     **_MONITORING_SCHEMA_ENDPOINTS,
     **_MEDIA_SCHEMA_ENDPOINTS,
+    **_SPECTATE_ENDPOINTS,
 }
 
 __all__ = ["RESPONSE_SCHEMA_ENDPOINTS"]

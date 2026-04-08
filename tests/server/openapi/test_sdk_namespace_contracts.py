@@ -50,6 +50,14 @@ NAMESPACE_CONTRACTS = {
             ("get", "/api/v1/webhooks/queue/stats"),
         ],
     },
+    "spectate": {
+        "file": "sdk/typescript/src/namespaces/spectate.ts",
+        "endpoints": [
+            ("get", "/api/v1/spectate/recent"),
+            ("get", "/api/v1/spectate/status"),
+            ("get", "/api/v1/spectate/stream"),
+        ],
+    },
 }
 
 

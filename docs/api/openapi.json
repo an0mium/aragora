@@ -153759,6 +153759,385 @@
         "x-aragora-stability": "experimental"
       }
     },
+    "/api/v1/spectate/recent": {
+      "get": {
+        "tags": [
+          "Debates"
+        ],
+        "summary": "Recent spectate events",
+        "operationId": "getRecentSpectateEvents",
+        "description": "Get buffered public spectate events for recent live debate activity.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Maximum number of buffered events to return.",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "debate_id",
+            "in": "query",
+            "description": "Optional debate scope filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pipeline_id",
+            "in": "query",
+            "description": "Optional pipeline scope filter.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Buffered spectate events",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "stable"
+      }
+    },
+    "/api/v1/spectate/status": {
+      "get": {
+        "tags": [
+          "Debates"
+        ],
+        "summary": "Spectate bridge status",
+        "operationId": "getSpectateStatus",
+        "description": "Get readiness and recent activity summary for the public spectate bridge.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Spectate bridge status",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "subscribers": {
+                      "type": "integer"
+                    },
+                    "buffer_size": {
+                      "type": "integer"
+                    },
+                    "bridge_state": {
+                      "type": "string"
+                    },
+                    "last_event_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time"
+                    },
+                    "activity_age_seconds": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "recent_activity_window_seconds": {
+                      "type": "integer"
+                    },
+                    "recent_event_count": {
+                      "type": "integer"
+                    },
+                    "live_debate_count": {
+                      "type": "integer"
+                    },
+                    "live_debate_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "live_debates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "unattributed_recent_event_count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "stable"
+      }
+    },
+    "/api/v1/spectate/stream": {
+      "get": {
+        "tags": [
+          "Debates"
+        ],
+        "summary": "Spectate stream snapshot",
+        "operationId": "getSpectateStreamSnapshot",
+        "description": "Get a finite spectate snapshot as JSON, or request a one-shot SSE response by setting `format=sse` or sending `Accept: text/event-stream`.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "count",
+            "in": "query",
+            "description": "Maximum number of buffered events to include in the snapshot.",
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "debate_id",
+            "in": "query",
+            "description": "Optional debate scope filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pipeline_id",
+            "in": "query",
+            "description": "Optional pipeline scope filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Use `sse` for a finite SSE snapshot response.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sse"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spectate snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "mode": {
+                      "type": "string"
+                    },
+                    "transport": {
+                      "type": "string"
+                    },
+                    "readiness": {
+                      "type": "string"
+                    },
+                    "streaming_ready": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "debate_id": {
+                      "type": "string"
+                    },
+                    "pipeline_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "Finite SSE snapshot frames for recent spectate events."
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "beta"
+      }
+    },
     "/api/v1/canvas/pipeline": {
       "get": {
         "tags": [
@@ -211597,102 +211976,6 @@
       }
     },
     "/api/v1/self-improve/metrics/summary": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Undocumented"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/v1/spectate/recent": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Undocumented"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/v1/spectate/status": {
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Undocumented"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental"
-      }
-    },
-    "/api/v1/spectate/stream": {
       "post": {
         "summary": "Autogenerated placeholder (spec pending)",
         "tags": [

@@ -334,17 +334,15 @@ class TestSpectateSync:
         self.api = SpectateAPI(sync_client)
 
     def test_connect_sse(self):
-        self.client.request.return_value = {
-            "stream_url": "/sse/debate-1",
-            "debate_id": "debate-1",
-        }
         result = self.api.connect_sse("debate-1")
-        self.client.request.assert_called_once_with("GET", "/api/v1/spectate/debate-1/stream")
-        assert result["stream_url"] == "/sse/debate-1"
+        self.client.request.assert_not_called()
+        assert result["stream_url"] == "/api/v1/debates/debate-1/spectate"
+        assert result["transport"] == "sse"
 
     def test_connect_sse_different_id(self):
-        self.api.connect_sse("debate-xyz")
-        self.client.request.assert_called_once_with("GET", "/api/v1/spectate/debate-xyz/stream")
+        result = self.api.connect_sse("debate-xyz")
+        self.client.request.assert_not_called()
+        assert result["stream_url"] == "/api/v1/debates/debate-xyz/spectate"
 
     def test_get_recent_defaults(self):
         self.api.get_recent()
@@ -383,10 +381,10 @@ class TestSpectateAsync:
 
     @pytest.mark.asyncio
     async def test_connect_sse(self):
-        self.client.request.return_value = {"stream_url": "/sse/debate-async"}
         result = await self.api.connect_sse("debate-async")
-        self.client.request.assert_awaited_once_with("GET", "/api/v1/spectate/debate-async/stream")
-        assert result["stream_url"] == "/sse/debate-async"
+        self.client.request.assert_not_awaited()
+        assert result["stream_url"] == "/api/v1/debates/debate-async/spectate"
+        assert result["transport"] == "sse"
 
     @pytest.mark.asyncio
     async def test_get_recent(self):
