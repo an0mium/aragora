@@ -64,9 +64,11 @@ def _default_audit_on_denied(decision: AuthorizationDecision) -> None:
             reason=decision.reason,
         )
     except ImportError:
-        pass  # Audit module not available
-    except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
-        logger.debug("Failed to emit permission denial audit event: %s", e)
+        logger.exception("Failed to import permission denial audit emitter")
+        raise
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError):
+        logger.exception("Failed to emit permission denial audit event")
+        raise
 
 
 __all__ = [
@@ -630,8 +632,10 @@ def require_mfa(
 
                     if not auth_config.enabled:
                         return func(*args, **kwargs)
-                except ImportError:
-                    pass
+                except ImportError as exc:
+                    raise MFARequiredError(
+                        "Failed to load auth configuration for MFA check",
+                    ) from exc
                 raise MFARequiredError(
                     "No AuthorizationContext found for MFA check",
                 )
@@ -671,8 +675,10 @@ def require_mfa(
 
                     if not auth_config.enabled:
                         return await cast(Coroutine[Any, Any, T], func(*args, **kwargs))
-                except ImportError:
-                    pass
+                except ImportError as exc:
+                    raise MFARequiredError(
+                        "Failed to load auth configuration for MFA check",
+                    ) from exc
                 raise MFARequiredError(
                     "No AuthorizationContext found for MFA check",
                 )
