@@ -383,9 +383,9 @@ class SQLServerConnector(EnterpriseConnector):
                                     }
                                 )
 
-                    except (OSError, ConnectionError, ValueError, KeyError) as e:
-                        logger.debug("Search failed on %s: %s", table, e)
-                        continue
+                    except (OSError, ConnectionError, ValueError, KeyError):
+                        logger.exception("Search failed on %s", table)
+                        raise
 
         return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
 
@@ -442,9 +442,9 @@ class SQLServerConnector(EnterpriseConnector):
 
                     return None
 
-        except (OSError, ConnectionError, ValueError, KeyError) as e:
-            logger.error("[%s] Fetch failed: %s", self.name, e)
-            return None
+        except (OSError, ConnectionError, ValueError, KeyError):
+            logger.exception("[%s] Fetch failed", self.name)
+            raise
 
     async def _check_cdc_enabled(self, table: str) -> bool:
         """Check if CDC is enabled for a table."""
@@ -541,9 +541,9 @@ class SQLServerConnector(EnterpriseConnector):
 
                 try:
                     await cursor.execute(cdc_query, from_lsn, max_lsn)
-                except (OSError, ConnectionError, ValueError) as e:
-                    logger.debug("[SQL Server CDC] No changes or error for %s: %s", table, e)
-                    return
+                except (OSError, ConnectionError, ValueError):
+                    logger.exception("[SQL Server CDC] Failed to read changes for %s", table)
+                    raise
 
                 col_names = [desc[0] for desc in cursor.description]
 
@@ -660,9 +660,9 @@ class SQLServerConnector(EnterpriseConnector):
 
                 try:
                     await cursor.execute(ct_query, last_version)
-                except (OSError, ConnectionError, ValueError) as e:
-                    logger.debug("[SQL Server CT] No changes or error for %s: %s", table, e)
-                    return
+                except (OSError, ConnectionError, ValueError):
+                    logger.exception("[SQL Server CT] Failed to read changes for %s", table)
+                    raise
 
                 col_names = [desc[0] for desc in cursor.description]
 
