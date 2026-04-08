@@ -117,11 +117,16 @@ class ProductionConnectorMixin:
                 self._pcm_circuit_breaker = get_circuit_breaker(
                     f"connector_{self._pcm_connector_name}"
                 )
-            except ImportError:
-                logger.debug(
-                    "resilience module not available, circuit breaker disabled for %s",
+            except ImportError as exc:
+                logger.error(
+                    "resilience module unavailable for %s; refusing to disable "
+                    "circuit breaker protections",
                     self._pcm_connector_name,
                 )
+                raise RuntimeError(
+                    "ProductionConnectorMixin requires aragora.resilience for "
+                    "circuit breaker protection"
+                ) from exc
         return self._pcm_circuit_breaker
 
     def _sanitize_query(self, query: str) -> str:
@@ -167,8 +172,14 @@ class ProductionConnectorMixin:
         """
         try:
             import httpx
-        except ImportError:
-            return await fn(*args, **kwargs)
+        except ImportError as exc:
+            logger.error(
+                "[%s] httpx is unavailable; refusing to bypass retry and timeout protections",
+                self._pcm_connector_name,
+            )
+            raise RuntimeError(
+                "ProductionConnectorMixin requires httpx for retry and timeout protection"
+            ) from exc
 
         # Check circuit breaker
         cb = self._get_pcm_circuit_breaker()
