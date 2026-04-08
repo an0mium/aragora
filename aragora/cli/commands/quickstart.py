@@ -30,6 +30,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, TextIO, cast
 
+from aragora.core_types import (
+    DebateStatus,
+    DebateStatusSource,
+    normalize_debate_status,
+    normalize_debate_status_source,
+)
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_QUESTION = "Should we adopt microservices or keep our monolith?"
@@ -283,6 +290,23 @@ def _detect_agents(preferred_provider: str | None = None) -> list[tuple[str, str
             agents.append((str(spec["agent_type"]), cast(str | None, spec["model"])))
 
     return agents
+
+
+def _candidate_live_agents(preferred_provider: str | None = None) -> list[tuple[str, str | None]]:
+    """Return candidate live providers for the requested provider scope."""
+    requested = _normalize_provider(preferred_provider)
+    if preferred_provider and requested is None:
+        raise ValueError(
+            "Unsupported provider. Choose from: anthropic, openai, gemini, "
+            "mistral, grok, openrouter."
+        )
+
+    candidates: list[tuple[str, str | None]] = []
+    for provider_name, spec in _PROVIDER_SPECS.items():
+        if requested and provider_name != requested:
+            continue
+        candidates.append((str(spec["agent_type"]), cast(str | None, spec["model"])))
+    return candidates
 
 
 def _configure_inline_api_key(
@@ -619,7 +643,12 @@ def _normalize_quickstart_settlement(
 
 def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     """Normalize quickstart debate results into a receipt-compatible artifact payload."""
-    from aragora.gauntlet.receipt_models import ConsensusProof, DecisionReceipt, ProvenanceRecord
+    from aragora.gauntlet.receipt_models import (
+        ConsensusProof,
+        DecisionReceipt,
+        ProvenanceRecord,
+        canonicalize_execution_outcome_linkage,
+    )
 
     payload = dict(result)
     receipt_info = payload.get("receipt", {})
@@ -629,6 +658,14 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     rounds = int(payload.get("rounds", 0) or 0)
     question = str(payload.get("question") or payload.get("input_summary") or "")
     mode = str(payload.get("mode", "demo") or "demo").strip().lower() or "demo"
+    debate_status = normalize_debate_status(
+        payload.get("debate_status") or payload.get("status"),
+        default=DebateStatus.COMPLETED if mode == "demo" else DebateStatus.PENDING,
+    ).value
+    debate_status_source = normalize_debate_status_source(
+        payload.get("debate_status_source") or payload.get("status_source") or mode,
+        default=(DebateStatusSource.SYNTHETIC if mode == "demo" else DebateStatusSource.LIVE),
+    ).value
     participants = _coerce_string_list(payload.get("agents") or receipt_info.get("participants"))
     summary = str(payload.get("summary") or payload.get("verdict_reasoning") or "")
     confidence = _clamp_confidence(payload.get("confidence", 0.0))
@@ -816,6 +853,9 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     canonical["summary"] = summary
     canonical["dissent"] = dissent_records
     canonical["mode"] = mode
+    canonical["debate_status"] = debate_status
+    canonical["debate_status_source"] = debate_status_source
+    canonical["synthetic"] = debate_status_source == DebateStatusSource.SYNTHETIC.value
     canonical["votes"] = votes
     canonical["agent_votes"] = votes
     canonical["consensus"] = bool(consensus)
@@ -829,7 +869,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         "confidence": confidence,
         "participants": participants,
     }
-    return canonical
+    return canonicalize_execution_outcome_linkage(canonical)
 
 
 def _save_receipt(receipt_data: dict[str, Any], path: str | Path, fmt: str) -> Path:
@@ -925,6 +965,10 @@ async def _run_demo_debate(question: str, rounds: int) -> dict[str, Any]:
             "consensus_reached": True,
         },
         "mode": "demo",
+        "status": "completed",
+        "debate_status": DebateStatus.COMPLETED.value,
+        "debate_status_source": DebateStatusSource.SYNTHETIC.value,
+        "synthetic": True,
     }
 
 
@@ -1166,6 +1210,15 @@ def _build_live_receipt(
     final_answer = str(getattr(result, "final_answer", "") or "")
     confidence = _clamp_confidence(getattr(result, "confidence", 0.0))
     consensus_reached = bool(getattr(result, "consensus_reached", False))
+    legacy_status = str(getattr(result, "status", "") or "").strip()
+    debate_status = normalize_debate_status(
+        getattr(result, "debate_status", "") or legacy_status,
+        default=DebateStatus.PENDING,
+    ).value
+    debate_status_source = normalize_debate_status_source(
+        getattr(result, "debate_status_source", ""),
+        default=DebateStatusSource.LIVE,
+    ).value
     verdict = (
         "PASS"
         if consensus_reached and confidence >= 0.75
@@ -1289,6 +1342,10 @@ def _build_live_receipt(
             "summary": final_answer,
             "dissent": dissent,
             "mode": "live",
+            "status": legacy_status,
+            "debate_status": debate_status,
+            "debate_status_source": debate_status_source,
+            "synthetic": debate_status_source == DebateStatusSource.SYNTHETIC.value,
             "settlement_metadata": settlement_metadata,
             "settlement": settlement,
             "receipt": {
@@ -1297,6 +1354,8 @@ def _build_live_receipt(
                 "consensus_reached": consensus_reached,
                 "confidence": confidence,
                 "participants": participants,
+                "debate_status": debate_status,
+                "debate_status_source": debate_status_source,
             },
             "proposals": proposals,
             "votes": vote_records,
@@ -1352,22 +1411,11 @@ async def _filter_reachable_live_agents(
     Fail closed before entering the debate engine when no detected live providers
     can establish a verified TLS connection.
     """
+    reachable, failures, _failure_reasons = await _probe_live_agents(agents_list)
     limited_agents = agents_list[:4]
-    probe_results = await asyncio.gather(
-        *(_can_reach_provider_tls(provider) for provider, _ in limited_agents)
+    certificate_failure = any(
+        _is_tls_verification_failure(failure.partition(": ")[2] or failure) for failure in failures
     )
-
-    reachable: list[tuple[str, str | None]] = []
-    failures: list[str] = []
-    certificate_failure = False
-    for agent_spec, (ok, detail) in zip(limited_agents, probe_results, strict=False):
-        if ok:
-            reachable.append(agent_spec)
-            continue
-        provider = agent_spec[0]
-        if _is_tls_verification_failure(detail):
-            certificate_failure = True
-        failures.append(f"{provider}: {detail}")
 
     if reachable:
         return reachable
@@ -1384,6 +1432,164 @@ async def _filter_reachable_live_agents(
         logger.warning("No live providers passed connectivity preflight: %s", failure_summary)
 
     return []
+
+
+async def _probe_live_agents(
+    agents_list: list[tuple[str, str | None]],
+) -> tuple[list[tuple[str, str | None]], list[str], dict[str, str]]:
+    """Probe candidate live agents and return reachable set plus failure reasons."""
+    limited_agents = agents_list[:4]
+    if not limited_agents:
+        return [], [], {}
+
+    probe_results = await asyncio.gather(
+        *(_can_reach_provider_tls(provider) for provider, _ in limited_agents)
+    )
+
+    reachable: list[tuple[str, str | None]] = []
+    failures: list[str] = []
+    failure_reasons: dict[str, str] = {}
+    for agent_spec, (ok, detail) in zip(limited_agents, probe_results, strict=False):
+        provider = agent_spec[0]
+        if ok:
+            reachable.append(agent_spec)
+            continue
+        failure_reasons[provider] = (
+            "tls_verification_failed"
+            if _is_tls_verification_failure(detail)
+            else "provider_unreachable"
+        )
+        failures.append(f"{provider}: {detail}")
+
+    return reachable, failures, failure_reasons
+
+
+async def _assess_live_provider_path(
+    agents_list: list[tuple[str, str | None]],
+    *,
+    requested_provider: str | None = None,
+    configured_agents: list[tuple[str, str | None]] | None = None,
+) -> tuple[list[tuple[str, str | None]], dict[str, Any]]:
+    """Build a truthful provider-path status from configured and verified agents."""
+    from aragora.agents.credential_validator import (
+        AGENT_CREDENTIAL_MAP,
+        CredentialStatus,
+        get_credential_status,
+    )
+    from aragora.routing.provider_router import summarize_provider_path
+
+    limited_agents = agents_list[:4]
+    configured_source = limited_agents if configured_agents is None else configured_agents
+    configured_lookup = {agent_type for agent_type, _ in configured_source}
+    credential_statuses: dict[str, CredentialStatus] = {}
+    for agent_type, _ in limited_agents:
+        base_status = get_credential_status(agent_type)
+        required_vars = AGENT_CREDENTIAL_MAP.get(agent_type, base_status.required_vars)
+        if agent_type in configured_lookup:
+            credential_statuses[agent_type] = CredentialStatus(
+                agent_type=agent_type,
+                is_available=True,
+                required_vars=required_vars,
+                missing_vars=[],
+                available_via=base_status.available_via,
+                config_present=True,
+                live_ready=False,
+                status="configured",
+                next_action="Verify provider connectivity before treating it as live-ready.",
+                next_actions=[
+                    "Run a provider preflight or quickstart live check before routing live debates.",
+                    "If the provider is unreachable, keep the path blocked instead of silently simulating it.",
+                ],
+            )
+            continue
+
+        credential_statuses[agent_type] = CredentialStatus(
+            agent_type=agent_type,
+            is_available=False,
+            required_vars=required_vars,
+            missing_vars=required_vars,
+            available_via=None,
+            config_present=False,
+            live_ready=False,
+            status="missing_config",
+            next_action=f"Set one of: {', '.join(required_vars)}" if required_vars else None,
+            next_actions=(
+                [
+                    f"Export one of the required credentials: {', '.join(required_vars)}.",
+                    "Retry the live preflight after credentials are configured.",
+                ]
+                if required_vars
+                else []
+            ),
+        )
+    configured_agents = [
+        agent_spec
+        for agent_spec in limited_agents
+        if credential_statuses[agent_spec[0]].config_present
+    ]
+    reachable, failures, failure_reasons = await _probe_live_agents(configured_agents)
+    failure_details = {
+        failure.split(": ", 1)[0]: failure.split(": ", 1)[1]
+        for failure in failures
+        if ": " in failure
+    }
+    summary = summarize_provider_path(
+        limited_agents,
+        credential_statuses,
+        requested_provider=requested_provider,
+        verified_live_agents=reachable,
+        failure_reasons=failure_reasons,
+        failure_details=failure_details,
+    )
+    return reachable, summary.to_dict()
+
+
+def _emit_provider_path_guidance(
+    provider_path: dict[str, Any],
+    emit: Any,
+) -> None:
+    """Print concise next-step guidance for blocked provider paths."""
+    next_action = str(provider_path.get("next_action") or "").strip()
+    if next_action:
+        emit(f"    Next action: {next_action}")
+
+    next_actions = provider_path.get("next_actions")
+    if isinstance(next_actions, list):
+        for step in next_actions[:2]:
+            detail = str(step).strip()
+            if detail:
+                emit(f"    Then: {detail}")
+
+
+def _attach_provider_path(result: dict[str, Any], provider_path: dict[str, Any]) -> dict[str, Any]:
+    """Attach provider-path truth metadata to a quickstart result."""
+    enriched = dict(result)
+    enriched["provider_path"] = dict(provider_path)
+    return enriched
+
+
+def _label_simulated_fallback(
+    result: dict[str, Any],
+    *,
+    provider_path: dict[str, Any] | None,
+    reason: str,
+) -> dict[str, Any]:
+    """Label demo fallback explicitly as simulated rather than live."""
+    enriched = dict(result)
+    if provider_path:
+        enriched["provider_path"] = dict(provider_path)
+    fallback = dict(enriched.get("fallback") or {})
+    fallback.update(
+        {
+            "used": True,
+            "label": "mock/simulated",
+            "reason": reason,
+        }
+    )
+    enriched["fallback"] = fallback
+    enriched["simulated"] = True
+    enriched["simulation_label"] = "mock/simulated"
+    return enriched
 
 
 def cmd_quickstart(args: argparse.Namespace) -> None:
@@ -1502,24 +1708,46 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             f"{saved_key['env_var']} to secure store ({saved_key['backend']}) as {saved_key['masked_value']}"
         )
 
+    detected: list[tuple[str, str | None]] = []
+    live_agents: list[tuple[str, str | None]] = []
+    provider_path: dict[str, Any] | None = None
+    fallback_reason: str | None = None
+
     if use_demo:
         emit("\n[*] Run mode: demo (requested with --demo)")
         emit("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
     else:
         try:
+            candidate_agents = _candidate_live_agents(normalized_provider)
             detected = _detect_agents(normalized_provider)
         except ValueError as exc:
             emit(f"\n[!] Quickstart configuration failed: {exc}")
             sys.exit(1)
-        if not detected:
+        provider_path_source = detected or candidate_agents
+        live_agents, provider_path = _run_sync(
+            _assess_live_provider_path(
+                provider_path_source,
+                requested_provider=normalized_provider,
+                configured_agents=detected,
+            )
+        )
+        if not provider_path.get("config_present"):
             emit("\n[!] No supported API keys detected. Falling back to demo mode.")
             emit("    This run will use local mock agents, not live model calls.")
-            emit("    Set ANTHROPIC_API_KEY or OPENAI_API_KEY for live debates.")
+            _emit_provider_path_guidance(provider_path, emit)
             emit("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
             use_demo = True
+            fallback_reason = str(provider_path.get("reason") or "missing_config")
+        elif not provider_path.get("live_ready"):
+            emit("\n[!] Live provider path is blocked. Falling back to demo mode.")
+            emit("    This run will use local mock agents, not live model calls.")
+            _emit_provider_path_guidance(provider_path, emit)
+            emit("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
+            use_demo = True
+            fallback_reason = str(provider_path.get("reason") or "providers_unreachable")
         else:
             preview_team = _build_live_team(
-                detected[:4],
+                live_agents[:4],
                 provider=normalized_provider,
                 api_key=inline_api_key,
             )
@@ -1534,29 +1762,61 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     try:
         if use_demo:
             result = _run_sync(_run_demo_debate(question, rounds))
+            if fallback_reason:
+                result = _label_simulated_fallback(
+                    result,
+                    provider_path=provider_path,
+                    reason=fallback_reason,
+                )
         else:
             result = _run_sync(
                 _run_live_debate(
                     question,
-                    detected[:4],
+                    live_agents[:4],
                     rounds,
                     provider=normalized_provider,
                     api_key=inline_api_key,
                 )
             )
+            if provider_path:
+                result = _attach_provider_path(result, provider_path)
     except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
         logger.debug("Live debate failed, falling back to demo: %s", e)
         if _is_tls_verification_failure(e):
             emit("\n[!] Provider TLS check failed. Falling back to demo mode.")
             emit("    Check the local CA trust store for live debates.")
+            fallback_reason = "tls_verification_failed"
         elif "No live" in str(e) or "no live" in str(e):
             emit("\n[!] No live providers available. Falling back to demo mode.")
+            fallback_reason = "providers_unreachable"
         else:
             emit(f"\n[!] Live debate failed: {e}")
             emit("    Falling back to demo mode.")
+            fallback_reason = "live_debate_failed"
+        if provider_path:
+            provider_path = dict(provider_path)
+            provider_path["status"] = "blocked"
+            provider_path["blocked"] = True
+            provider_path["live_ready"] = False
+            provider_path["reason"] = fallback_reason
+            provider_path.setdefault(
+                "next_action",
+                "Retry live debate after a provider preflight succeeds.",
+            )
+            next_actions = provider_path.get("next_actions")
+            if not isinstance(next_actions, list) or not next_actions:
+                provider_path["next_actions"] = [
+                    "Inspect provider connectivity or TLS trust configuration.",
+                    "Retry quickstart after at least one provider responds to preflight.",
+                ]
         # Fall back to demo — the user should always get a result
         try:
             result = _run_sync(_run_demo_debate(question, rounds))
+            result = _label_simulated_fallback(
+                result,
+                provider_path=provider_path,
+                reason=fallback_reason or "live_debate_failed",
+            )
         except (OSError, RuntimeError, ValueError) as demo_err:
             logger.debug("Demo debate also failed: %s", demo_err)
             emit(f"\n[!] Demo debate also failed: {demo_err}")
@@ -1573,9 +1833,16 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     emit(f"\n  Verdict:    {verdict_display}")
     emit(f"  Confidence: {result['confidence']:.0%}")
     emit(f"  Mode:       {str(result.get('mode', 'demo')).title()}")
+    if result.get("simulation_label"):
+        emit(f"  Simulation: {result['simulation_label']}")
     emit(f"  Agents:     {', '.join(result['agents'])}")
     emit(f"  Rounds:     {result['rounds']}")
     emit(f"  Elapsed:    {elapsed:.1f}s")
+    provider_path_result = result.get("provider_path")
+    if isinstance(provider_path_result, dict) and provider_path_result.get("blocked"):
+        blocked_next = str(provider_path_result.get("next_action") or "").strip()
+        if blocked_next:
+            emit(f"  Next:       {blocked_next}")
     if "consensus_proof" in result:
         consensus_text = "Reached" if result["consensus_proof"].get("reached") else "Not reached"
         emit(f"  Consensus:  {consensus_text}")
@@ -1619,20 +1886,15 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
 
     # Persist to receipt store so API/dashboard/CLI-list can serve it
     try:
-        from aragora.storage.receipt_store import get_receipt_store
+        from aragora.pipeline.receipt_store_facade import get_receipt_store_facade
 
-        store = get_receipt_store()
-        receipt_nested = canonical_result.get("receipt", {}) or {}
-        store_payload = dict(canonical_result)
-        store_payload.setdefault("receipt_id", receipt_nested.get("id", ""))
-        store_payload.setdefault(
-            "debate_id",
-            str(canonical_result.get("debate_id") or canonical_result.get("receipt_id") or ""),
+        facade = get_receipt_store_facade()
+        facade.persist_and_save(
+            str(canonical_result.get("receipt_id") or ""),
+            canonical_result,
+            state="CREATED",
         )
-        store_payload.setdefault("verdict", canonical_result.get("verdict", ""))
-        store_payload.setdefault("checksum", canonical_result.get("artifact_hash", ""))
-        store.save(store_payload)
-        logger.info("receipt_persisted id=%s", store_payload.get("receipt_id", ""))
+        logger.info("receipt_persisted id=%s", canonical_result.get("receipt_id", ""))
     except Exception:  # noqa: BLE001 - best-effort, local file is primary
         logger.debug("receipt_store_persist_skipped", exc_info=True)
 
@@ -1649,7 +1911,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
     no_browser = getattr(args, "no_browser", False) or output_json
     if not no_browser:
         browser_path = _open_receipt_in_browser(
-            result,
+            canonical_result,
             saved_artifact if saved_artifact.suffix.lower() == ".html" else None,
         )
         if browser_path:
