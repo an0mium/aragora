@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 
+from aragora.agents.credential_validator import CredentialStatus
 from aragora.routing.cost_quality_optimizer import (
     CostQualityOptimizer,
     SelectionStrategy,
@@ -33,6 +34,7 @@ from aragora.routing.provider_router import (
     DEFAULT_PROVIDER_ORDER,
     MIN_DEBATES_FOR_METRICS,
     ProviderRouter,
+    summarize_provider_path,
 )
 
 
@@ -67,6 +69,60 @@ class TestProviderMetrics:
         restored = ProviderMetrics.from_dict({"provider_name": "openai"})
         assert restored.total_debates == 0
         assert restored.avg_quality_score == 0.0
+
+
+class TestProviderPathSummary:
+    def test_config_present_does_not_imply_live_ready(self) -> None:
+        summary = summarize_provider_path(
+            [("openai-api", "gpt-4o-mini")],
+            {
+                "openai-api": CredentialStatus(
+                    agent_type="openai-api",
+                    is_available=True,
+                    required_vars=["OPENAI_API_KEY"],
+                    missing_vars=[],
+                    available_via="OPENAI_API_KEY",
+                    config_present=True,
+                    live_ready=False,
+                    status="configured",
+                    next_action="Verify provider connectivity before treating it as live-ready.",
+                    next_actions=["Run a live preflight."],
+                )
+            },
+            failure_reasons={"openai-api": "provider_unreachable"},
+            failure_details={"openai-api": "connection refused"},
+        )
+
+        payload = summary.to_dict()
+        assert payload["blocked"] is True
+        assert payload["config_present"] is True
+        assert payload["live_ready"] is False
+        assert payload["reason"] == "providers_unreachable"
+        assert payload["next_action"]
+
+    def test_first_verified_provider_response_sets_live_ready(self) -> None:
+        summary = summarize_provider_path(
+            [("openai-api", "gpt-4o-mini")],
+            {
+                "openai-api": CredentialStatus(
+                    agent_type="openai-api",
+                    is_available=True,
+                    required_vars=["OPENAI_API_KEY"],
+                    missing_vars=[],
+                    available_via="OPENAI_API_KEY",
+                    config_present=True,
+                    live_ready=False,
+                    status="configured",
+                )
+            },
+            verified_live_agents=[("openai-api", "gpt-4o-mini")],
+        )
+
+        payload = summary.to_dict()
+        assert payload["blocked"] is False
+        assert payload["config_present"] is True
+        assert payload["live_ready"] is True
+        assert payload["status"] == "live_ready"
 
 
 # ---------------------------------------------------------------------------
