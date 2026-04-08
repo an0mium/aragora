@@ -65,6 +65,7 @@ from aragora.server.openapi.endpoints.bots import BOTS_ENDPOINTS
 from aragora.server.openapi.endpoints.queue import QUEUE_ENDPOINTS
 from aragora.server.openapi.endpoints.devices import DEVICES_ENDPOINTS
 from aragora.server.openapi.endpoints.onboarding import ONBOARDING_ENDPOINTS
+from aragora.server.openapi.endpoints.playground import PLAYGROUND_ENDPOINTS
 from aragora.server.openapi.endpoints.computer_use import COMPUTER_USE_ENDPOINTS
 from aragora.server.openapi.endpoints.gateway import GATEWAY_ENDPOINTS
 from aragora.server.openapi.endpoints.openclaw import OPENCLAW_ENDPOINTS
@@ -160,6 +161,7 @@ ALL_ENDPOINTS = {
     **QUEUE_ENDPOINTS,
     **DEVICES_ENDPOINTS,
     **ONBOARDING_ENDPOINTS,
+    **PLAYGROUND_ENDPOINTS,
     **COMPUTER_USE_ENDPOINTS,
     **GATEWAY_ENDPOINTS,
     **OPENCLAW_ENDPOINTS,
@@ -241,6 +243,7 @@ __all__ = [
     "QUEUE_ENDPOINTS",
     "DEVICES_ENDPOINTS",
     "ONBOARDING_ENDPOINTS",
+    "PLAYGROUND_ENDPOINTS",
     "COMPUTER_USE_ENDPOINTS",
     "GATEWAY_ENDPOINTS",
     "OPENCLAW_ENDPOINTS",

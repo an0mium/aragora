@@ -40,4 +40,14 @@ export class SpectateAPI {
       params: { count: options?.count ?? 50, ...(options?.debateId ? { debate_id: options.debateId } : {}) },
     });
   }
+
+  /**
+   * Inject one or more events into the spectate bridge.
+   * @route POST /api/v1/spectate/emit
+   */
+  async emit(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/spectate/emit', {
+      body,
+    });
+  }
 }
