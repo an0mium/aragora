@@ -715,7 +715,18 @@ async def handle_accounting_report(request: web.Request) -> web.Response:
         start_date_str = data.get("start_date")
         end_date_str = data.get("end_date")
 
-        if not start_date_str or not end_date_str:
+        if start_date_str is None or end_date_str is None:
+            return web.json_response(
+                {
+                    "error": "start_date and end_date are required",
+                },
+                status=400,
+            )
+        if not isinstance(start_date_str, str) or not isinstance(end_date_str, str):
+            return web.json_response(
+                {"error": "Invalid date range or format. Use ISO 8601."}, status=400
+            )
+        if not start_date_str.strip() or not end_date_str.strip():
             return web.json_response(
                 {
                     "error": "start_date and end_date are required",
@@ -1317,13 +1328,58 @@ async def handle_gusto_journal_entry(request: web.Request) -> web.Response:
                 status=400,
             )
         for key, value in raw_mappings.items():
+            if not isinstance(key, str) or not key.strip():
+                return web.json_response(
+                    {
+                        "error": "account_mappings entries must contain string account references",
+                    },
+                    status=400,
+                )
             if isinstance(value, dict):
                 account_id = value.get("account_id") or value.get("id")
                 account_name = value.get("account_name") or value.get("name")
-                if account_id and account_name:
-                    account_mappings[key] = (str(account_id), str(account_name))
-            elif isinstance(value, (list, tuple)) and len(value) == 2:
-                account_mappings[key] = (str(value[0]), str(value[1]))
+                if (
+                    not isinstance(account_id, str)
+                    or not account_id.strip()
+                    or not isinstance(account_name, str)
+                    or not account_name.strip()
+                ):
+                    return web.json_response(
+                        {
+                            "error": "account_mappings entries must contain string account references",
+                        },
+                        status=400,
+                    )
+                account_mappings[key] = (account_id, account_name)
+            elif isinstance(value, (list, tuple)):
+                if len(value) != 2:
+                    return web.json_response(
+                        {
+                            "error": "account_mappings entries must contain string account references",
+                        },
+                        status=400,
+                    )
+                account_id, account_name = value
+                if (
+                    not isinstance(account_id, str)
+                    or not account_id.strip()
+                    or not isinstance(account_name, str)
+                    or not account_name.strip()
+                ):
+                    return web.json_response(
+                        {
+                            "error": "account_mappings entries must contain string account references",
+                        },
+                        status=400,
+                    )
+                account_mappings[key] = (account_id, account_name)
+            else:
+                return web.json_response(
+                    {
+                        "error": "account_mappings entries must contain string account references",
+                    },
+                    status=400,
+                )
 
         payroll = await connector.get_payroll(payroll_id)
         if not payroll:

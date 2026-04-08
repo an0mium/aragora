@@ -761,7 +761,10 @@ def validate_against_schema(data: dict, schema: dict) -> ValidationResult:
                 required=required,
             )
         else:
-            continue  # Unknown type, skip
+            return ValidationResult(
+                is_valid=False,
+                error=f"Invalid schema for field '{field}': unknown type '{field_type}'",
+            )
 
         if not result.is_valid:
             return result
