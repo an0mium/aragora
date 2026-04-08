@@ -159,7 +159,11 @@ class OperatorInterventionHandler(BaseHandler):
         if not is_valid:
             return error_response(err, 400)
 
-        body = self.read_json_body(handler) or {}
+        body = self.read_json_body(handler)
+        if body is None:
+            body = {}
+        if not isinstance(body, dict):
+            return error_response("Request body must be a JSON object", 400)
 
         if action == "pause":
             return self._pause_debate(debate_id, body)
@@ -192,7 +196,10 @@ class OperatorInterventionHandler(BaseHandler):
         if manager is None:
             return error_response("Operator intervention module not available", 503)
 
-        reason = str(body.get("reason", "")).strip()
+        reason_value = body.get("reason", "")
+        if reason_value is not None and not isinstance(reason_value, str):
+            return error_response("reason must be a string", 400)
+        reason = reason_value.strip() if isinstance(reason_value, str) else ""
 
         success = manager.pause(debate_id, reason=reason)
         if not success:
@@ -244,7 +251,7 @@ class OperatorInterventionHandler(BaseHandler):
             return error_response("Operator intervention module not available", 503)
 
         from_round = body.get("from_round", 0)
-        if not isinstance(from_round, int) or from_round < 0:
+        if isinstance(from_round, bool) or not isinstance(from_round, int) or from_round < 0:
             return error_response("from_round must be a non-negative integer", 400)
 
         success = manager.restart(debate_id, from_round=from_round)
@@ -273,12 +280,14 @@ class OperatorInterventionHandler(BaseHandler):
         if manager is None:
             return error_response("Operator intervention module not available", 503)
 
-        context = body.get("context", "")
-        if not context or not str(context).strip():
+        if "context" not in body:
             return error_response("Missing required field: context", 400)
+        context = body["context"]
+        if not isinstance(context, str) or not context.strip():
+            return error_response("context must be a non-empty string", 400)
 
         # Sanitize: limit to 5000 chars
-        context = str(context).strip()[:5000]
+        context = context.strip()[:5000]
 
         success = manager.inject_context(debate_id, context)
         if not success:
