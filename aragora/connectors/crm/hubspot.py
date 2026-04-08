@@ -1000,8 +1000,8 @@ def _parse_datetime(value: str | None) -> datetime | None:
         return None
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        return None
+    except (ValueError, AttributeError) as exc:
+        raise ValueError(f"Invalid HubSpot datetime value: {value!r}") from exc
 
 
 def _from_timestamp(value: int | None) -> datetime | None:
@@ -1010,8 +1010,8 @@ def _from_timestamp(value: int | None) -> datetime | None:
         return None
     try:
         return datetime.fromtimestamp(value / 1000)
-    except (ValueError, OSError):
-        return None
+    except (ValueError, OSError) as exc:
+        raise ValueError(f"Invalid HubSpot timestamp value: {value!r}") from exc
 
 
 def get_mock_contact() -> Contact:
