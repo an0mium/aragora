@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from datetime import datetime
 from typing import Any
 
 from aragora.resilience import CircuitBreaker
@@ -83,6 +84,28 @@ VALID_CAPABILITIES = {
     "reasoning",
 }
 VALID_PRIORITIES = {"low", "normal", "high", "urgent"}
+
+
+def _validate_metadata_object(
+    metadata: Any,
+    *,
+    field_name: str,
+    max_keys: int | None = None,
+) -> tuple[bool, str | None]:
+    """Validate a metadata-style object."""
+    if not isinstance(metadata, dict):
+        return False, f"{field_name} must be an object"
+    if max_keys is not None and len(metadata) > max_keys:
+        return False, f"{field_name} must have {max_keys} keys or fewer"
+    for key, value in metadata.items():
+        if not isinstance(key, str):
+            return False, f"{field_name} keys must be strings"
+        if isinstance(value, str) and len(value) > MAX_METADATA_VALUE_LENGTH:
+            return (
+                False,
+                f"{field_name} value for '{key}' exceeds maximum length of {MAX_METADATA_VALUE_LENGTH}",
+            )
+    return True, None
 
 
 def validate_agent_name(name: str) -> tuple[bool, str | None]:
@@ -159,6 +182,14 @@ def validate_task_request_body(data: dict[str, Any]) -> tuple[bool, str | None]:
         if not is_valid:
             return False, err
 
+    if "parent_task_id" in data:
+        parent_task_id = data["parent_task_id"]
+        if not isinstance(parent_task_id, str):
+            return False, "parent_task_id must be a string"
+        is_valid, err = validate_task_id(parent_task_id)
+        if not is_valid:
+            return False, f"parent_task_id {err[0].lower() + err[1:]}" if err else None
+
     # Validate capability if provided
     if "capability" in data:
         capability = data["capability"]
@@ -192,41 +223,49 @@ def validate_task_request_body(data: dict[str, Any]) -> tuple[bool, str | None]:
         for i, ctx in enumerate(context):
             if not isinstance(ctx, dict):
                 return False, f"context[{i}] must be an object"
-            if "content" not in ctx:
-                return False, f"context[{i}].content is required"
-            if "type" in ctx and not isinstance(ctx.get("type"), str):
-                return False, f"context[{i}].type must be a string"
-            content = ctx["content"]
-            if not isinstance(content, str):
-                return False, f"context[{i}].content must be a string"
-            if len(content) > MAX_CONTEXT_CONTENT_LENGTH:
-                return (
-                    False,
-                    f"context[{i}].content must be {MAX_CONTEXT_CONTENT_LENGTH} characters or less",
+            if "type" in ctx:
+                ctx_type = ctx["type"]
+                if not isinstance(ctx_type, str):
+                    return False, f"context[{i}].type must be a string"
+                if not ctx_type.strip():
+                    return False, f"context[{i}].type must not be empty"
+            if "content" in ctx:
+                content = ctx["content"]
+                if not isinstance(content, str):
+                    return False, f"context[{i}].content must be a string"
+                if len(content) > MAX_CONTEXT_CONTENT_LENGTH:
+                    return (
+                        False,
+                        f"context[{i}].content must be {MAX_CONTEXT_CONTENT_LENGTH} characters or less",
+                    )
+            if "mime_type" in ctx:
+                mime_type = ctx["mime_type"]
+                if not isinstance(mime_type, str):
+                    return False, f"context[{i}].mime_type must be a string"
+                if not mime_type.strip():
+                    return False, f"context[{i}].mime_type must not be empty"
+            if "metadata" in ctx:
+                is_valid, err = _validate_metadata_object(
+                    ctx["metadata"],
+                    field_name=f"context[{i}].metadata",
                 )
-            if "metadata" in ctx and not isinstance(ctx.get("metadata"), dict):
-                return False, f"context[{i}].metadata must be an object"
+                if not is_valid:
+                    return False, err
 
     # Validate metadata if provided
     if "metadata" in data:
-        metadata = data["metadata"]
-        if not isinstance(metadata, dict):
-            return False, "metadata must be an object"
-        if len(metadata) > MAX_METADATA_KEYS:
-            return False, f"metadata must have {MAX_METADATA_KEYS} keys or fewer"
-        for key, value in metadata.items():
-            if not isinstance(key, str):
-                return False, "metadata keys must be strings"
-            if isinstance(value, str) and len(value) > MAX_METADATA_VALUE_LENGTH:
-                return (
-                    False,
-                    f"metadata value for '{key}' exceeds maximum length of {MAX_METADATA_VALUE_LENGTH}",
-                )
+        is_valid, err = _validate_metadata_object(
+            data["metadata"],
+            field_name="metadata",
+            max_keys=MAX_METADATA_KEYS,
+        )
+        if not is_valid:
+            return False, err
 
     # Validate timeout_ms if provided
     if "timeout_ms" in data:
         timeout = data["timeout_ms"]
-        if not isinstance(timeout, int):
+        if isinstance(timeout, bool) or not isinstance(timeout, int):
             return False, "timeout_ms must be an integer"
         if timeout < 1000 or timeout > 3600000:  # 1 second to 1 hour
             return False, "timeout_ms must be between 1000 and 3600000"
@@ -237,6 +276,25 @@ def validate_task_request_body(data: dict[str, Any]) -> tuple[bool, str | None]:
             return False, "deadline must be a string"
         if not deadline.strip():
             return False, "deadline must not be empty"
+        normalized_deadline = deadline.strip().replace("Z", "+00:00")
+        try:
+            datetime.fromisoformat(normalized_deadline)
+        except ValueError:
+            return False, "deadline must be a valid ISO 8601 datetime string"
+
+    if "requester_agent" in data:
+        requester_agent = data["requester_agent"]
+        if not isinstance(requester_agent, str):
+            return False, "requester_agent must be a string"
+        is_valid, err = validate_agent_name(requester_agent)
+        if not is_valid:
+            return False, f"requester_agent {err[0].lower() + err[1:]}" if err else None
+
+    if "stream_output" in data and not isinstance(data["stream_output"], bool):
+        return False, "stream_output must be a boolean"
+
+    if "return_intermediate" in data and not isinstance(data["return_intermediate"], bool):
+        return False, "return_intermediate must be a boolean"
 
     return True, None
 
@@ -430,8 +488,14 @@ class A2AHandler(BaseHandler):
             return error_response(err, 400)
 
         # Create task request
-        from aragora.protocols.a2a import TaskRequest, AgentCapability, ContextItem, TaskPriority
         import uuid
+
+        from aragora.protocols.a2a import (
+            AgentCapability,
+            ContextItem,
+            TaskPriority,
+            TaskRequest,
+        )
 
         task_id = data.get("task_id", str(uuid.uuid4()))
         capability: AgentCapability | None = None
@@ -455,21 +519,27 @@ class A2AHandler(BaseHandler):
                 ContextItem(
                     type=ctx.get("type", "text"),
                     content=ctx.get("content", ""),
+                    mime_type=ctx.get("mime_type", "text/plain"),
                     metadata=ctx.get("metadata", {}),
                 )
             )
 
         # Store deadline in metadata if provided (not a TaskRequest field)
-        metadata: dict[str, Any] = data.get("metadata", {})
+        metadata: dict[str, Any] = dict(data.get("metadata", {}))
         if data.get("deadline"):
             metadata["deadline"] = data["deadline"]
 
         request = TaskRequest(
             task_id=task_id,
             instruction=data["instruction"],
+            parent_task_id=data.get("parent_task_id"),
             capability=capability,
             context=context,
             priority=priority,
+            timeout_ms=data.get("timeout_ms", 300000),
+            requester_agent=data.get("requester_agent"),
+            stream_output=data.get("stream_output", False),
+            return_intermediate=data.get("return_intermediate", False),
             metadata=metadata,
         )
 
