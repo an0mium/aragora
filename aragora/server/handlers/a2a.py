@@ -70,6 +70,21 @@ MAX_CONTEXT_CONTENT_LENGTH = 100000
 MAX_METADATA_KEYS = 20
 MAX_METADATA_VALUE_LENGTH = 1000
 MAX_BODY_SIZE = 1024 * 1024  # 1 MB
+VALID_CAPABILITIES = frozenset(
+    {
+        "debate",
+        "consensus",
+        "critique",
+        "synthesis",
+        "audit",
+        "verification",
+        "code_review",
+        "document_analysis",
+        "research",
+        "reasoning",
+    }
+)
+VALID_PRIORITIES = frozenset({"low", "normal", "high", "urgent"})
 
 
 def validate_agent_name(name: str) -> tuple[bool, str | None]:
@@ -151,22 +166,10 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
         capability = data["capability"]
         if not isinstance(capability, str):
             return False, "capability must be a string"
-        valid_capabilities = {
-            "debate",
-            "consensus",
-            "critique",
-            "synthesis",
-            "audit",
-            "verification",
-            "code_review",
-            "document_analysis",
-            "research",
-            "reasoning",
-        }
-        if capability.lower() not in valid_capabilities:
+        if capability.lower() not in VALID_CAPABILITIES:
             return (
                 False,
-                f"Invalid capability: {capability}. Must be one of: {', '.join(sorted(valid_capabilities))}",
+                f"Invalid capability: {capability}. Must be one of: {', '.join(sorted(VALID_CAPABILITIES))}",
             )
 
     # Validate priority if provided
@@ -174,11 +177,10 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
         priority = data["priority"]
         if not isinstance(priority, str):
             return False, "priority must be a string"
-        valid_priorities = {"low", "normal", "high", "urgent"}
-        if priority.lower() not in valid_priorities:
+        if priority.lower() not in VALID_PRIORITIES:
             return (
                 False,
-                f"Invalid priority: {priority}. Must be one of: {', '.join(sorted(valid_priorities))}",
+                f"Invalid priority: {priority}. Must be one of: {', '.join(sorted(VALID_PRIORITIES))}",
             )
 
     # Validate context if provided
@@ -244,6 +246,19 @@ def validate_task_request_body(data: dict) -> tuple[bool, str | None]:
             return False, "deadline must not be empty"
 
     return True, None
+
+
+def normalize_task_request_body(data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize validated request values to the canonical enum strings."""
+    normalized = dict(data)
+
+    if isinstance(normalized.get("capability"), str):
+        normalized["capability"] = normalized["capability"].lower()
+
+    if isinstance(normalized.get("priority"), str):
+        normalized["priority"] = normalized["priority"].lower()
+
+    return normalized
 
 
 # Singleton A2A server
@@ -430,6 +445,7 @@ class A2AHandler(BaseHandler):
         is_valid, err = validate_task_request_body(data)
         if not is_valid:
             return error_response(err, 400)
+        data = normalize_task_request_body(data)
 
         # Create task request
         from aragora.protocols.a2a import TaskRequest, AgentCapability, ContextItem, TaskPriority
