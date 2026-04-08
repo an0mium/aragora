@@ -40,6 +40,8 @@ from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRe
 from aragora.swarm.boss_feed import (  # noqa: F401
     GitHubIssue,
     GitHubIssueFeed,
+    IssueEligibilityReport,
+    build_issue_eligibility_report,
     fetch_open_pr_changed_paths,
     infer_issue_lane_hints,
     infer_issue_scope_entries,
@@ -86,6 +88,10 @@ _ALREADY_DONE_MARKERS = (
     "there's nothing to commit",
 )
 _BOSS_PUBLISH_COMMENT_MARKER = "<!-- aragora-boss-loop-publish -->"
+
+
+def _strict_bool(value: Any) -> bool | None:
+    return value if isinstance(value, bool) else None
 
 
 # ---------------------------------------------------------------------------
@@ -277,7 +283,7 @@ class BossLoopConfig:
     # Autonomous post-processing: publish verified branch deliverables and
     # optionally close already-resolved no-op issues.
     auto_publish_deliverables: bool = False
-    max_open_auto_publish_prs: int = 1
+    max_open_auto_publish_prs: int = 4
     auto_close_already_done_issues: bool = False
 
     # Reporting
@@ -858,7 +864,7 @@ class BossLoop:
                 runner_id=runner_id,
                 runner_type=str(reg.get("runner_type", "codex")).strip(),
                 availability=str(reg.get("availability", "unknown")).strip(),
-                available=bool(reg.get("available", False)),
+                available=_strict_bool(reg.get("available")) is True,
                 auth_mode=str(reg.get("auth_mode", "unknown")).strip(),
                 command_path=reg.get("command_path"),
                 profile=reg.get("profile"),
@@ -1017,6 +1023,43 @@ class BossLoop:
                 ],
             )
         return reasons, next_actions
+
+    @staticmethod
+    def _skip_label_summary(report: IssueEligibilityReport) -> str | None:
+        if not report.skipped_by_label:
+            return None
+        parts: list[str] = []
+        for label, numbers in sorted(report.skipped_by_label.items()):
+            issue_refs = ", ".join(f"#{number}" for number in numbers[:3])
+            if len(numbers) > 3:
+                issue_refs = f"{issue_refs}, +{len(numbers) - 3} more"
+            parts.append(f"{label} ({len(numbers)}: {issue_refs})")
+        return "Skipped by label: " + "; ".join(parts)
+
+    def _log_issue_skip_summary(self, report: IssueEligibilityReport) -> None:
+        summary = self._skip_label_summary(report)
+        if summary:
+            logger.info("Boss loop %s", summary)
+
+    def _no_suitable_issue_guidance(
+        self,
+        *,
+        already_maxed: set[int],
+        report: IssueEligibilityReport,
+    ) -> tuple[list[str], list[str]]:
+        needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
+        next_actions = [
+            "Create a new issue with actionable scope, or adjust label filters.",
+            (
+                "Eligible dispatch candidates after filters: "
+                f"{report.eligible_count}, already maxed retries: {len(already_maxed)}"
+            ),
+        ]
+        summary = self._skip_label_summary(report)
+        if summary:
+            needs_human_reasons.append(summary)
+            next_actions.append(summary)
+        return needs_human_reasons, next_actions
 
     def _emit_terminal_receipt(self, result: BossLoopResult) -> None:
         try:
@@ -1481,6 +1524,43 @@ class BossLoop:
         except Exception:
             pass
 
+    @staticmethod
+    def _reuse_existing_published_branch_deliverable(
+        worker_result: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        deliverable = worker_result.get("deliverable")
+        if not isinstance(deliverable, dict):
+            return None
+        if str(deliverable.get("type", "")).strip().lower() != "branch":
+            return None
+
+        publish_result = worker_result.get("publish_result")
+        if not BossLoop._publish_result_succeeded(publish_result):
+            return None
+
+        pr_url = BossLoop._published_pr_url(worker_result)
+        if not pr_url or not isinstance(publish_result, dict):
+            return None
+
+        branch = (
+            str(publish_result.get("branch") or deliverable.get("branch") or "").strip() or None
+        )
+        commit_shas = [
+            str(item).strip()
+            for item in deliverable.get("commit_shas", []) or []
+            if str(item).strip()
+        ]
+        worker_result["deliverable"] = {
+            **dict(deliverable),
+            "type": "pr",
+            "branch": branch,
+            "commit_shas": commit_shas,
+            "pr_url": pr_url,
+        }
+        worker_result["pr_url"] = pr_url
+        worker_result["pr_number"] = BossLoop._pr_number_from_url(pr_url)
+        return dict(publish_result)
+
     def _maybe_publish_deliverable(
         self,
         issue: GitHubIssue,
@@ -1493,7 +1573,82 @@ class BossLoop:
         deliverable = worker_result.get("deliverable")
         if not isinstance(deliverable, dict):
             return None
+        existing_publish = self._reuse_existing_published_branch_deliverable(worker_result)
+        if existing_publish is not None:
+            return existing_publish
+        deliverable = worker_result.get("deliverable")
+        if not isinstance(deliverable, dict):
+            return None
         deliverable_type = str(deliverable.get("type", "")).strip().lower()
+        prior_publish_result = worker_result.get("publish_result")
+        if not isinstance(prior_publish_result, dict):
+            receipt_metadata = worker_result.get("receipt_metadata")
+            if isinstance(receipt_metadata, dict):
+                candidate_publish_result = receipt_metadata.get("publish_result")
+                if isinstance(candidate_publish_result, dict):
+                    prior_publish_result = dict(candidate_publish_result)
+        prior_publish_action = (
+            str(prior_publish_result.get("action", "")).strip()
+            if isinstance(prior_publish_result, dict)
+            else ""
+        )
+        existing_pr_url = str(
+            deliverable.get("pr_url")
+            or deliverable.get("adopted_pr")
+            or worker_result.get("pr_url")
+            or (
+                prior_publish_result.get("pr_url") if isinstance(prior_publish_result, dict) else ""
+            )
+            or ""
+        ).strip()
+        if (
+            deliverable_type not in {"pr", "adopted_pr"}
+            and existing_pr_url
+            and (
+                deliverable.get("pr_url")
+                or deliverable.get("adopted_pr")
+                or worker_result.get("pr_url")
+                or (
+                    isinstance(prior_publish_result, dict)
+                    and (
+                        prior_publish_result.get("published") is True
+                        or prior_publish_action
+                        in {"pr_created", "existing_pr", "discovered_after_push"}
+                    )
+                )
+            )
+        ):
+            branch = str(
+                deliverable.get("branch")
+                or (
+                    prior_publish_result.get("branch")
+                    if isinstance(prior_publish_result, dict)
+                    else ""
+                )
+                or ""
+            ).strip()
+            normalized_deliverable = {
+                **dict(deliverable),
+                "type": "pr",
+                "pr_url": existing_pr_url,
+            }
+            if branch:
+                normalized_deliverable["branch"] = branch
+            worker_result["deliverable"] = normalized_deliverable
+            worker_result["pr_url"] = existing_pr_url
+            worker_result["pr_number"] = self._pr_number_from_url(existing_pr_url)
+            normalized_publish_result = (
+                dict(prior_publish_result) if isinstance(prior_publish_result, dict) else {}
+            )
+            normalized_publish_result.update(
+                {
+                    "action": "existing_pr",
+                    "published": True,
+                    "branch": branch or None,
+                    "pr_url": existing_pr_url,
+                }
+            )
+            return normalized_publish_result
         if deliverable_type in {"pr", "adopted_pr"}:
             pr_url = str(
                 deliverable.get("pr_url")
@@ -1506,6 +1661,7 @@ class BossLoop:
                 worker_result["pr_number"] = self._pr_number_from_url(pr_url)
             return {
                 "action": "existing_pr",
+                "published": True,
                 "branch": str(deliverable.get("branch", "")).strip() or None,
                 "pr_url": pr_url or None,
             }
@@ -1668,6 +1824,22 @@ class BossLoop:
                 }
             )
         return open_boss_prs
+
+    def _has_open_pr_for_issue(self, issue_number: int) -> str | None:
+        """Check if there is already an open boss-loop PR for the given issue.
+
+        Returns the PR URL if found, otherwise ``None``.  Uses the cached
+        ``_list_open_boss_harvest_prs`` results when available — the branch
+        naming convention ``aragora/boss-harvest/issue-{N}`` encodes the issue
+        number so a substring match is sufficient.
+        """
+        open_prs = self._list_open_boss_harvest_prs()
+        suffix = f"issue-{issue_number}"
+        for pr in open_prs:
+            head_ref = str(pr.get("headRefName", ""))
+            if head_ref.endswith(suffix) or f"issue-{issue_number}-" in head_ref:
+                return str(pr.get("url") or "")
+        return None
 
     def _harvest_worker_commits_for_publish(
         self,
@@ -2529,6 +2701,13 @@ class BossLoop:
         candidate_issues = [
             i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
         ]
+        eligibility_report = build_issue_eligibility_report(
+            candidate_issues,
+            skip_labels=self.config.skip_labels,
+            require_labels=self.config.require_labels,
+            blocked_scopes=blocked_scopes,
+        )
+        self._log_issue_skip_summary(eligibility_report)
         if pending_handoffs:
             selected: GitHubIssue | None = pending_handoffs[0]
         elif self.config.issue_number is not None:
@@ -2561,11 +2740,10 @@ class BossLoop:
                     self.config.issue_number
                 )
             else:
-                needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
-                next_actions = [
-                    "Create a new issue with actionable scope, or adjust label filters.",
-                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
-                ]
+                needs_human_reasons, next_actions = self._no_suitable_issue_guidance(
+                    already_maxed=already_maxed,
+                    report=eligibility_report,
+                )
             return BossIterationStatus(
                 iteration=iteration,
                 run_id=self.run_id,
@@ -2610,6 +2788,34 @@ class BossLoop:
                 next_actions=[
                     "Re-register or refresh the Codex runner before resuming the Boss loop.",
                     f"Blocked reason: {blocked_reason}",
+                ],
+                elapsed_seconds=time.monotonic() - iter_start,
+            )
+
+        # Step 3b: Pre-dispatch guard — skip issues that already have an open PR
+        existing_pr = self._has_open_pr_for_issue(selected.number)
+        if existing_pr:
+            logger.info(
+                "boss_loop_skip_existing_pr issue=#%s pr=%s",
+                selected.number,
+                existing_pr,
+            )
+            self._completed_issues.append(self._issue_payload(selected))
+            self._issue_attempt_counts[selected.number] = max(
+                self._issue_attempt_counts.get(selected.number, 0),
+                self.config.max_retries_per_issue,
+            )
+            return BossIterationStatus(
+                iteration=iteration,
+                run_id=self.run_id,
+                timestamp=now,
+                runner_freshness=freshness_dict,
+                selected_issue=self._issue_payload(selected),
+                worker_status="completed",
+                stop_reason=None,
+                needs_human_reasons=[],
+                next_actions=[
+                    f"Skipped: issue #{selected.number} already has open PR {existing_pr}."
                 ],
                 elapsed_seconds=time.monotonic() - iter_start,
             )
@@ -2703,6 +2909,13 @@ class BossLoop:
         candidate_issues = [
             i for i in issues if i.number in pending_issue_numbers or i.number not in already_maxed
         ]
+        eligibility_report = build_issue_eligibility_report(
+            candidate_issues,
+            skip_labels=self.config.skip_labels,
+            require_labels=self.config.require_labels,
+            blocked_scopes=blocked_scopes,
+        )
+        self._log_issue_skip_summary(eligibility_report)
         ordered_candidates = pending_handoffs + [
             issue for issue in candidate_issues if issue.number not in pending_issue_numbers
         ]
@@ -2719,11 +2932,10 @@ class BossLoop:
                     self.config.issue_number
                 )
             else:
-                needs_human_reasons = ["No suitable open issue found in the GitHub feed."]
-                next_actions = [
-                    "Create a new issue with actionable scope, or adjust label filters.",
-                    f"Issues checked: {len(issues)}, already maxed retries: {len(already_maxed)}",
-                ]
+                needs_human_reasons, next_actions = self._no_suitable_issue_guidance(
+                    already_maxed=already_maxed,
+                    report=eligibility_report,
+                )
             return [
                 BossIterationStatus(
                     iteration=iteration,
@@ -2749,7 +2961,7 @@ class BossLoop:
         )
         freshness_dict = _freshness_to_dict(freshness)
 
-        if not (freshness.fresh if hasattr(freshness, "fresh") else freshness_dict.get("fresh")):
+        if not _freshness_is_fresh(freshness, freshness_dict):
             blocked_reason = (
                 freshness.blocked_reason
                 if hasattr(freshness, "blocked_reason")
@@ -3016,8 +3228,15 @@ class BossLoop:
             )
             return [selected] if selected is not None else []
 
-        # Semantic dedup: LLM clusters near-duplicate issues before dispatch
-        issues = self._semantic_dedup_issues(issues)
+        # Semantic dedup: LLM clusters near-duplicate issues before dispatch.
+        # Skip-labeled issues are excluded first so a quarantined issue like
+        # `boss-stuck` cannot suppress an unlabeled twin in the same cluster.
+        pre_dedup_issues = [
+            issue
+            for issue in issues
+            if not (set(issue.labels) & set(self.config.skip_labels or set()))
+        ]
+        issues = self._semantic_dedup_issues(pre_dedup_issues)
 
         selected_issues: list[GitHubIssue] = []
         # Track file scopes to avoid dispatching overlapping work in parallel.
@@ -3168,7 +3387,52 @@ class BossLoop:
                 worker_result
             )
             has_deliverable = bool(normalized_deliverable_type)
+            pr_url = self._published_pr_url(worker_result)
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
+
+            # Deliverable = terminal: the worker produced a concrete artifact
+            # (commit, branch, or PR).  Do NOT retry the issue — it already
+            # has work product that either needs review or was published.
+            if has_deliverable:
+                self._completed_issues.append(issue_dict)
+                self._consecutive_failures = 0
+                # Mark the issue as exhausted so it is never re-dispatched in
+                # this loop run.
+                self._issue_attempt_counts[issue_number] = max(
+                    self._issue_attempt_counts.get(issue_number, 0),
+                    self.config.max_retries_per_issue,
+                )
+                self._log_value_outcome(issue_dict, "completed", elapsed_seconds)
+                logger.info(
+                    "boss_loop_terminal_deliverable issue=#%s pr=%s deliverable_type=%s",
+                    issue_dict.get("number", "?"),
+                    pr_url or "(pending publish)",
+                    normalized_deliverable_type,
+                )
+                self._append_iteration_metrics(
+                    iteration=iteration,
+                    issue_number=issue_number,
+                    worker_result=worker_result,
+                    elapsed_seconds=elapsed_seconds,
+                )
+                return BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=timestamp,
+                    runner_freshness=runner_freshness,
+                    selected_issue=issue_dict,
+                    worker_status="completed",
+                    stop_reason=None,
+                    needs_human_reasons=[],
+                    next_actions=[
+                        f"Terminal: deliverable ({normalized_deliverable_type}) for issue "
+                        f"#{issue_dict.get('number', '?')}"
+                        f"{f' PR {pr_url}' if pr_url else ''}. Proceeding to next issue."
+                    ],
+                    elapsed_seconds=elapsed_seconds,
+                    worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                )
+
             if self.config.auto_continue_on_needs_human and has_deliverable:
                 self._failed_issues.append(issue_dict)
                 self._consecutive_failures = 0

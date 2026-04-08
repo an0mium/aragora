@@ -490,6 +490,31 @@ def test_start_run_discards_duplicate_explicit_lane_by_tranche_lane_id(
     assert work_order["metadata"]["canonical_task_key"].endswith(":existing")
 
 
+def test_start_run_coerces_string_approval_required_for_explicit_work_orders(repo: Path) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+    spec = SwarmSpec(
+        raw_goal="Run the explicit work order without a human gate.",
+        refined_goal="Run the explicit work order without a human gate.",
+        work_orders=[
+            {
+                "work_order_id": "explicit-1",
+                "title": "Explicit lane",
+                "description": "Verify malformed booleans do not force approval.",
+                "file_scope": ["README.md"],
+                "approval_required": "false",
+            }
+        ],
+    )
+
+    run = supervisor.start_run(spec=spec, refresh_scaling=False)
+
+    assert run.work_orders[0]["approval_required"] is False
+
+
 def test_start_run_discards_duplicate_scope_less_open_lane(
     repo: Path, store: DevCoordinationStore
 ) -> None:
@@ -4207,7 +4232,8 @@ async def test_collect_results_backfills_receipt_for_salvaged_deliverable(
                 "lease_id": lease.lease_id,
                 "review_status": "pending",
                 "file_scope": ["aragora/swarm/supervisor.py"],
-                "receipt_id": None,
+                "receipt_id": "receipt-stale",
+                "confidence": 0.91,
                 "dispatch_error": "old crash",
                 "failure_reason": "worker_crash",
                 "blocking_question": "Old blocker?",
@@ -4252,6 +4278,7 @@ async def test_collect_results_backfills_receipt_for_salvaged_deliverable(
     assert wo["review_status"] == "pending_heterogeneous_review"
     assert wo["worker_outcome"] == "crash_with_salvage"
     assert wo["receipt_id"] is not None
+    assert wo["receipt_id"] != "receipt-stale"
     receipt = store.get_completion_receipt(wo["receipt_id"])
     assert receipt is not None
     assert receipt.outcome == "deliverable_created"

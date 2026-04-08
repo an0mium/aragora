@@ -11,6 +11,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import asyncio
 import gc
 import functools
 import json
@@ -119,6 +120,16 @@ def handler():
     return h
 
 
+@pytest.fixture(autouse=True)
+def clear_security_debate_results():
+    """Keep the shared in-memory debate cache isolated between tests."""
+    from aragora.events.security_events import _security_debate_results
+
+    _security_debate_results.clear()
+    yield
+    _security_debate_results.clear()
+
+
 # ===========================================================================
 # Test Instantiation and Basics
 # ===========================================================================
@@ -156,19 +167,56 @@ class TestSecurityDebateHandlerBasics:
 class TestGetDebateStatus:
     """Tests for getting debate status."""
 
-    def test_get_status_returns_not_found(self, handler):
+    def test_get_status_returns_not_found_when_cache_is_empty(self, handler):
         result = handler.get_api_v1_audit_security_debate_id("debate-sec-001")
         assert result.status_code == 200
         data = _parse_body(result)
         assert data["debate_id"] == "debate-sec-001"
         assert data["status"] == "not_found"
-        assert "not persisted" in data["message"].lower()
+        assert "no cached" in data["message"].lower()
 
     def test_get_status_arbitrary_id(self, handler):
         result = handler.get_api_v1_audit_security_debate_id("any-id-works")
         assert result.status_code == 200
         data = _parse_body(result)
         assert data["debate_id"] == "any-id-works"
+
+    def test_get_status_returns_cached_result(self, handler):
+        from aragora.events.security_events import (
+            SecurityEvent,
+            SecurityFinding,
+            SecuritySeverity,
+            _store_security_debate_result,
+        )
+
+        class CachedResult:
+            consensus_reached = True
+            confidence = 0.93
+            final_answer = "Patch the dependency and rotate the token."
+
+        event = SecurityEvent(
+            id="evt-sec-001",
+            repository="synaptent/aragora",
+            findings=[
+                SecurityFinding(
+                    id="finding-1",
+                    finding_type="vulnerability",
+                    severity=SecuritySeverity.CRITICAL,
+                    title="Leaked token enables admin actions",
+                    description="The token is committed in a production workflow file.",
+                )
+            ],
+        )
+        asyncio.run(_store_security_debate_result("debate-sec-001", event, CachedResult()))
+
+        result = handler.get_api_v1_audit_security_debate_id("debate-sec-001")
+        assert result.status_code == 200
+        data = _parse_body(result)
+        assert data["status"] == "completed"
+        assert data["debate_status"] == "completed"
+        assert data["debate_status_source"] == "live"
+        assert data["final_answer"] == "Patch the dependency and rotate the token."
+        assert data["repository"] == "synaptent/aragora"
 
 
 # ===========================================================================
@@ -253,7 +301,7 @@ class TestPostSecurityDebate:
             with patch.dict("sys.modules", {}):
                 with patch(
                     "aragora.server.handlers.security_debate.run_async",
-                    return_value=mock_result,
+                    side_effect=[mock_result, None],
                 ) as mock_run_async:
                     # Patch the imports inside the method
                     mock_sec_debate = MagicMock()
@@ -262,6 +310,10 @@ class TestPostSecurityDebate:
                     mock_sec_events.SecurityEventType = mock_event_type_cls
                     mock_sec_events.SecurityFinding = MagicMock(return_value=mock_finding_obj)
                     mock_sec_events.SecurityEvent = MagicMock(return_value=mock_security_event)
+                    store_coro = MagicMock()
+                    mock_sec_events._store_security_debate_result = MagicMock(
+                        return_value=store_coro
+                    )
 
                     with patch.dict(
                         "sys.modules",
@@ -275,7 +327,16 @@ class TestPostSecurityDebate:
                         data = _parse_body(result)
                         assert data["status"] == "completed"
                         assert data["consensus_reached"] is True
+                        assert data["debate_status"] == "completed"
+                        assert data["debate_status_source"] == "live"
                         assert data["findings_analyzed"] == 1
+                        mock_sec_events._store_security_debate_result.assert_called_once_with(
+                            "debate-sec-001",
+                            mock_security_event,
+                            mock_result,
+                        )
+                        assert mock_run_async.call_count == 2
+                        store_coro.close.assert_called_once()
 
     def test_post_success_does_not_leak_coroutine_when_run_async_short_circuits(self, handler):
         findings = [

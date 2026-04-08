@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from aragora.config import CACHE_TTL_DASHBOARD_DEBATES
 
@@ -22,11 +22,72 @@ from ..base import (
     ttl_cache,
 )
 from ..openapi_decorator import api_endpoint
+from .dashboard_metrics import (
+    ACTIVE_DEBATE_STATUSES,
+    build_debate_proof,
+    find_debate_record,
+    load_debate_records,
+    summarize_debate_records,
+)
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _merge_summary_metrics(
+    records: list[dict[str, Any]],
+    summary_metrics: dict[str, Any] | None,
+) -> dict[str, Any]:
+    summary = summarize_debate_records(records)
+    if summary_metrics:
+        summary.update(summary_metrics)
+    return summary
+
+
+def _debate_list_entry(record: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": record.get("id"),
+        "domain": record.get("domain"),
+        "status": record.get("status"),
+        "consensus_reached": bool(record.get("consensus_reached")),
+        "confidence": record.get("confidence"),
+        "created_at": record.get("created_at"),
+    }
+
+
+def _overview_debate_entry(record: dict[str, Any]) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "debate_id": record.get("id"),
+        "status": record.get("status"),
+        "consensus_reached": bool(record.get("consensus_reached")),
+        "created_at": record.get("created_at"),
+    }
+    if record.get("task"):
+        entry["task"] = record["task"]
+    if record.get("rounds_used") is not None:
+        entry["round_count"] = record["rounds_used"]
+    if record.get("duration_seconds") is not None:
+        entry["duration_ms"] = round(float(record["duration_seconds"]) * 1000, 3)
+    return entry
+
+
+def _count_records_since(records: list[dict[str, Any]], cutoff: datetime) -> int:
+    return sum(
+        1
+        for record in records
+        if isinstance(record.get("_sort_created_at"), datetime)
+        and record["_sort_created_at"] >= cutoff
+    )
+
+
+def _derive_system_health(summary: dict[str, Any]) -> str:
+    if summary.get("needs_attention_debates", 0) > 0:
+        return "degraded"
+    if summary.get("open_debates", 0) > 0 and summary.get("consensus_rate", 0.0) < 0.5:
+        return "degraded"
+    return "healthy"
 
 
 class DashboardViewsMixin:
@@ -44,9 +105,14 @@ class DashboardViewsMixin:
 
         def get_storage(self) -> Any: ...
 
-    def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]: ...
-    def _get_agent_performance(self, limit: int) -> dict[str, Any]: ...
-    def _get_performance_metrics(self) -> dict[str, Any]: ...
+    def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def _get_agent_performance(self, limit: int) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def _get_performance_metrics(self) -> dict[str, Any]:
+        raise NotImplementedError
 
     @api_endpoint(
         method="GET",
@@ -78,33 +144,43 @@ class DashboardViewsMixin:
 
         try:
             storage = self.get_storage()
+            records: list[dict[str, Any]] = []
+            summary: dict[str, Any] = {}
             if storage:
-                summary = self._get_summary_metrics_sql(storage, None)
-                overview["consensus_rate"] = summary.get("consensus_rate", 0.0)
-
-                # Count today's debates
-                today_start = (
-                    datetime.now(timezone.utc)
-                    .replace(hour=0, minute=0, second=0, microsecond=0)
-                    .isoformat()
-                )
                 try:
-                    with storage.connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute(
-                            "SELECT COUNT(*) FROM debates WHERE created_at >= ?",
-                            (today_start,),
-                        )
-                        row = cursor.fetchone()
-                        overview["total_debates_today"] = row[0] if row else 0
-                except (OSError, ValueError, TypeError) as e:
-                    logger.debug("Could not get today's debates count: %s", e)
+                    records = load_debate_records(storage)
+                    summary = _merge_summary_metrics(
+                        records, self._get_summary_metrics_sql(storage, None)
+                    )
+                except (KeyError, ValueError, OSError, TypeError) as e:
+                    logger.warning("Overview summary error: %s: %s", type(e).__name__, e)
+                    summary = summarize_debate_records(records)
 
-            # Agent performance as stat cards
-            perf = self._get_agent_performance(5)
+            today_start = datetime.now(timezone.utc).replace(
+                hour=0,
+                minute=0,
+                second=0,
+                microsecond=0,
+            )
+            overview["recent_debates"] = [_overview_debate_entry(record) for record in records[:5]]
+            overview["active_debates"] = sum(
+                1 for record in records if str(record.get("status") or "") in ACTIVE_DEBATE_STATUSES
+            )
+            overview["total_debates_today"] = _count_records_since(records, today_start)
+            overview["consensus_rate"] = summary.get("consensus_rate", 0.0)
+            overview["avg_debate_duration_ms"] = summary.get("avg_duration_ms", 0)
+            overview["system_health"] = _derive_system_health(summary)
             overview["stats"] = [
-                {"label": "Total Agents", "value": perf.get("total_agents", 0)},
-                {"label": "Avg ELO", "value": perf.get("avg_elo", 0)},
+                {"label": "Total Debates", "value": summary.get("total_debates", 0)},
+                {"label": "Open Debates", "value": summary.get("open_debates", 0)},
+                {
+                    "label": "Consensus Rate",
+                    "value": f"{summary.get('consensus_rate', 0.0) * 100:.1f}%",
+                },
+                {
+                    "label": "Avg Confidence",
+                    "value": round(summary.get("avg_confidence", 0.0), 2),
+                },
             ]
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Overview error: %s: %s", type(e).__name__, e)
@@ -161,43 +237,21 @@ class DashboardViewsMixin:
         try:
             storage = self.get_storage()
             if storage:
-                with storage.connection() as conn:
-                    cursor = conn.cursor()
-                    # Count total
-                    if status:
-                        cursor.execute("SELECT COUNT(*) FROM debates WHERE status = ?", (status,))
-                    else:
-                        cursor.execute("SELECT COUNT(*) FROM debates")
-                    row = cursor.fetchone()
-                    total = row[0] if row else 0
+                records = load_debate_records(storage)
+                normalized_status = str(status).strip().lower() if status else None
+                if normalized_status:
+                    records = [
+                        record
+                        for record in records
+                        if str(record.get("status") or "") == normalized_status
+                    ]
 
-                    # Fetch page
-                    if status:
-                        cursor.execute(
-                            "SELECT id, domain, status, consensus_reached, confidence, "
-                            "created_at FROM debates WHERE status = ? "
-                            "ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                            (status, limit, offset),
-                        )
-                    else:
-                        cursor.execute(
-                            "SELECT id, domain, status, consensus_reached, confidence, "
-                            "created_at FROM debates "
-                            "ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                            (limit, offset),
-                        )
-
-                    for row in cursor.fetchall():
-                        debates.append(
-                            {
-                                "id": row[0],
-                                "domain": row[1],
-                                "status": row[2],
-                                "consensus_reached": bool(row[3]),
-                                "confidence": row[4],
-                                "created_at": row[5],
-                            }
-                        )
+                safe_offset = max(offset, 0)
+                total = len(records)
+                debates = [
+                    _debate_list_entry(record)
+                    for record in records[safe_offset : safe_offset + max(limit, 0)]
+                ]
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Dashboard debates error: %s: %s", type(e).__name__, e)
 
@@ -221,7 +275,34 @@ class DashboardViewsMixin:
         """Return a single debate summary entry."""
         if not debate_id:
             return error_response("debate_id is required", 400)
-        return json_response({"debate_id": debate_id})
+
+        try:
+            storage = self.get_storage()
+            if not storage:
+                return error_response("Debate not found", 404)
+
+            record = find_debate_record(storage, debate_id)
+            if not record:
+                return error_response("Debate not found", 404)
+
+            detail = {
+                "debate_id": record.get("id"),
+                **_debate_list_entry(record),
+                "needs_attention": bool(record.get("needs_attention")),
+            }
+            if record.get("task"):
+                detail["task"] = record["task"]
+            if record.get("rounds_used") is not None:
+                detail["rounds_used"] = record["rounds_used"]
+            if record.get("duration_seconds") is not None:
+                detail["duration_seconds"] = round(float(record["duration_seconds"]), 3)
+            proof = build_debate_proof(record)
+            if proof:
+                detail["proof"] = proof
+            return json_response(detail)
+        except (KeyError, ValueError, OSError, TypeError) as e:
+            logger.warning("Dashboard debate detail error: %s: %s", type(e).__name__, e)
+            return error_response("Failed to load debate", 500)
 
     @api_endpoint(
         method="GET",
@@ -260,59 +341,62 @@ class DashboardViewsMixin:
             },
         }
 
+        records: list[dict[str, Any]] = []
+
         try:
             storage = self.get_storage()
             if storage:
-                summary = self._get_summary_metrics_sql(storage, None)
-                stats["debates"]["total"] = summary.get("total_debates", 0)
-                stats["performance"]["consensus_rate"] = summary.get("consensus_rate", 0.0)
+                records = load_debate_records(storage)
+                summary = summarize_debate_records(records)
+                try:
+                    summary.update(self._get_summary_metrics_sql(storage, None) or {})
+                except (KeyError, ValueError, OSError, TypeError) as e:
+                    logger.warning("Dashboard stats summary error: %s: %s", type(e).__name__, e)
 
                 now = datetime.now(timezone.utc)
-                today_start = now.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-                week_start = (now - timedelta(days=7)).isoformat()
-                month_start = (now - timedelta(days=30)).isoformat()
+                today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                week_start = now - timedelta(days=7)
+                month_start = now - timedelta(days=30)
 
-                try:
-                    with storage.connection() as conn:
-                        cursor = conn.cursor()
-                        # Today
-                        cursor.execute(
-                            "SELECT COUNT(*) FROM debates WHERE created_at >= ?",
-                            (today_start,),
-                        )
-                        row = cursor.fetchone()
-                        stats["debates"]["today"] = row[0] if row else 0
+                stats["debates"]["total"] = summary.get("total_debates", 0)
+                stats["debates"]["today"] = _count_records_since(records, today_start)
+                stats["debates"]["this_week"] = _count_records_since(records, week_start)
+                stats["debates"]["this_month"] = _count_records_since(records, month_start)
+                stats["performance"]["consensus_rate"] = summary.get("consensus_rate", 0.0)
 
-                        # This week
-                        cursor.execute(
-                            "SELECT COUNT(*) FROM debates WHERE created_at >= ?",
-                            (week_start,),
-                        )
-                        row = cursor.fetchone()
-                        stats["debates"]["this_week"] = row[0] if row else 0
+                by_status: dict[str, int] = {}
+                for record in records:
+                    status_name = str(record.get("status") or "")
+                    if status_name:
+                        by_status[status_name] = by_status.get(status_name, 0) + 1
+                stats["debates"]["by_status"] = by_status
 
-                        # This month
-                        cursor.execute(
-                            "SELECT COUNT(*) FROM debates WHERE created_at >= ?",
-                            (month_start,),
-                        )
-                        row = cursor.fetchone()
-                        stats["debates"]["this_month"] = row[0] if row else 0
+                today_records = [
+                    record
+                    for record in records
+                    if isinstance(record.get("_sort_created_at"), datetime)
+                    and record["_sort_created_at"] >= today_start
+                ]
+                stats["usage"]["api_calls_today"] = len(today_records)
+                stats["usage"]["tokens_used_today"] = sum(
+                    int(record.get("total_tokens") or 0) for record in today_records
+                )
+                stats["usage"]["storage_used_bytes"] = sum(
+                    int(artifact_bytes)
+                    for record in records
+                    if isinstance((artifact_bytes := record.get("artifact_bytes")), (int, float))
+                )
+        except (KeyError, ValueError, OSError, TypeError) as e:
+            logger.warning("Dashboard storage stats error: %s: %s", type(e).__name__, e)
 
-                        # By status
-                        cursor.execute("SELECT status, COUNT(*) FROM debates GROUP BY status")
-                        for row in cursor.fetchall():
-                            if row[0]:
-                                stats["debates"]["by_status"][row[0]] = row[1]
-                except (OSError, ValueError, TypeError) as e:
-                    logger.debug("Could not get debate stats: %s", e)
-
-            # Agent stats from ELO
+        try:
             perf = self._get_agent_performance(100)
             stats["agents"]["total"] = perf.get("total_agents", 0)
             stats["agents"]["active"] = len(perf.get("top_performers", []))
+        except (KeyError, ValueError, OSError, TypeError) as e:
+            logger.warning("Dashboard agent stats error: %s: %s", type(e).__name__, e)
 
-            # Performance metrics
+        try:
             pm = self._get_performance_metrics()
             stats["performance"]["avg_response_time_ms"] = pm.get("avg_latency_ms", 0.0)
             stats["performance"]["success_rate"] = pm.get("success_rate", 0.0)
@@ -321,7 +405,7 @@ class DashboardViewsMixin:
                     1.0 - stats["performance"]["success_rate"], 3
                 )
         except (KeyError, ValueError, OSError, TypeError) as e:
-            logger.warning("Dashboard stats error: %s: %s", type(e).__name__, e)
+            logger.warning("Dashboard performance stats error: %s: %s", type(e).__name__, e)
 
         return json_response(stats)
 
@@ -343,7 +427,12 @@ class DashboardViewsMixin:
         try:
             storage = self.get_storage()
             if storage:
-                summary = self._get_summary_metrics_sql(storage, None)
+                records = load_debate_records(storage)
+                summary = summarize_debate_records(records)
+                try:
+                    summary.update(self._get_summary_metrics_sql(storage, None) or {})
+                except (KeyError, ValueError, OSError, TypeError) as e:
+                    logger.warning("Stat cards summary error: %s: %s", type(e).__name__, e)
                 cards.append(
                     {
                         "id": "total_debates",
@@ -515,28 +604,62 @@ class DashboardViewsMixin:
     def _get_top_senders(self, limit: int, offset: int) -> HandlerResult:
         """Return top debate initiators ranked by count."""
         senders: list[dict[str, Any]] = []
+        total = 0
 
         try:
             storage = self.get_storage()
             if storage:
-                with storage.connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "SELECT domain, COUNT(*) as cnt FROM debates "
-                        "GROUP BY domain ORDER BY cnt DESC LIMIT ? OFFSET ?",
-                        (limit, offset),
-                    )
-                    for row in cursor.fetchall():
-                        senders.append(
-                            {
-                                "domain": row[0] or "general",
-                                "debate_count": row[1],
-                            }
-                        )
+                grouped: dict[str, list[dict[str, Any]]] = {}
+                for record in load_debate_records(storage):
+                    domain_name = str(record.get("domain_label") or "general")
+                    grouped.setdefault(domain_name, []).append(record)
+
+                total = len(grouped)
+                senders = sorted(
+                    (
+                        {
+                            "domain": domain_name,
+                            "debate_count": len(entries),
+                            "consensus_rate": round(
+                                sum(1 for entry in entries if entry.get("consensus_reached"))
+                                / len(entries),
+                                3,
+                            ),
+                            "avg_confidence": round(
+                                sum(
+                                    float(entry["confidence"])
+                                    for entry in entries
+                                    if entry.get("confidence") is not None
+                                )
+                                / max(
+                                    1,
+                                    sum(
+                                        1
+                                        for entry in entries
+                                        if entry.get("confidence") is not None
+                                    ),
+                                ),
+                                3,
+                            )
+                            if any(entry.get("confidence") is not None for entry in entries)
+                            else 0.0,
+                            "open_debates": sum(
+                                1
+                                for entry in entries
+                                if str(entry.get("status") or "") in ACTIVE_DEBATE_STATUSES
+                            ),
+                        }
+                        for domain_name, entries in grouped.items()
+                    ),
+                    key=lambda sender: (
+                        -cast(int, sender["debate_count"]),
+                        str(sender["domain"]),
+                    ),
+                )[max(offset, 0) : max(offset, 0) + max(limit, 0)]
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Top senders error: %s: %s", type(e).__name__, e)
 
-        return json_response({"senders": senders, "total": len(senders)})
+        return json_response({"senders": senders, "total": total})
 
     @api_endpoint(
         method="GET",
@@ -555,19 +678,18 @@ class DashboardViewsMixin:
         try:
             storage = self.get_storage()
             if storage:
-                with storage.connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "SELECT domain, COUNT(*) as cnt FROM debates "
-                        "GROUP BY domain ORDER BY cnt DESC LIMIT 20"
-                    )
-                    for row in cursor.fetchall():
-                        labels.append(
-                            {
-                                "name": row[0] or "general",
-                                "count": row[1],
-                            }
-                        )
+                grouped: dict[str, int] = {}
+                for record in load_debate_records(storage):
+                    domain_name = str(record.get("domain_label") or "general")
+                    grouped[domain_name] = grouped.get(domain_name, 0) + 1
+
+                labels = [
+                    {"name": domain_name, "count": count}
+                    for domain_name, count in sorted(
+                        grouped.items(),
+                        key=lambda item: (-item[1], item[0]),
+                    )[:20]
+                ]
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Labels error: %s: %s", type(e).__name__, e)
 
@@ -595,29 +717,19 @@ class DashboardViewsMixin:
         try:
             storage = self.get_storage()
             if storage:
-                with storage.connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT COUNT(*) FROM debates")
-                    row = cursor.fetchone()
-                    total = row[0] if row else 0
-
-                    cursor.execute(
-                        "SELECT id, domain, consensus_reached, confidence, "
-                        "created_at FROM debates "
-                        "ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                        (limit, offset),
-                    )
-                    for row in cursor.fetchall():
-                        activity.append(
-                            {
-                                "type": "debate",
-                                "debate_id": row[0],
-                                "domain": row[1],
-                                "consensus_reached": bool(row[2]),
-                                "confidence": row[3],
-                                "created_at": row[4],
-                            }
-                        )
+                records = load_debate_records(storage)
+                total = len(records)
+                activity = [
+                    {
+                        "type": "debate",
+                        "debate_id": record.get("id"),
+                        "domain": record.get("domain"),
+                        "consensus_reached": bool(record.get("consensus_reached")),
+                        "confidence": record.get("confidence"),
+                        "created_at": record.get("created_at"),
+                    }
+                    for record in records[max(offset, 0) : max(offset, 0) + max(limit, 0)]
+                ]
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Activity feed error: %s: %s", type(e).__name__, e)
 
@@ -650,26 +762,59 @@ class DashboardViewsMixin:
         try:
             storage = self.get_storage()
             if storage:
-                sql_summary = self._get_summary_metrics_sql(storage, None)
+                records = load_debate_records(storage)
+                sql_summary = summarize_debate_records(records)
+                try:
+                    sql_summary.update(self._get_summary_metrics_sql(storage, None) or {})
+                except (KeyError, ValueError, OSError, TypeError) as e:
+                    logger.warning("Inbox summary metrics error: %s: %s", type(e).__name__, e)
                 summary["total_messages"] = sql_summary.get("total_debates", 0)
+                summary["unread_messages"] = sql_summary.get("open_debates", 0)
+                summary["urgent_count"] = sql_summary.get("needs_attention_debates", 0)
                 summary["response_rate"] = sql_summary.get("consensus_rate", 0.0)
 
-                today_start = (
-                    datetime.now(timezone.utc)
-                    .replace(hour=0, minute=0, second=0, microsecond=0)
-                    .isoformat()
+                today_start = datetime.now(timezone.utc).replace(
+                    hour=0,
+                    minute=0,
+                    second=0,
+                    microsecond=0,
                 )
-                try:
-                    with storage.connection() as conn:
-                        cursor = conn.cursor()
-                        cursor.execute(
-                            "SELECT COUNT(*) FROM debates WHERE created_at >= ?",
-                            (today_start,),
-                        )
-                        row = cursor.fetchone()
-                        summary["today_count"] = row[0] if row else 0
-                except (OSError, ValueError, TypeError) as e:
-                    logger.debug("Could not get today's inbox count: %s", e)
+                summary["today_count"] = _count_records_since(records, today_start)
+
+                grouped: dict[str, int] = {}
+                by_importance = {"high": 0, "medium": 0, "low": 0}
+                durations_hours: list[float] = []
+
+                for record in records:
+                    domain_name = str(record.get("domain_label") or "general")
+                    grouped[domain_name] = grouped.get(domain_name, 0) + 1
+
+                    confidence = record.get("confidence")
+                    if confidence is None:
+                        by_importance["medium"] += 1
+                    elif float(confidence) >= 0.8:
+                        by_importance["high"] += 1
+                    elif float(confidence) >= 0.5:
+                        by_importance["medium"] += 1
+                    else:
+                        by_importance["low"] += 1
+
+                    if record.get("duration_seconds") is not None:
+                        durations_hours.append(float(record["duration_seconds"]) / 3600.0)
+
+                summary["by_label"] = [
+                    {"name": domain_name, "count": count}
+                    for domain_name, count in sorted(
+                        grouped.items(),
+                        key=lambda item: (-item[1], item[0]),
+                    )[:10]
+                ]
+                summary["by_importance"] = by_importance
+                if durations_hours:
+                    summary["avg_response_time_hours"] = round(
+                        sum(durations_hours) / len(durations_hours),
+                        3,
+                    )
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Inbox summary error: %s: %s", type(e).__name__, e)
 
