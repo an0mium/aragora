@@ -359,6 +359,30 @@ describe('ReceiptsPage', () => {
     expect(screen.queryByRole('link', { name: 'View result' })).not.toBeInTheDocument();
   });
 
+  it('renders structured dissent reasons from canonical receipt payloads', async () => {
+    configureDetailFetch({
+      dissenting_views: [
+        {
+          agent: 'gpt-4',
+          reasons: ['Too risky', 'Too expensive'],
+          alternative: 'Ship a narrower pilot first.',
+        },
+      ],
+    });
+
+    const user = userEvent.setup();
+
+    render(<ReceiptsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /Receipt 123 summary/i }));
+
+    expect(
+      await screen.findByText(
+        'gpt-4: Too risky; Too expensive Alternative: Ship a narrower pilot first.'
+      )
+    ).toBeInTheDocument();
+  });
+
   it('creates a receipt share link and copies the public token URL', async () => {
     const user = userEvent.setup();
     const detailImplementation = mockFetch.getMockImplementation();

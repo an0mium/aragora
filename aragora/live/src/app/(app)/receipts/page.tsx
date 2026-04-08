@@ -621,16 +621,38 @@ function normalizeDissentingViews(value: unknown): string[] {
 
   return value
     .map((entry) => {
-      if (typeof entry === 'string') return entry;
+      if (typeof entry === 'string') return safeString(entry);
       const record = asRecord(entry);
       if (!record) return undefined;
 
-      return (
+      const reasons = Array.isArray(record.reasons)
+        ? record.reasons
+            .map((reason) => safeString(reason))
+            .filter((reason): reason is string => Boolean(reason))
+        : [];
+      const primary =
         safeString(record.reason) ??
         safeString(record.summary) ??
-        safeString(record.agent) ??
-        safeString(record.view)
-      );
+        safeString(record.view) ??
+        (reasons.length > 0 ? reasons.join('; ') : undefined);
+      const agent = safeString(record.agent);
+      const alternative = safeString(record.alternative);
+
+      if (primary && agent) {
+        return alternative
+          ? `${agent}: ${primary} Alternative: ${alternative}`
+          : `${agent}: ${primary}`;
+      }
+
+      if (primary) {
+        return alternative ? `${primary} Alternative: ${alternative}` : primary;
+      }
+
+      if (agent && alternative) {
+        return `${agent}: Alternative: ${alternative}`;
+      }
+
+      return agent ?? alternative;
     })
     .filter((entry): entry is string => Boolean(entry));
 }
