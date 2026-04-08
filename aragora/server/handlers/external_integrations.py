@@ -175,6 +175,78 @@ class ExternalIntegrationsHandler(SecureHandler):
         self._make: MakeIntegration | None = None
         self._n8n: N8nIntegration | None = None
 
+    def _read_json_object_body(self, handler: Any) -> tuple[dict[str, Any] | None, HandlerResult]:
+        """Read and validate a JSON request body."""
+        body, err = self.read_json_body_validated(handler)
+        if err or body is None:
+            return None, err
+        if not isinstance(body, dict):
+            return None, error_response(
+                "Request body must be a JSON object", 400, code="INVALID_REQUEST_BODY"
+            )
+        return body, None
+
+    def _require_string_field(
+        self, body: dict[str, Any], field_name: str, missing_code: str, invalid_code: str
+    ) -> tuple[str | None, HandlerResult]:
+        """Validate that a required field is a non-empty string."""
+        value = body.get(field_name)
+        if value is None:
+            return None, error_response(f"{field_name} is required", 400, code=missing_code)
+        if not isinstance(value, str):
+            return None, error_response(f"{field_name} must be a string", 400, code=invalid_code)
+        value = value.strip()
+        if not value:
+            return None, error_response(
+                f"{field_name} must be a non-empty string", 400, code=invalid_code
+            )
+        return value, None
+
+    def _optional_string_field(
+        self, body: dict[str, Any], field_name: str, invalid_code: str
+    ) -> tuple[str | None, HandlerResult]:
+        """Validate that an optional field is a non-empty string when provided."""
+        value = body.get(field_name)
+        if value is None:
+            return None, None
+        if not isinstance(value, str):
+            return None, error_response(f"{field_name} must be a string", 400, code=invalid_code)
+        value = value.strip()
+        if not value:
+            return None, error_response(
+                f"{field_name} must be a non-empty string", 400, code=invalid_code
+            )
+        return value, None
+
+    def _require_string_list_field(
+        self, body: dict[str, Any], field_name: str, missing_code: str, invalid_code: str
+    ) -> tuple[list[str] | None, HandlerResult]:
+        """Validate that a required field is a non-empty list of non-empty strings."""
+        value = body.get(field_name)
+        if value is None:
+            return None, error_response(f"{field_name} is required", 400, code=missing_code)
+        if not isinstance(value, list) or not value:
+            return None, error_response(
+                f"{field_name} must be a non-empty list of strings", 400, code=invalid_code
+            )
+
+        normalized_values: list[str] = []
+        for index, item in enumerate(value):
+            if not isinstance(item, str):
+                return None, error_response(
+                    f"{field_name}[{index}] must be a string", 400, code=invalid_code
+                )
+            item = item.strip()
+            if not item:
+                return None, error_response(
+                    f"{field_name}[{index}] must be a non-empty string",
+                    400,
+                    code=invalid_code,
+                )
+            normalized_values.append(item)
+
+        return normalized_values, None
+
     # =========================================================================
     # RBAC Helper Methods
     # =========================================================================
@@ -321,39 +393,39 @@ class ExternalIntegrationsHandler(SecureHandler):
 
         # Zapier endpoints
         if path == "/api/v1/integrations/zapier/apps":
-            body, err = self.read_json_body_validated(handler)
+            body, err = self._read_json_object_body(handler)
             if err or body is None:
                 return err
             return self._handle_create_zapier_app(body, handler)
 
         if path == "/api/v1/integrations/zapier/triggers":
-            body, err = self.read_json_body_validated(handler)
+            body, err = self._read_json_object_body(handler)
             if err or body is None:
                 return err
             return self._handle_subscribe_zapier_trigger(body, handler)
 
         # Make endpoints
         if path == "/api/v1/integrations/make/connections":
-            body, err = self.read_json_body_validated(handler)
+            body, err = self._read_json_object_body(handler)
             if err or body is None:
                 return err
             return self._handle_create_make_connection(body, handler)
 
         if path == "/api/v1/integrations/make/webhooks":
-            body, err = self.read_json_body_validated(handler)
+            body, err = self._read_json_object_body(handler)
             if err or body is None:
                 return err
             return self._handle_register_make_webhook(body, handler)
 
         # n8n endpoints
         if path == "/api/v1/integrations/n8n/credentials":
-            body, err = self.read_json_body_validated(handler)
+            body, err = self._read_json_object_body(handler)
             if err or body is None:
                 return err
             return self._handle_create_n8n_credential(body, handler)
 
         if path == "/api/v1/integrations/n8n/webhooks":
-            body, err = self.read_json_body_validated(handler)
+            body, err = self._read_json_object_body(handler)
             if err or body is None:
                 return err
             return self._handle_register_n8n_webhook(body, handler)
@@ -514,9 +586,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         if perm_error:
             return perm_error
 
-        workspace_id = body.get("workspace_id")
-        if not workspace_id:
-            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
+        workspace_id, field_error = self._require_string_field(
+            body, "workspace_id", "MISSING_WORKSPACE_ID", "INVALID_WORKSPACE_ID"
+        )
+        if field_error:
+            return field_error
 
         zapier = self._get_zapier()
         app = zapier.create_app(workspace_id)
@@ -588,16 +662,26 @@ class ExternalIntegrationsHandler(SecureHandler):
         if perm_error:
             return perm_error
 
-        app_id = body.get("app_id")
-        trigger_type = body.get("trigger_type")
-        webhook_url = body.get("webhook_url")
-
-        if not app_id:
-            return error_response("app_id is required", 400, code="MISSING_APP_ID")
-        if not trigger_type:
-            return error_response("trigger_type is required", 400, code="MISSING_TRIGGER_TYPE")
-        if not webhook_url:
-            return error_response("webhook_url is required", 400, code="MISSING_WEBHOOK_URL")
+        app_id, field_error = self._require_string_field(
+            body, "app_id", "MISSING_APP_ID", "INVALID_APP_ID"
+        )
+        if field_error:
+            return field_error
+        trigger_type, field_error = self._require_string_field(
+            body, "trigger_type", "MISSING_TRIGGER_TYPE", "INVALID_TRIGGER_TYPE"
+        )
+        if field_error:
+            return field_error
+        webhook_url, field_error = self._require_string_field(
+            body, "webhook_url", "MISSING_WEBHOOK_URL", "INVALID_WEBHOOK_URL"
+        )
+        if field_error:
+            return field_error
+        workspace_id, field_error = self._optional_string_field(
+            body, "workspace_id", "INVALID_WORKSPACE_ID"
+        )
+        if field_error:
+            return field_error
 
         is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
         if not is_valid:
@@ -608,7 +692,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             app_id=app_id,
             trigger_type=trigger_type,
             webhook_url=webhook_url,
-            workspace_id=body.get("workspace_id"),
+            workspace_id=workspace_id,
             debate_tags=body.get("debate_tags"),
             min_confidence=body.get("min_confidence"),
         )
@@ -730,9 +814,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         if perm_error:
             return perm_error
 
-        workspace_id = body.get("workspace_id")
-        if not workspace_id:
-            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
+        workspace_id, field_error = self._require_string_field(
+            body, "workspace_id", "MISSING_WORKSPACE_ID", "INVALID_WORKSPACE_ID"
+        )
+        if field_error:
+            return field_error
 
         make = self._get_make()
         connection = make.create_connection(workspace_id)
@@ -803,16 +889,26 @@ class ExternalIntegrationsHandler(SecureHandler):
         if perm_error:
             return perm_error
 
-        conn_id = body.get("connection_id")
-        module_type = body.get("module_type")
-        webhook_url = body.get("webhook_url")
-
-        if not conn_id:
-            return error_response("connection_id is required", 400, code="MISSING_CONNECTION_ID")
-        if not module_type:
-            return error_response("module_type is required", 400, code="MISSING_MODULE_TYPE")
-        if not webhook_url:
-            return error_response("webhook_url is required", 400, code="MISSING_WEBHOOK_URL")
+        conn_id, field_error = self._require_string_field(
+            body, "connection_id", "MISSING_CONNECTION_ID", "INVALID_CONNECTION_ID"
+        )
+        if field_error:
+            return field_error
+        module_type, field_error = self._require_string_field(
+            body, "module_type", "MISSING_MODULE_TYPE", "INVALID_MODULE_TYPE"
+        )
+        if field_error:
+            return field_error
+        webhook_url, field_error = self._require_string_field(
+            body, "webhook_url", "MISSING_WEBHOOK_URL", "INVALID_WEBHOOK_URL"
+        )
+        if field_error:
+            return field_error
+        workspace_id, field_error = self._optional_string_field(
+            body, "workspace_id", "INVALID_WORKSPACE_ID"
+        )
+        if field_error:
+            return field_error
 
         is_valid, url_error = validate_webhook_url(webhook_url, allow_localhost=False)
         if not is_valid:
@@ -823,7 +919,7 @@ class ExternalIntegrationsHandler(SecureHandler):
             conn_id=conn_id,
             module_type=module_type,
             webhook_url=webhook_url,
-            workspace_id=body.get("workspace_id"),
+            workspace_id=workspace_id,
             event_filter=body.get("event_filter"),
         )
 
@@ -948,12 +1044,16 @@ class ExternalIntegrationsHandler(SecureHandler):
         if perm_error:
             return perm_error
 
-        workspace_id = body.get("workspace_id")
-        if not workspace_id:
-            return error_response("workspace_id is required", 400, code="MISSING_WORKSPACE_ID")
+        workspace_id, field_error = self._require_string_field(
+            body, "workspace_id", "MISSING_WORKSPACE_ID", "INVALID_WORKSPACE_ID"
+        )
+        if field_error:
+            return field_error
 
-        api_url = body.get("api_url")
-        if api_url:
+        api_url, field_error = self._optional_string_field(body, "api_url", "INVALID_API_URL")
+        if field_error:
+            return field_error
+        if api_url is not None:
             is_valid, url_error = validate_webhook_url(api_url, allow_localhost=False)
             if not is_valid:
                 return error_response(f"Invalid api_url: {url_error}", 400)
@@ -1031,23 +1131,37 @@ class ExternalIntegrationsHandler(SecureHandler):
         if perm_error:
             return perm_error
 
-        cred_id = body.get("credential_id")
-        events = body.get("events", [])
-
-        if not cred_id:
-            return error_response("credential_id is required", 400, code="MISSING_CREDENTIAL_ID")
-        if not events:
-            return error_response(
-                "events is required (list of event types)", 400, code="MISSING_EVENTS"
-            )
+        cred_id, field_error = self._require_string_field(
+            body, "credential_id", "MISSING_CREDENTIAL_ID", "INVALID_CREDENTIAL_ID"
+        )
+        if field_error:
+            return field_error
+        events, field_error = self._require_string_list_field(
+            body, "events", "MISSING_EVENTS", "INVALID_EVENTS"
+        )
+        if field_error:
+            return field_error
+        workflow_id, field_error = self._optional_string_field(
+            body, "workflow_id", "INVALID_WORKFLOW_ID"
+        )
+        if field_error:
+            return field_error
+        node_id, field_error = self._optional_string_field(body, "node_id", "INVALID_NODE_ID")
+        if field_error:
+            return field_error
+        workspace_id, field_error = self._optional_string_field(
+            body, "workspace_id", "INVALID_WORKSPACE_ID"
+        )
+        if field_error:
+            return field_error
 
         n8n = self._get_n8n()
         webhook = n8n.register_webhook(
             cred_id=cred_id,
             events=events,
-            workflow_id=body.get("workflow_id"),
-            node_id=body.get("node_id"),
-            workspace_id=body.get("workspace_id"),
+            workflow_id=workflow_id,
+            node_id=node_id,
+            workspace_id=workspace_id,
         )
 
         if webhook:
