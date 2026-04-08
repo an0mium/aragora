@@ -330,9 +330,9 @@ class S3Connector(EnterpriseConnector):
 
                         items_processed += 1
 
-                    except (OSError, ValueError, KeyError) as e:
-                        logger.warning("Failed to process %s: %s", key, e)
-                        continue
+                    except (OSError, ValueError, KeyError):
+                        logger.exception("Failed to process %s", key)
+                        raise
 
                 # Check for more results
                 if response.get("IsTruncated"):
@@ -345,8 +345,9 @@ class S3Connector(EnterpriseConnector):
                 logger.warning("Pagination limit reached (%d pages)", _max_pages)
 
         except (OSError, ValueError, KeyError) as e:
-            logger.error("S3 sync failed: %s", e)
-            state.errors.append("S3 sync operation failed")
+            logger.exception("S3 sync failed")
+            state.errors.append(f"S3 sync operation failed: {e}")
+            raise
 
     async def search(
         self,
