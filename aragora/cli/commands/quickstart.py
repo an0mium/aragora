@@ -1471,11 +1471,7 @@ async def _assess_live_provider_path(
     configured_agents: list[tuple[str, str | None]] | None = None,
 ) -> tuple[list[tuple[str, str | None]], dict[str, Any]]:
     """Build a truthful provider-path status from configured and verified agents."""
-    from aragora.agents.credential_validator import (
-        AGENT_CREDENTIAL_MAP,
-        CredentialStatus,
-        get_credential_status,
-    )
+    from aragora.agents.credential_validator import AGENT_CREDENTIAL_MAP, CredentialStatus
     from aragora.routing.provider_router import summarize_provider_path
 
     limited_agents = agents_list[:4]
@@ -1483,15 +1479,19 @@ async def _assess_live_provider_path(
     configured_lookup = {agent_type for agent_type, _ in configured_source}
     credential_statuses: dict[str, CredentialStatus] = {}
     for agent_type, _ in limited_agents:
-        base_status = get_credential_status(agent_type)
-        required_vars = AGENT_CREDENTIAL_MAP.get(agent_type, base_status.required_vars)
+        required_vars = list(AGENT_CREDENTIAL_MAP.get(agent_type, []))
         if agent_type in configured_lookup:
+            available_via = next(
+                (env_var for env_var in required_vars if os.environ.get(env_var)), None
+            )
+            if available_via is None and required_vars:
+                available_via = required_vars[0]
             credential_statuses[agent_type] = CredentialStatus(
                 agent_type=agent_type,
                 is_available=True,
                 required_vars=required_vars,
                 missing_vars=[],
-                available_via=base_status.available_via,
+                available_via=available_via,
                 config_present=True,
                 live_ready=False,
                 status="configured",

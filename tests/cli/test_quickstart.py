@@ -16,6 +16,7 @@ import pytest
 from aragora.agents.base import create_agent as create_real_agent
 from aragora.cli.commands.receipt import cmd_receipt_verify
 from aragora.cli.commands.quickstart import (
+    _assess_live_provider_path,
     _build_live_receipt,
     _build_live_team,
     _can_reach_provider_tls,
@@ -38,6 +39,11 @@ from aragora.cli.receipt_formatter import receipt_to_html, receipt_to_markdown
 from aragora.core import DebateResult
 from aragora.core_types import DebateStatus, DebateStatusSource
 from scripts.check_epistemic_hygiene import validate_receipt
+
+
+def _reachable_provider_preflight() -> AsyncMock:
+    """Return a successful provider preflight probe for live-path unit tests."""
+    return AsyncMock(return_value=(True, None))
 
 
 # =============================================================================
@@ -772,6 +778,32 @@ class TestCmdQuickstart:
 
         assert reachable == [("openai-api", "gpt-4o")]
 
+    @pytest.mark.asyncio
+    async def test_assess_live_provider_path_skips_secret_lookup_for_configured_agents(
+        self, monkeypatch
+    ):
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+        with (
+            patch(
+                "aragora.cli.commands.quickstart._probe_live_agents",
+                new=AsyncMock(return_value=([("openai-api", "gpt-4o")], [], {})),
+            ),
+            patch(
+                "aragora.agents.credential_validator.get_credential_status",
+                side_effect=AssertionError("configured providers should not hit secret lookup"),
+            ),
+        ):
+            reachable, provider_path = await _assess_live_provider_path(
+                [("openai-api", "gpt-4o")],
+                requested_provider="openai",
+                configured_agents=[("openai-api", "gpt-4o")],
+            )
+
+        assert reachable == [("openai-api", "gpt-4o")]
+        assert provider_path["live_ready"] is True
+        assert provider_path["providers"][0]["available_via"] == "OPENAI_API_KEY"
+
     def test_demo_mode(self, capsys):
         """Test quickstart runs in demo mode with mock agents."""
         args = argparse.Namespace(
@@ -824,6 +856,10 @@ class TestCmdQuickstart:
             patch(
                 "aragora.cli.commands.quickstart._detect_agents",
                 return_value=[("openai-api", "gpt-4o")],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=_reachable_provider_preflight(),
             ),
             patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
@@ -1020,6 +1056,10 @@ class TestCmdQuickstart:
                 return_value=[("openai-api", "gpt-4o")],
             ),
             patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=_reachable_provider_preflight(),
+            ),
+            patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
                 return_value=live_result,
             ),
@@ -1096,6 +1136,10 @@ class TestCmdQuickstart:
         with (
             patch("aragora.cli.api_keys.set_provider_key") as set_provider_key,
             patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=_reachable_provider_preflight(),
+            ),
+            patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
                 return_value=live_result,
             ) as run_live_debate,
@@ -1157,6 +1201,10 @@ class TestCmdQuickstart:
             patch(
                 "aragora.cli.commands.quickstart._detect_agents",
                 return_value=[("openai-api", "gpt-4o")],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=_reachable_provider_preflight(),
             ),
             patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
@@ -1272,6 +1320,10 @@ class TestCmdQuickstart:
                 return_value=[("gemini", None)],
             ),
             patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=_reachable_provider_preflight(),
+            ),
+            patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
                 side_effect=RuntimeError("Live debate failed: CERTIFICATE_VERIFY_FAILED"),
             ),
@@ -1367,6 +1419,10 @@ class TestCmdQuickstart:
             patch(
                 "aragora.cli.commands.quickstart._detect_agents",
                 return_value=[("gemini", "gemini-3.1-pro")],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=_reachable_provider_preflight(),
             ),
             patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
