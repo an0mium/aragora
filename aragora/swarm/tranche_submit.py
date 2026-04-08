@@ -359,6 +359,7 @@ def _build_normalized_bundle(
         "references": {"source_refs": _source_ref_map(enriched)},
         "lanes": lanes,
         "terminal_outcomes": dict(bundle.get("terminal_outcomes") or {}),
+        "execution_contract": summarize_execution_contract({"lanes": lanes}),
     }
 
 
@@ -565,6 +566,60 @@ def _submission_decision(
     if mode in {"checkpoint", "spectator"}:
         return "awaiting_confirmation", "design-review" if has_writable_lanes else "prepare"
     return "awaiting_confirmation", "design-review" if has_writable_lanes else "prepare"
+
+
+def summarize_execution_contract(bundle: dict[str, Any]) -> dict[str, Any]:
+    raw_lanes = bundle.get("lanes")
+    if not isinstance(raw_lanes, list):
+        raw_lanes = bundle.get("candidate_lanes")
+    lanes = (
+        [dict(item) for item in raw_lanes if isinstance(item, dict)]
+        if isinstance(raw_lanes, list)
+        else []
+    )
+    missing_scope_lanes: list[str] = []
+    unbounded_scope_lanes: list[str] = []
+    missing_verification_lanes: list[str] = []
+    lane_summaries: list[dict[str, Any]] = []
+    for index, lane in enumerate(lanes, start=1):
+        lane_id = _optional_text(lane.get("lane_id")) or f"lane-{index:02d}"
+        scope = _string_list(lane.get("allowed_write_scope"))
+        verification_commands = _string_list(lane.get("verification_commands"))
+        if not scope:
+            missing_scope_lanes.append(lane_id)
+        elif not all(_scope_is_bounded(entry) for entry in scope):
+            unbounded_scope_lanes.append(lane_id)
+        if not verification_commands:
+            missing_verification_lanes.append(lane_id)
+        lane_summaries.append(
+            {
+                "lane_id": lane_id,
+                "has_bounded_scope": bool(scope) and lane_id not in unbounded_scope_lanes,
+                "has_verification_commands": bool(verification_commands),
+            }
+        )
+    ready = bool(lanes) and not (
+        missing_scope_lanes or unbounded_scope_lanes or missing_verification_lanes
+    )
+    return {
+        "ready": ready,
+        "lane_count": len(lanes),
+        "lanes": lane_summaries,
+        "missing_scope_lanes": missing_scope_lanes,
+        "unbounded_scope_lanes": unbounded_scope_lanes,
+        "missing_verification_lanes": missing_verification_lanes,
+    }
+
+
+def _scope_is_bounded(value: str) -> bool:
+    normalized = str(value or "").strip().removeprefix("./").rstrip("/")
+    if not normalized:
+        return False
+    if normalized in {".", "*", "**"}:
+        return False
+    if normalized.endswith("/**"):
+        return bool(normalized[:-3])
+    return True
 
 
 def _write_yaml_like(path: Path, payload: dict[str, Any]) -> None:

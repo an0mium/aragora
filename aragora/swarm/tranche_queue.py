@@ -37,6 +37,7 @@ from aragora.swarm.tranche_state import (
 )
 from aragora.swarm.tranche_submit import (
     campaign_projects_to_candidate_lanes,
+    summarize_execution_contract,
     submit_intake_bundle,
 )
 from aragora.swarm.tranche_watch import (
@@ -65,6 +66,16 @@ QUEUE_ITEM_PHASE_QUEUED = "queued"
 QUEUE_ITEM_PHASE_EXPLORED = "explored"
 QUEUE_ITEM_PHASE_PLANNED = "planned"
 QUEUE_ITEM_PHASE_APPROVED = "approved"
+QUEUE_WORK_CLASS_HARVEST = "harvest"
+QUEUE_WORK_CLASS_BOUNDED_FEATURE = "bounded_feature"
+QUEUE_WORK_CLASS_INITIATIVE_MANUAL = "initiative_manual"
+_QUEUE_WORK_CLASSES = frozenset(
+    {
+        QUEUE_WORK_CLASS_HARVEST,
+        QUEUE_WORK_CLASS_BOUNDED_FEATURE,
+        QUEUE_WORK_CLASS_INITIATIVE_MANUAL,
+    }
+)
 
 _QUEUE_TERMINAL_STATUSES = frozenset(
     {
@@ -124,6 +135,36 @@ def _normalize_scope(scope: list[str]) -> list[str]:
     return list(dict.fromkeys(normalized))
 
 
+def _normalize_work_class(value: Any) -> str | None:
+    text = _optional_text(value)
+    if text is None:
+        return None
+    normalized = text.lower()
+    if normalized not in _QUEUE_WORK_CLASSES:
+        raise ValueError(f"Unsupported queue work_class: {text!r}")
+    return normalized
+
+
+def _classify_queue_source_work_class(source: TrancheQueueSource) -> str:
+    if source.work_class in _QUEUE_WORK_CLASSES:
+        return str(source.work_class)
+    bounded = bool(source.allowed_write_scope) and bool(source.verification_commands)
+    if source.kind == "doc":
+        return QUEUE_WORK_CLASS_BOUNDED_FEATURE if bounded else QUEUE_WORK_CLASS_INITIATIVE_MANUAL
+    if source.kind == "issue":
+        return QUEUE_WORK_CLASS_BOUNDED_FEATURE if bounded else QUEUE_WORK_CLASS_HARVEST
+    return QUEUE_WORK_CLASS_HARVEST
+
+
+def _classify_queue_item_work_class(item: TrancheQueueItem) -> str:
+    if item.work_class in _QUEUE_WORK_CLASSES:
+        return str(item.work_class)
+    bounded = bool(item.allowed_write_scope) and bool(item.verification_commands)
+    if item.kind == "intake":
+        return QUEUE_WORK_CLASS_BOUNDED_FEATURE
+    return QUEUE_WORK_CLASS_BOUNDED_FEATURE if bounded else QUEUE_WORK_CLASS_HARVEST
+
+
 def _resolve_queue_autonomy_mode(
     requested_mode: str | None, *, merge_class: str
 ) -> tuple[str, bool]:
@@ -172,9 +213,7 @@ def _derive_queue_item_phase(
 ) -> str:
     normalized = _optional_text(phase)
     recommendation = _optional_text(design_review_recommendation)
-    if recommendation == "approved":
-        inferred = QUEUE_ITEM_PHASE_APPROVED
-    elif recommendation:
+    if recommendation:
         inferred = QUEUE_ITEM_PHASE_PLANNED
     elif _optional_text(manifest_path):
         inferred = QUEUE_ITEM_PHASE_EXPLORED
@@ -255,6 +294,75 @@ def _queue_item_next_action(item_state: TrancheQueueItemRunState) -> str | None:
     return None
 
 
+def _queue_item_admission(
+    item: TrancheQueueItem, *, normalized_bundle: dict[str, Any]
+) -> dict[str, Any]:
+    work_class = _classify_queue_item_work_class(item)
+    execution_contract = summarize_execution_contract(normalized_bundle)
+    payload: dict[str, Any] = {
+        "work_class": work_class,
+        "execution_contract": execution_contract,
+    }
+    if work_class == QUEUE_WORK_CLASS_INITIATIVE_MANUAL:
+        payload.update(
+            {
+                "status": "blocked",
+                "reason": "initiative_manual_requires_operator_split",
+                "next_action": "plan-queue",
+                "question": (
+                    "Which bounded feature slices, write scope, and verification commands must be defined "
+                    "before this initiative can run unattended?"
+                ),
+                "detail": (
+                    "This queue item is initiative/manual work and is not eligible for unattended overnight execution."
+                ),
+            }
+        )
+        return payload
+    if execution_contract.get("ready") is True:
+        payload.update(
+            {
+                "status": "ready",
+                "reason": None,
+                "next_action": "run-queue",
+                "question": None,
+                "detail": "Queue item has bounded scope and focused verification coverage.",
+            }
+        )
+        return payload
+    missing_scope = _string_list(execution_contract.get("missing_scope_lanes"))
+    unbounded_scope = _string_list(execution_contract.get("unbounded_scope_lanes"))
+    missing_verification = _string_list(execution_contract.get("missing_verification_lanes"))
+    if unbounded_scope:
+        reason = "queue_item_unbounded_write_scope"
+        question = "Which narrower write scope should replace the current unbounded scope before unattended execution?"
+        detail = "Queue item still has unbounded write scope in one or more lanes."
+    elif missing_scope and missing_verification:
+        reason = "queue_item_missing_scope_and_verification"
+        question = "Which bounded write scope and focused verification commands should be added before unattended execution?"
+        detail = "Queue item is missing both bounded write scope and focused verification coverage."
+    elif missing_scope:
+        reason = "queue_item_missing_allowed_write_scope"
+        question = (
+            "Which bounded write scope should gate this queue item before unattended execution?"
+        )
+        detail = "Queue item is missing bounded write scope."
+    else:
+        reason = "queue_item_missing_verification_commands"
+        question = "Which focused verification commands should gate this queue item before unattended execution?"
+        detail = "Queue item is missing focused verification coverage."
+    payload.update(
+        {
+            "status": "blocked",
+            "reason": reason,
+            "next_action": "plan-queue",
+            "question": question,
+            "detail": detail,
+        }
+    )
+    return payload
+
+
 def _load_structured_object(path: str | Path) -> dict[str, Any]:
     raw = Path(path).resolve().read_text(encoding="utf-8")
     try:
@@ -289,6 +397,7 @@ class TrancheQueueItem:
     item_id: str
     kind: str
     source: str
+    work_class: str | None = None
     objective_override: str | None = None
     merge_class: str = "manual"
     max_lanes: int = 1
@@ -301,6 +410,7 @@ class TrancheQueueItem:
             "id": self.item_id,
             "kind": self.kind,
             "source": self.source,
+            "work_class": self.work_class or _classify_queue_item_work_class(self),
             "merge_class": self.merge_class,
             "max_lanes": self.max_lanes,
         }
@@ -329,10 +439,11 @@ class TrancheQueueItem:
         if merge_class not in {"low_risk", "manual"}:
             raise ValueError(f"Queue item {item_id} has unsupported merge_class: {merge_class!r}")
         max_lanes = max(1, int(data.get("max_lanes", 1) or 1))
-        return cls(
+        item = cls(
             item_id=item_id,
             kind=kind,
             source=source,
+            work_class=_normalize_work_class(data.get("work_class")),
             objective_override=_optional_text(data.get("objective_override")),
             merge_class=merge_class,
             max_lanes=max_lanes,
@@ -340,6 +451,8 @@ class TrancheQueueItem:
             autonomy_mode=_optional_text(data.get("autonomy_mode")),
             verification_commands=_string_list(data.get("verification_commands")),
         )
+        item.work_class = _classify_queue_item_work_class(item)
+        return item
 
 
 @dataclass(slots=True)
@@ -395,6 +508,7 @@ class TrancheQueueSource:
     kind: str
     mode: str
     source: str
+    work_class: str | None = None
     merge_class: str = "manual"
     priority: int = 100
     repo: str | None = None
@@ -411,6 +525,7 @@ class TrancheQueueSource:
             "kind": self.kind,
             "mode": self.mode,
             "source": self.source,
+            "work_class": self.work_class or _classify_queue_source_work_class(self),
             "merge_class": self.merge_class,
             "priority": self.priority,
             "max_lanes": self.max_lanes,
@@ -452,11 +567,12 @@ class TrancheQueueSource:
             raise ValueError(
                 f"Queue source {source_id} has unsupported merge_class: {merge_class!r}"
             )
-        return cls(
+        source_obj = cls(
             source_id=source_id,
             kind=kind,
             mode=mode,
             source=source,
+            work_class=_normalize_work_class(data.get("work_class")),
             merge_class=merge_class,
             priority=int(data.get("priority", 100) or 100),
             repo=_optional_text(data.get("repo")),
@@ -467,6 +583,8 @@ class TrancheQueueSource:
             autonomy_mode=_optional_text(data.get("autonomy_mode")),
             verification_commands=_string_list(data.get("verification_commands")),
         )
+        source_obj.work_class = _classify_queue_source_work_class(source_obj)
+        return source_obj
 
 
 @dataclass(slots=True)
@@ -939,10 +1057,12 @@ def _compile_doc_source_to_bundle(
             item_id=item_id,
             kind="intake",
             source=relative_bundle,
+            work_class=_classify_queue_source_work_class(source),
             merge_class=source.merge_class,
             max_lanes=source.max_lanes,
             allowed_write_scope=list(source.allowed_write_scope),
             autonomy_mode=source.autonomy_mode,
+            verification_commands=list(source.verification_commands),
         ),
         None,
     )
@@ -960,6 +1080,7 @@ def _compile_issue_source(
                 item_id=item_id,
                 kind="issue",
                 source=source.source,
+                work_class=_classify_queue_source_work_class(source),
                 objective_override=source.objective,
                 merge_class=source.merge_class,
                 max_lanes=source.max_lanes,
@@ -988,6 +1109,7 @@ def _compile_issue_query_source(
                 item_id=_unique_compiled_item_id(base_item_id, seen_item_ids),
                 kind="issue",
                 source=issue_url,
+                work_class=_classify_queue_source_work_class(source),
                 objective_override=source.objective,
                 merge_class=source.merge_class,
                 max_lanes=source.max_lanes,
@@ -1894,6 +2016,36 @@ class TrancheQueueExecutor:
         if item_state.status == QUEUE_ITEM_STATUS_NEEDS_HUMAN:
             return False
 
+        normalized_bundle = self._load_normalized_bundle_for_item(item_state)
+        admission = _queue_item_admission(item, normalized_bundle=normalized_bundle)
+        item_state.result["admission"] = dict(admission)
+        if (
+            admission.get("status") == "blocked"
+            and admission.get("reason") == "initiative_manual_requires_operator_split"
+        ):
+            item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
+            item_state.stop_reason = _optional_text(admission.get("reason"))
+            item_state.recommended_action = (
+                _optional_text(admission.get("next_action")) or "plan-queue"
+            )
+            item_state.set_blocker(
+                reason=admission.get("reason"),
+                question=admission.get("question"),
+            )
+            item_state.finished_at = _utcnow()
+            self._append_finding(
+                item_state,
+                _optional_text(admission.get("detail"))
+                or "Queue item requires operator decomposition before unattended execution.",
+            )
+            self._persist_item_progress(
+                manifest=manifest,
+                item_state=item_state,
+                current_item_id=item.item_id,
+                queue_status=queue_status,
+            )
+            return False
+
         design_review_path = manifest_path.with_name("design_review.yaml")
         item_state.design_review_path = str(design_review_path)
         design_review_recommendation = item_state.design_review_recommendation
@@ -1947,6 +2099,32 @@ class TrancheQueueExecutor:
             self._append_finding(
                 item_state,
                 f"Design review did not approve execution: {design_review_recommendation or 'unknown'}.",
+            )
+            self._persist_item_progress(
+                manifest=manifest,
+                item_state=item_state,
+                current_item_id=item.item_id,
+                queue_status=queue_status,
+            )
+            return False
+
+        admission = _queue_item_admission(item, normalized_bundle=normalized_bundle)
+        item_state.result["admission"] = dict(admission)
+        if admission.get("status") != "ready":
+            item_state.status = QUEUE_ITEM_STATUS_NEEDS_HUMAN
+            item_state.stop_reason = _optional_text(admission.get("reason"))
+            item_state.recommended_action = (
+                _optional_text(admission.get("next_action")) or "plan-queue"
+            )
+            item_state.set_blocker(
+                reason=admission.get("reason"),
+                question=admission.get("question"),
+            )
+            item_state.finished_at = _utcnow()
+            self._append_finding(
+                item_state,
+                _optional_text(admission.get("detail"))
+                or "Queue item is not ready for unattended execution.",
             )
             self._persist_item_progress(
                 manifest=manifest,
@@ -2699,6 +2877,7 @@ def tranche_queue_status(
         items.append(
             {
                 "item_id": item.item_id,
+                "work_class": _classify_queue_item_work_class(item),
                 "status": item_state.status,
                 "phase": item_state.phase,
                 "next_action": _queue_item_next_action(item_state),
@@ -2713,7 +2892,12 @@ def tranche_queue_status(
                 "submission_status": item_state.submission_status,
                 "inspection_status": item_state.inspection_status,
                 "recommended_action": item_state.recommended_action,
+                "blocked_reason": item_state.blocked_reason,
+                "blocking_question": item_state.blocking_question,
                 "design_review_recommendation": item_state.design_review_recommendation,
+                "admission": dict(item_state.result.get("admission", {}))
+                if isinstance(item_state.result.get("admission"), dict)
+                else None,
                 "elapsed_seconds": _queue_item_elapsed_seconds(item_state, now=now),
                 "started_at": item_state.started_at.isoformat() if item_state.started_at else None,
                 "phase_updated_at": item_state.phase_updated_at.isoformat()
