@@ -109,7 +109,7 @@ def executor(tmp_path):
         codex_instance.generate = AsyncMock(return_value="Done")
         mock_codex.return_value = codex_instance
 
-        exec_ = HybridExecutor(repo_path=tmp_path, sandbox_mode=False)
+        exec_ = HybridExecutor(repo_path=tmp_path, sandbox_mode=False, use_harness=False)
         yield exec_
 
 

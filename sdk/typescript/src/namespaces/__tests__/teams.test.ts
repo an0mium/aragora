@@ -170,7 +170,7 @@ describe('TeamsAPI Namespace', () => {
 
       const result = await api.listTenants();
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/teams/tenants');
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/teams/tenants');
       expect(result).toHaveLength(2);
       expect(result[0].name).toBe('Acme Corp');
     });
@@ -346,7 +346,7 @@ describe('TeamsAPI Namespace', () => {
 
       const result = await api.listDebateMessages({ channel_id: 'c1' });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/teams/debates', {
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/teams/debates', {
         params: { channel_id: 'c1' },
       });
       expect(result).toHaveLength(2);
@@ -360,7 +360,7 @@ describe('TeamsAPI Namespace', () => {
 
       const result = await api.listDebateMessages({ limit: 10, offset: 20 });
 
-      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/teams/debates', {
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/teams/debates', {
         params: { limit: 10, offset: 20 },
       });
     });

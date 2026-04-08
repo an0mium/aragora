@@ -1,12 +1,16 @@
 ---
-title: API Reference
-description: Complete API reference for the Aragora platform
-sidebar_position: 1
+title: Curated API Reference
+description: Curated API Reference
 ---
 
-# API Reference
+# Curated API Reference
 
-This section contains the complete API reference for the Aragora platform.
+Use this page when you need the endpoints most teams touch first. It keeps the
+quickstart-critical routes in one place and points to the generated reference
+when you need full schemas or less common operations.
+
+> **New to Aragora?** Start with the [Developer Quickstart](../getting-started/quickstart)
+> to run your first review, then come back here for API integration.
 
 ## Base URL
 
@@ -26,84 +30,44 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
   https://api.aragora.ai/api/v1/debates
 ```
 
-See the [Authentication Guide](/docs/security/authentication) for details on obtaining API keys.
+See the [Authentication Guide](../security/authentication) for details on obtaining API keys.
 
-## API Sections
+## Essential Endpoints
 
-### Core APIs
+### Debates
 
-| Section | Description |
-|---------|-------------|
-| [Debates](/docs/api-reference/debates/overview) | Create, manage, and query debates |
-| [Agents](/docs/api-reference/agents/overview) | Agent configuration and management |
-| [Knowledge](/docs/api-reference/knowledge/overview) | Knowledge Mound operations |
-| [Workflows](/docs/api-reference/workflows/overview) | Automated workflow execution |
-| [Control Plane](/docs/enterprise/control-plane) | Orchestrate agents, tasks, and deliberations |
-| [Decisions](/docs/api/reference) | Unified decision routing (full generated reference) |
+| Method | Endpoint | Use it for |
+|--------|----------|------------|
+| `POST` | `/debates` | Start a new debate or review |
+| `GET` | `/debates/\{debate_id\}` | Fetch debate status and receipt data |
+| `GET` | `/debates/\{debate_id\}/stream` | Stream live debate events |
 
-### Full Reference
+### Agents
 
-For the complete endpoint list, see the generated API docs:
+| Method | Endpoint | Use it for |
+|--------|----------|------------|
+| `GET` | `/agents` | List available registered agents |
+| `POST` | `/agents/select` | Choose agents for a domain or task |
 
-- [API Reference (generated)](/docs/api/reference)
-- [API Endpoints (generated)](/docs/api/endpoints)
-- [OpenAPI JSON](https://api.aragora.ai/api/v1/openapi.json)
+### Knowledge
 
-## Rate Limits
+| Method | Endpoint | Use it for |
+|--------|----------|------------|
+| `POST` | `/knowledge/search` | Retrieve supporting evidence before debates |
+| `POST` | `/memory/search` | Search prior debates, findings, and receipts |
 
-| Tier | Requests/min | Debates/hour |
-|------|--------------|--------------|
-| Free | 60 | 10 |
-| Pro | 300 | 100 |
-| Enterprise | Custom | Custom |
+### Workflows
 
-Rate limit headers are included in all responses:
+| Method | Endpoint | Use it for |
+|--------|----------|------------|
+| `POST` | `/workflows` | Launch a review or orchestration workflow |
+| `GET` | `/workflows/\{workflow_id\}` | Track workflow state |
 
-```
-X-RateLimit-Limit: 60
-X-RateLimit-Remaining: 45
-X-RateLimit-Reset: 1703185200
-```
+## When To Use The Generated Reference
 
-## Error Handling
+Use the [Generated API Reference](../api/reference) when you need:
 
-All errors follow a consistent format:
-
-```json
-{
-  "error": {
-    "code": "RATE_LIMIT_EXCEEDED",
-    "message": "Too many requests. Please retry after 60 seconds.",
-    "details": {
-      "retry_after": 60
-    }
-  }
-}
-```
-
-### Common Error Codes
-
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `UNAUTHORIZED` | 401 | Invalid or missing API key |
-| `FORBIDDEN` | 403 | Insufficient permissions |
-| `NOT_FOUND` | 404 | Resource not found |
-| `RATE_LIMIT_EXCEEDED` | 429 | Too many requests |
-| `INTERNAL_ERROR` | 500 | Server error |
-
-## SDKs
-
-Official SDKs are available for:
-
-- [TypeScript/JavaScript](/docs/guides/sdk-typescript)
-- [Python](/docs/guides/sdk)
-
-## OpenAPI Specification
-
-The complete OpenAPI specification is available at:
-
-```
-https://api.aragora.ai/api/v1/openapi.json
-```
-
-You can import this into tools like Postman or use it to generate clients.
+- full request and response schemas
+- less common or specialized endpoints
+- exact parameter and response field definitions
+- operation-level examples

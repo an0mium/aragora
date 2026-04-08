@@ -10,6 +10,8 @@ Tests cover:
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
 
@@ -143,6 +145,14 @@ class TestSecurityDebatePost:
 class TestSecurityDebateGet:
     """Test GET /api/v1/audit/security/debate/:id behaviour."""
 
+    @pytest.fixture(autouse=True)
+    def clear_security_debate_results(self):
+        from aragora.events.security_events import _security_debate_results
+
+        _security_debate_results.clear()
+        yield
+        _security_debate_results.clear()
+
     @pytest.fixture
     def handler(self):
         from aragora.server.handlers.security_debate import SecurityDebateHandler
@@ -152,8 +162,45 @@ class TestSecurityDebateGet:
         handler.server_context = mock_context
         return handler
 
-    def test_get_returns_not_found(self, handler):
-        result = handler.get_api_v1_audit_security_debate_id("some-id")
+    def test_get_returns_not_found_when_cache_is_empty(self, handler):
+        result = handler.get_api_v1_audit_security_debate_id("missing-id")
         body = parse_handler_response(result)
         assert body.get("status") == "not_found"
-        assert body.get("debate_id") == "some-id"
+        assert body.get("debate_id") == "missing-id"
+        assert "no cached" in body.get("message", "").lower()
+
+    def test_get_returns_cached_result(self, handler):
+        from aragora.events.security_events import (
+            SecurityEvent,
+            SecurityFinding,
+            SecuritySeverity,
+            _store_security_debate_result,
+        )
+
+        class Result:
+            consensus_reached = True
+            confidence = 0.91
+            final_answer = "Rotate the key and revoke the leaked token."
+
+        event = SecurityEvent(
+            id="evt-123",
+            repository="synaptent/aragora",
+            findings=[
+                SecurityFinding(
+                    id="finding-1",
+                    finding_type="secret",
+                    severity=SecuritySeverity.CRITICAL,
+                    title="Leaked API key",
+                    description="A production key is committed to the repository.",
+                )
+            ],
+        )
+        asyncio.run(_store_security_debate_result("debate-123", event, Result()))
+
+        result = handler.get_api_v1_audit_security_debate_id("debate-123")
+        body = parse_handler_response(result)
+        assert body.get("status") == "completed"
+        assert body.get("debate_status") == "completed"
+        assert body.get("debate_status_source") == "live"
+        assert body.get("repository") == "synaptent/aragora"
+        assert body.get("final_answer") == "Rotate the key and revoke the leaked token."

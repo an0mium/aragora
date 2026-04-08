@@ -102,6 +102,106 @@ def normalize_live_explainability(payload: Any) -> dict[str, Any] | None:
     return normalized or None
 
 
+def _clamp_receipt_confidence(value: Any, *, default: float = 0.0) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return default
+    if numeric < 0.0:
+        return 0.0
+    if numeric > 1.0:
+        return 1.0
+    return numeric
+
+
+def _normalize_receipt_boolean(value: Any, *, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, int | float):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "y", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "n", "off", ""}:
+            return False
+        return default
+    return default
+
+
+def canonicalize_execution_outcome_linkage(payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize receipt/result linkage onto one canonical execution payload."""
+
+    canonical = dict(payload)
+    receipt_view = canonical.get("receipt")
+    if not isinstance(receipt_view, dict):
+        receipt_view = {}
+    else:
+        receipt_view = dict(receipt_view)
+
+    receipt_id = str(canonical.get("receipt_id") or receipt_view.get("id") or "").strip()
+    debate_id = str(
+        canonical.get("debate_id") or canonical.get("gauntlet_id") or receipt_id
+    ).strip()
+    gauntlet_id = str(canonical.get("gauntlet_id") or debate_id or receipt_id).strip()
+    artifact_hash = str(
+        canonical.get("artifact_hash")
+        or canonical.get("checksum")
+        or receipt_view.get("artifact_hash")
+        or ""
+    ).strip()
+
+    consensus = canonical.get("consensus_reached")
+    if consensus is None and isinstance(canonical.get("consensus_proof"), dict):
+        consensus = canonical["consensus_proof"].get("reached")
+    if consensus is None:
+        consensus = receipt_view.get("consensus_reached")
+    consensus_reached = _normalize_receipt_boolean(consensus)
+
+    default_confidence = receipt_view.get("confidence", 0.0)
+    if isinstance(canonical.get("consensus_proof"), dict):
+        default_confidence = canonical["consensus_proof"].get("confidence", default_confidence)
+    confidence = _clamp_receipt_confidence(
+        canonical.get("confidence"),
+        default=_clamp_receipt_confidence(default_confidence),
+    )
+
+    if receipt_id:
+        canonical["receipt_id"] = receipt_id
+        receipt_view["id"] = receipt_id
+    if debate_id:
+        canonical["debate_id"] = debate_id
+    if gauntlet_id:
+        canonical["gauntlet_id"] = gauntlet_id
+    if artifact_hash:
+        canonical["artifact_hash"] = artifact_hash
+        canonical["checksum"] = artifact_hash
+        receipt_view["artifact_hash"] = artifact_hash
+
+    canonical["confidence"] = confidence
+    canonical["consensus_reached"] = consensus_reached
+    if "consensus" in canonical or isinstance(canonical.get("consensus_proof"), dict):
+        canonical["consensus"] = consensus_reached
+
+    receipt_view["confidence"] = confidence
+    receipt_view["consensus_reached"] = consensus_reached
+    participants = canonical.get("agents")
+    if isinstance(participants, list) and "participants" not in receipt_view:
+        receipt_view["participants"] = list(participants)
+    canonical["receipt"] = receipt_view
+
+    consensus_proof = canonical.get("consensus_proof")
+    if isinstance(consensus_proof, dict):
+        normalized_consensus = dict(consensus_proof)
+        normalized_consensus["reached"] = consensus_reached
+        normalized_consensus["confidence"] = confidence
+        canonical["consensus_proof"] = normalized_consensus
+
+    return canonical
+
+
 @dataclass
 class ProvenanceRecord:
     """A single provenance record in the chain."""

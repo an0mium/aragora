@@ -283,6 +283,7 @@ class UnifiedDeletionCoordinator:
         self._audit_logger = audit_logger
         self._pre_deletion_hooks: list[Callable[[str], Awaitable[None]]] = []
         self._post_deletion_hooks: list[Callable[[str, CascadeResult], Awaitable[None]]] = []
+        self._backup_exclusion_list: dict[str, dict[str, Any]] = {}
 
     def register_deleter(
         self,
@@ -375,7 +376,7 @@ class UnifiedDeletionCoordinator:
             for hook in self._pre_deletion_hooks:
                 try:
                     await hook(user_id)
-                except (RuntimeError, ValueError, TypeError, OSError) as e:
+                except Exception as e:
                     result.warnings.append(f"Pre-deletion hook failed: {e}")
                     logger.warning("Pre-deletion hook failed for %s: %s", user_id, e)
 
@@ -403,7 +404,7 @@ class UnifiedDeletionCoordinator:
                         self._backup_coordinator.mark_backup_for_purge(backup_id, user_id)
 
                     logger.info("Marked %s backups for purge for user %s", len(backup_ids), user_id)
-                except (RuntimeError, ValueError, LookupError, OSError) as e:
+                except Exception as e:
                     result.warnings.append(f"Backup coordination failed: {e}")
                     logger.warning("Backup coordination failed for %s: %s", user_id, e)
 
@@ -418,7 +419,7 @@ class UnifiedDeletionCoordinator:
                     count = await deleter.delete_for_user(user_id)
                     result.entities_deleted[entity_type] = count
                     logger.info("Deleted %s %s entities for user %s", count, entity_type, user_id)
-                except (RuntimeError, ValueError, LookupError, OSError) as e:
+                except Exception as e:
                     result.errors.append(f"Failed to delete {entity_type}: {e}")
                     logger.error("Failed to delete %s for user %s: %s", entity_type, user_id, e)
 
@@ -437,7 +438,7 @@ class UnifiedDeletionCoordinator:
             for post_hook in self._post_deletion_hooks:
                 try:
                     await post_hook(user_id, result)
-                except (RuntimeError, ValueError, TypeError, OSError) as e:
+                except Exception as e:
                     result.warnings.append(f"Post-deletion hook failed: {e}")
                     logger.warning("Post-deletion hook failed for %s: %s", user_id, e)
 
@@ -450,7 +451,7 @@ class UnifiedDeletionCoordinator:
                     actor_id=actor_id,
                 )
 
-        except (RuntimeError, ValueError, LookupError, OSError) as e:
+        except Exception as e:
             result.status = CascadeStatus.FAILED
             result.errors.append(f"Cascade deletion failed: {e}")
             result.completed_at = datetime.now(timezone.utc)
@@ -496,7 +497,7 @@ class UnifiedDeletionCoordinator:
                 if not is_deleted:
                     all_storage_verified = False
                     result.errors.append(f"Data still exists for entity type: {entity_type}")
-            except (RuntimeError, ValueError, LookupError, OSError) as e:
+            except Exception as e:
                 result.entity_results[entity_type] = False
                 all_storage_verified = False
                 result.errors.append(f"Failed to verify {entity_type} deletion: {e}")
@@ -510,7 +511,7 @@ class UnifiedDeletionCoordinator:
                 result.backup_verified = backup_verified
                 if not backup_verified:
                     result.errors.append("User data may still exist in backups")
-            except (RuntimeError, ValueError, LookupError, OSError) as e:
+            except Exception as e:
                 result.backup_verified = False
                 result.errors.append(f"Failed to verify backup purge: {e}")
         else:
@@ -687,7 +688,7 @@ class UnifiedDeletionCoordinator:
 
                     results.append(result)
 
-                except (RuntimeError, ValueError, LookupError, OSError) as e:
+                except Exception as e:
                     logger.error("Failed to process deletion for %s: %s", deletion_req.user_id, e)
                     # Create a failed result
                     failed_result = CascadeResult(
@@ -701,7 +702,7 @@ class UnifiedDeletionCoordinator:
 
         except ImportError:
             logger.warning("Deletion scheduler not available")
-        except (RuntimeError, ValueError, LookupError, OSError) as e:
+        except Exception as e:
             logger.exception("Error processing pending deletions: %s", e)
 
         return results

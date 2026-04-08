@@ -20,6 +20,8 @@ from typing import Any
 
 UTC = timezone.utc
 DEFAULT_SINCE_HOURS = 72
+DEFAULT_PUBLISH_LIMIT = 1
+DEFAULT_MAX_OPEN_PRS = 1
 CODEX_BRANCH_PREFIX = "codex/"
 ACTIVE_SESSION_FILES = (
     ".claude-session-active",
@@ -454,13 +456,13 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--limit",
         type=int,
-        default=5,
+        default=DEFAULT_PUBLISH_LIMIT,
         help="Maximum number of eligible branches to publish in one apply run",
     )
     parser.add_argument(
         "--max-open-prs",
         type=int,
-        default=3,
+        default=DEFAULT_MAX_OPEN_PRS,
         help="Maximum number of open codex PRs allowed before publishing pauses",
     )
     parser.add_argument(

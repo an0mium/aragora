@@ -1,8 +1,19 @@
 import { render, screen } from '@testing-library/react';
 import { LandingPage } from '../LandingPage';
 
+const mockUseBackend = jest.fn(() => ({
+  config: { api: 'http://localhost:8080', ws: 'ws://localhost:8765/ws' },
+}));
+
 jest.mock('@/context/ThemeContext', () => ({
   useTheme: () => ({ theme: 'dark', setTheme: jest.fn() }),
+}));
+
+jest.mock('../../BackendSelector', () => ({
+  BACKENDS: {
+    production: { api: 'https://api.example.com', ws: 'wss://api.example.com/ws' },
+  },
+  useBackend: () => mockUseBackend(),
 }));
 
 // Mock all child components to isolate LandingPage logic
@@ -14,6 +25,17 @@ jest.mock('../HeroSection', () => ({
   HeroSection: () => (
     <div data-testid="hero-section">Hero</div>
   ),
+}));
+
+const mockLiveDebatePanel = jest.fn(() => (
+  <section data-testid="live-debate-panel">Live Debate</section>
+));
+
+jest.mock('../LiveDebatePanel', () => ({
+  LiveDebatePanel: (props: Record<string, unknown>) => {
+    mockLiveDebatePanel(props);
+    return <section data-testid="live-debate-panel">Live Debate</section>;
+  },
 }));
 
 jest.mock('../LiveDemoSection', () => ({
@@ -39,6 +61,9 @@ jest.mock('../Footer', () => ({
 describe('LandingPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseBackend.mockReturnValue({
+      config: { api: 'http://localhost:8080', ws: 'ws://localhost:8765/ws' },
+    });
   });
 
   describe('initial render', () => {
@@ -47,6 +72,7 @@ describe('LandingPage', () => {
 
       expect(screen.getByTestId('header')).toBeInTheDocument();
       expect(screen.getByTestId('hero-section')).toBeInTheDocument();
+      expect(screen.getByTestId('live-debate-panel')).toBeInTheDocument();
       expect(screen.getByTestId('live-demo-section')).toBeInTheDocument();
       expect(screen.getByTestId('how-it-works')).toBeInTheDocument();
       expect(screen.getByTestId('problem')).toBeInTheDocument();
@@ -60,6 +86,17 @@ describe('LandingPage', () => {
       const wrapper = container.firstElementChild;
       expect(wrapper).toHaveClass('min-h-screen');
       expect(wrapper).toHaveAttribute('data-landing-theme', 'dark');
+    });
+
+    it('passes resolved backend settings to the live debate panel', () => {
+      render(<LandingPage />);
+
+      expect(mockLiveDebatePanel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          apiBase: 'http://localhost:8080',
+          wsUrl: 'ws://localhost:8765/ws',
+        }),
+      );
     });
   });
 });

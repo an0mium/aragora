@@ -613,8 +613,9 @@ class QuotaFallbackMixin:
 
         fallback_providers = self._build_fallback_providers()
         if not fallback_providers:
-            logger.debug(
-                "%s quota exceeded but no fallback provider API keys set - cannot fallback",
+            logger.warning(
+                "API quota/rate limit error%s for %s but no fallback provider API keys are set",
+                status_info,
                 name,
             )
             return None
@@ -711,8 +712,10 @@ class QuotaFallbackMixin:
 
         fallback_providers = self._build_fallback_providers()
         if not fallback_providers:
-            logger.debug(
-                "%s quota exceeded but no fallback provider API keys set - cannot fallback",
+            status_info = f" (status {status_code})" if status_code else ""
+            logger.warning(
+                "API quota/rate limit error%s for %s but no fallback streaming provider API keys are set",
+                status_info,
                 name,
             )
             return
