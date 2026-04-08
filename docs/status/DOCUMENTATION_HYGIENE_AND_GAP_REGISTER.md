@@ -81,7 +81,7 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 - `aragora/server/handlers/features/connectors.py` still carries `coming_soon` / stubbed connector flows (`gdrive` and related enterprise sync/test paths).
 - `aragora/server/handlers/computer_use_handler.py` does not implement the full action/policy detail surface advertised by the OpenAPI computer-use endpoints.
 - Self-host compose smoke can still fail because `/readyz` returns `503` when `system.health.read` is denied in the composed runtime, even while `/healthz` succeeds. The gating/docs work is landed, but the runtime permission model still needs follow-through.
-- FastAPI receipts currently expose `json`/`markdown`/`sarif`, while legacy handlers still own `html`/`pdf` exports.
+- FastAPI receipts now expose `json` / `html` / `markdown` / `sarif` / `pdf`, and batch export can package PDFs through the ZIP/raw path; legacy handlers remain compatibility surfaces for older v1 consumers.
 - Receipt delivery is only wired for `slack`, `teams`, `email`, and `discord`, not the broader connector/channel footprint implied elsewhere in the docs.
 - Unified and progressive memory handlers remain backend-conditional and still return `501` when optional backends or methods are unavailable.
 - `aragora/server/fastapi/routes/knowledge.py` can still return `501` when the configured KM backend lacks delete support.

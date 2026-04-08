@@ -1059,6 +1059,43 @@ class TestBatchExport:
         assert data["items"][0]["format"] == "html"
         assert "<!DOCTYPE html>" in data["items"][0]["content"]
 
+    def test_batch_export_pdf_defaults_to_zip_bundle(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """PDF batch export should produce the default ZIP download bundle."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "pdf"},
+        )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/zip")
+        archive = zipfile.ZipFile(BytesIO(response.content), "r")
+        assert "receipt-rcpt_test123.pdf" in archive.namelist()
+        assert archive.read("receipt-rcpt_test123.pdf").startswith(b"%PDF")
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["format"] == "pdf"
+        assert manifest["exported"] == 1
+        assert manifest["failed"] == []
+
+    def test_batch_export_pdf_json_mode_rejected(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """PDF batch export rejects JSON item mode because PDFs are binary."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        response = client.post(
+            "/api/v2/receipts/batch-export",
+            json={"receipt_ids": ["rcpt_test123"], "format": "pdf", "raw": False},
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"] == (
+            "PDF batch export requires raw=true and returns a ZIP bundle of PDF files"
+        )
+
     def test_batch_export_md_alias(self, client, mock_receipt_store, sample_receipt_dict):
         """Batch export normalizes the md alias to markdown content."""
         mock_receipt_store.get.return_value = sample_receipt_dict

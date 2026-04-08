@@ -170,7 +170,7 @@ class BatchExportRequest(BaseModel):
     )
     format: str = Field(
         "json",
-        description="Export format (json, html, markdown, md, csv, sarif)",
+        description="Export format (json, html, markdown, md, csv, sarif, pdf). PDF batch exports require the ZIP/raw response.",
     )
     raw: bool = Field(
         True,
@@ -426,7 +426,7 @@ def _render_receipt_export_content(receipt: Any, export_format: str) -> tuple[st
 
 def _build_batch_export_zip(
     *,
-    archive_items: list[tuple[str, str, str]],
+    archive_items: list[tuple[str, str, str | bytes]],
     export_format: str,
     total_requested: int,
     failed_ids: list[str],
@@ -957,14 +957,19 @@ async def batch_export_receipts(
     """Export multiple receipts at once (up to 100), defaulting to the legacy ZIP surface."""
     try:
         items: list[BatchExportItem] = []
-        archive_items: list[tuple[str, str, str]] = []
+        archive_items: list[tuple[str, str, str | bytes]] = []
         failed_ids: list[str] = []
 
         export_format = body.format.lower()
-        if export_format not in ("json", "html", "markdown", "md", "csv", "sarif"):
+        if export_format not in ("json", "html", "markdown", "md", "csv", "sarif", "pdf"):
             raise HTTPException(
                 status_code=422,
-                detail="Unsupported format. Supported: json, html, markdown, md, csv, sarif",
+                detail="Unsupported format. Supported: json, html, markdown, md, csv, sarif, pdf",
+            )
+        if export_format == "pdf" and not body.raw:
+            raise HTTPException(
+                status_code=422,
+                detail="PDF batch export requires raw=true and returns a ZIP bundle of PDF files",
             )
 
         for rid in body.receipt_ids:
@@ -980,6 +985,10 @@ async def batch_export_receipts(
                     continue
 
                 receipt = _build_decision_receipt(receipt_data)
+                if export_format == "pdf":
+                    archive_items.append((rid, "pdf", receipt.to_pdf()))
+                    continue
+
                 content, response_format, extension = _render_receipt_export_content(
                     receipt, export_format
                 )
