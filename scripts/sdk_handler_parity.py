@@ -9,6 +9,7 @@ identify which SDK methods have no corresponding server handler.
 from __future__ import annotations
 
 import io
+import os
 from datetime import date
 from pathlib import Path
 from collections.abc import Iterable
@@ -16,8 +17,15 @@ from collections.abc import Iterable
 import sys
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 if str(SCRIPT_DIR) not in sys.path:
-    sys.path.append(str(SCRIPT_DIR))
+    sys.path.insert(0, str(SCRIPT_DIR))
+
+# SDK parity is an offline audit. Avoid Secrets Manager lookups during handler
+# imports so the script stays deterministic in network-restricted environments.
+os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "false")
 
 from sdk_parity_audit import Endpoint, iter_files, parse_python_sdk, parse_ts_sdk
 
@@ -98,8 +106,10 @@ def is_handled(endpoint: Endpoint) -> bool:
 
 
 def load_sdk_endpoints() -> tuple[set[Endpoint], set[Endpoint]]:
-    ts_paths = list(iter_files(Path("sdk/typescript/src"), ".ts"))
-    py_paths = list(iter_files(Path("sdk/python/aragora/namespaces"), ".py"))
+    ts_paths = list(iter_files(PROJECT_ROOT / "sdk" / "typescript" / "src", ".ts"))
+    py_paths = list(
+        iter_files(PROJECT_ROOT / "sdk" / "python" / "aragora_sdk" / "namespaces", ".py")
+    )
     return parse_ts_sdk(ts_paths), parse_python_sdk(py_paths)
 
 
@@ -146,7 +156,9 @@ def main() -> None:
     )
 
     report = render_report(missing_ts, missing_py)
-    Path("docs/SDK_HANDLER_PARITY.md").write_text(report)
+    report_path = PROJECT_ROOT / "docs" / "SDK_HANDLER_PARITY.md"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(report, encoding="utf-8")
 
 
 if __name__ == "__main__":
