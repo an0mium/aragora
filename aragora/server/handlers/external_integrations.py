@@ -323,6 +323,47 @@ class ExternalIntegrationsHandler(SecureHandler):
             return value, None
         return None, error_response(f"{field_name} must be an object", 400, code=invalid_code)
 
+    def _optional_query_string_param(
+        self, query_params: dict[str, Any], param_name: str, invalid_code: str
+    ) -> tuple[str | None, HandlerResult]:
+        """Validate that an optional query parameter is a non-empty string when provided."""
+        value = query_params.get(param_name)
+        if value is None:
+            return None, None
+        if isinstance(value, list):
+            if not value:
+                return None, None
+            value = value[0]
+        if not isinstance(value, str):
+            return None, error_response(
+                f"{param_name} query parameter must be a string", 400, code=invalid_code
+            )
+        value = value.strip()
+        if not value:
+            return None, error_response(
+                f"{param_name} query parameter must be a non-empty string",
+                400,
+                code=invalid_code,
+            )
+        return value, None
+
+    def _require_query_string_param(
+        self,
+        query_params: dict[str, Any],
+        param_name: str,
+        missing_code: str,
+        invalid_code: str,
+    ) -> tuple[str | None, HandlerResult]:
+        """Validate that a required query parameter is a non-empty string."""
+        value, err = self._optional_query_string_param(query_params, param_name, invalid_code)
+        if err:
+            return None, err
+        if value is None:
+            return None, error_response(
+                f"{param_name} query parameter is required", 400, code=missing_code
+            )
+        return value, None
+
     # =========================================================================
     # RBAC Helper Methods
     # =========================================================================
@@ -541,11 +582,15 @@ class ExternalIntegrationsHandler(SecureHandler):
         if path.startswith("/api/v1/integrations/zapier/triggers/"):
             # Path: /api/v1/integrations/zapier/triggers/{trigger_id}
             # Split (with leading empty): ["", "api", "v1", "integrations", "zapier", "triggers", "{trigger_id}"]
-            parts = path.split("/")
-            if len(parts) >= 7:
-                trigger_id = parts[6]
-                app_id = query_params.get("app_id", [""])[0]
-                return self._handle_unsubscribe_zapier_trigger(app_id, trigger_id, handler)
+            trigger_id, err = self.extract_path_param(path, 6, "trigger_id", SAFE_ID_PATTERN)
+            if err or trigger_id is None:
+                return err
+            app_id, err = self._require_query_string_param(
+                query_params, "app_id", "MISSING_APP_ID", "INVALID_APP_ID"
+            )
+            if err or app_id is None:
+                return err
+            return self._handle_unsubscribe_zapier_trigger(app_id, trigger_id, handler)
 
         # Make connection deletion
         if path.startswith("/api/v1/integrations/make/connections/"):
@@ -560,11 +605,18 @@ class ExternalIntegrationsHandler(SecureHandler):
         if path.startswith("/api/v1/integrations/make/webhooks/"):
             # Path: /api/v1/integrations/make/webhooks/{webhook_id}
             # Split (with leading empty): ["", "api", "v1", "integrations", "make", "webhooks", "{webhook_id}"]
-            parts = path.split("/")
-            if len(parts) >= 7:
-                webhook_id = parts[6]
-                conn_id = query_params.get("connection_id", [""])[0]
-                return self._handle_unregister_make_webhook(conn_id, webhook_id, handler)
+            webhook_id, err = self.extract_path_param(path, 6, "webhook_id", SAFE_ID_PATTERN)
+            if err or webhook_id is None:
+                return err
+            conn_id, err = self._require_query_string_param(
+                query_params,
+                "connection_id",
+                "MISSING_CONNECTION_ID",
+                "INVALID_CONNECTION_ID",
+            )
+            if err or conn_id is None:
+                return err
+            return self._handle_unregister_make_webhook(conn_id, webhook_id, handler)
 
         # n8n credential deletion
         if path.startswith("/api/v1/integrations/n8n/credentials/"):
@@ -579,11 +631,18 @@ class ExternalIntegrationsHandler(SecureHandler):
         if path.startswith("/api/v1/integrations/n8n/webhooks/"):
             # Path: /api/v1/integrations/n8n/webhooks/{webhook_id}
             # Split (with leading empty): ["", "api", "v1", "integrations", "n8n", "webhooks", "{webhook_id}"]
-            parts = path.split("/")
-            if len(parts) >= 7:
-                webhook_id = parts[6]
-                cred_id = query_params.get("credential_id", [""])[0]
-                return self._handle_unregister_n8n_webhook(cred_id, webhook_id, handler)
+            webhook_id, err = self.extract_path_param(path, 6, "webhook_id", SAFE_ID_PATTERN)
+            if err or webhook_id is None:
+                return err
+            cred_id, err = self._require_query_string_param(
+                query_params,
+                "credential_id",
+                "MISSING_CREDENTIAL_ID",
+                "INVALID_CREDENTIAL_ID",
+            )
+            if err or cred_id is None:
+                return err
+            return self._handle_unregister_n8n_webhook(cred_id, webhook_id, handler)
 
         return None
 
@@ -605,7 +664,11 @@ class ExternalIntegrationsHandler(SecureHandler):
             return perm_error
 
         self.get_current_user(handler)
-        workspace_id = query_params.get("workspace_id", [None])[0]
+        workspace_id, field_error = self._optional_query_string_param(
+            query_params, "workspace_id", "INVALID_WORKSPACE_ID"
+        )
+        if field_error:
+            return field_error
 
         zapier = self._get_zapier()
         apps = zapier.list_apps(workspace_id)
@@ -848,7 +911,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         if perm_error:
             return perm_error
 
-        workspace_id = query_params.get("workspace_id", [None])[0]
+        workspace_id, field_error = self._optional_query_string_param(
+            query_params, "workspace_id", "INVALID_WORKSPACE_ID"
+        )
+        if field_error:
+            return field_error
 
         make = self._get_make()
         connections = make.list_connections(workspace_id)
@@ -1079,7 +1146,11 @@ class ExternalIntegrationsHandler(SecureHandler):
         if perm_error:
             return perm_error
 
-        workspace_id = query_params.get("workspace_id", [None])[0]
+        workspace_id, field_error = self._optional_query_string_param(
+            query_params, "workspace_id", "INVALID_WORKSPACE_ID"
+        )
+        if field_error:
+            return field_error
 
         n8n = self._get_n8n()
         credentials = n8n.list_credentials(workspace_id)
