@@ -40,7 +40,9 @@ def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | Non
         "runner",
         "status",
         "reconcile",
+        "initiative",
         "campaign",
+        "initiative",
         "integrator",
         "tranche",
         "coord",
@@ -48,6 +50,7 @@ def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | Non
         "claim-pr",
         "report",
         "findings",
+        "merge-arbiter",
     }:
         return str(first), second
     return "run", first
@@ -98,6 +101,92 @@ def _print_table(
     print("  ".join("-" * widths[key] for key, _label in headers))
     for row in rows:
         print("  ".join(str(row.get(key, "") or "").ljust(widths[key]) for key, _label in headers))
+
+
+def _initiative_rows(items: list[object]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for item in items:
+        rows.append(
+            {
+                "initiative_id": getattr(item, "initiative_id", "") or "",
+                "status": getattr(item, "status", "") or "",
+                "feature_flag": getattr(item, "feature_flag_name", "") or "-",
+                "slices": len(getattr(item, "slices", []) or []),
+                "title": getattr(item, "title", "") or "",
+                "updated_at": getattr(item, "updated_at", "") or "",
+            }
+        )
+    return rows
+
+
+def _render_initiative(item: object) -> None:
+    print(f"initiative_id={getattr(item, 'initiative_id', '')}")
+    print(f"title={getattr(item, 'title', '')}")
+    print(f"status={getattr(item, 'status', '')}")
+    feature_flag = getattr(item, "feature_flag_name", None)
+    if feature_flag:
+        print(f"feature_flag={feature_flag}")
+    dependencies = [
+        str(value).strip() for value in getattr(item, "dependencies", []) if str(value).strip()
+    ]
+    validations = [
+        str(value).strip() for value in getattr(item, "validations", []) if str(value).strip()
+    ]
+    if dependencies:
+        print(f"dependencies={', '.join(dependencies)}")
+    if validations:
+        print(f"validations={', '.join(validations)}")
+    print(f"slices={len(getattr(item, 'slices', []) or [])}")
+    for slice_item in getattr(item, "slices", [])[:5]:
+        print(
+            "  slice {slice_id} status={status} complexity={complexity} title={title}".format(
+                slice_id=getattr(slice_item, "slice_id", ""),
+                status=getattr(slice_item, "status", ""),
+                complexity=getattr(slice_item, "estimated_complexity", ""),
+                title=getattr(slice_item, "title", ""),
+            )
+        )
+
+
+def _render_initiative_status(payload: dict[str, object]) -> None:
+    print(
+        "initiative_id={initiative_id} completed={completed}/{total} milestones={done}/{count}".format(
+            initiative_id=payload.get("initiative_id", ""),
+            completed=payload.get("completed_slices", 0),
+            total=payload.get("total_slices", 0),
+            done=payload.get("milestones_complete", 0),
+            count=payload.get("milestones_total", 0),
+        )
+    )
+    milestones = [item for item in payload.get("milestones", []) if isinstance(item, dict)]
+    if milestones:
+        print("\nMilestones")
+        _print_table(
+            [
+                ("milestone", "Milestone"),
+                ("completed", "Done"),
+                ("total", "Total"),
+                ("waiting_for_pr", "WaitPR"),
+                ("waiting_for_merge", "WaitMerge"),
+                ("promotable", "Promotable"),
+                ("blocked", "Blocked"),
+            ],
+            milestones,
+        )
+    slices = [item for item in payload.get("slices", []) if isinstance(item, dict)]
+    if slices:
+        print("\nSlices")
+        _print_table(
+            [
+                ("project_id", "Slice"),
+                ("milestone", "Milestone"),
+                ("status", "Status"),
+                ("next_action", "Next"),
+                ("pr_number", "PR"),
+                ("feature_flag", "Flag"),
+            ],
+            slices[:10],
+        )
 
 
 def _coordination_session_id(args: argparse.Namespace) -> str:
@@ -1193,6 +1282,154 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 )
         return
 
+    if action == "initiative":
+        from aragora.swarm.initiative_integrator import (
+            DEFAULT_INITIATIVE_MANIFEST,
+            InitiativeIntegrator,
+        )
+        from aragora.swarm.initiative_planner import InitiativePlanner
+        from aragora.swarm.initiative_store import InitiativeStore
+
+        subaction = str(goal or "list").strip().lower() or "list"
+        if subaction not in {"plan", "show", "list", "run", "status", "promote"}:
+            raise ValueError(
+                "initiative action must be one of: plan, show, list, run, status, promote"
+            )
+
+        repo_root = resolve_repo_root(Path.cwd())
+        if subaction in {"run", "status", "promote"}:
+            manifest_path = Path(
+                getattr(args, "manifest", None) or DEFAULT_INITIATIVE_MANIFEST
+            ).resolve()
+            if not manifest_path.exists():
+                raise ValueError(f"initiative manifest not found: {manifest_path}")
+
+            integrator = InitiativeIntegrator(
+                manifest_path=manifest_path,
+                repo_root=repo_root,
+                target_branch=target_branch,
+                repo=getattr(args, "boss_repo", None) or "synaptent/aragora",
+            )
+            if subaction == "run":
+                payload = asyncio.run(integrator.run())
+            elif subaction == "status":
+                payload = integrator.status()
+            else:
+                payload = integrator.promote(
+                    project_id=_optional_text(getattr(args, "swarm_campaign_target", None)),
+                    dry_run=bool(getattr(args, "dry_run", False)),
+                )
+
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                if subaction in {"run", "status"}:
+                    _render_initiative_status(payload)
+                else:
+                    print(json.dumps(payload, indent=2))
+            return
+
+        initiative_dir = _optional_text(getattr(args, "initiative_dir", None))
+        state_dir = Path(initiative_dir).expanduser().resolve() if initiative_dir else None
+        store = InitiativeStore(repo_root=repo_root, state_dir=state_dir)
+
+        if subaction == "list":
+            items = store.list()
+            payload = {
+                "mode": "initiative-list",
+                "action": subaction,
+                "count": len(items),
+                "items": [item.to_dict() for item in items],
+                "state_dir": str(store.state_dir),
+            }
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                print(f"initiatives={len(items)} state_dir={store.state_dir}")
+                _print_table(
+                    [
+                        ("initiative_id", "Initiative"),
+                        ("status", "Status"),
+                        ("feature_flag", "Feature Flag"),
+                        ("slices", "Slices"),
+                        ("title", "Title"),
+                    ],
+                    _initiative_rows(items),
+                )
+            return
+
+        initiative_id = _optional_text(getattr(args, "swarm_campaign_target", None))
+        if subaction == "show":
+            if not initiative_id:
+                raise ValueError("initiative show requires an initiative id as the third argument")
+            item = store.get(initiative_id)
+            if item is None:
+                raise FileNotFoundError(f"initiative not found: {initiative_id}")
+            payload = {
+                "mode": "initiative-show",
+                "action": subaction,
+                "initiative": item.to_dict(),
+                "state_dir": str(store.state_dir),
+            }
+            if as_json:
+                print(json.dumps(payload, indent=2))
+            else:
+                _render_initiative(item)
+            return
+
+        goal_text = initiative_id
+        if not goal_text:
+            raise ValueError("initiative plan requires a goal as the third argument")
+        rationale = ""
+        source_file = _optional_text(getattr(args, "source_file", None))
+        if source_file:
+            rationale = Path(source_file).expanduser().resolve().read_text().strip()
+        planner = InitiativePlanner(repo_root=repo_root)
+        initiative = planner.plan(
+            goal=goal_text,
+            rationale=rationale,
+            dependencies=[
+                str(item).strip()
+                for item in (getattr(args, "dependency", None) or [])
+                if str(item).strip()
+            ],
+            validations=[
+                str(item).strip()
+                for item in (getattr(args, "validation", None) or [])
+                if str(item).strip()
+            ],
+            feature_flag_name=_optional_text(getattr(args, "feature_flag", None)),
+            milestone_titles=[
+                str(item).strip()
+                for item in (getattr(args, "milestone", None) or [])
+                if str(item).strip()
+            ],
+            checkpoint_titles=[
+                str(item).strip()
+                for item in (getattr(args, "checkpoint", None) or [])
+                if str(item).strip()
+            ],
+            planner_strategy=str(getattr(args, "planner_strategy", "heuristic") or "heuristic"),
+            planner_model=str(getattr(args, "planner_model", "claude") or "claude"),
+        )
+        if source_file:
+            initiative.metadata["source_file"] = str(Path(source_file).expanduser().resolve())
+        saved_path = store.save(initiative)
+        payload = {
+            "mode": "initiative-plan",
+            "action": subaction,
+            "initiative": initiative.to_dict(),
+            "path": str(saved_path),
+            "state_dir": str(store.state_dir),
+        }
+        if as_json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"initiative_id={initiative.initiative_id}")
+            print(f"path={saved_path}")
+            print(f"slices={len(initiative.slices)}")
+        return
+
     if action == "runner":
         from aragora.swarm.reporter import render_runner_registration_text
         from aragora.swarm.runner_registry import (
@@ -1711,6 +1948,34 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             file=sys.stderr,
         )
         sys.exit(1)
+
+    if action == "merge-arbiter":
+        from aragora.swarm.merge_arbiter import MergeArbiter, MergeArbiterConfig
+
+        prefixes_raw = str(getattr(args, "boss_branch_prefix", "") or "boss-harvest")
+        prefixes = [p.strip() for p in prefixes_raw.split(",") if p.strip()]
+        arbiter_config = MergeArbiterConfig(
+            repo=getattr(args, "boss_repo", None) or "synaptent/aragora",
+            branch_prefixes=prefixes,
+            poll_interval_seconds=float(getattr(args, "interval_seconds", 120.0) or 120.0),
+            max_runtime_hours=float(getattr(args, "max_hours", 12.0) or 12.0),
+            max_consecutive_failures=int(getattr(args, "max_consecutive_failures", 3) or 3),
+            dry_run=bool(getattr(args, "dry_run", False)),
+        )
+        arbiter = MergeArbiter(config=arbiter_config)
+        summary = asyncio.run(arbiter.run())
+        if as_json:
+            print(json.dumps(summary.to_dict(), indent=2))
+        else:
+            print(f"\nMerge arbiter finished: {summary.stop_reason}")
+            print(
+                f"polls={summary.polls} merged={len(summary.merged)} "
+                f"skipped={len(summary.skipped)} failed={len(summary.failed)} "
+                f"elapsed={summary.elapsed_seconds:.1f}s"
+            )
+            if summary.merged:
+                print(f"  merged PRs: {summary.merged}")
+        return
 
     if action == "boss-loop":
         from aragora.swarm.boss_loop import BossLoop, BossLoopConfig

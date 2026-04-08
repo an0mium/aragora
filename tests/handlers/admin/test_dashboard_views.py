@@ -28,8 +28,9 @@ from __future__ import annotations
 import json
 import sqlite3
 from contextlib import contextmanager
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -73,16 +74,60 @@ class InMemoryStorage:
                 status TEXT,
                 consensus_reached INTEGER,
                 confidence REAL,
-                created_at TEXT
+                created_at TEXT,
+                artifact_json TEXT,
+                task TEXT,
+                completed_at TEXT
             )"""
         )
         if rows:
-            cur.executemany("INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)", rows)
+            cur.executemany(
+                """
+                INSERT INTO debates (
+                    id, domain, status, consensus_reached, confidence, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
         self._conn.commit()
 
     @contextmanager
     def connection(self):
         yield self._conn
+
+    def insert_debate(
+        self,
+        *,
+        debate_id: str,
+        domain: str | None,
+        status: str,
+        consensus_reached: int,
+        confidence: float,
+        created_at: str,
+        artifact_json: str | None = None,
+        task: str | None = None,
+        completed_at: str | None = None,
+    ) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO debates (
+                id, domain, status, consensus_reached, confidence, created_at,
+                artifact_json, task, completed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                debate_id,
+                domain,
+                status,
+                consensus_reached,
+                confidence,
+                created_at,
+                artifact_json,
+                task,
+                completed_at,
+            ),
+        )
+        self._conn.commit()
 
 
 class ErrorStorage:
@@ -428,6 +473,93 @@ class TestGetDashboardDebate:
         assert body["domain"] == "finance"
         assert body["status"] == "completed"
         assert body["consensus_reached"] is True
+
+    def test_returns_dashboard_proof_details_from_artifact(self):
+        storage = InMemoryStorage()
+        storage.insert_debate(
+            debate_id="proof-123",
+            domain="ops",
+            status="completed",
+            consensus_reached=1,
+            confidence=0.91,
+            created_at="2026-04-05T12:00:00Z",
+            completed_at="2026-04-05T12:02:30Z",
+            task="Surface truthful proof details",
+            artifact_json=json.dumps(
+                {
+                    "id": "proof-123",
+                    "task": "Surface truthful proof details",
+                    "receipt": {
+                        "receipt_id": "rcpt-123",
+                        "artifact_hash": "sha256:abc123",
+                        "timestamp": "2026-04-05T12:02:31Z",
+                    },
+                    "total_cost_usd": 0.42,
+                    "per_agent_cost": {"claude": 0.24, "gpt-4.1": 0.18},
+                    "metadata": {
+                        "provider": "anthropic",
+                        "provider_route": "anthropic->openai-fallback",
+                    },
+                    "provider_names": ["anthropic", "openai"],
+                    "provider_routing": {"routing_applied": True},
+                }
+            ),
+        )
+        h = TestableHandler(storage=storage)
+
+        result = h._get_dashboard_debate("proof-123")
+
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["proof"] == {
+            "receipt_id": "rcpt-123",
+            "receipt_hash": "sha256:abc123",
+            "receipt_timestamp": "2026-04-05T12:02:31Z",
+            "provider": "anthropic",
+            "provider_route": "anthropic->openai-fallback",
+            "provider_names": ["anthropic", "openai"],
+            "provider_routing": {"routing_applied": True},
+            "total_cost_usd": 0.42,
+            "per_agent_cost": {"claude": 0.24, "gpt-4.1": 0.18},
+        }
+
+    def test_backfills_receipt_store_proof_when_artifact_is_sparse(self):
+        storage = InMemoryStorage(
+            [("receipt-backed", "ops", "completed", 1, 0.78, "2026-04-05T12:00:00Z")]
+        )
+        h = TestableHandler(storage=storage)
+        receipt = SimpleNamespace(
+            receipt_id="rcpt-789",
+            checksum="sha256:receipt-proof",
+            created_at="2026-04-05T12:03:00Z",
+            cost_summary={
+                "total_cost_usd": "0.17",
+                "per_agent": {
+                    "claude": {"total_cost_usd": "0.10"},
+                    "gpt-4.1": {"cost": "0.07"},
+                },
+            },
+        )
+        store = MagicMock()
+        store.get_by_gauntlet.side_effect = lambda candidate: (
+            receipt if candidate == "debate-receipt-backed" else None
+        )
+
+        with patch(
+            "aragora.server.handlers.admin.dashboard_metrics._get_receipt_store",
+            return_value=store,
+        ):
+            result = h._get_dashboard_debate("receipt-backed")
+
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["proof"] == {
+            "receipt_id": "rcpt-789",
+            "receipt_hash": "sha256:receipt-proof",
+            "receipt_timestamp": "2026-04-05T12:03:00Z",
+            "total_cost_usd": 0.17,
+            "per_agent_cost": {"claude": 0.1, "gpt-4.1": 0.07},
+        }
 
     def test_empty_debate_id(self, handler):
         result = handler._get_dashboard_debate("")
