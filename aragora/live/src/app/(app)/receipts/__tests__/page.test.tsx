@@ -170,10 +170,13 @@ describe('ReceiptsPage', () => {
     setSearchQuery('');
     configureListMocks();
     configureDetailFetch();
-    Object.assign(navigator, {
-      clipboard: {
-        writeText: mockClipboardWriteText,
-      },
+    mockClipboardWriteText.mockResolvedValue(undefined);
+    const clipboard = navigator.clipboard ?? { writeText: async (_text: string) => undefined };
+    clipboard.writeText = mockClipboardWriteText;
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      writable: true,
+      value: clipboard,
     });
     window.confirm = mockConfirm;
   });
@@ -416,5 +419,73 @@ describe('ReceiptsPage', () => {
     });
 
     expect(await screen.findByRole('button', { name: 'Copied!' })).toBeInTheDocument();
+  });
+
+  it('shows a canonical proof link for fetched canonical receipts', async () => {
+    const user = userEvent.setup();
+
+    render(<ReceiptsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /Receipt 123 summary/i }));
+
+    expect(await screen.findByRole('link', { name: 'Canonical proof' })).toHaveAttribute(
+      'href',
+      'http://localhost:8080/api/v2/receipts/receipt-123'
+    );
+  });
+
+  it('renders blocked result-only entries with truthful next steps', async () => {
+    configureListMocks({
+      v2Receipts: [],
+      gauntletReceipts: [],
+      gauntletResults: [
+        {
+          id: 'run-blocked',
+          gauntlet_id: 'run-blocked',
+          debate_id: 'debate-blocked',
+          status: 'blocked',
+        },
+      ],
+    });
+
+    render(<ReceiptsPage />);
+
+    expect(await screen.findByText('BLOCKED')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Execution is blocked upstream\. Fix provider access or the execution gate, then rerun to publish a canonical receipt\./i
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open debate to inspect the blocker' })).toHaveAttribute(
+      'href',
+      '/debates/debate-blocked'
+    );
+    expect(screen.queryByText(/ready for audit review/i)).not.toBeInTheDocument();
+  });
+
+  it('labels completed gauntlet results as partial until canonical proof exists', async () => {
+    configureListMocks({
+      v2Receipts: [],
+      gauntletReceipts: [],
+      gauntletResults: [
+        {
+          id: 'run-partial',
+          gauntlet_id: 'run-partial',
+          debate_id: 'debate-partial',
+          status: 'completed',
+        },
+      ],
+    });
+
+    render(<ReceiptsPage />);
+
+    expect(await screen.findByText('PARTIAL')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Partial result only\. Canonical receipt and proof have not been published yet\./i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open debate' })).toHaveAttribute(
+      'href',
+      '/debates/debate-partial'
+    );
   });
 });

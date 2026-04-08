@@ -25,7 +25,7 @@ interface RiskSummary {
 interface ReceiptListItem {
   id: string;
   source: ReceiptSource;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'blocked' | 'completed' | 'failed';
   receiptId?: string;
   gauntletId?: string;
   debateId?: string;
@@ -188,10 +188,129 @@ function normalizeVerdict(value: unknown): ReceiptVerdict | undefined {
 
 function normalizeStatus(value: unknown): ReceiptListItem['status'] {
   const status = safeString(value)?.toLowerCase();
-  if (status === 'pending' || status === 'running' || status === 'failed') {
-    return status;
+  switch (status) {
+    case 'pending':
+    case 'queued':
+    case 'starting':
+      return 'pending';
+    case 'running':
+    case 'active':
+    case 'processing':
+    case 'in_progress':
+      return 'running';
+    case 'blocked':
+    case 'timeout':
+    case 'pending_approval':
+      return 'blocked';
+    case 'failed':
+    case 'error':
+    case 'cancelled':
+      return 'failed';
+    default:
+      return 'completed';
   }
-  return 'completed';
+}
+
+type ReceiptSurfaceState =
+  | 'pending'
+  | 'live'
+  | 'partial'
+  | 'blocked'
+  | 'complete'
+  | 'failed';
+
+function deriveSurfaceState(item: ReceiptListItem): ReceiptSurfaceState {
+  switch (item.status) {
+    case 'pending':
+      return 'pending';
+    case 'running':
+      return 'live';
+    case 'blocked':
+      return 'blocked';
+    case 'failed':
+      return 'failed';
+    case 'completed':
+      return item.source === 'gauntlet-results' ? 'partial' : 'complete';
+  }
+}
+
+function getSurfaceLabel(item: ReceiptListItem): string {
+  switch (deriveSurfaceState(item)) {
+    case 'pending':
+      return 'QUEUED';
+    case 'live':
+      return 'LIVE';
+    case 'partial':
+      return 'PARTIAL';
+    case 'blocked':
+      return 'BLOCKED';
+    case 'failed':
+      return 'FAILED';
+    case 'complete':
+      return 'COMPLETE';
+  }
+}
+
+function getSurfaceTone(item: ReceiptListItem): string {
+  switch (deriveSurfaceState(item)) {
+    case 'pending':
+      return 'text-yellow-300 bg-yellow-500/10 border-yellow-500/30';
+    case 'live':
+      return 'text-blue-300 bg-blue-500/10 border-blue-500/30';
+    case 'partial':
+      return 'text-orange-300 bg-orange-500/10 border-orange-500/30';
+    case 'blocked':
+      return 'text-red-300 bg-red-500/10 border-red-500/30';
+    case 'failed':
+      return 'text-red-400 bg-red-500/20 border-red-500/40';
+    case 'complete':
+      return 'text-[var(--accent)] bg-[var(--accent)]/10 border-[var(--accent)]/30';
+  }
+}
+
+function getSourceLabel(item: ReceiptListItem): string {
+  switch (item.source) {
+    case 'gauntlet-results':
+      return 'Result only';
+    case 'gauntlet-receipts':
+      return 'Canonical receipt';
+    case 'v2-receipts':
+      return 'Canonical receipt';
+  }
+}
+
+function getDebateHref(item: ReceiptListItem): string | null {
+  return item.debateId ? `/debates/${encodeURIComponent(item.debateId)}` : null;
+}
+
+function getSurfaceSummary(item: ReceiptListItem): string {
+  switch (deriveSurfaceState(item)) {
+    case 'pending':
+      return 'Queued for debate execution. No result or proof has been published yet.';
+    case 'live':
+      return 'Debate is still running. Wait for a published receipt or open the live debate for progress.';
+    case 'partial':
+      return 'Partial result only. Canonical receipt and proof have not been published yet.';
+    case 'blocked':
+      return 'Execution is blocked upstream. Fix provider access or the execution gate, then rerun to publish a canonical receipt.';
+    case 'failed':
+      return 'Debate failed before a canonical receipt was published.';
+    case 'complete':
+      return 'No summary was published with this canonical receipt yet.';
+  }
+}
+
+function getSurfaceAction(item: ReceiptListItem): string | null {
+  switch (deriveSurfaceState(item)) {
+    case 'live':
+      return 'Open debate';
+    case 'blocked':
+      return 'Open debate to inspect the blocker';
+    case 'partial':
+      return 'Open debate';
+    default:
+      return null;
+  }
 }
 
 function normalizeRiskSummary(data: Record<string, unknown>): RiskSummary | undefined {
@@ -1134,23 +1253,50 @@ export default function ReceiptsPage() {
           {filteredResults.map((result) => {
             const displayId = result.receiptId ?? result.gauntletId ?? result.id;
             const dateLabel = formatDate(result.created_at);
-            const isClickable = result.status === 'completed';
+            const surfaceLabel = getSurfaceLabel(result);
+            const sourceLabel = getSourceLabel(result);
+            const surfaceSummary = getSurfaceSummary(result);
+            const surfaceAction = getSurfaceAction(result);
+            const debateHref = getDebateHref(result);
+            const isClickable = deriveSurfaceState(result) === 'complete';
 
             return (
-              <button
+              <div
                 key={`${result.source}:${result.id}`}
-                onClick={() => isClickable && fetchReceipt(result)}
-                disabled={!isClickable}
+                onClick={() => {
+                  if (isClickable) {
+                    void fetchReceipt(result);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (
+                    isClickable &&
+                    (event.key === 'Enter' || event.key === ' ')
+                  ) {
+                    event.preventDefault();
+                    void fetchReceipt(result);
+                  }
+                }}
+                role={isClickable ? 'button' : undefined}
+                tabIndex={isClickable ? 0 : undefined}
                 className={`w-full p-4 bg-surface border border-border rounded-lg text-left transition-all ${
                   isClickable
                     ? 'hover:border-[var(--accent)]/50 cursor-pointer'
-                    : 'opacity-50 cursor-not-allowed'
+                    : ''
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-3">
                     <span className="font-theme-data text-sm text-text-muted">
                       {truncateId(displayId)}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 text-xs font-theme-data rounded border ${getSurfaceTone(result)}`}
+                    >
+                      {surfaceLabel}
+                    </span>
+                    <span className="text-xs font-theme-data text-text-muted">
+                      {sourceLabel}
                     </span>
                     {result.verdict && (
                       <span
@@ -1171,9 +1317,7 @@ export default function ReceiptsPage() {
                 {result.input_summary ? (
                   <p className="text-sm text-text mb-2 line-clamp-1">{result.input_summary}</p>
                 ) : (
-                  <p className="text-sm text-text-muted mb-2">
-                    Receipt {displayId} is ready for audit review.
-                  </p>
+                  <p className="text-sm text-text-muted mb-2">{surfaceSummary}</p>
                 )}
 
                 {result.risk_summary && totalFindings(result.risk_summary) > 0 ? (
@@ -1196,7 +1340,18 @@ export default function ReceiptsPage() {
                     Risk: {result.risk_level}
                   </div>
                 ) : null}
-              </button>
+
+                {surfaceAction && debateHref && (
+                  <div className="mt-3">
+                    <Link
+                      href={debateHref}
+                      className="text-xs font-theme-data text-[var(--acid-cyan)] hover:text-[var(--accent)] transition-colors"
+                    >
+                      {surfaceAction}
+                    </Link>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
@@ -1225,6 +1380,9 @@ export default function ReceiptsPage() {
     const resultHref = receipt.debate_id
       ? `/debates/${encodeURIComponent(receipt.debate_id)}`
       : null;
+    const canonicalProofHref = selectedItem
+      ? buildDetailUrls(selectedItem, backendUrl)[0] ?? null
+      : null;
     const shareButtonLabel = sharePending
       ? 'Sharing...'
       : shareCopied
@@ -1250,6 +1408,16 @@ export default function ReceiptsPage() {
             >
               Back
             </button>
+            {canonicalProofHref && (
+              <a
+                href={canonicalProofHref}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1 text-sm font-theme-data border border-[var(--accent)]/40 text-[var(--accent)] rounded hover:bg-[var(--accent)]/10"
+              >
+                Canonical proof
+              </a>
+            )}
             {resultHref && (
               <Link
                 href={resultHref}
