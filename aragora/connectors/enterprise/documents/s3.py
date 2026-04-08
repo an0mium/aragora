@@ -192,8 +192,8 @@ class S3Connector(EnterpriseConnector):
                     if text:
                         text_parts.append(text)
                 return "\n\n".join(text_parts)
-            except ImportError:
-                pass
+            except ImportError as pypdf_error:
+                logger.debug("pypdf unavailable for PDF extraction: %s", pypdf_error)
 
             # Fallback to PyPDF2
             try:
@@ -206,10 +206,8 @@ class S3Connector(EnterpriseConnector):
                     if text:
                         text_parts.append(text)
                 return "\n\n".join(text_parts)
-            except ImportError:
-                pass
-
-            return "[PDF extraction requires pypdf or PyPDF2]"
+            except ImportError as pypdf2_error:
+                raise RuntimeError("PDF extraction requires pypdf or PyPDF2") from pypdf2_error
 
         except (OSError, ValueError) as e:
             logger.warning("PDF extraction failed: %s", e)
@@ -225,8 +223,8 @@ class S3Connector(EnterpriseConnector):
             paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
             return "\n\n".join(paragraphs)
 
-        except ImportError:
-            return "[DOCX extraction requires python-docx]"
+        except ImportError as e:
+            raise RuntimeError("DOCX extraction requires python-docx") from e
         except (OSError, ValueError, KeyError) as e:
             logger.warning("DOCX extraction failed: %s", e)
             return f"[DOCX extraction failed: {e}]"
@@ -330,7 +328,7 @@ class S3Connector(EnterpriseConnector):
 
                         items_processed += 1
 
-                    except (OSError, ValueError, KeyError) as e:
+                    except (OSError, ValueError, KeyError, RuntimeError) as e:
                         message = f"Failed to process {key}: {e}"
                         logger.error(message)
                         state.errors.append(message)
