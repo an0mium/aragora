@@ -342,8 +342,11 @@ class FreshdeskConnector:
                         if retry_after:
                             try:
                                 delay = float(retry_after)
-                            except (ValueError, TypeError):
-                                pass
+                            except (ValueError, TypeError) as exc:
+                                raise FreshdeskError(
+                                    f"Invalid Retry-After header for {method} {path}: {retry_after!r}",
+                                    status_code=response.status_code,
+                                ) from exc
                         logger.warning(
                             "Freshdesk %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
                             method,
@@ -687,8 +690,8 @@ def _parse_datetime(value: str | None) -> datetime | None:
         return None
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
-        return None
+    except (ValueError, AttributeError) as exc:
+        raise FreshdeskError(f"Invalid Freshdesk datetime value: {value!r}") from exc
 
 
 def get_mock_ticket() -> FreshdeskTicket:
