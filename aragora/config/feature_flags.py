@@ -607,6 +607,14 @@ class FeatureFlagRegistry:
             FlagCategory.EXPERIMENTAL,
             FlagStatus.ALPHA,
         )
+        self.register(
+            "truthful_default_loop_v1",
+            bool,
+            False,
+            "Enable the promotion gate for truthful default debate loop readiness checks",
+            FlagCategory.EXPERIMENTAL,
+            FlagStatus.ALPHA,
+        )
 
         # Billing flags
         self.register(
