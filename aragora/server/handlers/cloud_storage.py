@@ -519,6 +519,20 @@ class CloudStorageHandler(BaseHandler):
 
         return True, ""
 
+    def _read_json_object_body(
+        self,
+        handler: Any,
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+        """Read a JSON request body and ensure POST storage endpoints receive an object."""
+        body, error = self.read_json_body_validated(handler)
+        if error:
+            return None, error
+
+        if not isinstance(body, dict):
+            return None, error_response("Request body must be a JSON object", 400)
+
+        return body, None
+
     def _generate_file_id(self) -> str:
         """Generate a unique file ID."""
         return f"file_{uuid.uuid4().hex[:16]}"
@@ -632,13 +646,13 @@ class CloudStorageHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests to appropriate handler method."""
-        raw_body = self.read_json_body(handler)
-        if raw_body is None:
-            body: dict[str, Any] = {}
-        elif isinstance(raw_body, dict):
-            body = raw_body
-        else:
-            return error_response("Request body must be a JSON object", 400)
+        body, body_error = self._read_json_object_body(handler)
+        if body_error:
+            return body_error
+
+        if body is None:
+            body = {}
+
         query_params, query_params_error = self._validate_query_params(query_params)
         if query_params_error:
             return error_response(query_params_error, 400)
