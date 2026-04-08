@@ -158,7 +158,17 @@ def _get_check_status(pr_number: int, repo: str) -> dict[str, str]:
     return {c["name"]: c.get("state", "").upper() for c in checks if "name" in c}
 
 
-def _merge_pr(pr_number: int, repo: str, head_sha: str | None) -> tuple[bool, str]:
+def _promote_draft(pr_number: int, repo: str) -> bool:
+    """Mark a draft PR as ready for review."""
+    result = _run_gh(["pr", "ready", str(pr_number), "--repo", repo], timeout=30.0)
+    return result.returncode == 0
+
+
+def _merge_pr(
+    pr_number: int,
+    repo: str,
+    head_sha: str | None = None,
+) -> tuple[bool, str]:
     """Squash-merge a PR with admin override.  Returns (success, reason)."""
     args = [
         "pr",
@@ -192,18 +202,16 @@ def _evaluate_pr(pr: dict, config: MergeArbiterConfig) -> MergeResult:
         if checks:
             missing, failing = _classify_required_checks(checks)
             if not missing and not failing:
-                result = subprocess.run(
-                    ["gh", "pr", "ready", str(pr_number), "-R", config.repo],
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode == 0:
+                if _promote_draft(pr_number, config.repo):
                     logger.info("Promoted draft PR #%d to ready", pr_number)
                     is_draft = False
                     # Fall through to merge logic below
                 else:
                     return MergeResult(
-                        pr_number, branch, False, f"draft promotion failed: {result.stderr.strip()}"
+                        pr_number,
+                        branch,
+                        False,
+                        "draft promotion failed: gh pr ready returned non-zero",
                     )
             else:
                 reason_parts = []

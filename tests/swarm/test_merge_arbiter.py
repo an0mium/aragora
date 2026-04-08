@@ -19,6 +19,7 @@ from aragora.swarm.merge_arbiter import (
     _get_check_status,
     _list_candidate_prs,
     _merge_pr,
+    _promote_draft,
 )
 
 
@@ -133,6 +134,22 @@ class TestClassifyRequiredChecks:
 
         assert missing == ["custom-c"]
         assert failing == ["custom-b=PENDING"]
+
+
+# ---------------------------------------------------------------------------
+# _promote_draft
+# ---------------------------------------------------------------------------
+
+
+class TestPromoteDraft:
+    def test_marks_pr_ready(self):
+        with patch("aragora.swarm.merge_arbiter._run_gh") as mock_gh:
+            mock_gh.return_value = _make_gh_result()
+            assert _promote_draft(5, "owner/repo") is True
+        mock_gh.assert_called_once_with(
+            ["pr", "ready", "5", "--repo", "owner/repo"],
+            timeout=30.0,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -260,12 +277,15 @@ class TestEvaluatePrDraft:
         checks = dict.fromkeys(REQUIRED_CHECKS, "SUCCESS")
         with (
             patch("aragora.swarm.merge_arbiter._get_check_status", return_value=checks),
-            patch("subprocess.run") as mock_run,
+            patch("aragora.swarm.merge_arbiter._promote_draft", return_value=True) as promote_draft,
+            patch(
+                "aragora.swarm.merge_arbiter._merge_pr", return_value=(True, "merged")
+            ) as merge_pr,
         ):
-            # Simulate successful gh pr ready + gh pr merge
-            mock_run.return_value = MagicMock(returncode=0, stderr="", stdout="")
             result = _evaluate_pr(_pr(5, "boss-harvest/draft", draft=True), config)
         assert result.success is True
+        promote_draft.assert_called_once_with(5, config.repo)
+        merge_pr.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
