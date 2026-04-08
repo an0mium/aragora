@@ -958,21 +958,22 @@ def _parse_datetime(value: str | None) -> datetime | None:
     """Parse ISO datetime string."""
     if not value:
         return None
-    try:
-        # Handle various formats
-        for fmt in [
-            "%Y-%m-%dT%H:%M:%S.%fZ",
-            "%Y-%m-%dT%H:%M:%SZ",
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y-%m-%d",
-        ]:
-            try:
-                return datetime.strptime(value, fmt)
-            except ValueError:
-                continue
-        return None
-    except (ValueError, TypeError, AttributeError):
-        return None
+    if not isinstance(value, str):
+        raise TypeError(f"Expected datetime string, got {type(value).__name__}")
+
+    # Handle various formats
+    for fmt in [
+        "%Y-%m-%dT%H:%M:%S.%fZ",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%d",
+    ]:
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+
+    raise ValueError(f"Unsupported Walmart datetime format: {value!r}")
 
 
 def get_mock_order() -> WalmartOrder:
