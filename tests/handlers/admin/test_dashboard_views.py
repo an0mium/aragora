@@ -28,8 +28,9 @@ from __future__ import annotations
 import json
 import sqlite3
 from contextlib import contextmanager
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -73,16 +74,60 @@ class InMemoryStorage:
                 status TEXT,
                 consensus_reached INTEGER,
                 confidence REAL,
-                created_at TEXT
+                created_at TEXT,
+                artifact_json TEXT,
+                task TEXT,
+                completed_at TEXT
             )"""
         )
         if rows:
-            cur.executemany("INSERT INTO debates VALUES (?, ?, ?, ?, ?, ?)", rows)
+            cur.executemany(
+                """
+                INSERT INTO debates (
+                    id, domain, status, consensus_reached, confidence, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
         self._conn.commit()
 
     @contextmanager
     def connection(self):
         yield self._conn
+
+    def insert_debate(
+        self,
+        *,
+        debate_id: str,
+        domain: str | None,
+        status: str,
+        consensus_reached: int,
+        confidence: float,
+        created_at: str,
+        artifact_json: str | None = None,
+        task: str | None = None,
+        completed_at: str | None = None,
+    ) -> None:
+        self._conn.execute(
+            """
+            INSERT INTO debates (
+                id, domain, status, consensus_reached, confidence, created_at,
+                artifact_json, task, completed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                debate_id,
+                domain,
+                status,
+                consensus_reached,
+                confidence,
+                created_at,
+                artifact_json,
+                task,
+                completed_at,
+            ),
+        )
+        self._conn.commit()
 
 
 class ErrorStorage:
@@ -276,10 +321,14 @@ class TestGetOverview:
         h = TestableHandler(agent_perf={"total_agents": 3, "avg_elo": 1100})
         result = h._get_overview({}, mock_http)
         body = _body(result)
-        assert len(body["stats"]) == 2
+        assert len(body["stats"]) == 4
         labels = {s["label"] for s in body["stats"]}
-        assert "Total Agents" in labels
-        assert "Avg ELO" in labels
+        assert labels == {
+            "Total Debates",
+            "Open Debates",
+            "Consensus Rate",
+            "Avg Confidence",
+        }
 
     def test_overview_storage_connection_error(self, mock_http):
         h = TestableHandler(storage=ErrorStorage())
@@ -299,13 +348,13 @@ class TestGetOverview:
         assert body["consensus_rate"] == 0.0
 
     def test_overview_agent_perf_error(self, mock_http):
-        """When _get_agent_performance raises, overview still returns."""
+        """Overview no longer depends on agent performance helper."""
         h = TestableHandler(storage=InMemoryStorage())
         h._get_agent_performance = MagicMock(side_effect=TypeError("bad"))
         result = h._get_overview({}, mock_http)
         body = _body(result)
         assert _status(result) == 200
-        assert body["stats"] == []
+        assert len(body["stats"]) == 4
 
 
 # ===========================================================================
@@ -411,11 +460,106 @@ class TestGetDashboardDebates:
 class TestGetDashboardDebate:
     """Tests for the single debate detail endpoint."""
 
-    def test_returns_debate_id(self, handler):
-        result = handler._get_dashboard_debate("abc-123")
+    def test_returns_debate_detail(self):
+        storage = InMemoryStorage(
+            [("abc-123", "finance", "completed", 1, 0.92, "2026-02-23T10:00:00")]
+        )
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_debate("abc-123")
         body = _body(result)
         assert _status(result) == 200
         assert body["debate_id"] == "abc-123"
+        assert body["id"] == "abc-123"
+        assert body["domain"] == "finance"
+        assert body["status"] == "completed"
+        assert body["consensus_reached"] is True
+
+    def test_returns_dashboard_proof_details_from_artifact(self):
+        storage = InMemoryStorage()
+        storage.insert_debate(
+            debate_id="proof-123",
+            domain="ops",
+            status="completed",
+            consensus_reached=1,
+            confidence=0.91,
+            created_at="2026-04-05T12:00:00Z",
+            completed_at="2026-04-05T12:02:30Z",
+            task="Surface truthful proof details",
+            artifact_json=json.dumps(
+                {
+                    "id": "proof-123",
+                    "task": "Surface truthful proof details",
+                    "receipt": {
+                        "receipt_id": "rcpt-123",
+                        "artifact_hash": "sha256:abc123",
+                        "timestamp": "2026-04-05T12:02:31Z",
+                    },
+                    "total_cost_usd": 0.42,
+                    "per_agent_cost": {"claude": 0.24, "gpt-4.1": 0.18},
+                    "metadata": {
+                        "provider": "anthropic",
+                        "provider_route": "anthropic->openai-fallback",
+                    },
+                    "provider_names": ["anthropic", "openai"],
+                    "provider_routing": {"routing_applied": True},
+                }
+            ),
+        )
+        h = TestableHandler(storage=storage)
+
+        result = h._get_dashboard_debate("proof-123")
+
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["proof"] == {
+            "receipt_id": "rcpt-123",
+            "receipt_hash": "sha256:abc123",
+            "receipt_timestamp": "2026-04-05T12:02:31Z",
+            "provider": "anthropic",
+            "provider_route": "anthropic->openai-fallback",
+            "provider_names": ["anthropic", "openai"],
+            "provider_routing": {"routing_applied": True},
+            "total_cost_usd": 0.42,
+            "per_agent_cost": {"claude": 0.24, "gpt-4.1": 0.18},
+        }
+
+    def test_backfills_receipt_store_proof_when_artifact_is_sparse(self):
+        storage = InMemoryStorage(
+            [("receipt-backed", "ops", "completed", 1, 0.78, "2026-04-05T12:00:00Z")]
+        )
+        h = TestableHandler(storage=storage)
+        receipt = SimpleNamespace(
+            receipt_id="rcpt-789",
+            checksum="sha256:receipt-proof",
+            created_at="2026-04-05T12:03:00Z",
+            cost_summary={
+                "total_cost_usd": "0.17",
+                "per_agent": {
+                    "claude": {"total_cost_usd": "0.10"},
+                    "gpt-4.1": {"cost": "0.07"},
+                },
+            },
+        )
+        store = MagicMock()
+        store.get_by_gauntlet.side_effect = lambda candidate: (
+            receipt if candidate == "debate-receipt-backed" else None
+        )
+
+        with patch(
+            "aragora.server.handlers.admin.dashboard_metrics._get_receipt_store",
+            return_value=store,
+        ):
+            result = h._get_dashboard_debate("receipt-backed")
+
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["proof"] == {
+            "receipt_id": "rcpt-789",
+            "receipt_hash": "sha256:receipt-proof",
+            "receipt_timestamp": "2026-04-05T12:03:00Z",
+            "total_cost_usd": 0.17,
+            "per_agent_cost": {"claude": 0.1, "gpt-4.1": 0.07},
+        }
 
     def test_empty_debate_id(self, handler):
         result = handler._get_dashboard_debate("")
@@ -423,8 +567,12 @@ class TestGetDashboardDebate:
         body = _body(result)
         assert "required" in body.get("error", "").lower()
 
-    def test_special_characters_in_id(self, handler):
-        result = handler._get_dashboard_debate("test/special%id")
+    def test_special_characters_in_id(self):
+        storage = InMemoryStorage(
+            [("test/special%id", "tech", "pending", 0, 0.25, "2026-02-23T10:00:00")]
+        )
+        h = TestableHandler(storage=storage)
+        result = h._get_dashboard_debate("test/special%id")
         body = _body(result)
         assert _status(result) == 200
         assert body["debate_id"] == "test/special%id"
@@ -1039,11 +1187,11 @@ class TestIntegration:
     """Cross-cutting integration tests."""
 
     def test_all_endpoints_return_200(self, mock_http):
-        """Every view endpoint returns 200 with empty handler."""
+        """View endpoints degrade gracefully; detail requires a real debate."""
         h = TestableHandler()
         assert _status(h._get_overview({}, mock_http)) == 200
         assert _status(h._get_dashboard_debates(10, 0, None)) == 200
-        assert _status(h._get_dashboard_debate("x")) == 200
+        assert _status(h._get_dashboard_debate("x")) == 404
         assert _status(h._get_dashboard_stats()) == 200
         assert _status(h._get_stat_cards()) == 200
         assert _status(h._get_team_performance(10, 0)) == 200
@@ -1171,12 +1319,12 @@ class TestOverviewEdgeCases:
         assert body["consensus_rate"] == 0.0
 
     def test_overview_missing_keys_in_agent_perf(self, mock_http):
-        """Agent perf dict missing expected keys uses defaults."""
+        """Overview stats stay debate-backed even if agent perf is empty."""
         h = TestableHandler(agent_perf={})
         result = h._get_overview({}, mock_http)
         body = _body(result)
         stats = body["stats"]
-        assert len(stats) == 2
+        assert len(stats) == 4
         assert stats[0]["value"] == 0
         assert stats[1]["value"] == 0
 

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -117,6 +117,11 @@ class CredentialStatus:
     required_vars: list[str]
     missing_vars: list[str]
     available_via: str | None = None  # Which key makes it available
+    config_present: bool = False
+    live_ready: bool = False
+    status: str = "missing_config"
+    next_action: str | None = None
+    next_actions: list[str] = field(default_factory=list)
 
 
 def _get_secret(name: str) -> str | None:
@@ -142,22 +147,7 @@ def validate_agent_credentials(agent_type: str) -> bool:
     Returns:
         True if credentials are available, False otherwise
     """
-    required_vars = AGENT_CREDENTIAL_MAP.get(agent_type, [])
-
-    # No credentials required (local models, demo agents)
-    if not required_vars:
-        return True
-
-    # Check if ANY of the required vars is set (OR logic for fallbacks)
-    for var in required_vars:
-        value = _get_secret(var)
-        if value:
-            return True
-
-    if agent_type in FALLBACK_ELIGIBLE_PROVIDERS and _openrouter_fallback_available():
-        return True
-
-    return False
+    return get_credential_status(agent_type).is_available
 
 
 def get_credential_status(agent_type: str) -> CredentialStatus:
@@ -178,6 +168,9 @@ def get_credential_status(agent_type: str) -> CredentialStatus:
             required_vars=[],
             missing_vars=[],
             available_via="no_credentials_required",
+            config_present=True,
+            live_ready=True,
+            status="ready",
         )
 
     missing = []
@@ -201,6 +194,14 @@ def get_credential_status(agent_type: str) -> CredentialStatus:
                 required_vars=required_vars,
                 missing_vars=[],
                 available_via="OPENROUTER_API_KEY (fallback)",
+                config_present=True,
+                live_ready=False,
+                status="configured",
+                next_action="Verify provider connectivity before treating it as live-ready.",
+                next_actions=[
+                    "Run a provider preflight or quickstart live check before routing live debates.",
+                    "If the provider is unreachable, keep the path blocked instead of silently simulating it.",
+                ],
             )
 
     return CredentialStatus(
@@ -209,6 +210,25 @@ def get_credential_status(agent_type: str) -> CredentialStatus:
         required_vars=required_vars,
         missing_vars=missing if not is_available else [],
         available_via=available_via,
+        config_present=is_available,
+        live_ready=False,
+        status="configured" if is_available else "missing_config",
+        next_action=(
+            "Verify provider connectivity before treating it as live-ready."
+            if is_available
+            else f"Set one of: {', '.join(required_vars)}"
+        ),
+        next_actions=(
+            [
+                "Run a provider preflight or quickstart live check before routing live debates.",
+                "If the provider is unreachable, keep the path blocked instead of silently simulating it.",
+            ]
+            if is_available
+            else [
+                f"Export one of the required credentials: {', '.join(required_vars)}.",
+                "Retry the live preflight after credentials are configured.",
+            ]
+        ),
     )
 
 
