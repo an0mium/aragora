@@ -294,7 +294,12 @@ class MongoDBConnector(EnterpriseConnector):
 
                             query["_id"] = {"$gt": ObjectId(cursor_data["last_id"])}
                     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-                        logger.debug("Failed to parse cursor, starting from beginning: %s", e)
+                        error_message = f"{collection_name}: invalid sync cursor"
+                        logger.exception(
+                            "Failed to parse cursor for collection %s", collection_name
+                        )
+                        state.errors.append(error_message)
+                        raise RuntimeError(error_message) from e
 
                 # Sort by timestamp or _id
                 sort_field = self.timestamp_field if state.last_item_timestamp else "_id"
@@ -436,9 +441,10 @@ class MongoDBConnector(EnterpriseConnector):
                             }
                         )
 
-            except (OSError, ConnectionError, ValueError, KeyError) as e:
-                logger.debug("Search failed on %s: %s", collection_name, e)
-                continue
+            except (OSError, ConnectionError, ValueError, KeyError, RuntimeError) as e:
+                error_message = f"{collection_name}: search failed"
+                logger.exception("Search failed on %s", collection_name)
+                raise RuntimeError(error_message) from e
 
         return sorted(results, key=lambda x: x.get("score", 0), reverse=True)[:limit]
 
@@ -496,9 +502,10 @@ class MongoDBConnector(EnterpriseConnector):
 
             return None
 
-        except (OSError, ConnectionError, ValueError, KeyError) as e:
-            logger.error("[%s] Fetch failed: %s", self.name, e)
-            return None
+        except (OSError, ConnectionError, ValueError, KeyError, RuntimeError) as e:
+            error_message = f"{self.name}: fetch failed"
+            logger.exception("[%s] Fetch failed", self.name)
+            raise RuntimeError(error_message) from e
 
     async def start_change_stream(self) -> None:
         """Start change stream for real-time updates with resume token support."""
@@ -566,7 +573,9 @@ class MongoDBConnector(EnterpriseConnector):
                 asyncio.create_task(self.sync(max_items=10))
 
         except (ValueError, KeyError, TypeError) as e:
-            logger.warning("[%s] Change handler error: %s", self.name, e)
+            error_message = f"{self.name}: change handler failed"
+            logger.exception("[%s] Change handler error", self.name)
+            raise RuntimeError(error_message) from e
 
     async def stop_change_stream(self) -> None:
         """Stop the change stream."""
