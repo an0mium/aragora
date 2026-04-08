@@ -105,6 +105,93 @@ class RLMContextHandler(BaseHandler):
                 return None
         return self._rlm
 
+    def _read_json_object_body(
+        self,
+        handler: Any,
+        *,
+        required_message: str = "JSON request body required",
+        max_size: int | None = None,
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+        """Read a JSON object body and return an error response when invalid."""
+        if handler is None:
+            return None, error_response(required_message, 400)
+
+        effective_max_size = max_size if max_size is not None else 10_000_000
+
+        try:
+            content_length = int(handler.headers.get("Content-Length", 0))
+        except (TypeError, ValueError, AttributeError):
+            return None, error_response("Invalid Content-Length header", 400)
+
+        if content_length <= 0:
+            return None, error_response(required_message, 400)
+        if content_length > effective_max_size:
+            return None, error_response(
+                f"Request body too large (max {effective_max_size} bytes)",
+                413,
+            )
+
+        try:
+            raw_body = handler.rfile.read(content_length)
+            body = json.loads(raw_body.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError, AttributeError) as e:
+            logger.debug("Failed to parse JSON body: %s", e)
+            return None, error_response("Request body must be valid JSON", 400)
+
+        if not isinstance(body, dict):
+            return None, error_response("Request body must be a JSON object", 400)
+
+        return body, None
+
+    def _require_string_field(
+        self,
+        body: dict[str, Any],
+        field_name: str,
+        *,
+        allow_empty: bool = False,
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate that a body field is a string."""
+        value = body.get(field_name)
+        if not isinstance(value, str):
+            return None, error_response(f"'{field_name}' field required and must be a string", 400)
+        if not allow_empty and not value.strip():
+            return None, error_response(
+                f"'{field_name}' field required and must be a non-empty string",
+                400,
+            )
+        return value, None
+
+    def _optional_bool_field(
+        self,
+        body: dict[str, Any],
+        field_name: str,
+        default: bool,
+    ) -> tuple[bool, HandlerResult | None]:
+        """Validate an optional boolean field."""
+        value = body.get(field_name, default)
+        if not isinstance(value, bool):
+            return default, error_response(f"'{field_name}' must be a boolean", 400)
+        return value, None
+
+    def _optional_int_field(
+        self,
+        body: dict[str, Any],
+        field_name: str,
+        default: int,
+        *,
+        min_value: int | None = None,
+        max_value: int | None = None,
+    ) -> tuple[int, HandlerResult | None]:
+        """Validate an optional integer field."""
+        value = body.get(field_name, default)
+        if type(value) is not int:
+            return default, error_response(f"'{field_name}' must be an integer", 400)
+        if min_value is not None and value < min_value:
+            return default, error_response(f"'{field_name}' must be at least {min_value}", 400)
+        if max_value is not None and value > max_value:
+            return default, error_response(f"'{field_name}' must be at most {max_value}", 400)
+        return value, None
+
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
         if path in self.ROUTES:
@@ -457,28 +544,38 @@ class RLMContextHandler(BaseHandler):
             compression_result: dict - Statistics about the compression
         """
         # Read request body
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Request body required", 400)
+        body, body_error = self._read_json_object_body(
+            handler, required_message="Request body required"
+        )
+        if body_error:
+            return body_error
 
-        content = body.get("content")
-        if not content or not isinstance(content, str):
-            return error_response("'content' field required and must be a string", 400)
+        content, content_error = self._require_string_field(body, "content")
+        if content_error:
+            return content_error
 
         # Validate content size
         if len(content) > 10_000_000:  # 10MB limit
             return error_response("Content too large (max 10MB)", 413)
 
         source_type = body.get("source_type", "text")
+        if not isinstance(source_type, str):
+            return error_response("'source_type' must be a string", 400)
         if source_type not in ("text", "code", "debate"):
             return error_response(
                 "Invalid source_type. Must be 'text', 'code', or 'debate'",
                 400,
             )
 
-        levels = body.get("levels", 4)
-        if not isinstance(levels, int) or levels < 1 or levels > 5:
-            return error_response("'levels' must be an integer between 1 and 5", 400)
+        levels, levels_error = self._optional_int_field(
+            body,
+            "levels",
+            4,
+            min_value=1,
+            max_value=5,
+        )
+        if levels_error:
+            return levels_error
 
         compressor = self._get_compressor()
         if compressor is None:
@@ -577,17 +674,18 @@ class RLMContextHandler(BaseHandler):
             metadata: dict - Query execution metadata
         """
         # Read request body
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Request body required", 400)
+        body, body_error = self._read_json_object_body(
+            handler, required_message="Request body required"
+        )
+        if body_error:
+            return body_error
 
-        context_id = body.get("context_id")
-        query = body.get("query")
-
-        if not context_id:
-            return error_response("'context_id' field required", 400)
-        if not query or not isinstance(query, str):
-            return error_response("'query' field required and must be a string", 400)
+        context_id, context_id_error = self._require_string_field(body, "context_id")
+        if context_id_error:
+            return context_id_error
+        query, query_error = self._require_string_field(body, "query")
+        if query_error:
+            return query_error
 
         # Validate query length
         if len(query) > 10000:
@@ -601,6 +699,8 @@ class RLMContextHandler(BaseHandler):
         context = context_data["context"]
 
         strategy = body.get("strategy", "auto")
+        if not isinstance(strategy, str):
+            return error_response("'strategy' must be a string", 400)
         valid_strategies = ["peek", "grep", "partition_map", "summarize", "hierarchical", "auto"]
         if strategy not in valid_strategies:
             return error_response(
@@ -608,10 +708,18 @@ class RLMContextHandler(BaseHandler):
                 400,
             )
 
-        refine = body.get("refine", False)
-        max_iterations = body.get("max_iterations", 3)
-        if not isinstance(max_iterations, int) or max_iterations < 1 or max_iterations > 10:
-            max_iterations = 3
+        refine, refine_error = self._optional_bool_field(body, "refine", False)
+        if refine_error:
+            return refine_error
+        max_iterations, max_iterations_error = self._optional_int_field(
+            body,
+            "max_iterations",
+            3,
+            min_value=1,
+            max_value=10,
+        )
+        if max_iterations_error:
+            return max_iterations_error
 
         rlm = self._get_rlm()
         if rlm is None:
@@ -866,8 +974,11 @@ class RLMContextHandler(BaseHandler):
                 return None
 
             raw_body = handler.rfile.read(content_length)
-            return json.loads(raw_body.decode("utf-8"))
-        except (json.JSONDecodeError, ValueError, AttributeError) as e:
+            body = json.loads(raw_body.decode("utf-8"))
+            if not isinstance(body, dict):
+                return None
+            return body
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError, AttributeError) as e:
             logger.debug("Failed to parse JSON body: %s", e)
             return None
 
@@ -952,13 +1063,13 @@ class RLMContextHandler(BaseHandler):
         Returns:
             Streamed chunks with content at different abstraction levels.
         """
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("JSON body required", 400)
+        body, body_error = self._read_json_object_body(handler)
+        if body_error:
+            return body_error
 
-        context_id = body.get("context_id")
-        if not context_id:
-            return error_response("'context_id' field required", 400)
+        context_id, context_id_error = self._require_string_field(body, "context_id")
+        if context_id_error:
+            return context_id_error
 
         if context_id not in self._contexts:
             return error_response(f"Context not found: {context_id}", 404)
@@ -968,10 +1079,35 @@ class RLMContextHandler(BaseHandler):
 
         # Parse streaming configuration
         mode_str = body.get("mode", "top_down")
+        if not isinstance(mode_str, str):
+            return error_response("'mode' must be a string", 400)
         query = body.get("query")
         level = body.get("level")
-        chunk_size = body.get("chunk_size", 500)
-        include_metadata = body.get("include_metadata", True)
+        if query is not None:
+            if not isinstance(query, str):
+                return error_response("'query' must be a string when provided", 400)
+            if not query.strip():
+                return error_response("'query' must be a non-empty string when provided", 400)
+        if level is not None:
+            if not isinstance(level, str):
+                return error_response("'level' must be a string when provided", 400)
+            if not level.strip():
+                return error_response("'level' must be a non-empty string when provided", 400)
+        chunk_size, chunk_size_error = self._optional_int_field(
+            body,
+            "chunk_size",
+            500,
+            min_value=1,
+        )
+        if chunk_size_error:
+            return chunk_size_error
+        include_metadata, include_metadata_error = self._optional_bool_field(
+            body,
+            "include_metadata",
+            True,
+        )
+        if include_metadata_error:
+            return include_metadata_error
 
         try:
             from aragora.rlm.streaming import (
@@ -987,7 +1123,12 @@ class RLMContextHandler(BaseHandler):
                 "targeted": StreamMode.TARGETED,
                 "progressive": StreamMode.PROGRESSIVE,
             }
-            mode = mode_map.get(mode_str, StreamMode.TOP_DOWN)
+            if mode_str not in mode_map:
+                return error_response(
+                    "Invalid mode. Must be one of: top_down, bottom_up, targeted, progressive",
+                    400,
+                )
+            mode = mode_map[mode_str]
 
             # Create streaming config
             config = StreamConfig(
