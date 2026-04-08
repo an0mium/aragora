@@ -644,6 +644,40 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             logger.error("Failed to get mayor info: %s", e)
             return error_response(safe_error_message(e, "mayor info"), 500)
 
+    def _read_json_object_body(self, handler: Any) -> tuple[dict[str, Any], HandlerResult | None]:
+        """Read a JSON request body and require an object payload."""
+        body = self.read_json_body(handler)
+        if body is None:
+            return {}, None
+        if not isinstance(body, dict):
+            return {}, error_response("Request body must be a JSON object", 400)
+        return body, None
+
+    def _validate_optional_bool_field(
+        self, body: dict[str, Any], field_name: str
+    ) -> HandlerResult | None:
+        """Validate an optional boolean request field."""
+        if field_name in body and not isinstance(body[field_name], bool):
+            return error_response(f"{field_name} must be a boolean", 400)
+        return None
+
+    def _validate_optional_string_field(
+        self, body: dict[str, Any], field_name: str
+    ) -> HandlerResult | None:
+        """Validate an optional string request field."""
+        if field_name in body and not isinstance(body[field_name], str):
+            return error_response(f"{field_name} must be a string", 400)
+        return None
+
+    def _require_non_empty_string_field(
+        self, body: dict[str, Any], field_name: str
+    ) -> tuple[str | None, HandlerResult | None]:
+        """Validate a required non-empty string request field."""
+        value = body.get(field_name)
+        if not isinstance(value, str) or not value.strip():
+            return None, error_response(f"{field_name} must be a non-empty string", 400)
+        return value.strip(), None
+
     # =========================================================================
     # POST Handlers - Control Operations
     # =========================================================================
@@ -659,11 +693,24 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
         Requires nomic:admin permission (enforced by @require_permission decorator).
         """
         if path == "/api/v1/nomic/control/start":
-            body = self.read_json_body(handler) or {}
+            body, error = self._read_json_object_body(handler)
+            if error:
+                return error
+            error = self._validate_optional_bool_field(body, "auto_approve")
+            if error:
+                return error
+            error = self._validate_optional_bool_field(body, "dry_run")
+            if error:
+                return error
             return self._start_nomic_loop(body)
 
         if path == "/api/v1/nomic/control/stop":
-            body = self.read_json_body(handler) or {}
+            body, error = self._read_json_object_body(handler)
+            if error:
+                return error
+            error = self._validate_optional_bool_field(body, "graceful")
+            if error:
+                return error
             return self._stop_nomic_loop(body)
 
         if path == "/api/v1/nomic/control/pause":
@@ -676,11 +723,15 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             return self._skip_phase()
 
         if path == "/api/v1/nomic/proposals/approve":
-            body = self.read_json_body(handler) or {}
+            body, error = self._read_json_object_body(handler)
+            if error:
+                return error
             return self._approve_proposal(body)
 
         if path == "/api/v1/nomic/proposals/reject":
-            body = self.read_json_body(handler) or {}
+            body, error = self._read_json_object_body(handler)
+            if error:
+                return error
             return self._reject_proposal(body)
 
         return None
@@ -719,7 +770,7 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
             # Ensure positive bounds (bounded integer prevents overflow/DoS)
             cycles = max(1, min(cycles, 100))  # Cap at 100 cycles
             max_cycles = max(1, min(max_cycles, 100))
-            auto_approve = bool(body.get("auto_approve", False))
+            auto_approve = body.get("auto_approve", False)
 
             # Security check: verify all subprocess args are bounded integers
             if not isinstance(cycles, int) or not (1 <= cycles <= 100):
@@ -1124,9 +1175,12 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
         if not nomic_dir:
             return error_response("Nomic directory not configured", 503)
 
-        proposal_id = body.get("proposal_id")
-        if not proposal_id:
-            return error_response("proposal_id is required", 400)
+        proposal_id, error = self._require_non_empty_string_field(body, "proposal_id")
+        if error:
+            return error
+        error = self._validate_optional_string_field(body, "approved_by")
+        if error:
+            return error
 
         try:
             proposals_file = nomic_dir / "proposals.json"
@@ -1191,9 +1245,15 @@ class NomicHandler(SecureEndpointMixin, SecureHandler):  # type: ignore[misc]  #
         if not nomic_dir:
             return error_response("Nomic directory not configured", 503)
 
-        proposal_id = body.get("proposal_id")
-        if not proposal_id:
-            return error_response("proposal_id is required", 400)
+        proposal_id, error = self._require_non_empty_string_field(body, "proposal_id")
+        if error:
+            return error
+        error = self._validate_optional_string_field(body, "rejected_by")
+        if error:
+            return error
+        error = self._validate_optional_string_field(body, "reason")
+        if error:
+            return error
 
         try:
             proposals_file = nomic_dir / "proposals.json"
