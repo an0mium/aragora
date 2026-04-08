@@ -4098,6 +4098,42 @@ def test_published_deliverable_helpers_require_boolean_success_flag() -> None:
     assert worker_result["outcome"] == "blocked"
 
 
+def test_postprocess_promotes_existing_pr_deliverable() -> None:
+    loop = BossLoop(
+        config=BossLoopConfig(
+            repo="synaptent/aragora",
+            auto_publish_deliverables=True,
+        )
+    )
+    issue = _make_issue(number=46)
+    pr_url = "https://github.com/synaptent/aragora/pull/2046"
+    worker_result = {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "deliverable": {
+            "type": "pr",
+            "pr_url": pr_url,
+        },
+    }
+
+    with (
+        patch.object(loop, "_maybe_comment_published_deliverable", return_value=None),
+        patch.object(loop, "_maybe_auto_close_already_done_issue", return_value=None),
+        patch.object(loop, "_convert_pr_to_draft"),
+    ):
+        result = loop._postprocess_issue_result(issue, worker_result)
+
+    assert result["publish_result"] == {
+        "action": "existing_pr",
+        "published": True,
+        "branch": None,
+        "pr_url": pr_url,
+    }
+    assert result["status"] == "completed"
+    assert result["outcome"] == "pr_adopted"
+    assert result["receipt_metadata"]["publish_result"]["published"] is True
+
+
 @pytest.mark.asyncio
 async def test_dispatch_auto_publish_rejects_malformed_success_flag() -> None:
     issue = _make_issue(46, "Backbone malformed publish wiring")
@@ -4501,6 +4537,59 @@ class TestListOpenBossHarvestPrs:
 class TestMaybePublishDeliverable:
     """Tests for auto-publish queue capping."""
 
+    def test_reuses_existing_published_pr_for_branch_deliverable(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+                max_open_auto_publish_prs=1,
+            )
+        )
+        issue = _make_issue(number=124)
+        worker_result = {
+            "status": "needs_human",
+            "outcome": "blocked",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/issue-124",
+                "commit_shas": ["abc123"],
+            },
+            "publish_result": {
+                "published": True,
+                "action": "existing_pr",
+                "branch": "codex/issue-124",
+                "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+            },
+        }
+
+        with (
+            patch.object(loop, "_list_open_boss_harvest_prs") as mock_list_open_prs,
+            patch.object(loop, "_harvest_worker_commits_for_publish") as mock_harvest,
+            patch("aragora.swarm.tranche_integrate.publish_lane_deliverable") as mock_publish,
+        ):
+            result = loop._maybe_publish_deliverable(issue, worker_result)
+
+        assert result == {
+            "published": True,
+            "action": "existing_pr",
+            "branch": "codex/issue-124",
+            "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+        }
+        assert worker_result["deliverable"] == {
+            "type": "pr",
+            "branch": "codex/issue-124",
+            "commit_shas": ["abc123"],
+            "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+        }
+        assert worker_result["pr_url"] == "https://github.com/synaptent/aragora/pull/2046"
+        assert worker_result["pr_number"] == 2046
+        assert BossLoop._promote_published_deliverable(worker_result) is True
+        assert worker_result["status"] == "completed"
+        assert worker_result["outcome"] == "pr_adopted"
+        mock_list_open_prs.assert_not_called()
+        mock_harvest.assert_not_called()
+        mock_publish.assert_not_called()
+
     def test_defers_when_open_boss_harvest_pr_already_exists(self) -> None:
         loop = BossLoop(
             config=BossLoopConfig(
@@ -4553,6 +4642,34 @@ class TestMaybePublishDeliverable:
         }
         mock_harvest.assert_not_called()
         mock_publish.assert_not_called()
+
+    def test_existing_pr_deliverable_marks_publish_success(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+            )
+        )
+        issue = _make_issue(number=124)
+        pr_url = "https://github.com/synaptent/aragora/pull/2124"
+        worker_result = {
+            "status": "needs_human",
+            "deliverable": {
+                "type": "pr",
+                "pr_url": pr_url,
+            },
+        }
+
+        result = loop._maybe_publish_deliverable(issue, worker_result)
+
+        assert result == {
+            "action": "existing_pr",
+            "published": True,
+            "branch": None,
+            "pr_url": pr_url,
+        }
+        assert worker_result["pr_url"] == pr_url
+        assert worker_result["pr_number"] == 2124
 
 
 class TestPostprocessConvertsToDraft:
