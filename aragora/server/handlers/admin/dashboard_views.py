@@ -24,6 +24,7 @@ from ..base import (
 from ..openapi_decorator import api_endpoint
 from .dashboard_metrics import (
     ACTIVE_DEBATE_STATUSES,
+    build_debate_proof,
     find_debate_record,
     load_debate_records,
     summarize_debate_records,
@@ -295,6 +296,9 @@ class DashboardViewsMixin:
                 detail["rounds_used"] = record["rounds_used"]
             if record.get("duration_seconds") is not None:
                 detail["duration_seconds"] = round(float(record["duration_seconds"]), 3)
+            proof = build_debate_proof(record)
+            if proof:
+                detail["proof"] = proof
             return json_response(detail)
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Dashboard debate detail error: %s: %s", type(e).__name__, e)
