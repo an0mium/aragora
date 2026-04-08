@@ -106,7 +106,10 @@ class IdeaCanvasHandler(SecureHandler):
         )
 
         workspace_id = query_params.get("workspace_id") or workspace_id
-        body = self._get_request_body(handler)
+        try:
+            body = self._get_request_body(handler)
+        except ValueError as e:
+            return error_response(str(e), 400)
 
         try:
             return self._route_request(
@@ -124,14 +127,112 @@ class IdeaCanvasHandler(SecureHandler):
             return error_response("Permission denied", 403)
 
     def _get_request_body(self, handler: Any) -> dict[str, Any]:
-        try:
-            if hasattr(handler, "request") and hasattr(handler.request, "body"):
-                raw = handler.request.body
-                if raw:
-                    return json.loads(raw.decode("utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError) as e:
-            logger.debug("Failed to parse request body: %s", e)
+        if hasattr(handler, "request") and hasattr(handler.request, "body"):
+            raw = handler.request.body
+            if not raw:
+                return {}
+            try:
+                decoded = raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)
+            except UnicodeDecodeError as e:
+                logger.debug("Failed to decode request body: %s", e)
+                raise ValueError("Request body must be valid UTF-8 JSON") from e
+            if not decoded.strip():
+                return {}
+            try:
+                body = json.loads(decoded)
+            except json.JSONDecodeError as e:
+                logger.debug("Failed to parse request body: %s", e)
+                raise ValueError("Request body must be valid JSON") from e
+            if not isinstance(body, dict):
+                raise ValueError("Request body must be a JSON object")
+            return body
         return {}
+
+    def _validate_optional_string(
+        self,
+        body: dict[str, Any],
+        field: str,
+        *,
+        allow_empty: bool = True,
+    ) -> str | None:
+        if field not in body:
+            return None
+        value = body[field]
+        if not isinstance(value, str):
+            raise ValueError(f"{field} must be a string")
+        if not allow_empty and not value.strip():
+            raise ValueError(f"{field} must be a non-empty string")
+        return value
+
+    def _validate_required_string(self, value: Any, field: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{field} must be a non-empty string")
+        return value
+
+    def _validate_optional_object(
+        self,
+        body: dict[str, Any],
+        field: str,
+    ) -> dict[str, Any] | None:
+        if field not in body:
+            return None
+        value = body[field]
+        if not isinstance(value, dict):
+            raise ValueError(f"{field} must be an object")
+        return value
+
+    def _validate_number(self, value: Any, field: str) -> float:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"{field} must be a number")
+        return float(value)
+
+    def _validate_position(self, body: dict[str, Any]) -> dict[str, float]:
+        if "position" not in body:
+            return {"x": 0.0, "y": 0.0}
+        position = body["position"]
+        if not isinstance(position, dict):
+            raise ValueError("position must be an object")
+        return {
+            "x": self._validate_number(position.get("x", 0), "position.x"),
+            "y": self._validate_number(position.get("y", 0), "position.y"),
+        }
+
+    def _validate_required_string_list(
+        self,
+        body: dict[str, Any],
+        field: str,
+    ) -> list[str]:
+        value = body.get(field)
+        if not isinstance(value, list) or not value:
+            raise ValueError(f"{field} must be a non-empty array of strings")
+        result: list[str] = []
+        for index, item in enumerate(value):
+            if not isinstance(item, str) or not item.strip():
+                raise ValueError(f"{field}[{index}] must be a non-empty string")
+            result.append(item)
+        return result
+
+    def _validate_int_param(
+        self,
+        query_params: dict[str, Any],
+        field: str,
+        *,
+        default: int,
+        min_value: int,
+        max_value: int | None = None,
+    ) -> int:
+        raw = query_params.get(field)
+        if raw is None:
+            return default
+        try:
+            value = int(raw)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"{field} must be an integer") from e
+        if value < min_value:
+            raise ValueError(f"{field} must be at least {min_value}")
+        if max_value is not None and value > max_value:
+            raise ValueError(f"{field} must be at most {max_value}")
+        return value
 
     def _route_request(
         self,
@@ -249,12 +350,28 @@ class IdeaCanvasHandler(SecureHandler):
         workspace_id: str | None,
     ) -> HandlerResult:
         try:
+            limit = self._validate_int_param(
+                query_params,
+                "limit",
+                default=100,
+                min_value=1,
+                max_value=1000,
+            )
+            offset = self._validate_int_param(
+                query_params,
+                "offset",
+                default=0,
+                min_value=0,
+            )
+        except ValueError as e:
+            return error_response(str(e), 400)
+        try:
             store = self._get_store()
             canvases = store.list_canvases(
                 workspace_id=query_params.get("workspace_id") or workspace_id,
                 owner_id=query_params.get("owner_id") or user_id,
-                limit=max(1, min(int(query_params.get("limit", 100)), 1000)),
-                offset=max(0, int(query_params.get("offset", 0))),
+                limit=limit,
+                offset=offset,
             )
             return json_response({"canvases": canvases, "count": len(canvases)})
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
@@ -270,15 +387,24 @@ class IdeaCanvasHandler(SecureHandler):
         workspace_id: str | None,
     ) -> HandlerResult:
         try:
+            canvas_id = self._validate_optional_string(body, "id", allow_empty=False)
+            name = (
+                self._validate_optional_string(body, "name", allow_empty=False) or "Untitled Ideas"
+            )
+            description = self._validate_optional_string(body, "description") or ""
+            metadata = self._validate_optional_object(body, "metadata") or {"stage": "ideas"}
+        except ValueError as e:
+            return error_response(str(e), 400)
+        try:
             store = self._get_store()
-            canvas_id = body.get("id") or f"ideas-{uuid.uuid4().hex[:8]}"
+            canvas_id = canvas_id or f"ideas-{uuid.uuid4().hex[:8]}"
             result = store.save_canvas(
                 canvas_id=canvas_id,
-                name=body.get("name", "Untitled Ideas"),
+                name=name,
                 owner_id=user_id,
                 workspace_id=workspace_id,
-                description=body.get("description", ""),
-                metadata=body.get("metadata", {"stage": "ideas"}),
+                description=description,
+                metadata=metadata,
             )
             return json_response(result, status=201)
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
@@ -321,13 +447,24 @@ class IdeaCanvasHandler(SecureHandler):
         body: dict[str, Any],
         user_id: str | None,
     ) -> HandlerResult:
+        if not any(field in body for field in ("name", "description", "metadata")):
+            return error_response(
+                "At least one of name, description, or metadata is required",
+                400,
+            )
+        try:
+            name = self._validate_optional_string(body, "name", allow_empty=False)
+            description = self._validate_optional_string(body, "description")
+            metadata = self._validate_optional_object(body, "metadata")
+        except ValueError as e:
+            return error_response(str(e), 400)
         try:
             store = self._get_store()
             result = store.update_canvas(
                 canvas_id=canvas_id,
-                name=body.get("name"),
-                description=body.get("description"),
-                metadata=body.get("metadata"),
+                name=name,
+                description=description,
+                metadata=metadata,
             )
             if not result:
                 return error_response("Idea canvas not found", 404)
@@ -366,24 +503,31 @@ class IdeaCanvasHandler(SecureHandler):
         user_id: str | None,
     ) -> HandlerResult:
         try:
+            label = self._validate_optional_string(body, "label") or ""
+            idea_type = (
+                self._validate_optional_string(body, "idea_type", allow_empty=False) or "concept"
+            )
+            data = self._validate_optional_object(body, "data") or {}
+            position_values = self._validate_position(body)
+        except ValueError as e:
+            return error_response(str(e), 400)
+        try:
             from aragora.canvas import CanvasNodeType, Position
             from aragora.canvas.stages import IdeaNodeType
 
             manager = self._get_canvas_manager()
 
-            idea_type = body.get("idea_type", "concept")
             try:
                 IdeaNodeType(idea_type)
             except ValueError:
                 return error_response(f"Invalid idea type: {idea_type}", 400)
 
-            pos_data = body.get("position", {})
             position = Position(
-                x=float(pos_data.get("x", 0)),
-                y=float(pos_data.get("y", 0)),
+                x=position_values["x"],
+                y=position_values["y"],
             )
 
-            data = body.get("data", {})
+            data = dict(data)
             data["idea_type"] = idea_type
             data["stage"] = "ideas"
             data["rf_type"] = "ideaNode"
@@ -393,7 +537,7 @@ class IdeaCanvasHandler(SecureHandler):
                     canvas_id=canvas_id,
                     node_type=CanvasNodeType.KNOWLEDGE,
                     position=position,
-                    label=body.get("label", ""),
+                    label=label,
                     data=data,
                     user_id=user_id,
                 )
@@ -414,18 +558,25 @@ class IdeaCanvasHandler(SecureHandler):
         body: dict[str, Any],
         user_id: str | None,
     ) -> HandlerResult:
+        if not any(field in body for field in ("position", "label", "data")):
+            return error_response("At least one of position, label, or data is required", 400)
+        try:
+            label = self._validate_optional_string(body, "label")
+            data = self._validate_optional_object(body, "data")
+            position_values = self._validate_position(body) if "position" in body else None
+        except ValueError as e:
+            return error_response(str(e), 400)
         try:
             from aragora.canvas import Position
 
             manager = self._get_canvas_manager()
             updates: dict[str, Any] = {}
-            if "position" in body:
-                p = body["position"]
-                updates["position"] = Position(x=float(p.get("x", 0)), y=float(p.get("y", 0)))
-            if "label" in body:
-                updates["label"] = body["label"]
-            if "data" in body:
-                updates["data"] = body["data"]
+            if position_values is not None:
+                updates["position"] = Position(x=position_values["x"], y=position_values["y"])
+            if label is not None:
+                updates["label"] = label
+            if data is not None:
+                updates["data"] = data
 
             node = self._run_async(
                 manager.update_node(
@@ -473,19 +624,29 @@ class IdeaCanvasHandler(SecureHandler):
         user_id: str | None,
     ) -> HandlerResult:
         try:
+            source_id = self._validate_required_string(
+                body.get("source_id") or body.get("source"),
+                "source_id",
+            )
+            target_id = self._validate_required_string(
+                body.get("target_id") or body.get("target"),
+                "target_id",
+            )
+            edge_type_str = (
+                self._validate_optional_string(body, "type", allow_empty=False) or "default"
+            )
+            label = self._validate_optional_string(body, "label") or ""
+            data = self._validate_optional_object(body, "data") or {}
+        except ValueError as e:
+            return error_response(str(e), 400)
+        try:
             from aragora.canvas import EdgeType
 
             manager = self._get_canvas_manager()
-            source_id = body.get("source_id") or body.get("source")
-            target_id = body.get("target_id") or body.get("target")
-            if not source_id or not target_id:
-                return error_response("source_id and target_id are required", 400)
-
-            edge_type_str = body.get("type", "default")
             try:
                 edge_type = EdgeType(edge_type_str)
             except ValueError:
-                edge_type = EdgeType.DEFAULT
+                return error_response(f"Invalid edge type: {edge_type_str}", 400)
 
             edge = self._run_async(
                 manager.add_edge(
@@ -493,8 +654,8 @@ class IdeaCanvasHandler(SecureHandler):
                     source_id=source_id,
                     target_id=target_id,
                     edge_type=edge_type,
-                    label=body.get("label", ""),
-                    data=body.get("data", {}),
+                    label=label,
+                    data=data,
                     user_id=user_id,
                 )
             )
@@ -555,16 +716,16 @@ class IdeaCanvasHandler(SecureHandler):
         user_id: str | None,
     ) -> HandlerResult:
         try:
+            node_ids = self._validate_required_string_list(body, "node_ids")
+        except ValueError as e:
+            return error_response(str(e), 400)
+        try:
             from aragora.canvas.promotion import promote_ideas_to_goals
 
             manager = self._get_canvas_manager()
             canvas = self._run_async(manager.get_canvas(canvas_id))
             if not canvas:
                 return error_response("Canvas not found", 404)
-
-            node_ids = body.get("node_ids", [])
-            if not node_ids:
-                return error_response("node_ids is required", 400)
 
             goals_canvas, provenance = promote_ideas_to_goals(
                 canvas,
