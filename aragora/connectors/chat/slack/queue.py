@@ -172,10 +172,10 @@ class SlackMessageQueueStore:
                 ),
             )
             conn.commit()
-            return True
-        except (OSError, ValueError, RuntimeError) as e:
-            logger.error("Failed to insert message: %s", e)
-            return False
+        except Exception:
+            logger.exception("Failed to insert message %s into the Slack queue", message.id)
+            raise
+        return True
 
     def get_pending(self, limit: int = 100) -> list[QueuedMessage]:
         """Get messages ready for retry."""
@@ -427,7 +427,8 @@ class SlackMessageQueue:
             metadata=metadata or {},
         )
 
-        self._store.insert(message)
+        if not self._store.insert(message):
+            raise RuntimeError(f"Failed to enqueue Slack message {message_id}")
         logger.info("Enqueued message %s for %s/%s", message_id, workspace_id, channel_id)
 
         return message_id
