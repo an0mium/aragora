@@ -56,6 +56,16 @@ logger = logging.getLogger(__name__)
 # Voice stream configuration with bounds validation
 
 
+def _parse_auto_synthesize(value: object) -> bool:
+    """Parse auto_synthesize values without treating arbitrary strings as truthy."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        return normalized in {"true", "1", "yes", "on"}
+    return bool(value)
+
+
 def _clamp_with_warning(name: str, raw_value: int, min_val: int, max_val: int) -> int:
     """Clamp value to bounds and log warning if out of range."""
     if raw_value < min_val or raw_value > max_val:
@@ -425,7 +435,7 @@ class VoiceStreamHandler:
                 session.language = msg.get("language", "")
                 # Enable/disable auto-synthesis of agent responses
                 if "auto_synthesize" in msg:
-                    session.auto_synthesize = bool(msg["auto_synthesize"])
+                    session.auto_synthesize = _parse_auto_synthesize(msg["auto_synthesize"])
                 # Voice map for specific agents
                 if "voice_map" in msg and isinstance(msg["voice_map"], dict):
                     session.tts_voice_map.update(msg["voice_map"])
