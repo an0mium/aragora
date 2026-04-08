@@ -1,8 +1,10 @@
 """Session registry for multi-agent coordination.
 
 Each agent session writes a JSON registration file on startup.  Other agents
-discover peers by reading the registry directory.  Stale sessions are detected
-via PID liveness checks (``os.kill(pid, 0)``).
+discover peers by reading the registry directory.  Session health is determined
+by both PID liveness and heartbeat freshness.  Sessions with stale heartbeats
+are treated separately from dead PIDs so coordination surfaces can report the
+difference truthfully while still reaping abandoned state.
 
 Usage::
 
@@ -67,7 +69,7 @@ class SessionInfo:
         )
 
     @property
-    def is_alive(self) -> bool:
+    def pid_alive(self) -> bool:
         """Check if the session's PID is still running."""
         if self.pid <= 0:
             return False
@@ -80,13 +82,18 @@ class SessionInfo:
             return True
         return True
 
+    @property
+    def is_alive(self) -> bool:
+        """Backward-compatible alias for process liveness."""
+        return self.pid_alive
+
 
 class SessionRegistry:
     """File-backed registry of active agent sessions.
 
     Sessions are stored as ``{agent}-{short_id}.json`` files in
     ``.aragora_coordination/sessions/``.  Discovery is a directory read.
-    Stale sessions (dead PID) are auto-reaped on discover().
+    Stale sessions (dead PID or missed heartbeat) are auto-reaped on discover().
     """
 
     def __init__(
@@ -112,6 +119,66 @@ class SessionRegistry:
             return SessionInfo.from_dict(data)
         except (json.JSONDecodeError, KeyError, TypeError):
             return None
+
+    def _heartbeat_age_seconds(self, session: SessionInfo, *, now: float | None = None) -> float:
+        current = time.time() if now is None else now
+        return max(0.0, current - session.last_heartbeat)
+
+    def _heartbeat_stale(self, session: SessionInfo, *, now: float | None = None) -> bool:
+        if self._stale_timeout <= 0:
+            return False
+        return self._heartbeat_age_seconds(session, now=now) >= float(self._stale_timeout)
+
+    def session_state(self, session: SessionInfo, *, now: float | None = None) -> str:
+        """Return ``active``, ``stale``, or ``dead`` for the given session."""
+        if not session.pid_alive:
+            return "dead"
+        if self._heartbeat_stale(session, now=now):
+            return "stale"
+        return "active"
+
+    def describe(self, session: SessionInfo, *, now: float | None = None) -> dict[str, object]:
+        """Return a truthfully annotated session payload for reporting."""
+        current = time.time() if now is None else now
+        status = self.session_state(session, now=current)
+        data = session.to_dict()
+        data.update(
+            {
+                "pid_alive": session.pid_alive,
+                "heartbeat_stale": status == "stale",
+                "heartbeat_age_seconds": round(
+                    self._heartbeat_age_seconds(session, now=current), 2
+                ),
+                "status": status,
+            }
+        )
+        return data
+
+    def reap_abandoned(self) -> list[dict[str, object]]:
+        """Remove and describe sessions that are stale or dead."""
+        if not self._sessions_dir.exists():
+            return []
+
+        current = time.time()
+        reaped: list[dict[str, object]] = []
+        for path in sorted(self._sessions_dir.glob("*.json")):
+            session = self._load_session(path)
+            if session is None:
+                logger.debug("skipping_corrupt_session path=%s", path)
+                continue
+            status = self.session_state(session, now=current)
+            if status == "active":
+                continue
+            path.unlink(missing_ok=True)
+            described = self.describe(session, now=current)
+            reaped.append(described)
+            logger.info(
+                "session_reaped id=%s pid=%d status=%s",
+                session.session_id,
+                session.pid,
+                status,
+            )
+        return reaped
 
     def register(
         self,
@@ -180,22 +247,29 @@ class SessionRegistry:
             reap_stale: If True, remove registrations for dead PIDs.
 
         Returns:
-            List of live sessions.
+            List of active sessions with fresh heartbeats.
         """
         if not self._sessions_dir.exists():
             return []
 
         sessions: list[SessionInfo] = []
+        current = time.time()
         for path in sorted(self._sessions_dir.glob("*.json")):
             session = self._load_session(path)
             if session is None:
                 logger.debug("skipping_corrupt_session path=%s", path)
                 continue
 
-            if not session.is_alive:
+            status = self.session_state(session, now=current)
+            if status != "active":
                 if reap_stale:
                     path.unlink(missing_ok=True)
-                    logger.info("session_reaped id=%s pid=%d", session.session_id, session.pid)
+                    logger.info(
+                        "session_reaped id=%s pid=%d status=%s",
+                        session.session_id,
+                        session.pid,
+                        status,
+                    )
                 continue
 
             sessions.append(session)
@@ -203,7 +277,7 @@ class SessionRegistry:
         return sessions
 
     def get(self, session_id: str, *, include_dead: bool = False) -> SessionInfo | None:
-        """Get a specific session by ID, or None if not found/dead."""
+        """Get a specific session by ID, or None if not found/inactive."""
         path = self._session_path(session_id)
         if not path.exists():
             return None
@@ -211,7 +285,7 @@ class SessionRegistry:
         if session is None:
             return None
 
-        if not include_dead and not session.is_alive:
+        if not include_dead and self.session_state(session) != "active":
             return None
         return session
 

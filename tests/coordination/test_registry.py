@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 
 import pytest
 
@@ -68,6 +69,18 @@ class TestSessionInfo:
 
 
 class TestSessionRegistry:
+    @staticmethod
+    def _rewrite_heartbeat(
+        tmp_path,
+        session_id: str,
+        *,
+        last_heartbeat: float,
+    ) -> None:
+        session_path = tmp_path / ".aragora_coordination" / "sessions" / f"{session_id}.json"
+        payload = json.loads(session_path.read_text(encoding="utf-8"))
+        payload["last_heartbeat"] = last_heartbeat
+        session_path.write_text(json.dumps(payload), encoding="utf-8")
+
     def test_register_creates_file(self, tmp_path):
         reg = SessionRegistry(repo_path=tmp_path)
         session = reg.register(agent="claude", worktree="/tmp/wt1", focus="testing")
@@ -116,6 +129,21 @@ class TestSessionRegistry:
         files = list(sessions_dir.glob("*.json"))
         assert len(files) == 1
 
+    def test_discover_reaps_stale_sessions_even_if_pid_is_alive(self, tmp_path):
+        reg = SessionRegistry(repo_path=tmp_path, stale_timeout_seconds=1)
+        session = reg.register(agent="alive", worktree="/tmp/wt1", pid=os.getpid())
+        self._rewrite_heartbeat(
+            tmp_path,
+            session.session_id,
+            last_heartbeat=time.time() - 10,
+        )
+
+        sessions = reg.discover(reap_stale=True)
+
+        assert sessions == []
+        sessions_dir = tmp_path / ".aragora_coordination" / "sessions"
+        assert list(sessions_dir.glob("*.json")) == []
+
     def test_discover_empty(self, tmp_path):
         reg = SessionRegistry(repo_path=tmp_path)
         assert reg.discover() == []
@@ -162,6 +190,49 @@ class TestSessionRegistry:
         assert found is not None
         assert found.session_id == session.session_id
         assert found.is_alive is False
+
+    def test_get_returns_none_for_stale_live_session(self, tmp_path):
+        reg = SessionRegistry(repo_path=tmp_path, stale_timeout_seconds=1)
+        session = reg.register(agent="alive", worktree="/tmp/wt1", pid=os.getpid())
+        self._rewrite_heartbeat(
+            tmp_path,
+            session.session_id,
+            last_heartbeat=time.time() - 10,
+        )
+
+        assert reg.get(session.session_id) is None
+
+        found = reg.get(session.session_id, include_dead=True)
+        assert found is not None
+        assert found.session_id == session.session_id
+        assert found.pid_alive is True
+        assert reg.session_state(found) == "stale"
+
+    def test_describe_distinguishes_stale_heartbeat_from_dead_pid(self, tmp_path):
+        reg = SessionRegistry(repo_path=tmp_path, stale_timeout_seconds=1)
+        stale = reg.register(agent="alive", worktree="/tmp/wt1", pid=os.getpid())
+        dead = reg.register(agent="dead", worktree="/tmp/wt2", pid=999999999)
+        self._rewrite_heartbeat(
+            tmp_path,
+            stale.session_id,
+            last_heartbeat=time.time() - 10,
+        )
+
+        stale_info = reg.get(stale.session_id, include_dead=True)
+        dead_info = reg.get(dead.session_id, include_dead=True)
+
+        assert stale_info is not None
+        assert dead_info is not None
+
+        stale_desc = reg.describe(stale_info)
+        dead_desc = reg.describe(dead_info)
+
+        assert stale_desc["status"] == "stale"
+        assert stale_desc["pid_alive"] is True
+        assert stale_desc["heartbeat_stale"] is True
+        assert dead_desc["status"] == "dead"
+        assert dead_desc["pid_alive"] is False
+        assert dead_desc["heartbeat_stale"] is False
 
     def test_get_missing_returns_none(self, tmp_path):
         reg = SessionRegistry(repo_path=tmp_path)

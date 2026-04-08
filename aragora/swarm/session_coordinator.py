@@ -176,16 +176,20 @@ def read_directives(repo_root: Path | None = None, *, findings_limit: int = 10) 
     root = _coord_repo_root(repo_root)
     board = DirectiveBoard(repo_path=root)
     registry = SessionRegistry(repo_path=root)
+    claims_manager = ClaimManager(repo_path=root)
 
-    for directive in board.list():
-        session = registry.get(directive.target, include_dead=True)
-        if session is not None and not session.is_alive:
-            board.clear(directive.target)
+    reaped_sessions = registry.reap_abandoned()
+    for session in reaped_sessions:
+        session_id = str(session.get("session_id") or "")
+        session["directive_cleared"] = board.clear(session_id) if session_id else False
+        session["claims_released"] = claims_manager.release(session_id) if session_id else 0
 
     directives = [item.to_dict() for item in board.list()]
-    sessions = [item.to_dict() for item in registry.discover()]
-    claims = [item.to_dict() for item in ClaimManager(repo_path=root).list_all()]
+    sessions = [registry.describe(item) for item in registry.discover()]
+    claims = [item.to_dict() for item in claims_manager.list_all()]
     findings = list_findings(limit=findings_limit, repo_root=root)
+    stale_session_count = sum(1 for item in reaped_sessions if item.get("status") == "stale")
+    dead_session_count = sum(1 for item in reaped_sessions if item.get("status") == "dead")
     return {
         "repo_root": str(root),
         "summary": {
@@ -193,11 +197,15 @@ def read_directives(repo_root: Path | None = None, *, findings_limit: int = 10) 
             "session_count": len(sessions),
             "claim_count": len(claims),
             "finding_count": len(findings),
+            "reaped_session_count": len(reaped_sessions),
+            "stale_session_count": stale_session_count,
+            "dead_session_count": dead_session_count,
         },
         "directives": directives,
         "sessions": sessions,
         "claims": claims,
         "findings": findings,
+        "reaped_sessions": reaped_sessions,
     }
 
 
