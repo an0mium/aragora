@@ -8,6 +8,7 @@ Extracted from dashboard.py for maintainability.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -20,11 +21,86 @@ from ..base import (
     ttl_cache,
 )
 from ..openapi_decorator import api_endpoint
+from .dashboard_metrics import (
+    ACTIVE_DEBATE_STATUSES,
+    load_debate_records,
+    summarize_debate_records,
+)
 
 if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _build_quick_actions(summary: dict[str, Any]) -> list[dict[str, Any]]:
+    action_specs = [
+        (
+            "review_needs_attention",
+            "Review urgent debates",
+            f"Review {summary.get('needs_attention_debates', 0)} debates lacking consensus or flagged low-confidence",
+            "alert-triangle",
+            summary.get("needs_attention_debates", 0) > 0,
+        ),
+        (
+            "resume_in_progress",
+            "Resume active debates",
+            f"Resume {summary.get('in_progress_debates', 0)} active debates still in progress",
+            "play-circle",
+            summary.get("in_progress_debates", 0) > 0,
+        ),
+        (
+            "complete_pending",
+            "Complete pending debates",
+            f"Close {summary.get('pending_debates', 0)} pending debates waiting for a final decision",
+            "check-circle",
+            summary.get("pending_debates", 0) > 0,
+        ),
+        (
+            "inspect_low_confidence",
+            "Inspect low-confidence outcomes",
+            f"Inspect {summary.get('low_confidence_debates', 0)} debates below the confidence threshold",
+            "gauge",
+            summary.get("low_confidence_debates", 0) > 0,
+        ),
+    ]
+    return [
+        {
+            "id": action_id,
+            "name": name,
+            "description": description,
+            "icon": icon,
+            "available": available,
+        }
+        for action_id, name, description, icon, available in action_specs
+    ]
+
+
+def _load_summary_with_records(
+    storage: Any,
+    summary_getter: Any,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    records = load_debate_records(storage)
+    summary = summarize_debate_records(records)
+    try:
+        summary.update(summary_getter(storage, None) or {})
+    except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
+        logger.warning("Dashboard action summary error: %s: %s", type(e).__name__, e)
+    return records, summary
+
+
+def _load_payload(raw_payload: Any) -> dict[str, Any] | None:
+    if raw_payload is None:
+        return None
+    if isinstance(raw_payload, dict):
+        return raw_payload
+    if isinstance(raw_payload, str):
+        try:
+            decoded = json.loads(raw_payload)
+            return decoded if isinstance(decoded, dict) else None
+        except json.JSONDecodeError:
+            return None
+    return None
 
 
 class DashboardActionsMixin:
@@ -44,9 +120,14 @@ class DashboardActionsMixin:
 
     ctx: dict[str, Any]
 
-    def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]: ...
-    def _get_agent_performance(self, limit: int) -> dict[str, Any]: ...
-    def _get_consensus_insights(self, domain: str | None) -> dict[str, Any]: ...
+    def _get_summary_metrics_sql(self, storage: Any, domain: str | None) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def _get_agent_performance(self, limit: int) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def _get_consensus_insights(self, domain: str | None) -> dict[str, Any]:
+        raise NotImplementedError
 
     @api_endpoint(
         method="GET",
@@ -60,50 +141,17 @@ class DashboardActionsMixin:
     )
     def _get_quick_actions(self) -> HandlerResult:
         """Return quick actions list."""
-        actions = [
-            {
-                "id": "archive_read",
-                "name": "Archive All Read",
-                "description": "Archive all read emails older than 24 hours",
-                "icon": "archive",
-                "available": True,
-            },
-            {
-                "id": "snooze_low",
-                "name": "Snooze Low Priority",
-                "description": "Snooze all low priority emails until tomorrow",
-                "icon": "clock",
-                "available": True,
-            },
-            {
-                "id": "mark_spam",
-                "name": "Mark Bulk as Spam",
-                "description": "Mark selected promotional emails as spam",
-                "icon": "slash",
-                "available": True,
-            },
-            {
-                "id": "complete_actions",
-                "name": "Complete Done Actions",
-                "description": "Mark action items you've completed",
-                "icon": "check-circle",
-                "available": True,
-            },
-            {
-                "id": "ai_respond",
-                "name": "AI Auto-Respond",
-                "description": "Let AI draft responses for simple emails",
-                "icon": "sparkles",
-                "available": True,
-            },
-            {
-                "id": "sync_inbox",
-                "name": "Sync Inbox",
-                "description": "Force sync with email provider",
-                "icon": "refresh",
-                "available": True,
-            },
-        ]
+        actions: list[dict[str, Any]] = []
+        try:
+            storage = self.get_storage()
+            if storage:
+                _, summary = _load_summary_with_records(storage, self._get_summary_metrics_sql)
+                actions = _build_quick_actions(summary)
+            else:
+                actions = _build_quick_actions({})
+        except (KeyError, ValueError, OSError, TypeError) as e:
+            logger.warning("Quick actions error: %s: %s", type(e).__name__, e)
+            actions = _build_quick_actions({})
         return json_response({"actions": actions, "total": len(actions)})
 
     @api_endpoint(
@@ -124,13 +172,37 @@ class DashboardActionsMixin:
         """Execute a quick action (stub)."""
         if not action_id:
             return error_response("action_id is required", 400)
-        return json_response(
-            {
-                "success": True,
-                "action_id": action_id,
-                "executed_at": datetime.now(timezone.utc).isoformat(),
+        try:
+            storage = self.get_storage()
+            summary: dict[str, Any] = {}
+            actions = _build_quick_actions({})
+            if storage:
+                _, summary = _load_summary_with_records(storage, self._get_summary_metrics_sql)
+                actions = _build_quick_actions(summary)
+
+            action_map = {action["id"]: action for action in actions}
+            if action_id not in action_map:
+                return error_response("Action not found", 404)
+
+            action = action_map[action_id]
+            matched_count_map = {
+                "review_needs_attention": int(summary.get("needs_attention_debates", 0)),
+                "resume_in_progress": int(summary.get("in_progress_debates", 0)),
+                "complete_pending": int(summary.get("pending_debates", 0)),
+                "inspect_low_confidence": int(summary.get("low_confidence_debates", 0)),
             }
-        )
+            return json_response(
+                {
+                    "success": True,
+                    "action_id": action_id,
+                    "matched_count": matched_count_map.get(action_id, 0),
+                    "available": bool(action.get("available")),
+                    "executed_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        except (KeyError, ValueError, OSError, TypeError) as e:
+            logger.warning("Execute quick action error: %s: %s", type(e).__name__, e)
+            return error_response("Failed to execute action", 500)
 
     @api_endpoint(
         method="GET",
@@ -149,33 +221,32 @@ class DashboardActionsMixin:
     def _get_urgent_items(self, limit: int, offset: int) -> HandlerResult:
         """Return urgent items: debates with low confidence or no consensus."""
         items: list[dict[str, Any]] = []
+        total = 0
 
         try:
             storage = self.get_storage()
             if storage:
-                with storage.connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "SELECT id, domain, confidence, created_at FROM debates "
-                        "WHERE consensus_reached = 0 OR confidence < 0.3 "
-                        "ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                        (limit, offset),
-                    )
-                    for row in cursor.fetchall():
-                        items.append(
-                            {
-                                "id": row[0],
-                                "type": "low_consensus",
-                                "domain": row[1],
-                                "confidence": row[2],
-                                "created_at": row[3],
-                                "description": f"Debate in {row[1] or 'general'} needs attention",
-                            }
-                        )
+                urgent_records = [
+                    record
+                    for record in load_debate_records(storage)
+                    if record.get("needs_attention")
+                ]
+                total = len(urgent_records)
+                items = [
+                    {
+                        "id": record.get("id"),
+                        "type": "low_consensus",
+                        "domain": record.get("domain"),
+                        "confidence": record.get("confidence"),
+                        "created_at": record.get("created_at"),
+                        "description": f"Debate in {record.get('domain_label') or 'general'} needs attention",
+                    }
+                    for record in urgent_records[max(offset, 0) : max(offset, 0) + max(limit, 0)]
+                ]
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Urgent items error: %s: %s", type(e).__name__, e)
 
-        return json_response({"items": items, "total": len(items)})
+        return json_response({"items": items, "total": total})
 
     @api_endpoint(
         method="POST",
@@ -191,22 +262,33 @@ class DashboardActionsMixin:
         },
     )
     def _dismiss_urgent_item(self, item_id: str) -> HandlerResult:
-        """Dismiss an urgent item by marking it as reviewed."""
+        """Dismiss an urgent item without mutating debate outcome fields."""
         if not item_id:
             return error_response("item_id is required", 400)
         try:
             storage = self.get_storage()
+            persisted = False
             if storage:
                 with storage.connection() as conn:
                     cursor = conn.cursor()
-                    # Mark as reviewed by setting confidence to indicate human review
-                    cursor.execute(
-                        "UPDATE debates SET consensus_reached = 1 WHERE id = ?",
-                        (item_id,),
-                    )
-                    conn.commit()
-                    if cursor.rowcount == 0:
+                    cursor.execute("SELECT * FROM debates WHERE id = ?", (item_id,))
+                    row = cursor.fetchone()
+                    if not row:
                         return error_response("Item not found", 404)
+                    columns = [str(column[0]) for column in (cursor.description or [])]
+                    row_map = dict(zip(columns, row, strict=False))
+
+                    if "artifact_json" in row_map or "result" in row_map:
+                        payload_column = "artifact_json" if "artifact_json" in row_map else "result"
+                        payload = _load_payload(row_map.get(payload_column)) or {}
+                        payload["dashboard_review_state"] = "dismissed"
+                        payload["dashboard_reviewed_at"] = datetime.now(timezone.utc).isoformat()
+                        cursor.execute(
+                            f"UPDATE debates SET {payload_column} = ? WHERE id = ?",  # noqa: S608
+                            (json.dumps(payload), item_id),
+                        )
+                        conn.commit()
+                        persisted = True
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Dismiss urgent item error: %s: %s", type(e).__name__, e)
             return error_response("Failed to dismiss item", 500)
@@ -215,6 +297,7 @@ class DashboardActionsMixin:
                 "success": True,
                 "item_id": item_id,
                 "dismissed_at": datetime.now(timezone.utc).isoformat(),
+                "persisted": persisted,
             }
         )
 
@@ -235,32 +318,31 @@ class DashboardActionsMixin:
     def _get_pending_actions(self, limit: int, offset: int) -> HandlerResult:
         """Return pending actions: recent debates awaiting review."""
         actions: list[dict[str, Any]] = []
+        total = 0
 
         try:
             storage = self.get_storage()
             if storage:
-                with storage.connection() as conn:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        "SELECT id, domain, created_at FROM debates "
-                        "WHERE status = 'pending' OR status = 'in_progress' "
-                        "ORDER BY created_at DESC LIMIT ? OFFSET ?",
-                        (limit, offset),
-                    )
-                    for row in cursor.fetchall():
-                        actions.append(
-                            {
-                                "id": row[0],
-                                "type": "review_debate",
-                                "domain": row[1],
-                                "created_at": row[2],
-                                "description": f"Review debate in {row[1] or 'general'}",
-                            }
-                        )
+                pending_records = [
+                    record
+                    for record in load_debate_records(storage)
+                    if str(record.get("status") or "") in ACTIVE_DEBATE_STATUSES
+                ]
+                total = len(pending_records)
+                actions = [
+                    {
+                        "id": record.get("id"),
+                        "type": "review_debate",
+                        "domain": record.get("domain"),
+                        "created_at": record.get("created_at"),
+                        "description": f"Review debate in {record.get('domain_label') or 'general'}",
+                    }
+                    for record in pending_records[max(offset, 0) : max(offset, 0) + max(limit, 0)]
+                ]
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Pending actions error: %s: %s", type(e).__name__, e)
 
-        return json_response({"actions": actions, "total": len(actions)})
+        return json_response({"actions": actions, "total": total})
 
     @api_endpoint(
         method="POST",
@@ -282,16 +364,49 @@ class DashboardActionsMixin:
             return error_response("action_id is required", 400)
         try:
             storage = self.get_storage()
+            persisted = False
             if storage:
                 with storage.connection() as conn:
                     cursor = conn.cursor()
-                    cursor.execute(
-                        "UPDATE debates SET status = 'completed' WHERE id = ? AND (status = 'pending' OR status = 'in_progress')",
-                        (action_id,),
-                    )
-                    conn.commit()
-                    if cursor.rowcount == 0:
+                    cursor.execute("SELECT * FROM debates WHERE id = ?", (action_id,))
+                    row = cursor.fetchone()
+                    if not row:
                         return error_response("Action not found or already completed", 404)
+
+                    columns = [str(column[0]) for column in (cursor.description or [])]
+                    row_map = dict(zip(columns, row, strict=False))
+                    payload_column = "artifact_json" if "artifact_json" in row_map else "result"
+                    payload = _load_payload(row_map.get(payload_column))
+                    current_status = (
+                        str(
+                            row_map.get("status")
+                            or (payload.get("status") if payload else "")
+                            or ""
+                        )
+                        .strip()
+                        .lower()
+                    )
+                    if current_status and current_status not in ACTIVE_DEBATE_STATUSES:
+                        return error_response("Action not found or already completed", 404)
+
+                    completed_at = datetime.now(timezone.utc).isoformat()
+                    if "status" in row_map:
+                        cursor.execute(
+                            "UPDATE debates SET status = 'completed' WHERE id = ?",
+                            (action_id,),
+                        )
+                        persisted = True
+                    elif payload_column in row_map and payload is not None:
+                        payload["status"] = "completed"
+                        payload["completed_at"] = completed_at
+                        cursor.execute(
+                            f"UPDATE debates SET {payload_column} = ? WHERE id = ?",  # noqa: S608
+                            (json.dumps(payload), action_id),
+                        )
+                        persisted = True
+
+                    if persisted:
+                        conn.commit()
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Complete action error: %s: %s", type(e).__name__, e)
             return error_response("Failed to complete action", 500)
@@ -300,6 +415,7 @@ class DashboardActionsMixin:
                 "success": True,
                 "action_id": action_id,
                 "completed_at": datetime.now(timezone.utc).isoformat(),
+                "persisted": persisted,
             }
         )
 
@@ -326,26 +442,21 @@ class DashboardActionsMixin:
         try:
             storage = self.get_storage()
             if storage:
-                with storage.connection() as conn:
-                    cursor = conn.cursor()
-                    like_query = f"%{query}%"
-                    cursor.execute(
-                        "SELECT id, domain, consensus_reached, confidence, "
-                        "created_at FROM debates "
-                        "WHERE id LIKE ? OR domain LIKE ? "
-                        "ORDER BY created_at DESC LIMIT 20",
-                        (like_query, like_query),
-                    )
-                    for row in cursor.fetchall():
-                        results.append(
-                            {
-                                "id": row[0],
-                                "domain": row[1],
-                                "consensus_reached": bool(row[2]),
-                                "confidence": row[3],
-                                "created_at": row[4],
-                            }
-                        )
+                lowered = query.lower()
+                results = [
+                    {
+                        "id": record.get("id"),
+                        "domain": record.get("domain"),
+                        "consensus_reached": bool(record.get("consensus_reached")),
+                        "confidence": record.get("confidence"),
+                        "created_at": record.get("created_at"),
+                    }
+                    for record in load_debate_records(storage)
+                    if lowered in str(record.get("id") or "").lower()
+                    or lowered in str(record.get("domain_label") or "").lower()
+                    or lowered in str(record.get("task") or "").lower()
+                    or lowered in str(record.get("status") or "").lower()
+                ][:20]
         except (KeyError, ValueError, OSError, TypeError) as e:
             logger.warning("Dashboard search error: %s: %s", type(e).__name__, e)
 
@@ -563,26 +674,33 @@ class DashboardActionsMixin:
         }
 
         try:
-            # Get from ELO system
-            elo_system = self.ctx.get("elo_system")
-            if elo_system:
-                recent = elo_system.get_recent_matches(limit=10)
-                if recent:
-                    winners = [m.get("winner") for m in recent if m.get("winner")]
-                    metrics["recent_winners"] = winners[:5]
-
-                    # Calculate avg confidence from matches
-                    confidences = [m.get("confidence", 0) for m in recent if m.get("confidence")]
-                    if confidences:
-                        metrics["avg_confidence"] = sum(confidences) / len(confidences)
-
-            # Get from storage
             storage = self.get_storage()
             if storage:
-                summary = self._get_summary_metrics_sql(storage, None)
-                if summary:
-                    metrics["consensus_rate"] = summary.get("consensus_rate", 0.0)
-                    metrics["avg_rounds"] = summary.get("avg_rounds", 0.0)
+                records, summary = _load_summary_with_records(
+                    storage, self._get_summary_metrics_sql
+                )
+                metrics["avg_confidence"] = summary.get("avg_confidence", 0.0)
+                metrics["consensus_rate"] = summary.get("consensus_rate", 0.0)
+                metrics["avg_rounds"] = summary.get("avg_rounds", 0.0)
+                metrics["evidence_quality"] = summary.get("high_confidence_consensus_rate", 0.0)
+                metrics["recent_winners"] = [
+                    str(record.get("id")) for record in records if record.get("consensus_reached")
+                ][:5]
+
+            elo_system = self.ctx.get("elo_system")
+            if elo_system and (not metrics["recent_winners"] or metrics["avg_confidence"] == 0.0):
+                recent = elo_system.get_recent_matches(limit=10)
+                if recent:
+                    if not metrics["recent_winners"]:
+                        winners = [m.get("winner") for m in recent if m.get("winner")]
+                        metrics["recent_winners"] = winners[:5]
+
+                    if metrics["avg_confidence"] == 0.0:
+                        confidences = [
+                            m.get("confidence", 0) for m in recent if m.get("confidence")
+                        ]
+                        if confidences:
+                            metrics["avg_confidence"] = sum(confidences) / len(confidences)
 
         except (KeyError, ValueError, OSError, TypeError, AttributeError) as e:
             logger.warning("Debate quality metrics error: %s", e)

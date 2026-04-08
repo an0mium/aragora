@@ -121,6 +121,8 @@ def mock_user():
 @pytest.fixture()
 def handler(store, mock_user):
     """OpenClawGatewayHandler with _get_store and get_current_user patched."""
+    store.approve_action = MagicMock(return_value=True)
+    store.deny_action = MagicMock(return_value=True)
     with (
         patch(
             "aragora.server.handlers.openclaw.orchestrator._get_store",
@@ -893,7 +895,12 @@ class TestPostAddPolicyRule:
 class TestPostApproveAction:
     """Tests for POST /approvals/:id/approve."""
 
-    def test_approve_action(self, handler, mock_http):
+    @patch("aragora.server.handlers.openclaw.policies.get_openclaw_execution_runtime")
+    def test_approve_action(self, mock_runtime_factory, handler, mock_http):
+        mock_runtime_factory.return_value.approve_action.return_value = MagicMock(
+            status=ActionStatus.COMPLETED,
+            action_id=None,
+        )
         body = {"reason": "Looks safe"}
         result = handler.handle_post(
             "/api/v1/openclaw/approvals/approval-1/approve",
@@ -917,7 +924,11 @@ class TestPostApproveAction:
 class TestPostDenyAction:
     """Tests for POST /approvals/:id/deny."""
 
-    def test_deny_action(self, handler, mock_http):
+    @patch("aragora.server.handlers.openclaw.policies.get_openclaw_execution_runtime")
+    def test_deny_action(self, mock_runtime_factory, handler, mock_http):
+        mock_runtime = mock_runtime_factory.return_value
+        mock_runtime.get_approval.return_value = MagicMock(action_id="action-1")
+        mock_runtime.deny_action.return_value = True
         body = {"reason": "Too risky"}
         result = handler.handle_post(
             "/api/v1/openclaw/approvals/approval-1/deny",

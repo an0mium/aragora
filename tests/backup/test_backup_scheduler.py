@@ -529,6 +529,33 @@ class TestBackupSchedulerExecution:
         assert stats.last_backup_status == "success"
 
     @pytest.mark.asyncio
+    async def test_backup_uses_default_source_path(self, tmp_path):
+        """Should back up the canonical debates DB when no source path is configured."""
+        default_db = tmp_path / "core.db"
+        default_db.write_text("sqlite", encoding="utf-8")
+
+        mock_metadata = MagicMock()
+        mock_metadata.id = "backup-001"
+
+        mock_verify = MagicMock()
+        mock_verify.verified = True
+
+        manager = MagicMock()
+        manager.create_backup.return_value = mock_metadata
+        manager.verify_backup.return_value = mock_verify
+        manager.cleanup_expired.return_value = 0
+
+        scheduler = BackupScheduler(backup_manager=manager)
+
+        with patch(
+            "aragora.backup.scheduler.get_default_backup_source_path",
+            return_value=default_db,
+        ):
+            await scheduler.backup_now()
+
+        manager.create_backup.assert_called_once_with(default_db)
+
+    @pytest.mark.asyncio
     async def test_failed_backup_updates_stats(self):
         """Should update failure stats on backup failure."""
         manager = MagicMock()

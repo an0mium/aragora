@@ -1,0 +1,177 @@
+name: PR Scope Classifier
+description: Shared change-scope detection for PR and push workflows.
+
+outputs:
+  review:
+    description: Reviewable code paths changed.
+    value: ${{ steps.filter.outputs.review }}
+  lint_python:
+    description: Python and workflow lint-relevant paths changed.
+    value: ${{ steps.filter.outputs.lint_python }}
+  quality:
+    description: Quality pipeline smoke paths changed.
+    value: ${{ steps.filter.outputs.quality }}
+  openapi:
+    description: OpenAPI generation or SDK contract paths changed.
+    value: ${{ steps.filter.outputs.openapi }}
+  sdk_python:
+    description: Python SDK paths changed.
+    value: ${{ steps.filter.outputs.sdk_python }}
+  sdk_typescript:
+    description: TypeScript SDK paths changed.
+    value: ${{ steps.filter.outputs.sdk_typescript }}
+  sdk_parity:
+    description: SDK parity validation paths changed.
+    value: ${{ steps.filter.outputs.sdk_parity }}
+  integration_high_risk:
+    description: High-risk integration paths changed.
+    value: ${{ steps.filter.outputs.integration_high_risk }}
+  frontend:
+    description: Frontend application paths changed.
+    value: ${{ steps.filter.outputs.frontend }}
+  smoke:
+    description: Smoke-test relevant paths changed.
+    value: ${{ steps.filter.outputs.smoke }}
+  self_host_shadow:
+    description: Self-hosted shadow CI relevant paths changed.
+    value: ${{ steps.filter.outputs.self_host_shadow }}
+  self_host_readiness:
+    description: Self-host readiness paths changed.
+    value: ${{ steps.filter.outputs.self_host_readiness }}
+  autopilot:
+    description: Autopilot worktree E2E paths changed.
+    value: ${{ steps.filter.outputs.autopilot }}
+
+runs:
+  using: composite
+  steps:
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          review:
+            - 'aragora/**'
+            - 'tests/**'
+            - 'scripts/**'
+          lint_python:
+            - 'aragora/**'
+            - 'tests/**'
+            - 'scripts/**'
+            - 'pyproject.toml'
+            - 'requirements*.txt'
+            - '.github/workflows/**'
+            - 'deploy/**'
+            - 'security/policies/**'
+            - 'aragora-operator/**'
+          quality:
+            - 'aragora/debate/output_quality.py'
+            - 'aragora/debate/repo_grounding.py'
+            - 'aragora/cli/commands/debate.py'
+            - 'tests/debate/test_output_quality.py'
+            - 'tests/debate/test_repo_grounding.py'
+            - 'tests/cli/test_offline_golden_path.py'
+            - '.github/workflows/quality-smoke.yml'
+            - '.github/actions/pr-scope-classifier/**'
+          openapi:
+            - 'aragora/server/handlers/**'
+            - 'aragora/server/openapi/**'
+            - 'aragora/server/openapi_impl.py'
+            - 'scripts/export_openapi.py'
+            - 'scripts/generate_openapi.py'
+            - 'scripts/verify_sdk_contracts.py'
+            - 'scripts/validate_openapi_routes.py'
+            - 'scripts/check_sdk_namespace_parity.py'
+            - 'scripts/contract_drift_report.py'
+            - 'scripts/generate_contract_drift_backlog.py'
+            - 'scripts/baselines/verify_sdk_contracts.json'
+            - 'scripts/baselines/validate_openapi_routes.json'
+            - 'scripts/baselines/check_sdk_namespace_parity.json'
+            - 'scripts/baselines/internal_route_prefixes.json'
+            - 'sdk/python/aragora/namespaces/**'
+            - 'sdk/typescript/src/namespaces/**'
+            - 'docs/api/openapi*.json'
+            - 'docs/api/openapi*.yaml'
+            - '.github/workflows/openapi.yml'
+            - '.github/actions/pr-scope-classifier/**'
+          sdk_python:
+            - 'sdk/python/**'
+            - 'tests/sdk/**'
+            - '.github/workflows/sdk-test.yml'
+            - '.github/actions/pr-scope-classifier/**'
+          sdk_typescript:
+            - 'sdk/typescript/**'
+            - 'openapi/**'
+            - 'package.json'
+            - 'package-lock.json'
+            - '.github/workflows/sdk-test.yml'
+            - '.github/actions/pr-scope-classifier/**'
+          sdk_parity:
+            - 'aragora/server/handlers/**'
+            - 'aragora/server/unified_server.py'
+            - 'sdk/**'
+            - 'openapi/**'
+            - 'scripts/sdk_parity*'
+            - 'scripts/check_sdk_parity*'
+            - 'scripts/check_version_alignment*'
+            - '.github/workflows/sdk-parity.yml'
+            - '.github/actions/pr-scope-classifier/**'
+            - 'pyproject.toml'
+            - 'requirements*.txt'
+            - 'package.json'
+          integration_high_risk:
+            - 'aragora/server/**'
+            - 'aragora/debate/**'
+            - 'aragora/memory/**'
+            - 'aragora/auth/**'
+            - 'aragora/rbac/**'
+            - 'aragora/storage/**'
+          frontend:
+            - 'aragora/live/**'
+          smoke:
+            - 'aragora/agents/**'
+            - 'aragora/cli/**'
+            - 'aragora/control_plane/**'
+            - 'aragora/core.py'
+            - 'aragora/debate/**'
+            - 'aragora/demo/**'
+            - 'aragora/server/**'
+            - 'tests/cli/test_offline_golden_path.py'
+            - 'tests/e2e/test_server_smoke.py'
+            - 'scripts/test_tiers.sh'
+            - '.github/workflows/smoke.yml'
+            - '.github/actions/pr-scope-classifier/**'
+            - 'pyproject.toml'
+            - 'requirements*.txt'
+          self_host_shadow:
+            - 'sdk/typescript/**'
+            - 'aragora/agents/**'
+            - 'aragora/cli/**'
+            - 'aragora/core.py'
+            - 'aragora/demo/**'
+            - 'tests/cli/test_offline_golden_path.py'
+            - 'scripts/ci_install_project.sh'
+            - '.github/workflows/self-hosted-shadow.yml'
+            - '.github/actions/pr-scope-classifier/**'
+            - '.github/actions/setup-node-safe/**'
+            - '.github/actions/setup-python-safe/**'
+            - 'pyproject.toml'
+            - 'requirements*.txt'
+          self_host_readiness:
+            - '.env.production.example'
+            - 'docker-compose*.yml'
+            - 'compose*.yml'
+            - 'deploy/**'
+            - 'scripts/check_self_host_compose.py'
+            - 'scripts/check_self_host_runtime.py'
+            - '.github/workflows/self-host-readiness.yml'
+            - '.github/actions/pr-scope-classifier/**'
+            - '.github/actions/setup-python-safe/**'
+            - 'pyproject.toml'
+            - 'requirements*.txt'
+          autopilot:
+            - 'aragora/server/handlers/self_improve.py'
+            - 'aragora/worktree/**'
+            - 'scripts/codex_worktree_autopilot.py'
+            - 'tests/handlers/test_self_improve_api.py'
+            - '.github/workflows/autopilot-worktree-e2e.yml'
+            - '.github/actions/pr-scope-classifier/**'

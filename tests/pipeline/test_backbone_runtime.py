@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -92,6 +94,32 @@ class TestBackboneRuntime:
             for event in run.stage_events
         )
 
+    def test_sync_plan_receipt_to_run_logs_warning_when_fetch_fails(
+        self,
+        store: PlanStore,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        runtime = BackboneRuntime(store)
+        plan = DecisionPlan(
+            id="dp-fetch-fail",
+            debate_id="debate-fetch-fail",
+            task="Sync the receipt",
+            status=PlanStatus.APPROVED,
+            approval_mode=ApprovalMode.ALWAYS,
+            metadata={"backbone_run_id": "run-fetch-fail", "decision_receipt_id": "receipt-1"},
+        )
+
+        with (
+            patch(
+                "aragora.pipeline.receipt_store_facade.get_receipt_store_facade",
+                side_effect=RuntimeError("facade unavailable"),
+            ),
+            caplog.at_level(logging.WARNING),
+        ):
+            assert runtime.sync_plan_receipt_to_run(plan) is False
+
+        assert "Backbone receipt fetch failed for receipt-1: facade unavailable" in caplog.text
+
     @pytest.mark.asyncio
     async def test_attach_execution_receipt_persists_attestation(self, store: PlanStore) -> None:
         runtime = BackboneRuntime(store)
@@ -133,6 +161,55 @@ class TestBackboneRuntime:
         assert any(
             event.stage == BackboneStage.ATTESTATION.value and event.status == "completed"
             for event in run.stage_events
+        )
+
+    @pytest.mark.asyncio
+    async def test_attach_execution_receipt_logs_warning_when_attestation_fails(
+        self,
+        store: PlanStore,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        runtime = BackboneRuntime(store)
+        store.create_run(
+            RunLedger(run_id="run-attestation-fail", entrypoint="prompt_engine.run", status="ready")
+        )
+        plan = DecisionPlan(
+            id="dp-attestation-fail",
+            debate_id="debate-attestation-fail",
+            task="Execute with receipt",
+            status=PlanStatus.APPROVED,
+            approval_mode=ApprovalMode.ALWAYS,
+            approval_record=ApprovalRecord(approved=True, approver_id="user-1"),
+            metadata={"backbone_run_id": "run-attestation-fail", "execution_gate": {}},
+        )
+        outcome = PlanOutcome(
+            plan_id=plan.id,
+            debate_id=plan.debate_id,
+            task=plan.task,
+            success=True,
+            tasks_completed=1,
+            tasks_total=1,
+            duration_seconds=0.1,
+            receipt_id="receipt-runtime-2",
+        )
+
+        with (
+            patch(
+                "aragora.blockchain.receipt_settlement.ReceiptSettlementService.anchor_receipt",
+                side_effect=RuntimeError("anchor unavailable"),
+            ),
+            caplog.at_level(logging.WARNING),
+        ):
+            receipt_ref = await runtime.attach_execution_receipt(
+                "run-attestation-fail",
+                plan,
+                outcome,
+            )
+
+        assert receipt_ref == "receipt-runtime-2"
+        assert (
+            "Backbone shadow attestation failed for receipt-runtime-2: anchor unavailable"
+            in caplog.text
         )
 
     def test_attach_feedback_record_persists_feedback_event(self, store: PlanStore) -> None:

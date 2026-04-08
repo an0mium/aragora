@@ -26,6 +26,7 @@ from aragora.server.handlers.playground import (
     PlaygroundHandler,
     _DEFAULT_AGENTS,
     _check_rate_limit,
+    _reset_oracle_sessions,
     _reset_rate_limits,
     _PLAYGROUND_RATE_LIMIT,
 )
@@ -74,8 +75,10 @@ def _make_live_debate_response(topic: str = "test", agent_count: int = 3):
 def clean_rate_limits():
     """Reset rate limit state before each test."""
     _reset_rate_limits()
+    _reset_oracle_sessions()
     yield
     _reset_rate_limits()
+    _reset_oracle_sessions()
 
 
 @pytest.fixture(autouse=True)

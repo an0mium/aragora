@@ -648,7 +648,7 @@ describe('IntrospectionPage', () => {
 
       await waitFor(() => {
         const scoreElement = screen.getByText('85%');
-        expect(scoreElement).toHaveClass('text-acid-green');
+        expect(scoreElement).toHaveClass('text-[var(--accent)]');
       });
     });
 

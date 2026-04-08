@@ -216,7 +216,7 @@ describe('PersonaEditor', () => {
       });
 
       const gridButton = screen.getByText('GRID');
-      expect(gridButton).toHaveClass('bg-acid-green/20');
+      expect(gridButton).toHaveClass('bg-[var(--accent)]/20');
     });
 
     it('switches to list view', async () => {
@@ -229,7 +229,7 @@ describe('PersonaEditor', () => {
       fireEvent.click(screen.getByText('LIST'));
 
       const listButton = screen.getByText('LIST');
-      expect(listButton).toHaveClass('bg-acid-green/20');
+      expect(listButton).toHaveClass('bg-[var(--accent)]/20');
     });
   });
 

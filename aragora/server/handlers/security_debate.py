@@ -15,12 +15,14 @@ __all__ = ["SecurityDebateHandler"]
 
 import logging
 import uuid
+from collections.abc import Coroutine
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
 
+from aragora.core_types import DebateStatus, DebateStatusSource
 from aragora.server.http_utils import run_async
 from aragora.server.middleware.rate_limit import rate_limit
 
@@ -192,19 +194,48 @@ class SecurityDebateHandler(SecureHandler):
                 timeout_seconds=timeout_seconds,
             )
 
+        debate_coro: Coroutine[Any, Any, Any] | None = _run_debate()
+
         try:
-            result = run_async(_run_debate())
+            result = run_async(debate_coro)
         except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError):
+            if debate_coro is not None:
+                debate_coro.close()
             logger.exception("Security debate failed")
             return error_response("Debate operation failed", 500)
+        else:
+            debate_coro.close()
 
         end_time = datetime.now(timezone.utc)
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
+        response_debate_id = result.debate_id if hasattr(result, "debate_id") else event.id
+
+        try:
+            from aragora.events.security_events import _store_security_debate_result
+        except ImportError:
+            logger.debug("Security debate result store unavailable")
+        else:
+            store_coro: Coroutine[Any, Any, Any] | None = _store_security_debate_result(
+                response_debate_id,
+                event,
+                result,
+            )
+            try:
+                run_async(store_coro)
+            except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError):
+                logger.exception(
+                    "Failed to persist security debate result for %s", response_debate_id
+                )
+            finally:
+                store_coro.close()
+
         # Build response
         response = {
-            "debate_id": result.debate_id if hasattr(result, "debate_id") else event.id,
+            "debate_id": response_debate_id,
             "status": "completed",
+            "debate_status": DebateStatus.COMPLETED.value,
+            "debate_status_source": DebateStatusSource.LIVE.value,
             "consensus_reached": result.consensus_reached,
             "confidence": result.confidence,
             "final_answer": result.final_answer,
@@ -234,8 +265,8 @@ class SecurityDebateHandler(SecureHandler):
         Get the status of a security debate.
 
         This endpoint allows checking on the status of a previously triggered
-        security debate. For now, debates are synchronous, so this mainly
-        provides a way to retrieve cached results.
+        security debate. Debates are still synchronous, but completed results
+        are cached in-process so callers can re-fetch the latest status payload.
 
         Returns:
             {
@@ -244,12 +275,37 @@ class SecurityDebateHandler(SecureHandler):
                 "message": "Status message"
             }
         """
-        # For now, debates are synchronous and not persisted
-        # This endpoint is a placeholder for future async debate support
+        cached_result: dict[str, Any] | None = None
+        try:
+            from aragora.events.security_events import get_security_debate_result
+        except ImportError:
+            logger.debug("Security debate result store unavailable")
+        else:
+            fetch_coro: Coroutine[Any, Any, Any] | None = get_security_debate_result(debate_id)
+            try:
+                cached = run_async(fetch_coro)
+            except (RuntimeError, OSError, ConnectionError, TimeoutError, ValueError, TypeError):
+                logger.exception("Failed to load cached security debate result for %s", debate_id)
+            else:
+                if isinstance(cached, dict):
+                    cached_result = dict(cached)
+            finally:
+                fetch_coro.close()
+
+        if cached_result is not None:
+            cached_result.setdefault("debate_id", debate_id)
+            cached_result.setdefault("status", DebateStatus.COMPLETED.value)
+            cached_result.setdefault("debate_status", DebateStatus.COMPLETED.value)
+            cached_result.setdefault("debate_status_source", DebateStatusSource.LIVE.value)
+            cached_result.setdefault("message", "Cached security debate result available.")
+            return json_response(cached_result)
+
         return json_response(
             {
                 "debate_id": debate_id,
                 "status": "not_found",
-                "message": "Debate results are not persisted. Use POST to trigger a new debate.",
+                "debate_status": DebateStatus.PENDING.value,
+                "debate_status_source": DebateStatusSource.LIVE.value,
+                "message": "No cached security debate result found. Use POST to trigger a new debate.",
             }
         )

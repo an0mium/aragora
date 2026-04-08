@@ -221,7 +221,8 @@ ws.onmessage = (event) => {
 
 ## Next Steps
 
-- [Full API Reference](../api/reference)
+- [Curated API Reference](../api-reference) -- essential endpoints at a glance
+- [Full API Reference](../api/reference) -- complete endpoint catalog
 - [Architecture Overview](../core-concepts/architecture)
 - [Environment Variables](../getting-started/environment)
 - [Feature Documentation](./features)

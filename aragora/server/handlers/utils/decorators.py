@@ -12,6 +12,7 @@ Provides reusable decorators for HTTP handlers including:
 
 from __future__ import annotations
 
+import json
 import functools
 import logging
 import time
@@ -21,14 +22,14 @@ from functools import wraps
 from typing import Any
 from collections.abc import Callable, Generator
 
-from aragora.server.errors import safe_error_message
+from aragora.server.errors import ErrorCode, safe_error_message
 from aragora.server.handlers.utils.params import (
     get_bool_param,
     get_float_param,
     get_int_param,
     get_string_param,
 )
-from aragora.server.handlers.utils.responses import HandlerResult, error_response
+from aragora.server.handlers.utils.responses import HandlerResult, error_response, json_response
 
 logger = logging.getLogger(__name__)
 
@@ -109,11 +110,50 @@ _EXCEPTION_STATUS_MAP = {
     "HandlerDatabaseError": 500,
 }
 
+_EXCEPTION_ERROR_CODE_MAP = {
+    "FileNotFoundError": ErrorCode.NOT_FOUND.value,
+    "KeyError": ErrorCode.MISSING_PARAMETER.value,
+    "ValueError": ErrorCode.VALIDATION_ERROR.value,
+    "TypeError": ErrorCode.INVALID_REQUEST.value,
+    "PermissionError": ErrorCode.FORBIDDEN.value,
+    "TimeoutError": ErrorCode.TIMEOUT.value,
+    "ConnectionError": ErrorCode.EXTERNAL_SERVICE_ERROR.value,
+}
+
+_STATUS_ERROR_CODE_MAP = {
+    400: ErrorCode.INVALID_REQUEST.value,
+    401: ErrorCode.UNAUTHORIZED.value,
+    403: ErrorCode.FORBIDDEN.value,
+    404: ErrorCode.NOT_FOUND.value,
+    409: ErrorCode.CONFLICT.value,
+    429: ErrorCode.RATE_LIMITED.value,
+    500: ErrorCode.INTERNAL_ERROR.value,
+    502: ErrorCode.EXTERNAL_SERVICE_ERROR.value,
+    503: ErrorCode.SERVICE_UNAVAILABLE.value,
+    504: ErrorCode.TIMEOUT.value,
+}
+
 
 def map_exception_to_status(e: Exception, default: int = 500) -> int:
     """Map exception type to appropriate HTTP status code."""
     error_type = type(e).__name__
     return _EXCEPTION_STATUS_MAP.get(error_type, default)
+
+
+def map_exception_to_error_code(e: Exception, status: int) -> str:
+    """Map exception type to machine-readable error code."""
+    error_type = type(e).__name__
+    return _EXCEPTION_ERROR_CODE_MAP.get(
+        error_type,
+        _STATUS_ERROR_CODE_MAP.get(status, ErrorCode.INTERNAL_ERROR.value),
+    )
+
+
+def add_error_code(response: HandlerResult, error_code: str) -> HandlerResult:
+    """Preserve legacy error payloads while appending a top-level error_code."""
+    payload = json.loads(response.body.decode("utf-8"))
+    payload["error_code"] = error_code
+    return json_response(payload, status=response.status_code, headers=response.headers)
 
 
 # =============================================================================
@@ -249,11 +289,12 @@ def handle_errors(
                     )
                     status = map_exception_to_status(e, default_status)
                     message = safe_error_message(e, operation)
-                    return error_response(
+                    response = error_response(
                         message,
                         status=status,
                         headers={"X-Trace-Id": trace_id},
                     )
+                    return add_error_code(response, map_exception_to_error_code(e, status))
 
             return async_wrapper
         else:
@@ -274,11 +315,12 @@ def handle_errors(
                     )
                     status = map_exception_to_status(e, default_status)
                     message = safe_error_message(e, operation)
-                    return error_response(
+                    response = error_response(
                         message,
                         status=status,
                         headers={"X-Trace-Id": trace_id},
                     )
+                    return add_error_code(response, map_exception_to_error_code(e, status))
 
             return wrapper
 

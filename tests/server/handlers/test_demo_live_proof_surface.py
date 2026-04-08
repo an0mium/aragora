@@ -8,7 +8,11 @@ from unittest.mock import patch
 import pytest
 
 from aragora.server.handlers.base import error_response
-from aragora.server.handlers.playground import PlaygroundHandler, _reset_rate_limits
+from aragora.server.handlers.playground import (
+    PlaygroundHandler,
+    _reset_oracle_sessions,
+    _reset_rate_limits,
+)
 
 
 class _MockHeaders:
@@ -39,8 +43,10 @@ def _parse_result(result) -> tuple[dict[str, Any], int]:
 @pytest.fixture(autouse=True)
 def _clean_rate_limits():
     _reset_rate_limits()
+    _reset_oracle_sessions()
     yield
     _reset_rate_limits()
+    _reset_oracle_sessions()
 
 
 @pytest.fixture()

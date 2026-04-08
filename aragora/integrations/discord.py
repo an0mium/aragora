@@ -427,15 +427,7 @@ class DiscordWebhookManager:
             if handler and callable(handler):
                 try:
                     results[name] = await handler(*args, **kwargs)
-                except (aiohttp.ClientError, asyncio.TimeoutError) as e:
-                    logger.error(
-                        "Discord broadcast to %s connection error: %s: %s",
-                        name,
-                        type(e).__name__,
-                        e,
-                    )
-                    results[name] = False
-                except (RuntimeError, ValueError, TypeError) as e:
+                except Exception as e:  # noqa: BLE001 - one integration failure must not block others
                     logger.error(
                         "Discord broadcast to %s unexpected error: %s: %s",
                         name,

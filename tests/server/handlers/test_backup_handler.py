@@ -374,11 +374,35 @@ class TestCreateBackup:
         assert result.status_code == 201
 
     @pytest.mark.asyncio
-    async def test_create_backup_missing_source(self, handler):
-        """Test creating backup without source_path fails."""
-        mock_request = MockHTTPHandler("POST", body={})
-        result = await handler.handle("/api/v2/backups", {}, mock_request)
-        assert result.status_code == 400
+    async def test_create_backup_uses_default_source_when_missing(self, handler, tmp_path):
+        """Test creating backup without source_path uses the default debates DB."""
+        from pathlib import Path
+
+        default_db = tmp_path / "default.db"
+        default_db.write_text("sqlite", encoding="utf-8")
+        with patch(
+            "aragora.server.handlers.backup_handler.get_default_backup_source_path",
+            return_value=default_db,
+        ):
+            mock_request = MockHTTPHandler("POST", body={})
+            result = await handler.handle("/api/v2/backups", {}, mock_request)
+
+        assert result.status_code == 201
+        assert Path(handler._manager._backups["new-backup-001"].source_path) == default_db
+
+    @pytest.mark.asyncio
+    async def test_create_backup_missing_source_without_default(self, handler):
+        """Test creating backup without source_path fails when no default DB exists."""
+        from pathlib import Path
+
+        with patch(
+            "aragora.server.handlers.backup_handler.get_default_backup_source_path",
+            return_value=Path("/does/not/exist.db"),
+        ):
+            mock_request = MockHTTPHandler("POST", body={})
+            result = await handler.handle("/api/v2/backups", {}, mock_request)
+
+        assert result.status_code == 404
 
     @pytest.mark.asyncio
     async def test_create_backup_rejects_path_traversal(self, handler):
