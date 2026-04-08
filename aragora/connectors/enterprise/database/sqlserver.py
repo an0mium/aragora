@@ -751,15 +751,16 @@ class SQLServerConnector(EnterpriseConnector):
                 },
             )
         except (OSError, RuntimeError, ValueError) as e:
-            logger.warning("SQL Server health check failed: %s", e)
+            logger.exception("SQL Server health check failed")
             return ConnectorHealth(
                 name=self.name,
                 is_available=False,
                 is_configured=True,
                 is_healthy=False,
-                error="Health check failed",
+                error=f"{type(e).__name__}: {e}",
                 last_check=datetime.now(timezone.utc),
                 metadata={
                     "database": self.database,
+                    "schema": self.schema,
                 },
             )
