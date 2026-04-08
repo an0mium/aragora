@@ -7,7 +7,7 @@ Provides async receipt management endpoints:
 - Create receipt share links
 - Access shared receipts
 - Verify receipt integrity
-- Export receipt in various formats (json, markdown, sarif)
+- Export receipt in various formats (json, html, markdown, pdf, sarif)
 - Batch verify multiple receipts
 - Batch export multiple receipts
 - Search receipts by query/date/debate_id
@@ -17,6 +17,7 @@ Provides async receipt management endpoints:
 from __future__ import annotations
 
 import asyncio
+import base64
 import inspect
 import io
 import json
@@ -170,7 +171,7 @@ class BatchExportRequest(BaseModel):
     )
     format: str = Field(
         "json",
-        description="Export format (json, html, markdown, md, csv, sarif)",
+        description="Export format (json, html, markdown, md, csv, sarif, pdf)",
     )
     raw: bool = Field(
         True,
@@ -184,6 +185,7 @@ class BatchExportItem(BaseModel):
     receipt_id: str
     format: str
     content: str
+    content_encoding: str | None = None
 
 
 class BatchExportResponse(BaseModel):
@@ -424,9 +426,62 @@ def _render_receipt_export_content(receipt: Any, export_format: str) -> tuple[st
     raise ValueError(f"Unsupported export format: {export_format}")
 
 
+def _render_pdf_fallback_html(receipt: Any, receipt_id: str) -> str:
+    """Return printable HTML when PDF rendering is unavailable."""
+    return f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Receipt {receipt_id}</title>
+    <style>
+        @media print {{
+            body {{ font-size: 12pt; }}
+            .no-print {{ display: none; }}
+        }}
+        body {{ font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+        .print-notice {{ background: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-bottom: 20px; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class="print-notice no-print">
+        <strong>Note:</strong> PDF export is unavailable. Use your browser's Print function (Ctrl+P / Cmd+P) to save as PDF.
+    </div>
+    {receipt.to_html()}
+</body>
+</html>"""
+
+
+def _render_batch_export_content(
+    receipt: Any,
+    export_format: str,
+    *,
+    receipt_id: str,
+) -> tuple[str, str | bytes, str, str, str | None]:
+    """Render batch-export content for JSON bundles and ZIP archives."""
+    normalized = export_format.lower()
+
+    if normalized != "pdf":
+        content, response_format, extension = _render_receipt_export_content(receipt, normalized)
+        return content, content, response_format, extension, None
+
+    try:
+        pdf_bytes = receipt.to_pdf()
+        return (
+            base64.b64encode(pdf_bytes).decode("ascii"),
+            pdf_bytes,
+            "pdf",
+            "pdf",
+            "base64",
+        )
+    except ImportError:
+        logger.info("PDF export unavailable for %s, falling back to printable HTML", receipt_id)
+        printable_html = _render_pdf_fallback_html(receipt, receipt_id)
+        return printable_html, printable_html, "html", "html", None
+
+
 def _build_batch_export_zip(
     *,
-    archive_items: list[tuple[str, str, str]],
+    archive_items: list[tuple[str, str, str | bytes]],
     export_format: str,
     total_requested: int,
     failed_ids: list[str],
@@ -957,14 +1012,14 @@ async def batch_export_receipts(
     """Export multiple receipts at once (up to 100), defaulting to the legacy ZIP surface."""
     try:
         items: list[BatchExportItem] = []
-        archive_items: list[tuple[str, str, str]] = []
+        archive_items: list[tuple[str, str, str | bytes]] = []
         failed_ids: list[str] = []
 
         export_format = body.format.lower()
-        if export_format not in ("json", "html", "markdown", "md", "csv", "sarif"):
+        if export_format not in ("json", "html", "markdown", "md", "csv", "sarif", "pdf"):
             raise HTTPException(
                 status_code=422,
-                detail="Unsupported format. Supported: json, html, markdown, md, csv, sarif",
+                detail="Unsupported format. Supported: json, html, markdown, md, csv, sarif, pdf",
             )
 
         for rid in body.receipt_ids:
@@ -980,14 +1035,23 @@ async def batch_export_receipts(
                     continue
 
                 receipt = _build_decision_receipt(receipt_data)
-                content, response_format, extension = _render_receipt_export_content(
-                    receipt, export_format
-                )
+                (
+                    item_content,
+                    archive_content,
+                    response_format,
+                    extension,
+                    content_encoding,
+                ) = _render_batch_export_content(receipt, export_format, receipt_id=rid)
 
                 items.append(
-                    BatchExportItem(receipt_id=rid, format=response_format, content=content)
+                    BatchExportItem(
+                        receipt_id=rid,
+                        format=response_format,
+                        content=item_content,
+                        content_encoding=content_encoding,
+                    )
                 )
-                archive_items.append((rid, extension, content))
+                archive_items.append((rid, extension, archive_content))
 
             except (ImportError, ValueError, TypeError, KeyError, OSError) as e:
                 logger.warning("Batch export failed for %s: %s", rid, e)
@@ -1405,27 +1469,7 @@ async def export_receipt(
                     )
                 except ImportError:
                     logger.info("PDF export unavailable, falling back to printable HTML")
-                    printable_html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Receipt {receipt_id}</title>
-    <style>
-        @media print {{
-            body {{ font-size: 12pt; }}
-            .no-print {{ display: none; }}
-        }}
-        body {{ font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
-        .print-notice {{ background: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-bottom: 20px; border-radius: 4px; }}
-    </style>
-</head>
-<body>
-    <div class="print-notice no-print">
-        <strong>Note:</strong> PDF export is unavailable. Use your browser's Print function (Ctrl+P / Cmd+P) to save as PDF.
-    </div>
-    {receipt.to_html()}
-</body>
-</html>"""
+                    printable_html = _render_pdf_fallback_html(receipt, receipt_id)
                     return Response(
                         content=printable_html.encode("utf-8"),
                         media_type="text/html",

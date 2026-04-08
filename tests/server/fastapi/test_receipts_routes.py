@@ -12,6 +12,7 @@ Tests for FastAPI receipt route endpoints.
 
 from __future__ import annotations
 
+import base64
 import json
 import zipfile
 from io import BytesIO
@@ -1071,6 +1072,81 @@ class TestBatchExport:
         assert response.status_code == 200
         data = response.json()
         assert data["items"][0]["format"] == "markdown"
+
+    def test_batch_export_pdf_json_bundle_base64_encodes_binary_content(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """JSON item bundles should carry PDF payloads as base64 strings."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        mock_receipt = MagicMock()
+        mock_receipt.to_pdf.return_value = b"%PDF-1.4 batch"
+
+        with patch(
+            "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt
+        ):
+            response = client.post(
+                "/api/v2/receipts/batch-export",
+                json={"receipt_ids": ["rcpt_test123"], "format": "pdf", "raw": False},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"][0]["format"] == "pdf"
+        assert data["items"][0]["content_encoding"] == "base64"
+        assert (
+            base64.b64decode(data["items"][0]["content"].encode("ascii")) == b"%PDF-1.4 batch"
+        )
+
+    def test_batch_export_pdf_zip_bundle_writes_pdf_file(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """Default raw ZIP mode should preserve PDF bytes as .pdf files."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        mock_receipt = MagicMock()
+        mock_receipt.to_pdf.return_value = b"%PDF-1.4 batch"
+
+        with patch(
+            "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt
+        ):
+            response = client.post(
+                "/api/v2/receipts/batch-export",
+                json={"receipt_ids": ["rcpt_test123"], "format": "pdf"},
+            )
+
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("application/zip")
+
+        archive = zipfile.ZipFile(BytesIO(response.content), "r")
+        assert archive.read("receipt-rcpt_test123.pdf") == b"%PDF-1.4 batch"
+        manifest = json.loads(archive.read("manifest.json"))
+        assert manifest["format"] == "pdf"
+
+    def test_batch_export_pdf_fallback_uses_printable_html(
+        self, client, mock_receipt_store, sample_receipt_dict
+    ):
+        """When PDF generation is unavailable, batch export falls back to printable HTML."""
+        mock_receipt_store.get.return_value = sample_receipt_dict
+
+        mock_receipt = MagicMock()
+        mock_receipt.to_pdf.side_effect = ImportError("weasyprint not found")
+        mock_receipt.to_html.return_value = "<div>Receipt Content</div>"
+
+        with patch(
+            "aragora.export.decision_receipt.DecisionReceipt.from_dict", return_value=mock_receipt
+        ):
+            response = client.post(
+                "/api/v2/receipts/batch-export",
+                json={"receipt_ids": ["rcpt_test123"], "format": "pdf", "raw": False},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"][0]["format"] == "html"
+        assert data["items"][0]["content_encoding"] is None
+        assert "PDF export is unavailable" in data["items"][0]["content"]
+        assert "Receipt Content" in data["items"][0]["content"]
 
     def test_batch_export_defaults_to_zip_bundle(
         self, client, mock_receipt_store, sample_receipt_dict
