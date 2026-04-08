@@ -2204,7 +2204,7 @@ class BossLoop:
             "open",
             "--draft",
             "--json",
-            "number",
+            "number,headRefName",
             "--limit",
             "100",
             "-R",
@@ -2233,6 +2233,15 @@ class BossLoop:
         for pr_entry in draft_prs:
             pr_num = pr_entry.get("number")
             if not isinstance(pr_num, int):
+                continue
+            head_ref_name = pr_entry.get("headRefName")
+            ownership = self._draft_promotion_ownership(head_ref_name)
+            if ownership is None:
+                logger.debug(
+                    "Skipping draft PR #%d promotion: head ref %r is not queue-owned or boss-owned",
+                    pr_num,
+                    head_ref_name,
+                )
                 continue
             if self._all_required_checks_passed(pr_num, repo):
                 ready_cmd: list[str] = [
@@ -2267,6 +2276,17 @@ class BossLoop:
                 except Exception as exc:
                     logger.debug("Exception promoting PR #%d: %s", pr_num, exc)
         return promoted
+
+    @staticmethod
+    def _draft_promotion_ownership(head_ref_name: object) -> str | None:
+        """Classify whether a draft PR is explicitly owned by automation."""
+        if not isinstance(head_ref_name, str):
+            return None
+        if head_ref_name.startswith("aragora/boss-harvest/"):
+            return "boss-owned"
+        if head_ref_name.startswith("codex/swarm-"):
+            return "queue-owned"
+        return None
 
     @staticmethod
     def _all_required_checks_passed(pr_number: int, repo: str) -> bool:

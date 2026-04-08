@@ -4435,9 +4435,25 @@ class TestAllRequiredChecksPassed:
 class TestPromoteReadyDrafts:
     """Tests for _promote_ready_drafts."""
 
+    def test_identifies_queue_and_boss_owned_draft_branches(self) -> None:
+        assert BossLoop._draft_promotion_ownership("codex/swarm-2c4959f7-micro-2") == "queue-owned"
+        assert (
+            BossLoop._draft_promotion_ownership("aragora/boss-harvest/issue-10-boss-aaa")
+            == "boss-owned"
+        )
+        assert BossLoop._draft_promotion_ownership("codex/ordinary-branch") is None
+        assert BossLoop._draft_promotion_ownership("feature/human-draft") is None
+        assert BossLoop._draft_promotion_ownership(None) is None
+
     def test_promotes_draft_with_all_checks_passing(self) -> None:
         loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
-        draft_list_json = json.dumps([{"number": 10}, {"number": 20}])
+        draft_list_json = json.dumps(
+            [
+                {"number": 10, "headRefName": "codex/swarm-lane-10"},
+                {"number": 20, "headRefName": "feature/human-draft"},
+                {"number": 30, "headRefName": "aragora/boss-harvest/issue-30-boss-abc"},
+            ]
+        )
         checks_10 = json.dumps(
             [
                 {"name": "lint", "state": "COMPLETED", "conclusion": "SUCCESS"},
@@ -4451,26 +4467,68 @@ class TestPromoteReadyDrafts:
                 },
             ]
         )
-        checks_20 = json.dumps(
+        checks_30 = json.dumps(
             [
                 {"name": "lint", "state": "COMPLETED", "conclusion": "FAILURE"},
             ]
         )
+        ready_calls: list[list[str]] = []
+        check_calls: list[list[str]] = []
 
         def fake_run(cmd, **kw):
             if "list" in cmd:
                 return SimpleNamespace(returncode=0, stdout=draft_list_json, stderr="")
             if "checks" in cmd:
+                check_calls.append(cmd)
                 if "10" in cmd:
                     return SimpleNamespace(returncode=0, stdout=checks_10, stderr="")
-                return SimpleNamespace(returncode=0, stdout=checks_20, stderr="")
+                return SimpleNamespace(returncode=0, stdout=checks_30, stderr="")
             # gh pr ready (promote)
+            ready_calls.append(cmd)
             return SimpleNamespace(returncode=0, stdout="", stderr="")
 
         with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=fake_run):
             promoted = loop._promote_ready_drafts()
 
         assert promoted == [10]
+        assert [cmd[3] for cmd in check_calls] == ["10", "30"]
+        assert [cmd[3] for cmd in ready_calls] == ["10"]
+
+    def test_skips_unowned_human_draft_even_when_checks_pass(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        draft_list_json = json.dumps(
+            [
+                {"number": 10, "headRefName": "feature/human-draft"},
+            ]
+        )
+        commands: list[list[str]] = []
+
+        def fake_run(cmd, **kw):
+            commands.append(cmd)
+            if "list" in cmd:
+                return SimpleNamespace(returncode=0, stdout=draft_list_json, stderr="")
+            raise AssertionError(f"unexpected gh invocation: {cmd}")
+
+        with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=fake_run):
+            promoted = loop._promote_ready_drafts()
+
+        assert promoted == []
+        assert commands == [
+            [
+                "gh",
+                "pr",
+                "list",
+                "--state",
+                "open",
+                "--draft",
+                "--json",
+                "number,headRefName",
+                "--limit",
+                "100",
+                "-R",
+                "synaptent/aragora",
+            ]
+        ]
 
     def test_no_repo_returns_empty(self) -> None:
         loop = BossLoop(config=BossLoopConfig(repo=None))
