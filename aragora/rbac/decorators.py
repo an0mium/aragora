@@ -166,10 +166,20 @@ def _get_context_from_args(
         if isinstance(value, AuthorizationContext):
             return value
 
-    # Check if any arg has _auth_context attribute (e.g., HTTP request handler)
+    # Check if any arg has _auth_context attribute (e.g., HTTP request handler).
+    # Use getattr_static first so AttributeError from descriptor access does not
+    # get treated as a missing attribute.
+    import inspect
+
     for arg in args:
-        if hasattr(arg, "_auth_context") and isinstance(arg._auth_context, AuthorizationContext):
-            return arg._auth_context
+        try:
+            inspect.getattr_static(arg, "_auth_context")
+        except AttributeError:
+            continue
+
+        auth_context = arg._auth_context
+        if isinstance(auth_context, AuthorizationContext):
+            return auth_context
 
     return None
 
