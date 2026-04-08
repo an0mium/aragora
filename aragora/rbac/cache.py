@@ -255,7 +255,7 @@ class RBACDistributedCache:
                 self._pubsub_thread.start()
                 logger.debug("RBAC cache pub/sub listener started")
             except REDIS_CONNECTION_ERRORS as e:
-                logger.warning("Failed to start RBAC cache pub/sub: %s", e)
+                self._handle_cache_operation_error("pub/sub startup", e)
 
     def stop(self) -> None:
         """Stop the cache (cleanup pub/sub)."""
@@ -298,6 +298,21 @@ class RBACDistributedCache:
                     sleep_time = min(backoff * (2 ** (consecutive_errors - 1)), max_backoff)
                     jitter = random.uniform(0.5, 1.5)  # noqa: S311 -- retry jitter
                     time.sleep(sleep_time * jitter)
+
+    def _handle_cache_operation_error(self, operation: str, error: Exception) -> None:
+        """Fail closed when distributed RBAC cache guarantees cannot be upheld."""
+        self._stats.errors += 1
+        if is_distributed_state_required():
+            raise DistributedStateError(
+                "rbac_cache",
+                f"RBAC cache {operation} failed in distributed mode: {error}. "
+                "Restore Redis health or set ARAGORA_SINGLE_INSTANCE=true.",
+            ) from error
+        logger.warning(
+            "RBAC cache %s failed; continuing without distributed guarantees: %s",
+            operation,
+            error,
+        )
 
     def _redis_key(self, key_type: str, *parts: str) -> str:
         """Build Redis key with prefix."""
@@ -350,8 +365,7 @@ class RBACDistributedCache:
                     return result
                 self._stats.l2_misses += 1
             except (OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
-                self._stats.errors += 1
-                logger.debug("Redis get_decision error: %s", e)
+                self._handle_cache_operation_error("decision read", e)
 
         self._record_cache_miss("decision")
         return None
@@ -383,8 +397,7 @@ class RBACDistributedCache:
                     json.dumps(decision, default=str),
                 )
             except (OSError, ConnectionError, TimeoutError, TypeError) as e:
-                self._stats.errors += 1
-                logger.debug("Redis set_decision error: %s", e)
+                self._handle_cache_operation_error("decision write", e)
 
     def _decision_key(
         self,
@@ -427,8 +440,7 @@ class RBACDistributedCache:
                     return roles
                 self._stats.l2_misses += 1
             except (OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
-                self._stats.errors += 1
-                logger.debug("Redis get_user_roles error: %s", e)
+                self._handle_cache_operation_error("user roles read", e)
 
         return None
 
@@ -449,8 +461,7 @@ class RBACDistributedCache:
                     json.dumps(list(roles)),
                 )
             except (OSError, ConnectionError, TimeoutError, TypeError) as e:
-                self._stats.errors += 1
-                logger.debug("Redis set_user_roles error: %s", e)
+                self._handle_cache_operation_error("user roles write", e)
 
     # --------------------------------------------------------------------------
     # Permission Set Cache
@@ -480,8 +491,7 @@ class RBACDistributedCache:
                     return perms
                 self._stats.l2_misses += 1
             except (OSError, ConnectionError, TimeoutError, ValueError, TypeError) as e:
-                self._stats.errors += 1
-                logger.debug("Redis get_role_permissions error: %s", e)
+                self._handle_cache_operation_error("role permissions read", e)
 
         return None
 
@@ -502,8 +512,7 @@ class RBACDistributedCache:
                     json.dumps(list(permissions)),
                 )
             except (OSError, ConnectionError, TimeoutError, TypeError) as e:
-                self._stats.errors += 1
-                logger.debug("Redis set_role_permissions error: %s", e)
+                self._handle_cache_operation_error("role permissions write", e)
 
     # --------------------------------------------------------------------------
     # Invalidation
@@ -533,8 +542,7 @@ class RBACDistributedCache:
                 if self.config.enable_pubsub:
                     redis.publish(self.config.invalidation_channel, f"user:{user_id}")
             except REDIS_CONNECTION_ERRORS as e:
-                self._stats.errors += 1
-                logger.debug("Redis invalidate_user error: %s", e)
+                self._handle_cache_operation_error("user invalidation", e)
 
         # Call callbacks
         for callback in self._invalidation_callbacks:
@@ -559,8 +567,7 @@ class RBACDistributedCache:
                 if self.config.enable_pubsub:
                     redis.publish(self.config.invalidation_channel, f"role:{role_name}")
             except REDIS_CONNECTION_ERRORS as e:
-                self._stats.errors += 1
-                logger.debug("Redis invalidate_role error: %s", e)
+                self._handle_cache_operation_error("role invalidation", e)
 
     def invalidate_all(self) -> int:
         """Clear entire cache. Returns count of local entries cleared."""
@@ -582,8 +589,7 @@ class RBACDistributedCache:
                 if self.config.enable_pubsub:
                     redis.publish(self.config.invalidation_channel, "all")
             except REDIS_CONNECTION_ERRORS as e:
-                self._stats.errors += 1
-                logger.debug("Redis invalidate_all error: %s", e)
+                self._handle_cache_operation_error("global invalidation", e)
 
         return count
 
