@@ -1177,3 +1177,78 @@ async def test_debate_dispatch_error_produces_blocked_decision_not_silent_skip()
     assert decision.receipt_state == "blocked"
     assert "RuntimeError" in decision.dissent_summary
     assert decision.final_action == InboxWedgeAction.IGNORE
+
+
+@pytest.mark.asyncio
+async def test_escalated_runtime_error_stays_blocked_and_skips_fast_fallback(monkeypatch):
+    import aragora.core as core_mod
+    import aragora.debate.orchestrator as orch_mod
+    import aragora.debate.protocol as proto_mod
+
+    monkeypatch.setattr(
+        "aragora.inbox.triage_runner._create_triage_agents",
+        lambda **kwargs: [
+            SimpleNamespace(name="triage-proposer", role="proposer", model_type="openai-api"),
+            SimpleNamespace(name="triage-critic", role="critic", model_type="anthropic-api"),
+        ],
+    )
+    monkeypatch.setattr(core_mod, "Environment", lambda **kwargs: SimpleNamespace(**kwargs))
+    monkeypatch.setattr(proto_mod, "DebateProtocol", lambda **kwargs: SimpleNamespace(**kwargs))
+
+    class _BoomArena:
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("debate backend down")
+
+    monkeypatch.setattr(orch_mod, "Arena", _BoomArena)
+
+    wedge_service = SimpleNamespace()
+    wedge_service.execute_receipt = AsyncMock()
+    wedge_service.create_receipt = MagicMock(
+        side_effect=lambda intent, decision, auto_approve=False: _make_envelope(
+            decision,
+            receipt_id="receipt-escalated-failure",
+            state=ReceiptState.APPROVED if auto_approve else ReceiptState.CREATED,
+        )
+    )
+
+    runner = InboxTriageRunner(
+        gmail_connector=None,
+        wedge_service=wedge_service,
+        profile="staged_v1",
+    )
+    runner._run_fast_tier_once = AsyncMock(
+        side_effect=[
+            {
+                "final_answer": "star: founder-intent signal",
+                "confidence": 0.97,
+                "consensus_reached": True,
+                "debate_id": "fast-first",
+                "status": "completed",
+            },
+            {
+                "final_answer": "archive: unsafe second guess",
+                "confidence": 0.98,
+                "consensus_reached": True,
+                "debate_id": "fast-second",
+                "status": "completed",
+            },
+        ]
+    )
+
+    decision = await runner._triage_message(
+        {
+            "id": "msg-escalated-failure",
+            "subject": "Founder note",
+            "from_address": "sender@example.com",
+            "body_text": "Please read this",
+        },
+        auto_approve=True,
+    )
+
+    assert decision.final_action == InboxWedgeAction.IGNORE
+    assert decision.blocked_by_policy is True
+    assert decision.receipt_state == ReceiptState.CREATED.value
+    assert decision.execution_tier == "escalated"
+    assert decision.escalation_reasons == ["high_risk_action"]
+    assert "runtime error" in decision.dissent_summary.lower()
+    assert runner._run_fast_tier_once.await_count == 1
