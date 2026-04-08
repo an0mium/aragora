@@ -457,6 +457,35 @@ class CloudStorageHandler(BaseHandler):
             return False, "Invalid bucket ID"
         return True, ""
 
+    def _validate_string_list(self, field_name: str, value: Any) -> tuple[bool, str]:
+        """Validate a request field containing a list of non-empty strings."""
+        if not isinstance(value, list):
+            return False, f"{field_name} must be a list of strings"
+
+        for index, item in enumerate(value):
+            if not isinstance(item, str):
+                return False, f"{field_name}[{index}] must be a string"
+            if not item.strip():
+                return False, f"{field_name}[{index}] must not be empty"
+
+        return True, ""
+
+    def _validate_metadata_payload(self, metadata: Any) -> tuple[bool, str]:
+        """Validate request metadata before storing it with the file."""
+        if not isinstance(metadata, dict):
+            return False, "metadata must be an object with string keys"
+
+        for key, value in metadata.items():
+            if not isinstance(key, str) or not key.strip():
+                return False, "metadata keys must be non-empty strings"
+            if value is not None and not isinstance(value, (str, int, float, bool)):
+                return (
+                    False,
+                    f"metadata['{key}'] must be a string, number, boolean, or null",
+                )
+
+        return True, ""
+
     def _generate_file_id(self) -> str:
         """Generate a unique file ID."""
         return f"file_{uuid.uuid4().hex[:16]}"
@@ -805,6 +834,8 @@ class CloudStorageHandler(BaseHandler):
 
         if not isinstance(filename, str):
             return error_response("filename must be a string", 400)
+        if not filename.strip():
+            return error_response("filename is required", 400)
         if content_b64 is not None and not isinstance(content_b64, str):
             return error_response("content must be a base64-encoded string", 400)
 
@@ -812,11 +843,13 @@ class CloudStorageHandler(BaseHandler):
         if not valid_bucket:
             return error_response(bucket_error, 400)
 
-        if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
-            return error_response("tags must be a list of strings", 400)
+        valid_tags, tags_error = self._validate_string_list("tags", tags)
+        if not valid_tags:
+            return error_response(tags_error, 400)
 
-        if not isinstance(metadata, dict) or any(not isinstance(key, str) for key in metadata):
-            return error_response("metadata must be an object with string keys", 400)
+        valid_metadata, metadata_error = self._validate_metadata_payload(metadata)
+        if not valid_metadata:
+            return error_response(metadata_error, 400)
 
         # Validate filename
         valid, err = self._validate_filename(filename)
