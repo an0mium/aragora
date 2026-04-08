@@ -45,6 +45,10 @@ FEATURE_DISCOVERY_STATUS = REPO_ROOT / "docs" / "status" / "FEATURE_DISCOVERY.md
 COMMERCIAL_OVERVIEW_STATUS = REPO_ROOT / "docs" / "status" / "COMMERCIAL_OVERVIEW.md"
 OPENAPI_GENERATED = REPO_ROOT / "docs" / "api" / "openapi_generated.json"
 CONNECTOR_ROOT = REPO_ROOT / "aragora" / "connectors"
+LICENSED_PLACEHOLDER_PATTERN = re.compile(
+    r"This connector is a placeholder for licensed",
+    re.IGNORECASE,
+)
 
 EXECUTION_TRACKING_DOCS = [
     (DOCS_README, "README.md"),
@@ -281,12 +285,26 @@ def _check_connector_status() -> list[dict]:
         beta_count = len(re.findall(r"(?i)\bbeta\b", content))
         prod_count = len(re.findall(r"(?i)\bproduction\b", content))
 
-    if stub_count > 0:
+    actual_stub_count = 0
+    for path in CONNECTOR_ROOT.rglob("*.py"):
+        if path.name == "__init__.py":
+            continue
+        try:
+            connector_content = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if LICENSED_PLACEHOLDER_PATTERN.search(connector_content):
+            actual_stub_count += 1
+
+    if stub_count != actual_stub_count:
         findings.append(
             {
                 "severity": "warning",
                 "source": "connectors/STATUS.md",
-                "message": f"Connector status has {stub_count} stub references (target: 0)",
+                "message": (
+                    f"Connector status documents {stub_count} stub connectors, "
+                    f"but the codebase currently exposes {actual_stub_count}"
+                ),
             }
         )
 
