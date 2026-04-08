@@ -12,6 +12,7 @@ from aragora.server.handlers.utils.decorators import handle_errors
 from .email_actions import (
     _content_hash_from_payload,
     _receipt_response_payload,
+    _safe_bool,
     _safe_float,
     _single_label_from_payload,
     get_inbox_trust_wedge_service_instance,
@@ -134,7 +135,7 @@ class InboxTrustWedgeHandler(BaseHandler):
                     ),
                     dissent_summary=str(body.get("dissent_summary", "")),
                     label_id=label_id,
-                    blocked_by_policy=bool(body.get("blocked_by_policy", False)),
+                    blocked_by_policy=_safe_bool(body.get("blocked_by_policy", False)),
                     cost_usd=(
                         _safe_float(body.get("cost_usd"))
                         if body.get("cost_usd") is not None
@@ -150,12 +151,12 @@ class InboxTrustWedgeHandler(BaseHandler):
                     intent,
                     decision,
                     expires_in_hours=_safe_float(body.get("expires_in_hours"), 24.0),
-                    auto_approve=bool(body.get("auto_approve", False)),
+                    auto_approve=_safe_bool(body.get("auto_approve", False)),
                 )
                 execution_result = None
                 executed = False
                 if (
-                    bool(body.get("auto_execute", False))
+                    _safe_bool(body.get("auto_execute", False))
                     and envelope.receipt.state.value == "approved"
                 ):
                     result = self._run_async(service.execute_receipt(envelope.receipt.receipt_id))
@@ -202,7 +203,7 @@ class InboxTrustWedgeHandler(BaseHandler):
                 )
                 execution_result = None
                 executed = False
-                if choice == "approve" and bool(body.get("execute", False)):
+                if choice == "approve" and _safe_bool(body.get("execute", False)):
                     result = self._run_async(service.execute_receipt(receipt_id))
                     envelope = service.store.get_receipt(receipt_id) or envelope
                     execution_result = result.to_dict()

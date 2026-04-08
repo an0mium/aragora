@@ -221,55 +221,11 @@ def _get_demo_elo_trends(period: str = "7d") -> dict:
     }
 
 
-def _get_demo_pending() -> dict:
-    """Return demo pending changes data."""
-    now = time.time()
+def _get_empty_pending() -> dict:
+    """Return an empty pending-change payload when no live store exists."""
     return {
-        "changes": [
-            {
-                "id": "pc-001",
-                "agent_name": "mistral-large",
-                "change_type": "persona_update",
-                "nomic_cycle_id": "nomic-043",
-                "proposed_at": _iso(now - 12 * 3600),
-                "proposed_by": "nomic-loop",
-                "description": "Specialize agent as devil's advocate to improve dissent coverage",
-                "diff_summary": "Persona: generalist -> devils_advocate | 3 prompt sections modified",
-                "old_content": "Role: Generalist Debater\nApproach: Balanced analysis\nStyle: Neutral",
-                "new_content": "Role: Devil's Advocate\nApproach: Challenge majority\nStyle: Constructive contrarian",
-                "impact_estimate": "Expected +12% dissent detection, -3% consensus speed",
-                "status": "pending",
-            },
-            {
-                "id": "pc-002",
-                "agent_name": "gpt-4-turbo",
-                "change_type": "prompt_rewrite",
-                "nomic_cycle_id": "nomic-043",
-                "proposed_at": _iso(now - 10 * 3600),
-                "proposed_by": "nomic-loop",
-                "description": "Restructure synthesis prompt to use claim-evidence-reasoning format",
-                "diff_summary": "Prompt v3 -> v4 | Synthesis section rewritten",
-                "old_content": "When synthesizing, provide a clear summary of main points.",
-                "new_content": "When synthesizing, use CER: CLAIM, EVIDENCE, REASONING, DISSENT.",
-                "impact_estimate": "Expected +8% receipt clarity, +5% audit readiness",
-                "status": "pending",
-            },
-            {
-                "id": "pc-003",
-                "agent_name": "deepseek-v3",
-                "change_type": "parameter_tune",
-                "nomic_cycle_id": "nomic-042",
-                "proposed_at": _iso(now - 18 * 3600),
-                "proposed_by": "nomic-loop",
-                "description": "Adjust temperature from 0.7 to 0.5 for more consistent output",
-                "diff_summary": "temperature: 0.7 -> 0.5 | top_p: 0.9 -> 0.85",
-                "old_content": "temperature: 0.7\ntop_p: 0.9",
-                "new_content": "temperature: 0.5\ntop_p: 0.85",
-                "impact_estimate": "Expected +4% consistency, -2% creativity",
-                "status": "pending",
-            },
-        ],
-        "total_pending": 3,
+        "changes": [],
+        "total_pending": 0,
     }
 
 
@@ -376,8 +332,8 @@ class AgentEvolutionDashboardHandler(SecureHandler):
         try:
             data = self._fetch_real_pending()
         except _SAFE_EXCEPTIONS:
-            logger.debug("Using demo pending changes data")
-            data = _get_demo_pending()
+            logger.info("Pending change store unavailable; returning empty pending change set")
+            data = _get_empty_pending()
 
         return json_response({"data": data})
 
@@ -506,6 +462,5 @@ class AgentEvolutionDashboardHandler(SecureHandler):
         }
 
     def _fetch_real_pending(self) -> dict:
-        """Attempt to fetch real pending changes. Falls back to demo."""
-        # In production, this would query a pending_changes table
-        raise NotImplementedError("No real pending changes store yet")
+        """Attempt to fetch real pending changes and fail closed if none exist."""
+        return _get_empty_pending()
