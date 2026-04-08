@@ -307,6 +307,30 @@ class FreshdeskConnector:
     _BASE_DELAY = 1.0
     _MAX_DELAY = 30.0
 
+    @staticmethod
+    def _require_list_response(
+        data: dict[str, Any] | list[Any],
+        context: str,
+    ) -> list[Any]:
+        """Fail closed on malformed list responses."""
+        if not isinstance(data, list):
+            raise FreshdeskError(
+                f"Unexpected Freshdesk response for {context}: expected list, got {type(data).__name__}",
+            )
+        return data
+
+    @staticmethod
+    def _require_dict_response(
+        data: dict[str, Any] | list[Any],
+        context: str,
+    ) -> dict[str, Any]:
+        """Fail closed on malformed object responses."""
+        if not isinstance(data, dict):
+            raise FreshdeskError(
+                f"Unexpected Freshdesk response for {context}: expected dict, got {type(data).__name__}",
+            )
+        return data
+
     async def _request(
         self,
         method: str,
@@ -441,8 +465,10 @@ class FreshdeskConnector:
         if updated_since:
             params["updated_since"] = updated_since.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        data = await self._request("GET", "/tickets", params=params)
-        return [FreshdeskTicket.from_api(t) for t in data] if isinstance(data, list) else []
+        data = self._require_list_response(
+            await self._request("GET", "/tickets", params=params), "GET /tickets"
+        )
+        return [FreshdeskTicket.from_api(t) for t in data]
 
     async def get_ticket(self, ticket_id: int) -> FreshdeskTicket:
         """Get a single ticket."""
@@ -531,8 +557,11 @@ class FreshdeskConnector:
 
     async def get_conversations(self, ticket_id: int) -> list[Conversation]:
         """Get all conversations for a ticket."""
-        data = await self._request("GET", f"/tickets/{ticket_id}/conversations")
-        return [Conversation.from_api(c) for c in data] if isinstance(data, list) else []
+        data = self._require_list_response(
+            await self._request("GET", f"/tickets/{ticket_id}/conversations"),
+            f"GET /tickets/{ticket_id}/conversations",
+        )
+        return [Conversation.from_api(c) for c in data]
 
     async def reply_to_ticket(
         self,
@@ -577,8 +606,11 @@ class FreshdeskConnector:
         if company_id:
             params["company_id"] = company_id
 
-        data = await self._request("GET", "/contacts", params=params)
-        return [Contact.from_api(c) for c in data] if isinstance(data, list) else []
+        data = self._require_list_response(
+            await self._request("GET", "/contacts", params=params),
+            "GET /contacts",
+        )
+        return [Contact.from_api(c) for c in data]
 
     async def get_contact(self, contact_id: int) -> Contact:
         """Get a single contact."""
@@ -612,8 +644,11 @@ class FreshdeskConnector:
     async def get_companies(self, page: int = 1, per_page: int = 30) -> list[Company]:
         """Get companies."""
         params: dict[str, Any] = {"page": page, "per_page": min(per_page, 100)}
-        data = await self._request("GET", "/companies", params=params)
-        return [Company.from_api(c) for c in data] if isinstance(data, list) else []
+        data = self._require_list_response(
+            await self._request("GET", "/companies", params=params),
+            "GET /companies",
+        )
+        return [Company.from_api(c) for c in data]
 
     async def get_company(self, company_id: int) -> Company:
         """Get a single company."""
@@ -643,8 +678,10 @@ class FreshdeskConnector:
     async def get_agents(self, page: int = 1, per_page: int = 30) -> list[Agent]:
         """Get agents."""
         params: dict[str, Any] = {"page": page, "per_page": min(per_page, 100)}
-        data = await self._request("GET", "/agents", params=params)
-        return [Agent.from_api(a) for a in data] if isinstance(data, list) else []
+        data = self._require_list_response(
+            await self._request("GET", "/agents", params=params), "GET /agents"
+        )
+        return [Agent.from_api(a) for a in data]
 
     async def get_agent(self, agent_id: int) -> Agent:
         """Get a single agent."""
@@ -663,8 +700,15 @@ class FreshdeskConnector:
         - "status:2 AND priority:4" (open and urgent)
         - "created_at:>'2024-01-01'" (created after date)
         """
-        data = await self._request("GET", "/search/tickets", params={"query": f'"{query}"'})
-        results = data.get("results", []) if isinstance(data, dict) else []
+        data = self._require_dict_response(
+            await self._request("GET", "/search/tickets", params={"query": f'"{query}"'}),
+            "GET /search/tickets",
+        )
+        results = data.get("results", [])
+        if not isinstance(results, list):
+            raise FreshdeskError(
+                f"Unexpected Freshdesk response for GET /search/tickets: expected list results, got {type(results).__name__}",
+            )
         return [FreshdeskTicket.from_api(t) for t in results]
 
     # =========================================================================
