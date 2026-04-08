@@ -125,7 +125,9 @@ def canonicalize_execution_outcome_linkage(payload: dict[str, Any]) -> dict[str,
         receipt_view = dict(receipt_view)
 
     receipt_id = str(canonical.get("receipt_id") or receipt_view.get("id") or "").strip()
-    debate_id = str(canonical.get("debate_id") or canonical.get("gauntlet_id") or receipt_id).strip()
+    debate_id = str(
+        canonical.get("debate_id") or canonical.get("gauntlet_id") or receipt_id
+    ).strip()
     gauntlet_id = str(canonical.get("gauntlet_id") or debate_id or receipt_id).strip()
     artifact_hash = str(
         canonical.get("artifact_hash")

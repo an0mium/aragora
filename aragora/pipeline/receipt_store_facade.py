@@ -43,9 +43,7 @@ class ReceiptStoreFacade:
         from aragora.gauntlet.receipt_models import canonicalize_execution_outcome_linkage
 
         canonical_receipt = canonicalize_execution_outcome_linkage(receipt_data)
-        resolved_receipt_id = str(
-            canonical_receipt.get("receipt_id") or receipt_id or ""
-        ).strip()
+        resolved_receipt_id = str(canonical_receipt.get("receipt_id") or receipt_id or "").strip()
         gauntlet = get_receipt_store()
         gauntlet.persist(
             resolved_receipt_id,
