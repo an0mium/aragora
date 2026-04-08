@@ -157,6 +157,10 @@ def mock_arena(
     arena.molecule_orchestrator = None
     arena.checkpoint_bridge = None
     arena.prompt_builder = None
+    arena.knowledge_mound = MagicMock()
+    arena.enable_knowledge_retrieval = True
+    arena.enable_knowledge_ingestion = True
+    arena.enable_supermemory = False
     arena.use_performance_selection = False
     arena.enable_auto_execution = False
     arena.enable_result_routing = False
@@ -211,6 +215,7 @@ def mock_debate_result():
     result.rounds_used = 3
     result.final_answer = "Test answer"
     result.bead_id = None
+    result.metadata = {}
     return result
 
 
@@ -279,7 +284,7 @@ class TestDebateExecutionState:
         )
         assert state.gupp_bead_id is None
         assert state.gupp_hook_entries == {}
-        assert state.debate_status == "completed"
+        assert state.debate_status == "pending"
         assert state.debate_start_time == 0.0
 
     def test_gupp_fields(self, mock_debate_context):
@@ -701,7 +706,7 @@ class TestExecuteDebatePhases:
         assert execution_state.ctx.result.messages == execution_state.ctx.partial_messages
         assert execution_state.ctx.result.critiques == execution_state.ctx.partial_critiques
         assert execution_state.ctx.result.rounds_used == 2
-        assert execution_state.debate_status == "timeout"
+        assert execution_state.debate_status == "blocked"
         mock_span.set_attribute.assert_called_with("debate.status", "timeout")
 
     @pytest.mark.asyncio
@@ -716,7 +721,7 @@ class TestExecuteDebatePhases:
         with pytest.raises(EarlyStopError):
             await execute_debate_phases(mock_arena, execution_state, mock_span)
 
-        assert execution_state.debate_status == "aborted"
+        assert execution_state.debate_status == "blocked"
         mock_span.set_attribute.assert_called_with("debate.status", "aborted")
 
     @pytest.mark.asyncio
@@ -727,7 +732,7 @@ class TestExecuteDebatePhases:
         with pytest.raises(ValueError):
             await execute_debate_phases(mock_arena, execution_state, mock_span)
 
-        assert execution_state.debate_status == "error"
+        assert execution_state.debate_status == "failed"
         mock_span.set_attribute.assert_called_with("debate.status", "error")
         mock_span.record_exception.assert_called_once()
 
@@ -1089,6 +1094,91 @@ class TestHandleDebateCompletion:
         # Should not raise — ingestion runs in background with retry
         await handle_debate_completion(mock_arena, execution_state)
         assert getattr(execution_state.ctx, "_km_ingest_task", None) is None
+
+    @pytest.mark.asyncio
+    async def test_reports_truthful_km_metadata_on_result(self, mock_arena, execution_state):
+        """Observed KM retrieval/writeback is attached to result metadata."""
+        prompt_builder = MagicMock()
+        prompt_builder.get_knowledge_mound_context.return_value = "Institutional context"
+        mock_arena.prompt_builder = prompt_builder
+        execution_state.ctx._prompt_builder = prompt_builder
+        execution_state.ctx._km_item_ids_used = ["km-1", "km-2"]
+
+        await handle_debate_completion(mock_arena, execution_state)
+        result = await cleanup_debate_resources(mock_arena, execution_state)
+
+        km_metadata = result.metadata["knowledge_management"]
+        assert km_metadata["retrieval"]["status"] == "succeeded"
+        assert km_metadata["retrieval"]["observed_context_chars"] == len("Institutional context")
+        assert km_metadata["retrieval"]["observed_item_count"] == 2
+        assert km_metadata["writeback"]["status"] == "succeeded"
+
+    @pytest.mark.asyncio
+    async def test_reports_km_as_not_configured_without_fake_enrichment(
+        self, mock_arena, execution_state
+    ):
+        """Absent KM is reported explicitly instead of inventing enrichment."""
+        mock_arena.knowledge_mound = None
+
+        await handle_debate_completion(mock_arena, execution_state)
+        result = await cleanup_debate_resources(mock_arena, execution_state)
+
+        km_metadata = result.metadata["knowledge_management"]
+        assert km_metadata["context_handoff"]["status"] == "not_configured"
+        assert km_metadata["retrieval"]["status"] == "not_configured"
+        assert km_metadata["writeback"]["status"] == "not_configured"
+        mock_arena._ingest_debate_outcome.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_preserves_failed_retrieval_state_in_result_metadata(
+        self, mock_arena, mock_debate_result
+    ):
+        """Failed KM handoff remains failed in final metadata."""
+        mock_arena._init_km_context.side_effect = ConnectionError("KM unavailable")
+
+        state = await initialize_debate_context(mock_arena, "corr-123")
+        state.ctx.result = mock_debate_result
+        state.ctx.finalize_result = MagicMock(return_value=mock_debate_result)
+
+        await handle_debate_completion(mock_arena, state)
+        result = await cleanup_debate_resources(mock_arena, state)
+
+        km_metadata = result.metadata["knowledge_management"]
+        assert km_metadata["context_handoff"]["status"] == "failed"
+        assert km_metadata["retrieval"]["status"] == "failed"
+        assert km_metadata["retrieval"]["error_type"] == "ConnectionError"
+        assert km_metadata["retrieval"]["error"] == "KM unavailable"
+
+    @pytest.mark.asyncio
+    async def test_failed_handoff_ignores_stale_prompt_builder_km_context(
+        self, mock_arena, mock_debate_result
+    ):
+        """Stale prompt-builder KM state does not fake current-debate enrichment."""
+        prompt_state = {"context": "stale knowledge", "item_ids": ["old-item"]}
+        prompt_builder = MagicMock()
+        prompt_builder.get_knowledge_mound_context.side_effect = lambda: prompt_state["context"]
+
+        def _set_knowledge_context(context: str, item_ids: list[str] | None = None) -> None:
+            prompt_state["context"] = context
+            prompt_state["item_ids"] = list(item_ids or [])
+
+        prompt_builder.set_knowledge_context.side_effect = _set_knowledge_context
+        mock_arena.prompt_builder = prompt_builder
+        mock_arena._init_km_context.side_effect = ConnectionError("KM unavailable")
+
+        state = await initialize_debate_context(mock_arena, "corr-123")
+        state.ctx.result = mock_debate_result
+        state.ctx.finalize_result = MagicMock(return_value=mock_debate_result)
+
+        await handle_debate_completion(mock_arena, state)
+        result = await cleanup_debate_resources(mock_arena, state)
+
+        km_metadata = result.metadata["knowledge_management"]
+        assert km_metadata["context_handoff"]["status"] == "failed"
+        assert km_metadata["retrieval"]["status"] == "failed"
+        assert km_metadata["retrieval"]["observed_context_chars"] == 0
+        assert km_metadata["retrieval"]["observed_item_count"] == 0
+        assert prompt_builder.set_knowledge_context.call_args_list[0] == call("", [])
 
     @pytest.mark.asyncio
     async def test_completes_gupp_tracking_on_success(self, mock_arena, execution_state):
@@ -1468,12 +1558,15 @@ class TestErrorHandlingAndRecovery:
 
     @pytest.mark.asyncio
     async def test_initialize_handles_km_init_error(self, mock_arena):
-        """Test that KM initialization errors are handled."""
+        """Test that KM initialization errors do not block the debate."""
         mock_arena._init_km_context.side_effect = ConnectionError("KM unavailable")
 
-        # The function should propagate this error since it's critical
-        with pytest.raises(ConnectionError):
-            await initialize_debate_context(mock_arena, "corr-123")
+        state = await initialize_debate_context(mock_arena, "corr-123")
+
+        km_metadata = state.ctx._knowledge_management_metadata
+        assert km_metadata["context_handoff"]["status"] == "failed"
+        assert km_metadata["context_handoff"]["error_type"] == "ConnectionError"
+        assert km_metadata["context_handoff"]["error"] == "KM unavailable"
 
     @pytest.mark.asyncio
     async def test_initialize_handles_channel_setup_error(self, mock_arena):
@@ -1550,7 +1643,7 @@ class TestErrorHandlingAndRecovery:
         mock_arena.phase_executor.execute.side_effect = asyncio.TimeoutError()
 
         await execute_debate_phases(mock_arena, state, mock_span)
-        assert state.debate_status == "timeout"
+        assert state.debate_status == "blocked"
 
         # Handle completion with KM error (should be handled)
         mock_arena._ingest_debate_outcome.side_effect = ConnectionError("KM down")
