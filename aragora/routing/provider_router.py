@@ -11,8 +11,10 @@ Usage:
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from typing import Any
 
+from aragora.agents.credential_validator import CredentialStatus
 from aragora.routing.cost_quality_optimizer import CostQualityOptimizer, SelectionStrategy
 from aragora.routing.provider_config import PROVIDER_PRICING, get_available_models
 from aragora.routing.provider_metrics import ProviderMetricsStore
@@ -33,6 +35,231 @@ DEFAULT_PROVIDER_ORDER = [
     "deepseek-chat",
     "claude-opus-4",
 ]
+
+
+@dataclass
+class ProviderPathState:
+    """Truthful readiness state for one provider path."""
+
+    agent_type: str
+    provider: str
+    model: str | None
+    config_present: bool
+    live_ready: bool
+    status: str
+    available_via: str | None = None
+    reason: str | None = None
+    detail: str | None = None
+    next_action: str | None = None
+    next_actions: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "agent_type": self.agent_type,
+            "provider": self.provider,
+            "model": self.model,
+            "config_present": self.config_present,
+            "live_ready": self.live_ready,
+            "status": self.status,
+            "available_via": self.available_via,
+            "reason": self.reason,
+            "detail": self.detail,
+            "next_action": self.next_action,
+            "next_actions": list(self.next_actions),
+        }
+
+
+@dataclass
+class ProviderPathSummary:
+    """Aggregate truth contract for provider-path readiness."""
+
+    status: str
+    reason: str
+    blocked: bool
+    config_present: bool
+    live_ready: bool
+    requested_provider: str | None
+    next_action: str | None = None
+    next_actions: list[str] = field(default_factory=list)
+    providers: list[ProviderPathState] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "reason": self.reason,
+            "blocked": self.blocked,
+            "config_present": self.config_present,
+            "live_ready": self.live_ready,
+            "requested_provider": self.requested_provider,
+            "next_action": self.next_action,
+            "next_actions": list(self.next_actions),
+            "providers": [provider.to_dict() for provider in self.providers],
+        }
+
+
+def _unique_strings(values: list[str]) -> list[str]:
+    unique: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = value.strip()
+        if not text or text in seen:
+            continue
+        unique.append(text)
+        seen.add(text)
+    return unique
+
+
+def _build_blocked_next_steps(
+    reason: str,
+    *,
+    status: CredentialStatus | None = None,
+) -> tuple[str, list[str]]:
+    if reason == "tls_verification_failed":
+        return (
+            "Fix local TLS trust configuration and retry the live preflight.",
+            [
+                "Check the local CA trust store or any corporate TLS interception settings.",
+                "Retry quickstart after a provider TLS preflight succeeds.",
+            ],
+        )
+    if reason == "provider_unreachable":
+        actions = [
+            "Verify outbound network access to the provider endpoint.",
+            "Retry quickstart after at least one configured provider responds to preflight.",
+        ]
+        if status and status.available_via:
+            actions.insert(
+                0,
+                f"Keep {status.available_via} configured; the provider is configured but not currently reachable.",
+            )
+        return (
+            "Verify provider connectivity and retry the live preflight.",
+            actions,
+        )
+    if status and status.next_action:
+        return status.next_action, list(status.next_actions)
+    return (
+        "Set a supported provider credential and retry the live preflight.",
+        ["Configure a supported provider API key before requesting live debate mode."],
+    )
+
+
+def summarize_provider_path(
+    provider_specs: list[tuple[str, str | None]],
+    credential_statuses: dict[str, CredentialStatus],
+    *,
+    requested_provider: str | None = None,
+    verified_live_agents: list[tuple[str, str | None]] | None = None,
+    failure_reasons: dict[str, str] | None = None,
+    failure_details: dict[str, str | None] | None = None,
+) -> ProviderPathSummary:
+    """Summarize configured vs verified provider paths into a truthful state."""
+    verified_live_agents = verified_live_agents or []
+    failure_reasons = failure_reasons or {}
+    failure_details = failure_details or {}
+    verified_lookup = {agent_type for agent_type, _ in verified_live_agents}
+
+    providers: list[ProviderPathState] = []
+    for agent_type, model in provider_specs:
+        status = credential_statuses.get(agent_type)
+        if agent_type in verified_lookup:
+            providers.append(
+                ProviderPathState(
+                    agent_type=agent_type,
+                    provider=agent_type,
+                    model=model,
+                    config_present=True if status is None else status.config_present,
+                    live_ready=True,
+                    status="live_ready",
+                    available_via=None if status is None else status.available_via,
+                    reason="verified_provider_response",
+                    detail="First verified provider response succeeded.",
+                )
+            )
+            continue
+
+        if status and status.config_present:
+            blocked_reason = failure_reasons.get(agent_type, "provider_unreachable")
+            next_action, next_actions = _build_blocked_next_steps(blocked_reason, status=status)
+            providers.append(
+                ProviderPathState(
+                    agent_type=agent_type,
+                    provider=agent_type,
+                    model=model,
+                    config_present=True,
+                    live_ready=False,
+                    status="blocked",
+                    available_via=status.available_via,
+                    reason=blocked_reason,
+                    detail=failure_details.get(agent_type),
+                    next_action=next_action,
+                    next_actions=next_actions,
+                )
+            )
+            continue
+
+        missing_status = status or CredentialStatus(
+            agent_type=agent_type,
+            is_available=False,
+            required_vars=[],
+            missing_vars=[],
+        )
+        next_action, next_actions = _build_blocked_next_steps(
+            "missing_config", status=missing_status
+        )
+        providers.append(
+            ProviderPathState(
+                agent_type=agent_type,
+                provider=agent_type,
+                model=model,
+                config_present=False,
+                live_ready=False,
+                status="missing_config",
+                available_via=missing_status.available_via,
+                reason="missing_config",
+                next_action=next_action,
+                next_actions=next_actions,
+            )
+        )
+
+    config_present = any(provider.config_present for provider in providers)
+    live_ready = any(provider.live_ready for provider in providers)
+    if live_ready:
+        return ProviderPathSummary(
+            status="live_ready",
+            reason="verified_provider_response",
+            blocked=False,
+            config_present=config_present,
+            live_ready=True,
+            requested_provider=requested_provider,
+            providers=providers,
+        )
+
+    blocked_providers = [
+        provider
+        for provider in providers
+        if provider.status == ("blocked" if config_present else "missing_config")
+    ]
+    next_action = next(
+        (provider.next_action for provider in blocked_providers if provider.next_action),
+        "Set a supported provider credential and retry the live preflight."
+        if not config_present
+        else "Verify provider connectivity and retry the live preflight.",
+    )
+    next_actions = _unique_strings(
+        [action for provider in blocked_providers for action in provider.next_actions]
+    )
+    return ProviderPathSummary(
+        status="blocked",
+        reason="providers_unreachable" if config_present else "missing_config",
+        blocked=True,
+        config_present=config_present,
+        live_ready=False,
+        requested_provider=requested_provider,
+        next_action=next_action,
+        next_actions=next_actions,
+        providers=providers,
+    )
 
 
 class ProviderRouter:
@@ -312,6 +539,9 @@ def get_provider_router(persist_path: str | None = None) -> ProviderRouter:
 
 __all__ = [
     "ProviderRouter",
+    "ProviderPathState",
+    "ProviderPathSummary",
+    "summarize_provider_path",
     "get_provider_router",
     "MIN_DEBATES_FOR_METRICS",
     "DEFAULT_PROVIDER_ORDER",
