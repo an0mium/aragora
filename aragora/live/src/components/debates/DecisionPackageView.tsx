@@ -1,6 +1,10 @@
 'use client';
 
 interface DecisionPackage {
+  status: string;
+  debate_status: 'pending' | 'running' | 'blocked' | 'failed' | 'completed';
+  debate_status_source: 'live' | 'synthetic';
+  synthetic: boolean;
   explanation: string;
   agents: string[];
   rounds: number;
@@ -33,8 +37,42 @@ interface DecisionPackageViewProps {
 }
 
 export function DecisionPackageView({ pkg }: DecisionPackageViewProps) {
+  const synthetic = pkg.synthetic || pkg.debate_status_source === 'synthetic';
+  const truthLabel = synthetic ? 'SIMULATED' : 'LIVE';
+  const truthDescription = synthetic
+    ? 'Mock or demo path; not a live provider-backed debate.'
+    : 'Provider-backed debate execution recorded from the live path.';
+  const debateStatusLabel = pkg.debate_status.replace(/_/g, ' ').toUpperCase();
+
   return (
     <div className="space-y-4">
+      <div className="bg-[var(--surface)] border border-[var(--border)] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-xs font-theme-data text-[var(--text-muted)] mb-2">
+              TRUTH STATUS
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span
+                className={`px-2 py-1 text-xs font-theme-data border ${
+                  synthetic
+                    ? 'text-[var(--warning)] border-[var(--warning)]/40 bg-[var(--warning)]/10'
+                    : 'text-[var(--acid-green)] border-[var(--acid-green)]/30 bg-[var(--acid-green)]/10'
+                }`}
+              >
+                {truthLabel}
+              </span>
+              <span className="px-2 py-1 text-xs font-theme-data text-[var(--acid-cyan)] border border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10">
+                {debateStatusLabel}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs font-theme-data text-[var(--text-muted)] max-w-sm">
+            {truthDescription}
+          </p>
+        </div>
+      </div>
+
       {/* Explanation Panel */}
       {pkg.explanation && (
         <div className="bg-[var(--surface)] border border-[var(--border)] p-5">
