@@ -4142,6 +4142,42 @@ def test_published_deliverable_helpers_require_boolean_success_flag() -> None:
     assert worker_result["outcome"] == "blocked"
 
 
+def test_postprocess_promotes_existing_pr_deliverable() -> None:
+    loop = BossLoop(
+        config=BossLoopConfig(
+            repo="synaptent/aragora",
+            auto_publish_deliverables=True,
+        )
+    )
+    issue = _make_issue(number=46)
+    pr_url = "https://github.com/synaptent/aragora/pull/2046"
+    worker_result = {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "deliverable": {
+            "type": "pr",
+            "pr_url": pr_url,
+        },
+    }
+
+    with (
+        patch.object(loop, "_maybe_comment_published_deliverable", return_value=None),
+        patch.object(loop, "_maybe_auto_close_already_done_issue", return_value=None),
+        patch.object(loop, "_convert_pr_to_draft"),
+    ):
+        result = loop._postprocess_issue_result(issue, worker_result)
+
+    assert result["publish_result"] == {
+        "action": "existing_pr",
+        "published": True,
+        "branch": None,
+        "pr_url": pr_url,
+    }
+    assert result["status"] == "completed"
+    assert result["outcome"] == "pr_adopted"
+    assert result["receipt_metadata"]["publish_result"]["published"] is True
+
+
 @pytest.mark.asyncio
 async def test_dispatch_auto_publish_rejects_malformed_success_flag() -> None:
     issue = _make_issue(46, "Backbone malformed publish wiring")
@@ -4556,6 +4592,59 @@ class TestListOpenBossHarvestPrs:
 class TestMaybePublishDeliverable:
     """Tests for auto-publish queue capping."""
 
+    def test_reuses_existing_published_pr_for_branch_deliverable(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+                max_open_auto_publish_prs=1,
+            )
+        )
+        issue = _make_issue(number=124)
+        worker_result = {
+            "status": "needs_human",
+            "outcome": "blocked",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/issue-124",
+                "commit_shas": ["abc123"],
+            },
+            "publish_result": {
+                "published": True,
+                "action": "existing_pr",
+                "branch": "codex/issue-124",
+                "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+            },
+        }
+
+        with (
+            patch.object(loop, "_list_open_boss_harvest_prs") as mock_list_open_prs,
+            patch.object(loop, "_harvest_worker_commits_for_publish") as mock_harvest,
+            patch("aragora.swarm.tranche_integrate.publish_lane_deliverable") as mock_publish,
+        ):
+            result = loop._maybe_publish_deliverable(issue, worker_result)
+
+        assert result == {
+            "published": True,
+            "action": "existing_pr",
+            "branch": "codex/issue-124",
+            "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+        }
+        assert worker_result["deliverable"] == {
+            "type": "pr",
+            "branch": "codex/issue-124",
+            "commit_shas": ["abc123"],
+            "pr_url": "https://github.com/synaptent/aragora/pull/2046",
+        }
+        assert worker_result["pr_url"] == "https://github.com/synaptent/aragora/pull/2046"
+        assert worker_result["pr_number"] == 2046
+        assert BossLoop._promote_published_deliverable(worker_result) is True
+        assert worker_result["status"] == "completed"
+        assert worker_result["outcome"] == "pr_adopted"
+        mock_list_open_prs.assert_not_called()
+        mock_harvest.assert_not_called()
+        mock_publish.assert_not_called()
+
     def test_defers_when_open_boss_harvest_pr_already_exists(self) -> None:
         loop = BossLoop(
             config=BossLoopConfig(
@@ -4609,6 +4698,34 @@ class TestMaybePublishDeliverable:
         mock_harvest.assert_not_called()
         mock_publish.assert_not_called()
 
+    def test_existing_pr_deliverable_marks_publish_success(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+            )
+        )
+        issue = _make_issue(number=124)
+        pr_url = "https://github.com/synaptent/aragora/pull/2124"
+        worker_result = {
+            "status": "needs_human",
+            "deliverable": {
+                "type": "pr",
+                "pr_url": pr_url,
+            },
+        }
+
+        result = loop._maybe_publish_deliverable(issue, worker_result)
+
+        assert result == {
+            "action": "existing_pr",
+            "published": True,
+            "branch": None,
+            "pr_url": pr_url,
+        }
+        assert worker_result["pr_url"] == pr_url
+        assert worker_result["pr_number"] == 2124
+
 
 class TestPostprocessConvertsToDraft:
     """Verify _postprocess_issue_result calls _convert_pr_to_draft."""
@@ -4629,3 +4746,109 @@ class TestPostprocessConvertsToDraft:
         ):
             loop._postprocess_issue_result(issue, worker_result)
         mock_convert.assert_called_once_with(worker_result)
+
+
+# ---------------------------------------------------------------------------
+# Published PR = terminal (no retry)
+# ---------------------------------------------------------------------------
+
+
+class TestPublishedPrTerminal:
+    """When a worker produces a PR, the issue must be terminal for that run."""
+
+    def test_needs_human_with_pr_url_is_terminal_completed(self):
+        """Worker returns needs_human but produced a PR -> completed, not retried."""
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(42, "Implement widget")]
+
+        pr_url = "https://github.com/synaptent/aragora/pull/100"
+
+        async def _dispatch(issue, freshness):
+            return {
+                "status": "needs_human",
+                "reasons": ["Approval required."],
+                "deliverable": {"type": "pr", "pr_url": pr_url},
+                "pr_url": pr_url,
+            }
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=5,
+                max_retries_per_issue=5,
+                auto_continue_on_needs_human=True,
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _dispatch
+
+        result = asyncio.run(loop.run())
+
+        # The issue should be completed, not failed
+        completed_numbers = {i.get("number") for i in result.issues_completed}
+        failed_numbers = {i.get("number") for i in result.issues_failed}
+        assert 42 in completed_numbers, "Issue should be in completed list"
+        assert 42 not in failed_numbers, "Issue should NOT be in failed list"
+
+        # It should have been dispatched exactly once (terminal on first attempt)
+        dispatch_statuses = [
+            s
+            for s in result.iteration_statuses
+            if (s.get("selected_issue") or {}).get("number") == 42
+            and s.get("worker_status") == "completed"
+        ]
+        assert len(dispatch_statuses) == 1, (
+            f"Issue should be dispatched exactly once, got {len(dispatch_statuses)}"
+        )
+
+        # The next_actions should mention the PR URL
+        actions = dispatch_statuses[0].get("next_actions", [])
+        assert any(pr_url in str(a) for a in actions), (
+            f"next_actions should mention PR URL, got {actions}"
+        )
+
+    def test_existing_open_pr_skips_dispatch(self):
+        """Issue with an existing open boss-harvest PR is skipped in dispatch."""
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(42, "Implement widget")]
+
+        dispatch_called = []
+
+        async def _dispatch(issue, freshness):
+            dispatch_called.append(issue.number)
+            return {"status": "completed"}
+
+        loop = BossLoop(
+            config=_boss_config(max_iterations=3, repo="synaptent/aragora"),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _dispatch
+
+        # Simulate that an open PR already exists for issue #42
+        existing_pr_url = "https://github.com/synaptent/aragora/pull/200"
+        with patch.object(
+            loop,
+            "_has_open_pr_for_issue",
+            return_value=existing_pr_url,
+        ):
+            result = asyncio.run(loop.run())
+
+        # Dispatch should never have been called
+        assert 42 not in dispatch_called, "Issue with existing PR should not be dispatched"
+
+        # The issue should be marked completed
+        completed_numbers = {i.get("number") for i in result.issues_completed}
+        assert 42 in completed_numbers, "Issue should be in completed list"
+
+        # The iteration status should mention the existing PR
+        skipped = [
+            s
+            for s in result.iteration_statuses
+            if (s.get("selected_issue") or {}).get("number") == 42
+        ]
+        assert len(skipped) >= 1
+        actions = skipped[0].get("next_actions", [])
+        assert any(existing_pr_url in str(a) for a in actions), (
+            f"next_actions should mention existing PR, got {actions}"
+        )
