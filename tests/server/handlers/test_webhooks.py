@@ -115,11 +115,14 @@ class MockWebhookStore:
     def list(
         self,
         user_id: str | None = None,
+        workspace_id: str | None = None,
         active_only: bool = False,
     ) -> builtins.list[WebhookConfig]:
         result = list(self._webhooks.values())
         if user_id:
             result = [w for w in result if w.user_id == user_id]
+        if workspace_id:
+            result = [w for w in result if w.workspace_id == workspace_id]
         if active_only:
             result = [w for w in result if w.active]
         return result
@@ -388,7 +391,7 @@ class TestGetWebhook:
         handler.get_current_user = MagicMock(return_value=MockUser(user_id="other-user"))
         result = await handler.handle("/api/v1/webhooks/wh-001", {}, _make_mock_http_handler())
         status, body = _parse_result(result)
-        assert status == 403
+        assert status == 404
 
 
 # ===========================================================================
@@ -557,7 +560,7 @@ class TestDeleteWebhook:
             "/api/v1/webhooks/wh-001", {}, _make_mock_http_handler()
         )
         status, _ = _parse_result(result)
-        assert status == 403
+        assert status == 404
 
 
 # ===========================================================================
@@ -610,7 +613,7 @@ class TestUpdateWebhook:
         self._mock_body(handler, {"name": "X"})
         result = handler.handle_patch("/api/v1/webhooks/wh-001", {}, _make_mock_http_handler())
         status, _ = _parse_result(result)
-        assert status == 403
+        assert status == 404
 
     def test_update_webhook_invalid_events(self, handler):
         self._mock_body(handler, {"events": ["invalid_event_xyz"]})
@@ -692,7 +695,7 @@ class TestTestWebhook:
             "/api/v1/webhooks/wh-001/test", {}, _make_mock_http_handler()
         )
         status, _ = _parse_result(result)
-        assert status == 403
+        assert status == 404
 
 
 # ===========================================================================

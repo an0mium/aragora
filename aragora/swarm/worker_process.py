@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import PurePosixPath
 from typing import Any
 
 from aragora.pipeline.execution_mode import ExecutionMode
@@ -29,6 +30,23 @@ SESSION_ARTIFACTS: frozenset[str] = frozenset(
         ".swarm_worker_stderr.log",
     }
 )
+
+# Runtime dependency directories can appear in worker status output when the
+# harness reuses local frontend tooling state. They are environment noise, not
+# lane deliverables.
+IGNORED_RUNTIME_PATH_PARTS: frozenset[str] = frozenset({"node_modules"})
+
+
+def is_ignored_changed_path(path: str) -> bool:
+    """Return True when a changed path is harness/runtime noise."""
+    clean = str(path).strip().removeprefix("./").rstrip("/")
+    if not clean:
+        return False
+    pure_path = PurePosixPath(clean)
+    if pure_path.name in SESSION_ARTIFACTS:
+        return True
+    return any(part in IGNORED_RUNTIME_PATH_PARTS for part in pure_path.parts)
+
 
 # Exit codes where the worker likely completed its work but the process was
 # terminated by a transport-level signal (e.g. broken pipe). Only these codes

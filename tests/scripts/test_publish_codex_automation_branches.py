@@ -10,6 +10,7 @@ from scripts.publish_codex_automation_branches import (
     BranchSnapshot,
     WorktreeSnapshot,
     _worktree_is_dirty,
+    _build_parser,
     select_publishable_branches,
 )
 
@@ -62,6 +63,13 @@ def test_select_publishable_branches_marks_recent_clean_branch_eligible() -> Non
     assert len(decisions) == 1
     assert decisions[0].eligible is True
     assert decisions[0].reason == "eligible"
+
+
+def test_parser_defaults_to_single_branch_publish_budget() -> None:
+    args = _build_parser().parse_args([])
+
+    assert args.limit == 1
+    assert args.max_open_prs == 1
 
 
 def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() -> None:

@@ -23,8 +23,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: security-gate-${{ github.ref }}
-  cancel-in-progress: false
+  group: security-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

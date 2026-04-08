@@ -104,11 +104,13 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Cycling placeholder examples
   const PLACEHOLDER_EXAMPLES = [
-    'Should we migrate to microservices or keep our monolith?',
-    'Is this contract clause a liability risk?',
+    'Should we use Redis or Memcached for our session cache?',
+    'Is it worth switching from React to Svelte for our dashboard?',
     'Should we raise prices 15% or expand to a new market?',
-    'What are the security risks in our OAuth implementation?',
-    'Should we build or buy our analytics platform?',
+    'Should I negotiate the non-compete clause in this job offer?',
+    'Should we hire a CFO now or outsource to a fractional one?',
+    'Is it safe to refreeze chicken that was thawed in the fridge?',
+    'Should we open-source our internal tool or keep it proprietary?',
   ];
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const cycleTimer = useRef<ReturnType<typeof setInterval>>(null);
@@ -163,6 +165,29 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     }
     setTimeout(focus, 0);
   }, []);
+  const handleWrongAnswer = useCallback((currentResult: DebateResponse) => {
+    const sourceQuestion =
+      currentResult.original_question
+      || question
+      || lastTopic
+      || currentResult.topic;
+
+    setQuestion(sourceQuestion);
+    setResult(null);
+    setError(null);
+    setLastTopic(sourceQuestion);
+    setLastPreparedOption(null);
+    setPendingPreflight(null);
+    setEditorNotice('Edit the wording below and rerun the debate with one more specific detail.');
+
+    trackEvent('wrong_answer_clicked', {
+      result_mode: currentResult.result_mode || 'full',
+      rewritten:
+        Boolean(currentResult.interpreted_question)
+        && currentResult.interpreted_question !== (currentResult.original_question || currentResult.topic),
+    });
+    focusComposer();
+  }, [focusComposer, lastTopic, question, trackEvent]);
 
   // Dashboard mode — preserves original behavior from old HeroSection
   if (isDashboardMode) {
@@ -455,33 +480,6 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       void runDebate(question.trim());
     }
   }
-
-  const handleWrongAnswer = useCallback((currentResult: DebateResponse) => {
-    const sourceQuestion =
-      currentResult.original_question
-      || question
-      || lastTopic
-      || currentResult.topic;
-
-    setQuestion(sourceQuestion);
-    setResult(null);
-    setError(null);
-    setLastTopic(sourceQuestion);
-    setLastPreparedOption(null);
-    setPendingPreflight(null);
-    setEditorNotice('Edit the wording below and rerun the debate with one more specific detail.');
-
-    trackEvent('wrong_answer_clicked', {
-      result_mode: currentResult.result_mode || 'full',
-      rewritten:
-        Boolean(currentResult.interpreted_question)
-        && currentResult.interpreted_question !== (currentResult.original_question || currentResult.topic),
-    });
-    focusComposer();
-  }, [focusComposer, lastTopic, question, trackEvent]);
-
-  // Keep the saveDebateBeforeLogin available for external use (not currently wired but preserving)
-  void saveDebateBeforeLogin;
 
   return (
     <section
@@ -875,9 +873,66 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
         {/* Post-debate CTAs */}
         {result && (
           <div className="mt-6 max-w-xl mx-auto space-y-3">
+            <div
+              className="rounded-2xl p-4 space-y-3"
+              style={{
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--surface)',
+              }}
+            >
+              <div className="space-y-1">
+                <p
+                  className="text-xs uppercase tracking-[0.18em] font-bold"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  Save this result
+                </p>
+                <p
+                  className="text-sm leading-relaxed"
+                  style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-landing)' }}
+                >
+                  Keep this debate and continue from the full transcript after you sign in.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveDebateBeforeLogin();
+                    router.push('/login');
+                  }}
+                  className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: 'var(--accent)',
+                    border: '1px solid var(--accent)',
+                    borderRadius: 'var(--radius-button)',
+                  }}
+                >
+                  {isDark ? '> Log In To Save' : 'Log In To Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveDebateBeforeLogin();
+                    router.push('/signup');
+                  }}
+                  className="flex-1 text-sm font-bold font-mono py-3 transition-all hover:opacity-90 cursor-pointer"
+                  style={{
+                    backgroundColor: 'var(--accent)',
+                    color: 'var(--bg)',
+                    borderRadius: 'var(--radius-button)',
+                    boxShadow: isDark ? '0 0 20px var(--accent-glow)' : '0 2px 8px var(--accent-glow)',
+                  }}
+                >
+                  {isDark ? '> Sign Up Free' : 'Sign Up Free'}
+                </button>
+              </div>
+            </div>
             {/* Primary: View full debate page */}
             {result.id && (
               <button
+                type="button"
                 onClick={() => {
                   trackEvent('open_full_debate_clicked', {
                     result_mode: result.result_mode || 'full',
@@ -899,6 +954,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
             {/* Secondary row: Try Another + Share */}
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => {
                   setResult(null);
                   setQuestion('');
@@ -919,6 +975,7 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
                 Try Another
               </button>
               <button
+                type="button"
                 onClick={async () => {
                   const shareUrl = result.id
                     ? `${window.location.origin}/debate/${result.id}`

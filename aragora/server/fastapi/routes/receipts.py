@@ -18,8 +18,11 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import io
+import json
 import logging
 import os
+import zipfile
 from datetime import datetime, timezone
 from enum import Enum
 from inspect import signature
@@ -49,6 +52,7 @@ class ExportFormat(str, Enum):
     html = "html"
     markdown = "markdown"
     md = "md"
+    pdf = "pdf"
     sarif = "sarif"
 
 
@@ -164,7 +168,14 @@ class BatchExportRequest(BaseModel):
     receipt_ids: list[str] = Field(
         ..., min_length=1, max_length=100, description="Receipt IDs to export (max 100)"
     )
-    format: str = Field("json", description="Export format (json, markdown, sarif)")
+    format: str = Field(
+        "json",
+        description="Export format (json, html, markdown, md, csv, sarif)",
+    )
+    raw: bool = Field(
+        True,
+        description="Keep the legacy ZIP archive response. Set false to return a JSON item bundle.",
+    )
 
 
 class BatchExportItem(BaseModel):
@@ -339,6 +350,24 @@ async def _call_store_method(store: Any, method_name: str, *args: Any, **kwargs:
     return result
 
 
+def _store_accepts_keyword_argument(store: Any, method_name: str, keyword: str) -> bool:
+    """Return whether a store method accepts a named keyword or arbitrary kwargs."""
+
+    method = getattr(store, method_name, None)
+    if method is None:
+        return False
+
+    try:
+        parameters = inspect.signature(method).parameters.values()
+    except (TypeError, ValueError):
+        return True
+
+    return any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD or parameter.name == keyword
+        for parameter in parameters
+    )
+
+
 async def _consume_share_access(share_store: Any, token: str) -> tuple[str, dict[str, Any] | None]:
     """Consume one receipt-share access, preferring atomic store support."""
     consume_result = None
@@ -375,6 +404,51 @@ def _build_decision_receipt(receipt: Any) -> Any:
     if not payload:
         raise ValueError("Cannot reconstruct receipt payload")
     return DecisionReceipt.from_dict(payload)
+
+
+def _render_receipt_export_content(receipt: Any, export_format: str) -> tuple[str, str, str]:
+    """Render exported receipt content and a file extension for batch bundles."""
+    normalized = export_format.lower()
+
+    if normalized == "json":
+        return receipt.to_json(), "json", "json"
+    if normalized == "html":
+        return receipt.to_html(), "html", "html"
+    if normalized in ("markdown", "md"):
+        return receipt.to_markdown(), "markdown", "md"
+    if normalized == "csv":
+        return receipt.to_csv(), "csv", "csv"
+    if normalized == "sarif":
+        return receipt.to_sarif_json(), "sarif", "sarif.json"
+
+    raise ValueError(f"Unsupported export format: {export_format}")
+
+
+def _build_batch_export_zip(
+    *,
+    archive_items: list[tuple[str, str, str]],
+    export_format: str,
+    total_requested: int,
+    failed_ids: list[str],
+) -> bytes:
+    """Build a ZIP bundle matching the legacy receipt batch-export surface."""
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        for receipt_id, extension, content in archive_items:
+            zip_file.writestr(f"receipt-{receipt_id}.{extension}", content)
+
+        manifest = {
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "format": export_format,
+            "total_requested": total_requested,
+            "exported": len(archive_items),
+            "failed": failed_ids,
+        }
+        zip_file.writestr("manifest.json", json.dumps(manifest, indent=2))
+
+    zip_buffer.seek(0)
+    return zip_buffer.read()
 
 
 # =============================================================================
@@ -554,6 +628,7 @@ async def list_receipts(
     limit: int = Query(50, ge=1, le=100, description="Max results to return"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
     verdict: str | None = Query(None, description="Filter by verdict"),
+    debate_id: str | None = Query(None, description="Filter by debate ID"),
     store=Depends(get_receipt_store),
 ) -> ReceiptListResponse:
     """List all receipts with pagination."""
@@ -561,15 +636,29 @@ async def list_receipts(
         filter_kwargs: dict[str, Any] = {}
         if verdict:
             filter_kwargs["verdict"] = verdict
+        if debate_id:
+            filter_kwargs["debate_id"] = debate_id
 
         if hasattr(store, "list_recent"):
+            list_recent_kwargs: dict[str, Any] = {
+                "limit": limit,
+                "offset": offset,
+                "verdict": verdict,
+            }
+            if debate_id and _store_accepts_keyword_argument(store, "list_recent", "debate_id"):
+                list_recent_kwargs["debate_id"] = debate_id
+
             results = await _call_store_method(
                 store,
                 "list_recent",
-                limit=limit,
-                offset=offset,
-                verdict=verdict,
+                **list_recent_kwargs,
             )
+            if debate_id and "debate_id" not in list_recent_kwargs:
+                results = [
+                    receipt
+                    for receipt in results
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                ]
         elif hasattr(store, "list"):
             results = await _call_store_method(
                 store, "list", limit=limit, offset=offset, **filter_kwargs
@@ -583,12 +672,29 @@ async def list_receipts(
                     if (r.get("verdict") if isinstance(r, dict) else getattr(r, "verdict", ""))
                     == verdict
                 ]
+            if debate_id:
+                all_receipts = [
+                    receipt
+                    for receipt in all_receipts
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                ]
             results = all_receipts[offset : offset + limit]
         else:
             results = []
 
         if hasattr(store, "count"):
-            total = await _call_store_method(store, "count", verdict=verdict)
+            count_kwargs: dict[str, Any] = {"verdict": verdict}
+            if debate_id and _store_accepts_keyword_argument(store, "count", "debate_id"):
+                count_kwargs["debate_id"] = debate_id
+            total = await _call_store_method(store, "count", **count_kwargs)
+            if debate_id and "debate_id" not in count_kwargs and hasattr(store, "list_all"):
+                all_receipts = await _call_store_method(store, "list_all")
+                total = sum(
+                    1
+                    for receipt in all_receipts
+                    if _extract_receipt_payload(receipt).get("debate_id") == debate_id
+                    and (not verdict or _extract_receipt_payload(receipt).get("verdict") == verdict)
+                )
         else:
             total = len(results)
 
@@ -847,17 +953,18 @@ async def batch_verify_receipts(
 async def batch_export_receipts(
     body: BatchExportRequest,
     store=Depends(get_receipt_store),
-) -> BatchExportResponse:
-    """Export multiple receipts at once (up to 100)."""
+) -> BatchExportResponse | Response:
+    """Export multiple receipts at once (up to 100), defaulting to the legacy ZIP surface."""
     try:
         items: list[BatchExportItem] = []
+        archive_items: list[tuple[str, str, str]] = []
         failed_ids: list[str] = []
 
         export_format = body.format.lower()
-        if export_format not in ("json", "markdown", "sarif"):
+        if export_format not in ("json", "html", "markdown", "md", "csv", "sarif"):
             raise HTTPException(
                 status_code=422,
-                detail="Unsupported format. Supported: json, markdown, sarif",
+                detail="Unsupported format. Supported: json, html, markdown, md, csv, sarif",
             )
 
         for rid in body.receipt_ids:
@@ -872,29 +979,32 @@ async def batch_export_receipts(
                     failed_ids.append(rid)
                     continue
 
-                from aragora.export.decision_receipt import DecisionReceipt
+                receipt = _build_decision_receipt(receipt_data)
+                content, response_format, extension = _render_receipt_export_content(
+                    receipt, export_format
+                )
 
-                if isinstance(receipt_data, dict):
-                    data = receipt_data.get("data", receipt_data)
-                    receipt = DecisionReceipt.from_dict(data)
-                elif hasattr(receipt_data, "to_dict"):
-                    receipt = DecisionReceipt.from_dict(receipt_data.to_dict())
-                else:
-                    failed_ids.append(rid)
-                    continue
-
-                if export_format == "markdown":
-                    content = receipt.to_markdown()
-                elif export_format == "sarif":
-                    content = receipt.to_sarif_json()
-                else:
-                    content = receipt.to_json()
-
-                items.append(BatchExportItem(receipt_id=rid, format=export_format, content=content))
+                items.append(
+                    BatchExportItem(receipt_id=rid, format=response_format, content=content)
+                )
+                archive_items.append((rid, extension, content))
 
             except (ImportError, ValueError, TypeError, KeyError, OSError) as e:
                 logger.warning("Batch export failed for %s: %s", rid, e)
                 failed_ids.append(rid)
+
+        if body.raw:
+            zip_bytes = _build_batch_export_zip(
+                archive_items=archive_items,
+                export_format=export_format,
+                total_requested=len(body.receipt_ids),
+                failed_ids=failed_ids,
+            )
+            return Response(
+                content=zip_bytes,
+                media_type="application/zip",
+                headers={"Content-Disposition": "attachment; filename=receipts-export.zip"},
+            )
 
         return BatchExportResponse(
             items=items,
@@ -1260,9 +1370,13 @@ async def verify_receipt(
 async def export_receipt(
     receipt_id: str,
     format: ExportFormat = Query(ExportFormat.json, description="Export format"),
+    raw: bool = Query(
+        False,
+        description="Return the exported bytes directly instead of a JSON wrapper.",
+    ),
     store=Depends(get_receipt_store),
-) -> ExportResponse:
-    """Export receipt in the specified format (json, html, markdown, sarif)."""
+) -> ExportResponse | Response:
+    """Export receipt in the specified format."""
     try:
         receipt_data = None
 
@@ -1283,18 +1397,61 @@ async def export_receipt(
             else:
                 raise ValueError("Cannot reconstruct receipt for export")
 
+            if format == ExportFormat.pdf:
+                try:
+                    return Response(
+                        content=receipt.to_pdf(),
+                        media_type="application/pdf",
+                    )
+                except ImportError:
+                    logger.info("PDF export unavailable, falling back to printable HTML")
+                    printable_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Receipt {receipt_id}</title>
+    <style>
+        @media print {{
+            body {{ font-size: 12pt; }}
+            .no-print {{ display: none; }}
+        }}
+        body {{ font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+        .print-notice {{ background: #fff3cd; border: 1px solid #ffc107; padding: 10px; margin-bottom: 20px; border-radius: 4px; }}
+    </style>
+</head>
+<body>
+    <div class="print-notice no-print">
+        <strong>Note:</strong> PDF export is unavailable. Use your browser's Print function (Ctrl+P / Cmd+P) to save as PDF.
+    </div>
+    {receipt.to_html()}
+</body>
+</html>"""
+                    return Response(
+                        content=printable_html.encode("utf-8"),
+                        media_type="text/html",
+                        headers={"X-PDF-Fallback": "true"},
+                    )
+
             if format in (ExportFormat.markdown, ExportFormat.md):
                 content = receipt.to_markdown()
                 response_format = "markdown"
+                media_type = "text/markdown"
             elif format == ExportFormat.html:
                 content = receipt.to_html()
                 response_format = "html"
+                media_type = "text/html"
             elif format == ExportFormat.sarif:
                 content = receipt.to_sarif_json()
                 response_format = "sarif"
+                media_type = "application/sarif+json"
             else:
                 content = receipt.to_json()
                 response_format = "json"
+                media_type = "application/json"
+
+            if raw:
+                body = content if isinstance(content, bytes) else content.encode("utf-8")
+                return Response(content=body, media_type=media_type)
 
             return ExportResponse(
                 receipt_id=receipt_id,

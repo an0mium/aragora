@@ -84,6 +84,8 @@ interface LandingFeedbackSummary {
   reports: LandingFeedbackReport[];
 }
 
+type StatusError = Error & { status?: number };
+
 function formatPercent(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return '--';
   return `${(value * 100).toFixed(1)}%`;
@@ -239,6 +241,9 @@ export default function LandingReviewPage() {
   );
 
   const lastUpdated = summary?.generated_at || feedback?.generated_at || null;
+  const feedbackStatus = (feedbackError as StatusError | null)?.status ?? null;
+  const feedbackUnavailable = Boolean(feedbackError);
+  const feedbackAuthRequired = feedbackStatus === 401 || feedbackStatus === 403;
   const reports = feedback?.reports ?? [];
 
   return (
@@ -295,9 +300,11 @@ export default function LandingReviewPage() {
       )}
 
       {feedbackError && (
-        <div className="card mb-6 border-acid-yellow/40 bg-acid-yellow/10 p-4">
-          <p className="font-theme-data text-sm text-[var(--acid-yellow)]">
-            Raw wrong-answer reports require admin auth. Summary cards remain visible, but the review queue is unavailable for this session.
+        <div className={`card mb-6 p-4 ${feedbackAuthRequired ? 'border-acid-yellow/40 bg-acid-yellow/10' : 'border-acid-red/40 bg-acid-red/10'}`}>
+          <p className={`font-theme-data text-sm ${feedbackAuthRequired ? 'text-[var(--acid-yellow)]' : 'text-acid-red'}`}>
+            {feedbackAuthRequired
+              ? 'Raw wrong-answer reports require admin auth. Summary cards remain visible, but the review queue is unavailable for this session.'
+              : 'Failed to load raw wrong-answer reports. Summary cards remain visible, but the review queue is unavailable right now.'}
           </p>
         </div>
       )}
@@ -334,8 +341,12 @@ export default function LandingReviewPage() {
         />
         <MetricCard
           label="Reports"
-          value={String(feedback?.total_reports ?? 0)}
-          sublabel={`${feedback?.stats.review_status_counts.pending ?? 0} pending`}
+          value={feedbackUnavailable ? '--' : String(feedback?.total_reports ?? 0)}
+          sublabel={
+            feedbackUnavailable
+              ? (feedbackAuthRequired ? 'admin auth required' : 'load failed')
+              : `${feedback?.returned_reports ?? 0} shown`
+          }
           tone="text-[var(--acid-cyan)]"
         />
       </div>
@@ -441,21 +452,27 @@ export default function LandingReviewPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="text-[var(--acid-yellow)] border-acid-yellow/30 bg-acid-yellow/10">
-              Pending {feedback?.stats.review_status_counts.pending ?? 0}
-            </Badge>
-            <Badge tone="text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10">
-              Reviewed {feedback?.stats.review_status_counts.reviewed ?? 0}
-            </Badge>
-            <Badge tone="text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10">
-              Resolved {feedback?.stats.review_status_counts.resolved ?? 0}
-            </Badge>
-            <Badge tone="text-[var(--acid-magenta)] border-acid-magenta/30 bg-acid-magenta/10">
-              Dismissed {feedback?.stats.review_status_counts.dismissed ?? 0}
-            </Badge>
-            <div className="font-theme-data text-xs text-text-muted">
-              Last report {formatTimestamp(feedback?.last_report_at)}
-            </div>
+            {feedbackUnavailable ? (
+              <div className="font-theme-data text-xs text-text-muted">Queue unavailable</div>
+            ) : (
+              <>
+                <Badge tone="text-[var(--acid-yellow)] border-acid-yellow/30 bg-acid-yellow/10">
+                  Pending {feedback?.stats.review_status_counts.pending ?? 0}
+                </Badge>
+                <Badge tone="text-[var(--acid-cyan)] border-[var(--acid-cyan)]/30 bg-[var(--acid-cyan)]/10">
+                  Reviewed {feedback?.stats.review_status_counts.reviewed ?? 0}
+                </Badge>
+                <Badge tone="text-[var(--accent)] border-[var(--accent)]/30 bg-[var(--accent)]/10">
+                  Resolved {feedback?.stats.review_status_counts.resolved ?? 0}
+                </Badge>
+                <Badge tone="text-[var(--acid-magenta)] border-acid-magenta/30 bg-acid-magenta/10">
+                  Dismissed {feedback?.stats.review_status_counts.dismissed ?? 0}
+                </Badge>
+                <div className="font-theme-data text-xs text-text-muted">
+                  Last report {formatTimestamp(feedback?.last_report_at)}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -465,7 +482,13 @@ export default function LandingReviewPage() {
           </div>
         )}
 
-        {reports.length === 0 ? (
+        {feedbackUnavailable ? (
+          <div className={`rounded border border-dashed p-8 font-theme-data text-sm ${feedbackAuthRequired ? 'border-acid-yellow/40 bg-acid-yellow/10 text-[var(--acid-yellow)]' : 'border-acid-red/40 bg-acid-red/10 text-acid-red'}`}>
+            {feedbackAuthRequired
+              ? 'Wrong-answer review queue unavailable for this session.'
+              : 'Wrong-answer review queue failed to load for this session.'}
+          </div>
+        ) : reports.length === 0 ? (
           <div className="rounded border border-dashed border-border p-8 font-theme-data text-sm text-text-muted">
             No wrong-answer reports captured in this window.
           </div>

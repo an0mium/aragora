@@ -139,7 +139,7 @@ describe('StatsGrid', () => {
       render(<StatsGrid stats={mockStats} />);
 
       const valueElement = screen.getByText('1500');
-      expect(valueElement).toHaveClass('text-2xl', 'font-mono');
+      expect(valueElement).toHaveClass('text-2xl', 'font-theme-data');
     });
 
     it('applies label text styles', () => {

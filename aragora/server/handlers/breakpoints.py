@@ -254,9 +254,12 @@ class BreakpointsHandler(BaseHandler):
         if not self.breakpoint_manager:
             return error_response("Breakpoints module not available", 503)
 
+        if not isinstance(body, dict):
+            return error_response("Request body must be a JSON object", 400)
+
         # Validate required fields
         action = body.get("action")
-        if not action:
+        if not isinstance(action, str) or not action:
             return error_response("Missing required field: action", 400)
 
         valid_actions = ["continue", "abort", "redirect", "inject"]
@@ -265,6 +268,15 @@ class BreakpointsHandler(BaseHandler):
 
         message = body.get("message", "")
         redirect_task = body.get("redirect_task")
+        reviewer_id = body.get("reviewer_id", "api_user")
+        if not isinstance(message, str):
+            return error_response("Field 'message' must be a string", 400)
+        if redirect_task is not None and not isinstance(redirect_task, str):
+            return error_response("Field 'redirect_task' must be a string", 400)
+        if not isinstance(reviewer_id, str) or not reviewer_id.strip():
+            return error_response("Field 'reviewer_id' must be a non-empty string", 400)
+        if action == "redirect" and (redirect_task is None or not redirect_task.strip()):
+            return error_response("Field 'redirect_task' is required for redirect action", 400)
 
         try:
             import uuid
@@ -276,7 +288,7 @@ class BreakpointsHandler(BaseHandler):
             guidance = guidance_cls(
                 guidance_id=str(uuid.uuid4()),
                 debate_id=breakpoint_id.split("_")[0] if "_" in breakpoint_id else "",
-                human_id=body.get("reviewer_id", "api_user"),
+                human_id=reviewer_id,
                 action=action,
                 reasoning=message,
                 preferred_direction=redirect_task,

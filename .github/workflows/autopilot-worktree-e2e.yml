@@ -4,11 +4,19 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main]
+    paths:
+      - 'aragora/server/handlers/self_improve.py'
+      - 'aragora/worktree/**'
+      - 'scripts/codex_worktree_autopilot.py'
+      - 'tests/handlers/test_self_improve_api.py'
+      - 'pyproject.toml'
+      - '.github/workflows/autopilot-worktree-e2e.yml'
+      - '.github/actions/pr-scope-classifier/**'
   workflow_dispatch:
 
 concurrency:
   group: autopilot-worktree-e2e-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -19,7 +27,7 @@ jobs:
     name: Autopilot Scope
     runs-on: ubuntu-latest
     outputs:
-      run_autopilot: ${{ steps.filter.outputs.run_autopilot }}
+      run_autopilot: ${{ steps.decision.outputs.run_autopilot }}
 
     steps:
       - name: Checkout
@@ -50,25 +58,17 @@ jobs:
           fi
 
       - name: Detect autopilot-relevant changes
-        id: filter
+        id: scope-filter
+        uses: ./.github/actions/pr-scope-classifier
+
+      - name: Decide autopilot scope
+        id: decision
+        shell: bash
         run: |
-          set -euo pipefail
-          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
-            echo "run_autopilot=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          git fetch --no-tags --prune origin "${{ github.base_ref }}"
-          if ! CHANGED="$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" 2>/tmp/autopilot_diff_err.log)"; then
-            echo "::warning::Three-dot diff failed; falling back to two-dot diff."
-            sed 's/^/::warning::/g' /tmp/autopilot_diff_err.log || true
-            CHANGED="$(git diff --name-only "origin/${{ github.base_ref }}..HEAD")"
-          fi
-
-          if printf '%s\n' "$CHANGED" | grep -Eq '^(aragora/server/handlers/self_improve.py|aragora/worktree/.*|scripts/codex_worktree_autopilot.py|tests/handlers/test_self_improve_api.py|\\.github/workflows/autopilot-worktree-e2e.yml|pyproject.toml)$'; then
-            echo "run_autopilot=true" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "run_autopilot=${{ steps.scope-filter.outputs.autopilot }}" >> "$GITHUB_OUTPUT"
           else
-            echo "run_autopilot=false" >> "$GITHUB_OUTPUT"
+            echo "run_autopilot=true" >> "$GITHUB_OUTPUT"
           fi
 
   autopilot-api-e2e:

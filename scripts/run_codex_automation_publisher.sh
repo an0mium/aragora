@@ -31,5 +31,5 @@ if ! gh auth status >/dev/null 2>&1; then
 fi
 
 echo "$(STAMP) [codex-automation-publisher] starting publish pass"
-python3 scripts/publish_codex_automation_branches.py --apply --limit 3 --json
+python3 scripts/publish_codex_automation_branches.py --apply --limit 1 --max-open-prs 1 --json
 echo "$(STAMP) [codex-automation-publisher] publish pass complete"

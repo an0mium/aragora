@@ -5,7 +5,45 @@
  * agent management, task scheduling, policy governance, and health monitoring.
  */
 
-import type { AragoraClient } from '../client';
+interface ControlPlaneClientInterface {
+  request<T = unknown>(method: string, path: string, options?: Record<string, unknown>): Promise<T>;
+  registerAgent(body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  unregisterAgent(agentId: string): Promise<Record<string, unknown>>;
+  sendHeartbeat(body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getAgentStatus(agentId: string): Promise<Record<string, unknown>>;
+  listRegisteredAgents(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  submitTask(body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getTaskStatus(taskId: string): Promise<Record<string, unknown>>;
+  listTasks(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  claimTask(body: Record<string, unknown>): Promise<Record<string, unknown> | null>;
+  completeTask(taskId: string, body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  failTask(taskId: string, body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  cancelTask(taskId: string): Promise<Record<string, unknown>>;
+  getControlPlaneHealth(): Promise<Record<string, unknown>>;
+  createPolicy(body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getPolicy(policyId: string): Promise<Record<string, unknown>>;
+  updatePolicy(policyId: string, body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  deletePolicy(policyId: string): Promise<Record<string, unknown>>;
+  listPolicies(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  scheduleTask(body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getScheduledTask(scheduleId: string): Promise<Record<string, unknown>>;
+  listScheduledTasks(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  cancelScheduledTask(scheduleId: string): Promise<Record<string, unknown>>;
+  createDeliberation(body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getDeliberation(deliberationId: string): Promise<Record<string, unknown>>;
+  listDeliberations(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  voteOnDeliberation(deliberationId: string, body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  closeDeliberation(deliberationId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getDeliberationTranscript(deliberationId: string): Promise<Record<string, unknown>>;
+  listAuditLogs(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getAuditLog(logId: string): Promise<Record<string, unknown>>;
+  listPolicyViolations(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  acknowledgePolicyViolation(violationId: string, body?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  escalatePolicyViolation(violationId: string, body: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getAgentMetrics(agentId: string, params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getTaskMetrics(params?: Record<string, unknown>): Promise<Record<string, unknown>>;
+  getControlPlaneSystemMetrics(): Promise<Record<string, unknown>>;
+}
 
 /**
  * Control Plane API namespace.
@@ -18,7 +56,118 @@ import type { AragoraClient } from '../client';
  * - Audit logs and notifications
  */
 export class ControlPlaneAPI {
-  constructor(private client: AragoraClient) {}
+  readonly agents: {
+    register: (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    unregister: (agentId: string) => Promise<Record<string, unknown>>;
+    heartbeat: (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    getStatus: (agentId: string) => Promise<Record<string, unknown>>;
+    list: (params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  };
+
+  readonly tasks: {
+    submit: (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    getStatus: (taskId: string) => Promise<Record<string, unknown>>;
+    list: (params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    claim: (body: Record<string, unknown>) => Promise<Record<string, unknown> | null>;
+    complete: (taskId: string, body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    fail: (taskId: string, body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    cancel: (taskId: string) => Promise<Record<string, unknown>>;
+  };
+
+  readonly policies: {
+    create: (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    get: (policyId: string) => Promise<Record<string, unknown>>;
+    update: (policyId: string, body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    delete: (policyId: string) => Promise<Record<string, unknown>>;
+    list: (params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  };
+
+  readonly schedules: {
+    create: (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    get: (scheduleId: string) => Promise<Record<string, unknown>>;
+    list: (params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    cancel: (scheduleId: string) => Promise<Record<string, unknown>>;
+  };
+
+  readonly deliberations: {
+    create: (body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    get: (deliberationId: string) => Promise<Record<string, unknown>>;
+    list: (params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    vote: (deliberationId: string, body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    close: (deliberationId: string, body?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    getTranscript: (deliberationId: string) => Promise<Record<string, unknown>>;
+  };
+
+  readonly auditLogs: {
+    list: (params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    get: (logId: string) => Promise<Record<string, unknown>>;
+  };
+
+  readonly violations: {
+    list: (params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    acknowledge: (violationId: string, body?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    escalate: (violationId: string, body: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  };
+
+  readonly metrics: {
+    getAgentMetrics: (agentId: string, params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    getTaskMetrics: (params?: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    getSystemMetrics: () => Promise<Record<string, unknown>>;
+  };
+
+  constructor(private client: ControlPlaneClientInterface) {
+    this.agents = {
+      register: (body) => this.client.registerAgent(body),
+      unregister: (agentId) => this.client.unregisterAgent(agentId),
+      heartbeat: (body) => this.client.sendHeartbeat(body),
+      getStatus: (agentId) => this.client.getAgentStatus(agentId),
+      list: (params) => this.client.listRegisteredAgents(params),
+    };
+    this.tasks = {
+      submit: (body) => this.client.submitTask(body),
+      getStatus: (taskId) => this.client.getTaskStatus(taskId),
+      list: (params) => this.client.listTasks(params),
+      claim: (body) => this.client.claimTask(body),
+      complete: (taskId, body) => this.client.completeTask(taskId, body),
+      fail: (taskId, body) => this.client.failTask(taskId, body),
+      cancel: (taskId) => this.client.cancelTask(taskId),
+    };
+    this.policies = {
+      create: (body) => this.client.createPolicy(body),
+      get: (policyId) => this.client.getPolicy(policyId),
+      update: (policyId, body) => this.client.updatePolicy(policyId, body),
+      delete: (policyId) => this.client.deletePolicy(policyId),
+      list: (params) => this.client.listPolicies(params),
+    };
+    this.schedules = {
+      create: (body) => this.client.scheduleTask(body),
+      get: (scheduleId) => this.client.getScheduledTask(scheduleId),
+      list: (params) => this.client.listScheduledTasks(params),
+      cancel: (scheduleId) => this.client.cancelScheduledTask(scheduleId),
+    };
+    this.deliberations = {
+      create: (body) => this.client.createDeliberation(body),
+      get: (deliberationId) => this.client.getDeliberation(deliberationId),
+      list: (params) => this.client.listDeliberations(params),
+      vote: (deliberationId, body) => this.client.voteOnDeliberation(deliberationId, body),
+      close: (deliberationId, body) => this.client.closeDeliberation(deliberationId, body),
+      getTranscript: (deliberationId) => this.client.getDeliberationTranscript(deliberationId),
+    };
+    this.auditLogs = {
+      list: (params) => this.client.listAuditLogs(params),
+      get: (logId) => this.client.getAuditLog(logId),
+    };
+    this.violations = {
+      list: (params) => this.client.listPolicyViolations(params),
+      acknowledge: (violationId, body) => this.client.acknowledgePolicyViolation(violationId, body),
+      escalate: (violationId, body) => this.client.escalatePolicyViolation(violationId, body),
+    };
+    this.metrics = {
+      getAgentMetrics: (agentId, params) => this.client.getAgentMetrics(agentId, params),
+      getTaskMetrics: (params) => this.client.getTaskMetrics(params),
+      getSystemMetrics: () => this.client.getControlPlaneSystemMetrics(),
+    };
+  }
 
   // ===========================================================================
   // Agents
@@ -117,6 +266,9 @@ export class ControlPlaneAPI {
    * @route GET /api/control-plane/health
    */
   async getHealth(): Promise<Record<string, unknown>> {
+    if ('getControlPlaneHealth' in this.client && typeof this.client.getControlPlaneHealth === 'function') {
+      return this.client.getControlPlaneHealth();
+    }
     return this.client.request('GET', '/api/control-plane/health') as Promise<Record<string, unknown>>;
   }
 

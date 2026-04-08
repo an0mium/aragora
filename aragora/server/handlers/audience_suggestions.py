@@ -39,8 +39,9 @@ class AudienceSuggestionsHandler(BaseHandler):
             return perm_err
 
         debate_id = query_params.get("debate_id")
-        if not debate_id:
+        if not isinstance(debate_id, str) or not debate_id.strip():
             return error_response("debate_id query parameter is required", 400)
+        debate_id = debate_id.strip()
 
         max_clusters = safe_query_int(
             query_params, "max_clusters", default=5, min_val=1, max_val=20
@@ -99,12 +100,19 @@ class AudienceSuggestionsHandler(BaseHandler):
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
+        if not isinstance(body, dict):
+            return error_response("JSON body must be an object", 400)
 
         debate_id = body.get("debate_id")
-        suggestion_text = body.get("suggestion", "").strip()
+        suggestion_value = body.get("suggestion", "")
 
-        if not debate_id:
+        if not isinstance(debate_id, str) or not debate_id.strip():
             return error_response("debate_id is required", 400)
+        if not isinstance(suggestion_value, str):
+            return error_response("suggestion text is required", 400)
+
+        debate_id = debate_id.strip()
+        suggestion_text = suggestion_value.strip()
         if not suggestion_text:
             return error_response("suggestion text is required", 400)
         if len(suggestion_text) > 500:

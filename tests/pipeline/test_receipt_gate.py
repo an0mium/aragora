@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -20,6 +21,9 @@ from aragora.pipeline.plan_store import PlanStore
 from aragora.pipeline.receipt_gate import (
     PlanExecutionGateError,
     PlanReceiptGateError,
+    _resolve_backbone_run,
+    _synthetic_debate_result,
+    evaluate_plan_execution_gate,
     ensure_plan_receipt,
 )
 
@@ -91,6 +95,76 @@ def test_existing_tampered_receipt_fails_closed() -> None:
 
     with pytest.raises(PlanReceiptGateError, match="signature verification"):
         ensure_plan_receipt(plan)
+
+
+def test_resolve_backbone_run_logs_warning_when_store_import_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    plan = _plan(metadata={"backbone_run_id": "run-missing-store"})
+
+    with (
+        patch(
+            "aragora.pipeline.plan_store.get_plan_store",
+            side_effect=RuntimeError("store unavailable"),
+        ),
+        caplog.at_level(logging.WARNING),
+    ):
+        assert _resolve_backbone_run(plan) is None
+
+    assert (
+        "Backbone run store unavailable during execution gate lookup: store unavailable"
+        in caplog.text
+    )
+
+
+def test_resolve_backbone_run_logs_warning_when_lookup_fails(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    plan = _plan(metadata={"backbone_run_id": "run-lookup-fail"})
+    store = MagicMock()
+    store.get_run.side_effect = RuntimeError("lookup unavailable")
+
+    with caplog.at_level(logging.WARNING):
+        assert _resolve_backbone_run(plan, plan_store=store) is None
+
+    assert "Backbone run lookup failed for run-lookup-fail: lookup unavailable" in caplog.text
+
+
+def test_string_gate_flags_fail_closed() -> None:
+    truthy_values = ("true", "1", "yes", "on")
+    falsey_values = ("false", "0", "no", "off", "", "malformed")
+
+    for raw_value in truthy_values:
+        plan = _plan(metadata={"execution_gate": {"allow_auto_execution": raw_value}})
+        decision = evaluate_plan_execution_gate(plan)
+        assert decision.allow_auto_execution is True
+        assert decision.reason_codes == []
+
+        plan = _plan(metadata={"deliberation_bundle": {"consensus_reached": raw_value}})
+        assert _synthetic_debate_result(plan).consensus_reached is True
+
+        plan = _plan(
+            metadata={
+                "execution_gate": {"signed_receipt": {"consensus_proof": {"reached": raw_value}}}
+            }
+        )
+        assert _synthetic_debate_result(plan).consensus_reached is True
+
+    for raw_value in falsey_values:
+        plan = _plan(metadata={"execution_gate": {"allow_auto_execution": raw_value}})
+        decision = evaluate_plan_execution_gate(plan)
+        assert decision.allow_auto_execution is False
+        assert decision.reason_codes == ["execution_gate_blocked"]
+
+        plan = _plan(metadata={"deliberation_bundle": {"consensus_reached": raw_value}})
+        assert _synthetic_debate_result(plan).consensus_reached is False
+
+        plan = _plan(
+            metadata={
+                "execution_gate": {"signed_receipt": {"consensus_proof": {"reached": raw_value}}}
+            }
+        )
+        assert _synthetic_debate_result(plan).consensus_reached is False
 
 
 @pytest.mark.asyncio

@@ -145,7 +145,7 @@ describe('WorkspaceManager', () => {
       render(<WorkspaceManager />);
 
       const workspacesTab = screen.getByText('Workspaces');
-      expect(workspacesTab).toHaveClass('text-acid-green');
+      expect(workspacesTab).toHaveClass('text-[var(--accent)]');
     });
 
     it('switches to Settings tab when clicked', async () => {
@@ -156,7 +156,7 @@ describe('WorkspaceManager', () => {
       });
 
       const settingsTab = screen.getByText('Settings');
-      expect(settingsTab).toHaveClass('text-acid-green');
+      expect(settingsTab).toHaveClass('text-[var(--accent)]');
     });
 
     it('switches to Team tab when clicked', async () => {
@@ -167,7 +167,7 @@ describe('WorkspaceManager', () => {
       });
 
       const teamTab = screen.getByText('Team');
-      expect(teamTab).toHaveClass('text-acid-green');
+      expect(teamTab).toHaveClass('text-[var(--accent)]');
     });
 
     it('disables Settings and Team tabs when no workspace is selected', () => {
@@ -245,7 +245,7 @@ describe('WorkspaceManager', () => {
 
       // Legal workspace should be marked active
       const legalCard = screen.getByText('Legal').closest('div[class*="border"]');
-      expect(legalCard).toHaveClass('border-acid-green');
+      expect(legalCard).toHaveClass('border-[var(--accent)]');
     });
 
     it('calls onWorkspaceSelect when workspace is clicked', async () => {
@@ -287,7 +287,7 @@ describe('WorkspaceManager', () => {
       const { container } = render(<WorkspaceManager />);
 
       // Look for progress bars
-      const progressBars = container.querySelectorAll('[class*="bg-acid-green"], [class*="bg-red-500"], [class*="bg-yellow-500"]');
+      const progressBars = container.querySelectorAll('.h-full.transition-all');
       expect(progressBars.length).toBeGreaterThan(0);
     });
 

@@ -115,8 +115,8 @@ class BackboneRuntime:
             from aragora.pipeline.receipt_store_facade import get_receipt_store_facade
 
             canonical = get_receipt_store_facade().get_canonical(receipt_id)
-        except Exception:  # noqa: BLE001 - best-effort ledger enrichment
-            logger.debug("Backbone receipt fetch failed for %s", receipt_id, exc_info=True)
+        except (ImportError, RuntimeError, OSError, TypeError, ValueError) as exc:
+            logger.warning("Backbone receipt fetch failed for %s: %s", receipt_id, exc)
             return False
 
         if not isinstance(canonical, dict):
@@ -296,8 +296,8 @@ class BackboneRuntime:
                     artifact_ref=receipt_ref,
                     details=attestation,
                 )
-        except Exception:
-            logger.debug("Backbone shadow attestation failed", exc_info=True)
+        except (ImportError, RuntimeError, ConnectionError, OSError, TypeError, ValueError) as exc:
+            logger.warning("Backbone shadow attestation failed for %s: %s", receipt_ref, exc)
 
         return receipt_ref
 

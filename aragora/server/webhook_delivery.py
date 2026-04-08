@@ -956,6 +956,7 @@ class WebhookDeliveryManager:
 
         # Persist status change
         if self._persistence:
+            self._ensure_persistence_initialized()
             url = self._delivery_urls.get(delivery_id, delivery.metadata.get("retry_url", ""))
             secret = self._delivery_secrets.get(delivery_id, delivery.metadata.get("retry_secret"))
             self._persistence.save_delivery(delivery, url, secret)
