@@ -380,9 +380,9 @@ class MySQLConnector(EnterpriseConnector):
                                     }
                                 )
 
-                    except (ValueError, RuntimeError, OSError) as e:
-                        logger.debug("Search failed on %s: %s", table, e)
-                        continue
+                    except (ValueError, RuntimeError, OSError):
+                        logger.exception("Search failed on %s", table)
+                        raise
 
         return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
 
