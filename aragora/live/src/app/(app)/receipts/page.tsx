@@ -887,6 +887,7 @@ export default function ReceiptsPage() {
   const [results, setResults] = useState<ReceiptListItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<ReceiptListItem | null>(null);
   const [selectedReceipt, setSelectedReceipt] = useState<DecisionReceipt | null>(null);
+  const [selectedReceiptProofHref, setSelectedReceiptProofHref] = useState<string | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | ReceiptVerdict>('all');
@@ -1017,6 +1018,7 @@ export default function ReceiptsPage() {
     async (item: ReceiptListItem, options: { syncUrl?: boolean } = {}) => {
       setReceiptLoading(true);
       setError(null);
+      setSelectedReceiptProofHref(null);
 
       try {
         let lastStatus: number | null = null;
@@ -1034,6 +1036,7 @@ export default function ReceiptsPage() {
           const data = (await response.json()) as Record<string, unknown>;
           setSelectedItem(item);
           setSelectedReceipt(normalizeReceiptDetail(data, item));
+          setSelectedReceiptProofHref(url);
           setActiveTab('detail');
           if (options.syncUrl !== false) {
             syncReceiptQuery(preferredReceiptId(item));
@@ -1055,6 +1058,7 @@ export default function ReceiptsPage() {
     setActiveTab('list');
     setSelectedItem(null);
     setSelectedReceipt(null);
+    setSelectedReceiptProofHref(null);
     syncReceiptQuery(undefined);
   }, [syncReceiptQuery]);
 
@@ -1320,6 +1324,10 @@ export default function ReceiptsPage() {
                   <p className="text-sm text-text-muted mb-2">{surfaceSummary}</p>
                 )}
 
+                {result.input_summary && deriveSurfaceState(result) !== 'complete' && (
+                  <p className="text-sm text-text-muted mb-2">{surfaceSummary}</p>
+                )}
+
                 {result.risk_summary && totalFindings(result.risk_summary) > 0 ? (
                   <div className="flex gap-3 text-xs font-theme-data">
                     {result.risk_summary.critical > 0 && (
@@ -1380,9 +1388,7 @@ export default function ReceiptsPage() {
     const resultHref = receipt.debate_id
       ? `/debates/${encodeURIComponent(receipt.debate_id)}`
       : null;
-    const canonicalProofHref = selectedItem
-      ? buildDetailUrls(selectedItem, backendUrl)[0] ?? null
-      : null;
+    const canonicalProofHref = selectedReceiptProofHref;
     const shareButtonLabel = sharePending
       ? 'Sharing...'
       : shareCopied

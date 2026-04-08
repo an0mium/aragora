@@ -434,6 +434,76 @@ describe('ReceiptsPage', () => {
     );
   });
 
+  it('uses the resolved fallback receipt endpoint for the canonical proof link', async () => {
+    configureListMocks({
+      v2Receipts: [],
+      gauntletReceipts: [
+        {
+          id: 'legacy-receipt-123',
+          receipt_id: 'receipt-123',
+          gauntlet_id: 'run-123',
+          created_at: '2026-03-25T12:34:56Z',
+          input_summary: 'Legacy receipt 123 summary',
+        },
+      ],
+      gauntletResults: [],
+    });
+
+    mockFetch.mockImplementation(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === 'http://localhost:8080/api/v2/receipts/receipt-123') {
+        return {
+          ok: false,
+          status: 404,
+          json: async () => ({}),
+        } as Response;
+      }
+
+      if (url === 'http://localhost:8080/api/v1/gauntlet/run-123/receipt') {
+        return {
+          ok: true,
+          json: async () => ({
+            receipt_id: 'receipt-123',
+            gauntlet_id: 'run-123',
+            timestamp: '2026-03-25T12:34:56Z',
+            input_summary: 'Legacy receipt 123 summary',
+            input_hash: 'input-hash-123',
+            risk_summary: { critical: 0, high: 0, medium: 1, low: 0 },
+            attacks_attempted: 1,
+            attacks_successful: 0,
+            probes_run: 2,
+            vulnerabilities_found: 1,
+            verdict: 'PASS',
+            confidence: 0.91,
+            robustness_score: 0.82,
+            vulnerability_details: [],
+            verdict_reasoning: 'Looks good.',
+            dissenting_views: [],
+            provenance_chain: [],
+            artifact_hash: 'artifact-hash-123',
+          }),
+        } as Response;
+      }
+
+      return {
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+      } as Response;
+    });
+
+    const user = userEvent.setup();
+
+    render(<ReceiptsPage />);
+
+    await user.click(await screen.findByRole('button', { name: /Legacy receipt 123 summary/i }));
+
+    expect(await screen.findByRole('link', { name: 'Canonical proof' })).toHaveAttribute(
+      'href',
+      'http://localhost:8080/api/v1/gauntlet/run-123/receipt'
+    );
+  });
+
   it('renders blocked result-only entries with truthful next steps', async () => {
     configureListMocks({
       v2Receipts: [],
@@ -461,6 +531,30 @@ describe('ReceiptsPage', () => {
       '/debates/debate-blocked'
     );
     expect(screen.queryByText(/ready for audit review/i)).not.toBeInTheDocument();
+  });
+
+  it('shows blocked guidance even when the row already has an input summary', async () => {
+    configureListMocks({
+      v2Receipts: [],
+      gauntletReceipts: [],
+      gauntletResults: [
+        {
+          id: 'run-blocked-with-summary',
+          gauntlet_id: 'run-blocked-with-summary',
+          status: 'blocked',
+          input_summary: 'Provider credentials expired during execution',
+        },
+      ],
+    });
+
+    render(<ReceiptsPage />);
+
+    expect(await screen.findByText(/Provider credentials expired during execution/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Execution is blocked upstream\. Fix provider access or the execution gate, then rerun to publish a canonical receipt\./i
+      )
+    ).toBeInTheDocument();
   });
 
   it('labels completed gauntlet results as partial until canonical proof exists', async () => {
