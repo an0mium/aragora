@@ -30,6 +30,57 @@ _verification_stats: dict[str, int | float] = {
     "total_verification_time_ms": 0.0,
 }
 _verification_lock = threading.Lock()
+_VALID_VERIFICATION_STATUSES = frozenset(
+    {
+        "z3_verified",
+        "z3_disproved",
+        "z3_timeout",
+        "z3_translation_failed",
+        "confidence_fallback",
+    }
+)
+
+
+def _validate_status(status: Any) -> str:
+    """Validate and normalize a verification status value."""
+    if not isinstance(status, str):
+        raise TypeError("status must be a string")
+
+    normalized_status = status.strip()
+    if not normalized_status:
+        raise ValueError("status is required")
+    if normalized_status not in _VALID_VERIFICATION_STATUSES:
+        raise ValueError(
+            f"status must be one of: {', '.join(sorted(_VALID_VERIFICATION_STATUSES))}"
+        )
+    return normalized_status
+
+
+def _validate_verification_time_ms(verification_time_ms: Any) -> float:
+    """Validate verification timing input."""
+    if isinstance(verification_time_ms, bool) or not isinstance(verification_time_ms, int | float):
+        raise TypeError("verification_time_ms must be a number")
+    if verification_time_ms < 0:
+        raise ValueError("verification_time_ms must be greater than or equal to 0")
+    return float(verification_time_ms)
+
+
+def _validate_endpoint(endpoint: Any) -> str:
+    """Validate and normalize an endpoint name."""
+    if not isinstance(endpoint, str):
+        raise TypeError("endpoint must be a string")
+
+    normalized_endpoint = endpoint.strip()
+    if not normalized_endpoint:
+        raise ValueError("endpoint is required")
+    return normalized_endpoint
+
+
+def _validate_is_error(is_error: Any) -> bool:
+    """Validate the error flag type."""
+    if not isinstance(is_error, bool):
+        raise TypeError("is_error must be a boolean")
+    return is_error
 
 
 def get_start_time() -> float:
@@ -48,10 +99,12 @@ def track_verification(
                 'z3_translation_failed', 'confidence_fallback'
         verification_time_ms: Time taken for verification in milliseconds
     """
+    status = _validate_status(status)
+    verification_time_ms = _validate_verification_time_ms(verification_time_ms)
+
     with _verification_lock:
         _verification_stats["total_claims_processed"] += 1
-        if status in _verification_stats:
-            _verification_stats[status] += 1
+        _verification_stats[status] += 1
         _verification_stats["total_verification_time_ms"] += verification_time_ms
 
 
@@ -74,6 +127,9 @@ def get_verification_stats() -> dict[str, Any]:
 
 def track_request(endpoint: str, is_error: bool = False) -> None:
     """Track a request for metrics (thread-safe)."""
+    endpoint = _validate_endpoint(endpoint)
+    is_error = _validate_is_error(is_error)
+
     with _metrics_lock:
         # Enforce max size - remove oldest entries if at capacity
         if endpoint not in _request_counts and len(_request_counts) >= MAX_TRACKED_ENDPOINTS:
