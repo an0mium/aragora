@@ -34,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import functools
+import inspect
 import logging
 from typing import Any, TypeVar, ParamSpec, cast
 from collections.abc import Callable, Coroutine
@@ -45,6 +46,7 @@ logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 T = TypeVar("T")
+_MISSING = object()
 
 
 def _default_audit_on_denied(decision: AuthorizationDecision) -> None:
@@ -166,9 +168,11 @@ def _get_context_from_args(
         if isinstance(value, AuthorizationContext):
             return value
 
-    # Check if any arg has _auth_context attribute (e.g., HTTP request handler)
+    # Avoid hasattr here because it silently swallows AttributeError.
     for arg in args:
-        if hasattr(arg, "_auth_context") and isinstance(arg._auth_context, AuthorizationContext):
+        if inspect.getattr_static(arg, "_auth_context", _MISSING) is _MISSING:
+            continue
+        if isinstance(arg._auth_context, AuthorizationContext):
             return arg._auth_context
 
     return None
