@@ -193,6 +193,12 @@ class TestRouteConstants:
 
         assert any("/export/" in ep for ep in AUTH_REQUIRED_ENDPOINTS)
 
+    def test_auth_required_endpoints_contain_package(self):
+        """Decision package endpoints require auth."""
+        from aragora.server.handlers.debates.routing import AUTH_REQUIRED_ENDPOINTS
+
+        assert any("/package" in ep for ep in AUTH_REQUIRED_ENDPOINTS)
+
     def test_auth_required_endpoints_contain_fork(self):
         """Fork endpoint requires auth."""
         from aragora.server.handlers.debates.routing import AUTH_REQUIRED_ENDPOINTS
@@ -515,6 +521,14 @@ class TestRequiresAuth:
     def test_export_endpoint_requires_auth(self, routing_handler):
         """Export endpoints require auth."""
         assert routing_handler._requires_auth("/api/v1/debates/abc/export/") is True
+
+    def test_package_endpoint_requires_auth(self, routing_handler):
+        """Decision package JSON endpoint requires auth."""
+        assert routing_handler._requires_auth("/api/v1/debates/abc/package") is True
+
+    def test_package_markdown_endpoint_requires_auth(self, routing_handler):
+        """Decision package markdown endpoint requires auth."""
+        assert routing_handler._requires_auth("/api/v1/debates/abc/package/markdown") is True
 
     def test_citations_endpoint_requires_auth(self, routing_handler):
         """Citations endpoint requires auth."""
