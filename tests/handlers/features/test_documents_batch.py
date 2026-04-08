@@ -8,8 +8,8 @@ Tests the batch document API endpoints including:
 - GET /api/v1/documents/{doc_id}/chunks - Get document chunks
 - GET /api/v1/documents/{doc_id}/context - Get LLM-ready context
 - GET /api/v1/documents/processing/stats - Get processing statistics
-- GET /api/knowledge/jobs - Get knowledge processing jobs
-- GET /api/knowledge/jobs/{job_id} - Get knowledge job status
+- GET /api/v1/knowledge/jobs - Get knowledge processing jobs
+- GET /api/v1/knowledge/jobs/{job_id} - Get knowledge job status
 
 Also tests:
 - can_handle() route matching
@@ -18,13 +18,9 @@ Also tests:
 - Knowledge processing integration
 - Error handling paths
 
-Note: The handler's parametric route parsing (split/len checks) uses segment
-counts that assume NO /v1/ prefix -- i.e. the code expects paths like
-``/api/documents/batch/{job_id}`` (5 segments) even though ROUTES and
-can_handle() advertise ``/api/v1/`` prefixed paths (6 segments).  Tests for
-parametric endpoints therefore call ``handle()`` with version-stripped paths
-that match the segment counting logic, or verify that the v1-prefixed variant
-returns None.
+These tests exercise the routed ``/api/v1/...`` surfaces directly so the
+documented endpoints stay live end to end instead of only working through
+internal helpers.
 """
 
 import builtins as _builtins
@@ -335,8 +331,8 @@ class TestCanHandle:
         assert handler.can_handle("") is False
 
     def test_batch_deep_nested(self, handler):
-        """Deeply nested batch path should still match (count >= 4)."""
-        assert handler.can_handle("/api/v1/documents/batch/job-001/results/extra") is True
+        """Deeply nested batch path should not match the documented routes."""
+        assert handler.can_handle("/api/v1/documents/batch/job-001/results/extra") is False
 
 
 # ===========================================================================
@@ -496,31 +492,28 @@ class TestListKnowledgeJobs:
 
 
 # ===========================================================================
-# GET /api/v1/knowledge/jobs/{job_id} - segment counting
+# GET /api/v1/knowledge/jobs/{job_id}
 # ===========================================================================
 
 
 class TestGetKnowledgeJobStatus:
-    """Tests for GET /api/v1/knowledge/jobs/{job_id}.
-
-    Note: The handler checks ``len(parts) == 5`` after splitting by "/",
-    which expects a path with exactly 5 segments (no leading empty string
-    counts as segment 0 so effectively: /a/b/c/d = 5 parts).
-    ``/api/v1/knowledge/jobs/kj-001`` has 6 parts, so the v1-prefixed
-    path falls through.  We test both the v1 path (returns None) and
-    a non-v1 path (matches when startswith check is adjusted).
-    """
+    """Tests for GET /api/v1/knowledge/jobs/{job_id}."""
 
     @pytest.mark.asyncio
-    async def test_v1_path_returns_none_due_to_segment_count(self, handler, mock_http):
-        """With /api/v1/ prefix the path has 6 segments; handler expects 5."""
-        result = await handler.handle("/api/v1/knowledge/jobs/kj-001", {}, mock_http)
-        # Falls through all branches -> returns None
-        assert result is None
+    async def test_v1_path_dispatches_to_job_status(self, handler, mock_http):
+        """The documented v1 path should dispatch to job-status lookup."""
+        with patch(
+            "aragora.knowledge.integration.get_job_status",
+            return_value={"id": "kj-001", "status": "completed"},
+        ):
+            result = await handler.handle("/api/v1/knowledge/jobs/kj-001", {}, mock_http)
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["id"] == "kj-001"
 
     @pytest.mark.asyncio
     async def test_get_job_status_success_via_internal(self, handler, mock_http):
-        """Test _get_knowledge_job_status directly since the route doesn't match."""
+        """The internal helper still returns the same payload."""
         with patch(
             "aragora.knowledge.integration.get_job_status",
             return_value={"id": "kj-001", "status": "completed"},
@@ -580,25 +573,24 @@ class TestGetKnowledgeJobStatus:
 
 
 # ===========================================================================
-# GET /api/v1/documents/batch/{job_id} - segment counting
+# GET /api/v1/documents/batch/{job_id}
 # ===========================================================================
 
 
 class TestGetJobStatus:
-    """Tests for GET /api/v1/documents/batch/{job_id}.
-
-    The handler checks ``len(parts) == 5`` which does not match
-    the v1-prefixed path (6 segments).  We test the internal method
-    directly and verify the v1 route returns None.
-    """
+    """Tests for GET /api/v1/documents/batch/{job_id}."""
 
     @pytest.mark.asyncio
-    async def test_v1_path_returns_none(self, handler_with_processor, mock_http):
-        """V1-prefixed path has 6 segments; handler expects 5."""
+    async def test_v1_path_dispatches(self, handler_with_processor, processor, mock_http):
+        """The documented v1 batch-status path should dispatch."""
+        processor._statuses["job-001"] = {"status": "processing", "progress": 0.5}
         result = await handler_with_processor.handle(
             "/api/v1/documents/batch/job-001", {}, mock_http
         )
-        assert result is None
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["status"] == "processing"
+        assert body["progress"] == 0.5
 
     @pytest.mark.asyncio
     async def test_get_status_found_via_internal(self, handler_with_processor, processor):
@@ -616,24 +608,30 @@ class TestGetJobStatus:
 
 
 # ===========================================================================
-# GET /api/v1/documents/batch/{job_id}/results - segment counting
+# GET /api/v1/documents/batch/{job_id}/results
 # ===========================================================================
 
 
 class TestGetJobResults:
-    """Tests for GET /api/v1/documents/batch/{job_id}/results.
-
-    Same segment-counting mismatch: handler checks ``len(parts) == 6``
-    but v1 path has 7 segments.  We test _get_job_results directly.
-    """
+    """Tests for GET /api/v1/documents/batch/{job_id}/results."""
 
     @pytest.mark.asyncio
-    async def test_v1_path_returns_none(self, handler_with_processor, mock_http):
-        """V1-prefixed path has 7 segments; handler expects 6."""
+    async def test_v1_path_dispatches(self, handler_with_processor, processor, mock_http):
+        """The documented v1 batch-results path should dispatch."""
+        processor._results["job-001"] = MockJob(
+            id="job-001",
+            status=MockJobStatus.COMPLETED,
+            filename="test.txt",
+            document=MockDocument(),
+            chunks=[MockChunk()],
+        )
         result = await handler_with_processor.handle(
             "/api/v1/documents/batch/job-001/results", {}, mock_http
         )
-        assert result is None
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["job_id"] == "job-001"
+        assert body["chunks"]["total"] == 1
 
     @pytest.mark.asyncio
     async def test_results_completed_job(self, handler_with_processor, processor):
@@ -796,19 +794,18 @@ class TestGetJobResults:
 
 
 class TestCancelJob:
-    """Tests for DELETE /api/v1/documents/batch/{job_id}.
-
-    Same segment-count mismatch for v1 paths.  We test handle_delete with
-    v1 paths (returns None) and _cancel_job directly.
-    """
+    """Tests for DELETE /api/v1/documents/batch/{job_id}."""
 
     @pytest.mark.asyncio
-    async def test_v1_path_returns_none(self, handler_with_processor, mock_http):
-        """V1-prefixed delete path has 6 segments; handler expects 5."""
+    async def test_v1_path_dispatches(self, handler_with_processor, mock_http):
+        """The documented v1 delete path should dispatch."""
         result = await handler_with_processor.handle_delete(
             "/api/v1/documents/batch/job-001", {}, mock_http
         )
-        assert result is None
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["cancelled"] is True
+        assert body["job_id"] == "job-001"
 
     @pytest.mark.asyncio
     async def test_cancel_success_via_internal(self, handler_with_processor):
@@ -833,24 +830,21 @@ class TestCancelJob:
 
 
 # ===========================================================================
-# GET /api/v1/documents/{doc_id}/chunks - segment counting
+# GET /api/v1/documents/{doc_id}/chunks
 # ===========================================================================
 
 
 class TestGetDocumentChunks:
-    """Tests for GET /api/v1/documents/{doc_id}/chunks.
-
-    Handler checks len(parts) == 5, but /api/v1/documents/doc-001/chunks
-    has 6 parts.  The v1 path falls through, but the handler still reaches
-    the /chunks check via endswith.  We test the internal method and the
-    routing behavior.
-    """
+    """Tests for GET /api/v1/documents/{doc_id}/chunks."""
 
     @pytest.mark.asyncio
-    async def test_v1_path_returns_none_for_chunks(self, handler, mock_http):
-        """V1 path has 6 segments, handler expects 5 for chunks route."""
+    async def test_v1_path_dispatches_for_chunks(self, handler, mock_http):
+        """The documented v1 chunks path should dispatch."""
         result = await handler.handle("/api/v1/documents/doc-001/chunks", {}, mock_http)
-        assert result is None
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["document_id"] == "doc-001"
+        assert body["chunks"] == []
 
     def test_chunks_default_params_via_internal(self, handler):
         result = handler._get_document_chunks("doc-001")
@@ -882,21 +876,23 @@ class TestGetDocumentChunks:
 
 
 # ===========================================================================
-# GET /api/v1/documents/{doc_id}/context - segment counting
+# GET /api/v1/documents/{doc_id}/context
 # ===========================================================================
 
 
 class TestGetDocumentContext:
-    """Tests for GET /api/v1/documents/{doc_id}/context.
-
-    Same segment-counting behavior.  We test _get_document_context directly.
-    """
+    """Tests for GET /api/v1/documents/{doc_id}/context."""
 
     @pytest.mark.asyncio
-    async def test_v1_path_returns_none_for_context(self, handler, mock_http):
-        """V1 path has 6 segments, handler expects 5 for context route."""
-        result = await handler.handle("/api/v1/documents/doc-001/context", {}, mock_http)
-        assert result is None
+    async def test_v1_path_dispatches_for_context(self, handler_with_document_store, mock_http):
+        """The documented v1 context path should dispatch."""
+        result = await handler_with_document_store.handle(
+            "/api/v1/documents/doc-001/context", {}, mock_http
+        )
+        assert _status(result) == 200
+        body = _body(result)
+        assert body["document_id"] == "doc-001"
+        assert body["context"] == "Hello world content for testing"
 
     def test_context_not_found_no_store(self, handler):
         result = handler._get_document_context("doc-001")
