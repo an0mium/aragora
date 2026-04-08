@@ -62572,6 +62572,938 @@
         "x-aragora-stability": "stable"
       }
     },
+    "/api/v1/analytics/spend/budget": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Spend budget status",
+        "operationId": "getAnalyticsSpendBudget",
+        "description": "Get budget totals, remaining funds, and exhaustion forecast for an org.",
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The org id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spend budget status",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Maximum requests allowed in current window",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests remaining in current window",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Unix timestamp when rate limit resets",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "org_id": {
+                      "type": "string"
+                    },
+                    "budgets": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "budget_id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "amount_usd": {
+                            "type": "number"
+                          },
+                          "spent_usd": {
+                            "type": "number"
+                          },
+                          "remaining_usd": {
+                            "type": "number"
+                          },
+                          "period": {
+                            "type": "string"
+                          },
+                          "period_start": {
+                            "type": "number"
+                          },
+                          "period_start_iso": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "period_end": {
+                            "type": "number"
+                          },
+                          "period_end_iso": {
+                            "type": [
+                              "string",
+                              "null"
+                            ],
+                            "format": "date-time"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "auto_suspend": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    },
+                    "total_budget_usd": {
+                      "type": "number"
+                    },
+                    "total_spent_usd": {
+                      "type": "number"
+                    },
+                    "total_remaining_usd": {
+                      "type": "number"
+                    },
+                    "utilization_pct": {
+                      "type": "number"
+                    },
+                    "forecast_exhaustion_days": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests - Rate limit exceeded",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "rate_limited": {
+                    "summary": "Rate limit exceeded",
+                    "value": {
+                      "error": "Rate limit exceeded",
+                      "code": "RATE_LIMITED",
+                      "limit": 60,
+                      "window": "1 minute",
+                      "retry_after": 45,
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/analytics/spend/by-agent": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Spend by agent",
+        "operationId": "getAnalyticsSpendByAgent",
+        "description": "Get per-agent spend attribution for a workspace.",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Workspace to scope the query to"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spend by agent",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Maximum requests allowed in current window",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests remaining in current window",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Unix timestamp when rate limit resets",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspace_id": {
+                      "type": "string"
+                    },
+                    "total_usd": {
+                      "type": "string",
+                      "description": "Formatted total spend for the workspace"
+                    },
+                    "agents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "agent_name": {
+                            "type": "string",
+                            "description": "Agent type or configured agent name"
+                          },
+                          "cost_usd": {
+                            "type": "string",
+                            "description": "Total spend attributed to the agent"
+                          },
+                          "percentage": {
+                            "type": "number",
+                            "description": "Percentage of the workspace spend attributed to the agent"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests - Rate limit exceeded",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "rate_limited": {
+                    "summary": "Rate limit exceeded",
+                    "value": {
+                      "error": "Rate limit exceeded",
+                      "code": "RATE_LIMITED",
+                      "limit": 60,
+                      "window": "1 minute",
+                      "retry_after": 45,
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/analytics/spend/by-decision": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Spend by decision",
+        "operationId": "getAnalyticsSpendByDecision",
+        "description": "Get the most expensive debates or decisions for a workspace.",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Workspace to scope the query to"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Maximum number of items to return (default: 20, max: 100)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spend by decision",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Maximum requests allowed in current window",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests remaining in current window",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Unix timestamp when rate limit resets",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspace_id": {
+                      "type": "string"
+                    },
+                    "decisions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "debate_id": {
+                            "type": "string",
+                            "description": "Debate or decision identifier"
+                          },
+                          "cost_usd": {
+                            "type": "string",
+                            "description": "Total spend attributed to the decision"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests - Rate limit exceeded",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "rate_limited": {
+                    "summary": "Rate limit exceeded",
+                    "value": {
+                      "error": "Rate limit exceeded",
+                      "code": "RATE_LIMITED",
+                      "limit": 60,
+                      "window": "1 minute",
+                      "retry_after": 45,
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/analytics/spend/summary": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Spend analytics summary",
+        "operationId": "getAnalyticsSpendSummary",
+        "description": "Get aggregate spend, usage, and budget utilization for a workspace or organization. Mirrors the live spend analytics dashboard summary card.",
+        "parameters": [
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Workspace to scope the query to"
+          },
+          {
+            "name": "org_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The org id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spend summary",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Maximum requests allowed in current window",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests remaining in current window",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Unix timestamp when rate limit resets",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total_spend_usd": {
+                      "type": "string",
+                      "description": "Formatted total spend for the scope"
+                    },
+                    "total_api_calls": {
+                      "type": "integer",
+                      "description": "Total API calls recorded for the scope"
+                    },
+                    "total_tokens": {
+                      "type": "integer",
+                      "description": "Combined input and output token usage"
+                    },
+                    "budget_limit_usd": {
+                      "type": "number",
+                      "description": "Combined active budget limit for the org"
+                    },
+                    "budget_spent_usd": {
+                      "type": "number",
+                      "description": "Combined spend across active org budgets"
+                    },
+                    "utilization_pct": {
+                      "type": "number",
+                      "description": "Percent of available budget already spent"
+                    },
+                    "trend_direction": {
+                      "type": "string",
+                      "enum": [
+                        "stable",
+                        "increasing",
+                        "decreasing"
+                      ],
+                      "description": "Projected spend direction relative to current spend"
+                    },
+                    "avg_cost_per_decision": {
+                      "type": "number",
+                      "description": "Average spend per recorded API call"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests - Rate limit exceeded",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "rate_limited": {
+                    "summary": "Rate limit exceeded",
+                    "value": {
+                      "error": "Rate limit exceeded",
+                      "code": "RATE_LIMITED",
+                      "limit": 60,
+                      "window": "1 minute",
+                      "retry_after": 45,
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/analytics/spend/trends": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "summary": "Spend trends",
+        "operationId": "getAnalyticsSpendTrends",
+        "description": "Get daily, weekly, or monthly spend trend points for an organization.",
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "The org id"
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "daily",
+                "weekly",
+                "monthly"
+              ]
+            },
+            "description": "Time period for aggregation (e.g., hour, day, week, month)"
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 365
+            },
+            "description": "Number of days to include"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Spend trends",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Limit": {
+                "description": "Maximum requests allowed in current window",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Remaining": {
+                "description": "Requests remaining in current window",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-RateLimit-Reset": {
+                "description": "Unix timestamp when rate limit resets",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "org_id": {
+                      "type": "string"
+                    },
+                    "period": {
+                      "type": "string",
+                      "enum": [
+                        "daily",
+                        "weekly",
+                        "monthly"
+                      ]
+                    },
+                    "days": {
+                      "type": "integer"
+                    },
+                    "data_points": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                      },
+                      "description": "Budget-manager trend rows for the selected period"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests - Rate limit exceeded",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "rate_limited": {
+                    "summary": "Rate limit exceeded",
+                    "value": {
+                      "error": "Rate limit exceeded",
+                      "code": "RATE_LIMITED",
+                      "limit": 60,
+                      "window": "1 minute",
+                      "retry_after": 45,
+                      "trace_id": "req_abc123xyz"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-aragora-stability": "experimental"
+      }
+    },
     "/api/v1/analytics/summary": {
       "get": {
         "summary": "Autogenerated placeholder (spec pending)",

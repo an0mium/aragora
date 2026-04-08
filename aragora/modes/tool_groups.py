@@ -80,7 +80,8 @@ def get_required_group(tool_name: str) -> ToolGroup:
 
 def can_use_tool(allowed_groups: ToolGroup, tool_name: str) -> bool:
     """Check if the allowed groups permit using a specific tool."""
+    normalized = tool_name.lower().replace("-", "_")
     required = get_required_group(tool_name)
     if required == ToolGroup.NONE:
-        return True  # Unknown tools allowed by default
+        return normalized in TOOL_GROUP_MAP
     return bool(allowed_groups & required)
