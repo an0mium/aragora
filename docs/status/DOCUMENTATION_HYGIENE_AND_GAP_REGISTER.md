@@ -70,12 +70,11 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 
 - OpenAPI drift remains: `9` handler routes are missing from the spec and `11` OpenAPI routes have no handler according to `scripts/validate_openapi_routes.py`.
 - OpenAPI and SDK parity claims are still inflated by spec-only endpoints defined in `aragora/server/openapi/endpoints/sdk_missing.py`.
-- `aragora/server/handlers/agent_evolution_dashboard.py` still raises `NotImplementedError("No real pending changes store yet")` for pending-change retrieval.
+- `aragora/server/handlers/agent_evolution_dashboard.py` now fails closed with an empty pending-change set when no live store exists; timeline and ELO trend surfaces still fall back to demo data when evolution history is unavailable.
 - `aragora/server/handlers/goal_canvas.py` now materializes a persisted Stage 3 action canvas from live goal-canvas state; metadata-only goal canvases still fail closed once the in-memory graph is gone.
 - `aragora/server/handlers/spectate_ws.py` now serves `/api/v1/spectate/stream` as a finite buffered SSE snapshot with JSON preview fallback; full real-time streaming on that endpoint still has not shipped.
 - `aragora/server/handlers/sme/slack_workspace.py` now uses the live Slack connector for channel listing, and the SME OAuth helper endpoints delegate into the canonical Slack install/callback flow.
 - `aragora/server/handlers/sme/teams_workspace.py` now uses the live Teams connector for channel listing when `team_id` is supplied, and the SME OAuth helper endpoints delegate into the canonical Teams install/callback flow.
-- `aragora/inbox/triage_runner.py` can still fall back to stub debates when agents or engine wiring are unavailable.
 - `aragora/server/handlers/gauntlet/receipts.py` and the compliance UI still have placeholder or optional anchor-verification paths.
 - `aragora/server/handlers/security_debate.py` exposes an async-status endpoint that is explicitly a placeholder because debates are synchronous and not persisted.
 - `aragora/server/handlers/features/documents_batch.py` returns placeholder chunk retrieval output pending vector-store integration.

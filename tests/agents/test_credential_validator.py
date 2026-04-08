@@ -80,6 +80,10 @@ class TestGetCredentialStatus:
         reset_secret_manager()
         status = get_credential_status("gemini")
         assert status.is_available is True
+        assert status.config_present is True
+        assert status.live_ready is False
+        assert status.status == "configured"
+        assert status.next_action
         assert status.available_via == "GEMINI_API_KEY"
 
     def test_status_dataclass_fields(self):
