@@ -203,7 +203,12 @@ class ExternalIntegrationsHandler(SecureHandler):
         return value, None
 
     def _optional_string_field(
-        self, body: dict[str, Any], field_name: str, invalid_code: str
+        self,
+        body: dict[str, Any],
+        field_name: str,
+        invalid_code: str,
+        *,
+        allow_empty_string: bool = False,
     ) -> tuple[str | None, HandlerResult]:
         """Validate that an optional field is a non-empty string when provided."""
         value = body.get(field_name)
@@ -211,6 +216,8 @@ class ExternalIntegrationsHandler(SecureHandler):
             return None, None
         if not isinstance(value, str):
             return None, error_response(f"{field_name} must be a string", 400, code=invalid_code)
+        if allow_empty_string and value == "":
+            return None, None
         value = value.strip()
         if not value:
             return None, error_response(
@@ -1050,7 +1057,12 @@ class ExternalIntegrationsHandler(SecureHandler):
         if field_error:
             return field_error
 
-        api_url, field_error = self._optional_string_field(body, "api_url", "INVALID_API_URL")
+        api_url, field_error = self._optional_string_field(
+            body,
+            "api_url",
+            "INVALID_API_URL",
+            allow_empty_string=True,
+        )
         if field_error:
             return field_error
         if api_url is not None:

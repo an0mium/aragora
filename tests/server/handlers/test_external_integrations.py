@@ -876,6 +876,32 @@ class TestN8nCRUDOperations:
         assert get_status(result) == 201
 
     @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
+    def test_create_n8n_credential_with_empty_api_url_uses_default(self, integrations_handler):
+        """Create n8n credential should preserve empty-string api_url compatibility."""
+        handler = make_mock_handler()
+        result = integrations_handler._handle_create_n8n_credential(
+            {"workspace_id": "ws-new", "api_url": ""}, handler
+        )
+
+        assert result is not None
+        assert get_status(result) == 201
+        body = get_body(result)
+        assert body["credential"]["api_url"] == "http://localhost:5678"
+
+    @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
+    def test_create_n8n_credential_with_whitespace_api_url_fails(self, integrations_handler):
+        """Create n8n credential should still reject whitespace-only api_url values."""
+        handler = make_mock_handler()
+        result = integrations_handler._handle_create_n8n_credential(
+            {"workspace_id": "ws-new", "api_url": "   "}, handler
+        )
+
+        assert result is not None
+        assert get_status(result) == 400
+        body = get_body(result)
+        assert body["error"]["code"] == "INVALID_API_URL"
+
+    @patch("aragora.server.handlers.external_integrations.RBAC_AVAILABLE", False)
     def test_create_n8n_credential_missing_workspace(self, integrations_handler):
         """Create n8n credential should fail without workspace_id."""
         handler = make_mock_handler()
