@@ -50,27 +50,9 @@ class TestChannelRouter:
         assert "not available" in result.error
 
     @pytest.mark.asyncio
-    async def test_route_result_with_mock_dock(self):
+    async def test_route_result_with_mock_dock(self, registered_mock_dock):
         """Test routing result through mocked dock."""
-        from aragora.channels.registry import DockRegistry
-        from aragora.channels.dock import ChannelDock
-
-        # Create mock dock
-        mock_dock = MagicMock(spec=ChannelDock)
-        mock_dock.is_initialized = True
-        mock_dock.send_result = AsyncMock(
-            return_value=SendResult.ok(
-                platform="test",
-                channel_id="123",
-                message_id="msg-1",
-            )
-        )
-        mock_dock.supports.return_value = False
-
-        # Create registry with mock dock
-        registry = DockRegistry()
-        registry._dock_classes["test"] = lambda config: mock_dock
-        registry._dock_instances["test"] = mock_dock
+        registry, mock_dock = registered_mock_dock
 
         router = ChannelRouter(registry=registry)
 
@@ -84,22 +66,9 @@ class TestChannelRouter:
         mock_dock.send_result.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_route_error_with_mock_dock(self):
+    async def test_route_error_with_mock_dock(self, registered_mock_dock):
         """Test routing error through mocked dock."""
-        from aragora.channels.registry import DockRegistry
-        from aragora.channels.dock import ChannelDock
-
-        mock_dock = MagicMock(spec=ChannelDock)
-        mock_dock.is_initialized = True
-        mock_dock.send_error = AsyncMock(
-            return_value=SendResult.ok(
-                platform="test",
-                channel_id="123",
-            )
-        )
-
-        registry = DockRegistry()
-        registry._dock_instances["test"] = mock_dock
+        registry, mock_dock = registered_mock_dock
 
         router = ChannelRouter(registry=registry)
 
@@ -113,17 +82,9 @@ class TestChannelRouter:
         assert result.success is True
 
     @pytest.mark.asyncio
-    async def test_route_voice_unsupported(self):
+    async def test_route_voice_unsupported(self, registered_mock_dock):
         """Test voice routing to dock without voice support."""
-        from aragora.channels.registry import DockRegistry
-        from aragora.channels.dock import ChannelDock
-
-        mock_dock = MagicMock(spec=ChannelDock)
-        mock_dock.is_initialized = True
-        mock_dock.supports.return_value = False  # No voice support
-
-        registry = DockRegistry()
-        registry._dock_instances["test"] = mock_dock
+        registry, _ = registered_mock_dock
 
         router = ChannelRouter(registry=registry)
 
