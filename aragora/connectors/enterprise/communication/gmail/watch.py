@@ -457,8 +457,7 @@ class GmailWatchMixin(GmailBaseMethods):
 
             except asyncio.CancelledError:
                 break
-            except (OSError, ConnectionError, RuntimeError) as e:
-                logger.error("[Gmail] Watch renewal failed: %s", e)
-                # Retry in 1 minute on failure
-                await asyncio.sleep(60)
-                await _REAL_ASYNCIO_SLEEP(0)
+            except (OSError, ConnectionError, RuntimeError):
+                self._watch_running = False
+                logger.exception("[Gmail] Watch renewal failed; stopping renewal loop")
+                raise
