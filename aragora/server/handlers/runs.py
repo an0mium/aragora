@@ -54,25 +54,68 @@ def _event_value(event: Any, field: str) -> str:
     return str(value or "").strip()
 
 
-def _stage_payload(stage_events: Iterable[Any]) -> list[dict[str, str]]:
-    """Collapse stage events into one latest-status record per stage."""
-    stage_index: dict[str, dict[str, str]] = {}
-    stage_order: list[str] = []
+def _json_safe_value(value: Any) -> Any:
+    """Coerce stage event values into JSON-safe primitives."""
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+
+    if isinstance(value, dict):
+        return {str(key): _json_safe_value(item) for key, item in value.items()}
+
+    if isinstance(value, list | tuple):
+        return [_json_safe_value(item) for item in value]
+
+    isoformat = getattr(value, "isoformat", None)
+    if callable(isoformat):
+        return isoformat()
+
+    return str(value)
+
+
+def _stage_event_payload(event: Any) -> dict[str, Any]:
+    """Serialize one stage event while preserving timeline details when present."""
+    if isinstance(event, dict):
+        payload = {str(key): _json_safe_value(value) for key, value in event.items()}
+    else:
+        payload: dict[str, Any] = {}
+
+        model_dump = getattr(event, "model_dump", None)
+        if callable(model_dump):
+            payload = {
+                str(key): _json_safe_value(value)
+                for key, value in cast(dict[str, Any], model_dump()).items()
+            }
+        elif hasattr(event, "_asdict"):
+            payload = {
+                str(key): _json_safe_value(value)
+                for key, value in cast(dict[str, Any], event._asdict()).items()
+            }
+        elif hasattr(event, "__dict__"):
+            payload = {
+                str(key): _json_safe_value(value)
+                for key, value in vars(event).items()
+                if not str(key).startswith("_")
+            }
+
+    stage = _event_value(event, "stage")
+    status = _event_value(event, "status") or "unknown"
+    if stage:
+        payload.setdefault("stage", stage)
+    payload.setdefault("status", status)
+    return payload
+
+
+def _stage_payload(stage_events: Iterable[Any]) -> list[dict[str, Any]]:
+    """Return ordered stage events so operators can inspect the run timeline."""
+    payload: list[dict[str, Any]] = []
 
     for event in stage_events:
-        stage = _event_value(event, "stage")
-        if not stage:
+        event_payload = _stage_event_payload(event)
+        if not str(event_payload.get("stage", "") or "").strip():
             continue
+        payload.append(event_payload)
 
-        if stage not in stage_index:
-            stage_order.append(stage)
-
-        stage_index[stage] = {
-            "stage": stage,
-            "status": _event_value(event, "status") or "unknown",
-        }
-
-    return [stage_index[stage] for stage in stage_order]
+    return payload
 
 
 def _run_payload(run: RunLedger) -> dict[str, Any]:
@@ -84,6 +127,7 @@ def _run_payload(run: RunLedger) -> dict[str, Any]:
         "run_id": run.run_id,
         "status": run.status,
         "stages": _stage_payload(run.stage_events),
+        "stage_timeline": _stage_payload(run.stage_events),
         "execution_id": run.execution_id or None,
         "receipt_id": run.receipt_id or None,
         "safety_mode": safety_mode,

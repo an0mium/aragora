@@ -63,6 +63,8 @@ class TestPersistAndSave:
         assert stored.receipt_id == "r-001"
         assert stored.state == ReceiptState.CREATED
         assert stored.signature == "sig123"
+        assert stored.receipt_data["receipt_id"] == "r-001"
+        assert stored.receipt_data["checksum"] == "abc123"
 
     def test_accepts_lowercase_state(self):
         facade = ReceiptStoreFacade()
@@ -88,6 +90,33 @@ class TestPersistAndSave:
         gauntlet = get_receipt_store()
         assert gauntlet.get("r-003") is not None
 
+    def test_writes_same_canonical_payload_to_both_stores(self):
+        facade = ReceiptStoreFacade()
+        mock_storage = MagicMock()
+        payload = {
+            "verdict": "APPROVED",
+            "confidence": 0.95,
+            "artifact_hash": "hash-004",
+            "receipt": {},
+        }
+
+        with patch(
+            "aragora.storage.receipt_store.get_receipt_store",
+            return_value=mock_storage,
+        ):
+            facade.persist_and_save("r-004", payload, state="CREATED")
+
+        gauntlet = get_receipt_store()
+        stored = gauntlet.get("r-004")
+        assert stored is not None
+        assert mock_storage.save.call_args.args[0] == stored.receipt_data
+        assert stored.receipt_data["receipt_id"] == "r-004"
+        assert stored.receipt_data["debate_id"] == "r-004"
+        assert stored.receipt_data["gauntlet_id"] == "r-004"
+        assert stored.receipt_data["checksum"] == "hash-004"
+        assert stored.receipt_data["receipt"]["id"] == "r-004"
+        assert stored.receipt_data["receipt"]["artifact_hash"] == "hash-004"
+
 
 class TestGetCanonical:
     """get_canonical prefers gauntlet store, falls back to storage."""
@@ -99,6 +128,9 @@ class TestGetCanonical:
         result = facade.get_canonical("r-010")
         assert result is not None
         assert result["receipt_id"] == "r-010"
+        assert result["state"] == "CREATED"
+        assert result["checksum"] == "abc123"
+        assert "receipt_data" not in result
 
     def test_returns_none_when_missing(self):
         facade = ReceiptStoreFacade()
@@ -110,7 +142,12 @@ class TestGetCanonical:
         facade = ReceiptStoreFacade()
         # gauntlet is empty; mock storage store
         mock_stored = MagicMock()
-        mock_stored.to_dict.return_value = {"receipt_id": "r-fallback", "state": "CREATED"}
+        mock_stored.to_full_dict.return_value = {
+            "receipt_id": "r-fallback",
+            "gauntlet_id": "g-fallback",
+            "artifact_hash": "hash-fallback",
+            "receipt": {"id": "r-fallback"},
+        }
         mock_storage = MagicMock()
         mock_storage.get.return_value = mock_stored
 
@@ -122,6 +159,8 @@ class TestGetCanonical:
 
         assert result is not None
         assert result["receipt_id"] == "r-fallback"
+        assert result["artifact_hash"] == "hash-fallback"
+        assert result["receipt"]["id"] == "r-fallback"
 
 
 class TestTransition:

@@ -38,6 +38,7 @@ _LIVE_SSE_HEARTBEAT_SECONDS = 15.0
 _LIVE_SSE_QUEUE_SIZE = 256
 _LIVE_SSE_RESYNC_SENTINEL = object()
 _PUBLIC_PLAYGROUND_DEBATE_PREFIX = "playground_"
+_SPECTATE_CACHE_CONTROL = "no-cache"
 
 
 def _parse_event_timestamp(timestamp: str | None) -> datetime | None:
@@ -264,6 +265,11 @@ def _sse_frame(event_type: str, data: Any) -> str:
     return f"event: {event_type}\ndata: {payload}\n\n"
 
 
+def _spectate_headers(headers: dict[str, str] | None = None) -> dict[str, str]:
+    """Build headers shared by non-cacheable spectate responses."""
+    return {"Cache-Control": _SPECTATE_CACHE_CONTROL, **(headers or {})}
+
+
 def _get_requested_count(query_params: dict[str, Any] | None) -> int:
     """Return the bounded recent-event count requested by the caller."""
     count_str = (
@@ -478,7 +484,11 @@ class SpectateStreamHandler(BaseHandler):
 
             bridge = get_spectate_bridge()
             if not bridge.running:
-                return json_response({"error": "Bridge not running"}, status=503)
+                return json_response(
+                    {"error": "Bridge not running"},
+                    status=503,
+                    headers=_spectate_headers(),
+                )
             debate_id = str(body.get("debate_id", "")).strip()
             events = body.get("events", [])
             if not events:
@@ -495,10 +505,14 @@ class SpectateStreamHandler(BaseHandler):
                     emitted += 1
             return json_response(
                 {"emitted": emitted, "debate_id": debate_id},
-                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+                headers=_spectate_headers(),
             )
         except ImportError:
-            return json_response({"error": "Bridge module unavailable"}, status=503)
+            return json_response(
+                {"error": "Bridge module unavailable"},
+                status=503,
+                headers=_spectate_headers(),
+            )
 
     def _handle_recent(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/recent -- get recent events from the buffer."""
@@ -508,10 +522,7 @@ class SpectateStreamHandler(BaseHandler):
                 events,
                 storage=self.get_storage(),
             )
-        return json_response(
-            self._recent_payload(events),
-            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
-        )
+        return json_response(self._recent_payload(events), headers=_spectate_headers())
 
     def _handle_stream(self, query_params: dict[str, Any], handler: Any) -> HandlerResult:
         """GET /api/v1/spectate/stream -- finite SSE snapshot or JSON preview."""
@@ -532,15 +543,16 @@ class SpectateStreamHandler(BaseHandler):
                 status_code=200,
                 content_type="text/event-stream",
                 body=self._build_sse_snapshot_body(events, metadata),
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "Vary": "Accept",
-                    "X-Accel-Buffering": "no",
-                    "X-Aragora-Endpoint-State": self.STREAM_READINESS,
-                    "X-Aragora-Stream-Mode": self.STREAM_MODE,
-                    "X-Aragora-Stream-Transport": self.STREAM_SSE_TRANSPORT,
-                },
+                headers=_spectate_headers(
+                    {
+                        "Connection": "keep-alive",
+                        "Vary": "Accept",
+                        "X-Accel-Buffering": "no",
+                        "X-Aragora-Endpoint-State": self.STREAM_READINESS,
+                        "X-Aragora-Stream-Mode": self.STREAM_MODE,
+                        "X-Aragora-Stream-Transport": self.STREAM_SSE_TRANSPORT,
+                    }
+                ),
             )
 
         payload = self._recent_payload(events)
@@ -554,13 +566,14 @@ class SpectateStreamHandler(BaseHandler):
         )
         return json_response(
             payload,
-            headers={
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Vary": "Accept",
-                "X-Aragora-Endpoint-State": self.STREAM_READINESS,
-                "X-Aragora-Stream-Mode": self.STREAM_MODE,
-                "X-Aragora-Stream-Transport": self.STREAM_JSON_TRANSPORT,
-            },
+            headers=_spectate_headers(
+                {
+                    "Vary": "Accept",
+                    "X-Aragora-Endpoint-State": self.STREAM_READINESS,
+                    "X-Aragora-Stream-Mode": self.STREAM_MODE,
+                    "X-Aragora-Stream-Transport": self.STREAM_JSON_TRANSPORT,
+                }
+            ),
         )
 
     def _get_recent_events(self, query_params: dict[str, Any]) -> list[Any]:
@@ -645,7 +658,7 @@ class SpectateStreamHandler(BaseHandler):
                     "buffer_size": bridge.buffer_size,
                     **summary,
                 },
-                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+                headers=_spectate_headers(),
             )
         except ImportError:
             return json_response(
@@ -663,5 +676,5 @@ class SpectateStreamHandler(BaseHandler):
                     "live_debates": [],
                     "unattributed_recent_event_count": 0,
                 },
-                headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+                headers=_spectate_headers(),
             )
