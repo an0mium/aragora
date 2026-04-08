@@ -412,12 +412,19 @@ export class MarketplaceAPI {
     if (rating < 1 || rating > 5) {
       throw new Error('Rating must be between 1 and 5');
     }
-    const response = await this.client.request<{ average_rating: number }>(
+    const response = await this.client.request<{
+      average_rating?: number;
+      new_rating?: number;
+    }>(
       'POST',
       `/api/v2/marketplace/templates/${encodeURIComponent(templateId)}/ratings`,
       { body: { score: rating } }
     );
-    return { new_rating: response.average_rating };
+    const newRating = response.average_rating ?? response.new_rating;
+    if (typeof newRating !== 'number') {
+      throw new Error('Marketplace rating response missing average_rating');
+    }
+    return { new_rating: newRating };
   }
 
   /**

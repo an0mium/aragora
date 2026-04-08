@@ -94,7 +94,9 @@ export default function DebateDetailClient() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch(`${backendConfig.api}/api/v1/debates/${id}/package`);
+      const res = await fetch(`${backendConfig.api}/api/v1/debates/${id}/package`, {
+        headers: getAuthHeaders(),
+      });
       if (res.status === 404) {
         setError('not_found');
         return;
@@ -111,7 +113,7 @@ export default function DebateDetailClient() {
     } finally {
       setLoading(false);
     }
-  }, [backendConfig.api, id]);
+  }, [backendConfig.api, getAuthHeaders, id]);
 
   // When WebSocket reports debate complete, reload the package
   const handleStreamComplete = useCallback(() => {
@@ -127,6 +129,7 @@ export default function DebateDetailClient() {
       try {
         // Try to get debate status first
         const statusRes = await fetch(`${backendConfig.api}/api/v1/debates/${id}`, {
+          headers: getAuthHeaders(),
           signal: AbortSignal.timeout(5000),
         });
 
@@ -149,7 +152,7 @@ export default function DebateDetailClient() {
     }
 
     checkAndLoad();
-  }, [backendConfig.api, id, fetchDebatePackage]);
+  }, [backendConfig.api, getAuthHeaders, id, fetchDebatePackage]);
 
   const copyShareUrl = useCallback(async (data?: DebateShareResponse) => {
     const sharePath =
@@ -815,7 +818,9 @@ export default function DebateDetailClient() {
                     onClick={async () => {
                       setExporting('md');
                       try {
-                        const res = await fetch(`${backendConfig.api}/api/v1/debates/${pkg.id}/export/md`);
+                        const res = await fetch(`${backendConfig.api}/api/v1/debates/${pkg.id}/export/md`, {
+                          headers: getAuthHeaders(),
+                        });
                         if (res.ok) {
                           const text = await res.text();
                           const blob = new Blob([text], { type: 'text/markdown' });
@@ -843,7 +848,9 @@ export default function DebateDetailClient() {
                     onClick={async () => {
                       setExporting('csv');
                       try {
-                        const res = await fetch(`${backendConfig.api}/api/v1/debates/${pkg.id}/export/csv`);
+                        const res = await fetch(`${backendConfig.api}/api/v1/debates/${pkg.id}/export/csv`, {
+                          headers: getAuthHeaders(),
+                        });
                         if (res.ok) {
                           const text = await res.text();
                           const blob = new Blob([text], { type: 'text/csv' });

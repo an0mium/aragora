@@ -23,6 +23,33 @@ router = APIRouter(prefix="/api/v2", tags=["Tasks"])
 # ---------------------------------------------------------------------------
 
 
+def _empty_queue_metrics() -> dict[str, int]:
+    return {
+        "pending": 0,
+        "running": 0,
+        "completed_today": 0,
+        "failed_today": 0,
+        "avg_wait_time_ms": 0,
+        "avg_execution_time_ms": 0,
+        "throughput_per_minute": 0,
+    }
+
+
+def _queue_metrics_from_stats(stats: Any) -> dict[str, Any]:
+    if not isinstance(stats, dict):
+        return _empty_queue_metrics()
+
+    return {
+        "pending": stats.get("pending_tasks", 0),
+        "running": stats.get("running_tasks", 0),
+        "completed_today": stats.get("completed_tasks", 0),
+        "failed_today": stats.get("failed_tasks", 0),
+        "avg_wait_time_ms": stats.get("avg_wait_time_ms", 0),
+        "avg_execution_time_ms": stats.get("avg_execution_time_ms", 0),
+        "throughput_per_minute": stats.get("throughput_per_minute", 0),
+    }
+
+
 class SubmitTaskRequest(BaseModel):
     model_config = ConfigDict(extra="allow")
     task_type: str
@@ -97,28 +124,6 @@ def _require_coordinator(request: Any = Depends(lambda request: request)):
 # ---------------------------------------------------------------------------
 # Task endpoints
 # ---------------------------------------------------------------------------
-
-
-@router.get("/tasks/{task_id}")
-async def get_task(task_id: str):
-    """Get task by ID."""
-    try:
-        from aragora.control_plane.integration import get_integrated_control_plane
-
-        cp = get_integrated_control_plane()
-        if not cp:
-            raise HTTPException(status_code=503, detail="Control plane not initialized")
-
-        task = await cp.get_task(task_id)
-        if not task:
-            raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
-
-        return {"data": task.to_dict()}
-    except HTTPException:
-        raise
-    except (ValueError, KeyError, AttributeError, TypeError, RuntimeError, OSError) as e:
-        logger.error("Error getting task %s: %s", task_id, e)
-        raise HTTPException(status_code=500, detail="Failed to get task")
 
 
 @router.post("/tasks", status_code=201)
@@ -327,30 +332,19 @@ async def get_queue(limit: int = Query(default=50, ge=1, le=1000)):
 async def get_queue_metrics():
     """Get task queue performance metrics."""
     try:
+        import inspect
+
         from aragora.control_plane.integration import get_integrated_control_plane
 
         cp = get_integrated_control_plane()
-        if cp and hasattr(cp, "_scheduler"):
-            scheduler_stats = await cp.get_stats()
-            stats = {
-                "pending": scheduler_stats.get("pending_tasks", 0),
-                "running": scheduler_stats.get("running_tasks", 0),
-                "completed_today": scheduler_stats.get("completed_tasks", 0),
-                "failed_today": scheduler_stats.get("failed_tasks", 0),
-                "avg_wait_time_ms": scheduler_stats.get("avg_wait_time_ms", 0),
-                "avg_execution_time_ms": scheduler_stats.get("avg_execution_time_ms", 0),
-                "throughput_per_minute": scheduler_stats.get("throughput_per_minute", 0),
-            }
-        else:
-            stats = {
-                "pending": 0,
-                "running": 0,
-                "completed_today": 0,
-                "failed_today": 0,
-                "avg_wait_time_ms": 0,
-                "avg_execution_time_ms": 0,
-                "throughput_per_minute": 0,
-            }
+        stats = _empty_queue_metrics()
+
+        stats_getter = getattr(cp, "get_stats", None) if cp else None
+        if callable(stats_getter):
+            maybe_stats = stats_getter()
+            if inspect.isawaitable(maybe_stats):
+                maybe_stats = await maybe_stats
+            stats = _queue_metrics_from_stats(maybe_stats)
 
         return {"data": stats}
     except (ValueError, KeyError, TypeError, AttributeError, RuntimeError, OSError) as e:
@@ -479,6 +473,28 @@ async def get_task_history(
 # ---------------------------------------------------------------------------
 # Deliberation endpoints
 # ---------------------------------------------------------------------------
+
+
+@router.get("/tasks/{task_id}")
+async def get_task(task_id: str):
+    """Get task by ID."""
+    try:
+        from aragora.control_plane.integration import get_integrated_control_plane
+
+        cp = get_integrated_control_plane()
+        if not cp:
+            raise HTTPException(status_code=503, detail="Control plane not initialized")
+
+        task = await cp.get_task(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
+
+        return {"data": task.to_dict()}
+    except HTTPException:
+        raise
+    except (ValueError, KeyError, AttributeError, TypeError, RuntimeError, OSError) as e:
+        logger.error("Error getting task %s: %s", task_id, e)
+        raise HTTPException(status_code=500, detail="Failed to get task")
 
 
 @router.get("/deliberations/{request_id}")
