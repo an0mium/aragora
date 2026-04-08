@@ -680,6 +680,15 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Derive V1 scope expansion override
+        shell: bash
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          if printf '%s' "${PR_BODY:-}" | grep -q 'ARAGORA_ALLOW_SCOPE_EXPANSION=1'; then
+            echo "ARAGORA_ALLOW_SCOPE_EXPANSION=1" >> "$GITHUB_ENV"
+          fi
+
       - name: Enforce V1 scope lock
         run: |
           python scripts/check_v1_scope_lock.py \

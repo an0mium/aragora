@@ -454,7 +454,11 @@ class ArgumentCartographer:
         """Emit a graph update event for real-time streaming."""
         try:
             from aragora.events.dispatcher import dispatch_event
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
+            logger.debug("Graph update dispatcher unavailable: %s", e)
+            return
 
+        try:
             dispatch_event(
                 "argument_map_updated",
                 {
@@ -465,9 +469,9 @@ class ArgumentCartographer:
                     "total_edges": len(self.edges),
                 },
             )
-        except Exception as e:  # noqa: BLE001
-            # Broad catch: event emission is optional and must never disrupt
-            # visualization. asyncpg errors can surface during webhook store init.
+        except (ImportError, OSError, RuntimeError, ValueError) as e:
+            # Event emission is optional and must never disrupt visualization.
+            # Import, transport, or initialization failures can surface here.
             logger.debug("Graph update event emission unavailable: %s", e)
 
     def _make_id(self, agent: str, round_num: int, content: str) -> str:

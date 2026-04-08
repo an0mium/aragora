@@ -71,6 +71,7 @@ _shared_scheduler = None
 _shared_debate_store: LazyStore[Any] | None = None
 
 MAX_TOPIC_LENGTH = 200
+_ASYNC_FETCH_FAILURE = object()
 
 
 def _is_demo_mode() -> bool:
@@ -310,7 +311,12 @@ class PulseHandler(BaseHandler):
 
         return None
 
-    def _run_async_safely(self, coro_factory: Any, timeout: float | None = None) -> Any:
+    def _run_async_safely(
+        self,
+        coro_factory: Any,
+        timeout: float | None = None,
+        failure_value: Any = _ASYNC_FETCH_FAILURE,
+    ) -> Any:
         """Run an async coroutine safely, handling event loop edge cases.
 
         Uses run_async() from http_utils which properly handles:
@@ -328,7 +334,7 @@ class PulseHandler(BaseHandler):
             return run_async(coro_factory())
         except (asyncio.TimeoutError, RuntimeError, OSError) as e:
             logger.warning("Async fetch failed: %s", e)
-            return []
+            return [] if failure_value is _ASYNC_FETCH_FAILURE else failure_value
 
     @ttl_cache(ttl_seconds=300, key_prefix="pulse_trending")
     def _get_trending_topics(self, limit: int) -> HandlerResult:
@@ -392,13 +398,36 @@ class PulseHandler(BaseHandler):
             manager.add_ingestor("twitter", TwitterIngestor())
 
             # Fetch trending topics asynchronously from all sources
+            fetch_attempted = False
+
             async def fetch() -> list[Any]:
+                nonlocal fetch_attempted
+                fetch_attempted = True
                 return await manager.get_trending_topics(limit_per_platform=limit)
 
-            topics = self._run_async_safely(fetch)
+            topics = self._run_async_safely(fetch, failure_value=None)
 
-            # If live fetch returned nothing, return demo data as a gentle fallback
+            if topics is None:
+                logger.info("Live topic fetch failed, returning empty trending topics")
+                return json_response(
+                    {
+                        "topics": [],
+                        "count": 0,
+                        "sources": list(manager.ingestors.keys()),
+                    }
+                )
+
             if not topics:
+                if fetch_attempted:
+                    logger.info("No live topics found, returning empty trending topics")
+                    return json_response(
+                        {
+                            "topics": [],
+                            "count": 0,
+                            "sources": list(manager.ingestors.keys()),
+                        }
+                    )
+
                 demo_topics = _DEMO_TRENDING_TOPICS[:limit]
                 logger.info("No live topics found, returning %s demo topics", len(demo_topics))
                 return json_response(

@@ -277,6 +277,14 @@ class SQLiteBlacklist(BlacklistBackend):
 try:
     import redis
 
+    _REDIS_BACKEND_ERRORS = (
+        redis.exceptions.RedisError,
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        RuntimeError,
+    )
+
     class _RedisBlacklistImpl(BlacklistBackend):
         """
         Redis-backed token blacklist.
@@ -324,6 +332,7 @@ try:
 except ImportError:
     # Fallback when redis package is not installed; pre-declared above
     HAS_REDIS = False
+    _REDIS_BACKEND_ERRORS = (ConnectionError, TimeoutError, OSError, RuntimeError)
 
 
 class PostgresBlacklist(BlacklistBackend):
@@ -489,7 +498,7 @@ def get_blacklist_backend() -> BlacklistBackend:
         else:
             try:
                 _blacklist_backend = RedisBlacklist(redis_url)
-            except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
+            except _REDIS_BACKEND_ERRORS as e:
                 logger.warning("Redis connection failed: %s. Falling back to SQLite.", e)
                 _blacklist_backend = SQLiteBlacklist(fallback_db_path)
     else:

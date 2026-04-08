@@ -296,7 +296,7 @@ class PolicyEngine:
         self._default_budget_config = default_budget or RiskBudget()
 
         # Action tracking for rate limiting
-        self._action_counts: dict[str, dict[str, int]] = {}  # agent -> capability -> count
+        self._action_counts: dict[str, dict[str, int]] = {}  # session_id -> policy_name -> count
         self._action_timestamps: dict[str, list[datetime]] = {}  # capability -> timestamps
 
         # Audit log
@@ -327,6 +327,15 @@ class PolicyEngine:
                 max_single_action=self._default_budget_config.max_single_action,
             )
         return self._budgets[session_id]
+
+    def _get_session_policy_uses(self, session_id: str, policy_name: str) -> int:
+        """Get how many times a policy has allowed actions in a session."""
+        return self._action_counts.get(session_id, {}).get(policy_name, 0)
+
+    def _record_session_policy_use(self, session_id: str, policy_name: str) -> None:
+        """Record a successful policy use for session-scoped limits."""
+        session_counts = self._action_counts.setdefault(session_id, {})
+        session_counts[policy_name] = session_counts.get(policy_name, 0) + 1
 
     def check_action(
         self,
@@ -388,6 +397,32 @@ class PolicyEngine:
         # Check policies (first match wins due to priority sorting)
         for policy in self.policies:
             if policy.matches(agent, tool, capability, context):
+                if policy.max_uses_per_session is not None:
+                    uses_this_session = self._get_session_policy_uses(session_id, policy.name)
+                    if uses_this_session >= policy.max_uses_per_session:
+                        decision = (
+                            PolicyDecision.ESCALATE
+                            if policy.require_human_approval
+                            else PolicyDecision.DENY
+                        )
+                        result = PolicyResult(
+                            decision=decision,
+                            allowed=False,
+                            requires_human_approval=decision == PolicyDecision.ESCALATE,
+                            reason=(
+                                f"Policy '{policy.name}' exceeded max uses per session "
+                                f"({policy.max_uses_per_session})"
+                            ),
+                            agent=agent,
+                            tool=tool,
+                            capability=capability,
+                            context=context,
+                            risk_cost=risk_cost,
+                            budget_remaining=budget.remaining,
+                        )
+                        self._log_action(result)
+                        return result
+
                 # Apply policy multiplier to risk
                 risk_cost *= policy.risk_multiplier
 
@@ -495,6 +530,11 @@ class PolicyEngine:
             agent=agent,
             tool=tool,
         )
+        for policy in self.policies:
+            if policy.matches(agent, tool, capability, context):
+                if policy.max_uses_per_session is not None:
+                    self._record_session_policy_use(session_id, policy.name)
+                break
 
         self._log_action(result)
         return result
