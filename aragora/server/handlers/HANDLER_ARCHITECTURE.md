@@ -135,6 +135,11 @@ for handler in handlers:
             return True
 ```
 
+Some handlers route through sync dispatch methods that return awaitables from
+`async def handle_*` implementations. `_try_modular_handler()` checks for a
+coroutine result and resolves it before sending the response, so tests should
+mirror that behavior when they call `handle()` directly.
+
 ## Handler Catalog
 
 **Total:** 501 handler modules across 30+ categories

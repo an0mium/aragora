@@ -117,6 +117,11 @@ if my_handler.can_handle(path):
     result = my_handler.handle(path, query_params, request_handler)
 ```
 
+Handlers may dispatch to `async def handle_*` implementations. The production
+handler registry resolves awaitables before writing the response, and
+standalone tests should do the same instead of assuming `handle()` is always
+purely synchronous.
+
 ## Authentication & RBAC
 
 ### Authentication Decorator
