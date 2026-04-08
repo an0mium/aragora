@@ -9,12 +9,9 @@ Reverse sync: KM validation results → IdeaNode confidence updates
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from aragora.knowledge.mound.adapters._base import KnowledgeMoundAdapter
-
-logger = logging.getLogger(__name__)
 
 
 class IdeaCloudAdapter(KnowledgeMoundAdapter):

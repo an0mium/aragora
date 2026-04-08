@@ -80,6 +80,26 @@ class TestQualityPipelineConfig:
         cfg = QualityPipelineConfig.from_dict({"enabled": False})
         assert cfg.enabled is False
 
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("true", True),
+            ("1", True),
+            ("yes", True),
+            ("on", True),
+            ("false", False),
+            ("0", False),
+            ("no", False),
+            ("off", False),
+            ("", False),
+            ("definitely", False),
+        ],
+    )
+    def test_from_dict_string_booleans_fail_closed(self, value, expected):
+        cfg = QualityPipelineConfig.from_dict({"enabled": value, "has_context": value})
+        assert cfg.enabled is expected
+        assert cfg.has_context is expected
+
     def test_from_dict_with_sections(self):
         cfg = QualityPipelineConfig.from_dict(
             {
@@ -215,3 +235,8 @@ class TestApplyPostConsensusQuality:
         result = apply_post_consensus_quality("some answer", long_task, cfg)
         assert result.contract_dict is not None
         assert len(result.contract_dict["required_sections"]) == 7
+
+    def test_from_dict_missing_booleans_preserve_defaults(self):
+        cfg = QualityPipelineConfig.from_dict({"required_sections": ["Summary"]})
+        assert cfg.enabled is True
+        assert cfg.has_context is False
