@@ -199,6 +199,31 @@ def init_knowledge_ops(arena: Arena) -> None:
         arena.revalidation_scheduler = arena._km_manager.revalidation_scheduler
     arena._km_coordinator = arena._km_manager._km_coordinator
     arena._km_adapters = arena._km_manager._km_adapters
+    arena._km_metadata_template = {
+        "knowledge_mound_present": arena.knowledge_mound is not None,
+        "supermemory_enabled": bool(arena.enable_supermemory),
+        "context_handoff": {
+            "status": "pending" if arena.knowledge_mound is not None else "not_configured",
+            "non_blocking": True,
+        },
+        "retrieval": {
+            "enabled": bool(arena.enable_knowledge_retrieval),
+            "status": (
+                "pending"
+                if arena.enable_knowledge_retrieval and arena.knowledge_mound is not None
+                else "disabled"
+                if not arena.enable_knowledge_retrieval
+                else "not_configured"
+            ),
+            "observed_context_chars": 0,
+            "observed_item_count": 0,
+        },
+        "writeback": {
+            "enabled": bool(arena.enable_knowledge_ingestion),
+            "status": "pending" if arena.enable_knowledge_ingestion else "disabled",
+            "attempts": 0,
+        },
+    }
 
 
 def init_grounded_operations(arena: Arena) -> None:
