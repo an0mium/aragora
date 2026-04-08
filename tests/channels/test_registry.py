@@ -7,53 +7,10 @@ Tests registration, lookup, capability queries, and the global singleton.
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 
+from .conftest import FakeEmailDock, FakeSimpleDock, FakeSlackDock, FakeTelegramDock
 from aragora.channels.dock import ChannelDock, ChannelCapability, SendResult
 from aragora.channels.normalized import NormalizedMessage
 from aragora.channels.registry import DockRegistry, get_dock_registry
-
-
-# =============================================================================
-# Helper docks for testing
-# =============================================================================
-
-
-class FakeSlackDock(ChannelDock):
-    PLATFORM = "slack"
-    CAPABILITIES = (
-        ChannelCapability.RICH_TEXT | ChannelCapability.BUTTONS | ChannelCapability.THREADS
-    )
-
-    async def send_message(self, channel_id, message, **kwargs):
-        return SendResult.ok(message_id="msg-1", platform=self.PLATFORM, channel_id=channel_id)
-
-
-class FakeTelegramDock(ChannelDock):
-    PLATFORM = "telegram"
-    CAPABILITIES = (
-        ChannelCapability.RICH_TEXT
-        | ChannelCapability.BUTTONS
-        | ChannelCapability.VOICE
-        | ChannelCapability.FILES
-    )
-
-    async def send_message(self, channel_id, message, **kwargs):
-        return SendResult.ok(message_id="msg-2", platform=self.PLATFORM, channel_id=channel_id)
-
-
-class FakeEmailDock(ChannelDock):
-    PLATFORM = "email"
-    CAPABILITIES = ChannelCapability.RICH_TEXT | ChannelCapability.FILES
-
-    async def send_message(self, channel_id, message, **kwargs):
-        return SendResult.ok(platform=self.PLATFORM, channel_id=channel_id)
-
-
-class FakeSimpleDock(ChannelDock):
-    PLATFORM = "simple"
-    CAPABILITIES = ChannelCapability.NONE
-
-    async def send_message(self, channel_id, message, **kwargs):
-        return SendResult.ok(platform=self.PLATFORM, channel_id=channel_id)
 
 
 # =============================================================================

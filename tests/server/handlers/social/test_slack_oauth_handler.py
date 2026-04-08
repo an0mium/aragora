@@ -658,6 +658,32 @@ class TestSlackOAuthUninstall:
         mock_store.deactivate.assert_called_once_with("T12345678")
 
     @pytest.mark.asyncio
+    async def test_uninstall_tokens_revoked_malformed_bot_tokens_does_not_deactivate(
+        self, oauth_handler
+    ):
+        """Malformed bot token payloads should ack without deactivating."""
+        mock_store = MagicMock()
+
+        with patch(
+            "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+            return_value=mock_store,
+        ):
+            result = await oauth_handler.handle(
+                "POST",
+                "/api/integrations/slack/uninstall",
+                body={
+                    "team_id": "T12345678",
+                    "event": {
+                        "type": "tokens_revoked",
+                        "tokens": {"bot": "xoxb-token"},
+                    },
+                },
+            )
+
+        assert result.status_code == 200
+        mock_store.deactivate.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_uninstall_uses_secret_backed_signing_secret(self, oauth_handler):
         """Uninstall should verify signatures with secret-backed config in production."""
         body = {

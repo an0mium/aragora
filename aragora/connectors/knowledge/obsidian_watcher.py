@@ -437,7 +437,9 @@ class VaultWatcher:
 
         try:
             self._loop = asyncio.get_running_loop()
-        except RuntimeError:
+        except RuntimeError as exc:
+            if "no running event loop" not in str(exc):
+                raise
             self._loop = None
 
         handler = _WatchdogHandler(self)
