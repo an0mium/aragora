@@ -39,6 +39,7 @@ from .utils.rate_limit import RateLimiter, get_client_ip
 
 # Rate limiter: interventions are low-volume but sensitive (30 requests/min)
 _intervention_limiter = RateLimiter(requests_per_minute=30)
+_MAX_INTERVENTION_CONTENT_LENGTH = 2000
 
 # Lazy module references
 get_intervention_queue: Any = None
@@ -195,9 +196,12 @@ class DebateInterventionHandler(BaseHandler):
             return error_response("Missing required field: content", 400)
         if not isinstance(content, str) or not content.strip():
             return error_response("Field 'content' must be a non-empty string", 400)
-
-        # Sanitize content length
-        content = content.strip()[:2000]
+        content = content.strip()
+        if len(content) > _MAX_INTERVENTION_CONTENT_LENGTH:
+            return error_response(
+                f"Field 'content' must be at most {_MAX_INTERVENTION_CONTENT_LENGTH} characters",
+                400,
+            )
 
         apply_at_round = body.get("apply_at_round", 0)
         if apply_at_round is None:
