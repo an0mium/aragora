@@ -75,6 +75,110 @@ class SettlementHandler(BaseHandler):
         self.ctx["settlement_tracker"] = tracker
         return tracker
 
+    def _parse_limit(self, raw_limit: Any) -> tuple[int | None, HandlerResult | None]:
+        """Validate and parse a limit query parameter."""
+        if raw_limit is None:
+            return 100, None
+
+        try:
+            limit = int(raw_limit)
+        except (TypeError, ValueError):
+            return None, error_response("limit must be an integer", 400)
+
+        if limit <= 0:
+            return None, error_response("limit must be greater than 0", 400)
+
+        return limit, None
+
+    def _validate_single_settlement_body(
+        self, body: Any
+    ) -> tuple[dict[str, str] | None, HandlerResult | None]:
+        """Validate a single-settlement request body."""
+        if not isinstance(body, dict):
+            return None, error_response("Request body must be a JSON object", 400)
+
+        outcome = body.get("outcome")
+        if not isinstance(outcome, str) or not outcome.strip():
+            return None, error_response("outcome is required and must be a non-empty string", 400)
+
+        outcome = outcome.strip()
+        if outcome not in ("correct", "incorrect", "partial"):
+            return None, error_response("outcome must be 'correct', 'incorrect', or 'partial'", 400)
+
+        evidence = body.get("evidence", "")
+        if evidence is None:
+            evidence = ""
+        if not isinstance(evidence, str):
+            return None, error_response("evidence must be a string", 400)
+
+        settled_by = body.get("settled_by", "api")
+        if not isinstance(settled_by, str) or not settled_by.strip():
+            return None, error_response("settled_by must be a non-empty string", 400)
+
+        return {
+            "outcome": outcome,
+            "evidence": evidence,
+            "settled_by": settled_by.strip(),
+        }, None
+
+    def _validate_batch_settlement_body(
+        self, body: Any
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+        """Validate a batch-settlement request body."""
+        if not isinstance(body, dict):
+            return None, error_response("Request body must be a JSON object", 400)
+
+        settlements = body.get("settlements")
+        if not isinstance(settlements, list) or not settlements:
+            return None, error_response("settlements must be a non-empty list", 400)
+
+        validated_settlements: list[dict[str, Any]] = []
+        for idx, settlement in enumerate(settlements):
+            if not isinstance(settlement, dict):
+                return None, error_response(f"settlements[{idx}] must be an object", 400)
+
+            settlement_id = settlement.get("settlement_id")
+            if not isinstance(settlement_id, str) or not settlement_id.strip():
+                return None, error_response(
+                    f"settlements[{idx}].settlement_id is required and must be a non-empty string",
+                    400,
+                )
+
+            outcome = settlement.get("outcome")
+            if not isinstance(outcome, str) or not outcome.strip():
+                return None, error_response(
+                    f"settlements[{idx}].outcome is required and must be a non-empty string",
+                    400,
+                )
+
+            outcome = outcome.strip()
+            if outcome not in ("correct", "incorrect", "partial"):
+                return None, error_response(
+                    f"settlements[{idx}].outcome must be 'correct', 'incorrect', or 'partial'",
+                    400,
+                )
+
+            evidence = settlement.get("evidence", "")
+            if evidence is None:
+                evidence = ""
+            if not isinstance(evidence, str):
+                return None, error_response(f"settlements[{idx}].evidence must be a string", 400)
+
+            validated_settlement = dict(settlement)
+            validated_settlement["settlement_id"] = settlement_id.strip()
+            validated_settlement["outcome"] = outcome
+            validated_settlement["evidence"] = evidence
+            validated_settlements.append(validated_settlement)
+
+        settled_by = body.get("settled_by", "api")
+        if not isinstance(settled_by, str) or not settled_by.strip():
+            return None, error_response("settled_by must be a non-empty string", 400)
+
+        return {
+            "settlements": validated_settlements,
+            "settled_by": settled_by.strip(),
+        }, None
+
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given request."""
         normalized = strip_version_prefix(path)
@@ -155,7 +259,9 @@ class SettlementHandler(BaseHandler):
 
         debate_id = query_params.get("debate_id")
         domain = query_params.get("domain")
-        limit = int(query_params.get("limit", "100"))
+        limit, error = self._parse_limit(query_params.get("limit"))
+        if error is not None:
+            return error
 
         pending = tracker.get_pending(
             debate_id=debate_id,
@@ -190,7 +296,9 @@ class SettlementHandler(BaseHandler):
 
         debate_id = query_params.get("debate_id")
         author = query_params.get("author")
-        limit = int(query_params.get("limit", "100"))
+        limit, error = self._parse_limit(query_params.get("limit"))
+        if error is not None:
+            return error
 
         history = tracker.get_history(
             debate_id=debate_id,
@@ -258,24 +366,18 @@ class SettlementHandler(BaseHandler):
             evidence: str -- Supporting evidence for the outcome
             settled_by: str -- Who/what resolved the settlement
         """
-        outcome = body.get("outcome", "")
-        if not outcome:
-            return error_response("outcome is required", 400)
-
-        if outcome not in ("correct", "incorrect", "partial"):
-            return error_response("outcome must be 'correct', 'incorrect', or 'partial'", 400)
-
-        evidence = body.get("evidence", "")
-        settled_by = body.get("settled_by", "api")
+        validated_body, error = self._validate_single_settlement_body(body)
+        if error is not None:
+            return error
 
         tracker = self._get_tracker()
 
         try:
             result = tracker.settle(
                 settlement_id=settlement_id,
-                outcome=outcome,
-                evidence=evidence,
-                settled_by=settled_by,
+                outcome=validated_body["outcome"],
+                evidence=validated_body["evidence"],
+                settled_by=validated_body["settled_by"],
             )
             return json_response({"data": result.to_dict()})
         except KeyError:
@@ -296,16 +398,14 @@ class SettlementHandler(BaseHandler):
             settlements: list[dict]  -- List of {settlement_id, outcome, evidence}
             settled_by: str -- Who/what resolved the settlements
         """
-        settlements = body.get("settlements", [])
-        if not settlements:
-            return error_response("settlements list is required", 400)
-
-        settled_by = body.get("settled_by", "api")
+        validated_body, error = self._validate_batch_settlement_body(body)
+        if error is not None:
+            return error
 
         tracker = self._get_tracker()
         results = tracker.settle_batch(
-            settlements=settlements,
-            settled_by=settled_by,
+            settlements=validated_body["settlements"],
+            settled_by=validated_body["settled_by"],
         )
 
         return json_response(
