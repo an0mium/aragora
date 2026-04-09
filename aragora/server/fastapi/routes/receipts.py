@@ -542,11 +542,21 @@ def _resolve_delivery_aggregates(stats: dict[str, Any]) -> tuple[int, int, int, 
         _derive_delivery_aggregates_from_history()
     )
 
+    resolved_delivered = delivered if delivered is not None else history_delivered
+    resolved_pending = pending if pending is not None else history_pending
+    resolved_failed = failed if failed is not None else history_failed
+
+    if delivery_rate is None:
+        total_attempted = resolved_delivered + resolved_failed
+        delivery_rate = (
+            resolved_delivered / total_attempted if total_attempted > 0 else history_delivery_rate
+        )
+
     return (
-        delivered if delivered is not None else history_delivered,
-        pending if pending is not None else history_pending,
-        failed if failed is not None else history_failed,
-        delivery_rate if delivery_rate is not None else history_delivery_rate,
+        resolved_delivered,
+        resolved_pending,
+        resolved_failed,
+        delivery_rate,
     )
 
 
