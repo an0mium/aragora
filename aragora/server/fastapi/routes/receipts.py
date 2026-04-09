@@ -504,6 +504,10 @@ def _derive_delivery_aggregates_from_history() -> tuple[int, int, int, float | N
     failed = 0
 
     for item in get_receipt_delivery_history_store():
+        if item.get("is_test"):
+            continue
+        if not (item.get("receipt_id") or item.get("receiptId")):
+            continue
         status = str(item.get("status") or "").strip().lower()
         if status in {"delivered", "success"}:
             delivered += 1
