@@ -246,8 +246,9 @@ def _parse_json(value: str | None, *, field_name: str = "unknown") -> Any:
     except (json.JSONDecodeError, TypeError) as exc:
         payload = value if isinstance(value, str) else repr(value)
         logger.warning(
-            "Failed to parse stored pipeline JSON for %s: %s; payload=%r",
+            "Failed to parse stored pipeline JSON for %s (type=%s): %s; payload=%r",
             field_name,
+            type(value).__name__,
             exc,
             payload[:200],
             exc_info=True,
