@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useTheme } from '@/context/ThemeContext';
 import { Header } from '@/components/landing/Header';
 import { Footer } from '@/components/landing/Footer';
-import { ConnectOpenRouterButton } from '@/components/openrouter/ConnectOpenRouterButton';
 
 function CodeBlock({
   children,
@@ -162,8 +161,7 @@ export default function QuickstartPage() {
           <p style={{ color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-landing)' }}>
             No API keys needed — runs with styled mock agents locally:
           </p>
-          <CodeBlock lang="python">{`from aragora_debate.arena import Arena
-from aragora_debate.styled_mock import StyledMockAgent
+          <CodeBlock lang="python">{`from aragora_debate import Arena, DebateConfig, StyledMockAgent
 import asyncio
 
 agents = [
@@ -171,7 +169,11 @@ agents = [
     StyledMockAgent('critic', style='critical'),
     StyledMockAgent('pm', style='balanced'),
 ]
-arena = Arena(question='Should we migrate to microservices?', agents=agents)
+arena = Arena(
+    question='Should we migrate to microservices?',
+    agents=agents,
+    config=DebateConfig(rounds=2),
+)
 result = asyncio.run(arena.run())
 print(result.receipt.to_markdown())`}</CodeBlock>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: 0, fontFamily: 'var(--font-landing)' }}>
@@ -182,9 +184,16 @@ print(result.receipt.to_markdown())`}</CodeBlock>
 
         {/* Step 3 */}
         <Step number={3} title="Add Real AI Models">
-          <ConnectOpenRouterButton />
           <p style={{ color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-landing)' }}>
-            Or set API keys manually:
+            Install the provider extras for the models you want to use:
+          </p>
+          <CodeBlock lang="bash">{`pip install 'aragora-debate[anthropic]'   # Claude
+# or
+pip install 'aragora-debate[openai]'      # GPT
+# or
+pip install 'aragora-debate[all]'`}</CodeBlock>
+          <p style={{ color: 'var(--text-muted)', margin: 0, fontFamily: 'var(--font-landing)' }}>
+            Then set the matching API keys:
           </p>
           <CodeBlock lang="bash">{`export ANTHROPIC_API_KEY="sk-ant-..."   # Claude
 # or
@@ -193,15 +202,24 @@ export OPENAI_API_KEY="sk-..."          # GPT`}</CodeBlock>
             Then run a real multi-model debate:
           </p>
           <CodeBlock lang="python">{`import asyncio
-from aragora import Arena, Environment, DebateProtocol
+from aragora_debate import Arena, DebateConfig, create_agent
 
-env = Environment(task="Design a rate limiter for our API")
-protocol = DebateProtocol(rounds=3, consensus="majority")
+async def main():
+    agents = [
+        create_agent("anthropic", name="analyst"),
+        create_agent("openai", name="challenger"),
+    ]
 
-# Arena auto-discovers available agents from your API keys
-arena = Arena(env, protocol=protocol)
-result = asyncio.run(arena.run())
-print(result.summary)`}</CodeBlock>
+    result = await Arena(
+        question="Design a rate limiter for our API",
+        agents=agents,
+        config=DebateConfig(rounds=3, consensus_method="majority"),
+    ).run()
+
+    print(result.summary())
+    print(result.receipt.to_markdown())
+
+asyncio.run(main())`}</CodeBlock>
         </Step>
 
         {/* Step 4 */}
