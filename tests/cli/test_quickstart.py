@@ -1286,7 +1286,7 @@ class TestCmdQuickstart:
         assert "Falling back to demo" in output
         assert "RESULT" in output  # Demo result was displayed
 
-    def test_configured_but_unreachable_provider_becomes_blocked_not_live_ready(
+    def test_configured_but_unreachable_provider_falls_back_after_live_attempt(
         self, tmp_path, monkeypatch, capsys
     ):
         monkeypatch.chdir(tmp_path)
@@ -1323,16 +1323,17 @@ class TestCmdQuickstart:
                 new=AsyncMock(return_value=(False, "connection refused")),
             ),
             patch(
+                "aragora.cli.commands.quickstart._run_live_debate",
+                side_effect=RuntimeError("No live debate team could be assembled for quickstart"),
+            ) as mock_live_debate,
+            patch(
                 "aragora.cli.commands.quickstart._run_demo_debate",
                 return_value=demo_result,
             ),
-            patch(
-                "aragora.cli.commands.quickstart._run_live_debate",
-            ) as mock_live_debate,
         ):
             cmd_quickstart(args)
 
-        mock_live_debate.assert_not_called()
+        mock_live_debate.assert_awaited_once()
         artifact_path = tmp_path / ".aragora" / "receipts" / "quickstart-demo-receipt.json"
         saved = json.loads(artifact_path.read_text())
         assert saved["provider_path"]["blocked"] is True
@@ -1343,7 +1344,8 @@ class TestCmdQuickstart:
         assert saved["fallback"]["label"] == "mock/simulated"
 
         output = capsys.readouterr().out
-        assert "Live provider path is blocked" in output
+        assert "Live provider preflight could not verify reachability" in output
+        assert "No live providers available. Falling back to demo mode." in output
         assert "mock/simulated" in output
 
     def test_live_mode_real_demo_fallback_survives_without_legacy_demo_package(

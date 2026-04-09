@@ -1710,6 +1710,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
 
     detected: list[tuple[str, str | None]] = []
     live_agents: list[tuple[str, str | None]] = []
+    live_attempt_agents: list[tuple[str, str | None]] = []
     provider_path: dict[str, Any] | None = None
     fallback_reason: str | None = None
 
@@ -1731,6 +1732,7 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
                 configured_agents=detected,
             )
         )
+        live_attempt_agents = live_agents or provider_path_source
         if not provider_path.get("config_present"):
             emit("\n[!] No supported API keys detected. Falling back to demo mode.")
             emit("    This run will use local mock agents, not live model calls.")
@@ -1738,16 +1740,15 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             emit("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
             use_demo = True
             fallback_reason = str(provider_path.get("reason") or "missing_config")
-        elif not provider_path.get("live_ready"):
-            emit("\n[!] Live provider path is blocked. Falling back to demo mode.")
-            emit("    This run will use local mock agents, not live model calls.")
-            _emit_provider_path_guidance(provider_path, emit)
-            emit("    Agents: analyst (supportive), critic (critical), synthesizer (balanced)")
-            use_demo = True
-            fallback_reason = str(provider_path.get("reason") or "providers_unreachable")
         else:
+            if not provider_path.get("live_ready"):
+                emit("\n[!] Live provider preflight could not verify reachability.")
+                emit(
+                    "    Proceeding with a live attempt; quickstart will fall back to demo if execution fails."
+                )
+                _emit_provider_path_guidance(provider_path, emit)
             preview_team = _build_live_team(
-                live_agents[:4],
+                live_attempt_agents[:4],
                 provider=normalized_provider,
                 api_key=inline_api_key,
             )
@@ -1772,13 +1773,13 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             result = _run_sync(
                 _run_live_debate(
                     question,
-                    live_agents[:4],
+                    live_attempt_agents[:4],
                     rounds,
                     provider=normalized_provider,
                     api_key=inline_api_key,
                 )
             )
-            if provider_path:
+            if provider_path and provider_path.get("live_ready"):
                 result = _attach_provider_path(result, provider_path)
     except (OSError, ConnectionError, RuntimeError, ValueError, TypeError) as e:
         logger.debug("Live debate failed, falling back to demo: %s", e)
