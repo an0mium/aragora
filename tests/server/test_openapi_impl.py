@@ -129,6 +129,15 @@ class TestOpenAPISchemaStructure:
         assert "schemas" in components
         assert "securitySchemes" in components
 
+    def test_runtime_schema_parameterizes_trailing_wildcard_routes(self, openapi_schema):
+        """Trailing-wildcard handlers should produce parameterized spec paths."""
+        paths = openapi_schema["paths"]
+
+        assert "/api/v1/debates/public/{param}" in paths
+        assert "/api/v1/debates/public" not in paths
+        assert "/api/v1/orchestration/status/{param}" in paths
+        assert "/api/v1/orchestration/status" not in paths
+
     def test_security_scheme_defined(self, openapi_schema):
         """Schema should define bearer auth security scheme."""
         schemes = openapi_schema["components"]["securitySchemes"]
@@ -425,11 +434,11 @@ class TestLegacyPathDeprecation:
 class TestPathNormalization:
     """Tests for path normalization functions."""
 
-    def test_normalize_route_strips_wildcard(self):
-        """Should strip trailing wildcard from routes."""
+    def test_normalize_route_preserves_trailing_wildcard(self):
+        """Should preserve trailing wildcard routes for template generation."""
         from aragora.server.openapi_impl import _normalize_route
 
-        assert _normalize_route("/api/debates/*") == "/api/debates"
+        assert _normalize_route("/api/debates/*") == "/api/debates/*"
         assert _normalize_route("/api/debates/") == "/api/debates"
         assert _normalize_route("/api/debates") == "/api/debates"
 
@@ -448,9 +457,8 @@ class TestPathNormalization:
         from aragora.server.openapi_impl import _route_to_template
 
         assert _route_to_template("/api/debates/") == "/api/debates"
-        # Trailing wildcard gets stripped, not converted to param
-        result = _route_to_template("/api/debates/*")
-        assert result == "/api/debates" or result == "/api/debates/{param}"
+        assert _route_to_template("/api/debates/*") == "/api/debates/{param}"
+        assert _route_to_template("/api/debates/*/og") == "/api/debates/{param}/og"
 
     def test_pattern_prefix_extracts_prefix(self):
         """Should extract static prefix from regex pattern."""

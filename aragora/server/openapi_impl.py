@@ -420,7 +420,7 @@ def _normalize_route(route: Any) -> str:
         return ""
     parts = raw_route.split(" ", 1)
     path = parts[-1] if len(parts) > 1 and parts[0].isupper() else raw_route
-    return path.rstrip("*").rstrip("/")
+    return path.rstrip("/")
 
 
 def _extract_path_params(path: str) -> list[str]:
@@ -637,7 +637,6 @@ def _normalize_legacy_template(path: str) -> str:
 
 def _route_to_template(route: str) -> str:
     cleaned = route.rstrip("/")
-    cleaned = cleaned.rstrip("*").rstrip("/")
     # Replace each * with a unique {param}, {param_2}, {param_3}, etc.
     count = 0
     parts = cleaned.split("*")
