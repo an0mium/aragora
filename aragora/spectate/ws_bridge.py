@@ -137,58 +137,52 @@ class SpectateWebSocketBridge:
         if self._running:
             return
 
-        try:
-            from aragora.spectate.stream import SpectatorStream
+        from aragora.spectate.stream import SpectatorStream
 
-            # Save original emit method
-            self._original_emit = SpectatorStream.emit
-            bridge = self
-            original_emit = self._original_emit
+        # Save original emit method
+        self._original_emit = SpectatorStream.emit
+        bridge = self
+        original_emit = self._original_emit
 
-            def patched_emit(
-                self_stream: Any,
-                event_type: str,
-                agent: str = "",
-                details: str = "",
-                metric: float | None = None,
-                round_number: int | None = None,
-            ) -> None:
-                # Call original emit (terminal output)
-                original_emit(
-                    self_stream,
-                    event_type,
-                    agent=agent,
-                    details=details,
-                    metric=metric,
-                    round_number=round_number,
-                )
-                # Only forward to bridge if the stream is enabled
-                if not getattr(self_stream, "enabled", True):
-                    return
-                # Forward to bridge
-                bridge._forward_event(
-                    event_type,
-                    agent=agent,
-                    details=details,
-                    metric=metric,
-                    round_number=round_number,
-                )
+        def patched_emit(
+            self_stream: Any,
+            event_type: str,
+            agent: str = "",
+            details: str = "",
+            metric: float | None = None,
+            round_number: int | None = None,
+        ) -> None:
+            # Call original emit (terminal output)
+            original_emit(
+                self_stream,
+                event_type,
+                agent=agent,
+                details=details,
+                metric=metric,
+                round_number=round_number,
+            )
+            # Only forward to bridge if the stream is enabled
+            if not getattr(self_stream, "enabled", True):
+                return
+            # Forward to bridge
+            bridge._forward_event(
+                event_type,
+                agent=agent,
+                details=details,
+                metric=metric,
+                round_number=round_number,
+            )
 
-            SpectatorStream.emit = patched_emit  # type: ignore[assignment]
-            self._running = True
-            logger.info("spectate_ws_bridge_started")
-        except ImportError:
-            logger.debug("SpectatorStream not available, bridge inactive")
+        SpectatorStream.emit = patched_emit  # type: ignore[assignment]
+        self._running = True
+        logger.info("spectate_ws_bridge_started")
 
     def stop(self) -> None:
         """Stop the bridge, restoring original SpectatorStream.emit()."""
         if self._original_emit is not None:
-            try:
-                from aragora.spectate.stream import SpectatorStream
+            from aragora.spectate.stream import SpectatorStream
 
-                SpectatorStream.emit = self._original_emit  # type: ignore[assignment]
-            except ImportError:
-                pass
+            SpectatorStream.emit = self._original_emit  # type: ignore[assignment]
             self._original_emit = None
         self._running = False
         logger.info("spectate_ws_bridge_stopped")
