@@ -118,6 +118,18 @@ class HarnessesHandler(BaseHandler):
             return True
         return any(path.startswith(prefix) for prefix in self.ROUTE_PREFIXES)
 
+    def _validate_mutation_request(
+        self, path: Any, query_params: Any, handler: Any
+    ) -> HandlerResult | None:
+        """Validate common POST/PUT request inputs before routing."""
+        if not isinstance(path, str) or not path:
+            return error_response("Invalid path", 400)
+        if not isinstance(query_params, dict):
+            return error_response("query_params must be a JSON object", 400)
+        if handler is None:
+            return error_response("Request handler is required", 400)
+        return None
+
     @require_permission("harnesses:read")
     def handle(self, path: str, query_params: dict, handler: Any = None) -> HandlerResult | None:
         """Route GET requests."""
@@ -141,6 +153,10 @@ class HarnessesHandler(BaseHandler):
     @require_permission("harnesses:execute")
     def handle_post(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
         """Route POST requests."""
+        validation_error = self._validate_mutation_request(path, query_params, handler)
+        if validation_error is not None:
+            return validation_error
+
         client_ip = get_client_ip(handler)
         if not _harness_execute_limiter.is_allowed(client_ip):
             return error_response("Rate limit exceeded. Please try again later.", 429)
@@ -152,6 +168,14 @@ class HarnessesHandler(BaseHandler):
                 return err
             return self._execute_harness(name, handler)
 
+        return None
+
+    @handle_errors("harness update")
+    def handle_put(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
+        """Validate PUT request inputs for unsupported harness routes."""
+        validation_error = self._validate_mutation_request(path, query_params, handler)
+        if validation_error is not None:
+            return validation_error
         return None
 
     def _list_harnesses(self) -> HandlerResult:
