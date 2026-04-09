@@ -183,7 +183,10 @@ class PipelineResultStore(SQLiteStore):
 
         results = []
         for row in rows:
-            row["stage_status"] = _parse_json(row.pop("stage_status_json", "{}"))
+            row["stage_status"] = _parse_json(
+                row.pop("stage_status_json", "{}"),
+                field_name="stage_status_json",
+            )
             results.append(row)
         return results
 
