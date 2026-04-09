@@ -25,6 +25,9 @@ class InitiativeStore:
     def path_for(self, initiative_id: str) -> Path:
         return self._state_dir / f"{initiative_id}.json"
 
+    def campaign_manifest_path_for(self, initiative_id: str) -> Path:
+        return self._state_dir / f"{initiative_id}.campaign_manifest.yaml"
+
     def save(self, initiative: InitiativeRecord) -> Path:
         initiative.touch()
         payload = json.dumps(initiative.to_dict(), indent=2, sort_keys=False) + "\n"

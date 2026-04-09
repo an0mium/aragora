@@ -117,8 +117,8 @@ mkdir -p "$(dirname "${PLIST_PATH}")"
 mkdir -p "$(dirname "${LOG_PATH}")"
 mkdir -p "${REPO_ROOT}/.aragora/overnight"
 
-VENV_PYTHON="${REPO_ROOT}/.venv/bin/python3"
-command_string="cd \"${REPO_ROOT}\" && export PATH=\"/opt/homebrew/bin:/usr/local/bin:\$PATH\" && export ARAGORA_USER_ID=\"${ARAGORA_USER_ID}\" && export ARAGORA_WORKSPACE_ID=\"${ARAGORA_WORKSPACE_ID}\" && exec \"${VENV_PYTHON}\" -u -m aragora.cli.main swarm merge-arbiter --boss-repo \"${BOSS_REPO}\" --branch-prefix \"${BRANCH_PREFIXES}\" --interval \"${INTERVAL_SECONDS}\" --max-hours \"${MAX_HOURS}\" --max-consecutive-failures \"${MAX_CONSECUTIVE_FAILURES}\""
+VENV_ACTIVATE="${REPO_ROOT}/.venv/bin/activate"
+command_string="cd \"${REPO_ROOT}\" && export PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$PATH\" && export ARAGORA_USER_ID=\"${ARAGORA_USER_ID}\" && export ARAGORA_WORKSPACE_ID=\"${ARAGORA_WORKSPACE_ID}\" && source \"${VENV_ACTIVATE}\" && exec python3 -u -m aragora.cli.main swarm merge-arbiter --boss-repo \"${BOSS_REPO}\" --branch-prefix \"${BRANCH_PREFIXES}\" --interval \"${INTERVAL_SECONDS}\" --max-hours \"${MAX_HOURS}\" --max-consecutive-failures \"${MAX_CONSECUTIVE_FAILURES}\""
 if [[ "${DRY_RUN}" == true ]]; then
     command_string="${command_string} --dry-run"
 fi

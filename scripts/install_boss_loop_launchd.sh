@@ -187,12 +187,12 @@ mkdir -p "$(dirname "${PLIST_PATH}")"
 mkdir -p "$(dirname "${LOG_PATH}")"
 mkdir -p "${REPO_ROOT}/.aragora/overnight"
 
-VENV_PYTHON="${REPO_ROOT}/.venv/bin/python3"
-command_string="cd \"${REPO_ROOT}\" && export PATH=\"/opt/homebrew/bin:/usr/local/bin:\$PATH\" && export ARAGORA_USER_ID=\"${ARAGORA_USER_ID}\" && export ARAGORA_WORKSPACE_ID=\"${ARAGORA_WORKSPACE_ID}\""
+VENV_ACTIVATE="${REPO_ROOT}/.venv/bin/activate"
+command_string="cd \"${REPO_ROOT}\" && export PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$PATH\" && export ARAGORA_USER_ID=\"${ARAGORA_USER_ID}\" && export ARAGORA_WORKSPACE_ID=\"${ARAGORA_WORKSPACE_ID}\" && source \"${VENV_ACTIVATE}\""
 if [[ -n "${ARAGORA_CLAUDE_PROFILE}" ]]; then
     command_string="${command_string} && export ARAGORA_CLAUDE_PROFILE=\"${ARAGORA_CLAUDE_PROFILE}\""
 fi
-command_string="${command_string} && exec \"${VENV_PYTHON}\" -u -m aragora.cli.main swarm boss-loop --boss-repo \"${BOSS_REPO}\" --target-branch \"${TARGET_BRANCH}\" --worker-model \"${WORKER_MODEL}\" --review-model \"${REVIEW_MODEL}\""
+command_string="${command_string} && exec python3 -u -m aragora.cli.main swarm boss-loop --boss-repo \"${BOSS_REPO}\" --target-branch \"${TARGET_BRANCH}\" --worker-model \"${WORKER_MODEL}\" --review-model \"${REVIEW_MODEL}\""
 for label in "${LABELS[@]}"; do
     command_string="${command_string} --label \"${label}\""
 done

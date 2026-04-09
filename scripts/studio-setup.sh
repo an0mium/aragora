@@ -27,7 +27,7 @@ eval $SSH "echo 'Connected to Mac Studio' && uname -m && python3 --version" || {
 echo ""
 echo "--- Setting up repo ---"
 eval $SSH "
-    export PATH='/opt/homebrew/bin:\$PATH'
+    export PATH='/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$PATH'
     if [ -d ~/Development/aragora/.git ]; then
         echo 'Repo exists, pulling latest'
         cd ~/Development/aragora && git pull --ff-only origin main
@@ -42,7 +42,7 @@ eval $SSH "
 echo ""
 echo "--- Installing dependencies ---"
 eval $SSH "
-    export PATH='/opt/homebrew/bin:\$PATH'
+    export PATH='/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$PATH'
     cd ~/Development/aragora
     if [ ! -d .venv ]; then
         python3 -m venv .venv
@@ -63,7 +63,7 @@ rsync -av -e "SSH_AUTH_SOCK= ssh -o IdentitiesOnly=yes -i $SSH_KEY" \
 echo ""
 echo "--- Running preflight ---"
 eval $SSH "
-    export PATH='/opt/homebrew/bin:\$PATH'
+    export PATH='/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$PATH'
     cd ~/Development/aragora
     source .venv/bin/activate
     python3 -c '

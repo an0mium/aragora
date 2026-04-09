@@ -15,7 +15,9 @@ from aragora.swarm.campaign import (
     CampaignProjectStatus,
     save_campaign_manifest,
 )
+from aragora.swarm.initiative_models import InitiativeRecord, InitiativeSlice
 from aragora.swarm.initiative_integrator import InitiativeIntegrator
+from aragora.swarm.initiative_store import InitiativeStore
 from aragora.swarm.merge_arbiter import REQUIRED_CHECKS
 from aragora.swarm.spec import SwarmSpec
 
@@ -402,3 +404,79 @@ class TestInitiativeCli:
         parsed = json.loads(capsys.readouterr().out)
         assert parsed["mode"] == "initiative-status"
         assert parsed["initiative_id"] == "initiative-1"
+
+    def test_cmd_swarm_initiative_status_resolves_manifest_from_store(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from aragora.cli.commands.swarm import cmd_swarm
+
+        store = InitiativeStore(repo_root=tmp_path)
+        initiative = InitiativeRecord(
+            initiative_id="initiative-from-store",
+            title="Store-backed initiative",
+            goal="Run status without a pre-supplied manifest path.",
+            rationale="CLI should resolve initiative ids through the JSON store.",
+            slices=[
+                InitiativeSlice(
+                    slice_id="slice-1",
+                    title="Bridge",
+                    description="Create the initiative manifest bridge.",
+                    file_scope=["aragora/swarm/initiative_campaign_bridge.py"],
+                    validations=["pytest -q tests/swarm/test_initiative_campaign_bridge.py"],
+                )
+            ],
+        )
+        store.save(initiative)
+        args = _args(
+            swarm_goal="status",
+            swarm_campaign_target=initiative.initiative_id,
+            manifest=None,
+            initiative_dir=str(store.state_dir),
+        )
+
+        with (
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=tmp_path),
+            patch("aragora.swarm.initiative_integrator.InitiativeIntegrator") as integrator_cls,
+        ):
+            integrator_cls.return_value.status.return_value = {
+                "mode": "initiative-status",
+                "initiative_id": initiative.initiative_id,
+                "total_slices": 1,
+                "completed_slices": 0,
+                "milestones_complete": 0,
+                "milestones_total": 0,
+                "milestones": [],
+                "slices": [],
+            }
+            cmd_swarm(args)
+
+        manifest_path = store.campaign_manifest_path_for(initiative.initiative_id)
+        assert manifest_path.exists()
+        assert integrator_cls.call_args.kwargs["manifest_path"] == manifest_path
+        parsed = json.loads(capsys.readouterr().out)
+        assert parsed["initiative_id"] == initiative.initiative_id
+
+    def test_cmd_swarm_initiative_promote_keeps_manifest_target_as_project_id(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        from aragora.cli.commands.swarm import cmd_swarm
+
+        manifest_path = _manifest_path(tmp_path, _project("proj-001", "CLI slice"))
+        args = _args(
+            swarm_goal="promote",
+            swarm_campaign_target="proj-001",
+            manifest=str(manifest_path),
+            dry_run=True,
+        )
+
+        with patch("aragora.swarm.initiative_integrator.InitiativeIntegrator") as integrator_cls:
+            integrator_cls.return_value.promote.return_value = {
+                "mode": "initiative-promote",
+                "project_id": "proj-001",
+                "decision": "dry_run",
+            }
+            cmd_swarm(args)
+
+        assert integrator_cls.return_value.promote.call_args.kwargs["project_id"] == "proj-001"
+        parsed = json.loads(capsys.readouterr().out)
+        assert parsed["project_id"] == "proj-001"

@@ -1359,6 +1359,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         return
 
     if action == "initiative":
+        from aragora.swarm.initiative_campaign_bridge import sync_campaign_manifest_for_initiative
         from aragora.swarm.initiative_integrator import (
             DEFAULT_INITIATIVE_MANIFEST,
             InitiativeIntegrator,
@@ -1373,10 +1374,31 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             )
 
         repo_root = resolve_repo_root(Path.cwd())
+        initiative_dir = _optional_text(getattr(args, "initiative_dir", None))
+        state_dir = Path(initiative_dir).expanduser().resolve() if initiative_dir else None
+        store = InitiativeStore(repo_root=repo_root, state_dir=state_dir)
         if subaction in {"run", "status", "promote"}:
-            manifest_path = Path(
-                getattr(args, "manifest", None) or DEFAULT_INITIATIVE_MANIFEST
-            ).resolve()
+            target_text = _optional_text(getattr(args, "swarm_campaign_target", None))
+            explicit_manifest = _optional_text(getattr(args, "manifest", None))
+            project_id = target_text if explicit_manifest and subaction == "promote" else None
+            if explicit_manifest:
+                manifest_path = Path(explicit_manifest).resolve()
+            elif target_text:
+                initiative = store.get(target_text)
+                if initiative is None:
+                    raise FileNotFoundError(f"initiative not found: {target_text}")
+                manifest_path = sync_campaign_manifest_for_initiative(
+                    store,
+                    initiative,
+                    planner_model=str(getattr(args, "planner_model", "claude") or "claude"),
+                    planner_strategy=str(
+                        getattr(args, "planner_strategy", "heuristic") or "heuristic"
+                    ),
+                    worker_model=str(getattr(args, "worker_model", "claude") or "claude"),
+                    review_model=str(getattr(args, "review_model", "codex") or "codex"),
+                )
+            else:
+                manifest_path = Path(DEFAULT_INITIATIVE_MANIFEST).resolve()
             if not manifest_path.exists():
                 raise ValueError(f"initiative manifest not found: {manifest_path}")
 
@@ -1392,7 +1414,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 payload = integrator.status()
             else:
                 payload = integrator.promote(
-                    project_id=_optional_text(getattr(args, "swarm_campaign_target", None)),
+                    project_id=project_id,
                     dry_run=bool(getattr(args, "dry_run", False)),
                 )
 
@@ -1404,10 +1426,6 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 else:
                     print(json.dumps(payload, indent=2))
             return
-
-        initiative_dir = _optional_text(getattr(args, "initiative_dir", None))
-        state_dir = Path(initiative_dir).expanduser().resolve() if initiative_dir else None
-        store = InitiativeStore(repo_root=repo_root, state_dir=state_dir)
 
         if subaction == "list":
             items = store.list()
@@ -1491,11 +1509,20 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         if source_file:
             initiative.metadata["source_file"] = str(Path(source_file).expanduser().resolve())
         saved_path = store.save(initiative)
+        manifest_path = sync_campaign_manifest_for_initiative(
+            store,
+            initiative,
+            planner_model=str(getattr(args, "planner_model", "claude") or "claude"),
+            planner_strategy=str(getattr(args, "planner_strategy", "heuristic") or "heuristic"),
+            worker_model=str(getattr(args, "worker_model", "claude") or "claude"),
+            review_model=str(getattr(args, "review_model", "codex") or "codex"),
+        )
         payload = {
             "mode": "initiative-plan",
             "action": subaction,
             "initiative": initiative.to_dict(),
             "path": str(saved_path),
+            "manifest_path": str(manifest_path),
             "state_dir": str(store.state_dir),
         }
         if as_json:
@@ -1503,6 +1530,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         else:
             print(f"initiative_id={initiative.initiative_id}")
             print(f"path={saved_path}")
+            print(f"manifest={manifest_path}")
             print(f"slices={len(initiative.slices)}")
         return
 

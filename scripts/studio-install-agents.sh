@@ -106,26 +106,16 @@ echo "Repo: ${REMOTE_REPO_PATH:-\$HOME/Development/aragora}"
 
 cat <<EOF | eval $SSH "bash -s --"
 set -euo pipefail
-export PATH='/opt/homebrew/bin:/usr/local/bin:\$PATH'
+export PATH='/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$PATH'
 REMOTE_REPO_PATH=$(quote_remote "${REMOTE_REPO_PATH}")
 if [[ -z "\${REMOTE_REPO_PATH}" ]]; then
     REMOTE_REPO_PATH="\$HOME/Development/aragora"
 fi
 ${FORWARDED_EXPORTS}cd "\${REMOTE_REPO_PATH}" 2>/dev/null || { echo 'REPO: NOT FOUND'; exit 1; }
 [ -d .venv ] || { echo 'VENV: NOT FOUND'; exit 1; }
-source .venv/bin/activate
 
 if [[ $(quote_remote "${SKIP_PREFLIGHT}") != true ]]; then
-    echo '--- Preflight: gh auth ---'
-    gh auth status >/dev/null || { echo 'GitHub CLI: needs auth'; exit 1; }
-
-    echo ''
-    echo '--- Preflight: aragora validate-env ---'
-    python3 -m aragora.cli.main validate-env --json >/tmp/aragora-validate-env.json || {
-        cat /tmp/aragora-validate-env.json
-        exit 1
-    }
-    cat /tmp/aragora-validate-env.json
+    bash scripts/swarm_host_preflight.sh
 fi
 
 echo ''
