@@ -183,7 +183,10 @@ class PipelineResultStore(SQLiteStore):
 
         results = []
         for row in rows:
-            row["stage_status"] = _parse_json(row.pop("stage_status_json", "{}"))
+            row["stage_status"] = _parse_json(
+                row.pop("stage_status_json", "{}"),
+                "stage_status_json",
+            )
             results.append(row)
         return results
 
@@ -237,7 +240,7 @@ def _dict_factory(cursor: Any, row: Any) -> dict[str, Any]:
     return dict(zip(columns, row))
 
 
-def _parse_json(value: str | None) -> Any:
+def _parse_json(value: str | None, field_name: str = "pipeline_json") -> Any:
     """Parse a JSON string, returning empty dict/list on failure."""
     if not value:
         return {}
@@ -246,7 +249,8 @@ def _parse_json(value: str | None) -> Any:
     except (json.JSONDecodeError, TypeError) as exc:
         payload = value if isinstance(value, str) else repr(value)
         logger.warning(
-            "Failed to parse stored pipeline JSON: %s; payload=%r",
+            "Failed to parse stored pipeline JSON field %s: %s; payload=%r",
+            field_name,
             exc,
             payload[:200],
             exc_info=True,
@@ -259,12 +263,15 @@ def _deserialize_row(row: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {
         "pipeline_id": row["id"],
         "status": row["status"],
-        "stage_status": _parse_json(row.get("stage_status_json")),
-        "ideas": _parse_json(row.get("ideas_json")),
-        "goals": _parse_json(row.get("goals_json")),
-        "actions": _parse_json(row.get("actions_json")),
-        "orchestration": _parse_json(row.get("orchestration_json")),
-        "transitions": _parse_json(row.get("transitions_json")) or [],
+        "stage_status": _parse_json(row.get("stage_status_json"), "stage_status_json"),
+        "ideas": _parse_json(row.get("ideas_json"), "ideas_json"),
+        "goals": _parse_json(row.get("goals_json"), "goals_json"),
+        "actions": _parse_json(row.get("actions_json"), "actions_json"),
+        "orchestration": _parse_json(
+            row.get("orchestration_json"),
+            "orchestration_json",
+        ),
+        "transitions": _parse_json(row.get("transitions_json"), "transitions_json") or [],
         "provenance_count": row.get("provenance_count", 0),
         "integrity_hash": row.get("integrity_hash", ""),
         "duration": row.get("duration", 0.0),
@@ -273,10 +280,10 @@ def _deserialize_row(row: dict[str, Any]) -> dict[str, Any]:
     }
     receipt_json = row.get("receipt_json")
     if receipt_json:
-        result["receipt"] = _parse_json(receipt_json)
+        result["receipt"] = _parse_json(receipt_json, "receipt_json")
     execution_json = row.get("execution_json")
     if execution_json:
-        result["execution"] = _parse_json(execution_json)
+        result["execution"] = _parse_json(execution_json, "execution_json")
     return result
 
 
