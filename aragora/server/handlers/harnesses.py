@@ -254,12 +254,17 @@ class HarnessesHandler(BaseHandler):
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body or body too large", 400)
+        if not isinstance(body, dict):
+            return error_response("Request body must be a JSON object", 400)
 
         repo_path = body.get("repo_path")
-        if not repo_path:
-            return error_response("repo_path is required", 400)
+        if not isinstance(repo_path, str) or not repo_path.strip():
+            return error_response("repo_path must be a non-empty string", 400)
+        repo_path = repo_path.strip()
 
         prompt = body.get("prompt")
+        if prompt is not None and not isinstance(prompt, str):
+            return error_response("prompt must be a string", 400)
         if prompt and len(prompt) > _MAX_PROMPT_LENGTH:
             return error_response(
                 f"Prompt exceeds maximum length ({_MAX_PROMPT_LENGTH} bytes)", 400
@@ -267,6 +272,11 @@ class HarnessesHandler(BaseHandler):
 
         analysis_type_str = body.get("analysis_type", "general")
         options = body.get("options", {})
+        if not isinstance(analysis_type_str, str) or not analysis_type_str.strip():
+            return error_response("analysis_type must be a non-empty string", 400)
+        analysis_type_str = analysis_type_str.strip()
+        if not isinstance(options, dict):
+            return error_response("options must be a JSON object", 400)
 
         # Validate analysis type
         if AnalysisType is not None:
