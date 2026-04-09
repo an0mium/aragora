@@ -103,7 +103,7 @@ class HarnessesHandler(BaseHandler):
     """Handler for external harness integration endpoints."""
 
     def __init__(self, ctx: dict | None = None):
-        self.ctx = ctx or {}
+        super().__init__(ctx or {})
 
     ROUTES = [
         "/api/v1/harnesses",
