@@ -168,6 +168,7 @@ class BossLoopResult:
     iteration_statuses: list[dict[str, Any]]
     needs_human_reasons: list[str]
     next_actions: list[str]
+    sanitation_summary: list[str] = field(default_factory=list)
     configured_max_parallel_dispatches: int = 1
     effective_parallel_dispatches_observed: int | None = None
 
@@ -184,6 +185,7 @@ class BossLoopResult:
             "iteration_statuses": list(self.iteration_statuses),
             "needs_human_reasons": list(self.needs_human_reasons),
             "next_actions": list(self.next_actions),
+            "sanitation_summary": list(self.sanitation_summary),
             "configured_max_parallel_dispatches": self.configured_max_parallel_dispatches,
             "effective_parallel_dispatches_observed": self.effective_parallel_dispatches_observed,
         }
@@ -615,6 +617,7 @@ class BossLoop:
         self._issue_attempt_counts: dict[int | str, int] = {}
         self._pending_handoff_prompts: dict[int, tuple[str, str | None]] = {}
         self._stop_reason: str | None = None
+        self._last_sanitation_summary: list[str] = []
 
     def _decorate_iteration_status(
         self,
@@ -1086,10 +1089,28 @@ class BossLoop:
             parts.append(f"{label} ({len(numbers)}: {issue_refs})")
         return "Skipped by label: " + "; ".join(parts)
 
+    @staticmethod
+    def _skip_sanitation_summary(report: IssueEligibilityReport) -> list[str]:
+        if not report.skipped_by_sanitation:
+            return []
+        parts: list[str] = []
+        for reason, numbers in sorted(report.skipped_by_sanitation.items()):
+            issue_refs = ", ".join(f"#{number}" for number in numbers[:3])
+            if len(numbers) > 3:
+                issue_refs = f"{issue_refs}, +{len(numbers) - 3} more"
+            parts.append(f"{reason} ({len(numbers)}: {issue_refs})")
+        return parts
+
     def _log_issue_skip_summary(self, report: IssueEligibilityReport) -> None:
         summary = self._skip_label_summary(report)
         if summary:
             logger.info("Boss loop %s", summary)
+        sanitation = self._skip_sanitation_summary(report)
+        if sanitation:
+            logger.info("Boss loop skipped by sanitation: %s", "; ".join(sanitation))
+            self._last_sanitation_summary = sanitation
+        else:
+            self._last_sanitation_summary = []
 
     def _no_suitable_issue_guidance(
         self,
@@ -1109,6 +1130,11 @@ class BossLoop:
         if summary:
             needs_human_reasons.append(summary)
             next_actions.append(summary)
+        sanitation = self._skip_sanitation_summary(report)
+        if sanitation:
+            sanitation_summary = "Skipped by sanitation: " + "; ".join(sanitation)
+            needs_human_reasons.append(sanitation_summary)
+            next_actions.append(sanitation_summary)
         return needs_human_reasons, next_actions
 
     def _emit_terminal_receipt(self, result: BossLoopResult) -> None:
@@ -1154,6 +1180,7 @@ class BossLoop:
                     ),
                     "needs_human_reasons": list(result.needs_human_reasons),
                     "next_actions": list(result.next_actions),
+                    "sanitation_summary": list(result.sanitation_summary),
                 },
                 verdict=verdict,
                 confidence=(completed / attempted) if attempted else 0.0,
@@ -2709,6 +2736,7 @@ class BossLoop:
             iteration_statuses=[s.to_dict() for s in self._iteration_statuses],
             needs_human_reasons=self._collect_needs_human_reasons(),
             next_actions=self._derive_next_actions(),
+            sanitation_summary=list(self._last_sanitation_summary),
             configured_max_parallel_dispatches=self._configured_parallel_dispatches,
             effective_parallel_dispatches_observed=self._max_effective_parallel_dispatches_observed,
         )

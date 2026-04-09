@@ -71,6 +71,8 @@ _BACKTICK_COMMAND_RE = re.compile(r"`(?P<command>[^`]+)`")
 _EXPLICIT_PYTEST_TARGET_RE = re.compile(r"(?<!\S)(?P<path>tests/\S+?\.py)(?:::\S+)?(?!\S)")
 _DECLARED_NEW_FILE_RE = re.compile(r"\(\s*new(?:\s+file)?\s*\)", re.IGNORECASE)
 _BACKTICK_PATH_RE = re.compile(r"`(?P<path>[^`\n]+/[^`\n]+)`")
+_TASK_HEADER_RE = re.compile(r"^#{1,6}\s*task\b", re.IGNORECASE)
+_AUTO_DECOMPOSED_RE = re.compile(r"auto-decomposed|auto decomposed", re.IGNORECASE)
 
 
 def _ordered_unique_strings(items: list[str]) -> list[str]:
@@ -115,6 +117,47 @@ def _normalize_dispatch_text(lines: list[str]) -> str:
         normalized.append("")
         previous_blank = True
     return "\n".join(normalized).strip()
+
+
+def _extract_task_block(lines: list[str]) -> list[str]:
+    if not lines:
+        return []
+    start_idx: int | None = None
+    for idx, raw in enumerate(lines):
+        if _TASK_HEADER_RE.match(str(raw).strip()):
+            start_idx = idx + 1
+            break
+    if start_idx is None:
+        return []
+    collected: list[str] = []
+    for raw in lines[start_idx:]:
+        stripped = str(raw).strip()
+        if stripped.startswith("#"):
+            break
+        if stripped:
+            collected.append(str(raw).rstrip())
+    return collected
+
+
+def assess_issue_body_sanitation(issue_body: str) -> tuple[bool, str | None]:
+    body = str(issue_body or "").strip()
+    if not body:
+        return False, "empty_body"
+
+    lines = [str(line).rstrip() for line in body.splitlines()]
+    task_lines = _extract_task_block(lines)
+    task_text = " ".join(line.strip() for line in task_lines if line.strip()).strip()
+
+    if _AUTO_DECOMPOSED_RE.search(body) and not task_text:
+        return False, "auto_decomposed_missing_task"
+
+    if task_text and len(task_text) < 40:
+        return False, "task_too_short"
+
+    if any(line.rstrip().endswith("\\") for line in task_lines):
+        return False, "task_truncated"
+
+    return True, None
 
 
 def sanitize_issue_body_for_dispatch(issue_body: str) -> str:

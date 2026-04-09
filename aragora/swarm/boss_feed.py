@@ -15,6 +15,8 @@ from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from typing import Any
 
+from aragora.swarm.boss_validation import assess_issue_body_sanitation
+
 logger = logging.getLogger(__name__)
 _SCOPE_ROOT_PREFIXES = (
     "aragora/",
@@ -102,6 +104,7 @@ class IssueEligibilityReport:
 
     eligible: list[GitHubIssue] = field(default_factory=list)
     skipped_by_label: dict[str, list[int]] = field(default_factory=dict)
+    skipped_by_sanitation: dict[str, list[int]] = field(default_factory=dict)
 
     @property
     def eligible_count(self) -> int:
@@ -110,6 +113,10 @@ class IssueEligibilityReport:
     @property
     def skipped_by_label_count(self) -> int:
         return sum(len(numbers) for numbers in self.skipped_by_label.values())
+
+    @property
+    def skipped_by_sanitation_count(self) -> int:
+        return sum(len(numbers) for numbers in self.skipped_by_sanitation.values())
 
 
 class GitHubIssueFeed:
@@ -533,6 +540,10 @@ def build_issue_eligibility_report(
         if issue.state.upper() != "OPEN":
             continue
         if not issue.title:
+            continue
+        is_sanitized, sanitation_reason = assess_issue_body_sanitation(issue.body)
+        if not is_sanitized and sanitation_reason:
+            report.skipped_by_sanitation.setdefault(sanitation_reason, []).append(issue.number)
             continue
         skipped_labels = sorted(skip & set(issue.labels))
         if skipped_labels:

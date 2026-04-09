@@ -20,7 +20,7 @@ on:
       - "tests/nomic/testfixer/test_event_integration.py"
       - ".github/workflows/self-improve-hard-checks.yml"
   schedule:
-    - cron: "20 4 * * 1"
+    - cron: "20 4 * * *"
   workflow_dispatch:
     inputs:
       run_live_dogfood:
