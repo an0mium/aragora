@@ -161,6 +161,8 @@ class WorkerLauncher:
                 worker_env["CODEX_HOME"] = str(codex_home)
         if worker_env_overrides:
             worker_env.update(worker_env_overrides)
+        # Allow task-scoped overrides, but keep GitHub auth out of worker envs.
+        _strip_github_tokens(worker_env)
 
         # Codex uses "-" as prompt arg and reads from stdin to avoid OS
         # ARG_MAX limits on long prompts with issue bodies + file lists.

@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from aragora.pipeline.execution_mode import ExecutionMode
+from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.worker_launcher import (
     LaunchConfig,
     WorkerLauncher,
@@ -73,6 +74,20 @@ class TestLaunchConfig:
         assert cfg.no_progress_timeout_seconds == 3600.0
         assert cfg.auto_commit is True
         assert cfg.use_managed_session_script is True
+
+
+def test_git_safe_env_removes_all_github_tokens():
+    env = git_safe_env(
+        {
+            "GH_TOKEN": "gh-token",
+            "GITHUB_TOKEN": "github-token",
+            "GH_ENTERPRISE_TOKEN": "gh-enterprise-token",
+            "GITHUB_ENTERPRISE_TOKEN": "github-enterprise-token",
+            "KEEP_ME": "ok",
+        }
+    )
+
+    assert env == {"KEEP_ME": "ok"}
 
 
 class TestBuildPrompt:
@@ -544,6 +559,48 @@ class TestLaunch:
         assert isinstance(env, dict)
         assert env["ARAGORA_RELEVANT_FILES"] == "aragora/swarm/boss_loop.py"
         assert env["ARAGORA_TEST_PATTERNS"] == "tests/swarm/test_boss_loop.py"
+
+    @pytest.mark.asyncio
+    async def test_launch_strips_github_tokens_from_metadata_worker_env(self, tmp_path: Path):
+        launcher = WorkerLauncher(LaunchConfig(detach=False))
+        mock_proc = AsyncMock()
+        mock_proc.pid = 104
+        worktree = tmp_path / "wt"
+        (worktree / "scripts").mkdir(parents=True)
+        (worktree / "scripts" / "codex_session.sh").write_text(
+            "#!/usr/bin/env bash\n", encoding="utf-8"
+        )
+
+        wo = {
+            "work_order_id": "wo-env-token-scrub",
+            "target_agent": "claude",
+            "title": "Env token scrub test",
+            "metadata": {
+                "worker_env": {
+                    "GH_TOKEN": "reintroduced-gh",
+                    "GITHUB_TOKEN": "reintroduced-github",
+                    "GH_ENTERPRISE_TOKEN": "reintroduced-gh-enterprise",
+                    "GITHUB_ENTERPRISE_TOKEN": "reintroduced-github-enterprise",
+                    "ARAGORA_RELEVANT_FILES": "aragora/swarm/worker_launcher.py",
+                },
+                "admin_approved": True,
+            },
+        }
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/claude"),
+            patch.object(WorkerLauncher, "_git_output", return_value=""),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+        ):
+            await launcher.launch(wo, worktree_path=str(worktree), branch="feat")
+
+        env = mock_exec.call_args.kwargs.get("env")
+        assert isinstance(env, dict)
+        assert env["ARAGORA_RELEVANT_FILES"] == "aragora/swarm/worker_launcher.py"
+        assert "GH_TOKEN" not in env
+        assert "GITHUB_TOKEN" not in env
+        assert "GH_ENTERPRISE_TOKEN" not in env
+        assert "GITHUB_ENTERPRISE_TOKEN" not in env
 
 
 class TestWait:

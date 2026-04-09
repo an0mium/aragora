@@ -7,6 +7,7 @@ from typing import Mapping
 _GITHUB_TOKEN_KEYS = (
     "GH_TOKEN",
     "GITHUB_TOKEN",
+    "GH_ENTERPRISE_TOKEN",
     "GITHUB_ENTERPRISE_TOKEN",
 )
 
