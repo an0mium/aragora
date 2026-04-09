@@ -138,15 +138,22 @@ def normalize_input_hash(payload: Any) -> str:
 def _parse_json(value: str | None) -> dict[str, Any]:
     if not value:
         return {}
+    preview = value if len(value) <= 200 else f"{value[:200]}..."
     try:
         data = json.loads(value)
     except json.JSONDecodeError:
-        logger.warning("Failed to parse capability gate JSON payload", exc_info=True)
+        logger.warning(
+            "Failed to parse capability gate JSON payload (length=%d, preview=%r)",
+            len(value),
+            preview,
+            exc_info=True,
+        )
         return {}
     if not isinstance(data, dict):
         logger.warning(
-            "Capability gate JSON payload was not an object: %s",
+            "Capability gate JSON payload was not an object: %s (preview=%r)",
             type(data).__name__,
+            preview,
         )
         return {}
     return data
