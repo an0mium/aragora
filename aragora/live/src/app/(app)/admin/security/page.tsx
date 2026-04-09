@@ -6,6 +6,7 @@ import { Scanlines, CRTVignette } from '@/components/MatrixRain';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { BackendSelector, useBackend } from '@/components/BackendSelector';
 import { useAuth } from '@/context/AuthContext';
+import { buildSecretsScanUrl } from './secretsScan';
 
 interface SecurityStatus {
   encryption_enabled: boolean;
@@ -102,13 +103,6 @@ function calculateKeyAge(createdAt: string): number {
   const created = new Date(createdAt);
   const now = new Date();
   return Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-const DEFAULT_CODEBASE_REPO_ID = 'default';
-
-export function buildSecretsScanUrl(apiBase: string, scanId?: string): string {
-  const base = `${apiBase}/api/v1/codebase/${DEFAULT_CODEBASE_REPO_ID}/scan/secrets`;
-  return scanId ? `${base}/${scanId}` : base;
 }
 
 export default function SecurityAdminPage() {

@@ -2,7 +2,8 @@ import React from 'react';
 
 import { act, fireEvent, renderWithProviders, screen, waitFor } from '@/test-utils';
 
-import SecurityAdminPage, { buildSecretsScanUrl } from '../page';
+import SecurityAdminPage from '../page';
+import { buildSecretsScanUrl } from '../secretsScan';
 
 const mockFetch = jest.fn();
 
