@@ -2,6 +2,9 @@
   "missing_from_both_sdks": [
     "/api/admin/mfa/compliance",
     "/api/api-keys",
+    "/api/bots/slack/commands",
+    "/api/bots/slack/events",
+    "/api/bots/slack/interactions",
     "/api/canvas/pipeline",
     "/api/canvas/pipeline/approve-transition",
     "/api/costs/debates/{param}",
