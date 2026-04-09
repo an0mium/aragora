@@ -1,6 +1,6 @@
 # Documentation Hygiene And Gap Register
 
-Last updated: 2026-03-07
+Last updated: 2026-04-09
 
 This register is the working record for documentation cleanup, roadmap extraction, and code-vs-doc drift found during the March 2026 hygiene pass.
 
@@ -24,6 +24,8 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 - Canonicalized the current execution program into GitHub issues and added `docs/status/ACTIVE_EXECUTION_ISSUES.md` as the issue map for epics `#804`-`#806`, execution lanes `#807`-`#820`, and assurance issues `#273`, `#274`, `#509`.
 - Updated the issue map and canonical execution summary after `#809` and `#810` landed so current-source docs reflect the active `#811` / `#812` kernel tranche.
 - Corrected the root README's Knowledge Mound adapter count from `45` to the current verified `42`.
+- Fixed `scripts/doc_stats.py` so it reads the data-driven KM adapter registry correctly again instead of reporting `0`.
+- Refreshed the root feature-discovery mirror and canonical status metrics against the checked-out repo plus the current generated OpenAPI spec.
 
 ## Validation Snapshot
 
@@ -31,16 +33,16 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 - `python3 scripts/reconcile_status.py` -> pass
 - `python3 scripts/reconcile_status_docs.py --strict` -> pass after capability-matrix regeneration
 - `python3 scripts/check_agent_registry_sync.py` -> pass (`43` registered, `34` allowlisted)
-- `python3 scripts/validate_openapi_routes.py --spec docs/api/openapi.json` -> `99.6%` route coverage
+- `python3 scripts/validate_openapi_routes.py --spec docs/api/openapi.json` -> `93.6%` route coverage (`134` handler routes missing from the spec, `62` OpenAPI routes without handlers)
 
 ## Current Canonical Metrics Used In This Pass
 
 - Version: `2.8.0`
-- Python modules under `aragora/`: `3,803`
-- Tests (`def test_` across repo): `210,215`
-- Test files under `tests/`: `5,069`
-- OpenAPI paths (generated spec): `2,666`
-- OpenAPI operations (generated spec): `3,155`
+- Python modules under `aragora/`: `3,918`
+- Tests (`def test_` across repo): `153,549`
+- Test files under `tests/`: `5,296`
+- OpenAPI paths (generated spec): `2,745`
+- OpenAPI operations (generated spec): `3,226`
 - SDK namespaces: `186` Python / `185` TypeScript
 - Registered agent types: `43`
 - Allowlisted agent types: `34`
@@ -68,7 +70,7 @@ The live execution backlog now tracks in [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXE
 
 ### Code-Backed Gaps
 
-- OpenAPI drift remains: `9` handler routes are missing from the spec and `11` OpenAPI routes have no handler according to `scripts/validate_openapi_routes.py`.
+- OpenAPI drift remains: `134` handler routes are missing from the spec and `62` OpenAPI routes have no handler according to `scripts/validate_openapi_routes.py`.
 - OpenAPI and SDK parity claims are still inflated by spec-only endpoints defined in `aragora/server/openapi/endpoints/sdk_missing.py`.
 - `aragora/server/handlers/agent_evolution_dashboard.py` now fails closed with an empty pending-change set when no live store exists; timeline and ELO trend surfaces still fall back to demo data when evolution history is unavailable.
 - `aragora/server/handlers/goal_canvas.py` now materializes a persisted Stage 3 action canvas from live goal-canvas state; metadata-only goal canvases still fail closed once the in-memory graph is gone.

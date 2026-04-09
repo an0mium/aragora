@@ -22,7 +22,7 @@ This document provides a comprehensive inventory of Aragora's features organized
 | [Developer Tools](#8-developer-tools) | 35+ | Stable |
 | [Self-Improvement](#9-self-improvement--nomic-loop) | 18+ | Stable |
 
-**Total**: 230+ features | 3,800+ Python modules | 210,000+ tests | 3,100+ API operations across 2,600+ paths
+**Total**: 230+ features | 3,900+ Python modules | 153,000+ tests | 3,200+ API operations across 2,700+ paths
 
 ---
 
@@ -512,7 +512,7 @@ Based on [arXiv:2512.24601](https://arxiv.org/abs/2512.24601) - Context stored a
 | Feature | Status | Description | Key Files |
 |---------|--------|-------------|-----------|
 | **Trust Wedge Core** | Integrated | Receipt-gated Gmail actions are shipped; surrounding channel/setup surfaces still have partial or placeholder-backed edges | `aragora/inbox/trust_wedge.py` |
-| **Triage Runner** | Partial | Batch email triage with adversarial debate decisions; can still fall back to stub debates when engine/agent wiring is unavailable | `aragora/inbox/triage_runner.py` |
+| **Triage Runner** | Partial | Batch email triage with adversarial debate decisions; fast-tier and escalated paths now fail closed to blocked recommendations when live debate wiring is unavailable, but the broader inbox/channel vision is still incomplete | `aragora/inbox/triage_runner.py` |
 | **Receipt-Gated Executor** | Stable | Only executes actions with previously persisted approved receipts | `aragora/inbox/receipt_gated_executor.py` |
 | **CLI Review Loop** | Stable | Interactive CLI approval for triage decisions | `aragora/inbox/cli_review.py` |
 | **Auto-Approval Policy** | Stable | Narrow auto-approval rules (ARCHIVE/STAR/LABEL/IGNORE only) | `aragora/inbox/auto_approval.py` |

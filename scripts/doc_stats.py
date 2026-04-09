@@ -9,6 +9,7 @@ Usage:
 
 from __future__ import annotations
 
+import ast
 import argparse
 import json
 import re
@@ -125,7 +126,30 @@ def _count_km_adapters() -> int:
     if not path.exists():
         return 0
     text = path.read_text()
-    return len(re.findall(r'name="[^"]+"', text))
+    try:
+        module = ast.parse(text)
+    except SyntaxError:
+        module = None
+
+    if module is not None:
+        for node in module.body:
+            if isinstance(node, ast.Assign):
+                targets = node.targets
+            elif isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            else:
+                continue
+
+            if not any(
+                isinstance(target, ast.Name) and target.id == "_ADAPTER_DEFS" for target in targets
+            ):
+                continue
+
+            value = getattr(node, "value", None)
+            if isinstance(value, (ast.List, ast.Tuple)):
+                return len(value.elts)
+
+    return len(re.findall(r'"name":\s*"[^"]+"', text))
 
 
 def _count_templates() -> int:
