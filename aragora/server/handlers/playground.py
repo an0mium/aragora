@@ -751,6 +751,27 @@ def _annotate_mock_fallback(
     return annotated
 
 
+def _spectate_agents_for_public_result(
+    payload: dict[str, Any],
+    *,
+    fallback: list[str] | None = None,
+) -> list[str]:
+    """Best-effort agent list for public spectate metadata."""
+    participants = payload.get("participants")
+    if isinstance(participants, list):
+        agents = [str(agent).strip() for agent in participants if str(agent).strip()]
+        if agents:
+            return agents
+
+    proposals = payload.get("proposals")
+    if isinstance(proposals, dict):
+        agents = [str(agent).strip() for agent in proposals if str(agent).strip()]
+        if agents:
+            return agents
+
+    return [str(agent).strip() for agent in (fallback or []) if str(agent).strip()]
+
+
 def _build_live_demo_unavailable_response(message: str) -> HandlerResult:
     """Return an explicit failure when the public demo cannot prove a live result."""
     return json_response(
@@ -1462,7 +1483,11 @@ def _try_oracle_response(
 
         bridge = get_spectate_bridge()
         if bridge.running:
-            with bind_spectate_context(debate_id=debate_id):
+            with bind_spectate_context(
+                debate_id=debate_id,
+                task=question,
+                agents=["oracle"],
+            ):
                 bridge._forward_event(
                     event_type="debate_start",
                     agent="oracle",
@@ -2988,7 +3013,11 @@ class PlaygroundHandler(BaseHandler):
                         if bridge.running:
                             debate_id = cached.get("id", "cached")
                             answer = str(cached.get("final_answer", ""))[:500]
-                            with bind_spectate_context(debate_id=debate_id):
+                            with bind_spectate_context(
+                                debate_id=debate_id,
+                                task=str(cached.get("topic", "") or effective_topic),
+                                agents=_spectate_agents_for_public_result(cached),
+                            ):
                                 bridge._forward_event(
                                     event_type="debate_start",
                                     agent="oracle",
@@ -4072,7 +4101,11 @@ def start_playground_debate(
                 from contextlib import nullcontext as bind_spectate_context  # type: ignore[assignment]
 
             async def _run_arena():
-                with bind_spectate_context(debate_id=debate_id):
+                with bind_spectate_context(
+                    debate_id=debate_id,
+                    task=question,
+                    agents=agents,
+                ):
                     return await asyncio.wait_for(arena.run(), timeout=timeout)
 
             result = asyncio.run(_run_arena())

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -12,7 +13,11 @@ from aragora.server.handlers.playground import (
     PlaygroundHandler,
     _reset_oracle_sessions,
     _reset_rate_limits,
+    _try_oracle_response,
+    start_playground_debate,
 )
+from aragora.spectate.stream import SpectatorStream
+from aragora.spectate.ws_bridge import get_spectate_bridge, reset_spectate_bridge
 
 
 class _MockHeaders:
@@ -56,6 +61,18 @@ def handler(tmp_path, monkeypatch):
 
     monkeypatch.setattr(debate_store_mod, "_store", None)
     return PlaygroundHandler({})
+
+
+@pytest.fixture()
+def spectate_bridge():
+    reset_spectate_bridge()
+    bridge = get_spectate_bridge()
+    bridge.start()
+    try:
+        yield bridge
+    finally:
+        bridge.stop()
+        reset_spectate_bridge()
 
 
 def _live_result(debate_id: str) -> dict[str, Any]:
@@ -174,6 +191,118 @@ def test_demo_source_can_replay_cached_live_results(handler):
     assert body["is_live"] is True
     assert body["cached"] is True
     mock_tentacles.assert_not_called()
+
+
+def test_demo_source_replay_emits_spectate_task_and_agents(handler, spectate_bridge):
+    request = _make_http_handler(
+        {
+            "topic": "Should we require AI code review in CI?",
+            "question": "Should we require AI code review in CI?",
+            "source": "demo",
+        }
+    )
+    cached_live = _live_result("cached-live-result")
+
+    with (
+        patch(
+            "aragora.storage.debate_store.DebateResultStore.get_by_cache_key",
+            return_value=cached_live,
+        ),
+        patch("aragora.server.handlers.playground._try_oracle_tentacles") as mock_tentacles,
+    ):
+        result = handler.handle_post("/api/v1/playground/debate", {}, request)
+
+    body, status = _parse_result(result)
+    assert status == 200
+    assert body["cached"] is True
+    mock_tentacles.assert_not_called()
+
+    events = spectate_bridge.get_recent_events(3)
+    assert [event.event_type for event in events] == ["debate_start", "proposal", "consensus"]
+    assert all(event.debate_id == cached_live["id"] for event in events)
+    for event in events:
+        assert event.data["task"] == cached_live["topic"]
+        assert event.data["agents"] == cached_live["participants"]
+
+
+def test_oracle_response_emits_spectate_task_and_agents(spectate_bridge):
+    question = "Should we require AI code review in CI?"
+
+    with (
+        patch("aragora.server.handlers.playground._append_session_turn"),
+        patch(
+            "aragora.server.handlers.playground._call_llm",
+            return_value="Direct answer from oracle.",
+        ),
+    ):
+        result = _try_oracle_response(
+            "consult",
+            question,
+            client_debate_id="oracle-spectate-test",
+        )
+
+    assert result is not None
+    events = spectate_bridge.get_recent_events(3)
+    assert [event.event_type for event in events] == ["debate_start", "proposal", "consensus"]
+    assert all(event.debate_id == "oracle-spectate-test" for event in events)
+    for event in events:
+        assert event.data["task"] == question
+        assert event.data["agents"] == ["oracle"]
+
+
+def test_live_debate_binds_spectate_task_and_agents(spectate_bridge):
+    question = "Should we require AI code review in CI?"
+
+    class _FakeArena:
+        async def run(self):
+            SpectatorStream(enabled=True, output=io.StringIO(), format="plain").emit(
+                "debate_start",
+                agent="anthropic-api",
+                details="Live debate underway",
+            )
+            return SimpleNamespace(
+                status="completed",
+                rounds_used=1,
+                consensus_reached=True,
+                confidence=0.82,
+                verdict=SimpleNamespace(value="approved"),
+                duration_seconds=1.2,
+                participants=["anthropic-api", "openai-api"],
+                proposals={
+                    "anthropic-api": "A" * 90,
+                    "openai-api": "B" * 90,
+                },
+                critiques=[],
+                votes=[],
+                dissenting_views=[],
+                final_answer="C" * 90,
+            )
+
+    class _FakeFactory:
+        def create_arena(self, _config):
+            return _FakeArena()
+
+    with (
+        patch(
+            "aragora.server.handlers.playground._get_available_live_agents",
+            return_value=["anthropic-api", "openai-api"],
+        ),
+        patch("aragora.server.debate_factory.DebateFactory", return_value=_FakeFactory()),
+        patch("aragora.server.debate_factory.DebateConfig", side_effect=lambda **kwargs: kwargs),
+    ):
+        result = start_playground_debate(
+            question=question,
+            agent_count=2,
+            max_rounds=1,
+            timeout=5,
+            debate_id="playground-live-test",
+        )
+
+    assert result["participants"] == ["anthropic-api", "openai-api"]
+    event = spectate_bridge.get_recent_events(1)[0]
+    assert event.debate_id == "playground-live-test"
+    assert event.data["task"] == question
+    assert event.data["agents"] == ["anthropic-api", "openai-api"]
 
 
 @patch("aragora.storage.debate_store.DebateResultStore.get_by_cache_key", return_value=None)
