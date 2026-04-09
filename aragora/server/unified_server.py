@@ -384,7 +384,11 @@ class UnifiedHandler(  # type: ignore[misc]
     def _do_GET_internal(self, path: str, query: dict[str, Any]) -> None:
         """Internal GET handler with actual routing logic."""
         # Validate query parameters against whitelist (security)
-        if query and path.startswith("/api/"):
+        is_oauth_callback = False
+        if path.startswith("/api/"):
+            if path.startswith("/api/auth/oauth/") or path.startswith("/api/v1/auth/oauth/"):
+                is_oauth_callback = path.rstrip("/").endswith("callback")
+        if query and path.startswith("/api/") and not is_oauth_callback:
             is_valid, error_msg = _validate_query_params(query)
             if not is_valid:
                 self._send_json({"error": error_msg}, status=400)
