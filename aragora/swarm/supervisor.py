@@ -1554,6 +1554,10 @@ class SwarmSupervisor:
         failure_reason = str(metadata.get("failure_reason") or "").strip().lower()
         if status == "needs_human" and failure_reason in stale_failure_reasons:
             return False
+        # A prior receiptless crash with no deliverable is a retry candidate, not
+        # an authoritative in-flight duplicate that should suppress a fresh lane.
+        if status == "needs_human" and failure_reason == "worker_exited_without_receipt":
+            return False
         if status != "queued":
             return True
 
