@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -111,6 +112,7 @@ class BossStopReason(str, Enum):
     NEEDS_HUMAN = "needs_human"
     MANUAL_STOP = "manual_stop"
     ISSUE_FEED_ERROR = "issue_feed_error"
+    AUTO_UPDATE = "auto_update"
     STILL_RUNNING = "still_running"
 
 
@@ -210,6 +212,8 @@ class BossLoopConfig:
     # Iteration bounds
     max_iterations: int = 50
     iteration_interval_seconds: float = 30.0
+    auto_update_enabled: bool = False
+    auto_update_interval_iterations: int = 10
 
     # Runner freshness
     freshness_ttl_seconds: float = 3600.0  # 1 hour
@@ -593,6 +597,7 @@ class BossLoop:
         issue_feed: GitHubIssueFeed | None = None,
         freshness_checker: Any | None = None,
         env: dict[str, str] | None = None,
+        exec_argv: list[str] | None = None,
     ) -> None:
         self.config = config or BossLoopConfig()
         self.run_id = f"boss-{uuid.uuid4().hex[:12]}"
@@ -607,6 +612,7 @@ class BossLoop:
         )
         self._freshness_checker = freshness_checker or check_runner_freshness
         self._env = env
+        self._exec_argv = exec_argv
         self._attempted_issues: list[dict[str, Any]] = []
         self._completed_issues: list[dict[str, Any]] = []
         self._failed_issues: list[dict[str, Any]] = []
@@ -615,6 +621,84 @@ class BossLoop:
         self._issue_attempt_counts: dict[int | str, int] = {}
         self._pending_handoff_prompts: dict[int, tuple[str, str | None]] = {}
         self._stop_reason: str | None = None
+
+    def _git_cmd(self, args: list[str], *, timeout: float = 30.0) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", *args],
+            cwd=Path.cwd(),
+            env=git_safe_env(self._env),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+
+    def _git_rev_parse(self, ref: str) -> str | None:
+        try:
+            result = self._git_cmd(["rev-parse", ref], timeout=10.0)
+        except subprocess.TimeoutExpired:
+            return None
+        if result.returncode != 0:
+            return None
+        return result.stdout.strip() or None
+
+    def _git_is_clean(self) -> bool:
+        try:
+            result = self._git_cmd(["status", "--porcelain"], timeout=10.0)
+        except subprocess.TimeoutExpired:
+            return False
+        if result.returncode != 0:
+            return False
+        return not bool(result.stdout.strip())
+
+    def _git_is_ancestor(self, ancestor: str, descendant: str) -> bool:
+        try:
+            result = self._git_cmd(["merge-base", "--is-ancestor", ancestor, descendant])
+        except subprocess.TimeoutExpired:
+            return False
+        return result.returncode == 0
+
+    def _restart_after_update(self) -> None:
+        if not self._exec_argv:
+            self._stop_reason = BossStopReason.AUTO_UPDATE.value
+            return
+        logger.info("Boss loop auto-update: restarting with %s", " ".join(self._exec_argv))
+        os.execv(sys.executable, [sys.executable, *self._exec_argv])
+
+    def _maybe_auto_update(self, iteration: int) -> bool:
+        if not self.config.auto_update_enabled:
+            return False
+        interval = max(1, int(self.config.auto_update_interval_iterations or 1))
+        if iteration % interval != 0:
+            return False
+        if not (Path.cwd() / ".git").exists():
+            logger.debug("Boss loop auto-update skipped: no git repo detected.")
+            return False
+        if not self._git_is_clean():
+            logger.info("Boss loop auto-update skipped: working tree is dirty.")
+            return False
+        target_branch = self.config.target_branch or "main"
+        fetch = self._git_cmd(["fetch", "--no-tags", "origin", target_branch], timeout=60.0)
+        if fetch.returncode != 0:
+            logger.warning("Boss loop auto-update fetch failed: %s", fetch.stderr.strip())
+            return False
+        local_head = self._git_rev_parse("HEAD")
+        remote_head = self._git_rev_parse(f"origin/{target_branch}")
+        if not local_head or not remote_head or local_head == remote_head:
+            return False
+        if not self._git_is_ancestor(local_head, remote_head):
+            logger.warning(
+                "Boss loop auto-update skipped: local HEAD diverged from origin/%s.",
+                target_branch,
+            )
+            return False
+        merge = self._git_cmd(["merge", "--ff-only", remote_head], timeout=60.0)
+        if merge.returncode != 0:
+            logger.warning("Boss loop auto-update merge failed: %s", merge.stderr.strip())
+            return False
+        logger.info("Boss loop auto-updated to %s; restarting.", remote_head)
+        self._restart_after_update()
+        return True
 
     def _decorate_iteration_status(
         self,
@@ -2688,6 +2772,9 @@ class BossLoop:
             except Exception:
                 logger.debug("Draft PR promotion check skipped", exc_info=True)
 
+            if self._maybe_auto_update(iteration):
+                break
+
             # Inter-iteration sleep (skipped after last iteration)
             if iteration < self.config.max_iterations:
                 import asyncio
@@ -4259,5 +4346,10 @@ class BossLoop:
             return [
                 "Worker reached a decision boundary requiring human input.",
                 "Review the worker output and decide next steps.",
+            ]
+        if self._stop_reason == BossStopReason.AUTO_UPDATE.value:
+            return [
+                "Boss loop stopped to apply a code update.",
+                "Restart the boss loop to pick up the latest changes.",
             ]
         return ["Boss loop stopped. Check iteration statuses for details."]

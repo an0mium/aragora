@@ -2130,8 +2130,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             allow_codex_full_auto=auto_continue,
             auto_publish_deliverables=auto_continue,
             auto_close_already_done_issues=auto_continue,
+            auto_update_enabled=bool(getattr(args, "boss_auto_update", False)),
+            auto_update_interval_iterations=int(
+                getattr(args, "boss_auto_update_interval", 10) or 10
+            ),
         )
-        loop = BossLoop(config=boss_loop_config)
+        exec_argv = ["-m", "aragora.cli.main", *sys.argv[1:]]
+        loop = BossLoop(config=boss_loop_config, exec_argv=exec_argv)
 
         def _on_status(status: object) -> None:
             if as_json:

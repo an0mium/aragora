@@ -2640,6 +2640,17 @@ def _add_swarm_parser(subparsers) -> None:
         help="Maximum boss-loop issues to dispatch concurrently in one tick (default: 1)",
     )
     swarm_parser.add_argument(
+        "--boss-auto-update",
+        action="store_true",
+        help="Auto-update boss-loop by pulling origin/target-branch and restarting when behind.",
+    )
+    swarm_parser.add_argument(
+        "--boss-auto-update-interval",
+        type=int,
+        default=10,
+        help="Check for boss-loop auto-update every N iterations (default: 10).",
+    )
+    swarm_parser.add_argument(
         "--allow-missing-validation-contract",
         action="store_true",
         help="Allow boss-loop dispatch even when the issue body lacks explicit validation criteria",
