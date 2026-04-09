@@ -1155,6 +1155,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     all_runs = bool(getattr(args, "all_runs", False))
     dispatch_only = bool(getattr(args, "dispatch_only", False))
     no_wait = bool(getattr(args, "no_wait", False))
+    allow_claude_write = bool(getattr(args, "allow_claude_write", False))
     dispatch_workers = not no_dispatch
     boss_mode = action == "boss"
     boss_routing: dict[str, object] | None = None
@@ -2550,6 +2551,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                         enforce_cross_model_review=not bool(
                             getattr(args, "allow_same_model_review", False)
                         ),
+                        allow_claude_dangerously_skip_permissions=allow_claude_write,
                     )
                 )
             elif subaction == "harvest-queue":
@@ -2981,6 +2983,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     max_ticks=int(getattr(args, "max_ticks", 360) or 360),
                     wait_for_completion=not bool(getattr(args, "no_wait", False)),
                     skip_review=bool(getattr(args, "skip_review", False)),
+                    allow_claude_dangerously_skip_permissions=allow_claude_write,
                 )
             )
         else:

@@ -1620,6 +1620,7 @@ class TrancheQueueExecutor:
         review_model: str = "claude",
         enforce_cross_model_review: bool = True,
         max_parallel_lanes: int = 1,
+        allow_claude_dangerously_skip_permissions: bool = False,
     ) -> None:
         self.queue_path = Path(queue_path).resolve()
         self.state_path = queue_state_path_for_queue(self.queue_path)
@@ -1634,6 +1635,9 @@ class TrancheQueueExecutor:
         self.review_model = review_model
         self.enforce_cross_model_review = bool(enforce_cross_model_review)
         self.max_parallel_lanes = _resolve_queue_max_parallel_lanes(max_parallel_lanes)
+        self.allow_claude_dangerously_skip_permissions = bool(
+            allow_claude_dangerously_skip_permissions
+        )
         self._github: GitHubControl | None = None
         self._registry_client_obj: PullRequestRegistry | None = None
         self._supervisor = None
@@ -2546,6 +2550,7 @@ class TrancheQueueExecutor:
                     max_ticks=360,
                     wait_for_completion=False,
                     skip_review=True,
+                    allow_claude_dangerously_skip_permissions=self.allow_claude_dangerously_skip_permissions,
                 )
             except ValueError as exc:
                 detail = str(exc or "").strip()
@@ -2902,6 +2907,7 @@ async def run_tranche_queue(
     review_model: str = "claude",
     enforce_cross_model_review: bool = True,
     max_parallel_lanes: int = 1,
+    allow_claude_dangerously_skip_permissions: bool = False,
 ) -> dict[str, Any]:
     executor = TrancheQueueExecutor(
         queue_path=queue_path,
@@ -2916,6 +2922,7 @@ async def run_tranche_queue(
         review_model=review_model,
         enforce_cross_model_review=enforce_cross_model_review,
         max_parallel_lanes=max_parallel_lanes,
+        allow_claude_dangerously_skip_permissions=allow_claude_dangerously_skip_permissions,
     )
     return await executor.run()
 

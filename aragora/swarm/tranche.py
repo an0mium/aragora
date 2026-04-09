@@ -589,6 +589,7 @@ class TrancheExecutor:
         max_ticks: int = 360,
         wait_for_completion: bool = True,
         skip_review: bool = False,
+        allow_claude_dangerously_skip_permissions: bool = False,
     ) -> dict[str, Any]:
         from aragora.swarm.boss_loop import dispatch_bounded_spec
 
@@ -634,6 +635,9 @@ class TrancheExecutor:
                 default_reviewer_agent=review_model,
                 use_managed_session_script=bool(
                     lane.metadata.get("use_managed_session_script", True)
+                ),
+                allow_claude_dangerously_skip_permissions=bool(
+                    allow_claude_dangerously_skip_permissions
                 ),
             )
             artifact = await self._artifact_from_run_result(

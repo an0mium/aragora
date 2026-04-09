@@ -2828,6 +2828,14 @@ def _add_swarm_parser(subparsers) -> None:
         help="Skip cross-model tranche review after a completed lane run",
     )
     swarm_parser.add_argument(
+        "--allow-claude-write",
+        action="store_true",
+        help=(
+            "Allow tranche runs to pass --dangerously-skip-permissions to Claude "
+            "workers (required for non-interactive edits)"
+        ),
+    )
+    swarm_parser.add_argument(
         "--rounds",
         type=int,
         default=2,
