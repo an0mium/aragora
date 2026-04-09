@@ -2771,6 +2771,17 @@ class PlaygroundHandler(BaseHandler):
     _TTS_VOICE_ID = "flHkNRp1BlvT73UL6gyz"  # Oracle voice
     _TTS_MODEL = "eleven_multilingual_v2"
 
+    def _read_optional_json_object_body(
+        self, handler: Any, *, invalid_message: str
+    ) -> tuple[dict[str, Any], HandlerResult | None]:
+        """Read an optional JSON body and reject non-object payloads with 400."""
+        body = self.read_json_body(handler) if handler else {}
+        if body is None:
+            return {}, None
+        if not isinstance(body, dict):
+            return {}, error_response(invalid_message, 400)
+        return body, None
+
     @handle_errors("playground TTS")
     def _handle_tts(self, handler: Any) -> HandlerResult:
         """Proxy text-to-speech through ElevenLabs, returning audio/mpeg."""
@@ -2892,9 +2903,12 @@ class PlaygroundHandler(BaseHandler):
             return None
 
         # Parse body early so we can check cache before rate limiting
-        body = self.read_json_body(handler) if handler else {}
-        if body is None:
-            body = {}
+        body, body_err = self._read_optional_json_object_body(
+            handler,
+            invalid_message="Invalid playground debate payload",
+        )
+        if body_err:
+            return body_err
 
         topic = str(body.get("topic", _DEFAULT_TOPIC) or _DEFAULT_TOPIC).strip()
         if not topic:
@@ -3055,9 +3069,12 @@ class PlaygroundHandler(BaseHandler):
 
     def _handle_landing_event(self, handler: Any) -> HandlerResult:
         """Accept best-effort landing telemetry from the public landing page."""
-        body = self.read_json_body(handler) if handler else {}
-        if body is None:
-            body = {}
+        body, body_err = self._read_optional_json_object_body(
+            handler,
+            invalid_message="Invalid landing telemetry payload",
+        )
+        if body_err:
+            return body_err
 
         event_type = str(body.get("event_type", "") or "").strip()
         if event_type not in _LANDING_EVENT_TYPES:
@@ -3636,9 +3653,12 @@ class PlaygroundHandler(BaseHandler):
 
     def _handle_cost_estimate(self, handler: Any) -> HandlerResult:
         """Return a pre-flight cost estimate for a live debate."""
-        body = self.read_json_body(handler) if handler else {}
-        if body is None:
-            body = {}
+        body, body_err = self._read_optional_json_object_body(
+            handler,
+            invalid_message="Invalid live cost estimate payload",
+        )
+        if body_err:
+            return body_err
 
         try:
             agent_count = int(body.get("agents", _DEFAULT_AGENTS))
@@ -3693,9 +3713,12 @@ class PlaygroundHandler(BaseHandler):
             )
 
         # Parse body
-        body = self.read_json_body(handler) if handler else {}
-        if body is None:
-            body = {}
+        body, body_err = self._read_optional_json_object_body(
+            handler,
+            invalid_message="Invalid live debate payload",
+        )
+        if body_err:
+            return body_err
 
         topic = str(body.get("topic", _DEFAULT_TOPIC) or _DEFAULT_TOPIC).strip()
         if not topic:
