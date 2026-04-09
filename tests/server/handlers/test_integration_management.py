@@ -386,6 +386,14 @@ class TestDisconnectIntegration:
         assert "workspace_id" in data.get("error", "").lower()
 
     @pytest.mark.asyncio
+    async def test_disconnect_rejects_non_object_body(self, handler):
+        result = await handler.handle("DELETE", "/api/v2/integrations/slack", body=[1])
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert data["code"] == "INVALID_REQUEST_BODY"
+        assert data["error"] == "Invalid request body"
+
+    @pytest.mark.asyncio
     async def test_disconnect_teams_success(self, handler):
         ws = _make_teams_workspace()
         handler._teams_store.get.return_value = ws
@@ -449,6 +457,14 @@ class TestTestIntegration:
     async def test_slack_missing_workspace_id(self, handler):
         result = await handler.handle("POST", "/api/v2/integrations/slack/test", body={})
         assert result.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_slack_connectivity_rejects_non_object_body(self, handler):
+        result = await handler.handle("POST", "/api/v2/integrations/slack/test", body=["ws"])
+        assert result.status_code == 400
+        data = json.loads(result.body)
+        assert data["code"] == "INVALID_REQUEST_BODY"
+        assert data["error"] == "Invalid request body"
 
     @pytest.mark.asyncio
     async def test_teams_connectivity(self, handler):

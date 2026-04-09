@@ -163,6 +163,8 @@ class IntegrationsHandler(BaseHandler):
         # Extract method, body, and headers from the request handler
         if body is None:
             body = (self.read_json_body(handler) or {}) if handler else {}
+        if not isinstance(body, dict):
+            return _legacy_error_response("Invalid request body", 400, code="INVALID_REQUEST_BODY")
         if headers is None:
             headers = dict(handler.headers) if handler and hasattr(handler, "headers") else {}
 
