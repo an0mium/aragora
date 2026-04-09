@@ -222,6 +222,79 @@ DEBATE_ENDPOINTS = {
             },
         },
     },
+    "/api/v1/debates/public/{debate_id}": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get a publicly shared debate",
+            "operationId": "getPublicDebate",
+            "description": (
+                "Return the JSON payload for a debate that has been explicitly shared "
+                "for public viewing. This endpoint is auth-free by design."
+            ),
+            "parameters": [
+                {
+                    "name": "debate_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Public debate identifier.",
+                }
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Public debate payload",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "debate_id": {"type": "string"},
+                            "task": {"type": "string"},
+                            "topic": {"type": "string"},
+                            "status": {"type": "string"},
+                            "visibility": {"type": "string"},
+                            "share_url": {"type": "string"},
+                            "is_public": {"type": "boolean"},
+                        },
+                        "additionalProperties": True,
+                    },
+                ),
+                "404": STANDARD_ERRORS["404"],
+                "429": STANDARD_ERRORS["429"],
+            },
+        },
+    },
+    "/api/v1/debates/public/{debate_id}/og": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "Get Open Graph metadata for a public debate",
+            "operationId": "getPublicDebateOpenGraph",
+            "description": (
+                "Return a crawler-friendly HTML document with Open Graph and "
+                "Twitter Card metadata for a publicly shared debate."
+            ),
+            "parameters": [
+                {
+                    "name": "debate_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                    "description": "Public debate identifier.",
+                }
+            ],
+            "responses": {
+                "200": {
+                    "description": "Open Graph preview HTML",
+                    "content": {
+                        "text/html": {
+                            "schema": {"type": "string"},
+                        }
+                    },
+                },
+                "404": STANDARD_ERRORS["404"],
+                "429": STANDARD_ERRORS["429"],
+            },
+        },
+    },
     "/api/debates/{id}/citations": {
         "get": {
             "tags": ["Debates"],

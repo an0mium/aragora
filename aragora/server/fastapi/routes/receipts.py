@@ -7,7 +7,7 @@ Provides async receipt management endpoints:
 - Create receipt share links
 - Access shared receipts
 - Verify receipt integrity
-- Export receipt in various formats (json, markdown, sarif)
+- Export receipt in various formats (json, html, markdown, pdf, sarif)
 - Batch verify multiple receipts
 - Batch export multiple receipts
 - Search receipts by query/date/debate_id
