@@ -2299,7 +2299,7 @@ def _add_swarm_parser(subparsers) -> None:
         nargs="?",
         help=(
             "Action (run/status/reconcile/campaign/initiative/integrator/tranche/coord/assign/"
-            "claim-pr/report/findings/merge-arbiter) or your goal in plain language"
+            "claim-pr/report/findings/merge-arbiter/dispatch) or your goal in plain language"
         ),
     )
     swarm_parser.add_argument(
@@ -2315,6 +2315,11 @@ def _add_swarm_parser(subparsers) -> None:
     swarm_parser.add_argument(
         "--spec",
         help="Path to a pre-built SwarmSpec YAML file",
+    )
+    swarm_parser.add_argument(
+        "--runbook",
+        default=None,
+        help=("Runbook name or path for 'swarm dispatch' (default: .aragora/runbooks/<name>.yaml)"),
     )
     swarm_parser.add_argument(
         "--skip-interrogation",

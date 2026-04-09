@@ -1,0 +1,106 @@
+name: swarm-triage
+default_status: active
+directives:
+  - target: codex-a
+    task: |-
+      Read-only only.
+
+      Task:
+      Inspect #3325 and #3323 and return:
+      - merge / keep-draft / close recommendation
+      - any required rebase
+      - 1-line rationale each
+      - note any test gaps or risk
+
+      Do not merge or close anything. Stop after summary.
+    constraints:
+      - read-only
+  - target: codex-b
+    task: |-
+      Own one focused task only: restart merge_arbiter first, then boss_loop.
+
+      Requirements:
+      - restart merge_arbiter first, then boss_loop
+      - record PID for each
+      - confirm both are alive
+      - report latest log file paths
+
+      Do not merge or close PRs. Stop after process status report.
+  - target: codex-c
+    task: |-
+      Stand by only.
+
+      Wait for Boss Codex to assign a smoke-pilot task.
+      Do not run anything yet.
+    constraints:
+      - read-only
+  - target: codex-d
+    task: |-
+      Read-only only.
+
+      Task:
+      Inspect latest logs to explain why both processes died:
+      - newest boss-loop log under .aragora/overnight/boss-loop-*.log
+      - newest merge-arbiter log under .aragora/overnight/merge-arbiter-*.log
+
+      Deliver:
+      - concise cause of exit
+      - any recurring error pattern
+      - one recommended fix if clear, otherwise “needs deeper diagnosis”
+
+      Do not change code. Stop after summary.
+    constraints:
+      - read-only
+  - target: review-codex
+    task: |-
+      Stand by only.
+
+      Do not review anything yet. Wait for Boss Codex to send a specific PR.
+    constraints:
+      - read-only
+  - target: factory
+    task: |-
+      Read-only only.
+
+      Task:
+      Prepare a short operator runbook for a 2-item offline smoke pilot (not the 12-hour pilot yet) using:
+      - #3324 (pipeline_store JSON parse logging)
+      - #3322 (capability_gate JSON parse logging)
+
+      Include:
+      - preflight checks
+      - commands to run
+      - stop conditions
+      - what to report
+
+      Do not run the pilot. Stop after the runbook.
+    constraints:
+      - read-only
+  - target: claude-a
+    task: |-
+      Read-only only.
+
+      Task:
+      Verify open PR count and report latest logs:
+      - open PR count (and list numbers)
+      - newest boss-loop log path
+      - newest merge-arbiter log path
+      - one-line status for each process
+
+      Do not restart anything. Stop after report.
+    constraints:
+      - read-only
+  - target: claude-b
+    task: |-
+      Read-only only.
+
+      Task:
+      Propose a minimal process-level keepalive plan for merge_arbiter and boss_loop:
+      - detect idle early-exit
+      - safe restart steps
+      - avoid duplicate runs
+      - one monitoring checklist line
+
+      No code changes. Stop after proposal.
+    constraints:
+      - read-only

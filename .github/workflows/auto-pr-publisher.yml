@@ -6,6 +6,8 @@ on:
       - "codex/**"
       - "factory/**"
       - "aragora/boss-harvest/**"
+  schedule:
+    - cron: "*/15 * * * *"
 
 permissions:
   contents: read

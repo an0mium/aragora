@@ -51,6 +51,7 @@ def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | Non
         "report",
         "findings",
         "merge-arbiter",
+        "dispatch",
     }:
         return str(first), second
     return "run", first
@@ -1322,6 +1323,40 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 )
         return
 
+    if action == "dispatch":
+        from aragora.swarm.runbook_dispatcher import dispatch_runbook, resolve_runbook_path
+        from aragora.worktree.fleet import resolve_repo_root
+
+        repo_root = resolve_repo_root(Path.cwd())
+        runbook_name = _optional_text(getattr(args, "runbook", None)) or _optional_text(goal)
+        if not runbook_name:
+            print("Error: usage: aragora swarm dispatch <runbook-name>", file=sys.stderr)
+            sys.exit(1)
+        runbook_path = resolve_runbook_path(runbook_name, repo_root)
+        if not runbook_path.exists():
+            print(f"Error: runbook not found: {runbook_path}", file=sys.stderr)
+            sys.exit(1)
+        issued_by = _coordination_assigned_by(args)
+        dry_run = bool(getattr(args, "dry_run", False))
+        result = dispatch_runbook(
+            runbook_path,
+            issued_by=issued_by,
+            repo_root=repo_root,
+            dry_run=dry_run,
+        )
+        if as_json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(
+                f"runbook={result.get('name', '')} dispatched={len(result.get('directives', []))}"
+            )
+            for directive in result.get("directives", []):
+                target = directive.get("target", "")
+                task = str(directive.get("task", "") or "")
+                summary = task.splitlines()[0] if task else ""
+                print(f"  {target}: {summary}")
+        return
+
     if action == "initiative":
         from aragora.swarm.initiative_integrator import (
             DEFAULT_INITIATIVE_MANIFEST,
@@ -1841,8 +1876,6 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         return
 
     if action == "integrator":
-        import sys
-
         subaction = str(goal or "view").strip().lower() or "view"
         repo_root = resolve_repo_root(Path.cwd())
         base_branch = str(getattr(args, "target_branch", "main") or "main")
