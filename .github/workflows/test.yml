@@ -164,6 +164,31 @@ jobs:
           path: /tmp/capability-matrix-summary.md
           retention-days: 14
 
+  scope:
+    name: PR Scope
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.scope_override.outputs.frontend || steps.scope_defaults.outputs.frontend }}
+
+    steps:
+      - name: Default scope (non-PR)
+        id: scope_defaults
+        run: echo "frontend=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+
+      - name: Detect PR scope
+        if: github.event_name == 'pull_request'
+        id: scope
+        uses: ./.github/actions/pr-scope-classifier
+
+      - name: Set scope outputs (PR)
+        if: github.event_name == 'pull_request'
+        id: scope_override
+        run: echo "frontend=${{ steps.scope.outputs.frontend }}" >> "$GITHUB_OUTPUT"
+
   sdk-typescript-compile-gate:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     name: SDK TypeScript Compile Gate
@@ -1496,7 +1521,8 @@ jobs:
           PYTHONPATH: .:aragora-debate/src
 
   frontend:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: [scope]
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.frontend == 'true')
     name: Frontend E2E Tests
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -1652,7 +1678,8 @@ jobs:
     name: Frontend TypeScript Type Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name == 'pull_request')
+    needs: [scope]
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (github.event_name != 'pull_request' || needs.scope.outputs.frontend == 'true')
 
     steps:
       - name: Checkout
