@@ -104,6 +104,13 @@ function calculateKeyAge(createdAt: string): number {
   return Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+const DEFAULT_CODEBASE_REPO_ID = 'default';
+
+export function buildSecretsScanUrl(apiBase: string, scanId?: string): string {
+  const base = `${apiBase}/api/v1/codebase/${DEFAULT_CODEBASE_REPO_ID}/scan/secrets`;
+  return scanId ? `${base}/${scanId}` : base;
+}
+
 export default function SecurityAdminPage() {
   const { config: backendConfig } = useBackend();
   const { tokens } = useAuth();
@@ -170,6 +177,7 @@ export default function SecurityAdminPage() {
 
     setSecretsLoading(true);
     setError(null);
+    setSecretsScan(null);
 
     try {
       const headers: HeadersInit = {
@@ -178,7 +186,7 @@ export default function SecurityAdminPage() {
       };
 
       // Start the scan
-      const res = await fetch(`${backendConfig.api}/api/v1/codebase/scan/secrets`, {
+      const res = await fetch(buildSecretsScanUrl(backendConfig.api), {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -200,32 +208,46 @@ export default function SecurityAdminPage() {
         const maxAttempts = 60; // 5 minutes max
 
         const pollResults = async () => {
-          const resultRes = await fetch(
-            `${backendConfig.api}/api/v1/codebase/scan/secrets/${scanData.scan_id}`,
-            { headers }
-          );
+          try {
+            const resultRes = await fetch(
+              buildSecretsScanUrl(backendConfig.api, scanData.scan_id),
+              { headers }
+            );
 
-          if (resultRes.ok) {
+            if (!resultRes.ok) {
+              throw new Error('Failed to fetch secrets scan status');
+            }
+
             const result = await resultRes.json();
             if (result.scan_result?.status === 'completed') {
               setSecretsScan(result.scan_result);
               setSecretsLoading(false);
               return;
-            } else if (result.scan_result?.status === 'failed') {
+            }
+
+            if (result.scan_result?.status === 'failed') {
               throw new Error(result.scan_result.error || 'Scan failed');
             }
-          }
 
-          attempts++;
-          if (attempts < maxAttempts) {
-            setTimeout(pollResults, 5000);
-          } else {
+            attempts++;
+            if (attempts < maxAttempts) {
+              setTimeout(pollResults, 5000);
+              return;
+            }
+
             throw new Error('Scan timed out');
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to scan for secrets');
+            setSecretsLoading(false);
           }
         };
 
         setTimeout(pollResults, 2000);
+        return;
       }
+
+      setError('Secrets scan did not return a scan ID');
+      setSecretsLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to scan for secrets');
       setSecretsLoading(false);
