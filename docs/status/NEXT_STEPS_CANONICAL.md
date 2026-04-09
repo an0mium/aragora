@@ -1,105 +1,121 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-03-26
+Last updated: 2026-04-09
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
-[ARAGORA_EVOLUTION_ROADMAP](../plans/ARAGORA_EVOLUTION_ROADMAP.md) defines the long-range architecture and moat.
-[FEATURE_GAP_LIST](../FEATURE_GAP_LIST.md) is the capability and backlog truth.
-[ACTIVE_EXECUTION_ISSUES](ACTIVE_EXECUTION_ISSUES.md) maps the live GitHub issue set and the current doc-driven PMF program.
-[PMF_DOGFOOD_EXECUTION_PLAN](../plans/PMF_DOGFOOD_EXECUTION_PLAN.md) is the operator runbook for the next live proof.
-[2026-03-26-pmf-14-day-execution-plan](../plans/2026-03-26-pmf-14-day-execution-plan.md) is the current two-week operating tranche for inbox-wedge proof and design-partner readiness.
+[ARAGORA_EVOLUTION_ROADMAP](../plans/ARAGORA_EVOLUTION_ROADMAP.md) defines the multi-stage architecture.
+[ACTIVE_EXECUTION_ISSUES](ACTIVE_EXECUTION_ISSUES.md) holds the epic/milestone/issue tree.
+[COMMERCIAL_OVERVIEW](../COMMERCIAL_OVERVIEW.md) translates proof into market language.
 
-## Current Reality
+## Current Gate
 
-- Historical program epics still matter as lineage even though they are no longer the live gate: [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
-- `main` now contains the structural product-loop slices that were missing earlier in March, plus the live founder loop proof, Phase 2 truth-seeking wiring, and the inbox trust wedge dogfood surface.
-- The focused test baseline on current `main`:
+The current gate is the transition from early `Teammate` behavior to reliable `Foreman` behavior.
 
-  ```bash
-  python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py -q
-  ```
+What is already true:
 
-  Result on March 24, 2026: `71 passed` in `34.2s`.
+- boss, supervisor, tranche, and swarm infrastructure exist
+- host-side install and preflight scripts exist
+- bounded product wedges such as prompt-to-spec and inbox workflows exist
+- the approved reliability substrate spec identifies the missing layer clearly
 
-  Extended suite (including truth_scorer, prover_estimator, cross_verification):
+What is still missing:
 
-  ```bash
-  python3 -m pytest tests/e2e/test_user_journey.py tests/cli/test_quickstart.py \
-    tests/debate/test_truth_scorer.py tests/debate/test_prover_estimator.py \
-    tests/debate/test_cross_verification.py -q
-  ```
+- honest benchmarked proof of semi-autonomous success
+- contract-backed worker admission on the safest classes of work
+- production-equivalent preflight on those classes
+- truthful failure taxonomy and repair loops
+- lower-rescue unattended operation on bounded backlogs
 
-  Result: `125 passed` in `35.1s`.
+The work now is not “add more speculative autonomy.” It is “make bounded unattended execution boring.”
 
-- **The live founder loop is now proven repeatable.** Five consecutive live runs completed successfully on March 24, 2026 (35-62s range, all producing valid receipts). Receipts are now persisted to the receipt store, making them visible via the API (`/api/v2/receipts`), dashboard, and `aragora receipt list`.
-- The acceptance checklist items that were open on March 23 are now closed:
-  - Readiness: explicit, provider state shown before run starts (**passed**)
-  - Quickstart enters live path or fails closed: no silent fallback (**passed**)
-  - Live debate completes: 5/5 runs, 35-62s (**passed**)
-  - Structured receipt saved: verified via `receipt inspect` and `receipt verify` (**passed**)
-  - Result visible on product surface: receipts persist to store for API/dashboard (**passed**, commit 97074e28c)
-  - KM ingestion: truthful explicit stop with guidance message (**passed**)
-  - Operator noise bounded: embedding warnings demoted, summary preamble cleaned (**passed**)
-- The next lane is **dogfooding the second workflow** (inbox trust wedge) and **design partner readiness**.
-- GitHub's open issue set remains enterprise-assurance items: [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509).
+## 30-Day Success Metric
+
+The 30-day target is intentionally narrow:
+
+- fixed benchmark corpus of bounded issues
+- context-enriched workers complete **>=50%** of that corpus without human rescue
+- **100%** of failures land in truthful canonical buckets
+- repeated rescue classes become explicit product work
+
+If a task does not improve that metric, it is not first-tranche work.
+
+## Reverse-Staged Rocket Bootstrap
+
+### Booster 0 — Corpus
+
+Build the fixed benchmark corpus, enrich worker context, and record rescues honestly. This is the smallest booster and the only one that must clearly work in the first 30 days.
+
+### Booster 1 — Assist
+
+Have the system draft work orders, scope, and validation plans for the safest classes of tasks. Humans approve or edit the draft instead of writing everything from scratch.
+
+### Booster 2 — Guard
+
+Add worker contracts and production-equivalent preflight for the safe classes that already benchmark well. Auto-run only when those guards pass.
+
+### Booster 3 — Repair
+
+Add resumable sessions, retry/repair paths, salvage, and quarantine so common failure classes stop requiring repeated prompt surgery.
+
+### Booster 4 — Multi
+
+Extend the proven loops across hosts with truthful operator state. This is the bridge into early `Foreman` behavior.
 
 ## Execution Order
 
-### 1) ~~Prove The Canonical Founder Loop Live~~ DONE (March 24, 2026)
+### 1) Corpus and context first
 
-The canonical founder loop is proven repeatable on `main`:
-- 5/5 consecutive live runs completed (35-62s range)
-- All acceptance checklist items pass (see Current Reality above)
-- Receipts persist to store for API/dashboard visibility
-- Summary output is clean (preamble stripped, noise demoted)
-- Commits: 5333ada7d, 97074e28c, 650f9c164
+- benchmark corpus plus terminal-truth taxonomy
+- context enrichment for the safest bounded issue classes
+- honest measurement of no-rescue success rate
 
-### 2) Dogfood The Second Workflow (Inbox Trust Wedge) — CURRENT GATE
+### 2) Assisted dispatch second
 
-The inbox trust wedge is structurally complete (~3,900 LOC) and the CLI is dogfood-ready:
-- `aragora triage auth` — interactive Gmail OAuth flow (commit f045d653c)
-- `aragora triage run --dry-run` — preview decisions without executing actions
-- `aragora triage run --auto-approve` — full automated pipeline
-- `aragora triage status` — shows configuration readiness
+- auto-drafted work orders and validator plans
+- human approval on the safe classes
+- clearer issue/task shapes before execution starts
 
-Remaining to dogfood:
-- Configure Gmail OAuth credentials and run `aragora triage auth`
-- Execute `aragora triage run --dry-run` on a real inbox
-- Review proposed actions and verify receipt quality
-- Execute a live triage batch and confirm receipt-gated actions work
+### 3) Guarded autonomy third
 
-### 3) Productize The Prompt-to-Spec Pipeline
+- `WorkerContract` plus `CredentialEnvelope`
+- contract-aware preflight
+- admission gates for the already-proven classes
 
-`aragora spec` is proven end-to-end (~23s with gpt-4o-mini):
-- Decomposes vague prompts into structured intents
-- Generates specifications with success criteria and risk registers
-- Supports `--skip-interrogation`, `--skip-research`, `--dry-run`
+### 4) Repair and salvage fourth
 
-Remaining:
-- Add `aragora spec` to the onboarding flow as a second entry point alongside `quickstart`
-- Wire spec output into `aragora decide` for debate-driven validation
-- Surface specs in the dashboard
+- resumable session journal
+- verify/repair loop
+- precise blocker evidence
+- sanitizer outcomes persisted for audit
 
-### 4) Design Partner Outreach
+### 5) Multi-host truthful state fifth
 
-The founder loop is repeatable. The sales point is now:
-- Clean live demo: `aragora quickstart` produces a trustworthy receipt in <60s
-- Receipts are visible on API/dashboard/share-link surfaces
-- EU AI Act compliance bundle generates from real receipts
-- Inbox trust wedge provides a second workflow for retention testing
+- ledger-backed lane, host, and run status
+- pause, resume, retry, and salvage controls
+- first control-plane or DAG view backed by live state
 
-Use the [PMF_SCORECARD](PMF_SCORECARD.md) to evaluate design partners.
+## Stop / Go Rules
 
-### 5) Enterprise Assurance (After Design Partner Validation)
+- Do not expand claims if the benchmark corpus is not moving.
+- Do not ship GUI surfaces that are not backed by live receipts and contracts.
+- Do not treat human rescue as success; convert it into benchmark cases or substrate work.
+- If humans intervene twice for the same failure class, the next change should productize that rescue.
+- Do not create broad GitHub tasks when the blocker can be stated narrowly.
+- Do not let commercial positioning outrun measured proof.
 
-- [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), and [#509](https://github.com/synaptent/aragora/issues/509) are real work.
-- Kickoff after at least 1 design partner is engaged and scoring above 65 on the PMF scorecard.
+## Done Criteria for This Tranche
 
-## Operating Rules
+This tranche is complete when:
 
-- Closed PMF issues do not equal live PMF proof.
-- No new infra or orchestration lane is justified unless it maps directly to a founder-loop acceptance gap.
-- No document should say "operational," "complete," or "ready for sales" unless live dogfood evidence supports that claim.
-- The PMF backlog should be reconstituted from observed live failures, not from stale issue trees.
-- GitHub issues still matter, but until the PMF blocker set is recreated truthfully, these docs are the current execution map.
+1. a fixed benchmark corpus exists and runs regularly
+2. context-enriched workers complete **>=50%** of it without rescue
+3. all failures map to truthful canonical classes
+4. at least one guarded admission path is real for the safest task class
+5. repeated rescue classes are captured as explicit product work instead of hidden labor
+
+## References
+
+- [Evolution roadmap](../plans/ARAGORA_EVOLUTION_ROADMAP.md)
+- [Active execution issues](ACTIVE_EXECUTION_ISSUES.md)
+- [Commercial overview](../COMMERCIAL_OVERVIEW.md)
