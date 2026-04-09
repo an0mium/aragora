@@ -496,33 +496,54 @@ class KnowledgeChatHandler(BaseHandler):
 
         if path == "/api/v1/chat/knowledge/search":
             query = body.get("query")
-            if not query:
-                return error_response("query is required", 400)
+            if not isinstance(query, str) or not query.strip():
+                return error_response("query must be a non-empty string", 400)
+
+            node_types = body.get("node_types")
+            if node_types is not None and (
+                not isinstance(node_types, list)
+                or any(not isinstance(node_type, str) for node_type in node_types)
+            ):
+                return error_response("node_types must be a list of strings", 400)
+
+            min_confidence = body.get("min_confidence", 0.3)
+            if isinstance(min_confidence, bool) or not isinstance(min_confidence, int | float):
+                return error_response("min_confidence must be a number", 400)
+
+            max_results_raw = body.get("max_results", 10)
+            if isinstance(max_results_raw, bool) or not isinstance(max_results_raw, int):
+                return error_response("max_results must be an integer", 400)
 
             # Validate and clamp max_results
-            max_results = min(max(1, int(body.get("max_results", 10))), MAX_RESULTS_LIMIT)
+            max_results = min(max(1, max_results_raw), MAX_RESULTS_LIMIT)
 
             result = await handle_knowledge_search(
-                query=query,
+                query=query.strip(),
                 workspace_id=body.get("workspace_id", "default"),
                 channel_id=body.get("channel_id"),
                 user_id=body.get("user_id"),
                 scope=body.get("scope", "workspace"),
                 strategy=body.get("strategy", "hybrid"),
-                node_types=body.get("node_types"),
-                min_confidence=body.get("min_confidence", 0.3),
+                node_types=node_types,
+                min_confidence=float(min_confidence),
                 max_results=max_results,
             )
 
         elif path == "/api/v1/chat/knowledge/inject":
             messages = body.get("messages")
-            if not messages:
-                return error_response("messages is required", 400)
+            if not isinstance(messages, list) or not messages:
+                return error_response("messages must be a non-empty list", 400)
+            if any(not isinstance(message, dict) for message in messages):
+                return error_response("messages must be a list of objects", 400)
+
+            max_context_items_raw = body.get("max_context_items", 5)
+            if isinstance(max_context_items_raw, bool) or not isinstance(
+                max_context_items_raw, int
+            ):
+                return error_response("max_context_items must be an integer", 400)
 
             # Validate and clamp max_context_items
-            max_context_items = min(
-                max(1, int(body.get("max_context_items", 5))), MAX_CONTEXT_ITEMS_LIMIT
-            )
+            max_context_items = min(max(1, max_context_items_raw), MAX_CONTEXT_ITEMS_LIMIT)
 
             result = await handle_knowledge_inject(
                 messages=messages,
@@ -533,8 +554,10 @@ class KnowledgeChatHandler(BaseHandler):
 
         elif path == "/api/v1/chat/knowledge/store":
             messages = body.get("messages")
-            if not messages or len(messages) < 2:
+            if not isinstance(messages, list) or len(messages) < 2:
                 return error_response("At least 2 messages required", 400)
+            if any(not isinstance(message, dict) for message in messages):
+                return error_response("messages must be a list of objects", 400)
 
             result = await handle_store_chat_knowledge(
                 messages=messages,
