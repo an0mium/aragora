@@ -1566,10 +1566,11 @@ def test_start_run_preserves_rerun_when_existing_clean_exit_no_deliverable_lane_
         assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
 
 
-def test_start_run_preserves_rerun_when_existing_receiptless_needs_human_lane_has_no_deliverable(
+def test_start_run_preserves_rerun_when_existing_stale_receiptless_needs_human_lane_has_no_deliverable(
     repo: Path, store: DevCoordinationStore
 ) -> None:
     goal = "[Issue #2712] Fail closed on string booleans in QualityPipelineConfig.from_dict"
+    stale_at = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
     store.create_supervisor_run(
         goal=goal,
         target_branch="main",
@@ -1586,6 +1587,8 @@ def test_start_run_preserves_rerun_when_existing_receiptless_needs_human_lane_ha
                 "worker_outcome": "crash",
                 "failure_reason": "worker_exited_without_receipt",
                 "dispatch_error": "worker process exited without receipt or exit marker",
+                "last_observed_at": stale_at,
+                "last_progress_at": stale_at,
                 "blocking_question": (
                     "Should this lane be rerun, or recovered manually from the existing worktree?"
                 ),
@@ -1651,6 +1654,96 @@ def test_start_run_preserves_rerun_when_existing_receiptless_needs_human_lane_ha
     work_order = run.work_orders[0]
     assert work_order["status"] == "queued"
     assert work_order.get("metadata", {}).get("archived_due_to") != "duplicate_open_work_order"
+
+
+def test_start_run_still_discards_duplicate_when_existing_receiptless_needs_human_lane_is_fresh(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    goal = "[Issue #2712] Fail closed on string booleans in QualityPipelineConfig.from_dict"
+    fresh_at = datetime.now(UTC).isoformat()
+    store.create_supervisor_run(
+        goal=goal,
+        target_branch="main",
+        supervisor_agents={"planner": "codex", "judge": "claude"},
+        approval_policy={},
+        spec={},
+        status="needs_human",
+        work_orders=[
+            {
+                "work_order_id": "issue-2712-quality-pipeline-config",
+                "pipeline_task_id": "task-1",
+                "title": "Fix QualityPipelineConfig string booleans",
+                "status": "needs_human",
+                "worker_outcome": "crash",
+                "failure_reason": "worker_exited_without_receipt",
+                "dispatch_error": "worker process exited without receipt or exit marker",
+                "last_observed_at": fresh_at,
+                "last_progress_at": fresh_at,
+                "blocking_question": (
+                    "Should this lane be rerun, or recovered manually from the existing worktree?"
+                ),
+                "blocker": {
+                    "reason": "worker_exited_without_receipt",
+                    "question": (
+                        "Should this lane be rerun, or recovered manually from the existing worktree?"
+                    ),
+                },
+                "stdout_tail": "Invalid API key · Fix external API key\n",
+                "file_scope": [
+                    "aragora/debate/quality_pipeline.py",
+                    "tests/debate/test_quality_pipeline.py",
+                ],
+                "target_agent": "claude",
+                "reviewer_agent": "codex",
+                "approval_required": True,
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "tranche_lane_id": "issue-2712-quality-pipeline-config",
+                },
+            }
+        ],
+    )
+
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+
+    run = supervisor.start_run(
+        spec=SwarmSpec(
+            raw_goal=goal,
+            refined_goal=goal,
+            work_orders=[
+                {
+                    "work_order_id": "issue-2712-quality-pipeline-config",
+                    "pipeline_task_id": "task-1",
+                    "title": "Fix QualityPipelineConfig string booleans",
+                    "description": (
+                        "Make QualityPipelineConfig.from_dict parse enabled and has_context "
+                        "fail-closed for string booleans."
+                    ),
+                    "file_scope": [
+                        "aragora/debate/quality_pipeline.py",
+                        "tests/debate/test_quality_pipeline.py",
+                    ],
+                    "target_agent": "claude",
+                    "reviewer_agent": "codex",
+                    "approval_required": True,
+                    "metadata": {
+                        "source": "explicit_spec_work_order",
+                        "tranche_lane_id": "issue-2712-quality-pipeline-config",
+                    },
+                }
+            ],
+        ),
+        refresh_scaling=False,
+    )
+
+    work_order = run.work_orders[0]
+    assert work_order["status"] == "discarded"
+    assert work_order["metadata"]["archived_due_to"] == "duplicate_open_work_order"
 
 
 def test_start_run_discards_duplicate_scope_less_explicit_lane_by_tranche_lane_id(

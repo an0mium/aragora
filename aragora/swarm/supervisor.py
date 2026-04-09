@@ -60,6 +60,7 @@ LAUNCHER_CONFIG_METADATA_KEY = "worker_launcher_config"
 MAX_WORKER_LOG_TAIL_CHARS = 4000
 DEFAULT_BREAKER_FAILURE_THRESHOLD = 2
 DEFAULT_BREAKER_RESET_TIMEOUT_SECONDS = 900.0
+DEFAULT_RECEIPTLESS_DUPLICATE_STALE_SECONDS = 1800.0
 SESSION_LOCK_FILES = (
     ".claude-session-active",
     ".codex_session_active",
@@ -108,6 +109,19 @@ def _coerce_bool(value: Any, *, default: bool) -> bool:
         if normalized in _FALSY_BOOL_STRINGS:
             return False
     return default
+
+
+def _parse_iso_timestamp(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text or text.lower() == "none":
+        return None
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _docs_only_scope_supports_hint(path: str, original_scope: list[str]) -> bool:
@@ -1542,6 +1556,31 @@ class SwarmSupervisor:
                 return True
         return False
 
+    @staticmethod
+    def _duplicate_candidate_receiptless_failure_is_stale(
+        work_order: dict[str, Any],
+        *,
+        run_record: dict[str, Any],
+        stale_threshold_seconds: float = DEFAULT_RECEIPTLESS_DUPLICATE_STALE_SECONDS,
+    ) -> bool:
+        anchor = None
+        for value in (
+            work_order.get("last_observed_at"),
+            work_order.get("last_progress_at"),
+            work_order.get("completed_at"),
+            work_order.get("dispatched_at"),
+            work_order.get("leased_at"),
+            work_order.get("started_at"),
+            run_record.get("updated_at"),
+            run_record.get("created_at"),
+        ):
+            anchor = _parse_iso_timestamp(value)
+            if anchor is not None:
+                break
+        if anchor is None:
+            return False
+        return (datetime.now(UTC) - anchor).total_seconds() >= float(stale_threshold_seconds)
+
     def _duplicate_candidate_should_block(
         self,
         task: Any,
@@ -1554,15 +1593,11 @@ class SwarmSupervisor:
         failure_reason = str(metadata.get("failure_reason") or "").strip().lower()
         if status == "needs_human" and failure_reason in stale_failure_reasons:
             return False
-        # A prior receiptless crash with no deliverable is a retry candidate, not
-        # an authoritative in-flight duplicate that should suppress a fresh lane.
-        if status == "needs_human" and failure_reason == "worker_exited_without_receipt":
-            return False
-        if status != "queued":
-            return True
 
         run_id = str(getattr(task, "run_id", "")).strip()
         task_id = str(getattr(task, "task_id", "")).strip()
+        if status != "queued" and failure_reason != "worker_exited_without_receipt":
+            return True
         if not run_id or not task_id:
             return True
 
@@ -1582,6 +1617,13 @@ class SwarmSupervisor:
             None,
         )
         if not isinstance(work_order, dict):
+            return True
+        if status == "needs_human" and failure_reason == "worker_exited_without_receipt":
+            return not self._duplicate_candidate_receiptless_failure_is_stale(
+                work_order,
+                run_record=record,
+            )
+        if status != "queued":
             return True
         if self._duplicate_candidate_has_stale_reaped_dependency(
             work_order,
