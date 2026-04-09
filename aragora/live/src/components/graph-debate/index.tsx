@@ -112,7 +112,9 @@ export function GraphDebateBrowser({ events = [], initialDebateId }: GraphDebate
         throw new Error(`Failed to fetch graph debates (${response.status})`);
       }
       const data = await response.json();
-      const fetchedDebates = Array.isArray(data?.debates) ? data.debates : [];
+      const fetchedDebates: GraphDebate[] = Array.isArray(data?.debates)
+        ? (data.debates as GraphDebate[])
+        : [];
       setDebates(fetchedDebates);
       if (!initialDebateId) {
         setSelectedDebate((current) => {
