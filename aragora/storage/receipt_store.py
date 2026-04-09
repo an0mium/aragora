@@ -66,7 +66,8 @@ def _linked_worktree_shared_receipt_db_path() -> Path | None:
             continue
         try:
             raw = git_marker.read_text(encoding="utf-8").strip()
-        except OSError:
+        except OSError as exc:
+            logger.warning("Failed to read git metadata from %s: %s", git_marker, exc)
             return None
         prefix = "gitdir:"
         if not raw.startswith(prefix):
