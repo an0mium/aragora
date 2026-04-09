@@ -411,6 +411,29 @@ class TestExportCacheStats:
 
         assert stats["estimated_memory_bytes"] >= 10000
 
+    def test_redis_import_error_logs_install_instructions_and_falls_back(self, monkeypatch, caplog):
+        """Should log Redis install help and fall back to in-memory cache."""
+        import builtins
+        import aragora.visualization.exporter as exp
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "redis":
+                raise ImportError("redis package not installed. Install with: pip install redis")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setenv("ARAGORA_REDIS_URL", "redis://localhost:6379/0")
+        monkeypatch.setattr(exp, "_cache_backend", None)
+
+        with patch("builtins.__import__", side_effect=mock_import):
+            with caplog.at_level("WARNING", logger="aragora.visualization.exporter"):
+                backend = exp._get_cache_backend()
+
+        assert backend.get_stats()["backend"] == "in_memory"
+        assert "redis" in caplog.text.lower()
+        assert "pip install redis" in caplog.text
+
 
 class TestPeriodicCleanup:
     """Tests for automatic periodic cleanup during caching."""
