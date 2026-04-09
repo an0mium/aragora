@@ -3520,6 +3520,154 @@ def test_boss_loop_batch_uses_configured_limit_when_no_capacity_reported() -> No
     assert {status.effective_parallel_dispatches for status in statuses} == {4}
 
 
+def test_boss_loop_batch_skips_existing_open_pr_before_dispatch() -> None:
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [
+        _make_issue(
+            451,
+            "Batch issue with existing PR",
+            body=(
+                "Touch aragora/swarm/open_pr_guard.py\n\n"
+                "Acceptance Criteria:\n- pytest -q tests/swarm/test_boss_loop.py\n"
+            ),
+        ),
+        _make_issue(
+            452,
+            "Batch issue without PR",
+            body=(
+                "Touch aragora/server/parallel_guard.py\n\n"
+                "Acceptance Criteria:\n- pytest -q tests/swarm/test_boss_loop.py\n"
+            ),
+        ),
+    ]
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1, max_parallel_dispatches=2, repo="synaptent/aragora"),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: RunnerFreshnessResult(
+            fresh=True,
+            runner_ids=["codex-runner-1", "codex-runner-2"],
+            checked_at=datetime.now(UTC).isoformat(),
+            details={
+                "routing": {
+                    "selected_runners": [
+                        {"runner_id": "codex-runner-1", "available_capacity": 1},
+                        {"runner_id": "codex-runner-2", "available_capacity": 1},
+                    ]
+                }
+            },
+        ),
+    )
+    dispatch_seen: list[int] = []
+
+    async def _dispatch(issue, freshness):
+        dispatch_seen.append(issue.number)
+        return {"status": "completed"}
+
+    loop._dispatch_issue = _dispatch
+    loop._select_issues_for_iteration = lambda issues, **kwargs: list(issues)
+    existing_pr_url = "https://github.com/synaptent/aragora/pull/451"
+
+    with patch.object(
+        loop,
+        "_has_open_pr_for_issue",
+        side_effect=lambda number: existing_pr_url if number == 451 else None,
+    ):
+        result = asyncio.run(loop.run())
+
+    assert dispatch_seen == [452]
+    attempted_numbers = {item.get("number") for item in result.issues_attempted}
+    assert 451 not in attempted_numbers
+    assert 452 in attempted_numbers
+    completed_numbers = {item.get("number") for item in result.issues_completed}
+    assert 451 in completed_numbers
+    skipped = [
+        status
+        for status in result.iteration_statuses
+        if (status.get("selected_issue") or {}).get("number") == 451
+    ]
+    assert len(skipped) == 1
+    assert any(existing_pr_url in str(action) for action in skipped[0].get("next_actions", []))
+
+
+def test_boss_loop_batch_auto_decomposes_maxed_retry_issue() -> None:
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [
+        _make_issue(461, "Exhausted batch issue"),
+        _make_issue(462, "Fresh batch issue"),
+    ]
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=1,
+            max_parallel_dispatches=2,
+            max_retries_per_issue=2,
+            repo="synaptent/aragora",
+        ),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: RunnerFreshnessResult(
+            fresh=True,
+            runner_ids=["codex-runner-1", "codex-runner-2"],
+            checked_at=datetime.now(UTC).isoformat(),
+        ),
+    )
+    loop._issue_attempt_counts[461] = 2
+    loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+    loop._select_issues_for_iteration = lambda issues, **kwargs: list(issues)
+
+    with patch.object(loop, "_auto_decompose_stuck_issue") as mock_decompose:
+        result = asyncio.run(loop.run())
+
+    mock_decompose.assert_called_once()
+    assert mock_decompose.call_args.args[0] == 461
+    loop._dispatch_issue.assert_awaited_once()
+    dispatched_issue = loop._dispatch_issue.await_args.args[0]
+    assert dispatched_issue.number == 462
+    attempted_numbers = {item.get("number") for item in result.issues_attempted}
+    assert 461 not in attempted_numbers
+    assert 462 in attempted_numbers
+
+
+def test_boss_loop_batch_serializes_retry_routed_dispatches() -> None:
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [
+        _make_issue(471, "Retry-routed batch issue A"),
+        _make_issue(472, "Retry-routed batch issue B"),
+    ]
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1, max_parallel_dispatches=2),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: RunnerFreshnessResult(
+            fresh=True,
+            runner_ids=["codex-runner-1", "codex-runner-2"],
+            checked_at=datetime.now(UTC).isoformat(),
+            details={
+                "routing": {
+                    "selected_runners": [
+                        {"runner_id": "codex-runner-1", "available_capacity": 1},
+                        {"runner_id": "codex-runner-2", "available_capacity": 1},
+                    ]
+                }
+            },
+        ),
+    )
+    loop._issue_attempt_counts[471] = 1
+    loop._issue_attempt_counts[472] = 1
+    dispatch_seen: list[int] = []
+
+    async def _dispatch(issue, freshness):
+        dispatch_seen.append(issue.number)
+        return {"status": "completed"}
+
+    loop._dispatch_issue = AsyncMock(side_effect=_dispatch)
+
+    statuses: list[BossIterationStatus] = []
+    result = asyncio.run(loop.run(on_status=statuses.append))
+
+    assert dispatch_seen == [471]
+    assert result.configured_max_parallel_dispatches == 2
+    assert result.effective_parallel_dispatches_observed == 1
+    assert {status.effective_parallel_dispatches for status in statuses} == {1}
+
+
 # ---------------------------------------------------------------------------
 # _classify_terminal_run_outcome regression tests
 # ---------------------------------------------------------------------------
@@ -4832,10 +4980,18 @@ class TestPublishedPrTerminal:
 
         # Simulate that an open PR already exists for issue #42
         existing_pr_url = "https://github.com/synaptent/aragora/pull/200"
-        with patch.object(
-            loop,
-            "_has_open_pr_for_issue",
-            return_value=existing_pr_url,
+        with (
+            patch.object(
+                loop,
+                "_has_open_pr_for_issue",
+                return_value=existing_pr_url,
+            ),
+            patch(
+                "aragora.swarm.boss_loop.select_eligible_issue",
+                side_effect=lambda issues, **kwargs: next(
+                    (i for i in issues if i is not None), None
+                ),
+            ),
         ):
             result = asyncio.run(loop.run())
 

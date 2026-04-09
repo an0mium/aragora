@@ -819,6 +819,55 @@ class BossLoop:
             return retry_routed
         return issues
 
+    def _already_maxed_issue_numbers(self, issues: list[GitHubIssue]) -> set[int]:
+        already_maxed: set[int] = set()
+        for num, count in self._issue_attempt_counts.items():
+            if count >= self.config.max_retries_per_issue:
+                try:
+                    issue_number = int(num)
+                except (TypeError, ValueError):
+                    continue
+                already_maxed.add(issue_number)
+                if count == self.config.max_retries_per_issue and self.config.repo:
+                    self._auto_decompose_stuck_issue(issue_number, issues)
+        return already_maxed
+
+    def _existing_open_pr_skip_status(
+        self,
+        *,
+        iteration: int,
+        timestamp: str,
+        runner_freshness: dict[str, Any],
+        issue: GitHubIssue,
+        elapsed_seconds: float,
+    ) -> BossIterationStatus | None:
+        existing_pr = self._has_open_pr_for_issue(issue.number)
+        if not existing_pr:
+            return None
+        logger.info(
+            "boss_loop_skip_existing_pr issue=#%s pr=%s",
+            issue.number,
+            existing_pr,
+        )
+        issue_dict = self._issue_payload(issue)
+        self._completed_issues.append(issue_dict)
+        self._issue_attempt_counts[issue.number] = max(
+            self._issue_attempt_counts.get(issue.number, 0),
+            self.config.max_retries_per_issue,
+        )
+        return BossIterationStatus(
+            iteration=iteration,
+            run_id=self.run_id,
+            timestamp=timestamp,
+            runner_freshness=runner_freshness,
+            selected_issue=issue_dict,
+            worker_status="completed",
+            stop_reason=None,
+            needs_human_reasons=[],
+            next_actions=[f"Skipped: issue #{issue.number} already has open PR {existing_pr}."],
+            elapsed_seconds=elapsed_seconds,
+        )
+
     def _requested_runner_type_for_freshness(
         self,
         selected_issues: list[GitHubIssue],
@@ -2700,13 +2749,7 @@ class BossLoop:
 
         # Step 2: Select eligible issue
         # Skip issues that have exceeded retry limits and auto-label them
-        already_maxed = set()
-        for num, count in self._issue_attempt_counts.items():
-            if count >= self.config.max_retries_per_issue:
-                already_maxed.add(num)
-                # Auto-decompose exhausted issues into sub-issues (best-effort, once)
-                if count == self.config.max_retries_per_issue and self.config.repo:
-                    self._auto_decompose_stuck_issue(num, issues)
+        already_maxed = self._already_maxed_issue_numbers(issues)
         blocked_scopes = self._blocked_issue_scopes()
         pending_handoffs = self._pending_handoff_candidates(
             issues,
@@ -2808,32 +2851,15 @@ class BossLoop:
             )
 
         # Step 3b: Pre-dispatch guard — skip issues that already have an open PR
-        existing_pr = self._has_open_pr_for_issue(selected.number)
-        if existing_pr:
-            logger.info(
-                "boss_loop_skip_existing_pr issue=#%s pr=%s",
-                selected.number,
-                existing_pr,
-            )
-            self._completed_issues.append(self._issue_payload(selected))
-            self._issue_attempt_counts[selected.number] = max(
-                self._issue_attempt_counts.get(selected.number, 0),
-                self.config.max_retries_per_issue,
-            )
-            return BossIterationStatus(
-                iteration=iteration,
-                run_id=self.run_id,
-                timestamp=now,
-                runner_freshness=freshness_dict,
-                selected_issue=self._issue_payload(selected),
-                worker_status="completed",
-                stop_reason=None,
-                needs_human_reasons=[],
-                next_actions=[
-                    f"Skipped: issue #{selected.number} already has open PR {existing_pr}."
-                ],
-                elapsed_seconds=time.monotonic() - iter_start,
-            )
+        existing_pr_status = self._existing_open_pr_skip_status(
+            iteration=iteration,
+            timestamp=now,
+            runner_freshness=freshness_dict,
+            issue=selected,
+            elapsed_seconds=time.monotonic() - iter_start,
+        )
+        if existing_pr_status is not None:
+            return existing_pr_status
 
         # Step 4: Dispatch supervised work for this issue
         issue_dict = self._issue_payload(selected)
@@ -2910,11 +2936,7 @@ class BossLoop:
                 )
             ]
 
-        already_maxed = {
-            num
-            for num, count in self._issue_attempt_counts.items()
-            if count >= self.config.max_retries_per_issue
-        }
+        already_maxed = self._already_maxed_issue_numbers(issues)
         blocked_scopes = self._blocked_issue_scopes()
         pending_handoffs = self._pending_handoff_candidates(
             issues,
@@ -2940,6 +2962,13 @@ class BossLoop:
             blocked_scopes=blocked_scopes,
         )
         selected_issues = self._filter_mixed_retry_routing_batch(selected_issues)
+        serialize_retry_routed_batch = self._selected_issues_need_retry_routing(selected_issues)
+        if serialize_retry_routed_batch and len(selected_issues) > 1:
+            logger.info(
+                "Boss loop serializing retry-routed parallel batch: selected=%s",
+                [issue.number for issue in selected_issues],
+            )
+            selected_issues = selected_issues[:1]
 
         if not selected_issues:
             if self.config.issue_number is not None:
@@ -3001,6 +3030,24 @@ class BossLoop:
             ]
 
         parallel_limit = self._parallel_dispatch_limit(freshness)
+        if serialize_retry_routed_batch:
+            parallel_limit = 1
+        statuses: list[BossIterationStatus] = []
+        dispatchable_issues: list[GitHubIssue] = []
+        for issue in selected_issues:
+            existing_pr_status = self._existing_open_pr_skip_status(
+                iteration=iteration,
+                timestamp=now,
+                runner_freshness=freshness_dict,
+                issue=issue,
+                elapsed_seconds=time.monotonic() - iter_start,
+            )
+            if existing_pr_status is not None:
+                statuses.append(existing_pr_status)
+                continue
+            dispatchable_issues.append(issue)
+        if not dispatchable_issues:
+            parallel_limit = 0
         self._current_effective_parallel_dispatches = parallel_limit
         logger.info(
             "Boss loop iteration %d parallel dispatches: configured=%d effective=%d",
@@ -3008,11 +3055,13 @@ class BossLoop:
             self._configured_parallel_dispatches,
             parallel_limit,
         )
-        pending_issues = list(selected_issues)
+        if not dispatchable_issues:
+            return statuses
+
+        pending_issues = list(dispatchable_issues)
         active_tasks: dict[
             asyncio.Task[dict[str, Any]], tuple[GitHubIssue, dict[str, Any], float]
         ] = {}
-        statuses: list[BossIterationStatus] = []
         stop_launching = False
 
         while pending_issues and len(active_tasks) < parallel_limit:
