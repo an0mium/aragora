@@ -5089,6 +5089,100 @@ async def test_collect_finished_results_backfills_receipt_for_salvaged_detached_
 
 
 @pytest.mark.asyncio
+async def test_collect_finished_results_recovers_commit_backed_dead_worker_without_marker(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="detached-recovery-lane",
+        title="Detached recovery lane",
+        owner_agent="codex",
+        owner_session_id="detached-recovery-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["README.md"],
+    )
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    (repo / "README.md").write_text("detached recovery\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "recover dead worker without marker")
+    expected_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    run_record = store.create_supervisor_run(
+        goal="recover dead worker without marker",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "recover dead worker without marker"},
+        work_orders=[
+            {
+                "work_order_id": "wo-detached-recovery",
+                "status": "dispatched",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "owner_session_id": "detached-recovery-session",
+                "lease_id": lease.lease_id,
+                "pid": 424243,
+                "initial_head": initial_head,
+                "review_status": "pending",
+                "file_scope": ["README.md"],
+                "receipt_id": None,
+            }
+        ],
+        status="active",
+    )
+
+    detached_worker = WorkerProcess(
+        work_order_id="wo-detached-recovery",
+        agent="codex",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="detached-recovery-session",
+        pid=424243,
+        initial_head=initial_head,
+        exit_code=1,
+        completed_at="2026-04-09T01:30:00+00:00",
+        diff="diff --git a/README.md b/README.md",
+        changed_paths=["README.md"],
+        commit_shas=[],
+        head_sha=expected_head,
+        stdout="worker stdout",
+        stderr="",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock(
+        return_value={
+            "pid_alive": False,
+            "head_sha": expected_head,
+            "changed_paths": ["README.md"],
+            "diff_lines": 1,
+        }
+    )
+    mock_launcher.config = SimpleNamespace(auto_commit=False, no_progress_timeout_seconds=120.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    collect_detached = AsyncMock(return_value=detached_worker)
+    with patch.object(WorkerLauncher, "collect_detached_result", new=collect_detached):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert len(completed) == 1
+    assert completed[0].commit_shas == [expected_head]
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "completed"
+    assert work_order["worker_outcome"] == "crash_with_salvage"
+    assert work_order["head_sha"] == expected_head
+    assert work_order["commit_shas"] == [expected_head]
+    assert work_order["changed_paths"] == ["README.md"]
+    assert work_order["receipt_id"] is not None
+    assert work_order.get("failure_reason") in {"", None}
+
+
+@pytest.mark.asyncio
 async def test_dispatch_handles_missing_cli(repo: Path, store: DevCoordinationStore) -> None:
     """dispatch_workers should requeue onto the fallback agent when one CLI is unavailable."""
     run_record = store.create_supervisor_run(
@@ -6994,6 +7088,114 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
         "conflicts",
     ):
         assert key not in work_order
+
+
+@pytest.mark.asyncio
+async def test_collect_finished_results_recovers_commit_backed_timeout_without_marker(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    lease = store.claim_lease(
+        task_id="timeout-recovery-lane",
+        title="Timeout recovery lane",
+        owner_agent="codex",
+        owner_session_id="timeout-recovery-session",
+        branch="main",
+        worktree_path=str(repo),
+        claimed_paths=["README.md"],
+    )
+    initial_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    (repo / "README.md").write_text("timeout recovery\n", encoding="utf-8")
+    _run(repo, "git", "add", "README.md")
+    _run(repo, "git", "commit", "-m", "recover timeout worker without marker")
+    expected_head = _run(repo, "git", "rev-parse", "HEAD").stdout.strip()
+    stale_time = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
+
+    run_record = store.create_supervisor_run(
+        goal="recover timeout worker without marker",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "recover timeout worker without marker"},
+        work_orders=[
+            {
+                "work_order_id": "wo-timeout-recovery",
+                "status": "dispatched",
+                "review_status": "pending_heterogeneous_review",
+                "worktree_path": str(repo),
+                "branch": "main",
+                "target_agent": "codex",
+                "owner_session_id": "timeout-recovery-session",
+                "lease_id": lease.lease_id,
+                "pid": 525252,
+                "initial_head": initial_head,
+                "dispatched_at": stale_time,
+                "last_progress_at": stale_time,
+                "file_scope": ["README.md"],
+                "receipt_id": None,
+                "progress_fingerprint": {
+                    "head_sha": initial_head,
+                    "changed_paths": [],
+                    "diff_lines": 0,
+                },
+            }
+        ],
+        status="active",
+    )
+
+    detached_worker = WorkerProcess(
+        work_order_id="wo-timeout-recovery",
+        agent="codex",
+        worktree_path=str(repo),
+        branch="main",
+        session_id="timeout-recovery-session",
+        pid=525252,
+        initial_head=initial_head,
+        exit_code=1,
+        completed_at="2026-04-09T01:45:00+00:00",
+        diff="diff --git a/README.md b/README.md",
+        changed_paths=["README.md"],
+        commit_shas=[],
+        head_sha=expected_head,
+        stdout="worker stdout",
+        stderr="",
+    )
+
+    mock_launcher = MagicMock(spec=WorkerLauncher)
+    mock_launcher.collect_finished = AsyncMock(return_value=[])
+    mock_launcher.snapshot_progress = AsyncMock(
+        return_value={
+            "pid_alive": True,
+            "head_sha": initial_head,
+            "changed_paths": [],
+            "diff_lines": 0,
+        }
+    )
+    mock_launcher.config = SimpleNamespace(auto_commit=False, no_progress_timeout_seconds=60.0)
+
+    supervisor = SwarmSupervisor(repo_root=repo, store=store, launcher=mock_launcher)
+
+    with (
+        patch.object(supervisor, "_kill_worker", new=AsyncMock()),
+        patch.object(
+            WorkerLauncher,
+            "collect_detached_result",
+            new=AsyncMock(side_effect=[None, detached_worker]),
+        ),
+    ):
+        completed = await supervisor.collect_finished_results(run_record["run_id"])
+
+    assert len(completed) == 1
+    assert completed[0].commit_shas == [expected_head]
+    updated = store.get_supervisor_run(run_record["run_id"])
+    assert updated is not None
+    work_order = updated["work_orders"][0]
+    assert work_order["status"] == "completed"
+    assert work_order["worker_outcome"] == "timeout_with_salvage"
+    assert work_order["head_sha"] == expected_head
+    assert work_order["commit_shas"] == [expected_head]
+    assert work_order["changed_paths"] == ["README.md"]
+    assert work_order["receipt_id"] is not None
+    assert work_order.get("failure_reason") in {"", None}
 
 
 def test_no_progress_timeout_uses_recent_output_when_bytes_exist(

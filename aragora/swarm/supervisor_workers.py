@@ -352,6 +352,48 @@ def _build_dead_worker_salvage_result(
     )
 
 
+def _recover_commit_backed_terminal_result(
+    self,
+    item: dict[str, Any],
+    *,
+    candidate: WorkerProcess | None,
+    worktree_path: str,
+    initial_head: str,
+) -> WorkerProcess | None:
+    """Recover a commit-backed terminal result when detached collection is incomplete.
+
+    Detached collection intentionally returns changed-path evidence without
+    synthesizing commits when the worker died without a terminal marker. If the
+    worktree HEAD actually advanced, rebuild a truthful salvage result from git
+    history before classifying the lane as receiptless.
+    """
+    if candidate is not None and candidate.commit_shas:
+        return candidate
+    if not worktree_path or not initial_head or not Path(worktree_path).is_dir():
+        return None
+    recovered = self._build_dead_worker_salvage_result(
+        item,
+        worktree_path=worktree_path,
+        initial_head=initial_head,
+    )
+    if recovered is None or not recovered.commit_shas:
+        return None
+    if candidate is not None:
+        if candidate.completed_at:
+            recovered.completed_at = candidate.completed_at
+        if candidate.stdout and not recovered.stdout:
+            recovered.stdout = candidate.stdout
+        if candidate.stderr and not recovered.stderr:
+            recovered.stderr = candidate.stderr
+        if candidate.pid is not None:
+            recovered.pid = candidate.pid
+        if candidate.session_id and not recovered.session_id:
+            recovered.session_id = candidate.session_id
+        if candidate.lease_id and not recovered.lease_id:
+            recovered.lease_id = candidate.lease_id
+    return recovered
+
+
 def _collect_finished_results_before_reap(
     self,
     run_id: str,
@@ -828,9 +870,25 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
             logger.debug("Detached result collection failed for %s", woid, exc_info=True)
             result = None
         if result is not None:
-            finished.append(result)
-            finished_ids.add(woid)
-            continue
+            recovered_result: WorkerProcess | None = None
+            try:
+                recovered_result = _recover_commit_backed_terminal_result(
+                    self,
+                    item,
+                    candidate=result,
+                    worktree_path=worktree_path,
+                    initial_head=str(item.get("initial_head", "")),
+                )
+            except (subprocess.TimeoutExpired, OSError):
+                logger.debug(
+                    "Initial detached salvage reconstruction failed for %s",
+                    woid,
+                    exc_info=True,
+                )
+            if recovered_result is not None:
+                finished.append(recovered_result)
+                finished_ids.add(woid)
+                continue
 
         try:
             progress = await self.launcher.snapshot_progress(item)
@@ -910,8 +968,24 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                 except Exception:
                     logger.debug("Detached result collection failed for %s", woid, exc_info=True)
 
-                if detached_result is not None and detached_result.commit_shas:
-                    finished.append(detached_result)
+                recovered_result: WorkerProcess | None = None
+                try:
+                    recovered_result = _recover_commit_backed_terminal_result(
+                        self,
+                        item,
+                        candidate=detached_result,
+                        worktree_path=worktree_path,
+                        initial_head=str(item.get("initial_head", "")),
+                    )
+                except (subprocess.TimeoutExpired, OSError):
+                    logger.debug(
+                        "Dead-worker salvage reconstruction failed for %s",
+                        woid,
+                        exc_info=True,
+                    )
+
+                if recovered_result is not None:
+                    finished.append(recovered_result)
                     finished_ids.add(woid)
                     item["worker_outcome"] = WorkerOutcome.CRASH_WITH_SALVAGE.value
                     self._release_terminal_lease(item)
@@ -968,10 +1042,26 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                 except Exception:
                     logger.debug("Timeout result collection failed for %s", woid, exc_info=True)
 
-            if timeout_result is not None and timeout_result.commit_shas:
+            recovered_timeout_result: WorkerProcess | None = None
+            try:
+                recovered_timeout_result = _recover_commit_backed_terminal_result(
+                    self,
+                    item,
+                    candidate=timeout_result,
+                    worktree_path=worktree_path,
+                    initial_head=str(item.get("initial_head", "")),
+                )
+            except (subprocess.TimeoutExpired, OSError):
+                logger.debug(
+                    "Timeout salvage reconstruction failed for %s",
+                    woid,
+                    exc_info=True,
+                )
+
+            if recovered_timeout_result is not None:
                 # Worker produced a concrete deliverable before timing out.
                 # Surface it through the normal result path.
-                finished.append(timeout_result)
+                finished.append(recovered_timeout_result)
                 finished_ids.add(woid)
                 item["worker_outcome"] = WorkerOutcome.TIMEOUT_WITH_SALVAGE.value
             else:
