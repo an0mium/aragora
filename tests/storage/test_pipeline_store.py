@@ -276,3 +276,84 @@ class TestUpdateTimestamp:
 
         # updated_at should be newer
         assert second["updated_at"] >= first["updated_at"]
+
+
+class TestParseJsonWarningLogging:
+    """Regression tests for JSON parse failure logging in _parse_json."""
+
+    def test_malformed_json_returns_empty_dict_and_logs_warning(self, store, caplog):
+        """Corrupt JSON in a stored row should log a warning and fall back to {}."""
+        import logging
+
+        store.save("pipe-bad", _make_result(ideas={"ok": True}))
+
+        # Corrupt the ideas_json column directly
+        with store.connection() as conn:
+            conn.execute(
+                "UPDATE pipeline_results SET ideas_json = ? WHERE id = ?",
+                ("{not-valid-json", "pipe-bad"),
+            )
+
+        with caplog.at_level(logging.WARNING, logger="aragora.storage.pipeline_store"):
+            retrieved = store.get("pipe-bad")
+
+        assert retrieved is not None
+        # Fallback: malformed JSON yields empty dict
+        assert retrieved["ideas"] == {}
+        # Warning must have been emitted
+        assert any("Failed to parse stored pipeline JSON" in r.message for r in caplog.records)
+
+    def test_non_string_value_returns_empty_dict_and_logs_warning(self, caplog):
+        """_parse_json with a non-string, non-None value should warn and return {}."""
+        import logging
+
+        from aragora.storage.pipeline_store import _parse_json
+
+        with caplog.at_level(logging.WARNING, logger="aragora.storage.pipeline_store"):
+            result = _parse_json(12345, field_name="test_field")  # type: ignore[arg-type]
+
+        assert result == {}
+        assert any("test_field" in r.message for r in caplog.records)
+
+    def test_valid_json_does_not_log_warning(self, caplog):
+        """Valid JSON should parse cleanly with no warnings."""
+        import logging
+
+        from aragora.storage.pipeline_store import _parse_json
+
+        with caplog.at_level(logging.WARNING, logger="aragora.storage.pipeline_store"):
+            result = _parse_json('{"key": "value"}', field_name="clean")
+
+        assert result == {"key": "value"}
+        assert not any("Failed to parse" in r.message for r in caplog.records)
+
+    def test_empty_value_returns_empty_dict_no_warning(self, caplog):
+        """Empty/None values should return {} without logging."""
+        import logging
+
+        from aragora.storage.pipeline_store import _parse_json
+
+        with caplog.at_level(logging.WARNING, logger="aragora.storage.pipeline_store"):
+            assert _parse_json(None) == {}
+            assert _parse_json("") == {}
+
+        assert not any("Failed to parse" in r.message for r in caplog.records)
+
+    def test_list_pipelines_with_corrupt_stage_status(self, store, caplog):
+        """list_pipelines should survive corrupt stage_status_json."""
+        import logging
+
+        store.save("pipe-corrupt", _make_result())
+
+        with store.connection() as conn:
+            conn.execute(
+                "UPDATE pipeline_results SET stage_status_json = ? WHERE id = ?",
+                ("<<<invalid>>>", "pipe-corrupt"),
+            )
+
+        with caplog.at_level(logging.WARNING, logger="aragora.storage.pipeline_store"):
+            results = store.list_pipelines()
+
+        assert len(results) == 1
+        assert results[0]["stage_status"] == {}
+        assert any("Failed to parse stored pipeline JSON" in r.message for r in caplog.records)
