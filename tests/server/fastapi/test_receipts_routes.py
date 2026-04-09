@@ -733,6 +733,33 @@ class TestReceiptStats:
         assert data["failed"] == 1
         assert data["delivery_rate"] == pytest.approx(2 / 3)
 
+    def test_stats_recompute_delivery_rate_from_store_counts(self, client, mock_receipt_store):
+        """Stats should not borrow history rates when the store already provides counts."""
+        mock_receipt_store.get_stats = MagicMock(
+            return_value={
+                "total": 12,
+                "verified": 10,
+                "delivered": 8,
+                "pending": 3,
+                "failed": 1,
+            }
+        )
+        get_receipt_delivery_history_store().extend(
+            [
+                {"receiptId": "r-1", "status": "delivered"},
+                {"receiptId": "r-2", "status": "failed"},
+                {"receiptId": "r-3", "status": "delivered"},
+            ]
+        )
+
+        response = client.get("/api/v2/receipts/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["delivered"] == 8
+        assert data["pending"] == 3
+        assert data["failed"] == 1
+        assert data["delivery_rate"] == pytest.approx(8 / 9)
+
 
 class TestShareReceipt:
     """Tests for POST /api/v2/receipts/{receipt_id}/share."""
