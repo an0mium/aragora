@@ -96,6 +96,8 @@ class WorkerLauncher:
         """Launch a worker process for a work order."""
         work_order_id = str(work_order.get("work_order_id", "unknown"))
         agent = str(work_order.get("target_agent", "claude")).strip() or "claude"
+        # Enrich work order with pre-read file context before building prompt
+        work_order = self._enrich_task_context(work_order, worktree_path)
         prompt = self._build_prompt(work_order)
         session_id = str(work_order.get("owner_session_id", "")).strip()
         lease_id = str(work_order.get("lease_id", "")).strip()
@@ -791,6 +793,72 @@ class WorkerLauncher:
             raise FileNotFoundError(f"{cli_path} CLI not found on PATH")
 
     @staticmethod
+    @staticmethod
+    def _enrich_task_context(
+        work_order: dict[str, Any],
+        worktree_path: str,
+    ) -> dict[str, Any]:
+        """Read target files and related code to build rich task context.
+
+        This is the single highest-impact improvement for worker success rate.
+        Instead of telling the worker "go figure it out," we hand it the
+        relevant code on a platter.
+        """
+        file_scope = work_order.get("file_scope", [])
+        if not file_scope or not worktree_path:
+            return work_order
+
+        context_snippets: list[str] = []
+        wt = Path(worktree_path)
+
+        for file_path in file_scope[:5]:  # Cap at 5 files
+            full_path = wt / file_path
+            if not full_path.exists():
+                continue
+            try:
+                content = full_path.read_text(errors="replace")
+                lines = content.splitlines()
+                # Include up to 200 lines (enough for context, not overwhelming)
+                if len(lines) > 200:
+                    snippet = "\n".join(lines[:200])
+                    context_snippets.append(
+                        f"--- {file_path} (first 200 of {len(lines)} lines) ---\n{snippet}\n--- end ---"
+                    )
+                else:
+                    context_snippets.append(
+                        f"--- {file_path} ({len(lines)} lines) ---\n{content}\n--- end ---"
+                    )
+
+                # Find key symbols (functions/classes) and their callers
+                symbols = re.findall(r"(?:def|class)\s+(\w+)", content)
+                for sym in symbols[:10]:  # Cap symbol search
+                    try:
+                        result = subprocess.run(
+                            ["grep", "-rn", sym, "aragora/", "--include=*.py", "-l"],
+                            capture_output=True,
+                            text=True,
+                            cwd=worktree_path,
+                            timeout=5,
+                        )
+                        callers = [
+                            f for f in result.stdout.strip().splitlines()[:5] if f != file_path
+                        ]
+                        if callers:
+                            context_snippets.append(
+                                f"Note: `{sym}` is also used in: {', '.join(callers)}"
+                            )
+                    except (subprocess.TimeoutExpired, OSError):
+                        pass
+            except OSError:
+                pass
+
+        if context_snippets:
+            work_order = dict(work_order)
+            work_order["_enriched_context"] = "\n\n".join(context_snippets)
+
+        return work_order
+
+    @staticmethod
     def _build_prompt(work_order: dict[str, Any]) -> str:
         """Build the task prompt from a work order dict."""
         parts: list[str] = []
@@ -811,20 +879,26 @@ class WorkerLauncher:
         if description:
             parts.append(description)
 
+        # Pre-loaded file context (read by supervisor before dispatch)
+        enriched_context = work_order.get("_enriched_context", "")
+        if enriched_context:
+            parts.append(
+                "## Pre-loaded Code Context\n\n"
+                "The supervisor has pre-read the target files for you. "
+                "Study this context carefully before making changes — "
+                "understanding how the code interacts with its callers "
+                "is essential for a correct fix.\n\n"
+                f"{enriched_context}"
+            )
+
         file_scope = work_order.get("file_scope", [])
         if file_scope:
             scope_list = "\n".join(f"  - {f}" for f in file_scope)
             parts.append(
-                "FILE SCOPE GUIDANCE:\n"
-                "The planner expects you to work in these paths:\n"
+                "FILE SCOPE:\n"
                 f"{scope_list}\n"
-                "IMPORTANT: Before starting, verify these paths exist. If they do not, "
-                "search the codebase for the actual files that match the intent "
-                "(e.g. `find . -name '*.py' | grep <keyword>`). Work on the real files "
-                "you find — do not create files at non-existent paths just to satisfy "
-                "the scope list. Treat the resolved scope as a hard boundary: do not "
-                "modify files outside it, and if the fix genuinely requires other files, "
-                "stop and report that blocker instead of widening scope."
+                "Only modify files in this scope. If the fix genuinely requires "
+                "other files, stop and report that blocker."
             )
 
         expected_tests = work_order.get("expected_tests", [])
@@ -870,18 +944,18 @@ class WorkerLauncher:
             )
         elif target_agent == "claude":
             parts.append(
-                "CRITICAL — You MUST commit your work:\n"
-                "  Your work is ONLY preserved if you commit it to git. If you exit without "
-                "committing, all your changes are lost and the run is wasted.\n\n"
-                "  Follow this exact sequence:\n"
-                "  1. Write the code changes\n"
-                "  2. Run `git add <specific-files>` (NOT `git add .` or `git add -A`)\n"
-                "  3. Run `git commit -m 'fix: <descriptive message>'`\n"
-                "  4. THEN run tests if time allows\n"
-                "  5. If tests fail, commit the fix attempt anyway with an honest message\n\n"
-                "  NEVER exit without committing. Even partial work is better than no work.\n"
-                "  NEVER spend more than 2 minutes reading/exploring before writing code.\n"
-                "  NEVER do analysis-only — this lane requires a code deliverable."
+                "## How to work\n\n"
+                "1. READ the pre-loaded context above carefully. Understand what you're changing "
+                "and what depends on it.\n"
+                "2. If anything is unclear, use Read/Grep to check the actual code.\n"
+                "3. Write your code change.\n"
+                "4. Run the validation commands.\n"
+                "5. If tests fail, read the error, fix it, run again.\n"
+                "6. Commit with `git add <specific-files> && git commit -m 'fix: ...'`.\n\n"
+                "CRITICAL — commit before exiting:\n"
+                "  Your work is ONLY preserved if you commit it to git.\n"
+                "  Even partial work is better than no work.\n"
+                "  Do NOT use `git add -A` or `git add .` — only stage files you changed."
             )
 
         lease_id = str(work_order.get("lease_id", "")).strip()

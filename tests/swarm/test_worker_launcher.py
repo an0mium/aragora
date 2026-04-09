@@ -138,10 +138,9 @@ class TestBuildPrompt:
         )
 
         assert "CRITICAL" in prompt
-        assert "MUST commit" in prompt
-        assert "NEVER exit without committing" in prompt
-        assert "analysis-only" in prompt
+        assert "commit before exiting" in prompt
         assert "git commit" in prompt
+        assert "How to work" in prompt
 
     def test_generic_stop_condition_warns_about_no_commit(self):
         prompt = WorkerLauncher._build_prompt(
@@ -161,8 +160,8 @@ class TestBuildPrompt:
             }
         )
 
-        assert "Treat the resolved scope as a hard boundary" in prompt
-        assert "do not modify files outside it" in prompt
+        assert "FILE SCOPE" in prompt
+        assert "Only modify files in this scope" in prompt
         assert "stop and report that blocker" in prompt
 
 
