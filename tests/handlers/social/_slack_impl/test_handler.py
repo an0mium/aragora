@@ -235,6 +235,15 @@ class TestCanHandle:
     def test_status_route(self, slack_handler):
         assert slack_handler.can_handle("/api/v1/integrations/slack/status") is True
 
+    def test_bot_commands_alias_route(self, slack_handler):
+        assert slack_handler.can_handle("/api/v1/bots/slack/commands") is True
+
+    def test_bot_interactions_alias_route(self, slack_handler):
+        assert slack_handler.can_handle("/api/v1/bots/slack/interactions") is True
+
+    def test_bot_events_alias_route(self, slack_handler):
+        assert slack_handler.can_handle("/api/v1/bots/slack/events") is True
+
     def test_unknown_route_returns_false(self, slack_handler):
         assert slack_handler.can_handle("/api/v1/integrations/slack/unknown") is False
 
@@ -814,6 +823,20 @@ class TestHandleRouteDispatch:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
+    async def test_bot_interactions_alias_dispatches(
+        self, slack_handler, config_module, monkeypatch
+    ):
+        """Bot webhook alias dispatches through the legacy interactive handler."""
+        monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
+        monkeypatch.setenv("ARAGORA_ENV", "test")
+
+        body_str = _make_interactive_body(action_type="block_actions", team_id="TBOT", actions=[])
+        handler = _make_post_handler(body_str=body_str)
+        result = await slack_handler.handle("/api/v1/bots/slack/interactions", {}, handler)
+        assert _status(result) == 200
+        assert handler._slack_team_id == "TBOT"
+
+    @pytest.mark.asyncio
     async def test_events_route_dispatches(self, slack_handler, config_module, monkeypatch):
         """Events path dispatches to _handle_events."""
         monkeypatch.setattr(config_module, "SLACK_SIGNING_SECRET", None)
@@ -1244,7 +1267,7 @@ class TestRoutes:
     """Tests for the ROUTES class attribute."""
 
     def test_routes_count(self, handler_module):
-        assert len(handler_module.SlackHandler.ROUTES) == 5
+        assert len(handler_module.SlackHandler.ROUTES) == 8
 
     def test_routes_all_start_with_api(self, handler_module):
         for route in handler_module.SlackHandler.ROUTES:
@@ -1261,6 +1284,18 @@ class TestRoutes:
 
     def test_routes_contains_status(self, handler_module):
         assert "/api/v1/integrations/slack/status" in handler_module.SlackHandler.ROUTES
+
+    def test_routes_contains_bot_commands_alias(self, handler_module):
+        assert "/api/v1/bots/slack/commands" in handler_module.SlackHandler.ROUTES
+
+    def test_routes_contains_bot_interactions_alias(self, handler_module):
+        assert "/api/v1/bots/slack/interactions" in handler_module.SlackHandler.ROUTES
+
+    def test_routes_contains_bot_events_alias(self, handler_module):
+        assert "/api/v1/bots/slack/events" in handler_module.SlackHandler.ROUTES
+
+    def test_routes_contains_bot_status(self, handler_module):
+        assert "/api/v1/bots/slack/status" in handler_module.SlackHandler.ROUTES
 
 
 # ---------------------------------------------------------------------------

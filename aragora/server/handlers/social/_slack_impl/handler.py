@@ -66,19 +66,31 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
         "/api/v1/integrations/slack/interactive",
         "/api/v1/integrations/slack/events",
         "/api/v1/integrations/slack/status",
+        "/api/v1/bots/slack/commands",
+        "/api/v1/bots/slack/interactions",
+        "/api/v1/bots/slack/events",
         "/api/v1/bots/slack/status",
     ]
 
+    @staticmethod
+    def _normalize_path(path: str) -> str:
+        """Map bot aliases onto the canonical integrations/slack routes."""
+        normalized_path = path.replace("/api/v1/bots/slack/", "/api/v1/integrations/slack/")
+        return normalized_path.replace(
+            "/api/v1/integrations/slack/interactions",
+            "/api/v1/integrations/slack/interactive",
+        )
+
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can process the given path."""
-        return path in self.ROUTES
+        return path in self.ROUTES or self._normalize_path(path) in self.ROUTES
 
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
         """Route Slack requests to appropriate methods."""
         logger.debug("Slack request: %s", path)
-        normalized_path = path.replace("/api/v1/bots/slack/", "/api/v1/integrations/slack/")
+        normalized_path = self._normalize_path(path)
 
         if normalized_path == "/api/v1/integrations/slack/status":
             # RBAC: Require authentication and bots.read permission
@@ -106,7 +118,7 @@ class SlackHandler(CommandsMixin, EventsMixin, InteractiveMixin, SecureHandler):
         body = handler.rfile.read(content_length).decode("utf-8")
 
         # Extract team_id for multi-workspace support
-        team_id = self._extract_team_id(body, path)
+        team_id = self._extract_team_id(body, normalized_path)
         workspace = None
         if team_id:
             try:

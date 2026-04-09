@@ -296,6 +296,21 @@ class TestRouteIndex:
             assert idx.get_handler("/api/runs")[0] == "_runs_handler"
             assert idx.get_handler("/api/runs/run-123")[0] == "_runs_handler"
 
+    def test_get_handler_resolves_slack_bot_alias_routes(self) -> None:
+        """Slack bot webhook aliases should dispatch through the registered Slack handler."""
+        from aragora.server.handlers.social._slack_impl.handler import SlackHandler
+
+        idx = RouteIndex()
+        mixin = MagicMock()
+        mixin._slack_handler = SlackHandler({})
+        idx.build(mixin, [("_slack_handler", SlackHandler)])
+
+        with patch("aragora.server.versioning.strip_version_prefix", side_effect=lambda p: p):
+            assert idx.get_handler("/api/v1/bots/slack/status")[0] == "_slack_handler"
+            assert idx.get_handler("/api/v1/bots/slack/commands")[0] == "_slack_handler"
+            assert idx.get_handler("/api/v1/bots/slack/events")[0] == "_slack_handler"
+            assert idx.get_handler("/api/v1/bots/slack/interactions")[0] == "_slack_handler"
+
 
 class TestGetRouteIndex:
     """Tests for global route index singleton."""
