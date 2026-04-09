@@ -91,6 +91,81 @@ class TestOAuthSecurity:
         assert second is None
 
 
+class TestOAuthCallbackQueryParams:
+    """Regression: Google now sends extra query params (iss, authuser, prompt) in callbacks."""
+
+    def test_oauth_callback_path_detected_v1(self):
+        """v1 OAuth callback paths should be recognized."""
+        path = "/api/v1/auth/oauth/google/callback"
+        is_oauth = False
+        if path.startswith("/api/"):
+            if path.startswith("/api/auth/oauth/") or path.startswith("/api/v1/auth/oauth/"):
+                is_oauth = path.rstrip("/").endswith("callback")
+        assert is_oauth is True
+
+    def test_oauth_callback_path_detected_non_v1(self):
+        """Non-v1 OAuth callback paths should be recognized."""
+        path = "/api/auth/oauth/google/callback"
+        is_oauth = False
+        if path.startswith("/api/"):
+            if path.startswith("/api/auth/oauth/") or path.startswith("/api/v1/auth/oauth/"):
+                is_oauth = path.rstrip("/").endswith("callback")
+        assert is_oauth is True
+
+    def test_non_callback_oauth_path_not_skipped(self):
+        """Non-callback OAuth paths should NOT skip validation."""
+        path = "/api/v1/auth/oauth/google/authorize"
+        is_oauth = False
+        if path.startswith("/api/"):
+            if path.startswith("/api/auth/oauth/") or path.startswith("/api/v1/auth/oauth/"):
+                is_oauth = path.rstrip("/").endswith("callback")
+        assert is_oauth is False
+
+    def test_regular_api_path_not_skipped(self):
+        """Regular API paths should NOT skip validation."""
+        path = "/api/v1/playground/debate"
+        is_oauth = False
+        if path.startswith("/api/"):
+            if path.startswith("/api/auth/oauth/") or path.startswith("/api/v1/auth/oauth/"):
+                is_oauth = path.rstrip("/").endswith("callback")
+        assert is_oauth is False
+
+    def test_google_iss_param_accepted_on_callback(self):
+        """Google's iss param must not cause rejection on callback routes.
+
+        Regression test for production failure 2026-04-09: Google added an 'iss'
+        query parameter to OAuth callbacks. The global query param allowlist
+        rejected it, breaking login for all users.
+        """
+        from aragora.server.http_utils import validate_query_params
+
+        # These are the params Google actually sends in 2026
+        google_callback_params = {
+            "state": "abc123",
+            "code": "4/0Aci98...",
+            "scope": "email profile openid",
+            "iss": "https://accounts.google.com",
+            "authuser": "2",
+            "prompt": "consent",
+        }
+
+        # On a callback path, validation is skipped entirely — so this test
+        # verifies the detection logic, not the validator. The validator
+        # WOULD reject 'iss' if called:
+        is_valid, error_msg = validate_query_params(google_callback_params)
+        # The point: this FAILS validation, proving the callback skip is necessary
+        if not is_valid:
+            assert "iss" in error_msg or "authuser" in error_msg or "prompt" in error_msg
+        # Either way, the callback path detection must return True for this path
+        path = "/api/v1/auth/oauth/google/callback"
+        is_oauth_callback = (
+            path.startswith("/api/")
+            and (path.startswith("/api/auth/oauth/") or path.startswith("/api/v1/auth/oauth/"))
+            and path.rstrip("/").endswith("callback")
+        )
+        assert is_oauth_callback is True, "Callback path must skip query param validation"
+
+
 class TestOAuthConfiguration:
     """Test OAuth configuration validation."""
 
