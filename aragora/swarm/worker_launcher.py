@@ -60,6 +60,16 @@ _SCRUBBED_VERIFICATION_ENV_VARS: frozenset[str] = frozenset(
 )
 
 
+def _strip_github_tokens(env: dict[str, str]) -> None:
+    for key in (
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "GH_ENTERPRISE_TOKEN",
+        "GITHUB_ENTERPRISE_TOKEN",
+    ):
+        env.pop(key, None)
+
+
 class WorkerLauncher:
     """Launch and monitor Claude Code / Codex worker processes."""
 
@@ -140,13 +150,14 @@ class WorkerLauncher:
         # Codex CLI multi-agent mode creates isolated config dirs that lack
         # auth credentials.  Pin CODEX_HOME to the user's main config so
         # workers can authenticate.  Claude Code doesn't use this var.
-        worker_env: dict[str, str] | None = None
+        worker_env = dict(os.environ)
+        _strip_github_tokens(worker_env)
         if agent == "codex":
             codex_home = Path.home() / ".codex"
             if (codex_home / "auth.json").exists():
-                worker_env = {**os.environ, "CODEX_HOME": str(codex_home)}
+                worker_env["CODEX_HOME"] = str(codex_home)
         if worker_env_overrides:
-            worker_env = {**(worker_env or dict(os.environ)), **worker_env_overrides}
+            worker_env.update(worker_env_overrides)
 
         # Codex uses "-" as prompt arg and reads from stdin to avoid OS
         # ARG_MAX limits on long prompts with issue bodies + file lists.
