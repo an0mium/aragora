@@ -4584,14 +4584,14 @@ class TestPromoteReadyDrafts:
     """Tests for _promote_ready_drafts."""
 
     def test_identifies_automation_and_boss_owned_draft_branches(self) -> None:
-        assert BossLoop._draft_promotion_ownership("codex/issue-101") == "queue-owned"
-        assert BossLoop._draft_promotion_ownership("codex/ordinary-branch") == "queue-owned"
-        assert BossLoop._draft_promotion_ownership("factory/manual-fix") == "queue-owned"
         assert BossLoop._draft_promotion_ownership("codex/swarm-2c4959f7-micro-2") == "queue-owned"
         assert (
             BossLoop._draft_promotion_ownership("aragora/boss-harvest/issue-10-boss-aaa")
             == "boss-owned"
         )
+        assert BossLoop._draft_promotion_ownership("codex/issue-101") is None
+        assert BossLoop._draft_promotion_ownership("codex/ordinary-branch") is None
+        assert BossLoop._draft_promotion_ownership("factory/manual-fix") is None
         assert BossLoop._draft_promotion_ownership("feature/human-draft") is None
         assert BossLoop._draft_promotion_ownership(None) is None
 
@@ -4643,6 +4643,43 @@ class TestPromoteReadyDrafts:
         assert promoted == [10]
         assert [cmd[3] for cmd in check_calls] == ["10", "30"]
         assert [cmd[3] for cmd in ready_calls] == ["10"]
+
+    def test_skips_generic_automation_branches_even_when_checks_pass(self) -> None:
+        loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
+        draft_list_json = json.dumps(
+            [
+                {"number": 10, "headRefName": "codex/ordinary-branch"},
+                {"number": 20, "headRefName": "factory/manual-fix"},
+            ]
+        )
+        commands: list[list[str]] = []
+
+        def fake_run(cmd, **kw):
+            commands.append(cmd)
+            if "list" in cmd:
+                return SimpleNamespace(returncode=0, stdout=draft_list_json, stderr="")
+            raise AssertionError(f"unexpected gh invocation: {cmd}")
+
+        with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=fake_run):
+            promoted = loop._promote_ready_drafts()
+
+        assert promoted == []
+        assert commands == [
+            [
+                "gh",
+                "pr",
+                "list",
+                "--state",
+                "open",
+                "--draft",
+                "--json",
+                "number,headRefName",
+                "--limit",
+                "100",
+                "-R",
+                "synaptent/aragora",
+            ]
+        ]
 
     def test_skips_unowned_human_draft_even_when_checks_pass(self) -> None:
         loop = BossLoop(config=BossLoopConfig(repo="synaptent/aragora"))
