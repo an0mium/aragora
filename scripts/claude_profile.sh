@@ -55,6 +55,10 @@ ORIGINAL_GH_TOKEN=""
 
 PROFILE_ROOT="${CLAUDE_PROFILE_ROOT:-${HOME}/.aragora-claude}"
 
+if [[ -n "${ARAGORA_CLAUDE_PROFILE:-}" ]]; then
+  PROFILE_HOME="${ARAGORA_CLAUDE_PROFILE}"
+fi
+
 resolve_profile_home() {
   local raw_path="$1"
 
