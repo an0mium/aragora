@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useAuthFetch } from '@/hooks/useAuthenticatedFetch';
 import { ScanProgressView } from './ScanProgressView';
 import { FindingsSummary } from './FindingsSummary';
 import { ReportExporter } from './ReportExporter';
@@ -22,6 +23,7 @@ interface ScanResult {
   status: 'running' | 'completed' | 'failed';
   repository: string;
   files_scanned: number;
+  scanned_label?: string;
   lines_scanned?: number;
   risk_score?: number;
   summary: {
@@ -49,6 +51,10 @@ interface Finding {
   recommendation?: string;
 }
 
+const DEFAULT_REPOSITORY_ID = 'default';
+const POLL_INTERVAL_MS = 5000;
+const MAX_POLL_ATTEMPTS = 60;
+
 const SCAN_TYPES: Array<{ id: ScanType; name: string; description: string; icon: string }> = [
   {
     id: 'quick',
@@ -70,7 +76,296 @@ const SCAN_TYPES: Array<{ id: ScanType; name: string; description: string; icon:
   },
 ];
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function asString(value: unknown, fallback = ''): string {
+  return typeof value === 'string' && value.trim() ? value : fallback;
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function asObjectArray(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => asRecord(item))
+    .filter((item): item is Record<string, unknown> => item !== null);
+}
+
+function hasOwn(obj: Record<string, unknown> | null, key: string): boolean {
+  return Boolean(obj) && Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function normalizeSeverity(value: unknown): Finding['severity'] {
+  switch (typeof value === 'string' ? value.toLowerCase() : '') {
+    case 'critical':
+    case 'high':
+    case 'medium':
+    case 'low':
+    case 'info':
+      return value as Finding['severity'];
+    default:
+      return 'info';
+  }
+}
+
+function computeRiskScore(summary: ScanResult['summary']): number {
+  const score =
+    summary.critical * 40 +
+    summary.high * 20 +
+    summary.medium * 10 +
+    summary.low * 5 +
+    (summary.info || 0);
+  return Math.min(100, score);
+}
+
+function titleCase(value: string): string {
+  return value
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function buildScanStartEndpoint(scanType: ScanType, repositoryId: string): string {
+  switch (scanType) {
+    case 'quick':
+      return '/api/v1/codebase/quick-scan';
+    case 'secrets':
+      return `/api/v1/codebase/${repositoryId}/scan/secrets`;
+    case 'full':
+    default:
+      return `/api/v1/codebase/${repositoryId}/scan`;
+  }
+}
+
+function buildScanStatusEndpoint(
+  scanType: ScanType,
+  repositoryId: string,
+  scanId: string
+): string {
+  switch (scanType) {
+    case 'quick':
+      return `/api/v1/codebase/quick-scan/${scanId}`;
+    case 'secrets':
+      return `/api/v1/codebase/${repositoryId}/scan/secrets/${scanId}`;
+    case 'full':
+    default:
+      return `/api/v1/codebase/${repositoryId}/scan/${scanId}`;
+  }
+}
+
+function buildScanRequest(config: ScanConfig, repositoryId: string): {
+  endpoint: string;
+  body: Record<string, unknown>;
+} {
+  const body: Record<string, unknown> = {
+    repo_path: config.repoPath,
+  };
+
+  if (config.scanType === 'quick') {
+    body.include_secrets = config.includeSecrets;
+    body.severity_threshold = 'medium';
+  }
+
+  if (config.scanType === 'secrets') {
+    body.include_history = config.includeHistory;
+    body.history_depth = config.historyDepth;
+  }
+
+  return {
+    endpoint: buildScanStartEndpoint(config.scanType, repositoryId),
+    body,
+  };
+}
+
+function extractScanPayload(data: Record<string, unknown>): Record<string, unknown> {
+  return asRecord(data.scan_result) ?? data;
+}
+
+function normalizeQuickScanResult(
+  payload: Record<string, unknown>,
+  fallbackRepository: string
+): ScanResult {
+  const summary = asRecord(payload.summary);
+  const findings = asObjectArray(payload.findings).map((finding, index) => ({
+    id: asString(finding.id, `finding-${index + 1}`),
+    title: asString(finding.title, 'Security finding'),
+    description: asString(finding.description, 'No description provided.'),
+    category: asString(finding.category, 'security'),
+    severity: normalizeSeverity(finding.severity),
+    confidence: asNumber(finding.confidence, 0),
+    file_path: asString(finding.file_path, 'unknown'),
+    line_number: asNumber(finding.line_number, 1),
+    code_snippet: asString(finding.code_snippet) || undefined,
+    cwe_id: asString(finding.cwe_id) || undefined,
+    recommendation: asString(finding.recommendation) || undefined,
+  }));
+
+  const normalizedSummary: ScanResult['summary'] = {
+    critical: asNumber(summary?.critical, 0),
+    high: asNumber(summary?.high, 0),
+    medium: asNumber(summary?.medium, 0),
+    low: asNumber(summary?.low, 0),
+    info: asNumber(summary?.info, 0),
+  };
+
+  return {
+    scan_id: asString(payload.scan_id, 'scan_unknown'),
+    status: (asString(payload.status, 'completed') as ScanResult['status']),
+    repository: asString(payload.repository, fallbackRepository),
+    files_scanned: asNumber(payload.files_scanned, 0),
+    scanned_label: 'Files Scanned',
+    lines_scanned: hasOwn(payload, 'lines_scanned')
+      ? asNumber(payload.lines_scanned, 0)
+      : undefined,
+    risk_score: hasOwn(payload, 'risk_score')
+      ? asNumber(payload.risk_score, computeRiskScore(normalizedSummary))
+      : computeRiskScore(normalizedSummary),
+    summary: normalizedSummary,
+    findings,
+    error: asString(payload.error) || undefined,
+  };
+}
+
+function normalizeVulnerabilityScanResult(
+  payload: Record<string, unknown>,
+  fallbackRepository: string
+): ScanResult {
+  const summary = asRecord(payload.summary);
+  const findings = asObjectArray(payload.vulnerabilities).map((finding, index) => {
+    const cweIds = Array.isArray(finding.cwe_ids)
+      ? finding.cwe_ids.filter((value): value is string => typeof value === 'string')
+      : [];
+    const packageName = asString(finding.package_name);
+    const recommendedVersion = asString(finding.recommended_version);
+    const remediationGuidance = asString(finding.remediation_guidance);
+
+    return {
+      id: asString(finding.id, `vulnerability-${index + 1}`),
+      title: asString(finding.title, packageName ? `Vulnerability in ${packageName}` : 'Dependency vulnerability'),
+      description: asString(finding.description, 'No description provided.'),
+      category: 'dependency_vulnerability',
+      severity: normalizeSeverity(finding.severity),
+      confidence: 1,
+      file_path: asString(finding.file_path, packageName || 'dependency'),
+      line_number: asNumber(finding.line_number, 1),
+      cwe_id: cweIds[0],
+      recommendation:
+        remediationGuidance ||
+        (recommendedVersion && packageName
+          ? `Upgrade ${packageName} to ${recommendedVersion}.`
+          : undefined),
+    };
+  });
+
+  const normalizedSummary: ScanResult['summary'] = {
+    critical: asNumber(summary?.critical_count, 0),
+    high: asNumber(summary?.high_count, 0),
+    medium: asNumber(summary?.medium_count, 0),
+    low: asNumber(summary?.low_count, 0),
+    info: 0,
+  };
+
+  return {
+    scan_id: asString(payload.scan_id, 'scan_unknown'),
+    status: (asString(payload.status, 'completed') as ScanResult['status']),
+    repository: asString(payload.repository, fallbackRepository),
+    files_scanned: asNumber(summary?.total_dependencies, 0),
+    scanned_label: 'Dependencies Scanned',
+    risk_score: computeRiskScore(normalizedSummary),
+    summary: normalizedSummary,
+    findings,
+    error: asString(payload.error) || undefined,
+  };
+}
+
+function normalizeSecretsScanResult(
+  payload: Record<string, unknown>,
+  fallbackRepository: string
+): ScanResult {
+  const summary = asRecord(payload.summary);
+  const findings = asObjectArray(payload.secrets).map((finding, index) => ({
+    id: asString(finding.id, `secret-${index + 1}`),
+    title: `${titleCase(asString(finding.secret_type, 'secret'))} detected`,
+    description: asString(
+      finding.context_line,
+      asString(finding.matched_text, 'Potential secret detected in repository.')
+    ),
+    category: asString(finding.secret_type, 'secret'),
+    severity: normalizeSeverity(finding.severity),
+    confidence: asNumber(finding.confidence, 0),
+    file_path: asString(finding.file_path, 'unknown'),
+    line_number: asNumber(finding.line_number, 1),
+    code_snippet: asString(finding.context_line) || undefined,
+    recommendation:
+      asString(finding.remediation) || 'Rotate the secret and move it out of source control.',
+  }));
+
+  const normalizedSummary: ScanResult['summary'] = {
+    critical: asNumber(summary?.critical_count, 0),
+    high: asNumber(summary?.high_count, 0),
+    medium: asNumber(summary?.medium_count, 0),
+    low: asNumber(summary?.low_count, 0),
+    info: 0,
+  };
+
+  return {
+    scan_id: asString(payload.scan_id, 'scan_unknown'),
+    status: (asString(payload.status, 'completed') as ScanResult['status']),
+    repository: asString(payload.repository, fallbackRepository),
+    files_scanned: asNumber(payload.files_scanned, 0),
+    scanned_label: 'Files Scanned',
+    risk_score: computeRiskScore(normalizedSummary),
+    summary: normalizedSummary,
+    findings,
+    error: asString(payload.error) || undefined,
+  };
+}
+
+function normalizeScanResult(
+  data: Record<string, unknown>,
+  fallbackRepository: string
+): ScanResult {
+  const payload = extractScanPayload(data);
+  const summary = asRecord(payload.summary);
+
+  if (asObjectArray(payload.findings).length > 0 || hasOwn(summary, 'critical')) {
+    return normalizeQuickScanResult(payload, fallbackRepository);
+  }
+
+  if (
+    asObjectArray(payload.secrets).length > 0 ||
+    hasOwn(summary, 'total_secrets')
+  ) {
+    return normalizeSecretsScanResult(payload, fallbackRepository);
+  }
+
+  if (
+    asObjectArray(payload.vulnerabilities).length > 0 ||
+    hasOwn(summary, 'total_dependencies') ||
+    hasOwn(summary, 'critical_count')
+  ) {
+    return normalizeVulnerabilityScanResult(payload, fallbackRepository);
+  }
+
+  return normalizeQuickScanResult(payload, fallbackRepository);
+}
+
 export function SecurityScanWizard() {
+  const { authFetch, isAuthenticated, isLoading: authLoading } = useAuthFetch();
   const [step, setStep] = useState<WizardStep>('configure');
   const [config, setConfig] = useState<ScanConfig>({
     scanType: 'quick',
@@ -82,187 +377,94 @@ export function SecurityScanWizard() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const pollForResult = useCallback(async (scanId: string, scanType: ScanType): Promise<ScanResult> => {
+    let lastError: string | null = null;
+
+    for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+      await sleep(POLL_INTERVAL_MS);
+
+      try {
+        const data = await authFetch<Record<string, unknown>>(
+          buildScanStatusEndpoint(scanType, DEFAULT_REPOSITORY_ID, scanId),
+          { method: 'GET' }
+        );
+
+        if (!data) {
+          throw new Error('Sign in to run security scans.');
+        }
+
+        const result = normalizeScanResult(data, config.repoPath);
+        if (result.status === 'completed') {
+          return result;
+        }
+        if (result.status === 'failed') {
+          throw new Error(result.error || 'Security scan failed.');
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : 'Failed to poll scan status.';
+      }
+    }
+
+    throw new Error(
+      lastError || 'Scan timed out before the backend returned a terminal result.'
+    );
+  }, [authFetch, config.repoPath]);
+
   const startScan = useCallback(async () => {
     setStep('scanning');
     setError(null);
+    setScanResult(null);
+
+    if (authLoading) {
+      setError('Authentication is still loading. Try again in a moment.');
+      setStep('configure');
+      return;
+    }
+
+    if (!isAuthenticated) {
+      setError('Sign in to run security scans.');
+      setStep('configure');
+      return;
+    }
 
     try {
-      // Determine which endpoint to call
-      let endpoint = '/api/v1/codebase/default/scan';
-      const body: Record<string, unknown> = {
-        repo_path: config.repoPath,
-      };
-
-      if (config.scanType === 'secrets') {
-        endpoint = '/api/v1/codebase/default/scan/secrets';
-        body.include_history = config.includeHistory;
-        body.history_depth = config.historyDepth;
-      } else if (config.scanType === 'quick') {
-        endpoint = '/api/codebase/quick-scan';
-        body.severity_threshold = 'medium';
-      }
-
-      const response = await fetch(endpoint, {
+      const { endpoint, body } = buildScanRequest(config, DEFAULT_REPOSITORY_ID);
+      const data = await authFetch<Record<string, unknown>>(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
 
-      if (!response.ok) {
-        // Use mock data for demo
-        await simulateScan();
+      if (!data) {
+        throw new Error('Sign in to run security scans.');
+      }
+
+      const payload = extractScanPayload(data);
+      const status = asString(payload.status, 'completed');
+
+      if (status === 'running') {
+        const scanId = asString(payload.scan_id);
+        if (!scanId) {
+          throw new Error('Backend started a scan without returning a scan ID.');
+        }
+
+        const result = await pollForResult(scanId, config.scanType);
+        setScanResult(result);
+        setStep('results');
         return;
       }
 
-      const data = await response.json();
-
-      if (data.success && data.status === 'running') {
-        // Poll for completion
-        await pollForResult(data.scan_id);
-      } else if (data.success) {
-        setScanResult(formatScanResult(data));
-        setStep('results');
-      } else {
-        throw new Error(data.error || 'Scan failed');
+      const result = normalizeScanResult(payload, config.repoPath);
+      if (result.status === 'failed') {
+        throw new Error(result.error || 'Security scan failed.');
       }
-    } catch {
-      // Use mock data for demo
-      await simulateScan();
+
+      setScanResult(result);
+      setStep('results');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start security scan.');
+      setStep('configure');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- formatScanResult, pollForResult, and simulateScan are stable
-  }, [config]);
-
-  const pollForResult = async (_scanId: string) => {
-    const maxAttempts = 60; // 5 minutes max
-    let attempts = 0;
-
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      attempts++;
-
-      try {
-        const response = await fetch(`/api/v1/codebase/default/scan/latest`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.scan_result?.status === 'completed' || data.scan_result?.status === 'failed') {
-            setScanResult(formatScanResult(data.scan_result));
-            setStep('results');
-            return;
-          }
-        }
-      } catch {
-        // Continue polling
-      }
-    }
-
-    setError('Scan timed out');
-    setStep('configure');
-  };
-
-  const formatScanResult = (data: Record<string, unknown>): ScanResult => {
-    return {
-      scan_id: (data.scan_id as string) || 'scan_mock',
-      status: (data.status as ScanResult['status']) || 'completed',
-      repository: (data.repository as string) || config.repoPath,
-      files_scanned: (data.files_scanned as number) || 0,
-      lines_scanned: data.lines_scanned as number,
-      risk_score: data.risk_score as number,
-      summary: (data.summary as ScanResult['summary']) || {
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-      },
-      findings: (data.findings as Finding[]) || [],
-      error: data.error as string,
-    };
-  };
-
-  const simulateScan = async () => {
-    // Simulate scan progress
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    setScanResult({
-      scan_id: `scan_${Date.now()}`,
-      status: 'completed',
-      repository: config.repoPath,
-      files_scanned: 127,
-      lines_scanned: 15420,
-      risk_score: 35,
-      summary: {
-        critical: 0,
-        high: 2,
-        medium: 5,
-        low: 8,
-        info: 3,
-      },
-      findings: [
-        {
-          id: 'SEC-001',
-          title: 'Hardcoded API Key Pattern',
-          description: 'Potential API key detected in source code',
-          category: 'hardcoded_secret',
-          severity: 'high',
-          confidence: 0.85,
-          file_path: 'src/config/api.ts',
-          line_number: 42,
-          code_snippet: 'const API_KEY = "sk-..."',
-          cwe_id: 'CWE-798',
-          recommendation: 'Move API keys to environment variables',
-        },
-        {
-          id: 'SEC-002',
-          title: 'SQL String Interpolation',
-          description: 'SQL query using template literals may be vulnerable to injection',
-          category: 'sql_injection',
-          severity: 'high',
-          confidence: 0.92,
-          file_path: 'src/db/queries.ts',
-          line_number: 78,
-          code_snippet: 'db.query(`SELECT * FROM users WHERE id = ${userId}`)',
-          cwe_id: 'CWE-89',
-          recommendation: 'Use parameterized queries',
-        },
-        {
-          id: 'SEC-003',
-          title: 'Debug Mode Enabled',
-          description: 'Debug mode appears to be enabled in configuration',
-          category: 'insecure_config',
-          severity: 'medium',
-          confidence: 0.78,
-          file_path: 'src/config/app.ts',
-          line_number: 15,
-          cwe_id: 'CWE-489',
-          recommendation: 'Ensure DEBUG is false in production',
-        },
-        {
-          id: 'SEC-004',
-          title: 'SSL Verification Disabled',
-          description: 'SSL certificate verification is disabled',
-          category: 'insecure_config',
-          severity: 'medium',
-          confidence: 0.95,
-          file_path: 'src/services/http.ts',
-          line_number: 23,
-          cwe_id: 'CWE-295',
-          recommendation: 'Enable SSL verification',
-        },
-        {
-          id: 'SEC-005',
-          title: 'MD5 Hash Usage',
-          description: 'MD5 is cryptographically broken',
-          category: 'weak_crypto',
-          severity: 'medium',
-          confidence: 0.99,
-          file_path: 'src/utils/hash.ts',
-          line_number: 12,
-          cwe_id: 'CWE-328',
-          recommendation: 'Use SHA-256 or stronger',
-        },
-      ],
-    });
-    setStep('results');
-  };
+  }, [authFetch, authLoading, config, isAuthenticated, pollForResult]);
 
   const resetWizard = () => {
     setStep('configure');

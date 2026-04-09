@@ -21,6 +21,7 @@ interface ScanResult {
   status: string;
   repository: string;
   files_scanned: number;
+  scanned_label?: string;
   lines_scanned?: number;
   risk_score?: number;
   summary: {
@@ -148,7 +149,7 @@ export function ReportExporter({ result }: ReportExporterProps) {
     lines.push('');
     lines.push(`**Scan ID:** ${result.scan_id}`);
     lines.push(`**Repository:** ${result.repository}`);
-    lines.push(`**Files Scanned:** ${result.files_scanned}`);
+    lines.push(`**${result.scanned_label || 'Files Scanned'}:** ${result.files_scanned}`);
     if (result.lines_scanned) {
       lines.push(`**Lines Analyzed:** ${result.lines_scanned.toLocaleString()}`);
     }
@@ -320,7 +321,9 @@ export function ReportExporter({ result }: ReportExporterProps) {
           <div className="text-sm font-theme-data text-[var(--acid-cyan)]">
             {result.files_scanned}
           </div>
-          <div className="text-xs text-[var(--text-muted)]">Files Scanned</div>
+          <div className="text-xs text-[var(--text-muted)]">
+            {result.scanned_label || 'Files Scanned'}
+          </div>
         </div>
       </div>
     </div>

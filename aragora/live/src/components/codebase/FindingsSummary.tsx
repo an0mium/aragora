@@ -21,6 +21,7 @@ interface ScanResult {
   status: string;
   repository: string;
   files_scanned: number;
+  scanned_label?: string;
   lines_scanned?: number;
   risk_score?: number;
   summary: {
@@ -94,7 +95,7 @@ export function FindingsSummary({ result }: FindingsSummaryProps) {
         {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <StatCard
-            label="Files Scanned"
+            label={result.scanned_label || 'Files Scanned'}
             value={result.files_scanned}
             color="text-[var(--acid-cyan)]"
           />
