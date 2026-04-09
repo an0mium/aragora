@@ -35,11 +35,26 @@ def _worktree_path(repo_root: Path, branch: str) -> Path:
     return repo_root / ".worktrees" / f"preflight-{branch.replace('/', '-')}"
 
 
+def _normalize_agent(agent: str) -> str:
+    normalized = str(agent or "").strip().lower()
+    if not normalized:
+        return "claude"
+    if "claude" in normalized:
+        return "claude"
+    if normalized in {"codex", "openai", "openai-api"}:
+        return "codex"
+    if "codex" in normalized or normalized.startswith("gpt-"):
+        return "codex"
+    raise ValueError(
+        f"Unsupported preflight agent {agent!r}; expected a Claude/Codex agent or model family."
+    )
+
+
 def _work_order(agent: str) -> dict[str, object]:
     filename = "scratch/preflight_worker_check.txt"
     return {
         "work_order_id": f"preflight-{int(time.time())}",
-        "target_agent": agent,
+        "target_agent": _normalize_agent(agent),
         "title": "Preflight worker check",
         "description": (
             "Create a file named `scratch/preflight_worker_check.txt` with a single line "
@@ -124,7 +139,7 @@ def main() -> int:
     parser.add_argument(
         "--agent",
         default=os.environ.get("WORKER_MODEL", "claude"),
-        help="Target agent (claude or codex)",
+        help="Target agent or worker model family (normalized to claude/codex)",
     )
     parser.add_argument(
         "--skip-publication",
