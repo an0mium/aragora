@@ -74,13 +74,14 @@ class NotificationTemplateStore:
             return {}
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(data, dict):
-                return data
-            logger.warning("Invalid template override file for %s, resetting", user_id)
-            return {}
+            if not isinstance(data, dict):
+                raise ValueError(
+                    f"Invalid template override file for {user_id}: expected object, got {type(data).__name__}"
+                )
+            return data
         except (json.JSONDecodeError, OSError) as exc:
-            logger.warning("Failed to read template overrides for %s: %s", user_id, exc)
-            return {}
+            logger.error("Failed to read template overrides for %s: %s", user_id, exc)
+            raise
 
     def _write_user_file(self, user_id: str, data: dict[str, dict[str, Any]]) -> None:
         """Write a user's override file atomically."""
@@ -150,8 +151,9 @@ class NotificationTemplateStore:
                 path = self._user_path(user_id)
                 try:
                     path.unlink(missing_ok=True)
-                except OSError:
-                    pass
+                except OSError as exc:
+                    logger.error("Failed to delete template overrides for %s: %s", user_id, exc)
+                    raise
             return True
 
     async def list_all_overrides(self) -> dict[str, dict[str, dict[str, Any]]]:
@@ -169,7 +171,8 @@ class NotificationTemplateStore:
                     if data:
                         result[user_id] = data
             except OSError as exc:
-                logger.warning("Failed to list template overrides: %s", exc)
+                logger.error("Failed to list template overrides: %s", exc)
+                raise
         return result
 
 
