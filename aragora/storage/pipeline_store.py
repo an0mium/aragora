@@ -243,7 +243,14 @@ def _parse_json(value: str | None) -> Any:
         return {}
     try:
         return json.loads(value)
-    except (json.JSONDecodeError, TypeError):
+    except (json.JSONDecodeError, TypeError) as exc:
+        payload = value if isinstance(value, str) else repr(value)
+        logger.warning(
+            "Failed to parse stored pipeline JSON: %s; payload=%r",
+            exc,
+            payload[:200],
+            exc_info=True,
+        )
         return {}
 
 
