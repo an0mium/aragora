@@ -103,12 +103,16 @@ class WorkerLauncher:
             prompt=prompt,
         )
 
+        profile_override = str(metadata.get("claude_profile", "")).strip() or None
+        profile_script_override = str(metadata.get("claude_profile_script", "")).strip() or None
         cmd = self._build_command(
             agent,
             prompt,
             worktree_path,
             session_id=session_id,
             admin_approved=admin_approved,
+            claude_profile=profile_override,
+            claude_profile_script=profile_script_override,
         )
         if not cmd:
             raise RuntimeError(f"Cannot build launch command for agent={agent}")
@@ -128,6 +132,10 @@ class WorkerLauncher:
             for key, value in dict(raw_worker_env or {}).items()
             if str(key).strip()
         }
+        if agent == "claude":
+            effective_profile = profile_override or self.config.claude_profile
+            if effective_profile and "ARAGORA_CLAUDE_PROFILE" not in worker_env_overrides:
+                worker_env_overrides["ARAGORA_CLAUDE_PROFILE"] = effective_profile
 
         # Codex CLI multi-agent mode creates isolated config dirs that lack
         # auth credentials.  Pin CODEX_HOME to the user's main config so
@@ -514,6 +522,8 @@ class WorkerLauncher:
         *,
         session_id: str = "",
         admin_approved: bool = False,
+        claude_profile: str | None = None,
+        claude_profile_script: str | None = None,
     ) -> list[str]:
         """Build the launch command for the given agent type."""
         inner = self._build_agent_command(
@@ -521,6 +531,8 @@ class WorkerLauncher:
             prompt,
             worktree_path=worktree_path,
             admin_approved=admin_approved,
+            claude_profile=claude_profile,
+            claude_profile_script=claude_profile_script,
         )
         if not self.config.use_managed_session_script:
             return inner
@@ -552,6 +564,8 @@ class WorkerLauncher:
         *,
         worktree_path: str = "",
         admin_approved: bool = False,
+        claude_profile: str | None = None,
+        claude_profile_script: str | None = None,
     ) -> list[str]:
         if agent == "claude":
             cmd = [self.config.claude_path, "-p", prompt]
@@ -562,11 +576,14 @@ class WorkerLauncher:
                 cmd.append("--dangerously-skip-permissions")
             if self.config.claude_model:
                 cmd.extend(["--model", self.config.claude_model])
-            if self.config.claude_profile:
-                profile_script = self.config.claude_profile_script or str(
-                    Path(worktree_path).resolve() / "scripts" / "claude_profile.sh"
+            profile = str(claude_profile or self.config.claude_profile or "").strip() or None
+            if profile:
+                profile_script = (
+                    claude_profile_script
+                    or self.config.claude_profile_script
+                    or str(Path(worktree_path).resolve() / "scripts" / "claude_profile.sh")
                 )
-                return [profile_script, "exec", self.config.claude_profile, "--", *cmd]
+                return [profile_script, "exec", profile, "--", *cmd]
             return cmd
 
         if agent == "codex":
