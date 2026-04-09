@@ -549,8 +549,11 @@ class User:
                 target_id=str(self.id),
                 details={"reason": reason, "expires_days": expires_days},
             )
-        except ImportError:
-            pass
+        except ImportError as exc:
+            raise ConfigurationError(
+                component="MFA Bypass Approval Audit",
+                reason="aragora.audit.unified.audit_admin is required to approve MFA bypasses",
+            ) from exc
 
     def revoke_mfa_bypass(self, revoked_by: str, reason: str = "manual_revocation") -> None:
         """Revoke MFA bypass for this service account."""
@@ -579,8 +582,11 @@ class User:
                 target_id=str(self.id),
                 details={"reason": reason, "previous_approved_by": previous_approved_by},
             )
-        except ImportError:
-            pass
+        except ImportError as exc:
+            raise ConfigurationError(
+                component="MFA Bypass Revocation Audit",
+                reason="aragora.audit.unified.audit_admin is required to revoke MFA bypasses",
+            ) from exc
 
     def to_dict(self, include_sensitive: bool = False) -> dict[str, Any]:
         """Convert to dictionary."""
