@@ -28,6 +28,7 @@ from typing import Any
 
 from aragora.nomic.dev_coordination import DevCoordinationStore
 from aragora.pipeline.execution_mode import ExecutionMode
+from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.terminal_truth import (
     extract_run_deliverable,
     extract_run_worker_outcome,
@@ -1963,6 +1964,7 @@ class BossLoop:
 
                 push_proc = subprocess.run(
                     ["git", "-C", temp_dir, "push", "-u", "origin", f"HEAD:{harvest_branch}"],
+                    env=git_safe_env(),
                     capture_output=True,
                     text=True,
                     timeout=60,

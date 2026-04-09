@@ -13,6 +13,7 @@ from aragora.ralph.github_control import (
     _partition_checks,
 )
 from aragora.swarm.delivery_policy import apply_delivery_policy
+from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.pr_registry import PullRequestRegistry
 from aragora.swarm.tranche import TrancheArtifactStore
 from aragora.swarm.tranche_state import (
@@ -1138,6 +1139,7 @@ def _push_branch_to_origin(repo_root: Path, branch: str) -> dict[str, Any]:
         result = subprocess.run(
             ["git", "push", "origin", normalized_branch],
             cwd=str(repo_root),
+            env=git_safe_env(),
             capture_output=True,
             text=True,
             timeout=30,

@@ -27,6 +27,7 @@ from aragora.security.capability_gate import (
     authorize_capability_dispatch,
     ensure_capability_approval_id,
 )
+from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.worker_process import (
     DEFAULT_VERIFICATION_TIMEOUT_SECONDS,
     LaunchConfig,
@@ -2132,6 +2133,7 @@ class WorkerLauncher:
                 "origin",
                 "HEAD",
                 cwd=worker.worktree_path,
+                env=git_safe_env(),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -2178,6 +2180,7 @@ class WorkerLauncher:
             push_proc = subprocess.run(
                 ["git", "push", "origin", "HEAD"],
                 cwd=worker.worktree_path,
+                env=git_safe_env(),
                 capture_output=True,
                 text=True,
                 timeout=30,
