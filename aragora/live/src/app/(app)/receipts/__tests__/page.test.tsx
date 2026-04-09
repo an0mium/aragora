@@ -1,6 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import ReceiptsPage from '../page';
 import { useSWRFetch } from '@/hooks/useSWRFetch';
 
 jest.mock('next/link', () => {
@@ -56,6 +55,8 @@ jest.mock('@/hooks/useAuthenticatedFetch', () => ({
     }),
   }),
 }));
+
+const ReceiptsPage = require('../page').default;
 
 const mockUseSWRFetch = useSWRFetch as jest.Mock;
 const mockFetch = jest.fn();

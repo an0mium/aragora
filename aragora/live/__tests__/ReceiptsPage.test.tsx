@@ -48,7 +48,16 @@ jest.mock('../src/hooks/useSWRFetch', () => ({
   useSWRFetch: (...args: unknown[]) => mockUseSWRFetch(...args),
 }));
 
-import ReceiptsPage from '../src/app/(app)/receipts/page';
+jest.mock('../src/hooks/useAuthenticatedFetch', () => ({
+  useAuthFetch: () => ({
+    getAuthHeaders: () => ({
+      Authorization: 'Bearer test-token',
+      'Content-Type': 'application/json',
+    }),
+  }),
+}));
+
+const ReceiptsPage = require('../src/app/(app)/receipts/page').default;
 
 type HookResult = {
   data: Record<string, unknown> | null;
@@ -190,8 +199,8 @@ describe('ReceiptsPage', () => {
     render(<ReceiptsPage />);
 
     await waitFor(() => {
-      const rowButton = screen.getByText('Still executing').closest('button');
-      expect(rowButton).toBeDisabled();
+      expect(screen.getByText('Still executing')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /Still executing/i })).toBeNull();
     });
   });
 
