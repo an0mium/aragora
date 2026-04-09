@@ -141,9 +141,7 @@ def _project_from_slice(
         milestone=milestone_title,
         spec=spec,
         file_scope_hints=_dedupe(slice_record.file_scope or list(spec.file_scope_hints)),
-        acceptance_criteria=_dedupe(
-            slice_record.acceptance_criteria or list(spec.acceptance_criteria)
-        ),
+        acceptance_criteria=list(spec.acceptance_criteria),
         constraints=_dedupe(spec.constraints),
         dependencies=dependencies,
         feature_flag=initiative.feature_flag_name

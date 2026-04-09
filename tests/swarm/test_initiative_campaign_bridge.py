@@ -65,6 +65,12 @@ def test_sync_campaign_manifest_materializes_projects_from_initiative(tmp_path) 
     assert projects["slice-1"].feature_flag == "initiative_bridge"
     assert projects["slice-1"].feature_flag_required is True
     assert projects["slice-2"].dependencies[0].project_id == "slice-1"
+    assert projects["slice-1"].acceptance_criteria == projects["slice-1"].spec.acceptance_criteria
+    assert "campaign manifest is created" in projects["slice-1"].acceptance_criteria
+    assert (
+        "python3 -m pytest tests/swarm/test_initiative_campaign_bridge.py -q"
+        in projects["slice-1"].acceptance_criteria
+    )
     assert "campaign manifest is created" in projects["slice-1"].spec.acceptance_criteria
     assert (
         "python3 -m pytest tests/swarm/test_initiative_campaign_bridge.py -q"
