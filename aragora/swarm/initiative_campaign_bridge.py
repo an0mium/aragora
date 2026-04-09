@@ -134,16 +134,13 @@ def _project_from_slice(
         project_id=slice_record.slice_id,
         title=slice_record.title or slice_record.slice_id,
         source_refs=_dedupe(
-            list(existing_project.source_refs)
-            if existing_project
-            else [] + [initiative.initiative_id, slice_record.slice_id]
+            (list(existing_project.source_refs) if existing_project else [])
+            + [initiative.initiative_id, slice_record.slice_id]
         ),
         milestone=milestone_title,
         spec=spec,
         file_scope_hints=_dedupe(slice_record.file_scope or list(spec.file_scope_hints)),
-        acceptance_criteria=_dedupe(
-            slice_record.acceptance_criteria or list(spec.acceptance_criteria)
-        ),
+        acceptance_criteria=_dedupe(list(spec.acceptance_criteria)),
         constraints=_dedupe(spec.constraints),
         dependencies=dependencies,
         feature_flag=initiative.feature_flag_name
@@ -232,7 +229,7 @@ def _review_gate(
     review_model: str,
     required: bool,
 ) -> CampaignReviewGate:
-    if existing_project is None:
+    if existing_project is None or existing_project.review is None:
         return CampaignReviewGate(required=required, review_model=review_model)
     gate = CampaignReviewGate.from_dict(existing_project.review.to_dict())
     gate.required = required
