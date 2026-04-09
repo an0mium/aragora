@@ -145,14 +145,43 @@ class HarnessesHandler(BaseHandler):
         if not _harness_execute_limiter.is_allowed(client_ip):
             return error_response("Rate limit exceeded. Please try again later.", 429)
 
-        # POST /api/v1/harnesses/{name}/execute
-        if path.endswith("/execute"):
-            name, err = self.extract_path_param(path, 4, "name")
-            if err:
-                return err
+        name, err = self._extract_execute_harness_name(path)
+        if err is not None:
+            return err
+        if name is not None:
             return self._execute_harness(name, handler)
 
         return None
+
+    @handle_errors("harness execution")
+    @require_permission("harnesses:execute")
+    def handle_put(self, path: str, query_params: dict, handler: Any) -> HandlerResult | None:
+        """Validate PUT requests for harness execution routes."""
+        client_ip = get_client_ip(handler)
+        if not _harness_execute_limiter.is_allowed(client_ip):
+            return error_response("Rate limit exceeded. Please try again later.", 429)
+
+        name, err = self._extract_execute_harness_name(path)
+        if err is not None:
+            return err
+        if name is not None:
+            return self._execute_harness(name, handler)
+
+        return None
+
+    def _extract_execute_harness_name(self, path: str) -> tuple[str | None, HandlerResult | None]:
+        """Validate the execute route shape before extracting the harness name."""
+        if not path.endswith("/execute"):
+            return None, None
+
+        path_parts = [part for part in path.split("/") if part]
+        if len(path_parts) != 5 or path_parts[:3] != ["api", "v1", "harnesses"]:
+            return None, error_response("Invalid harness execute path", 400)
+
+        name, err = self.extract_path_param(path, 4, "name")
+        if err:
+            return None, err
+        return name, None
 
     def _list_harnesses(self) -> HandlerResult:
         """List all available harnesses."""
