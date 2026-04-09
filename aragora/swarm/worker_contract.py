@@ -1,0 +1,168 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import subprocess
+from dataclasses import dataclass
+from typing import Any, Mapping
+
+from aragora.pipeline.execution_mode import ExecutionMode
+from aragora.swarm.worker_process import LaunchConfig
+
+
+_CONTRACT_VERSION = "1"
+_ENV_CHECKSUM_KEYS = (
+    "ARAGORA_",
+    "CLAUDE_",
+    "CODEX_",
+    "GH_",
+    "GITHUB_",
+)
+
+
+@dataclass(slots=True)
+class WorkerContract:
+    runner_type: str
+    agent: str
+    model: str
+    profile: str
+    permissions: dict[str, Any]
+    execution_mode: str
+    git_auth_mode: str
+    gh_api_auth_mode: str
+    budget: dict[str, Any]
+    env_checksum: str
+    contract_version: str = _CONTRACT_VERSION
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "runner_type": self.runner_type,
+            "agent": self.agent,
+            "model": self.model,
+            "profile": self.profile,
+            "permissions": dict(self.permissions),
+            "execution_mode": self.execution_mode,
+            "git_auth_mode": self.git_auth_mode,
+            "gh_api_auth_mode": self.gh_api_auth_mode,
+            "budget": dict(self.budget),
+            "env_checksum": self.env_checksum,
+            "contract_version": self.contract_version,
+        }
+
+    def checksum(self) -> str:
+        payload = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":")).encode()
+        return hashlib.sha256(payload).hexdigest()
+
+    def validate(self) -> None:
+        required = {
+            "runner_type": self.runner_type,
+            "agent": self.agent,
+            "model": self.model,
+            "profile": self.profile,
+            "permissions": self.permissions,
+            "execution_mode": self.execution_mode,
+            "git_auth_mode": self.git_auth_mode,
+            "gh_api_auth_mode": self.gh_api_auth_mode,
+            "budget": self.budget,
+            "env_checksum": self.env_checksum,
+            "contract_version": self.contract_version,
+        }
+        missing = [key for key, value in required.items() if value is None or value == ""]
+        if missing:
+            raise ValueError(f"Worker contract missing required fields: {', '.join(missing)}")
+
+
+def _env_checksum(env: Mapping[str, str] | None) -> str:
+    snapshot: dict[str, str] = {}
+    for key, value in dict(env or os.environ).items():
+        if any(key.startswith(prefix) for prefix in _ENV_CHECKSUM_KEYS):
+            snapshot[key] = value
+    payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _git_auth_mode(repo_path: str) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "--push", "origin"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return "unknown"
+    remote = (result.stdout or "").strip()
+    if remote.startswith("git@"):
+        return "ssh"
+    if remote.startswith("https://"):
+        return "https"
+    if remote:
+        return "unknown"
+    return "unset"
+
+
+def _gh_api_auth_mode(env: Mapping[str, str] | None) -> str:
+    snapshot = dict(env or os.environ)
+    token = snapshot.get("GH_TOKEN") or snapshot.get("GITHUB_TOKEN") or ""
+    if not token:
+        return "none"
+    if snapshot.get("GITHUB_APP_ID") or snapshot.get("GITHUB_APP_INSTALLATION_ID"):
+        return "app"
+    return "user"
+
+
+def build_worker_contract(
+    *,
+    agent: str,
+    config: LaunchConfig,
+    worktree_path: str,
+    env: Mapping[str, str] | None = None,
+) -> WorkerContract:
+    normalized_agent = str(agent or "").strip() or "unknown"
+    if normalized_agent == "claude":
+        model = str(config.claude_model or "default").strip() or "default"
+        profile = str(config.claude_profile or "default").strip() or "default"
+        permissions = {
+            "allow_dangerous_permissions": bool(config.allow_claude_dangerously_skip_permissions),
+        }
+        runner_type = "claude-cli"
+    elif normalized_agent == "codex":
+        model = str(config.codex_model or "default").strip() or "default"
+        profile = "default"
+        permissions = {"allow_full_auto": bool(config.allow_codex_full_auto)}
+        runner_type = "codex-cli"
+    else:
+        model = "default"
+        profile = "default"
+        permissions = {}
+        runner_type = "cli"
+
+    budget = {
+        "max_wall_time_seconds": float(config.timeout_seconds),
+        "no_progress_timeout_seconds": float(config.no_progress_timeout_seconds),
+        "max_turns": None,
+        "max_tokens": None,
+        "max_retries": None,
+    }
+
+    execution_mode = (
+        config.execution_mode.value
+        if isinstance(config.execution_mode, ExecutionMode)
+        else str(config.execution_mode)
+    )
+
+    return WorkerContract(
+        runner_type=runner_type,
+        agent=normalized_agent,
+        model=model,
+        profile=profile,
+        permissions=permissions,
+        execution_mode=execution_mode,
+        git_auth_mode=_git_auth_mode(worktree_path),
+        gh_api_auth_mode=_gh_api_auth_mode(env),
+        budget=budget,
+        env_checksum=_env_checksum(env),
+    )

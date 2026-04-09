@@ -98,6 +98,8 @@ class WorkerProcess:
     dispatch_action_id: str = ""
     push_action_id: str = ""
     admin_approved: bool = False
+    worker_contract: dict[str, Any] = field(default_factory=dict)
+    worker_contract_checksum: str = ""
 
     @property
     def is_running(self) -> bool:
@@ -128,6 +130,8 @@ class WorkerProcess:
             "dispatch_action_id": self.dispatch_action_id,
             "push_action_id": self.push_action_id,
             "admin_approved": self.admin_approved,
+            "worker_contract": dict(self.worker_contract),
+            "worker_contract_checksum": self.worker_contract_checksum,
         }
 
 
