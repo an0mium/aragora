@@ -257,6 +257,38 @@ def _truncate_feedback_text(value: Any, *, limit: int) -> str | None:
     return text[:limit]
 
 
+def _validate_landing_feedback_payload(payload: dict[str, Any]) -> list[str]:
+    """Return field-level validation errors for public landing feedback."""
+    errors: list[str] = []
+
+    for field_name in ("question", "final_answer"):
+        if _truncate_feedback_text(payload.get(field_name), limit=10_000) is None:
+            errors.append(f"{field_name} must be a non-empty string")
+
+    for field_name in (
+        "interpreted_question",
+        "result_warning",
+        "result_mode",
+        "debate_id",
+        "verdict",
+    ):
+        value = payload.get(field_name)
+        if value is not None and not isinstance(value, str):
+            errors.append(f"{field_name} must be a string")
+
+    participant_count = payload.get("participant_count")
+    if participant_count is not None and (
+        not isinstance(participant_count, int) or isinstance(participant_count, bool)
+    ):
+        errors.append("participant_count must be an integer")
+
+    rewritten = payload.get("rewritten")
+    if rewritten is not None and not isinstance(rewritten, bool):
+        errors.append("rewritten must be a boolean")
+
+    return errors
+
+
 def _client_tag(client_ip: str) -> str:
     """Return a stable, privacy-safer tag for client grouping."""
     normalized = client_ip.strip()
@@ -2730,7 +2762,18 @@ class PlaygroundHandler(BaseHandler):
         if not report_id:
             return error_response("Missing landing feedback report id", 400)
 
-        review_status = _normalize_landing_review_status(body.get("review_status"))
+        raw_review_status = body.get("review_status")
+        normalized_review_status = (
+            raw_review_status.strip().lower() if isinstance(raw_review_status, str) else None
+        )
+        if normalized_review_status not in _LANDING_REVIEW_STATUSES:
+            valid_statuses = ", ".join(sorted(_LANDING_REVIEW_STATUSES))
+            return error_response(
+                f"Invalid landing feedback review status. Valid statuses: {valid_statuses}",
+                400,
+            )
+        review_status = normalized_review_status
+
         reviewed_at = None
         reviewed_by = None
         if review_status != "pending":
@@ -3077,6 +3120,13 @@ class PlaygroundHandler(BaseHandler):
             body = {}
         if not isinstance(body, dict):
             return error_response("Invalid landing feedback payload", 400)
+
+        field_errors = _validate_landing_feedback_payload(body)
+        if field_errors:
+            return error_response(
+                "Invalid landing feedback payload: " + "; ".join(field_errors),
+                400,
+            )
 
         report = _record_landing_feedback(
             client_ip=_extract_client_ip(handler),

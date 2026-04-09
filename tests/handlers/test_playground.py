@@ -691,6 +691,38 @@ class TestLandingTelemetry:
         assert report["participant_count"] == 3
         assert report["rewritten"] is True
 
+    def test_feedback_rejects_missing_required_text_fields(self, handler):
+        result = handler.handle_post(
+            "/api/v1/playground/landing/feedback",
+            {},
+            _MockHTTPHandler("POST", body={"participant_count": 3, "rewritten": True}),
+        )
+
+        assert _status(result) == 400
+        error = _body(result)["error"]
+        assert "question must be a non-empty string" in error
+        assert "final_answer must be a non-empty string" in error
+
+    def test_feedback_rejects_invalid_field_types(self, handler):
+        result = handler.handle_post(
+            "/api/v1/playground/landing/feedback",
+            {},
+            _MockHTTPHandler(
+                "POST",
+                body={
+                    "question": "Should I microwave nuggets?",
+                    "final_answer": "Yes, if they are heated through.",
+                    "participant_count": "three",
+                    "rewritten": "yes",
+                },
+            ),
+        )
+
+        assert _status(result) == 400
+        error = _body(result)["error"]
+        assert "participant_count must be an integer" in error
+        assert "rewritten must be a boolean" in error
+
     def test_feedback_list_requires_admin(self, handler):
         from aragora.server.handlers.base import error_response
 
@@ -854,6 +886,44 @@ class TestLandingTelemetry:
             )
 
         assert _status(result) == 404
+
+    def test_feedback_review_update_rejects_invalid_status(self, handler):
+        now = datetime.now(timezone.utc)
+        store = get_landing_review_store()
+        store.record_feedback(
+            {
+                "id": "lfb_1",
+                "timestamp": now.isoformat(),
+                "client_tag": "ip:abc123",
+                "question": "Should I microwave chicken nuggets for my child?",
+                "interpreted_question": "Is it safe to reheat pre-cooked chicken nuggets?",
+                "final_answer_preview": "Yes, reheat until hot all the way through.",
+                "result_warning": None,
+                "result_mode": "preview",
+                "debate_id": "debate-123",
+                "verdict": "needs_review",
+                "participant_count": 3,
+                "rewritten": True,
+                "review_status": "pending",
+                "reviewed_at": None,
+                "reviewed_by": None,
+            }
+        )
+
+        admin_user = MagicMock()
+        admin_user.email = "owner@aragora.ai"
+
+        with patch.object(handler, "require_admin_or_error", return_value=(admin_user, None)):
+            result = handler.handle_post(
+                "/api/v1/playground/landing/feedback/review",
+                {},
+                _MockHTTPHandler("POST", body={"id": "lfb_1", "review_status": "bogus"}),
+            )
+
+        assert _status(result) == 400
+        assert "Valid statuses" in _body(result)["error"]
+        reports = get_landing_review_store().list_recent_feedback(window_seconds=3600, limit=10)
+        assert reports[0]["review_status"] == "pending"
 
 
 # ============================================================================
