@@ -826,6 +826,10 @@ class TestCmdQuickstart:
                 return_value=[("openai-api", "gpt-4o")],
             ),
             patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=AsyncMock(return_value=(True, None)),
+            ),
+            patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
                 return_value={
                     "question": "Should we use the live default?",
@@ -1020,6 +1024,10 @@ class TestCmdQuickstart:
                 return_value=[("openai-api", "gpt-4o")],
             ),
             patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=AsyncMock(return_value=(True, None)),
+            ),
+            patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
                 return_value=live_result,
             ),
@@ -1096,6 +1104,10 @@ class TestCmdQuickstart:
         with (
             patch("aragora.cli.api_keys.set_provider_key") as set_provider_key,
             patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=AsyncMock(return_value=(True, None)),
+            ),
+            patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
                 return_value=live_result,
             ) as run_live_debate,
@@ -1157,6 +1169,10 @@ class TestCmdQuickstart:
             patch(
                 "aragora.cli.commands.quickstart._detect_agents",
                 return_value=[("openai-api", "gpt-4o")],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=AsyncMock(return_value=(True, None)),
             ),
             patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
@@ -1367,6 +1383,10 @@ class TestCmdQuickstart:
             patch(
                 "aragora.cli.commands.quickstart._detect_agents",
                 return_value=[("gemini", "gemini-3.1-pro")],
+            ),
+            patch(
+                "aragora.cli.commands.quickstart._can_reach_provider_tls",
+                new=AsyncMock(return_value=(True, None)),
             ),
             patch(
                 "aragora.cli.commands.quickstart._run_live_debate",
