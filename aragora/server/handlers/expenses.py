@@ -84,6 +84,134 @@ def reset_expense_circuit_breaker() -> None:
 # Type alias for handler methods that can return async or sync results
 MaybeAsyncHandlerResult = HandlerResult | None | Awaitable[HandlerResult | None]
 
+
+# =============================================================================
+# Shared Request Body Extraction
+# =============================================================================
+
+
+def _extract_request_body(
+    data: dict[str, Any],
+    *,
+    require_vendor: bool = False,
+    require_amount: bool = False,
+    parse_category: bool = False,
+    parse_status: bool = False,
+    parse_date_field: str | None = None,
+    parse_payment_method: bool = False,
+) -> tuple[dict[str, Any], HandlerResult | None]:
+    """Extract and validate common expense fields from a request body.
+
+    Returns a tuple of (extracted_fields, error_response). If error_response
+    is not None, the caller should return it immediately.
+    """
+    fields: dict[str, Any] = {}
+
+    # -- vendor_name --
+    vendor_name = data.get("vendor_name")
+    if require_vendor:
+        if not vendor_name:
+            return fields, error_response("vendor_name is required", status=400)
+    if vendor_name is not None:
+        if not isinstance(vendor_name, str):
+            return fields, error_response("vendor_name must be a string", status=400)
+        if len(vendor_name) > 500:
+            return fields, error_response("vendor_name must be 500 characters or less", status=400)
+    fields["vendor_name"] = vendor_name
+
+    # -- amount --
+    amount = data.get("amount")
+    if require_amount and amount is None:
+        return fields, error_response("amount is required", status=400)
+    if amount is not None:
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            return fields, error_response("amount must be a number", status=400)
+        if amount < 0:
+            return fields, error_response("amount must be non-negative", status=400)
+        if amount > 1_000_000_000:
+            return fields, error_response("amount exceeds maximum allowed value", status=400)
+    fields["amount"] = amount
+
+    # -- description --
+    description = data.get("description")
+    if description is not None and len(str(description)) > 5000:
+        return fields, error_response("description must be 5000 characters or less", status=400)
+    fields["description"] = description if description is not None else data.get("description", "")
+
+    # -- tags --
+    tags = data.get("tags")
+    if tags is not None:
+        if not isinstance(tags, list):
+            return fields, error_response("tags must be a list", status=400)
+        if len(tags) > 50:
+            return fields, error_response("tags must contain 50 items or less", status=400)
+        for tag in tags:
+            if not isinstance(tag, str) or len(tag) > 100:
+                return fields, error_response(
+                    "each tag must be a string of 100 characters or less", status=400
+                )
+    fields["tags"] = tags
+
+    # -- category enum --
+    if parse_category:
+        from aragora.services.expense_tracker import ExpenseCategory
+
+        category = None
+        category_str = data.get("category")
+        if category_str:
+            try:
+                category = ExpenseCategory(category_str)
+            except ValueError:
+                logger.debug("Invalid category '%s', ignoring", category_str)
+        fields["category"] = category
+
+    # -- status enum --
+    if parse_status:
+        from aragora.services.expense_tracker import ExpenseStatus
+
+        status = None
+        status_str = data.get("status")
+        if status_str:
+            try:
+                status = ExpenseStatus(status_str)
+            except ValueError:
+                logger.debug("Invalid status '%s', ignoring", status_str)
+        fields["status"] = status
+
+    # -- date field --
+    if parse_date_field:
+        date_val = None
+        date_str = data.get(parse_date_field)
+        if date_str:
+            if not isinstance(date_str, str):
+                return fields, error_response(f"{parse_date_field} must be a string", status=400)
+            try:
+                date_val = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            except ValueError:
+                return fields, error_response(f"Invalid {parse_date_field} format", status=400)
+        fields[parse_date_field] = date_val
+
+    # -- payment_method enum --
+    if parse_payment_method:
+        from aragora.services.expense_tracker import PaymentMethod
+
+        payment_method = PaymentMethod.CREDIT_CARD
+        payment_method_str = data.get("payment_method")
+        if payment_method_str:
+            try:
+                payment_method = PaymentMethod(payment_method_str)
+            except ValueError:
+                logger.debug(
+                    "Invalid payment_method '%s', defaulting to CREDIT_CARD",
+                    payment_method_str,
+                )
+        fields["payment_method"] = payment_method
+
+    return fields, None
+
+
 # Thread-safe service instance
 _expense_tracker: Any | None = None
 _expense_tracker_lock = threading.Lock()
@@ -239,92 +367,27 @@ async def handle_create_expense(
     try:
         tracker = get_expense_tracker()
 
-        vendor_name = data.get("vendor_name")
-        amount = data.get("amount")
-
-        if not vendor_name:
-            return error_response("vendor_name is required", status=400)
-        # Validate vendor_name type and length
-        if not isinstance(vendor_name, str):
-            return error_response("vendor_name must be a string", status=400)
-        if len(vendor_name) > 500:
-            return error_response("vendor_name must be 500 characters or less", status=400)
-
-        if amount is None:
-            return error_response("amount is required", status=400)
-
-        try:
-            amount = float(amount)
-        except (TypeError, ValueError):
-            return error_response("amount must be a number", status=400)
-
-        # Validate amount range
-        if amount < 0:
-            return error_response("amount must be non-negative", status=400)
-        if amount > 1_000_000_000:  # 1 billion cap for sanity
-            return error_response("amount exceeds maximum allowed value", status=400)
-
-        # Parse date
-        date = None
-        date_str = data.get("date")
-        if date_str:
-            if not isinstance(date_str, str):
-                return error_response("date must be a string", status=400)
-            try:
-                date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            except ValueError:
-                return error_response("Invalid date format", status=400)
-
-        # Parse category
-        from aragora.services.expense_tracker import ExpenseCategory, PaymentMethod
-
-        category = None
-        category_str = data.get("category")
-        if category_str:
-            try:
-                category = ExpenseCategory(category_str)
-            except ValueError:
-                logger.debug("Invalid category '%s', will auto-categorize", category_str)
-
-        # Parse payment method
-        payment_method = PaymentMethod.CREDIT_CARD
-        payment_method_str = data.get("payment_method")
-        if payment_method_str:
-            try:
-                payment_method = PaymentMethod(payment_method_str)
-            except ValueError:
-                logger.debug(
-                    "Invalid payment_method '%s', defaulting to CREDIT_CARD", payment_method_str
-                )
-
-        # Validate description length if provided
-        description = data.get("description", "")
-        if description and len(description) > 5000:
-            return error_response("description must be 5000 characters or less", status=400)
-
-        # Validate tags if provided
-        tags = data.get("tags")
-        if tags is not None:
-            if not isinstance(tags, list):
-                return error_response("tags must be a list", status=400)
-            if len(tags) > 50:
-                return error_response("tags must contain 50 items or less", status=400)
-            for tag in tags:
-                if not isinstance(tag, str) or len(tag) > 100:
-                    return error_response(
-                        "each tag must be a string of 100 characters or less", status=400
-                    )
+        fields, err = _extract_request_body(
+            data,
+            require_vendor=True,
+            require_amount=True,
+            parse_category=True,
+            parse_date_field="date",
+            parse_payment_method=True,
+        )
+        if err is not None:
+            return err
 
         expense = await tracker.create_expense(
-            vendor_name=vendor_name,
-            amount=amount,
-            date=date,
-            category=category,
-            payment_method=payment_method,
-            description=description,
+            vendor_name=fields["vendor_name"],
+            amount=fields["amount"],
+            date=fields.get("date"),
+            category=fields.get("category"),
+            payment_method=fields["payment_method"],
+            description=fields.get("description", ""),
             employee_id=data.get("employee_id"),
             is_reimbursable=data.get("is_reimbursable", False),
-            tags=tags,
+            tags=fields.get("tags"),
         )
 
         cb.record_success()
@@ -373,25 +436,16 @@ async def handle_list_expenses(
     try:
         tracker = get_expense_tracker()
 
-        # Parse filters
-        from aragora.services.expense_tracker import ExpenseCategory, ExpenseStatus
+        # Use shared extraction for category/status enums
+        fields, err = _extract_request_body(
+            query_params,
+            parse_category=True,
+            parse_status=True,
+        )
+        if err is not None:
+            return err
 
-        category = None
-        category_str = query_params.get("category")
-        if category_str:
-            try:
-                category = ExpenseCategory(category_str)
-            except ValueError:
-                logger.debug("Invalid category filter '%s', ignoring", category_str)
-
-        status = None
-        status_str = query_params.get("status")
-        if status_str:
-            try:
-                status = ExpenseStatus(status_str)
-            except ValueError:
-                logger.debug("Invalid status filter '%s', ignoring", status_str)
-
+        # Date filters use lenient parsing (ignore invalid values)
         start_date = None
         start_date_str = query_params.get("start_date")
         if start_date_str:
@@ -412,11 +466,11 @@ async def handle_list_expenses(
         offset = safe_query_int(query_params, "offset", default=0, min_val=0, max_val=100000)
 
         expenses, total = await tracker.list_expenses(
-            category=category,
+            category=fields.get("category"),
             vendor=query_params.get("vendor"),
             start_date=start_date,
             end_date=end_date,
-            status=status,
+            status=fields.get("status"),
             employee_id=query_params.get("employee_id"),
             limit=limit,
             offset=offset,
@@ -519,72 +573,23 @@ async def handle_update_expense(
     try:
         tracker = get_expense_tracker()
 
-        # Validate vendor_name if provided
-        vendor_name = data.get("vendor_name")
-        if vendor_name is not None:
-            if not isinstance(vendor_name, str):
-                return error_response("vendor_name must be a string", status=400)
-            if len(vendor_name) > 500:
-                return error_response("vendor_name must be 500 characters or less", status=400)
-
-        # Validate amount if provided
-        amount = data.get("amount")
-        if amount is not None:
-            try:
-                amount = float(amount)
-            except (TypeError, ValueError):
-                return error_response("amount must be a number", status=400)
-            if amount < 0:
-                return error_response("amount must be non-negative", status=400)
-            if amount > 1_000_000_000:
-                return error_response("amount exceeds maximum allowed value", status=400)
-
-        # Validate description if provided
-        description = data.get("description")
-        if description is not None and len(str(description)) > 5000:
-            return error_response("description must be 5000 characters or less", status=400)
-
-        # Validate tags if provided
-        tags = data.get("tags")
-        if tags is not None:
-            if not isinstance(tags, list):
-                return error_response("tags must be a list", status=400)
-            if len(tags) > 50:
-                return error_response("tags must contain 50 items or less", status=400)
-            for tag in tags:
-                if not isinstance(tag, str) or len(tag) > 100:
-                    return error_response(
-                        "each tag must be a string of 100 characters or less", status=400
-                    )
-
-        # Parse category
-        from aragora.services.expense_tracker import ExpenseCategory, ExpenseStatus
-
-        category = None
-        category_str = data.get("category")
-        if category_str:
-            try:
-                category = ExpenseCategory(category_str)
-            except ValueError:
-                logger.debug("Invalid category '%s' in update, ignoring", category_str)
-
-        status = None
-        status_str = data.get("status")
-        if status_str:
-            try:
-                status = ExpenseStatus(status_str)
-            except ValueError:
-                logger.debug("Invalid status '%s' in update, ignoring", status_str)
+        fields, err = _extract_request_body(
+            data,
+            parse_category=True,
+            parse_status=True,
+        )
+        if err is not None:
+            return err
 
         expense = await tracker.update_expense(
             expense_id=expense_id,
-            vendor_name=vendor_name,
-            amount=amount,
-            category=category,
-            description=description,
-            status=status,
+            vendor_name=fields.get("vendor_name"),
+            amount=fields.get("amount"),
+            category=fields.get("category"),
+            description=fields.get("description"),
+            status=fields.get("status"),
             is_reimbursable=data.get("is_reimbursable"),
-            tags=tags,
+            tags=fields.get("tags"),
         )
 
         if not expense:
