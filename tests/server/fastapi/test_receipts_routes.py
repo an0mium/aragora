@@ -733,6 +733,40 @@ class TestReceiptStats:
         assert data["failed"] == 1
         assert data["delivery_rate"] == pytest.approx(2 / 3)
 
+    def test_stats_ignore_test_and_orphan_delivery_history(self, client, mock_receipt_store):
+        """Stats should ignore test sends and non-receipt history entries."""
+        mock_receipt_store.get_stats = MagicMock(return_value={"total": 1, "verified": 1})
+        get_receipt_delivery_history_store().extend(
+            [
+                {
+                    "status": "success",
+                    "is_test": True,
+                    "receiptId": "test-1",
+                },
+                {
+                    "status": "failed",
+                    "is_test": True,
+                    "receiptId": "test-2",
+                },
+                {
+                    "status": "delivered",
+                    "receiptId": "real-1",
+                },
+                {
+                    "status": "failed",
+                    "channel_type": "slack",
+                },
+            ]
+        )
+
+        response = client.get("/api/v2/receipts/stats")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["delivered"] == 1
+        assert data["pending"] == 0
+        assert data["failed"] == 0
+        assert data["delivery_rate"] == pytest.approx(1.0)
+
 
 class TestShareReceipt:
     """Tests for POST /api/v2/receipts/{receipt_id}/share."""
