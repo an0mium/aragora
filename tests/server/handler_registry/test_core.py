@@ -296,6 +296,34 @@ class TestRouteIndex:
             assert idx.get_handler("/api/runs")[0] == "_runs_handler"
             assert idx.get_handler("/api/runs/run-123")[0] == "_runs_handler"
 
+    def test_get_handler_prefers_accounting_handler_for_missing_gusto_surface(self, monkeypatch):
+        """Accounting routes should resolve to the dedicated accounting handler."""
+        from aragora.server.handlers.accounting import AccountingHandler
+        from aragora.server.handlers.ap_automation import APAutomationHandler
+
+        monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "0")
+
+        idx = RouteIndex()
+        mixin = MagicMock()
+        mixin._accounting_handler = AccountingHandler({})
+        mixin._ap_automation_handler = APAutomationHandler({})
+        idx.build(
+            mixin,
+            [
+                ("_accounting_handler", AccountingHandler),
+                ("_ap_automation_handler", APAutomationHandler),
+            ],
+        )
+
+        with patch("aragora.server.versioning.strip_version_prefix", side_effect=lambda p: p):
+            assert idx.get_handler("/api/v1/accounting/callback")[0] == "_accounting_handler"
+            assert idx.get_handler("/api/v1/accounting/report")[0] == "_accounting_handler"
+            assert idx.get_handler("/api/v1/accounting/gusto/connect")[0] == "_accounting_handler"
+            assert (
+                idx.get_handler("/api/v1/accounting/gusto/payrolls/pay_123/journal-entry")[0]
+                == "_accounting_handler"
+            )
+
 
 class TestGetRouteIndex:
     """Tests for global route index singleton."""

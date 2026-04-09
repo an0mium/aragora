@@ -105,6 +105,19 @@ def test_get_handler_routes_resolves_deferred_imports(monkeypatch):
     assert "/api/v1/test/get" in routes
 
 
+def test_get_handler_routes_includes_accounting_registry_surface(monkeypatch):
+    monkeypatch.setenv("ARAGORA_USE_SECRETS_MANAGER", "0")
+
+    routes = validate_openapi_routes.get_handler_routes()
+
+    assert "/api/v1/accounting/callback" in routes
+    assert "/api/v1/accounting/report" in routes
+    assert "/api/v1/accounting/gusto/connect" in routes
+    assert "/api/v1/accounting/gusto/callback" in routes
+    assert "/api/v1/accounting/gusto/disconnect" in routes
+    assert "/api/v1/accounting/gusto/payrolls/*/journal-entry" in routes
+
+
 def test_get_openapi_routes_includes_sibling_generated_snapshot(tmp_path: Path):
     spec = tmp_path / "openapi.json"
     generated = tmp_path / "openapi_generated.json"

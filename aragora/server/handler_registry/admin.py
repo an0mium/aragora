@@ -271,6 +271,7 @@ DevOpsHandler = _safe_import("aragora.server.handlers.features", "DevOpsHandler"
 # Accounting Handler Imports
 # =============================================================================
 
+AccountingHandler = _safe_import("aragora.server.handlers.accounting", "AccountingHandler")
 APAutomationHandler = _safe_import("aragora.server.handlers.ap_automation", "APAutomationHandler")
 ARAutomationHandler = _safe_import("aragora.server.handlers.ar_automation", "ARAutomationHandler")
 InvoiceHandler = _safe_import("aragora.server.handlers.invoices", "InvoiceHandler")
@@ -589,6 +590,7 @@ ADMIN_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_legal_handler", LegalHandler),
     ("_devops_handler", DevOpsHandler),
     # Accounting
+    ("_accounting_handler", AccountingHandler),
     ("_ap_automation_handler", APAutomationHandler),
     ("_ar_automation_handler", ARAutomationHandler),
     ("_invoice_handler", InvoiceHandler),
@@ -784,6 +786,7 @@ __all__ = [
     "LegalHandler",
     "DevOpsHandler",
     # Accounting
+    "AccountingHandler",
     "APAutomationHandler",
     "ARAutomationHandler",
     "InvoiceHandler",

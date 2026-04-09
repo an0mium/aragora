@@ -35,6 +35,7 @@ import pytest
 from aiohttp import web
 
 from aragora.server.handlers.accounting import (
+    AccountingHandler,
     MOCK_COMPANY,
     MOCK_CUSTOMERS,
     MOCK_STATS,
@@ -1656,14 +1657,35 @@ class TestRegisterAccountingRoutes:
         register_accounting_routes(app)
         routes = [r.resource.canonical for r in app.router.routes() if hasattr(r, "resource")]
         assert "/api/v1/accounting/gusto/payrolls/{payroll_id}" in routes
+        assert "/api/v1/accounting/gusto/payrolls/{payroll_id}/journal-entry" in routes
         assert "/api/accounting/gusto/payrolls/{payroll_id}" in routes
+        assert "/api/accounting/gusto/payrolls/{payroll_id}/journal-entry" in routes
 
     def test_route_count(self):
         app = web.Application()
         register_accounting_routes(app)
         route_list = list(app.router.routes())
-        # 14 v1 + 14 legacy = 28 routes
-        assert len(route_list) >= 28
+        # 15 v1 + 15 legacy = 30 routes
+        assert len(route_list) >= 30
+
+
+class TestAccountingHandlerRegistry:
+    """Tests for modular accounting route exposure."""
+
+    def test_registry_surface_includes_missing_accounting_routes(self):
+        handler = AccountingHandler({})
+
+        assert "/api/v1/accounting/callback" in handler.ROUTES
+        assert "/api/v1/accounting/report" in handler.ROUTES
+        assert "/api/v1/accounting/gusto/connect" in handler.ROUTES
+        assert "/api/v1/accounting/gusto/callback" in handler.ROUTES
+        assert "/api/v1/accounting/gusto/disconnect" in handler.ROUTES
+        assert "/api/v1/accounting/gusto/payrolls/*/journal-entry" in handler.ROUTES
+
+    def test_can_handle_dynamic_gusto_journal_entry_path(self):
+        handler = AccountingHandler({})
+
+        assert handler.can_handle("/api/v1/accounting/gusto/payrolls/payroll_123/journal-entry")
 
 
 # ===========================================================================

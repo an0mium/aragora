@@ -27,6 +27,7 @@ Endpoints:
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -37,7 +38,7 @@ from aragora.connectors.accounting.gusto import GustoConnector
 from aragora.server.handlers.utils import parse_json_body
 from aragora.server.handlers.utils.decorators import require_permission
 from aragora.server.handlers.utils.params import get_pagination_params
-from aragora.server.handlers.utils.responses import error_dict
+from aragora.server.handlers.utils.responses import HandlerResult, error_dict
 from aragora.server.handlers.openapi_decorator import api_endpoint
 
 logger = logging.getLogger(__name__)
@@ -153,6 +154,262 @@ MOCK_TRANSACTIONS = [
         "status": "Paid",
     },
 ]
+
+
+class AccountingHandler:
+    """Bridge the aiohttp accounting routes into modular handler dispatch."""
+
+    ROUTES = [
+        "/api/v1/accounting/status",
+        "/api/v1/accounting/connect",
+        "/api/v1/accounting/callback",
+        "/api/v1/accounting/disconnect",
+        "/api/v1/accounting/customers",
+        "/api/v1/accounting/transactions",
+        "/api/v1/accounting/report",
+        "/api/v1/accounting/gusto/status",
+        "/api/v1/accounting/gusto/connect",
+        "/api/v1/accounting/gusto/callback",
+        "/api/v1/accounting/gusto/disconnect",
+        "/api/v1/accounting/gusto/employees",
+        "/api/v1/accounting/gusto/payrolls",
+        "/api/v1/accounting/gusto/payrolls/*",
+        "/api/v1/accounting/gusto/payrolls/*/journal-entry",
+        "/api/accounting/status",
+        "/api/accounting/connect",
+        "/api/accounting/callback",
+        "/api/accounting/disconnect",
+        "/api/accounting/customers",
+        "/api/accounting/transactions",
+        "/api/accounting/report",
+        "/api/accounting/gusto/status",
+        "/api/accounting/gusto/connect",
+        "/api/accounting/gusto/callback",
+        "/api/accounting/gusto/disconnect",
+        "/api/accounting/gusto/employees",
+        "/api/accounting/gusto/payrolls",
+        "/api/accounting/gusto/payrolls/*",
+        "/api/accounting/gusto/payrolls/*/journal-entry",
+    ]
+
+    ROUTE_PREFIXES = [
+        "/api/v1/accounting/gusto/payrolls/",
+        "/api/accounting/gusto/payrolls/",
+    ]
+
+    def __init__(self, ctx: dict | None = None):
+        self.ctx = ctx or {}
+
+    def can_handle(self, path: str) -> bool:
+        return (
+            self._resolve_registry_target(path, "GET") is not None
+            or self._resolve_registry_target(path, "POST") is not None
+        )
+
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+        return self._run_async(self._dispatch_registry_request("GET", path, query_params, handler))
+
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
+        return self._run_async(self._dispatch_registry_request("POST", path, query_params, handler))
+
+    @staticmethod
+    def _run_async(coro: Any) -> HandlerResult | None:
+        from aragora.server.handler_registry.core import _run_handler_coroutine
+
+        return _run_handler_coroutine(coro)
+
+    @staticmethod
+    def _read_request_body(handler: Any) -> bytes:
+        try:
+            headers = getattr(handler, "headers", {}) or {}
+            content_length = int(headers.get("Content-Length", "0"))
+        except (TypeError, ValueError, AttributeError):
+            content_length = 0
+        if content_length <= 0 or not hasattr(handler, "rfile"):
+            return b""
+        body = handler.rfile.read(content_length)
+        if isinstance(body, bytes):
+            return body
+        if isinstance(body, bytearray):
+            return bytes(body)
+        return b""
+
+    @staticmethod
+    def _match_dynamic(
+        path: str,
+        *,
+        prefix: str,
+        suffix: str = "",
+        param_name: str,
+    ) -> dict[str, str] | None:
+        if not path.startswith(prefix):
+            return None
+        remainder = path[len(prefix) :]
+        if suffix:
+            if not remainder.endswith(suffix):
+                return None
+            remainder = remainder[: -len(suffix)]
+        token = remainder.strip("/")
+        if not token or "/" in token:
+            return None
+        return {param_name: token}
+
+    @classmethod
+    def _resolve_registry_target(cls, path: str, method: str) -> tuple[Any, dict[str, str]] | None:
+        get_routes = {
+            "/api/v1/accounting/status": handle_accounting_status,
+            "/api/v1/accounting/connect": handle_accounting_connect,
+            "/api/v1/accounting/callback": handle_accounting_callback,
+            "/api/v1/accounting/customers": handle_accounting_customers,
+            "/api/v1/accounting/transactions": handle_accounting_transactions,
+            "/api/v1/accounting/gusto/status": handle_gusto_status,
+            "/api/v1/accounting/gusto/connect": handle_gusto_connect,
+            "/api/v1/accounting/gusto/callback": handle_gusto_callback,
+            "/api/v1/accounting/gusto/employees": handle_gusto_employees,
+            "/api/v1/accounting/gusto/payrolls": handle_gusto_payrolls,
+            "/api/accounting/status": handle_accounting_status,
+            "/api/accounting/connect": handle_accounting_connect,
+            "/api/accounting/callback": handle_accounting_callback,
+            "/api/accounting/customers": handle_accounting_customers,
+            "/api/accounting/transactions": handle_accounting_transactions,
+            "/api/accounting/gusto/status": handle_gusto_status,
+            "/api/accounting/gusto/connect": handle_gusto_connect,
+            "/api/accounting/gusto/callback": handle_gusto_callback,
+            "/api/accounting/gusto/employees": handle_gusto_employees,
+            "/api/accounting/gusto/payrolls": handle_gusto_payrolls,
+        }
+        post_routes = {
+            "/api/v1/accounting/disconnect": handle_accounting_disconnect,
+            "/api/v1/accounting/report": handle_accounting_report,
+            "/api/v1/accounting/gusto/disconnect": handle_gusto_disconnect,
+            "/api/accounting/disconnect": handle_accounting_disconnect,
+            "/api/accounting/report": handle_accounting_report,
+            "/api/accounting/gusto/disconnect": handle_gusto_disconnect,
+        }
+        dynamic_routes = {
+            "GET": [
+                (
+                    "/api/v1/accounting/gusto/payrolls/",
+                    "",
+                    "payroll_id",
+                    handle_gusto_payroll_detail,
+                ),
+                (
+                    "/api/accounting/gusto/payrolls/",
+                    "",
+                    "payroll_id",
+                    handle_gusto_payroll_detail,
+                ),
+            ],
+            "POST": [
+                (
+                    "/api/v1/accounting/gusto/payrolls/",
+                    "/journal-entry",
+                    "payroll_id",
+                    handle_gusto_journal_entry,
+                ),
+                (
+                    "/api/accounting/gusto/payrolls/",
+                    "/journal-entry",
+                    "payroll_id",
+                    handle_gusto_journal_entry,
+                ),
+            ],
+        }
+
+        route_map = get_routes if method == "GET" else post_routes if method == "POST" else {}
+        route_handler = route_map.get(path)
+        if route_handler is not None:
+            return route_handler, {}
+
+        for prefix, suffix, param_name, dynamic_handler in dynamic_routes.get(method, []):
+            match = cls._match_dynamic(path, prefix=prefix, suffix=suffix, param_name=param_name)
+            if match is not None:
+                return dynamic_handler, match
+        return None
+
+    def _build_registry_request(
+        self,
+        handler: Any,
+        *,
+        query_params: dict[str, Any],
+        match_info: dict[str, str],
+        body: bytes,
+    ) -> Any:
+        app_state = self.ctx
+
+        class _RequestAdapter:
+            def __init__(self) -> None:
+                self.query = query_params
+                self.match_info = match_info
+                self.headers = getattr(handler, "headers", {}) or {}
+                self.method = getattr(handler, "command", "GET")
+                self._auth_context = getattr(handler, "_auth_context", None)
+                self.content_length = len(body) if body else None
+                self.app = app_state
+                self._body = body
+
+            async def json(self) -> dict[str, Any]:
+                return json.loads(self._body.decode("utf-8")) if self._body else {}
+
+            async def read(self) -> bytes:
+                return self._body
+
+        return _RequestAdapter()
+
+    @staticmethod
+    def _to_handler_result(response: Any) -> HandlerResult:
+        if isinstance(response, HandlerResult):
+            return response
+        body = getattr(response, "body", b"")
+        if isinstance(body, bytearray):
+            body = bytes(body)
+        elif body is None:
+            text = getattr(response, "text", "") or ""
+            body = text.encode("utf-8")
+        if not isinstance(body, bytes):
+            body = bytes(body)
+        content_type = getattr(response, "content_type", "application/json") or "application/json"
+        headers = dict(getattr(response, "headers", {}) or {})
+        status_code = getattr(response, "status_code", None)
+        if status_code is None:
+            status_code = getattr(response, "status", 200)
+        return HandlerResult(
+            status_code=int(status_code),
+            content_type=str(content_type),
+            body=body,
+            headers=headers,
+        )
+
+    async def _dispatch_registry_request(
+        self,
+        method: str,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult:
+        resolved = self._resolve_registry_target(path, method)
+        if resolved is None:
+            return HandlerResult(
+                status_code=404,
+                content_type="application/json",
+                body=json.dumps({"error": "Not found"}).encode("utf-8"),
+                headers={},
+            )
+        route_handler, match_info = resolved
+        request = self._build_registry_request(
+            handler,
+            query_params=query_params,
+            match_info=match_info,
+            body=self._read_request_body(handler) if method == "POST" else b"",
+        )
+        try:
+            response = await route_handler(request)
+        except web.HTTPException as exc:
+            response = exc
+        return self._to_handler_result(response)
 
 
 async def get_qbo_connector(request: web.Request) -> Any | None:
@@ -1441,6 +1698,10 @@ def register_accounting_routes(app: web.Application) -> None:
     app.router.add_get(
         "/api/v1/accounting/gusto/payrolls/{payroll_id}",
         handle_gusto_payroll_detail,
+    )
+    app.router.add_post(
+        "/api/v1/accounting/gusto/payrolls/{payroll_id}/journal-entry",
+        handle_gusto_journal_entry,
     )
 
     # legacy routes
