@@ -433,6 +433,7 @@ class TestAuthDocumentation:
         """Public debate viewer endpoints should expose the live no-auth contract."""
         paths = openapi_spec["paths"]
 
+        assert "/api/v1/debates/public" not in paths
         assert "/api/v1/debates/public/{debate_id}" in paths
         get_op = paths["/api/v1/debates/public/{debate_id}"]["get"]
         assert not get_op.get("security")
