@@ -582,14 +582,34 @@ class WorkerLauncher:
         claude_profile_script: str | None = None,
     ) -> list[str]:
         if agent == "claude":
-            cmd = [self.config.claude_path, "-p", prompt]
-            if (
-                self.config.allow_claude_dangerously_skip_permissions
-                and self.config.execution_mode == ExecutionMode.AUTONOMOUS
-            ):
-                cmd.append("--dangerously-skip-permissions")
-            if self.config.claude_model:
-                cmd.extend(["--model", self.config.claude_model])
+            session_mode = os.environ.get("ARAGORA_CLAUDE_SESSION_MODE", "single").strip()
+            if session_mode.lower() == "multi_turn":
+                prompt_path = self._write_worker_prompt(worktree_path, prompt)
+                cmd = [
+                    sys.executable,
+                    "-m",
+                    "aragora.swarm.claude_session_runner",
+                    "--prompt-file",
+                    prompt_path,
+                    "--claude-path",
+                    self.config.claude_path,
+                ]
+                if self.config.claude_model:
+                    cmd.extend(["--model", self.config.claude_model])
+                if (
+                    self.config.allow_claude_dangerously_skip_permissions
+                    and self.config.execution_mode == ExecutionMode.AUTONOMOUS
+                ):
+                    cmd.append("--dangerously-skip-permissions")
+            else:
+                cmd = [self.config.claude_path, "-p", prompt]
+                if (
+                    self.config.allow_claude_dangerously_skip_permissions
+                    and self.config.execution_mode == ExecutionMode.AUTONOMOUS
+                ):
+                    cmd.append("--dangerously-skip-permissions")
+                if self.config.claude_model:
+                    cmd.extend(["--model", self.config.claude_model])
             profile = str(claude_profile or self.config.claude_profile or "").strip() or None
             if profile:
                 profile_script = (
@@ -629,6 +649,14 @@ class WorkerLauncher:
             )
             return [profile_script, "exec", self.config.claude_profile, "--", *cmd]
         return cmd
+
+    @staticmethod
+    def _write_worker_prompt(worktree_path: str, prompt: str) -> str:
+        prompt_dir = Path(worktree_path).resolve() / ".aragora"
+        prompt_dir.mkdir(parents=True, exist_ok=True)
+        prompt_path = prompt_dir / "worker_prompt.txt"
+        prompt_path.write_text(prompt, encoding="utf-8")
+        return str(prompt_path)
 
     @staticmethod
     def _metadata_dict(work_order: dict[str, Any]) -> dict[str, Any]:
