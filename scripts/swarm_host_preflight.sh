@@ -101,4 +101,20 @@ if needs_claude; then
 fi
 
 echo ""
+echo "--- api provider check (worker-specific) ---"
+if needs_claude; then
+    if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
+        echo "anthropic: NOT CONFIGURED" >&2
+        exit 1
+    fi
+    echo "anthropic: ok"
+elif needs_codex; then
+    if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+        echo "openai: NOT CONFIGURED" >&2
+        exit 1
+    fi
+    echo "openai: ok"
+fi
+
+echo ""
 echo "preflight=ok"
