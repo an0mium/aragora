@@ -225,9 +225,14 @@ describe('runtime backend selection for debate archive surfaces', () => {
     });
 
     await waitFor(() => {
-      expect(mockFetch).toHaveBeenNthCalledWith(
-        2,
+      expect(mockFetch).toHaveBeenCalledWith(
         'https://api.aragora.ai/api/v1/debates/debate-123/package',
+        expect.objectContaining({
+          headers: {
+            Authorization: 'Bearer test-token',
+            'Content-Type': 'application/json',
+          },
+        }),
       );
     });
 
