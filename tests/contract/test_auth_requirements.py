@@ -428,3 +428,22 @@ class TestAuthDocumentation:
             "properties"
         ]
         assert {"receipt", "shared", "access_count"} <= set(get_props)
+
+    def test_public_debate_viewer_paths_documented(self, openapi_spec: dict) -> None:
+        """Public debate viewer endpoints should expose the live no-auth contract."""
+        paths = openapi_spec["paths"]
+
+        assert "/api/v1/debates/public/{debate_id}" in paths
+        get_op = paths["/api/v1/debates/public/{debate_id}"]["get"]
+        assert not get_op.get("security")
+        params = {param["name"] for param in get_op.get("parameters", [])}
+        assert "debate_id" in params
+        payload_props = get_op["responses"]["200"]["content"]["application/json"]["schema"][
+            "properties"
+        ]
+        assert {"id", "debate_id", "visibility", "share_url", "is_public"} <= set(payload_props)
+
+        assert "/api/v1/debates/public/{debate_id}/og" in paths
+        og_op = paths["/api/v1/debates/public/{debate_id}/og"]["get"]
+        assert not og_op.get("security")
+        assert "text/html" in og_op["responses"]["200"]["content"]

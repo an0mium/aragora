@@ -23,6 +23,7 @@ from aragora.server.handlers.base import (
     handle_errors,
     json_response,
 )
+from aragora.server.handlers.openapi_decorator import api_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -329,6 +330,52 @@ class PublicDebateViewerHandler(BaseHandler):
         # JSON endpoint: /api/v1/debates/public/{id}
         return self._handle_public_debate(debate_id)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/public/{debate_id}",
+        summary="Get a publicly shared debate",
+        description=(
+            "Return the JSON payload for a debate that has been explicitly shared "
+            "for public viewing. This endpoint is intentionally auth-free."
+        ),
+        tags=["Debates"],
+        parameters=[
+            {
+                "name": "debate_id",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string"},
+                "description": "Public debate identifier.",
+            }
+        ],
+        responses={
+            "200": {
+                "description": "Public debate payload",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "debate_id": {"type": "string"},
+                                "task": {"type": "string"},
+                                "topic": {"type": "string"},
+                                "status": {"type": "string"},
+                                "visibility": {"type": "string"},
+                                "share_url": {"type": "string"},
+                                "is_public": {"type": "boolean"},
+                            },
+                            "additionalProperties": True,
+                        }
+                    }
+                },
+            },
+            "404": {"description": "Debate not found"},
+            "429": {"description": "Rate limit exceeded"},
+        },
+        auth_required=False,
+        operation_id="getPublicDebate",
+    )
     def _handle_public_debate(self, debate_id: str) -> HandlerResult:
         """Return the debate result JSON for a publicly shared debate."""
         result = _get_debate_result(debate_id)
@@ -340,6 +387,35 @@ class PublicDebateViewerHandler(BaseHandler):
 
         return json_response(result)
 
+    @api_endpoint(
+        method="GET",
+        path="/api/v1/debates/public/{debate_id}/og",
+        summary="Get Open Graph metadata for a public debate",
+        description=(
+            "Return a crawler-friendly HTML document with Open Graph and Twitter "
+            "Card metadata for a publicly shared debate."
+        ),
+        tags=["Debates"],
+        parameters=[
+            {
+                "name": "debate_id",
+                "in": "path",
+                "required": True,
+                "schema": {"type": "string"},
+                "description": "Public debate identifier.",
+            }
+        ],
+        responses={
+            "200": {
+                "description": "Open Graph preview HTML",
+                "content": {"text/html": {"schema": {"type": "string"}}},
+            },
+            "404": {"description": "Debate not found"},
+            "429": {"description": "Rate limit exceeded"},
+        },
+        auth_required=False,
+        operation_id="getPublicDebateOpenGraph",
+    )
     def _handle_og(self, debate_id: str) -> HandlerResult:
         """Return HTML with Open Graph meta tags for social previews."""
         result = _get_debate_result(debate_id)
