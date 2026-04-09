@@ -478,6 +478,20 @@ class TestCommandEndpoint:
         assert result is not None
         assert get_status_code(result) == 400
 
+    async def test_non_object_json_body(self, handler):
+        """Non-object JSON should return 400 instead of crashing."""
+        mock_http = MockHandler(
+            headers={"Content-Type": "application/json", "Content-Length": "3"},
+            body=b"[1]",
+            path="/api/v1/integrations/teams/commands",
+            method="POST",
+        )
+
+        result = await handler.handle_post("/api/v1/integrations/teams/commands", {}, mock_http)
+
+        assert result is not None
+        assert get_status_code(result) == 400
+
 
 # ===========================================================================
 # Interactive Endpoint Tests
@@ -558,6 +572,20 @@ class TestInteractiveEndpoint:
         mock_http = MockHandler(
             headers={"Content-Type": "application/json", "Content-Length": "5"},
             body=b"null",
+            path="/api/v1/integrations/teams/interactive",
+            method="POST",
+        )
+
+        result = await handler.handle_post("/api/v1/integrations/teams/interactive", {}, mock_http)
+
+        assert result is not None
+        assert get_status_code(result) == 400
+
+    async def test_non_object_json_body(self, handler):
+        """Non-object JSON should return 400 instead of crashing."""
+        mock_http = MockHandler(
+            headers={"Content-Type": "application/json", "Content-Length": "5"},
+            body=b'["x"]',
             path="/api/v1/integrations/teams/interactive",
             method="POST",
         )
@@ -665,6 +693,20 @@ class TestNotifyEndpoint:
         mock_teams_connector.send_message.assert_called_once()
         call_kwargs = mock_teams_connector.send_message.call_args[1]
         assert call_kwargs.get("blocks") == blocks
+
+    async def test_notify_non_object_json_body(self, handler):
+        """Non-object JSON should return 400 instead of crashing."""
+        mock_http = MockHandler(
+            headers={"Content-Type": "application/json", "Content-Length": "3"},
+            body=b"[1]",
+            path="/api/v1/integrations/teams/notify",
+            method="POST",
+        )
+
+        result = await handler.handle_post("/api/v1/integrations/teams/notify", {}, mock_http)
+
+        assert result is not None
+        assert get_status_code(result) == 400
 
 
 # ===========================================================================

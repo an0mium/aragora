@@ -1384,7 +1384,8 @@ class TeamsIntegrationHandler(BaseHandler):
             if content_length > 10 * 1024 * 1024:
                 return None
             body = handler.rfile.read(content_length)
-            return json.loads(body.decode("utf-8"))
+            parsed = json.loads(body.decode("utf-8"))
+            return parsed if isinstance(parsed, dict) else None
         except (json.JSONDecodeError, ValueError, TypeError):
             return None
 
