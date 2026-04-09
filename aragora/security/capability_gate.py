@@ -140,9 +140,16 @@ def _parse_json(value: str | None) -> dict[str, Any]:
         return {}
     try:
         data = json.loads(value)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        logger.warning(
+            "Failed to parse capability gate JSON payload; defaulting to empty dict: %s",
+            exc,
+        )
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        logger.warning("Capability gate JSON payload was not an object; defaulting to empty dict")
+        return {}
+    return data
 
 
 def _parse_capability(row_value: Any) -> Capability:
