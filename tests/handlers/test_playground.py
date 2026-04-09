@@ -83,7 +83,7 @@ class _MockHTTPHandler:
     def __init__(
         self,
         method: str = "GET",
-        body: dict[str, Any] | None = None,
+        body: Any = None,
         client_address: tuple[str, int] | None = None,
     ):
         self.command = method
@@ -266,6 +266,12 @@ class TestStatus:
 
 class TestMockDebate:
     """Tests for the mock debate endpoint."""
+
+    def test_non_object_payload_returns_400(self, handler):
+        mock_h = _MockHTTPHandler("POST", body=[])
+        result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
+        assert _status(result) == 400
+        assert "payload" in _body(result)["error"].lower()
 
     @patch(
         "aragora.server.handlers.playground._try_oracle_response",
@@ -550,6 +556,12 @@ class TestOracleMode:
 
 class TestLandingTelemetry:
     """Tests for the landing telemetry endpoint."""
+
+    def test_rejects_non_object_payload(self, handler):
+        mock_h = _MockHTTPHandler("POST", body=[])
+        result = handler.handle_post("/api/v1/playground/landing/events", {}, mock_h)
+        assert _status(result) == 400
+        assert "payload" in _body(result)["error"].lower()
 
     def test_records_bounded_public_event(self, handler):
         mock_h = _MockHTTPHandler(
@@ -979,6 +991,12 @@ class TestAssess:
 class TestCostEstimate:
     """Tests for the pre-flight cost estimate endpoint."""
 
+    def test_non_object_payload_returns_400(self, handler):
+        mock_h = _MockHTTPHandler("POST", body=[])
+        result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
+        assert _status(result) == 400
+        assert "payload" in _body(result)["error"].lower()
+
     def test_default_cost_estimate(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
         result = handler.handle_post("/api/v1/playground/debate/live/cost-estimate", {}, mock_h)
@@ -1048,6 +1066,12 @@ class TestCostEstimate:
 
 class TestLiveDebate:
     """Tests for the live debate endpoint."""
+
+    def test_non_object_payload_returns_400(self, handler):
+        mock_h = _MockHTTPHandler("POST", body=[])
+        result = handler._handle_live_debate(mock_h)
+        assert _status(result) == 400
+        assert "payload" in _body(result)["error"].lower()
 
     def test_no_api_keys_falls_back_to_mock(self, handler):
         with (
