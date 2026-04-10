@@ -145,6 +145,8 @@ def _worker_result_from_persisted_work_order(item: dict[str, Any]) -> WorkerProc
         expected_tests=[
             str(test).strip() for test in item.get("expected_tests", []) if str(test).strip()
         ],
+        prompt_chars=int(item.get("prompt_chars") or 0),
+        enriched_context_chars=int(item.get("enriched_context_chars") or 0),
     )
 
 
@@ -458,6 +460,11 @@ def _apply_worker_result(
     item["verification_results"] = self._verification_results_from_result(result)
     item["commit_shas"] = list(result.commit_shas)
     item["head_sha"] = result.head_sha
+    item["prompt_chars"] = max(int(item.get("prompt_chars") or 0), int(result.prompt_chars or 0))
+    item["enriched_context_chars"] = max(
+        int(item.get("enriched_context_chars") or 0),
+        int(result.enriched_context_chars or 0),
+    )
     self._update_log_tails(item, stdout=result.stdout, stderr=result.stderr)
     item.pop("pid", None)
 

@@ -1970,6 +1970,9 @@ class TestBossLoop:
         async def _completed_dispatch(issue, freshness):
             return {
                 "status": "completed",
+                "outcome": "deliverable_created",
+                "deliverable": {"branch": "codex/test-branch"},
+                "publish_result": {"action": "opened_pr", "published": True},
                 "run": {
                     "work_orders": [
                         {
@@ -1984,6 +1987,8 @@ class TestBossLoop:
                                     "passed": True,
                                 }
                             ],
+                            "prompt_chars": 2048,
+                            "enriched_context_chars": 1536,
                         }
                     ]
                 },
@@ -2001,6 +2006,12 @@ class TestBossLoop:
         assert payload["files_changed"] == 2
         assert payload["tests_run"] == 1
         assert payload["tests_passed"] == 1
+        assert payload["worker_outcome"] == "deliverable_created"
+        assert payload["prompt_version"] == "v2"
+        assert payload["prompt_chars"] == 2048
+        assert payload["enriched_context_chars"] == 1536
+        assert payload["has_deliverable"] is True
+        assert payload["publish_action"] == "opened_pr"
         assert payload["elapsed_seconds"] >= 0.0
 
     def test_missing_validation_contract_stops_with_needs_human(self):

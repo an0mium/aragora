@@ -34,6 +34,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_file_scope_entries(values: list[Any]) -> list[str]:
+    from aragora.swarm.spec import SwarmSpec
+
+    return [
+        normalized for path in values if (normalized := SwarmSpec.sanitize_file_scope_entry(path))
+    ]
+
+
 @dataclass
 class SubTask:
     """A subtask extracted from a larger task.
@@ -921,11 +929,7 @@ class TaskDecomposer:
                         str(dep).strip() for dep in item.get("dependencies", []) if str(dep).strip()
                     ],
                     estimated_complexity=complexity,
-                    file_scope=[
-                        str(path).strip()
-                        for path in item.get("file_scope", [])
-                        if str(path).strip()
-                    ],
+                    file_scope=_sanitize_file_scope_entries(item.get("file_scope", [])),
                     success_criteria=success_criteria,
                 )
             )
@@ -970,11 +974,9 @@ class TaskDecomposer:
 
     @staticmethod
     def _is_concrete_repo_path(path: str) -> bool:
-        clean = path.strip().removeprefix("./").rstrip("/")
-        if not clean or any(token in clean for token in ("*", "?", "[", "]", "{", "}")):
-            return False
-        name = clean.rsplit("/", 1)[-1]
-        return "." in name
+        from aragora.swarm.spec import SwarmSpec
+
+        return SwarmSpec.is_concrete_repo_path_hint(path)
 
     @classmethod
     def _path_in_scope(cls, path: str, scope_pattern: str) -> bool:
@@ -997,22 +999,22 @@ class TaskDecomposer:
         *,
         file_scope_hints: list[str] | None = None,
     ) -> list[str]:
-        raw_candidates: list[str] = []
-        for text in (
-            task_description,
-            subtask.title,
-            subtask.description,
-            *(file_scope_hints or []),
-        ):
-            for raw in re.split(r"\s+", str(text or "")):
-                token = raw.strip().strip("`'\".,;:()[]{}<>")
-                if not token or token.startswith(("http://", "https://")):
-                    continue
-                normalized = token.removeprefix("./").rstrip("/")
-                if "/" not in normalized:
-                    continue
-                raw_candidates.append(normalized)
-        return [path for path in dict.fromkeys(raw_candidates) if cls._is_concrete_repo_path(path)]
+        from aragora.swarm.spec import SwarmSpec
+
+        combined = "\n".join(
+            str(text or "")
+            for text in (
+                task_description,
+                subtask.title,
+                subtask.description,
+                *(file_scope_hints or []),
+            )
+        )
+        return [
+            path
+            for path in SwarmSpec.infer_file_scope_hints(combined)
+            if cls._is_concrete_repo_path(path)
+        ]
 
     @classmethod
     def _narrow_subtask_scope_to_explicit_paths(
@@ -1621,7 +1623,7 @@ class TaskDecomposer:
                     id=f"subtask_{i + 1}",
                     title=item.get("title", f"Subtask {i + 1}"),
                     description=item.get("description", ""),
-                    file_scope=item.get("file_scope", []),
+                    file_scope=_sanitize_file_scope_entries(item.get("file_scope", [])),
                     estimated_complexity=item.get("estimated_complexity", "medium"),
                 )
             )

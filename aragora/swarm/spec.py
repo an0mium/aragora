@@ -9,6 +9,11 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+_FILE_SCOPE_HINT_RE = re.compile(r"(?:\./)?(?:[A-Za-z0-9_*?\[\]{}.-]+/)+[A-Za-z0-9_*?\[\]{}.-]+/?")
+_EXACT_FILE_SCOPE_RE = re.compile(r"(?:\./)?(?:[A-Za-z0-9_*?\[\]{}.-]+/)*[A-Za-z0-9_*?\[\]{}.-]+/?")
+_URL_RE = re.compile(r"https?://\S+")
+_PATH_WRAPPER_CHARS = "`'\".,;:()[]{}<>"
+
 
 @dataclass
 class SwarmSpec:
@@ -64,20 +69,51 @@ class SwarmSpec:
         return [str(item).strip() for item in values if str(item).strip()]
 
     @staticmethod
-    def infer_file_scope_hints(text: str) -> list[str]:
-        """Extract path-like hints from free-form prompt text."""
+    def _normalize_exact_file_scope_hint(value: str) -> str | None:
+        text = str(value or "").strip()
+        if not text:
+            return None
+        clean = text.split("::", 1)[0].strip(_PATH_WRAPPER_CHARS)
+        had_path_separator = "/" in clean
+        clean = clean.removeprefix("./").rstrip("/")
+        if not clean or re.search(r"\s", clean):
+            return None
+        if not had_path_separator and "." not in clean:
+            return None
+        if _EXACT_FILE_SCOPE_RE.fullmatch(clean) is None:
+            return None
+        return clean
+
+    @classmethod
+    def sanitize_file_scope_entry(cls, value: Any) -> str | None:
+        exact = cls._normalize_exact_file_scope_hint(str(value or ""))
+        if exact:
+            return exact
+        inferred = cls.infer_file_scope_hints(str(value or ""))
+        return inferred[0] if inferred else None
+
+    @classmethod
+    def is_concrete_repo_path_hint(cls, value: str) -> bool:
+        clean = cls._normalize_exact_file_scope_hint(value)
+        if not clean or any(token in clean for token in ("*", "?", "[", "]", "{", "}")):
+            return False
+        name = clean.rsplit("/", 1)[-1]
+        return "." in name
+
+    @classmethod
+    def infer_file_scope_hints(cls, text: str) -> list[str]:
+        """Extract path-like hints from free-form prompt text.
+
+        Uses regex extraction over the whole string so command wrappers like
+        ``ast.parse(open('aragora/foo.py').read())`` yield the real repo path
+        instead of the full wrapper fragment.
+        """
+        scrubbed = _URL_RE.sub(" ", text or "")
         hints: list[str] = []
-        for raw in re.split(r"\s+", text or ""):
-            token = raw.strip().strip("`'\".,;:()[]{}<>")
-            if not token or token.startswith(("http://", "https://")):
-                continue
-            normalized = token.removeprefix("./")
-            if "/" not in normalized:
-                continue
-            normalized = normalized.rstrip("/")
-            if not normalized:
-                continue
-            hints.append(normalized)
+        for match in _FILE_SCOPE_HINT_RE.finditer(scrubbed):
+            normalized = cls._normalize_exact_file_scope_hint(match.group(0))
+            if normalized:
+                hints.append(normalized)
         return list(dict.fromkeys(hints))
 
     @staticmethod

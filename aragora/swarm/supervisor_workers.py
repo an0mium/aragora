@@ -349,6 +349,8 @@ def _build_dead_worker_salvage_result(
         expected_tests=[
             str(test).strip() for test in item.get("expected_tests", []) if str(test).strip()
         ],
+        prompt_chars=int(item.get("prompt_chars") or 0),
+        enriched_context_chars=int(item.get("enriched_context_chars") or 0),
     )
 
 
@@ -694,6 +696,8 @@ async def dispatch_workers(self, run_id: str) -> list[WorkerProcess]:
                     "stderr_mtime_ns": 0,
                     "has_output": False,
                 }
+                item["prompt_chars"] = int(worker.prompt_chars or 0)
+                item["enriched_context_chars"] = int(worker.enriched_context_chars or 0)
                 # Persist worker PID in lease metadata so reap_stale_leases
                 # can detect dead processes even if this supervisor dies.
                 lease_id = str(item.get("lease_id", "")).strip()

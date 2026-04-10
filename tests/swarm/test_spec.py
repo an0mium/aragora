@@ -176,3 +176,21 @@ class TestSwarmSpecDispatchBounds:
         )
         assert spec.is_dispatch_bounded() is True
         assert "aragora/swarm/spec.py" in spec.file_scope_hints
+
+
+class TestSwarmSpecFileScopeExtraction:
+    def test_infer_file_scope_hints_extracts_embedded_repo_paths(self):
+        text = (
+            'Acceptance: run `python3 -c "import ast; '
+            "ast.parse(open('aragora/connectors/chat/signal.py').read())\"` "
+            "and validate against tests/connectors/chat/test_signal.py::test_parse."
+        )
+        hints = SwarmSpec.infer_file_scope_hints(text)
+
+        assert "aragora/connectors/chat/signal.py" in hints
+        assert "tests/connectors/chat/test_signal.py" in hints
+        assert not any("ast.parse(open" in hint for hint in hints)
+
+    def test_sanitize_file_scope_entry_strips_command_wrapper(self):
+        raw = "ast.parse(open('aragora/connectors/ecommerce/shopify.py').read())"
+        assert SwarmSpec.sanitize_file_scope_entry(raw) == "aragora/connectors/ecommerce/shopify.py"

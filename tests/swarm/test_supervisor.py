@@ -3952,6 +3952,8 @@ async def test_dispatch_workers_launches_leased_orders(
         worktree_path=str(repo),
         branch="swarm-dispatch-1",
         pid=999,
+        prompt_chars=1234,
+        enriched_context_chars=890,
     )
     mock_launcher.launch = AsyncMock(return_value=mock_worker)
 
@@ -3978,6 +3980,11 @@ async def test_dispatch_workers_launches_leased_orders(
     assert len(launched) >= 1
     assert launched[0].pid == 999
     mock_launcher.launch.assert_called()
+
+    updated = store.get_supervisor_run(run.run_id)
+    assert updated is not None
+    assert updated["work_orders"][0]["prompt_chars"] == 1234
+    assert updated["work_orders"][0]["enriched_context_chars"] == 890
 
 
 @pytest.mark.asyncio
@@ -7656,7 +7663,7 @@ def test_worker_prompt_includes_boss_lane_contract() -> None:
         }
     )
 
-    assert "Aragora-managed CLI worker lane" in prompt
+    assert prompt.startswith("# Implement boss-facing reporter output")
     assert "FILE SCOPE GUIDANCE" in prompt
     assert "Expected validation:" in prompt
     assert "Acceptance criteria:" in prompt

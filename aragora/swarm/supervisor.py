@@ -88,11 +88,7 @@ def _path_in_scope(path: str, scope_pattern: str) -> bool:
 
 
 def _is_concrete_repo_path(path: str) -> bool:
-    clean = path.strip().removeprefix("./").rstrip("/")
-    if not clean or any(token in clean for token in ("*", "?", "[", "]", "{", "}")):
-        return False
-    name = clean.rsplit("/", 1)[-1]
-    return "." in name
+    return SwarmSpec.is_concrete_repo_path_hint(path)
 
 
 def _strict_bool(value: Any) -> bool | None:
@@ -2179,9 +2175,9 @@ class SwarmSupervisor:
                     or spec.refined_goal
                     or spec.raw_goal,
                     file_scope=[
-                        str(item).strip()
+                        normalized
                         for item in payload.get("file_scope", [])
-                        if str(item).strip()
+                        if (normalized := SwarmSpec.sanitize_file_scope_entry(item))
                     ],
                     dependency_ids=dependency_ids,
                     success_criteria=success_criteria,

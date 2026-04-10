@@ -165,6 +165,30 @@ class TestTaskDecomposer:
         assert result.subtasks[0].title == "Gate defaults"
 
     @pytest.mark.asyncio
+    async def test_analyze_with_model_sanitizes_command_wrapped_file_scope(self):
+        decomposer = TaskDecomposer()
+        mock_agent = SimpleNamespace(
+            generate=AsyncMock(
+                return_value=(
+                    '{"rationale":"planner output","subtasks":[{"id":"lane_1",'
+                    '"title":"Fix parser","description":"Update parser logic",'
+                    '"estimated_complexity":"medium",'
+                    '"file_scope":["ast.parse(open(\'aragora/connectors/chat/signal.py\').read())"]}]}'
+                )
+            )
+        )
+
+        with patch("aragora.agents.base.create_agent", return_value=mock_agent):
+            result = await decomposer.analyze_with_model(
+                "Fix signal connector parsing",
+                planner_model="codex",
+                file_scope_hints=["aragora/connectors/chat/signal.py"],
+            )
+
+        assert len(result.subtasks) == 1
+        assert result.subtasks[0].file_scope == ["aragora/connectors/chat/signal.py"]
+
+    @pytest.mark.asyncio
     async def test_analyze_with_model_collapses_same_scope_siblings(self):
         decomposer = TaskDecomposer()
         task = "Add --json output flag to aragora quickstart CLI"
