@@ -180,6 +180,9 @@ def sanitize_issue_body_for_dispatch(issue_body: str) -> str:
                 kept.append(normalized.rstrip(":").strip())
             continue
 
+        if stripped.startswith("#"):
+            active_section = None
+
         if active_section and active_section not in _DISPATCH_CONTEXT_SECTION_PREFIXES:
             continue
         kept.append(raw_line.rstrip())
