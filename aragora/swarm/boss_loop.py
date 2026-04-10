@@ -867,14 +867,42 @@ class BossLoop:
             files_changed, tests_run, tests_passed = self._extract_iteration_metrics(worker_result)
             metrics_path = Path(metrics_path_text)
             metrics_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Extract prompt/context instrumentation from worker result
+            run_dict = worker_result.get("run")
+            prompt_context_chars = 0
+            prompt_version = "v2"  # Context-first prompt (post a11848eac)
+            is_decomposed = bool(
+                re.search(
+                    r"\[from #\d+\]",
+                    str(worker_result.get("receipt_metadata", {}).get("issue_title", "")),
+                )
+            )
+            worker_outcome = str(worker_result.get("outcome", "")).strip()
+            has_deliverable = bool(worker_result.get("deliverable"))
+            publish_action = (
+                str((worker_result.get("publish_result") or {}).get("action", "")).strip() or None
+            )
+
+            if isinstance(run_dict, dict):
+                for wo in run_dict.get("work_orders", []):
+                    if isinstance(wo, dict):
+                        prompt_context_chars += len(str(wo.get("prompt", "")))
+
             payload = {
                 "iteration": int(iteration),
                 "issue_number": issue_number,
                 "worker_status": str(worker_result.get("status", "")).strip() or "unknown",
+                "worker_outcome": worker_outcome or None,
                 "elapsed_seconds": float(elapsed_seconds or 0.0),
                 "files_changed": files_changed,
                 "tests_run": tests_run,
                 "tests_passed": tests_passed,
+                "prompt_version": prompt_version,
+                "prompt_context_chars": prompt_context_chars,
+                "is_decomposed_issue": is_decomposed,
+                "has_deliverable": has_deliverable,
+                "publish_action": publish_action,
             }
             with metrics_path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(payload, sort_keys=True))
