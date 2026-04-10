@@ -936,7 +936,7 @@ class BugDetector:
                 report.bugs.extend(bugs)
                 report.files_scanned += 1
 
-            except (SyntaxError, ValueError, OSError) as e:
+            except (ValueError, OSError) as e:
                 logger.warning("[%s] Error analyzing %s: %s", scan_id, file_path, e)
 
         report.lines_scanned = total_lines
