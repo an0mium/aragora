@@ -8,6 +8,7 @@ Tests cover:
 """
 
 import pytest
+import httpx
 from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
 
@@ -115,6 +116,23 @@ class TestIMessageConnectorMessages:
             )
 
             assert result.success is False
+
+    @pytest.mark.asyncio
+    async def test_send_message_raises_contextual_runtime_error(self, connector):
+        """Test send_message preserves cause while adding chat context."""
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                side_effect=httpx.ConnectError("boom")
+            )
+
+            with pytest.raises(RuntimeError) as exc_info:
+                await connector.send_message(
+                    channel_id="+1234567890",
+                    text="Hello!",
+                )
+
+            assert "+1234567890" in str(exc_info.value)
+            assert isinstance(exc_info.value.__cause__, httpx.ConnectError)
 
     @pytest.mark.asyncio
     async def test_update_message_not_supported(self, connector):
