@@ -166,7 +166,10 @@ class TTSBridge:
             return Path(audio_path)
         except (RuntimeError, OSError, ValueError) as e:
             logger.error("TTS synthesis failed: %s", e)
-            raise
+            backend_name = getattr(backend, "name", type(backend).__name__)
+            raise RuntimeError(
+                f"TTS synthesis failed using {backend_name} voice {resolved_voice!r}"
+            ) from e
 
     async def synthesize_debate_summary(
         self,

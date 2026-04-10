@@ -106,6 +106,22 @@ class TestTTSBridge:
         assert synthesized_text.endswith("...")
 
     @pytest.mark.asyncio
+    async def test_synthesize_wraps_backend_errors_with_context(self, tts_bridge):
+        """Test backend synthesis errors include operational context."""
+        mock_backend = MagicMock()
+        mock_backend.name = "mock-tts"
+        mock_backend.synthesize = AsyncMock(side_effect=ValueError("voice rejected"))
+        tts_bridge._backend = mock_backend
+
+        sensitive_text = "secret phrase should not be logged in the exception"
+        with pytest.raises(RuntimeError) as exc_info:
+            await tts_bridge.synthesize(sensitive_text, voice="moderator")
+
+        assert str(exc_info.value) == "TTS synthesis failed using mock-tts voice 'moderator'"
+        assert isinstance(exc_info.value.__cause__, ValueError)
+        assert sensitive_text not in str(exc_info.value)
+
+    @pytest.mark.asyncio
     async def test_synthesize_debate_summary_consensus(self, tts_bridge):
         """Test synthesizing debate summary with consensus."""
         mock_backend = MagicMock()
