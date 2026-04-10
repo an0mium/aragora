@@ -524,6 +524,52 @@ class TestBackendDispatch:
 
             mock_rbac.log_permission_granted.assert_called_once()
 
+    def test_rbac_dispatch_real_auditor_handles_access_decisions(self):
+        """Test real RBAC auditor dispatch for granted and denied access checks."""
+        from aragora.rbac.audit import AuditEventType, AuthorizationAuditor
+
+        logger = UnifiedAuditLogger(
+            enable_compliance=False,
+            enable_privacy=False,
+            enable_rbac=True,
+            enable_immutable=False,
+            enable_middleware=False,
+        )
+        events = []
+        auditor = AuthorizationAuditor(handlers=[events.append])
+
+        with patch.object(logger, "_get_rbac_auditor", return_value=auditor):
+            logger.log_access_check(
+                "user_123",
+                permission="webhooks.create",
+                resource_type="webhook",
+                resource_id="wh_456",
+                granted=True,
+                org_id="org_123",
+            )
+            logger.log_access_check(
+                "user_123",
+                permission="admin.delete",
+                resource_type="admin",
+                resource_id="admin_456",
+                granted=False,
+                reason="Insufficient privileges",
+                org_id="org_123",
+            )
+
+        assert [event.event_type for event in events] == [
+            AuditEventType.PERMISSION_GRANTED,
+            AuditEventType.PERMISSION_DENIED,
+        ]
+        assert events[0].decision is True
+        assert events[0].permission_key == "webhooks.create"
+        assert events[0].resource_id == "wh_456"
+        assert events[0].org_id == "org_123"
+        assert events[1].decision is False
+        assert events[1].permission_key == "admin.delete"
+        assert events[1].resource_id == "admin_456"
+        assert events[1].reason == "Insufficient privileges"
+
 
 class TestAuditCategories:
     """Tests for audit category enums."""

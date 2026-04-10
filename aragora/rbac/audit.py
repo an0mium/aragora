@@ -394,6 +394,57 @@ class AuthorizationAuditor:
 
         self._emit_event(event)
 
+    def log_permission_granted(
+        self,
+        user_id: str | None,
+        permission: str,
+        resource: str | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        """Log a granted permission check."""
+        context = context or {}
+        event = AuditEvent(
+            event_type=AuditEventType.PERMISSION_GRANTED,
+            user_id=user_id,
+            org_id=context.get("org_id"),
+            resource_type=context.get("resource_type"),
+            resource_id=resource,
+            permission_key=permission,
+            decision=True,
+            reason=context.get("reason", ""),
+            ip_address=context.get("ip_address"),
+            user_agent=context.get("user_agent"),
+            request_id=context.get("request_id"),
+            metadata=context,
+        )
+        self._emit_event(event)
+
+    def log_permission_denied(
+        self,
+        user_id: str | None,
+        permission: str,
+        resource: str | None = None,
+        reason: str | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> None:
+        """Log a denied permission check."""
+        context = context or {}
+        event = AuditEvent(
+            event_type=AuditEventType.PERMISSION_DENIED,
+            user_id=user_id,
+            org_id=context.get("org_id"),
+            resource_type=context.get("resource_type"),
+            resource_id=resource,
+            permission_key=permission,
+            decision=False,
+            reason=reason or context.get("reason", ""),
+            ip_address=context.get("ip_address"),
+            user_agent=context.get("user_agent"),
+            request_id=context.get("request_id"),
+            metadata=context,
+        )
+        self._emit_event(event)
+
     def log_role_assignment(
         self,
         assignment: RoleAssignment,
@@ -643,6 +694,8 @@ class AuthorizationAuditor:
                 SyntaxError,
                 SystemError,
             ) as e:
+                logger.error("Unexpected error in audit handler: %s", e)
+            except Exception as e:
                 logger.error("Unexpected error in audit handler: %s", e)
 
         # Buffer for batch processing
