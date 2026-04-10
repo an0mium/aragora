@@ -128,17 +128,27 @@ class NaiveBayesClassifier:
             logger.warning("Failed to load model: %s", e)
             return False
 
-        self._apply_model_data(data)
+        try:
+            self._apply_model_data(data)
+        except (KeyError, TypeError, ValueError) as e:
+            logger.warning("Invalid model data in %s: %s", path, e)
+            return False
         return True
 
     def _apply_model_data(self, data: dict) -> None:
         """Apply loaded model data to instance."""
+        word_spam_counts = Counter(data["word_spam_counts"])
+        word_ham_counts = Counter(data["word_ham_counts"])
+        spam_count = data["spam_count"]
+        ham_count = data["ham_count"]
+        vocabulary = set(data["vocabulary"])
+
         with self._lock:
-            self.word_spam_counts = Counter(data["word_spam_counts"])
-            self.word_ham_counts = Counter(data["word_ham_counts"])
-            self.spam_count = data["spam_count"]
-            self.ham_count = data["ham_count"]
-            self.vocabulary = set(data["vocabulary"])
+            self.word_spam_counts = word_spam_counts
+            self.word_ham_counts = word_ham_counts
+            self.spam_count = spam_count
+            self.ham_count = ham_count
+            self.vocabulary = vocabulary
 
     @property
     def is_trained(self) -> bool:
