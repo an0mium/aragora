@@ -139,7 +139,7 @@ class SwarmInterrogator:
                     prompt=prompt,
                 )
                 response = result.raw_output if hasattr(result, "raw_output") else str(result)
-            except (OSError, RuntimeError, TypeError, ValueError):
+            except Exception:  # noqa: BLE001 - any harness/LLM failure must fall back to fixed questions
                 logger.warning("Claude interrogation failed, using fixed questions")
                 remaining = FALLBACK_QUESTIONS[turn:]
                 for q in remaining:
@@ -210,7 +210,7 @@ class SwarmInterrogator:
                 )
                 raw = result.raw_output if hasattr(result, "raw_output") else str(result)
                 spec_data = self._parse_json_from_response(raw)
-            except (OSError, RuntimeError, TypeError, ValueError):
+            except Exception:  # noqa: BLE001 - heuristic extraction is the safety net for any LLM failure
                 logger.warning("LLM spec extraction failed, using heuristic")
 
         if spec_data is None:
@@ -329,7 +329,7 @@ class SwarmInterrogator:
                     "estimated_complexity": "medium",
                     "requires_approval": False,
                 }
-        except (AttributeError, ImportError, OSError, RuntimeError, TypeError, ValueError):
+        except Exception:  # noqa: BLE001 - classifier inference is best effort before keyword fallback
             logger.debug("LLM spec inference failed, using keyword fallback", exc_info=True)
 
         # --- keyword fallback ---
@@ -373,7 +373,7 @@ class SwarmInterrogator:
             if await harness.initialize():
                 self._harness = harness
                 return harness
-        except (ImportError, OSError, RuntimeError, TypeError, ValueError):
+        except Exception:  # noqa: BLE001 - optional harness setup should fail closed to fallback mode
             pass
         return None
 
