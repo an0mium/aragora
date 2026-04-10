@@ -5165,6 +5165,54 @@ class TestMaybePublishDeliverable:
         assert worker_result["pr_url"] == pr_url
         assert worker_result["pr_number"] == 2124
 
+    def test_skips_harvest_fallback_when_source_branch_has_no_diff(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+            )
+        )
+        issue = _make_issue(number=125)
+        worker_result = {
+            "status": "completed",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/swarm-empty",
+                "commit_shas": ["abc123"],
+            },
+        }
+
+        with (
+            patch.object(loop, "_list_open_boss_harvest_prs", return_value=[]),
+            patch.object(
+                loop,
+                "_harvest_worker_commits_for_publish",
+                side_effect=RuntimeError("previous cherry-pick is now empty"),
+            ),
+            patch.object(loop, "_publish_branch_has_target_diff", return_value=False),
+            patch("aragora.swarm.tranche_integrate.publish_lane_deliverable") as mock_publish,
+        ):
+            result = loop._maybe_publish_deliverable(issue, worker_result)
+
+        assert result == {
+            "action": "skipped_empty_publish_branch",
+            "published": False,
+            "reason": "harvest_failed_empty_diff",
+            "branch": "codex/swarm-empty",
+            "source_branch": "codex/swarm-empty",
+            "commit_shas": ["abc123"],
+            "harvest_result": {
+                "action": "harvest_failed",
+                "reason": "RuntimeError",
+                "branch": "codex/swarm-empty",
+                "source_branch": "codex/swarm-empty",
+                "commit_shas": ["abc123"],
+                "error": "previous cherry-pick is now empty",
+            },
+        }
+        assert worker_result["harvest_result"]["action"] == "harvest_failed"
+        mock_publish.assert_not_called()
+
 
 class TestPostprocessConvertsToDraft:
     """Verify _postprocess_issue_result calls _convert_pr_to_draft."""
@@ -5245,6 +5293,37 @@ class TestPublishedPrTerminal:
         assert any(pr_url in str(a) for a in actions), (
             f"next_actions should mention PR URL, got {actions}"
         )
+
+    def test_completed_result_is_not_redispatched_in_same_run(self):
+        """A completed result should exhaust retries for the current loop run."""
+        issue = _make_issue(43, "Complete once")
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [issue]
+        dispatch_count = 0
+
+        async def _dispatch(issue, freshness):
+            nonlocal dispatch_count
+            dispatch_count += 1
+            return {"status": "completed"}
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=3,
+                max_retries_per_issue=3,
+                auto_continue_on_needs_human=True,
+                repo=None,
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _dispatch
+
+        result = asyncio.run(loop.run())
+
+        assert dispatch_count == 1
+        completed_numbers = {i.get("number") for i in result.issues_completed}
+        assert 43 in completed_numbers
+        assert loop._issue_attempt_counts[43] == 3
 
     def test_existing_open_pr_skips_dispatch(self):
         """Issue with an existing open boss-harvest PR is skipped in dispatch."""

@@ -2271,8 +2271,37 @@ class BossLoop:
                 }
             if harvest_result is not None:
                 worker_result["harvest_result"] = harvest_result
-                if str(harvest_result.get("action", "")).strip() != "harvest_failed":
+                harvest_action = str(harvest_result.get("action", "")).strip()
+                if harvest_action != "harvest_failed":
                     branch = str(harvest_result.get("branch") or branch).strip() or branch
+                else:
+                    branch_has_diff = self._publish_branch_has_target_diff(
+                        repo_root=repo_root,
+                        branch=branch,
+                    )
+                    if branch_has_diff is not True:
+                        reason = (
+                            "harvest_failed_empty_diff"
+                            if branch_has_diff is False
+                            else "harvest_failed_unverified_diff"
+                        )
+                        logger.warning(
+                            "Boss publish skipped for issue #%s branch %s: %s",
+                            issue.number,
+                            branch,
+                            reason,
+                        )
+                        return {
+                            "action": "skipped_empty_publish_branch"
+                            if branch_has_diff is False
+                            else "skipped_unverified_publish_branch",
+                            "published": False,
+                            "reason": reason,
+                            "branch": branch,
+                            "source_branch": branch,
+                            "commit_shas": commit_shas,
+                            "harvest_result": dict(harvest_result),
+                        }
             artifact = _BossDeliverableArtifact(
                 branch=branch,
                 metadata={
@@ -2390,6 +2419,109 @@ class BossLoop:
             head_ref = str(pr.get("headRefName", ""))
             if head_ref.endswith(suffix) or f"issue-{issue_number}-" in head_ref:
                 return str(pr.get("url") or "")
+        return None
+
+    def _git_repo_cmd(
+        self,
+        repo_root: Path,
+        args: list[str],
+        *,
+        timeout: float = 30.0,
+    ) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", "-C", str(repo_root), *args],
+            env=git_safe_env(self._env),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+
+    def _verify_git_commit_ref(self, repo_root: Path, ref: str) -> str | None:
+        ref = str(ref or "").strip()
+        if not ref:
+            return None
+        try:
+            proc = self._git_repo_cmd(
+                repo_root,
+                ["rev-parse", "--verify", f"{ref}^{{commit}}"],
+                timeout=10.0,
+            )
+        except Exception:
+            return None
+        if proc.returncode != 0:
+            return None
+        return ref
+
+    def _publish_branch_has_target_diff(
+        self,
+        *,
+        repo_root: Path,
+        branch: str,
+    ) -> bool | None:
+        """Return whether a branch has publishable diff against target branch."""
+        branch = str(branch or "").strip()
+        if not branch:
+            return None
+
+        target_branch = str(self.config.target_branch or "main").strip() or "main"
+        base_ref = self._verify_git_commit_ref(repo_root, f"origin/{target_branch}")
+        if base_ref is None:
+            try:
+                self._git_repo_cmd(
+                    repo_root,
+                    ["fetch", "--no-tags", "origin", target_branch],
+                    timeout=60.0,
+                )
+            except Exception:
+                pass
+            base_ref = self._verify_git_commit_ref(repo_root, f"origin/{target_branch}")
+        if base_ref is None:
+            base_ref = self._verify_git_commit_ref(repo_root, target_branch)
+        if base_ref is None:
+            return None
+
+        branch_ref = self._verify_git_commit_ref(repo_root, branch)
+        if branch_ref is None:
+            remote_branch = branch.removeprefix("origin/")
+            remote_ref = f"origin/{remote_branch}"
+            branch_ref = self._verify_git_commit_ref(repo_root, remote_ref)
+            if branch_ref is None:
+                try:
+                    self._git_repo_cmd(
+                        repo_root,
+                        [
+                            "fetch",
+                            "--no-tags",
+                            "origin",
+                            f"refs/heads/{remote_branch}:refs/remotes/origin/{remote_branch}",
+                        ],
+                        timeout=60.0,
+                    )
+                except Exception:
+                    pass
+                branch_ref = self._verify_git_commit_ref(repo_root, remote_ref)
+        if branch_ref is None:
+            return None
+
+        try:
+            diff_proc = self._git_repo_cmd(
+                repo_root,
+                ["diff", "--quiet", f"{base_ref}...{branch_ref}", "--"],
+                timeout=30.0,
+            )
+        except Exception:
+            return None
+        if diff_proc.returncode == 0:
+            return False
+        if diff_proc.returncode == 1:
+            return True
+        logger.debug(
+            "Failed to diff publish branch %s against %s: %s",
+            branch_ref,
+            base_ref,
+            (diff_proc.stderr or diff_proc.stdout or "").strip(),
+        )
         return None
 
     def _harvest_worker_commits_for_publish(
@@ -4081,6 +4213,10 @@ class BossLoop:
 
         if worker_result.get("status") == "completed":
             self._completed_issues.append(issue_dict)
+            self._issue_attempt_counts[issue_number] = max(
+                self._issue_attempt_counts.get(issue_number, 0),
+                self.config.max_retries_per_issue,
+            )
             self._consecutive_failures = 0
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             self._log_value_outcome(issue_dict, "completed", elapsed_seconds)
