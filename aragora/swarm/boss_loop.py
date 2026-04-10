@@ -1930,6 +1930,36 @@ class BossLoop:
         )
         return any(phrase in normalized for phrase in generic_phrases)
 
+    @staticmethod
+    def _decomposition_generic_same_scope_overlap(left: str, right: str) -> bool:
+        left_tokens = set((left or "").split())
+        right_tokens = set((right or "").split())
+        if not left_tokens or not right_tokens:
+            return False
+        shared = left_tokens & right_tokens
+        if len(shared) < 3:
+            return False
+        generic_tokens = {
+            "coverage",
+            "comprehensive",
+            "execute",
+            "failing",
+            "fix",
+            "repair",
+            "run",
+            "suite",
+            "test",
+            "tests",
+            "unit",
+            "validate",
+            "verify",
+        }
+        # Same-file generic test/coverage decompositions can differ in exact
+        # validation command when a test file is being created. Require at
+        # least one shared domain token so unrelated same-file tasks do not
+        # suppress each other.
+        return bool(shared - generic_tokens)
+
     @classmethod
     def _decomposition_candidate_restates_parent(
         cls,
@@ -1972,6 +2002,10 @@ class BossLoop:
             if validations and existing_validations and validations & existing_validations:
                 return True
             if cls._decomposition_intents_overlap(intent, str(existing.get("intent") or "")):
+                return True
+            if cls._decomposition_generic_same_scope_overlap(
+                intent, str(existing.get("intent") or "")
+            ):
                 return True
         return False
 
