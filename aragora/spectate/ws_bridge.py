@@ -72,7 +72,14 @@ def _extract_structured_details(details: str) -> dict[str, Any]:
 
     try:
         payload = json.loads(stripped)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        logger.warning(
+            "spectate_details_json_decode_failed",
+            extra={
+                "error": str(exc),
+                "details_length": len(details),
+            },
+        )
         return {}
 
     return payload if isinstance(payload, dict) else {}

@@ -17,6 +17,7 @@ import pytest
 from aragora.spectate.ws_bridge import (
     SpectateEvent,
     SpectateWebSocketBridge,
+    _extract_structured_details,
     bind_spectate_context,
     get_spectate_bridge,
     reset_spectate_bridge,
@@ -265,6 +266,12 @@ class TestEventForwarding:
             assert events[0].data["stage"] == "goals"
         finally:
             bridge.stop()
+
+    def test_malformed_json_details_are_logged(self, caplog: pytest.LogCaptureFixture):
+        with caplog.at_level("WARNING", logger="aragora.spectate.ws_bridge"):
+            assert _extract_structured_details("{not valid json") == {}
+
+        assert "spectate_details_json_decode_failed" in caplog.messages
 
 
 # ---------------------------------------------------------------------------
