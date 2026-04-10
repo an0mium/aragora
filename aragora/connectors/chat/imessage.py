@@ -209,7 +209,7 @@ class IMessageConnector(ChatPlatformConnector):
                 )
         except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError(f"Failed to send iMessage to chat {channel_id}") from e
 
     async def update_message(
         self,
@@ -305,7 +305,9 @@ class IMessageConnector(ChatPlatformConnector):
                 )
         except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError(
+                f"Failed to upload iMessage attachment {filename!r} to chat {channel_id}"
+            ) from e
 
     async def download_file(
         self,
@@ -346,7 +348,7 @@ class IMessageConnector(ChatPlatformConnector):
                 )
         except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError(f"Failed to download iMessage attachment {file_id}") from e
 
     async def send_typing_indicator(
         self,
@@ -436,7 +438,9 @@ class IMessageConnector(ChatPlatformConnector):
                     return False
         except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError(
+                f"Failed to send iMessage tapback {tapback_type!r} for message {message_id}"
+            ) from e
 
     async def mark_read(
         self,
@@ -730,7 +734,7 @@ class IMessageConnector(ChatPlatformConnector):
                 )
         except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError(f"Failed to get iMessage chat info for {channel_id}") from e
 
     async def get_user_info(
         self,
@@ -908,7 +912,7 @@ class IMessageConnector(ChatPlatformConnector):
                 return data.get("data", [])
         except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError("Failed to list iMessage chats") from e
 
     async def get_messages(
         self,
@@ -952,7 +956,7 @@ class IMessageConnector(ChatPlatformConnector):
                 return messages
         except (httpx.HTTPError, OSError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError(f"Failed to get iMessage messages for chat {channel_id}") from e
 
 
 __all__ = ["IMessageConnector"]
