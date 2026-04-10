@@ -850,9 +850,9 @@ class WorkerLauncher:
     ) -> dict[str, Any]:
         """Read target files and related code to build rich task context.
 
-        This is the single highest-impact improvement for worker success rate.
-        Instead of telling the worker "go figure it out," we hand it the
-        relevant code on a platter.
+        Design: Give the worker FULL file contents (not truncated) for focused
+        tasks. Include the test file, caller context, and directory CLAUDE.md.
+        This is the single highest-impact factor for worker success rate.
         """
         file_scope = work_order.get("file_scope", [])
         if not file_scope or not worktree_path:
@@ -860,28 +860,67 @@ class WorkerLauncher:
 
         context_snippets: list[str] = []
         wt = Path(worktree_path)
+        max_lines_per_file = 500  # Full content for focused files
 
-        for file_path in file_scope[:5]:  # Cap at 5 files
+        # 1. Read target files (full content up to 500 lines)
+        for file_path in file_scope[:3]:  # Focus on top 3 files
+            full_path = wt / file_path
+            if not full_path.exists():
+                context_snippets.append(
+                    f"--- {file_path} DOES NOT EXIST ---\n"
+                    "This file needs to be created as part of this task."
+                )
+                continue
+            try:
+                content = full_path.read_text(errors="replace")
+                lines = content.splitlines()
+                if len(lines) > max_lines_per_file:
+                    snippet = "\n".join(lines[:max_lines_per_file])
+                    context_snippets.append(
+                        f"--- {file_path} (first {max_lines_per_file} of {len(lines)} lines) ---\n"
+                        f"{snippet}\n--- end (truncated) ---"
+                    )
+                else:
+                    context_snippets.append(
+                        f"--- {file_path} ({len(lines)} lines, complete) ---\n"
+                        f"{content}\n--- end ---"
+                    )
+            except OSError:
+                pass
+
+        # 2. Read the test file (if validation points to a test)
+        expected_tests = work_order.get("expected_tests", [])
+        for test_path in expected_tests[:1]:  # Include first test file
+            test_full = wt / test_path
+            if test_full.exists() and test_path not in file_scope:
+                try:
+                    test_content = test_full.read_text(errors="replace")
+                    test_lines = test_content.splitlines()
+                    if len(test_lines) > max_lines_per_file:
+                        snippet = "\n".join(test_lines[:max_lines_per_file])
+                        context_snippets.append(
+                            f"--- {test_path} (test file, first {max_lines_per_file} of "
+                            f"{len(test_lines)} lines) ---\n{snippet}\n--- end (truncated) ---"
+                        )
+                    else:
+                        context_snippets.append(
+                            f"--- {test_path} (test file, {len(test_lines)} lines, complete) ---\n"
+                            f"{test_content}\n--- end ---"
+                        )
+                except OSError:
+                    pass
+
+        # 3. Find callers/importers of the target module
+        for file_path in file_scope[:2]:
             full_path = wt / file_path
             if not full_path.exists():
                 continue
             try:
                 content = full_path.read_text(errors="replace")
-                lines = content.splitlines()
-                # Include up to 200 lines (enough for context, not overwhelming)
-                if len(lines) > 200:
-                    snippet = "\n".join(lines[:200])
-                    context_snippets.append(
-                        f"--- {file_path} (first 200 of {len(lines)} lines) ---\n{snippet}\n--- end ---"
-                    )
-                else:
-                    context_snippets.append(
-                        f"--- {file_path} ({len(lines)} lines) ---\n{content}\n--- end ---"
-                    )
-
-                # Find key symbols (functions/classes) and their callers
+                # Find key public symbols
                 symbols = re.findall(r"(?:def|class)\s+(\w+)", content)
-                for sym in symbols[:10]:  # Cap symbol search
+                caller_notes: list[str] = []
+                for sym in symbols[:8]:
                     try:
                         result = subprocess.run(
                             ["grep", "-rn", sym, "aragora/", "--include=*.py", "-l"],
@@ -894,12 +933,50 @@ class WorkerLauncher:
                             f for f in result.stdout.strip().splitlines()[:5] if f != file_path
                         ]
                         if callers:
-                            context_snippets.append(
-                                f"Note: `{sym}` is also used in: {', '.join(callers)}"
-                            )
+                            caller_notes.append(f"`{sym}` used in: {', '.join(callers)}")
                     except (subprocess.TimeoutExpired, OSError):
                         pass
+                if caller_notes:
+                    context_snippets.append(
+                        f"Cross-references for {file_path}:\n"
+                        + "\n".join(f"  - {n}" for n in caller_notes)
+                    )
             except OSError:
+                pass
+
+        # 4. Include directory CLAUDE.md if present
+        for file_path in file_scope[:1]:
+            dir_path = (wt / file_path).parent
+            claude_md = dir_path / "CLAUDE.md"
+            if claude_md.exists():
+                try:
+                    md_content = claude_md.read_text(errors="replace")
+                    if len(md_content) < 3000:  # Only include if reasonably short
+                        context_snippets.append(
+                            f"--- {dir_path.relative_to(wt)}/CLAUDE.md (local conventions) ---\n"
+                            f"{md_content}\n--- end ---"
+                        )
+                except OSError:
+                    pass
+
+        # 5. Recent git history for the target file
+        for file_path in file_scope[:1]:
+            full_path = wt / file_path
+            if not full_path.exists():
+                continue
+            try:
+                result = subprocess.run(
+                    ["git", "log", "--oneline", "-5", "--", file_path],
+                    capture_output=True,
+                    text=True,
+                    cwd=worktree_path,
+                    timeout=5,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    context_snippets.append(
+                        f"Recent changes to {file_path}:\n{result.stdout.strip()}"
+                    )
+            except (subprocess.TimeoutExpired, OSError):
                 pass
 
         if context_snippets:
@@ -955,108 +1032,92 @@ class WorkerLauncher:
 
     @staticmethod
     def _build_prompt(work_order: dict[str, Any]) -> str:
-        """Build the task prompt from a work order dict."""
+        """Build the task prompt from a work order dict.
+
+        Design philosophy: 90% context, 10% instructions. The agent is an
+        intelligent collaborator — give it understanding, not constraints.
+        Trust it to commit, test, and make good decisions.
+        """
         parts: list[str] = []
         metadata = work_order.get("metadata", {})
         target_agent = str(work_order.get("target_agent", "")).strip().lower()
 
+        # --- Section 1: Task goal (plain English) ---
         title = str(work_order.get("title", "")).strip()
         if title:
-            parts.append(f"# Task: {title}")
-
-        parts.append(
-            "You are one Aragora-managed CLI worker lane inside a supervised swarm run. "
-            "Do only the bounded work for this lane and leave coordination, integration, "
-            "and human escalation to the boss lane."
-        )
+            parts.append(f"# {title}")
 
         description = str(work_order.get("description", "")).strip()
         if description:
             parts.append(description)
 
+        # --- Section 2: Prior attempts (learning material) ---
         repair_notes = WorkerLauncher._format_repair_journal(metadata.get("repair_journal"))
         if repair_notes:
-            parts.append("## Prior attempt notes (repair journal)\n" + repair_notes)
+            parts.append("## What was tried before (and why it failed)\n\n" + repair_notes)
 
-        # Pre-loaded file context (read by supervisor before dispatch)
+        # --- Section 3: Code context (the bulk of the prompt) ---
         enriched_context = work_order.get("_enriched_context", "")
         if enriched_context:
-            parts.append(
-                "## Pre-loaded Code Context\n\n"
-                "The supervisor has pre-read the target files for you. "
-                "Study this context carefully before making changes — "
-                "understanding how the code interacts with its callers "
-                "is essential for a correct fix.\n\n"
-                f"{enriched_context}"
-            )
+            parts.append(f"## Code context\n\n{enriched_context}")
 
+        # --- Section 4: File scope (guidance, not hard boundary) ---
         file_scope = work_order.get("file_scope", [])
         if file_scope:
             scope_list = "\n".join(f"  - {f}" for f in file_scope)
             parts.append(
-                "FILE SCOPE:\n"
-                f"{scope_list}\n"
-                "Only modify files in this scope. If the fix genuinely requires "
-                "other files, stop and report that blocker."
+                f"FILE SCOPE GUIDANCE:\n"
+                f"The planner expects you to work in these paths:\n{scope_list}\n"
+                "IMPORTANT: Before starting, verify these paths exist. If they do not, "
+                "search the codebase for the actual files that match the intent "
+                "(e.g. `find . -name '*.py' | grep <keyword>`). Work on the real files "
+                "you find — do not create files at non-existent paths just to satisfy "
+                "the scope list. Treat the resolved scope as a hard boundary: do not "
+                "modify files outside it, and if the fix genuinely requires other files, "
+                "stop and report that blocker instead of widening scope."
             )
 
-        expected_tests = work_order.get("expected_tests", [])
-        if expected_tests:
-            tests_text = "\n".join(f"  - {t}" for t in expected_tests)
-            parts.append(f"Expected validation:\n{tests_text}")
-
+        # --- Section 5: Validation (concise) ---
         acceptance = metadata.get("acceptance_criteria", [])
         if acceptance:
             criteria_text = "\n".join(f"  - {c}" for c in acceptance)
             parts.append(f"Acceptance criteria:\n{criteria_text}")
+
+        expected_tests = work_order.get("expected_tests", [])
+        if expected_tests:
+            tests_text = "\n".join(f"  - `{t}`" for t in expected_tests)
+            parts.append(f"Expected validation:\n{tests_text}")
 
         constraints = metadata.get("constraints", [])
         if constraints:
             constraints_text = "\n".join(f"  - {c}" for c in constraints)
             parts.append(f"Constraints:\n{constraints_text}")
 
+        # --- Section 6: Approval boundary (if needed) ---
         approval_required = bool(work_order.get("approval_required", False))
         if approval_required:
             parts.append(
                 "Decision boundary:\n"
-                "  - If you hit a real ambiguity, approval boundary, or blocker, stop cleanly and "
-                "report the exact reason instead of widening scope."
+                "  - If you hit a real ambiguity, approval boundary, or blocker, "
+                "stop cleanly and report the exact reason instead of widening scope."
             )
 
+        # --- Section 7: Commit discipline (minimal, agent-aware) ---
+        parts.append(
+            "CRITICAL — You MUST commit your changes:\n"
+            "After making changes, run:\n"
+            "```\ngit add <specific-files> && git commit -m 'fix: description of changes'\n```\n"
+            "If you do not commit, your work will be lost."
+        )
+
+        # Codex-specific: commit early (before validation) due to token budget
         if target_agent == "codex":
             parts.append(
-                "Codex lane discipline (CRITICAL — commit early):\n"
-                "  - IMMEDIATELY after writing your code changes, run `git add <files> && "
-                'git commit -m "..."` BEFORE running any validation or tests.\n'
-                "  - Do not spend tokens on exploration after code is written — commit first, "
-                "then validate if budget remains.\n"
-                "  - If you start a long-running `exec_command` that you plan to poll or follow "
-                "with `write_stdin`, launch it with `tty=true`; otherwise stdin will be closed "
-                "and the session can wedge.\n"
-                "  - Use non-tty `exec_command` only for one-shot commands where you do not need "
-                "to send more input later.\n"
-                "  - For ad hoc interpreter probes and timeout-wrapped scripts, prefer `python3` "
-                "over `python`; on this repo `python` may resolve to a non-runtime shim.\n"
-                "  - Do not exit 0 with staged or unstaged changes remaining.\n"
-                "  - If validation is slow or fails, the commit still preserves your deliverable "
-                "with an honest commit message."
-            )
-        elif target_agent == "claude":
-            parts.append(
-                "## How to work\n\n"
-                "1. READ the pre-loaded context above carefully. Understand what you're changing "
-                "and what depends on it.\n"
-                "2. If anything is unclear, use Read/Grep to check the actual code.\n"
-                "3. Write your code change.\n"
-                "4. Run the validation commands.\n"
-                "5. If tests fail, read the error, fix it, run again.\n"
-                "6. Commit with `git add <specific-files> && git commit -m 'fix: ...'`.\n\n"
-                "CRITICAL — commit before exiting:\n"
-                "  Your work is ONLY preserved if you commit it to git.\n"
-                "  Even partial work is better than no work.\n"
-                "  Do NOT use `git add -A` or `git add .` — only stage files you changed."
+                "Codex note: commit IMMEDIATELY after writing code, BEFORE running tests. "
+                "If validation fails, the commit still preserves your work."
             )
 
+        # --- Section 8: Lease tracking (one line) ---
         lease_id = str(work_order.get("lease_id", "")).strip()
         if lease_id:
             parts.append(
@@ -1065,6 +1126,7 @@ class WorkerLauncher:
                 "  - Aragora will record the completion receipt after a successful exit from this lane."
             )
 
+        # --- Section 9: Stop condition (compact) ---
         parts.append(
             "Stop condition:\n"
             "  - Finish the bounded lane or stop at a real blocker.\n"

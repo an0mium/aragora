@@ -99,7 +99,7 @@ class TestBuildPrompt:
             "expected_tests": ["python -m pytest tests/auth/ -q"],
         }
         prompt = WorkerLauncher._build_prompt(wo)
-        assert "# Task: Fix auth module" in prompt
+        assert "# Fix auth module" in prompt
         assert "race condition" in prompt
         assert "aragora/auth/oidc.py" in prompt
         assert "python -m pytest tests/auth/ -q" in prompt
@@ -142,7 +142,7 @@ class TestBuildPrompt:
             },
         }
         prompt = WorkerLauncher._build_prompt(wo)
-        assert "Prior attempt notes" in prompt
+        assert "What was tried before" in prompt
         assert "failing verification" in prompt
         assert "python -m pytest tests/foo.py -q" in prompt
         assert "worker_crash" in prompt
@@ -155,10 +155,8 @@ class TestBuildPrompt:
             }
         )
 
-        assert "Codex lane discipline (CRITICAL" in prompt
-        assert "IMMEDIATELY after writing" in prompt
-        assert "commit first, then validate" in prompt
-        assert "Do not exit 0 with staged or unstaged changes remaining." in prompt
+        assert "Codex note:" in prompt
+        assert "commit IMMEDIATELY" in prompt
 
     def test_claude_prompt_omits_codex_lane_closure_guidance(self):
         prompt = WorkerLauncher._build_prompt(
@@ -179,9 +177,8 @@ class TestBuildPrompt:
         )
 
         assert "CRITICAL" in prompt
-        assert "commit before exiting" in prompt
         assert "git commit" in prompt
-        assert "How to work" in prompt
+        assert "commit" in prompt.lower()
 
     def test_generic_stop_condition_warns_about_no_commit(self):
         prompt = WorkerLauncher._build_prompt(
@@ -202,7 +199,7 @@ class TestBuildPrompt:
         )
 
         assert "FILE SCOPE" in prompt
-        assert "Only modify files in this scope" in prompt
+        assert "do not modify files outside it" in prompt
         assert "stop and report that blocker" in prompt
 
 
