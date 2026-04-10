@@ -337,7 +337,7 @@ def load_outcomes(*, path: Path | None = None) -> list[OutcomeRecord]:
                     **{k: v for k, v in data.items() if k in OutcomeRecord.__dataclass_fields__}
                 )
             )
-        except Exception:
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError):
             continue
     return records
 
@@ -439,7 +439,15 @@ async def estimate_with_llm(
         est.compute_score()
         return est
 
-    except Exception as exc:
+    except (
+        ImportError,
+        json.JSONDecodeError,
+        KeyError,
+        TypeError,
+        ValueError,
+        OSError,
+        RuntimeError,
+    ) as exc:
         logger.debug("LLM value estimation failed, using heuristic: %s", exc)
         return fallback
 
