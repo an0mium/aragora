@@ -2279,12 +2279,8 @@ class BossLoop:
                         repo_root=repo_root,
                         branch=branch,
                     )
-                    if branch_has_diff is not True:
-                        reason = (
-                            "harvest_failed_empty_diff"
-                            if branch_has_diff is False
-                            else "harvest_failed_unverified_diff"
-                        )
+                    if branch_has_diff is False:
+                        reason = "harvest_failed_empty_diff"
                         logger.warning(
                             "Boss publish skipped for issue #%s branch %s: %s",
                             issue.number,
@@ -2292,9 +2288,7 @@ class BossLoop:
                             reason,
                         )
                         return {
-                            "action": "skipped_empty_publish_branch"
-                            if branch_has_diff is False
-                            else "skipped_unverified_publish_branch",
+                            "action": "skipped_empty_publish_branch",
                             "published": False,
                             "reason": reason,
                             "branch": branch,
@@ -2302,6 +2296,14 @@ class BossLoop:
                             "commit_shas": commit_shas,
                             "harvest_result": dict(harvest_result),
                         }
+                    if branch_has_diff is None:
+                        harvest_result["diff_verification"] = "unverified"
+                        logger.warning(
+                            "Boss publish diff verification inconclusive for issue #%s branch %s; "
+                            "continuing original-branch publish after harvest failure",
+                            issue.number,
+                            branch,
+                        )
             artifact = _BossDeliverableArtifact(
                 branch=branch,
                 metadata={
