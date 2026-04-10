@@ -467,9 +467,12 @@ class SlackMessageQueue:
 
             return True
 
-        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
-            logger.error("Failed to send message %s: %s", message.id, e)
-            raise
+        except (OSError, ConnectionError, TimeoutError, ValueError, RuntimeError) as exc:
+            logger.error("Failed to send message %s: %s", message.id, exc)
+            raise RuntimeError(
+                f"Slack message delivery failed for message {message.id} "
+                f"to channel {message.channel_id} in workspace {message.workspace_id}"
+            ) from exc
 
     async def process_pending(self) -> dict[str, int]:
         """
