@@ -195,7 +195,7 @@ class SignalConnector(ChatPlatformConnector):
                 )
         except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError("Failed to send Signal message") from e
 
     async def update_message(
         self,
@@ -269,7 +269,7 @@ class SignalConnector(ChatPlatformConnector):
                     return False
         except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError("Failed to delete Signal message") from e
 
     async def upload_file(
         self,
@@ -330,7 +330,7 @@ class SignalConnector(ChatPlatformConnector):
                 )
         except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError("Failed to upload Signal file attachment") from e
 
     async def download_file(
         self,
@@ -376,7 +376,7 @@ class SignalConnector(ChatPlatformConnector):
                 )
         except (httpx.HTTPError, httpx.TimeoutException, OSError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError("Failed to download Signal attachment") from e
 
     async def send_voice_message(
         self,
@@ -511,7 +511,7 @@ class SignalConnector(ChatPlatformConnector):
                     return False
         except (httpx.HTTPError, httpx.TimeoutException, OSError, ValueError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError("Failed to send Signal reaction") from e
 
     def verify_webhook(
         self,
@@ -803,7 +803,7 @@ class SignalConnector(ChatPlatformConnector):
                 )
         except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError("Failed to get Signal channel info") from e
 
     async def get_user_info(
         self,
@@ -976,7 +976,7 @@ class SignalConnector(ChatPlatformConnector):
                 return response.json()
         except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError("Failed to list Signal groups") from e
 
     async def create_group(
         self,
@@ -1019,7 +1019,7 @@ class SignalConnector(ChatPlatformConnector):
                 return response.json()
         except (httpx.HTTPError, httpx.TimeoutException, OSError, json.JSONDecodeError) as e:
             self._record_failure(e)
-            raise
+            raise RuntimeError("Failed to create Signal group") from e
 
 
 __all__ = ["SignalConnector"]
