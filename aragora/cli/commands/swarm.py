@@ -2134,6 +2134,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             auto_update_interval_iterations=int(
                 getattr(args, "boss_auto_update_interval", 10) or 10
             ),
+            use_llm_pre_dispatch_gate=bool(getattr(args, "boss_llm_pre_dispatch_gate", False)),
         )
         exec_argv = ["-m", "aragora.cli.main", *sys.argv[1:]]
         loop = BossLoop(config=boss_loop_config, exec_argv=exec_argv)

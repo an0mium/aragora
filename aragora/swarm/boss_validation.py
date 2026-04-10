@@ -608,11 +608,13 @@ async def check_pre_dispatch_gate(
     issue_body: str,
     *,
     repo_root: Path,
+    use_llm: bool = False,
 ) -> dict[str, Any]:
     """Run the full pre-dispatch validation gate.
 
-    Tries LLM-based parsing first for robust semantic understanding.
-    Falls back to the regex pipeline on any LLM failure.
+    Uses deterministic regex parsing by default.  When ``use_llm`` is true,
+    tries LLM-based parsing first for robust semantic understanding and falls
+    back to the regex pipeline on any LLM failure.
 
     Returns a dict with:
       - ``"pass"``: bool — whether dispatch should proceed
@@ -626,8 +628,8 @@ async def check_pre_dispatch_gate(
     """
     body = str(issue_body or "").strip()
 
-    # --- Attempt LLM parsing ---
-    llm_parsed = await parse_issue_with_llm(body)
+    # --- Attempt LLM parsing only when explicitly enabled ---
+    llm_parsed = await parse_issue_with_llm(body) if use_llm else None
 
     if llm_parsed is not None:
         san_ok, san_reason = llm_result_to_sanitation(llm_parsed)
@@ -635,11 +637,14 @@ async def check_pre_dispatch_gate(
         validation_cmds = llm_result_to_validation_commands(llm_parsed)
 
         # Still use filesystem check for missing targets
-        pre_dispatch_cmds = [
-            cmd
-            for cmd in validation_cmds
-            if any(cmd.startswith(p) for p in _PRE_DISPATCH_SAFE_COMMAND_PREFIXES)
-        ]
+        pre_dispatch_cmds = []
+        for cmd in validation_cmds:
+            normalized_cmd = str(cmd).strip()
+            if any(
+                normalized_cmd.lower().startswith(prefix)
+                for prefix in _PRE_DISPATCH_SAFE_COMMAND_PREFIXES
+            ):
+                pre_dispatch_cmds.append(normalized_cmd)
         missing = find_missing_pre_dispatch_validation_targets(
             pre_dispatch_cmds, repo_root=repo_root
         )

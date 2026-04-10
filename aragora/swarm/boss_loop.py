@@ -283,6 +283,11 @@ class BossLoopConfig:
     # Workers succeed on focused tasks but timeout on broad ones in large repos.
     use_micro_decomposition: bool = True
 
+    # Pre-dispatch gate: optionally use LLM parsing for issue bodies that do
+    # not fit the deterministic regex contract. Disabled by default to avoid
+    # hidden network calls, provider costs, and nondeterministic dispatch gates.
+    use_llm_pre_dispatch_gate: bool = False
+
     # Security: opt-in flags for dangerous worker CLI behavior (Crux 1).
     allow_claude_dangerously_skip_permissions: bool = False
     allow_codex_full_auto: bool = False
@@ -4047,6 +4052,7 @@ class BossLoop:
         gate = await check_pre_dispatch_gate(
             issue.body or "",
             repo_root=Path.cwd(),
+            use_llm=self.config.use_llm_pre_dispatch_gate,
         )
         logger.info(
             "pre_dispatch_gate issue=#%s method=%s pass=%s sanitation=%s missing=%s",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from unittest.mock import patch
 import subprocess
@@ -10,6 +11,7 @@ import pytest
 
 from aragora.swarm.boss_validation import (
     assess_issue_body_sanitation,
+    check_pre_dispatch_gate,
     extract_declared_new_file_paths,
     extract_issue_validation_contract,
     extract_pre_dispatch_validation_commands,
@@ -184,6 +186,74 @@ class TestRunPreDispatchValidationCommands:
         )
         assert result["satisfied"] is False
         assert result["results"][0]["status"] == "timeout"
+
+
+# -- check_pre_dispatch_gate --
+
+
+class TestCheckPreDispatchGate:
+    def test_default_uses_regex_without_llm(self, monkeypatch, tmp_path):
+        async def fail_if_called(_body):
+            raise AssertionError("LLM parsing should be opt-in")
+
+        monkeypatch.setattr(
+            "aragora.swarm.boss_validation.parse_issue_with_llm",
+            fail_if_called,
+        )
+
+        body = (
+            "## Task\n"
+            "Implement a comprehensive feature with enough detail here.\n\n"
+            "## Validation\n"
+            "- pytest tests/missing.py -q\n"
+        )
+
+        result = asyncio.run(check_pre_dispatch_gate(body, repo_root=tmp_path))
+
+        assert result["method"] == "regex"
+        assert result["pass"] is False
+        assert result["unresolved_missing"] == ["tests/missing.py"]
+
+    def test_llm_gate_allows_declared_new_file(self, monkeypatch, tmp_path):
+        async def fake_parse(_body):
+            return {
+                "file_scope": [{"path": "tests/swarm/test_new_gate.py", "action": "create"}],
+                "validation_commands": ["Pytest tests/swarm/test_new_gate.py -q"],
+                "task_summary": "Create focused tests for the dispatch gate behavior.",
+                "is_well_formed": True,
+                "rejection_reason": None,
+                "is_auto_decomposed": True,
+            }
+
+        monkeypatch.setattr(
+            "aragora.swarm.boss_validation.parse_issue_with_llm",
+            fake_parse,
+        )
+
+        result = asyncio.run(
+            check_pre_dispatch_gate("minimal body", repo_root=tmp_path, use_llm=True)
+        )
+
+        assert result["method"] == "llm"
+        assert result["pass"] is True
+        assert result["declared_new_files"] == ["tests/swarm/test_new_gate.py"]
+        assert result["missing_targets"] == ["tests/swarm/test_new_gate.py"]
+        assert result["unresolved_missing"] == []
+
+    def test_llm_gate_falls_back_to_regex(self, monkeypatch, tmp_path):
+        async def fake_parse(_body):
+            return None
+
+        monkeypatch.setattr(
+            "aragora.swarm.boss_validation.parse_issue_with_llm",
+            fake_parse,
+        )
+
+        body = "## Task\nImplement a comprehensive feature with enough detail here."
+        result = asyncio.run(check_pre_dispatch_gate(body, repo_root=tmp_path, use_llm=True))
+
+        assert result["method"] == "regex"
+        assert result["pass"] is True
 
 
 # -- helpers --

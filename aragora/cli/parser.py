@@ -2656,6 +2656,14 @@ def _add_swarm_parser(subparsers) -> None:
         help="Allow boss-loop dispatch even when the issue body lacks explicit validation criteria",
     )
     swarm_parser.add_argument(
+        "--boss-llm-pre-dispatch-gate",
+        action="store_true",
+        help=(
+            "Opt in to LLM-assisted boss-loop issue parsing before dispatch. "
+            "Default is deterministic regex-only parsing."
+        ),
+    )
+    swarm_parser.add_argument(
         "--source-file",
         help="Campaign planner or initiative rationale input markdown/text file",
     )
