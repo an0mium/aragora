@@ -477,9 +477,9 @@ class KafkaConnector(EnterpriseConnector):
                         if sent_to_dlq:
                             self._dlq_count += 1
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as exc:
             logger.info("[Kafka] Consumer cancelled")
-            raise
+            raise asyncio.CancelledError("Kafka consumer cancelled during consume") from exc
 
     async def _process_with_resilience(
         self,

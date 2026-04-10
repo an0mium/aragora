@@ -431,6 +431,34 @@ class TestKafkaConsume:
 
         assert len(consumed) == 5
 
+    @pytest.mark.asyncio
+    async def test_consume_cancelled_error_preserves_context(self):
+        """Should re-raise cancellation with Kafka consume context."""
+        from aragora.connectors.enterprise.streaming.kafka import (
+            KafkaConnector,
+            KafkaConfig,
+        )
+
+        class CancelledConsumer:
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise asyncio.CancelledError()
+
+        connector = KafkaConnector(KafkaConfig())
+        connector._consumer = CancelledConsumer()
+        connector._running = True
+
+        with pytest.raises(
+            asyncio.CancelledError,
+            match="Kafka consumer cancelled during consume",
+        ) as exc_info:
+            async for _ in connector.consume():
+                pass
+
+        assert isinstance(exc_info.value.__cause__, asyncio.CancelledError)
+
 
 # =============================================================================
 # Sync Tests
