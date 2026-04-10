@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import shlex
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,24 @@ _path_in_scope = _supervisor._path_in_scope
 
 _REPAIR_JOURNAL_MAX_ENTRIES = 3
 _REPAIR_JOURNAL_TAIL_CHARS = 800
+_BEST_EFFORT_STORE_EXCEPTIONS = (
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    sqlite3.Error,
+    TypeError,
+    ValueError,
+)
+_LLM_PROBE_EXCEPTIONS = (
+    AttributeError,
+    ImportError,
+    OSError,
+    RuntimeError,
+    TimeoutError,
+    TypeError,
+    ValueError,
+)
 
 
 def _tail_text(text: str, *, max_chars: int = _REPAIR_JOURNAL_TAIL_CHARS) -> str:
@@ -89,7 +108,7 @@ def _append_repair_journal(
             worktree_path=str(item.get("worktree_path", result.worktree_path)).strip(),
             entry=entry,
         )
-    except Exception:
+    except _BEST_EFFORT_STORE_EXCEPTIONS:
         logger.debug(
             "Failed to persist repair journal for %s", item.get("work_order_id"), exc_info=True
         )
@@ -753,7 +772,7 @@ def _capacity_failure_detail(self, result: WorkerProcess) -> str:
                 )
                 return verdict.detail or combined or f"{result.agent} worker failed"
             return ""
-    except Exception:
+    except _LLM_PROBE_EXCEPTIONS:
         logger.debug("LLM capacity detection failed, using keyword fallback", exc_info=True)
 
     # --- keyword fallback (when LLM unavailable) ---
@@ -1249,7 +1268,7 @@ def _mark_scope_violation(
                 changed_paths=list(item.get("changed_paths", [])),
                 violations=violations,
             )
-        except Exception:
+        except _BEST_EFFORT_STORE_EXCEPTIONS:
             pass  # Best-effort — local item is already marked
 
 
@@ -1295,7 +1314,7 @@ def _llm_adjudicate_scope(
         justified_set = set(verdict.justified_paths)
         remaining = [v for v in violations if str(v.get("path", "")) not in justified_set]
         return remaining
-    except Exception:
+    except _LLM_PROBE_EXCEPTIONS:
         logger.debug("LLM scope adjudication failed, keeping all violations", exc_info=True)
         return violations
 
@@ -1347,7 +1366,7 @@ def _llm_override_merge_gate(
             verdict.reasoning,
         )
         return verdict.ready
-    except Exception:
+    except _LLM_PROBE_EXCEPTIONS:
         logger.debug("LLM merge evaluation failed, fail-closed", exc_info=True)
         return False
 
