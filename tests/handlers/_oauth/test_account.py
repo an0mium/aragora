@@ -389,6 +389,22 @@ class TestHandleOAuthCallbackApi:
         result = host._handle_oauth_callback_api(handler)
         assert _status(result) == 400
 
+    @pytest.mark.parametrize(
+        ("body", "field_name"),
+        [
+            ({"provider": 123, "code": "abc", "state": "xyz"}, "provider"),
+            ({"provider": "google", "code": 123, "state": "xyz"}, "code"),
+            ({"provider": "google", "code": "abc", "state": {"value": "xyz"}}, "state"),
+        ],
+    )
+    def test_non_string_callback_fields_return_400(self, host, handler, body, field_name):
+        host.read_json_body.return_value = body
+        result = host._handle_oauth_callback_api(handler)
+        assert _status(result) == 400
+        error = _body(result)["error"].lower()
+        assert "strings" in error
+        assert field_name in error
+
     def test_unsupported_provider_returns_400(self, host, handler):
         host.read_json_body.return_value = {"provider": "facebook", "code": "abc", "state": "xyz"}
         result = host._handle_oauth_callback_api(handler)

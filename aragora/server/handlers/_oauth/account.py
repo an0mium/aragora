@@ -152,12 +152,16 @@ class AccountManagementMixin:
         code = body.get("code")
         state = body.get("state")
 
+        if any(
+            value is None or (isinstance(value, str) and not value)
+            for value in (provider, code, state)
+        ):
+            return error_response("provider, code, and state are required", 400)
+
         if not all(isinstance(value, str) for value in (provider, code, state)):
             return error_response("provider, code, and state must be strings", 400)
 
         provider = provider.lower()
-        if not provider or not code or not state:
-            return error_response("provider, code, and state are required", 400)
 
         callback_map = {
             "google": self._handle_google_callback,
