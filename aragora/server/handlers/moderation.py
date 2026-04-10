@@ -80,12 +80,18 @@ class ModerationHandler(SecureHandler):
         data, err = self.read_json_body_validated(handler)
         if err is not None:
             return err
+        if not isinstance(data, dict):
+            return error_response("Request body must be a JSON object", status=400)
         moderation = self._get_moderation()
-        moderation.update_config(data or {})
+        moderation.update_config(data)
         return json_response(moderation.config.to_dict())
 
     @require_permission("admin.security")
     def _handle_queue_action(self, item_id: str, action: str) -> HandlerResult:
+        if not isinstance(item_id, str) or not item_id.strip():
+            return error_response("Invalid item ID", status=400)
+        if not isinstance(action, str) or action not in ("approved", "rejected"):
+            return error_response("Invalid action", status=400)
         item = pop_review_item(item_id)
         if not item:
             return error_response("Item not found", status=404)
