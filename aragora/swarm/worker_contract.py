@@ -120,11 +120,12 @@ def build_worker_contract(
     config: LaunchConfig,
     worktree_path: str,
     env: Mapping[str, str] | None = None,
+    claude_profile: str | None = None,
 ) -> WorkerContract:
     normalized_agent = str(agent or "").strip() or "unknown"
     if normalized_agent == "claude":
         model = str(config.claude_model or "default").strip() or "default"
-        profile = str(config.claude_profile or "default").strip() or "default"
+        profile = str(claude_profile or config.claude_profile or "default").strip() or "default"
         permissions = {
             "allow_dangerous_permissions": bool(config.allow_claude_dangerously_skip_permissions),
         }

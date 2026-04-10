@@ -587,6 +587,49 @@ class TestLaunch:
         assert env["ARAGORA_TEST_PATTERNS"] == "tests/swarm/test_boss_loop.py"
 
     @pytest.mark.asyncio
+    async def test_launch_worker_contract_uses_effective_claude_profile(self, tmp_path: Path):
+        launcher = WorkerLauncher(
+            LaunchConfig(
+                detach=False,
+                claude_profile="default-profile",
+            )
+        )
+        mock_proc = AsyncMock()
+        mock_proc.pid = 105
+        worktree = tmp_path / "wt"
+        (worktree / "scripts").mkdir(parents=True)
+        (worktree / "scripts" / "codex_session.sh").write_text(
+            "#!/usr/bin/env bash\n", encoding="utf-8"
+        )
+
+        work_order = {
+            "work_order_id": "wo-profile-contract",
+            "target_agent": "claude",
+            "title": "Profile contract test",
+            "metadata": {
+                "claude_profile": "override-profile",
+                "admin_approved": True,
+            },
+        }
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/claude"),
+            patch.object(WorkerLauncher, "_git_output", return_value=""),
+            patch("asyncio.create_subprocess_exec", return_value=mock_proc) as mock_exec,
+        ):
+            worker = await launcher.launch(
+                work_order,
+                worktree_path=str(worktree),
+                branch="feat",
+            )
+
+        env = mock_exec.call_args.kwargs.get("env")
+        assert isinstance(env, dict)
+        assert env["ARAGORA_CLAUDE_PROFILE"] == "override-profile"
+        assert worker.worker_contract["profile"] == "override-profile"
+        assert work_order["worker_contract"]["profile"] == "override-profile"
+
+    @pytest.mark.asyncio
     async def test_launch_strips_github_tokens_from_metadata_worker_env(self, tmp_path: Path):
         launcher = WorkerLauncher(LaunchConfig(detach=False))
         mock_proc = AsyncMock()

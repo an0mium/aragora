@@ -146,10 +146,12 @@ class WorkerLauncher:
             for key, value in dict(raw_worker_env or {}).items()
             if str(key).strip()
         }
+        effective_claude_profile: str | None = None
         if agent == "claude":
-            effective_profile = profile_override or self.config.claude_profile
-            if effective_profile and "ARAGORA_CLAUDE_PROFILE" not in worker_env_overrides:
-                worker_env_overrides["ARAGORA_CLAUDE_PROFILE"] = effective_profile
+            config_profile = str(self.config.claude_profile or "").strip() or None
+            effective_claude_profile = profile_override or config_profile
+            if effective_claude_profile and "ARAGORA_CLAUDE_PROFILE" not in worker_env_overrides:
+                worker_env_overrides["ARAGORA_CLAUDE_PROFILE"] = effective_claude_profile
 
         # Codex CLI multi-agent mode creates isolated config dirs that lack
         # auth credentials.  Pin CODEX_HOME to the user's main config so
@@ -170,6 +172,7 @@ class WorkerLauncher:
             config=self.config,
             worktree_path=worktree_path,
             env=worker_env,
+            claude_profile=effective_claude_profile,
         )
         contract.validate()
         contract_dict = contract.to_dict()
