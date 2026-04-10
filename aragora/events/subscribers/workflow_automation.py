@@ -35,13 +35,26 @@ class PostDebateWorkflowSubscriber:
         workflow_map: dict[str, str] | None = None,
         min_confidence_for_auto: float = 0.7,
     ):
-        self.workflow_map = dict(OUTCOME_WORKFLOW_MAP) if workflow_map is None else workflow_map
+        self.workflow_map = (
+            dict(OUTCOME_WORKFLOW_MAP) if workflow_map is None else dict(workflow_map)
+        )
         self.min_confidence_for_auto = min_confidence_for_auto
         self.stats: dict[str, int] = {
             "events_processed": 0,
             "workflows_triggered": 0,
             "errors": 0,
         }
+
+    def _get_workflow_runtime(self) -> tuple[Any, Any, Any, Any]:
+        """Load workflow runtime classes behind a unit-testable seam."""
+        from aragora.workflow.engine import WorkflowEngine
+        from aragora.workflow.types import (
+            StepDefinition,
+            WorkflowConfig,
+            WorkflowDefinition,
+        )
+
+        return WorkflowEngine, StepDefinition, WorkflowConfig, WorkflowDefinition
 
     def handle_debate_end(self, event: Any) -> None:
         """Handle a DEBATE_END event and trigger appropriate workflow."""
@@ -98,12 +111,12 @@ class PostDebateWorkflowSubscriber:
     def _trigger_workflow(self, template_name: str, context: dict[str, Any]) -> None:
         """Trigger a workflow from template with the given context."""
         try:
-            from aragora.workflow.engine import WorkflowEngine
-            from aragora.workflow.types import (
+            (
+                WorkflowEngine,
                 StepDefinition,
                 WorkflowConfig,
                 WorkflowDefinition,
-            )
+            ) = self._get_workflow_runtime()
 
             # Create a minimal workflow definition
             debate_id_short = context.get("debate_id", "unknown")[:8]
