@@ -179,9 +179,12 @@ class SQLServerConnector(EnterpriseConnector):
             )
             return self._pool
 
-        except ImportError:
+        except ImportError as exc:
             logger.error("aioodbc not installed. Run: pip install aioodbc")
-            raise
+            raise RuntimeError(
+                "aioodbc is required for the SQL Server connector. "
+                "Install with: pip install aioodbc"
+            ) from exc
 
     async def _discover_tables(self) -> list[str]:
         """Discover tables in the schema."""
@@ -383,9 +386,9 @@ class SQLServerConnector(EnterpriseConnector):
                                     }
                                 )
 
-                    except (OSError, ConnectionError, ValueError, KeyError):
+                    except (OSError, ConnectionError, ValueError, KeyError) as exc:
                         logger.exception("Search failed on %s", table)
-                        raise
+                        raise RuntimeError(f"SQL Server search failed for table {table!r}") from exc
 
         return sorted(results, key=lambda x: float(x.get("rank") or 0), reverse=True)[:limit]
 
@@ -442,9 +445,9 @@ class SQLServerConnector(EnterpriseConnector):
 
                     return None
 
-        except (OSError, ConnectionError, ValueError, KeyError):
+        except (OSError, ConnectionError, ValueError, KeyError) as exc:
             logger.exception("[%s] Fetch failed", self.name)
-            raise
+            raise RuntimeError(f"SQL Server fetch failed for evidence ID {evidence_id!r}") from exc
 
     async def _check_cdc_enabled(self, table: str) -> bool:
         """Check if CDC is enabled for a table."""
@@ -506,9 +509,9 @@ class SQLServerConnector(EnterpriseConnector):
 
         except asyncio.CancelledError:
             logger.info("[SQL Server CDC] Polling cancelled")
-        except (OSError, ConnectionError, ValueError, RuntimeError) as e:
-            logger.error("[SQL Server CDC] Polling error: %s", e)
-            raise
+        except (OSError, ConnectionError, ValueError, RuntimeError) as exc:
+            logger.error("[SQL Server CDC] Polling error: %s", exc)
+            raise RuntimeError("SQL Server CDC polling failed") from exc
 
     async def _process_table_cdc_changes(self, pool: Any, table: str) -> None:
         """Process CDC changes for a single table."""
@@ -541,9 +544,11 @@ class SQLServerConnector(EnterpriseConnector):
 
                 try:
                     await cursor.execute(cdc_query, from_lsn, max_lsn)
-                except (OSError, ConnectionError, ValueError):
+                except (OSError, ConnectionError, ValueError) as exc:
                     logger.exception("[SQL Server CDC] Failed to read changes for %s", table)
-                    raise
+                    raise RuntimeError(
+                        f"SQL Server CDC failed to read changes for table {table!r}"
+                    ) from exc
 
                 col_names = [desc[0] for desc in cursor.description]
 
@@ -615,9 +620,9 @@ class SQLServerConnector(EnterpriseConnector):
 
         except asyncio.CancelledError:
             logger.info("[SQL Server CT] Polling cancelled")
-        except (OSError, ConnectionError, ValueError, RuntimeError) as e:
-            logger.error("[SQL Server CT] Polling error: %s", e)
-            raise
+        except (OSError, ConnectionError, ValueError, RuntimeError) as exc:
+            logger.error("[SQL Server CT] Polling error: %s", exc)
+            raise RuntimeError("SQL Server Change Tracking polling failed") from exc
 
     async def _process_table_ct_changes(self, pool: Any, table: str) -> None:
         """Process Change Tracking changes for a single table."""
@@ -660,9 +665,11 @@ class SQLServerConnector(EnterpriseConnector):
 
                 try:
                     await cursor.execute(ct_query, last_version)
-                except (OSError, ConnectionError, ValueError):
+                except (OSError, ConnectionError, ValueError) as exc:
                     logger.exception("[SQL Server CT] Failed to read changes for %s", table)
-                    raise
+                    raise RuntimeError(
+                        f"SQL Server Change Tracking failed to read changes for table {table!r}"
+                    ) from exc
 
                 col_names = [desc[0] for desc in cursor.description]
 
