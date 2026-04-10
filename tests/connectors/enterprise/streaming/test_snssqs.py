@@ -12,6 +12,7 @@ Tests cover:
 These tests mock aioboto3 to avoid requiring actual AWS services.
 """
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -464,6 +465,42 @@ class TestSNSSQSConnectorConnection:
         mock_client.__aexit__.assert_called_once()
         assert connector._sqs_client is None
         assert connector._running is False
+
+
+# =============================================================================
+# Consume Tests
+# =============================================================================
+
+
+class TestSNSSQSConnectorConsume:
+    """Tests for consuming SQS messages."""
+
+    @pytest.mark.asyncio
+    async def test_consume_cancelled_error_preserves_context(self):
+        """Should preserve the original cancellation context."""
+        from aragora.connectors.enterprise.streaming.snssqs import (
+            SNSSQSConnector,
+            SNSSQSConfig,
+        )
+
+        config = SNSSQSConfig(
+            queue_url="https://sqs.us-east-1.amazonaws.com/123456789/queue",
+            enable_circuit_breaker=False,
+            enable_dlq=False,
+            enable_graceful_shutdown=False,
+        )
+        connector = SNSSQSConnector(config)
+        cancelled = asyncio.CancelledError("poll cancelled")
+        connector._sqs_client = AsyncMock()
+        connector._sqs_client.receive_message = AsyncMock(side_effect=cancelled)
+
+        with pytest.raises(
+            asyncio.CancelledError,
+            match="SNS/SQS consumer cancelled during consume",
+        ) as exc_info:
+            await connector.consume().__anext__()
+
+        assert exc_info.value.__cause__ is cancelled
 
 
 # =============================================================================
