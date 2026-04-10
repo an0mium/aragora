@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from aragora.agents.base import create_agent
-from aragora.agents.errors import CLISubprocessError
+from aragora.agents.errors import AgentConnectionError, CLISubprocessError
 from aragora.nomic.pipeline_bridge import NomicPipelineBridge
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposer
@@ -1099,7 +1099,14 @@ class CampaignReviewer:
                 reviewed_at=_now_iso(),
                 raw_review={"error": type(exc).__name__, "detail": str(exc)[:500]},
             )
-        except (RuntimeError, ValueError, OSError, KeyError, TypeError) as exc:
+        except (
+            AgentConnectionError,
+            RuntimeError,
+            ValueError,
+            OSError,
+            KeyError,
+            TypeError,
+        ) as exc:
             return CampaignReviewGate(
                 required=True,
                 review_model=chosen_review_model,
