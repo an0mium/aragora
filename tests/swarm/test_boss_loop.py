@@ -3677,6 +3677,121 @@ def test_auto_decompose_carries_lineage_and_removes_ready_label() -> None:
     assert "boss-ready" in edited[-1]
 
 
+def test_auto_decompose_skips_candidate_already_covered_by_open_pr(monkeypatch) -> None:
+    issue = _make_issue(
+        4510,
+        "[from #4409] Evidence metrics duplicate",
+        body="## Decomposition Lineage\n- Root issue: #4409\n- Parent issue: #4503\n- Depth: 2\n",
+        labels=["boss-ready"],
+    )
+    loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+    created: list[list[str]] = []
+    comments: list[str] = []
+
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        if cmd[:3] == ["gh", "issue", "list"]:
+            result.stdout = "[]"
+        if cmd[:3] == ["gh", "issue", "create"]:
+            created.append(list(cmd))
+        if cmd[:3] == ["gh", "issue", "comment"]:
+            comments.append(cmd[cmd.index("--body") + 1])
+        return result
+
+    subtask = SimpleNamespace(
+        title="Add complete evidence metric type coverage",
+        description=(
+            "Add focused coverage for every evidence metric type in the "
+            "observability evidence metrics contract and keep it hermetic."
+        ),
+        file_scope=["tests/observability/metrics/test_evidence.py"],
+        estimated_complexity="small",
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = SimpleNamespace(should_decompose=True, subtasks=[subtask])
+
+    monkeypatch.setattr(
+        "aragora.swarm.boss_loop.fetch_open_pr_changed_paths",
+        lambda repo=None: {"tests/observability/metrics/test_evidence.py"},
+    )
+
+    with (
+        patch("subprocess.run", side_effect=_run),
+        patch("aragora.nomic.task_decomposer.TaskDecomposer", return_value=decomposer),
+    ):
+        loop._auto_decompose_stuck_issue(4510, [issue])
+
+    assert created == []
+    assert comments
+    assert "already covered" in comments[-1]
+
+
+def test_auto_decompose_skips_existing_boss_ready_scope_and_validation() -> None:
+    issue = _make_issue(
+        4511,
+        "[from #4409] Evidence metrics duplicate",
+        body="Auto-decomposed from #4409 after 2 failed autonomous attempts.",
+        labels=["boss-ready"],
+    )
+    loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+    created: list[list[str]] = []
+    comments: list[str] = []
+    existing_body = (
+        "Auto-decomposed from #4488 after 3 failed autonomous attempts.\n\n"
+        "## Task\n"
+        "Fix failing evidence metric tests with comprehensive metric coverage.\n\n"
+        "## Files\n"
+        "- `tests/observability/metrics/test_evidence.py`\n\n"
+        "## Acceptance\n"
+        "`python3 -m pytest tests/observability/metrics/test_evidence.py -q`\n"
+    )
+
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        if cmd[:3] == ["gh", "issue", "list"]:
+            result.stdout = json.dumps(
+                [
+                    {
+                        "number": 4503,
+                        "title": "[from #4488] Fix evidence metric coverage",
+                        "body": existing_body,
+                    }
+                ]
+            )
+        if cmd[:3] == ["gh", "issue", "create"]:
+            created.append(list(cmd))
+        if cmd[:3] == ["gh", "issue", "comment"]:
+            comments.append(cmd[cmd.index("--body") + 1])
+        return result
+
+    subtask = SimpleNamespace(
+        title="Repair failing evidence metric coverage",
+        description=(
+            "Repair failing evidence metrics coverage so test_evidence exercises "
+            "all metric types without external monitoring dependencies."
+        ),
+        file_scope=["tests/observability/metrics/test_evidence.py"],
+        estimated_complexity="small",
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = SimpleNamespace(should_decompose=True, subtasks=[subtask])
+
+    with (
+        patch("subprocess.run", side_effect=_run),
+        patch("aragora.nomic.task_decomposer.TaskDecomposer", return_value=decomposer),
+        patch("aragora.swarm.boss_loop.fetch_open_pr_changed_paths", return_value=set()),
+    ):
+        loop._auto_decompose_stuck_issue(4511, [issue])
+
+    assert created == []
+    assert comments
+    assert "already covered" in comments[-1]
+
+
 def test_auto_decompose_stops_at_body_lineage_depth_limit() -> None:
     issue = _make_issue(
         4475,

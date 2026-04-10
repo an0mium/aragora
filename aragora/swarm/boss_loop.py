@@ -48,6 +48,7 @@ from aragora.swarm.boss_feed import (  # noqa: F401
     infer_issue_lane_hints,
     infer_issue_scope_entries,
     select_eligible_issue,
+    scope_entries_overlap,
 )
 from aragora.swarm.boss_freshness import RunnerFreshnessResult, check_runner_freshness  # noqa: F401
 from aragora.swarm.boss_validation import (  # noqa: F401
@@ -1511,8 +1512,16 @@ class BossLoop:
         except Exception:
             pass
 
-        # Collect existing issue titles to avoid creating duplicates
+        open_pr_changed_paths: set[str] = set()
+        if repo:
+            try:
+                open_pr_changed_paths = fetch_open_pr_changed_paths(repo=repo)
+            except Exception as exc:
+                logger.debug("Open PR scope lookup failed during auto-decomposition: %s", exc)
+
+        # Collect existing boss-ready issues to avoid duplicate fan-out.
         existing_titles: set[str] = set()
+        existing_decomposition_signatures: list[dict[str, Any]] = []
         try:
             proc = subprocess.run(
                 [
@@ -1528,23 +1537,47 @@ class BossLoop:
                     "--limit",
                     "100",
                     "--json",
-                    "title",
-                    "--jq",
-                    ".[].title",
+                    "number,title,body,url",
                 ],
                 capture_output=True,
                 text=True,
                 timeout=15,
             )
             if proc.returncode == 0:
-                existing_titles = {
-                    line.strip().lower() for line in proc.stdout.splitlines() if line.strip()
-                }
+                raw_issues = json.loads(proc.stdout or "[]")
+                if isinstance(raw_issues, list):
+                    for raw_issue in raw_issues:
+                        if not isinstance(raw_issue, dict):
+                            continue
+                        try:
+                            existing_number = int(raw_issue.get("number", 0) or 0)
+                        except (TypeError, ValueError):
+                            existing_number = 0
+                        if existing_number == int(issue.number):
+                            continue
+                        existing_title = str(raw_issue.get("title", "") or "").strip()
+                        existing_body = str(raw_issue.get("body", "") or "").strip()
+                        if existing_title:
+                            existing_titles.add(existing_title.lower())
+                        signature = self._decomposition_issue_signature(
+                            number=existing_number,
+                            title=existing_title,
+                            body=existing_body,
+                            url=str(raw_issue.get("url", "") or "").strip(),
+                        )
+                        if signature["scopes"]:
+                            existing_decomposition_signatures.append(signature)
+                else:
+                    existing_titles = {
+                        line.strip().lower() for line in proc.stdout.splitlines() if line.strip()
+                    }
         except Exception:
             pass
 
         # Try LLM-based decomposition
         sub_issues_created = 0
+        decomposition_candidates = 0
+        covered_candidates = 0
         try:
             from aragora.nomic.task_decomposer import TaskDecomposer
 
@@ -1567,8 +1600,10 @@ class BossLoop:
                     sub_title = (subtask.title or sub_desc[:60]).strip()[:80]
                     title = f"[from #{issue.number}] {sub_title}"
                     if title.lower() in existing_titles:
+                        decomposition_candidates += 1
+                        covered_candidates += 1
                         continue
-                    valid_scope = [f for f in (subtask.file_scope or []) if f and "/" in f]
+                    valid_scope = self._decomposition_scope_entries(subtask.file_scope or [])
                     if not valid_scope:
                         logger.debug(
                             "Skipping subtask with no valid file scope: %r",
@@ -1587,6 +1622,20 @@ class BossLoop:
                         validation_cmd = f"`ruff check {' '.join(src_files)}`"
                     else:
                         validation_cmd = "`pytest` on the changed files passes"
+                    decomposition_candidates += 1
+                    signature = self._decomposition_candidate_signature(
+                        title=sub_title,
+                        description=sub_desc,
+                        scope_entries=valid_scope,
+                        validation_command=validation_cmd,
+                    )
+                    if self._decomposition_candidate_is_covered(
+                        signature=signature,
+                        existing_signatures=existing_decomposition_signatures,
+                        open_pr_changed_paths=open_pr_changed_paths,
+                    ):
+                        covered_candidates += 1
+                        continue
                     child_depth = decomposition_depth + 1
                     body = (
                         f"Auto-decomposed from #{issue.number} after {self.config.max_retries_per_issue} "
@@ -1637,6 +1686,12 @@ class BossLoop:
                 f"Boss loop exhausted {self.config.max_retries_per_issue} attempts. "
                 f"Auto-decomposed into {sub_issues_created} smaller sub-issues with `boss-ready` label."
             )
+        elif decomposition_candidates > 0 and covered_candidates == decomposition_candidates:
+            comment = (
+                f"Boss loop exhausted {self.config.max_retries_per_issue} attempts. "
+                "All decomposition candidates are already covered by existing open "
+                "`boss-ready` issues or open PRs."
+            )
         else:
             comment = (
                 f"Boss loop exhausted {self.config.max_retries_per_issue} attempts without "
@@ -1680,6 +1735,146 @@ class BossLoop:
             depth = 0
 
         return root_issue, depth
+
+    @staticmethod
+    def _decomposition_scope_entries(
+        paths: list[str] | tuple[str, ...] | set[str],
+    ) -> tuple[str, ...]:
+        scope_issue = GitHubIssue(
+            number=0,
+            title="",
+            body="\n".join(f"`{path}`" for path in paths if str(path or "").strip()),
+            labels=[],
+            url="",
+            state="OPEN",
+            created_at="",
+        )
+        return tuple(infer_issue_scope_entries(scope_issue))
+
+    @staticmethod
+    def _normalize_decomposition_validation(command: str) -> str:
+        text = str(command or "").strip()
+        if not text:
+            return ""
+        text = re.sub(r"`([^`]+)`", r"\1", text)
+        text = text.replace("python -m pytest", "python3 -m pytest")
+        text = re.sub(r"\s+", " ", text).strip().lower()
+        return text
+
+    @staticmethod
+    def _normalize_decomposition_intent(*parts: str) -> str:
+        text = " ".join(str(part or "") for part in parts)
+        text = re.sub(r"\[from #\d+\]", " ", text.lower())
+        tokens = re.findall(r"[a-z0-9_/.]+", text)
+        stopwords = {
+            "a",
+            "add",
+            "all",
+            "and",
+            "are",
+            "by",
+            "for",
+            "from",
+            "in",
+            "is",
+            "it",
+            "keep",
+            "of",
+            "on",
+            "or",
+            "the",
+            "to",
+            "with",
+        }
+        return " ".join(token for token in tokens if token not in stopwords)
+
+    @classmethod
+    def _decomposition_issue_signature(
+        cls,
+        *,
+        number: int,
+        title: str,
+        body: str,
+        url: str,
+    ) -> dict[str, Any]:
+        issue = GitHubIssue(
+            number=number,
+            title=title,
+            body=body,
+            labels=["boss-ready"],
+            url=url,
+            state="OPEN",
+            created_at="",
+        )
+        return {
+            "scopes": tuple(infer_issue_scope_entries(issue)),
+            "validations": tuple(
+                cls._normalize_decomposition_validation(command)
+                for command in extract_pre_dispatch_validation_commands(body)
+                if cls._normalize_decomposition_validation(command)
+            ),
+            "intent": cls._normalize_decomposition_intent(title, body),
+        }
+
+    @classmethod
+    def _decomposition_candidate_signature(
+        cls,
+        *,
+        title: str,
+        description: str,
+        scope_entries: tuple[str, ...],
+        validation_command: str,
+    ) -> dict[str, Any]:
+        validation = cls._normalize_decomposition_validation(validation_command)
+        return {
+            "scopes": tuple(scope_entries),
+            "validations": (validation,) if validation else (),
+            "intent": cls._normalize_decomposition_intent(title, description),
+        }
+
+    @staticmethod
+    def _decomposition_scope_sets_overlap(
+        left: tuple[str, ...] | set[str],
+        right: tuple[str, ...] | set[str],
+    ) -> bool:
+        return any(
+            scope_entries_overlap(left_scope, right_scope)
+            for left_scope in left
+            for right_scope in right
+        )
+
+    @classmethod
+    def _decomposition_intents_overlap(cls, left: str, right: str) -> bool:
+        left_tokens = set((left or "").split())
+        right_tokens = set((right or "").split())
+        if not left_tokens or not right_tokens:
+            return False
+        shared = left_tokens & right_tokens
+        return len(shared) >= max(3, min(len(left_tokens), len(right_tokens)) // 2)
+
+    @classmethod
+    def _decomposition_candidate_is_covered(
+        cls,
+        *,
+        signature: dict[str, Any],
+        existing_signatures: list[dict[str, Any]],
+        open_pr_changed_paths: set[str],
+    ) -> bool:
+        scopes = tuple(signature.get("scopes") or ())
+        validations = set(signature.get("validations") or ())
+        intent = str(signature.get("intent") or "")
+        if scopes and cls._decomposition_scope_sets_overlap(scopes, open_pr_changed_paths):
+            return True
+        for existing in existing_signatures:
+            existing_scopes = tuple(existing.get("scopes") or ())
+            if not cls._decomposition_scope_sets_overlap(scopes, existing_scopes):
+                continue
+            existing_validations = set(existing.get("validations") or ())
+            if validations and existing_validations and validations & existing_validations:
+                return True
+            if cls._decomposition_intents_overlap(intent, str(existing.get("intent") or "")):
+                return True
+        return False
 
     @staticmethod
     def _extract_file_scope_hints(body: str) -> list[str]:
