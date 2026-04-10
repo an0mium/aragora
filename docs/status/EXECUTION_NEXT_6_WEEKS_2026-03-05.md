@@ -1,6 +1,6 @@
 # Execution Plan (Next 6 Weeks)
 
-Last updated: 2026-03-22  
+Last updated: 2026-03-22
 Owner: Platform program (Product, Backend, Integrations, QA, SRE)
 
 This is the active short-horizon plan in the agreed priority order.

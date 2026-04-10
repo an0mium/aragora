@@ -15,7 +15,7 @@ This is the single source of truth for short-horizon execution priorities.
 
 ## Current Gate
 
-The current gate is the transition from early `Teammate` behavior to reliable `Foreman` behavior.
+The current gate is the transition from early `Teammate` behavior to reliable `Foreman` behavior across the current execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
 
 What is already true:
 

@@ -21,6 +21,14 @@ Use it to create or reconcile GitHub issues. Keep issue titles stable when possi
 6. **Decision Integrity Core**
 7. **Commercialization & Scale-Out**
 
+## GitHub Issue Links
+
+The strict status reconciler requires this canonical map to link the live execution backlog directly.
+
+- Enterprise assurance carryover: [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509)
+- Current execution epics: [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), [#806](https://github.com/synaptent/aragora/issues/806)
+- Current execution lanes: [#807](https://github.com/synaptent/aragora/issues/807), [#808](https://github.com/synaptent/aragora/issues/808), [#809](https://github.com/synaptent/aragora/issues/809), [#810](https://github.com/synaptent/aragora/issues/810), [#811](https://github.com/synaptent/aragora/issues/811), [#812](https://github.com/synaptent/aragora/issues/812), [#813](https://github.com/synaptent/aragora/issues/813), [#814](https://github.com/synaptent/aragora/issues/814), [#815](https://github.com/synaptent/aragora/issues/815), [#816](https://github.com/synaptent/aragora/issues/816), [#817](https://github.com/synaptent/aragora/issues/817), [#818](https://github.com/synaptent/aragora/issues/818), [#819](https://github.com/synaptent/aragora/issues/819), [#820](https://github.com/synaptent/aragora/issues/820)
+
 ## Reverse-Staged Rocket Bootstrap
 
 This is the near-term sequencing layer across the full task tree. Do not treat all `[30d]` work as equally active at once.

@@ -1140,14 +1140,14 @@ See `docs/deployment/PRODUCTION_RUNBOOK.md` for detailed key rotation procedures
 - [ ] Notify stakeholders of upcoming maintenance window
 - [ ] Verify rollback procedure works (check `/tmp/aragora_deploy_state` exists)
 - [ ] Open CloudWatch dashboard and Cloudflare analytics
-- [ ] Confirm all instances are healthy: `curl -s https://api.aragora.ai/api/health`
+- [ ] Confirm all instances are healthy: `curl -s https://api.aragora.ai/api/health` (legacy compatibility alias; native FastAPI route is `/api/v2/health`)
 - [ ] Record current commit SHA from each instance for rollback reference
 
 ### Post-Maintenance Checklist
 
 - [ ] Verify health endpoints return `"status":"healthy"` on all instances
 - [ ] Confirm all instances are on the same commit (Section 4.4)
-- [ ] Test debate creation: `POST /api/debates` with a simple question
+- [ ] Test debate creation: `POST /api/debates` with a simple question (legacy compatibility alias; native FastAPI route is `/api/v2/debates`)
 - [ ] Check CloudWatch for error spikes in the 15 minutes post-deploy
 - [ ] Confirm Cloudflare LB shows all origins healthy
 - [ ] Verify no error spikes in `journalctl -u aragora --since "15 min ago"`
@@ -1158,8 +1158,8 @@ See `docs/deployment/PRODUCTION_RUNBOOK.md` for detailed key rotation procedures
 
 | Task | Command |
 |------|---------|
-| External health | `curl -s https://api.aragora.ai/api/health \| jq .` |
-| Instance health | SSM: `curl -s http://localhost:8080/api/health \| jq` |
+| External health | `curl -s https://api.aragora.ai/api/health \| jq .` (legacy alias; native FastAPI route is `/api/v2/health`) |
+| Instance health | SSM: `curl -s http://localhost:8080/api/health \| jq` (legacy alias; native FastAPI route is `/api/v2/health`) |
 | View logs | SSM: `sudo journalctl -u aragora -n 100 --no-pager` |
 | Restart service | SSM: `sudo systemctl restart aragora` |
 | Check version | SSM: `cd /home/ec2-user/aragora && git rev-parse --short HEAD` |
