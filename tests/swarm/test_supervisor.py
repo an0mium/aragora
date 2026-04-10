@@ -120,6 +120,82 @@ def test_start_run_creates_leased_work_orders(repo: Path, store: DevCoordination
     assert store.status_summary()["counts"]["active_leases"] == 2
 
 
+def test_lease_work_order_uses_handoff_key_for_repair_journal(
+    repo: Path,
+    store: DevCoordinationStore,
+) -> None:
+    """Repair journals must not leak across issues that reuse micro-1 ids."""
+    session = ManagedWorktreeSession(
+        session_id="swarm-new-micro-1",
+        agent="claude",
+        branch="codex/swarm-new-micro-1",
+        path=repo / "wt-repair",
+        created=True,
+        reconcile_status="up_to_date",
+        payload={},
+    )
+    session.path.mkdir()
+    lifecycle = MagicMock()
+    lifecycle.ensure_managed_worktree.return_value = session
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=lifecycle,
+    )
+
+    store.record_worker_repair_journal(
+        task_id="micro-1",
+        task_key="old-run:micro-1",
+        handoff_key="github-issue:synaptent/aragora:4297:micro-1",
+        work_order_id="micro-1",
+        supervisor_run_id="old-run",
+        lease_id="lease-old",
+        owner_agent="codex",
+        owner_session_id="session-old",
+        branch="codex/old",
+        worktree_path="/tmp/old",
+        entry={"failure_reason": "wrong_issue", "changed_paths": ["aragora/old.py"]},
+    )
+    store.record_worker_repair_journal(
+        task_id="micro-1",
+        task_key="new-run:micro-1",
+        handoff_key="github-issue:synaptent/aragora:4296:micro-1",
+        work_order_id="micro-1",
+        supervisor_run_id="new-run",
+        lease_id="lease-new",
+        owner_agent="claude",
+        owner_session_id="session-new",
+        branch="codex/new",
+        worktree_path="/tmp/new",
+        entry={"failure_reason": "right_issue", "changed_paths": ["aragora/new.py"]},
+    )
+    work_order: dict[str, Any] = {
+        "work_order_id": "micro-1",
+        "title": "Narrow supervisor probes exceptions",
+        "target_agent": "claude",
+        "file_scope": ["aragora/swarm/supervisor_probes.py"],
+        "expected_tests": ["ruff check aragora/swarm/supervisor_probes.py --select BLE001"],
+        "metadata": {
+            "handoff_key": "github-issue:synaptent/aragora:4296:micro-1",
+        },
+    }
+
+    leased = supervisor._lease_work_order(
+        run_id="new-run",
+        target_branch="main",
+        work_order=work_order,
+        work_orders=[work_order],
+        managed_dir_pattern=str(repo / ".worktrees" / "{agent}"),
+        approval_policy=SwarmApprovalPolicy(),
+    )
+
+    assert leased is True
+    repair_journal = work_order["metadata"]["repair_journal"]
+    assert repair_journal == [
+        {"failure_reason": "right_issue", "changed_paths": ["aragora/new.py"]}
+    ]
+
+
 @pytest.mark.asyncio
 async def test_dispatch_workers_reuses_persisted_launcher_profile(
     repo: Path, store: DevCoordinationStore

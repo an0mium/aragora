@@ -1136,12 +1136,14 @@ def _lease_work_order(
     session_key = f"swarm-{run_id[:8]}-{wo_id}"
     metadata = dict(work_order.get("metadata") or {})
     handoff_key = str(metadata.get("handoff_key", "")).strip()
-    persisted_journals = self.store.list_worker_repair_journals(
-        task_id=wo_id,
-        task_key=task_key,
-        handoff_key=handoff_key,
-        work_order_id=wo_id,
-    )
+    journal_lookup: dict[str, str] = {}
+    if handoff_key:
+        journal_lookup["handoff_key"] = handoff_key
+    else:
+        # Work-order ids such as "micro-1" are reused across boss-loop issues;
+        # only fall back to run-scoped keys when no cross-host handoff key exists.
+        journal_lookup["task_key"] = task_key
+    persisted_journals = self.store.list_worker_repair_journals(**journal_lookup)
     if persisted_journals:
         metadata["repair_journal"] = [
             dict(record.get("entry") or {}) for record in persisted_journals if record.get("entry")
