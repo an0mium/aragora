@@ -21,6 +21,31 @@ logger = logging.getLogger(__name__)
 TRUSTED_PROXIES: frozenset[str] = frozenset(
     p.strip() for p in os.getenv("ARAGORA_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",")
 )
+_SENSITIVE_LOG_KEY_PARTS = frozenset(
+    {
+        "authorization",
+        "cookie",
+        "token",
+        "secret",
+        "password",
+        "api_key",
+        "apikey",
+        "session",
+    }
+)
+_MAX_LOG_EXTRA_VALUE_LENGTH = 500
+_REDACTED_LOG_VALUE = "[REDACTED]"
+
+
+def _format_log_extra_value(key: str, value: Any) -> str:
+    normalized_key = key.lower().replace("-", "_")
+    if any(part in normalized_key for part in _SENSITIVE_LOG_KEY_PARTS):
+        return _REDACTED_LOG_VALUE
+
+    text = str(value)
+    if len(text) > _MAX_LOG_EXTRA_VALUE_LENGTH:
+        return f"{text[:_MAX_LOG_EXTRA_VALUE_LENGTH]}...[truncated]"
+    return text
 
 
 class RequestLoggingMixin:
@@ -88,7 +113,7 @@ class RequestLoggingMixin:
 
         if extra:
             for k, v in extra.items():
-                msg_parts.append(f"{k}={v}")
+                msg_parts.append(f"{k}={_format_log_extra_value(k, v)}")
 
         if duration_ms > self._slow_request_threshold_ms:
             msg_parts.append("SLOW")
@@ -114,8 +139,8 @@ class RequestLoggingMixin:
         """
         # UUID pattern (e.g., 550e8400-e29b-41d4-a716-446655440000)
         uuid_pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
-        # Short ID pattern (alphanumeric, 8-32 chars, likely an ID)
-        short_id_pattern = r"/[a-zA-Z0-9]{8,32}(?=/|$)"
+        # Short ID pattern (alphanumeric with a digit, 8-32 chars, likely an ID)
+        short_id_pattern = r"/(?=[a-zA-Z0-9]*\d)[a-zA-Z0-9]{8,32}(?=/|$)"
         # Numeric ID pattern
         numeric_pattern = r"/\d+(?=/|$)"
 
