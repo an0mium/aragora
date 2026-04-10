@@ -100,6 +100,8 @@ class WorkerProcess:
     admin_approved: bool = False
     worker_contract: dict[str, Any] = field(default_factory=dict)
     worker_contract_checksum: str = ""
+    prompt_chars: int = 0
+    enriched_context_chars: int = 0
 
     @property
     def is_running(self) -> bool:
@@ -132,6 +134,8 @@ class WorkerProcess:
             "admin_approved": self.admin_approved,
             "worker_contract": dict(self.worker_contract),
             "worker_contract_checksum": self.worker_contract_checksum,
+            "prompt_chars": self.prompt_chars,
+            "enriched_context_chars": self.enriched_context_chars,
         }
 
 

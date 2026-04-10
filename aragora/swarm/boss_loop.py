@@ -868,14 +868,15 @@ class BossLoop:
             metrics_path = Path(metrics_path_text)
             metrics_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Extract prompt/context instrumentation from worker result
+            # Extract prompt/context instrumentation from work order data
             run_dict = worker_result.get("run")
-            prompt_context_chars = 0
+            prompt_chars = 0
+            enriched_context_chars = 0
             prompt_version = "v2"  # Context-first prompt (post a11848eac)
             is_decomposed = bool(
                 re.search(
                     r"\[from #\d+\]",
-                    str(worker_result.get("receipt_metadata", {}).get("issue_title", "")),
+                    str((worker_result.get("receipt_metadata") or {}).get("issue_title", "")),
                 )
             )
             worker_outcome = str(worker_result.get("outcome", "")).strip()
@@ -884,10 +885,12 @@ class BossLoop:
                 str((worker_result.get("publish_result") or {}).get("action", "")).strip() or None
             )
 
+            # Read prompt size from persisted WorkerProcess fields
             if isinstance(run_dict, dict):
                 for wo in run_dict.get("work_orders", []):
                     if isinstance(wo, dict):
-                        prompt_context_chars += len(str(wo.get("prompt", "")))
+                        prompt_chars += int(wo.get("prompt_chars", 0) or 0)
+                        enriched_context_chars += int(wo.get("enriched_context_chars", 0) or 0)
 
             payload = {
                 "iteration": int(iteration),
@@ -899,7 +902,8 @@ class BossLoop:
                 "tests_run": tests_run,
                 "tests_passed": tests_passed,
                 "prompt_version": prompt_version,
-                "prompt_context_chars": prompt_context_chars,
+                "prompt_chars": prompt_chars,
+                "enriched_context_chars": enriched_context_chars,
                 "is_decomposed_issue": is_decomposed,
                 "has_deliverable": has_deliverable,
                 "publish_action": publish_action,

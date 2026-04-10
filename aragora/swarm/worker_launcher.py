@@ -243,6 +243,8 @@ class WorkerLauncher:
             admin_approved=admin_approved,
             worker_contract=contract_dict,
             worker_contract_checksum=contract_checksum,
+            prompt_chars=len(prompt),
+            enriched_context_chars=len(str(work_order.get("_enriched_context", ""))),
         )
         self._workers[work_order_id] = worker
         self._processes[work_order_id] = proc
