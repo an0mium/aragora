@@ -509,8 +509,12 @@ class ShopifyConnector(EnterpriseConnector):
                     )
                     await asyncio.sleep(delay)
                     continue
-            except ConnectorAPIError:
-                raise
+            except ConnectorAPIError as exc:
+                raise ConnectorAPIError(
+                    f"Shopify request {method} {endpoint} failed: {exc}",
+                    connector_name="shopify",
+                    status_code=getattr(exc, "status_code", None),
+                ) from exc
 
         raise ConnectorAPIError(
             f"Request failed after {_MAX_RETRIES + 1} attempts: {last_error}",
