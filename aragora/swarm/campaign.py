@@ -767,7 +767,7 @@ class CampaignPlanner:
                     acceptance_criteria=base_spec.acceptance_criteria,
                     constraints=base_spec.constraints,
                 )
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
                 self._planner_fallbacks.append(
                     f"planner fallback to heuristic for source item {source_index}: "
                     f"{type(exc).__name__}: {exc}"
@@ -911,7 +911,7 @@ class CampaignPlanner:
                 response = asyncio.run(agent.generate(json.dumps(prompt, sort_keys=True)))
                 for finding in _extract_json_list(response):
                     findings.append(f"crosscheck: {finding}")
-            except Exception as exc:
+            except (RuntimeError, ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
                 logger.debug("campaign_crosscheck_fallback: %s", exc)
         return findings
 
@@ -1099,7 +1099,7 @@ class CampaignReviewer:
                 reviewed_at=_now_iso(),
                 raw_review={"error": type(exc).__name__, "detail": str(exc)[:500]},
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError, KeyError, TypeError) as exc:
             return CampaignReviewGate(
                 required=True,
                 review_model=chosen_review_model,
@@ -1940,7 +1940,7 @@ class CampaignExecutor:
                 acceptance_criteria=spec.acceptance_criteria,
                 constraints=spec.constraints,
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
             planner_metadata["planner_strategy_used"] = "heuristic"
             planner_metadata["planner_fallback_reason"] = f"{type(exc).__name__}: {exc}"[:500]
             decomposition = self.decomposer.analyze(
@@ -2136,7 +2136,7 @@ class CampaignExecutor:
         supervisor = SwarmSupervisor(repo_root=self.repo_root)
         try:
             return supervisor.refresh_run(run_id).to_dict()
-        except Exception:
+        except (RuntimeError, ValueError, KeyError, OSError, TypeError):
             record = supervisor.store.get_supervisor_run(run_id)
             return dict(record) if isinstance(record, dict) else None
 
@@ -2287,7 +2287,7 @@ class CampaignExecutor:
                         },
                     )
                 )
-            except Exception:
+            except (RuntimeError, ValueError, TypeError, OSError, KeyError):
                 logger.debug("Campaign lane telemetry emission skipped", exc_info=True)
             logger.info(
                 "receipt_emitted: project=%s status=%s path=%s",
@@ -2297,7 +2297,7 @@ class CampaignExecutor:
             )
             return receipt_path
 
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError, OSError, KeyError) as exc:
             logger.error(
                 "receipt_emit_failed: project=%s status=%s error=%s",
                 project.project_id,
