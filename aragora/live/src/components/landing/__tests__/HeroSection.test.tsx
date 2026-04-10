@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { DebateResponse } from '../../DebateResultPreview';
 import { HeroSection } from '../HeroSection';
 
 const mockPush = jest.fn();
@@ -385,6 +386,96 @@ describe('HeroSection', () => {
       );
       expect(screen.getByRole('button', { name: /try another/i })).toBeInTheDocument();
       expect(screen.getByText(/keep this debate and continue from the full transcript/i)).toBeInTheDocument();
+    });
+
+    it('submits wrong-answer feedback from the active landing preview', async () => {
+      const user = userEvent.setup();
+      const question = 'Should we use Redis or Memcached for session cache?';
+      const interpretedQuestion = 'Should our app use Redis instead of Memcached for session cache?';
+      const debateResult: DebateResponse = {
+        id: 'debate-queue-123',
+        topic: interpretedQuestion,
+        status: 'completed',
+        rounds_used: 1,
+        consensus_reached: false,
+        confidence: 0.7,
+        verdict: 'needs_review',
+        duration_seconds: 8,
+        participants: ['gpt', 'claude', 'grok'],
+        proposals: { gpt: 'Use Redis for shared session cache.' },
+        critiques: [],
+        votes: [],
+        dissenting_views: [],
+        final_answer: 'Use Redis for shared session cache.',
+        receipt: null,
+        receipt_hash: null,
+        result_mode: 'preview',
+        result_warning: 'Aragora debated a focused interpretation.',
+      };
+      const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes('/api/v1/playground/assess')) {
+          return createResponse({
+            type: 'proceed',
+            option: {
+              id: 'direct',
+              label: 'Direct debate',
+              description: 'Run the question as written.',
+              originalQuestion: question,
+              interpretedQuestion,
+              debatePrompt: interpretedQuestion,
+              agents: 3,
+              rounds: 2,
+            },
+          });
+        }
+        if (url.includes('/api/v1/playground/debate')) {
+          return createResponse(debateResult);
+        }
+        return createResponse({});
+      });
+      global.fetch = fetchMock as typeof fetch;
+
+      render(<HeroSection />);
+
+      await user.type(screen.getByRole('textbox'), question);
+      await user.click(screen.getByRole('button', { name: /start debate/i }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('debate-result-preview')).toBeInTheDocument();
+      });
+
+      const previewProps = mockCompactDebateResult.mock.calls.at(-1)?.[0] as {
+        onWrongAnswer: (result: DebateResponse) => void;
+        result: DebateResponse;
+      };
+      act(() => {
+        previewProps.onWrongAnswer(previewProps.result);
+      });
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          'http://localhost:8080/api/v1/playground/landing/feedback',
+          expect.objectContaining({
+            method: 'POST',
+          }),
+        );
+      });
+      const feedbackCall = fetchMock.mock.calls.find(([input]) =>
+        String(input).includes('/api/v1/playground/landing/feedback')
+      );
+      const feedbackBody = JSON.parse(String((feedbackCall?.[1] as RequestInit).body));
+      expect(feedbackBody).toEqual({
+        question,
+        interpreted_question: interpretedQuestion,
+        final_answer: 'Use Redis for shared session cache.',
+        result_warning: 'Aragora debated a focused interpretation.',
+        result_mode: 'preview',
+        debate_id: 'debate-queue-123',
+        verdict: 'needs_review',
+        participant_count: 3,
+        rewritten: true,
+      });
     });
 
     it('stores the result before routing to auth from the post-debate CTAs', async () => {

@@ -10,7 +10,7 @@ import { useBackend, BACKENDS } from '../BackendSelector';
 import { DebateInput } from '../DebateInput';
 import { ConnectOpenRouterButton } from '../openrouter/ConnectOpenRouterButton';
 import type { HeroSectionProps, LandingDebatePreflight, LandingPreparedDebateOption } from './types';
-import { trackLandingEvent } from './landingTelemetry';
+import { submitLandingFeedback, trackLandingEvent } from './landingTelemetry';
 import { useLandingDebateProgress } from '@/hooks/useLandingDebateProgress';
 
 const ASCII_BANNER = `    \u2584\u2584\u2584       \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584        \u2584\u2588\u2588\u2588\u2588  \u2592\u2588\u2588\u2588\u2588\u2588   \u2588\u2588\u2580\u2588\u2588\u2588   \u2584\u2584\u2584
@@ -171,6 +171,9 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
       || question
       || lastTopic
       || currentResult.topic;
+    const rewritten =
+      Boolean(currentResult.interpreted_question)
+      && currentResult.interpreted_question !== (currentResult.original_question || currentResult.topic);
 
     setQuestion(sourceQuestion);
     setResult(null);
@@ -180,14 +183,23 @@ export function HeroSection(props: Partial<HeroSectionProps> & Record<string, un
     setPendingPreflight(null);
     setEditorNotice('Edit the wording below and rerun the debate with one more specific detail.');
 
+    submitLandingFeedback(apiBase, {
+      question: sourceQuestion,
+      interpreted_question: currentResult.interpreted_question || currentResult.topic,
+      final_answer: currentResult.final_answer,
+      result_warning: currentResult.result_warning || null,
+      result_mode: currentResult.result_mode || 'full',
+      debate_id: currentResult.id || null,
+      verdict: currentResult.verdict || null,
+      participant_count: currentResult.participants.length,
+      rewritten,
+    });
     trackEvent('wrong_answer_clicked', {
       result_mode: currentResult.result_mode || 'full',
-      rewritten:
-        Boolean(currentResult.interpreted_question)
-        && currentResult.interpreted_question !== (currentResult.original_question || currentResult.topic),
+      rewritten,
     });
     focusComposer();
-  }, [focusComposer, lastTopic, question, trackEvent]);
+  }, [apiBase, focusComposer, lastTopic, question, trackEvent]);
 
   // Dashboard mode — preserves original behavior from old HeroSection
   if (isDashboardMode) {
