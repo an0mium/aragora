@@ -121,6 +121,32 @@ class TestBuildPrompt:
         assert "All tests pass" in prompt
         assert "Do not modify CLAUDE.md" in prompt
 
+    def test_repair_journal_included(self):
+        wo = {
+            "title": "Fix cache error",
+            "metadata": {
+                "repair_journal": [
+                    {
+                        "at": "2026-04-09T00:00:00Z",
+                        "exit_code": 1,
+                        "worker_outcome": "crash",
+                        "failure_reason": "worker_crash",
+                        "failing_verification": {
+                            "command": "python -m pytest tests/foo.py -q",
+                            "exit_code": 1,
+                            "stderr_tail": "AssertionError: boom",
+                        },
+                        "changed_paths": ["aragora/foo.py"],
+                    }
+                ]
+            },
+        }
+        prompt = WorkerLauncher._build_prompt(wo)
+        assert "Prior attempt notes" in prompt
+        assert "failing verification" in prompt
+        assert "python -m pytest tests/foo.py -q" in prompt
+        assert "worker_crash" in prompt
+
     def test_codex_prompt_includes_lane_closure_guidance(self):
         prompt = WorkerLauncher._build_prompt(
             {

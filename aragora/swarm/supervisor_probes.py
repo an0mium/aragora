@@ -19,6 +19,62 @@ MAX_WORKER_LOG_TAIL_CHARS = _supervisor.MAX_WORKER_LOG_TAIL_CHARS
 WorkerOutcome = _supervisor.WorkerOutcome
 _path_in_scope = _supervisor._path_in_scope
 
+_REPAIR_JOURNAL_MAX_ENTRIES = 3
+_REPAIR_JOURNAL_TAIL_CHARS = 800
+
+
+def _tail_text(text: str, *, max_chars: int = _REPAIR_JOURNAL_TAIL_CHARS) -> str:
+    if len(text) <= max_chars:
+        return text
+    return text[-max_chars:]
+
+
+def _summarize_verification_failure(verification_results: list[dict[str, Any]]) -> dict[str, Any]:
+    for entry in verification_results:
+        if not isinstance(entry, dict):
+            continue
+        passed = entry.get("passed")
+        if passed is False:
+            return {
+                "command": str(entry.get("command", "")).strip(),
+                "exit_code": int(entry.get("exit_code") or -1),
+                "stdout_tail": _tail_text(str(entry.get("stdout", ""))),
+                "stderr_tail": _tail_text(str(entry.get("stderr", ""))),
+            }
+    return {}
+
+
+def _append_repair_journal(
+    item: dict[str, Any],
+    result: WorkerProcess,
+    *,
+    reason: str | None = None,
+) -> None:
+    metadata = dict(item.get("metadata") or {})
+    raw_entries = metadata.get("repair_journal")
+    entries: list[dict[str, Any]] = []
+    if isinstance(raw_entries, list):
+        entries = [entry for entry in raw_entries if isinstance(entry, dict)]
+
+    verification_results = item.get("verification_results", []) or []
+    failing = _summarize_verification_failure(verification_results)
+    entry = {
+        "at": datetime.now(UTC).isoformat(),
+        "agent": str(item.get("target_agent", result.agent)).strip() or result.agent,
+        "exit_code": int(result.exit_code or 0),
+        "worker_outcome": str(item.get("worker_outcome", "")).strip() or None,
+        "failure_reason": str(reason or item.get("failure_reason", "")).strip() or None,
+        "changed_paths": list(item.get("changed_paths", []) or [])[:10],
+        "commit_shas": list(result.commit_shas or [])[:5],
+        "tests_run": list(item.get("tests_run", []) or [])[:3],
+        "failing_verification": failing or None,
+        "stdout_tail": _tail_text(result.stdout or ""),
+        "stderr_tail": _tail_text(result.stderr or ""),
+    }
+    entries.append(entry)
+    metadata["repair_journal"] = entries[-_REPAIR_JOURNAL_MAX_ENTRIES:]
+    item["metadata"] = metadata
+
 
 def _worker_result_from_persisted_work_order(item: dict[str, Any]) -> WorkerProcess | None:
     commit_shas = [str(sha).strip() for sha in item.get("commit_shas", []) if str(sha).strip()]
@@ -243,6 +299,7 @@ def _finalize_completed_work_order_result(
                 or "merge_gate_failed",
                 blocking_question=self._merge_gate_blocking_question(merge_gate),
             )
+            _append_repair_journal(item, result, reason="merge_gate_failed")
             item["review_status"] = "changes_requested"
             item["receipt_id"] = None
             item["worker_outcome"] = WorkerOutcome.MERGE_GATE_FAILED.value
@@ -378,6 +435,7 @@ def _apply_worker_result(
     if scope_violations:
         self._mark_scope_violation(item, scope_violations)
         item["worker_outcome"] = WorkerOutcome.SCOPE_VIOLATION.value
+        _append_repair_journal(item, result, reason="scope_violation")
         lease_id = str(item.get("lease_id", "")).strip()
         if lease_id:
             self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
@@ -411,6 +469,7 @@ def _apply_worker_result(
                 "worker produced only session artifacts, no real deliverables",
                 failure_reason="clean_exit_no_deliverable",
             )
+            _append_repair_journal(item, result, reason="clean_exit_no_deliverable")
             if not _pre_outcome:
                 item["worker_outcome"] = WorkerOutcome.CLEAN_EXIT_NO_EFFECT.value
             self._release_terminal_lease(item)
@@ -447,6 +506,7 @@ def _apply_worker_result(
                 "worker exited 0 with no commits and no changed paths",
                 failure_reason="clean_exit_no_deliverable",
             )
+            _append_repair_journal(item, result, reason="clean_exit_no_deliverable")
             self._release_terminal_lease(item)
             item["exit_code"] = result.exit_code
             return
@@ -482,6 +542,12 @@ def _apply_worker_result(
             open_immediately=True,
             policy=worker_type_circuit_breaker_policy,
         )
+
+    _append_repair_journal(
+        item,
+        result,
+        reason=str(item.get("failure_reason", "")).strip() or "worker_failure",
+    )
 
     if self._requeue_after_worker_failure(
         item,
@@ -582,6 +648,7 @@ def _apply_worker_result(
                 "Should the recovered deliverable be adopted as-is, amended, or rerun before integration?"
             ),
         )
+        _append_repair_journal(item, result, reason=failure_reason)
         item["review_status"] = "changes_requested"
         item["receipt_id"] = None
         self._release_terminal_lease(item)
@@ -618,6 +685,7 @@ def _apply_worker_result(
         "reason": failure_reason,
         "question": blocking_question,
     }
+    _append_repair_journal(item, result, reason=failure_reason)
     blockers: list[str] = []
     if item["dispatch_error"] not in blockers:
         blockers.append(item["dispatch_error"])

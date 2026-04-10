@@ -909,6 +909,51 @@ class WorkerLauncher:
         return work_order
 
     @staticmethod
+    def _format_repair_journal(entries: Any, *, max_entries: int = 2, max_tail: int = 400) -> str:
+        if not isinstance(entries, list) or not entries:
+            return ""
+        lines: list[str] = []
+        for entry in entries[-max_entries:]:
+            if not isinstance(entry, dict):
+                continue
+            at = str(entry.get("at") or "").strip()
+            exit_code = entry.get("exit_code")
+            worker_outcome = str(entry.get("worker_outcome") or "").strip()
+            failure_reason = str(entry.get("failure_reason") or "").strip()
+            header_parts = [
+                part for part in [f"exit={exit_code}", worker_outcome, failure_reason] if part
+            ]
+            header = f"- Attempt {at}: " if at else "- Attempt: "
+            header += ", ".join(header_parts) if header_parts else "details"
+            lines.append(header)
+
+            failing = entry.get("failing_verification")
+            if isinstance(failing, dict):
+                cmd = str(failing.get("command", "")).strip()
+                if cmd:
+                    lines.append(
+                        f"  - failing verification: {cmd} (exit {failing.get('exit_code')})"
+                    )
+                stderr_tail = str(failing.get("stderr_tail", "")).strip()
+                if stderr_tail:
+                    lines.append(f"  - stderr: {stderr_tail[-max_tail:]}")
+                stdout_tail = str(failing.get("stdout_tail", "")).strip()
+                if stdout_tail:
+                    lines.append(f"  - stdout: {stdout_tail[-max_tail:]}")
+            else:
+                stderr_tail = str(entry.get("stderr_tail", "")).strip()
+                if stderr_tail:
+                    lines.append(f"  - stderr: {stderr_tail[-max_tail:]}")
+                stdout_tail = str(entry.get("stdout_tail", "")).strip()
+                if stdout_tail:
+                    lines.append(f"  - stdout: {stdout_tail[-max_tail:]}")
+
+            changed_paths = entry.get("changed_paths")
+            if isinstance(changed_paths, list) and changed_paths:
+                lines.append(f"  - changed: {', '.join(str(p) for p in changed_paths)}")
+        return "\n".join(lines).strip()
+
+    @staticmethod
     def _build_prompt(work_order: dict[str, Any]) -> str:
         """Build the task prompt from a work order dict."""
         parts: list[str] = []
@@ -928,6 +973,10 @@ class WorkerLauncher:
         description = str(work_order.get("description", "")).strip()
         if description:
             parts.append(description)
+
+        repair_notes = WorkerLauncher._format_repair_journal(metadata.get("repair_journal"))
+        if repair_notes:
+            parts.append("## Prior attempt notes (repair journal)\n" + repair_notes)
 
         # Pre-loaded file context (read by supervisor before dispatch)
         enriched_context = work_order.get("_enriched_context", "")
