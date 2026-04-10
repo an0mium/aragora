@@ -3,10 +3,16 @@
 Provides utilities for sanitizing GitHub issue bodies for worker dispatch,
 extracting explicit validation contracts (acceptance criteria, test commands),
 running pre-dispatch validation commands, and discovering focused test files.
+
+When an Anthropic API key is available, semantic parsing uses a fast LLM call
+(Haiku) to extract structured data from the issue body.  This avoids the
+brittleness of regex-only parsing.  On any LLM failure the module falls back
+to the original regex pipeline transparently.
 """
 
 from __future__ import annotations
 
+import json as _json
 import logging
 import re
 import subprocess
@@ -69,7 +75,7 @@ _PRE_DISPATCH_SAFE_COMMAND_PREFIXES = (
 )
 _BACKTICK_COMMAND_RE = re.compile(r"`(?P<command>[^`]+)`")
 _EXPLICIT_PYTEST_TARGET_RE = re.compile(r"(?<!\S)(?P<path>tests/\S+?\.py)(?:::\S+)?(?!\S)")
-_DECLARED_NEW_FILE_RE = re.compile(r"\(\s*new(?:\s+file)?\s*\)", re.IGNORECASE)
+_DECLARED_NEW_FILE_RE = re.compile(r"\(\s*(?:new(?:\s+file)?|create)\s*\)", re.IGNORECASE)
 _BACKTICK_PATH_RE = re.compile(r"`(?P<path>[^`\n]+/[^`\n]+)`")
 _TASK_HEADER_RE = re.compile(r"^#{1,6}\s*task\b", re.IGNORECASE)
 _AUTO_DECOMPOSED_RE = re.compile(r"auto-decomposed|auto decomposed", re.IGNORECASE)
@@ -407,6 +413,266 @@ def run_pre_dispatch_validation_commands(
         if proc.returncode != 0:
             return {"satisfied": False, "results": results}
     return {"satisfied": True, "results": results}
+
+
+# ---------------------------------------------------------------------------
+# LLM-based semantic issue parsing
+# ---------------------------------------------------------------------------
+
+_ISSUE_PARSE_PROMPT = """\
+You are a pre-dispatch validator for an automated code worker system.
+Given a GitHub issue body, extract structured data so the system can decide
+whether to dispatch a worker.
+
+Return ONLY a JSON object with these fields:
+{{
+  "file_scope": [
+    {{"path": "<relative file path>", "action": "modify" | "create"}}
+  ],
+  "validation_commands": ["<shell command to validate the work>"],
+  "task_summary": "<1-2 sentence summary of what the worker should do>",
+  "is_well_formed": true | false,
+  "rejection_reason": "<reason if not well-formed, else null>",
+  "is_auto_decomposed": true | false
+}}
+
+Rules:
+- "action" is "create" if the issue says the file should be created, generated,
+  added, written, or does not exist yet.  It is "modify" if the file already exists.
+- Include ALL file paths mentioned in file scope, requirements, or references.
+- validation_commands: extract pytest commands or other test/check commands.
+- is_well_formed: true if the issue has enough information for a developer to
+  act on it.  An issue with clear file scope and validation commands IS well-formed
+  even if the prose description is minimal.  Only mark false if the body is truly
+  empty, truncated mid-sentence, or incoherent gibberish.
+- is_auto_decomposed: true if this looks like an automatically generated
+  sub-issue from a decomposition system.
+
+Issue body:
+{issue_body}
+"""
+
+
+async def _call_anthropic(prompt: str, model: str, timeout: float) -> str | None:
+    """Try Anthropic API directly."""
+    import os
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return None
+    import anthropic
+
+    client = anthropic.AsyncAnthropic()
+    response = await client.messages.create(
+        model=model,
+        max_tokens=512,
+        messages=[{"role": "user", "content": prompt}],
+        timeout=timeout,
+    )
+    return response.content[0].text.strip()
+
+
+async def _call_openrouter(prompt: str, timeout: float) -> str | None:
+    """Try OpenRouter as fallback (supports Haiku via anthropic/claude-haiku-4.5)."""
+    import os
+
+    api_key = os.environ.get("OPENROUTER_API_KEY")
+    if not api_key:
+        return None
+    import httpx
+
+    async with httpx.AsyncClient(timeout=timeout) as http:
+        resp = await http.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "anthropic/claude-haiku-4.5",
+                "max_tokens": 512,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data["choices"][0]["message"]["content"].strip()
+
+
+async def parse_issue_with_llm(
+    issue_body: str,
+    *,
+    model: str = "claude-haiku-4-5-20251001",
+    timeout: float = 15.0,
+) -> dict[str, Any] | None:
+    """Parse an issue body using a fast LLM call.
+
+    Tries Anthropic API first, then OpenRouter, then returns ``None``
+    so callers fall back to the regex pipeline.
+    """
+    body = str(issue_body or "").strip()
+    if not body:
+        return None
+
+    prompt = _ISSUE_PARSE_PROMPT.format(issue_body=body[:3000])
+
+    text: str | None = None
+    try:
+        text = await _call_anthropic(prompt, model, timeout)
+        if text:
+            logger.debug("LLM issue parsing via Anthropic API")
+    except Exception as exc:
+        logger.debug("Anthropic API unavailable for issue parsing: %s", exc)
+
+    if text is None:
+        try:
+            text = await _call_openrouter(prompt, timeout)
+            if text:
+                logger.debug("LLM issue parsing via OpenRouter")
+        except Exception as exc:
+            logger.debug("OpenRouter unavailable for issue parsing: %s", exc)
+
+    if text is None:
+        logger.debug("LLM issue parsing unavailable, falling back to regex")
+        return None
+
+    try:
+        # Strip markdown fences if the model wraps JSON
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        data = _json.loads(text)
+        if not isinstance(data, dict):
+            return None
+        return data
+    except (_json.JSONDecodeError, IndexError, ValueError) as exc:
+        logger.debug("LLM returned unparseable response: %s", exc)
+        return None
+
+
+def llm_result_to_declared_new_files(parsed: dict[str, Any]) -> list[str]:
+    """Extract file paths marked as 'create' from an LLM parse result."""
+    file_scope = parsed.get("file_scope", [])
+    if not isinstance(file_scope, list):
+        return []
+    return _ordered_unique_strings(
+        [
+            str(entry.get("path", "")).strip()
+            for entry in file_scope
+            if isinstance(entry, dict)
+            and str(entry.get("action", "")).strip().lower() == "create"
+            and str(entry.get("path", "")).strip()
+        ]
+    )
+
+
+def llm_result_to_validation_commands(parsed: dict[str, Any]) -> list[str]:
+    """Extract validation commands from an LLM parse result."""
+    commands = parsed.get("validation_commands", [])
+    if not isinstance(commands, list):
+        return []
+    return _ordered_unique_strings([str(cmd).strip() for cmd in commands if str(cmd).strip()])
+
+
+def llm_result_to_sanitation(parsed: dict[str, Any]) -> tuple[bool, str | None]:
+    """Convert LLM parse result into a sanitation verdict."""
+    if not parsed.get("is_well_formed", True):
+        reason = str(parsed.get("rejection_reason", "llm_rejected")).strip()
+        return False, reason or "llm_rejected"
+    if parsed.get("is_auto_decomposed", False):
+        # Auto-decomposed issues are acceptable if well-formed
+        task_summary = str(parsed.get("task_summary", "")).strip()
+        if len(task_summary) < 20:
+            return False, "auto_decomposed_missing_task"
+    return True, None
+
+
+def llm_result_to_file_scope(parsed: dict[str, Any]) -> list[str]:
+    """Extract all file paths from an LLM parse result."""
+    file_scope = parsed.get("file_scope", [])
+    if not isinstance(file_scope, list):
+        return []
+    return _ordered_unique_strings(
+        [
+            str(entry.get("path", "")).strip()
+            for entry in file_scope
+            if isinstance(entry, dict) and str(entry.get("path", "")).strip()
+        ]
+    )
+
+
+# ---------------------------------------------------------------------------
+# Unified dispatch gate (LLM-first with regex fallback)
+# ---------------------------------------------------------------------------
+
+
+async def check_pre_dispatch_gate(
+    issue_body: str,
+    *,
+    repo_root: Path,
+) -> dict[str, Any]:
+    """Run the full pre-dispatch validation gate.
+
+    Tries LLM-based parsing first for robust semantic understanding.
+    Falls back to the regex pipeline on any LLM failure.
+
+    Returns a dict with:
+      - ``"pass"``: bool — whether dispatch should proceed
+      - ``"method"``: ``"llm"`` or ``"regex"``
+      - ``"sanitation_ok"``: bool
+      - ``"sanitation_reason"``: str | None
+      - ``"declared_new_files"``: list[str]
+      - ``"validation_commands"``: list[str]
+      - ``"missing_targets"``: list[str]
+      - ``"unresolved_missing"``: list[str]
+    """
+    body = str(issue_body or "").strip()
+
+    # --- Attempt LLM parsing ---
+    llm_parsed = await parse_issue_with_llm(body)
+
+    if llm_parsed is not None:
+        san_ok, san_reason = llm_result_to_sanitation(llm_parsed)
+        declared_new = llm_result_to_declared_new_files(llm_parsed)
+        validation_cmds = llm_result_to_validation_commands(llm_parsed)
+
+        # Still use filesystem check for missing targets
+        pre_dispatch_cmds = [
+            cmd
+            for cmd in validation_cmds
+            if any(cmd.startswith(p) for p in _PRE_DISPATCH_SAFE_COMMAND_PREFIXES)
+        ]
+        missing = find_missing_pre_dispatch_validation_targets(
+            pre_dispatch_cmds, repo_root=repo_root
+        )
+        unresolved = [t for t in missing if t not in set(declared_new)]
+
+        return {
+            "pass": san_ok and not unresolved,
+            "method": "llm",
+            "sanitation_ok": san_ok,
+            "sanitation_reason": san_reason,
+            "declared_new_files": declared_new,
+            "validation_commands": validation_cmds,
+            "missing_targets": missing,
+            "unresolved_missing": unresolved,
+        }
+
+    # --- Regex fallback ---
+    san_ok, san_reason = assess_issue_body_sanitation(body)
+    declared_new = extract_declared_new_file_paths(body)
+    validation_cmds = extract_pre_dispatch_validation_commands(body)
+    missing = find_missing_pre_dispatch_validation_targets(validation_cmds, repo_root=repo_root)
+    unresolved = [t for t in missing if t not in set(declared_new)]
+
+    return {
+        "pass": san_ok and not unresolved,
+        "method": "regex",
+        "sanitation_ok": san_ok,
+        "sanitation_reason": san_reason,
+        "declared_new_files": declared_new,
+        "validation_commands": validation_cmds,
+        "missing_targets": missing,
+        "unresolved_missing": unresolved,
+    }
 
 
 # ---------------------------------------------------------------------------
