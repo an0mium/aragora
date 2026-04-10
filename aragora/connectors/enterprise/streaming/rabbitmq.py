@@ -294,9 +294,9 @@ class RabbitMQConnector(EnterpriseConnector):
             )
             logger.info("[RabbitMQ] Sent message to DLQ: %s", dlq_queue)
 
-        except (OSError, RuntimeError, ConnectionError, TimeoutError) as e:
-            logger.error("[RabbitMQ] Failed to send to DLQ: %s", e)
-            raise
+        except (OSError, RuntimeError, ConnectionError, TimeoutError) as exc:
+            logger.error("[RabbitMQ] Failed to send to DLQ: %s", exc)
+            raise RuntimeError(f"Failed to send message to RabbitMQ DLQ '{queue_name}'") from exc
 
     async def connect(self) -> bool:
         """
@@ -556,9 +556,9 @@ class RabbitMQConnector(EnterpriseConnector):
                             await message.reject(requeue=False)
                         self._nacked_count += 1
 
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as exc:
             logger.info("[RabbitMQ] Consumer cancelled")
-            raise
+            raise asyncio.CancelledError("RabbitMQ consumer cancelled during consume") from exc
 
     async def _process_with_resilience(
         self,
