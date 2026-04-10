@@ -580,6 +580,11 @@ class SNSSQSConnector(EnterpriseConnector):
                     if len(self._pending_deletes) >= self.config.batch_size:
                         await self._flush_pending_deletes()
 
+                except asyncio.CancelledError as exc:
+                    raise asyncio.CancelledError(
+                        "SNS/SQS consumer cancelled during consume"
+                    ) from exc
+
                 except CircuitBreakerOpenError:
                     logger.warning("[SNS/SQS] Circuit breaker tripped")
                     await asyncio.sleep(self.config.resilience.circuit_breaker_recovery_seconds)
