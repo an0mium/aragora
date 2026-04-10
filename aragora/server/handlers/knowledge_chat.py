@@ -517,13 +517,29 @@ class KnowledgeChatHandler(BaseHandler):
             # Validate and clamp max_results
             max_results = min(max(1, max_results_raw), MAX_RESULTS_LIMIT)
 
+            workspace_id = body.get("workspace_id", "default")
+            if not isinstance(workspace_id, str):
+                return error_response("workspace_id must be a string", 400)
+            scope = body.get("scope", "workspace")
+            if not isinstance(scope, str):
+                return error_response("scope must be a string", 400)
+            strategy = body.get("strategy", "hybrid")
+            if not isinstance(strategy, str):
+                return error_response("strategy must be a string", 400)
+            channel_id = body.get("channel_id")
+            if channel_id is not None and not isinstance(channel_id, str):
+                return error_response("channel_id must be a string", 400)
+            user_id = body.get("user_id")
+            if user_id is not None and not isinstance(user_id, str):
+                return error_response("user_id must be a string", 400)
+
             result = await handle_knowledge_search(
                 query=query.strip(),
-                workspace_id=body.get("workspace_id", "default"),
-                channel_id=body.get("channel_id"),
-                user_id=body.get("user_id"),
-                scope=body.get("scope", "workspace"),
-                strategy=body.get("strategy", "hybrid"),
+                workspace_id=workspace_id,
+                channel_id=channel_id,
+                user_id=user_id,
+                scope=scope,
+                strategy=strategy,
                 node_types=node_types,
                 min_confidence=float(min_confidence),
                 max_results=max_results,
@@ -545,10 +561,17 @@ class KnowledgeChatHandler(BaseHandler):
             # Validate and clamp max_context_items
             max_context_items = min(max(1, max_context_items_raw), MAX_CONTEXT_ITEMS_LIMIT)
 
+            workspace_id = body.get("workspace_id", "default")
+            if not isinstance(workspace_id, str):
+                return error_response("workspace_id must be a string", 400)
+            channel_id = body.get("channel_id")
+            if channel_id is not None and not isinstance(channel_id, str):
+                return error_response("channel_id must be a string", 400)
+
             result = await handle_knowledge_inject(
                 messages=messages,
-                workspace_id=body.get("workspace_id", "default"),
-                channel_id=body.get("channel_id"),
+                workspace_id=workspace_id,
+                channel_id=channel_id,
                 max_context_items=max_context_items,
             )
 
@@ -559,13 +582,29 @@ class KnowledgeChatHandler(BaseHandler):
             if any(not isinstance(message, dict) for message in messages):
                 return error_response("messages must be a list of objects", 400)
 
+            workspace_id = body.get("workspace_id", "default")
+            if not isinstance(workspace_id, str):
+                return error_response("workspace_id must be a string", 400)
+            channel_id = body.get("channel_id", "")
+            if not isinstance(channel_id, str):
+                return error_response("channel_id must be a string", 400)
+            channel_name = body.get("channel_name", "")
+            if not isinstance(channel_name, str):
+                return error_response("channel_name must be a string", 400)
+            platform = body.get("platform", "unknown")
+            if not isinstance(platform, str):
+                return error_response("platform must be a string", 400)
+            node_type = body.get("node_type", "chat_context")
+            if not isinstance(node_type, str):
+                return error_response("node_type must be a string", 400)
+
             result = await handle_store_chat_knowledge(
                 messages=messages,
-                workspace_id=body.get("workspace_id", "default"),
-                channel_id=body.get("channel_id", ""),
-                channel_name=body.get("channel_name", ""),
-                platform=body.get("platform", "unknown"),
-                node_type=body.get("node_type", "chat_context"),
+                workspace_id=workspace_id,
+                channel_id=channel_id,
+                channel_name=channel_name,
+                platform=platform,
+                node_type=node_type,
             )
 
         else:
