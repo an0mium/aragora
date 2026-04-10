@@ -331,7 +331,7 @@ class UnifiedOrchestrator:
         start = time.monotonic()
         try:
             self._create_backbone_run(result, cfg)
-        except Exception:
+        except Exception:  # noqa: BLE001 — injected backbone_runtime
             logger.debug("Backbone run initialization failed", exc_info=True)
 
         # Load preset defaults
@@ -356,7 +356,7 @@ class UnifiedOrchestrator:
                 BackboneStage.RESEARCH,
                 status="completed",
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — injected researcher
             logger.warning("Research stage failed, continuing without context")
             result.stages_skipped.append("research")
             self._append_backbone_event(
@@ -376,7 +376,7 @@ class UnifiedOrchestrator:
                 BackboneStage.EXTENSION,
                 status="completed",
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 — injected input_extension
             logger.warning("Input extension failed, using raw prompt")
             result.stages_skipped.append("extend")
             self._append_backbone_event(
@@ -408,7 +408,7 @@ class UnifiedOrchestrator:
                     provider_hints = self._provider_router.select_providers_for_debate(
                         num_agents=agent_count,
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 — injected provider_router
                     logger.warning("Provider routing failed, using default selection")
 
             result.debate_result = await self._do_debate(
@@ -470,10 +470,10 @@ class UnifiedOrchestrator:
                             name,
                             consensus_reached=consensus_reached,
                         )
-                except Exception:
+                except Exception:  # noqa: BLE001 — injected provider_router
                     logger.debug("Failed to record provider outcomes")
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — injected arena/debate deps
             logger.error("Debate stage failed: %s", exc)
             result.errors.append(f"Debate failed: {exc}")
             result.duration_s = time.monotonic() - start
@@ -507,7 +507,7 @@ class UnifiedOrchestrator:
                         )
                         result.duration_s = time.monotonic() - start
                         return result
-            except Exception:
+            except Exception:  # noqa: BLE001 — injected quality_validator
                 logger.warning("Quality gate failed, continuing without validation")
                 result.stages_skipped.append("quality_gate")
 
@@ -533,7 +533,7 @@ class UnifiedOrchestrator:
                         status="completed",
                         details={"execution_grade": spec_bundle.is_execution_grade},
                     )
-            except Exception:
+            except Exception:  # noqa: BLE001 — injected spec_extractor
                 logger.warning("Spec extraction failed")
                 result.stages_skipped.append("spec_extraction")
                 self._append_backbone_event(
@@ -571,7 +571,7 @@ class UnifiedOrchestrator:
                     status="completed",
                     artifact_ref=str(getattr(result.decision_plan, "id", "") or ""),
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — injected plan_factory
                 logger.warning("Plan creation failed")
                 result.stages_skipped.append("plan")
                 self._append_backbone_event(
@@ -696,7 +696,7 @@ class UnifiedOrchestrator:
                         BackboneStage.EXECUTION,
                         status="succeeded",
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 — injected code_task_factory
                     logger.warning("OpenClaw execution failed")
                     result.stages_skipped.append("execute")
                     self._update_backbone_run(result, status="execution_failed")
@@ -731,7 +731,7 @@ class UnifiedOrchestrator:
                         BackboneStage.EXECUTION,
                         status="succeeded",
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001 — injected plan_executor
                     logger.warning("Execution failed")
                     result.stages_skipped.append("execute")
                     self._update_backbone_run(result, status="execution_failed")
@@ -753,7 +753,7 @@ class UnifiedOrchestrator:
             try:
                 result.bug_fix_result = await self._do_bug_fix_loop(result.plan_outcome, cfg)
                 result.stages_completed.append("bug_fix")
-            except Exception:
+            except Exception:  # noqa: BLE001 — injected bug_fixer
                 logger.warning("Bug-fix loop failed")
                 result.stages_skipped.append("bug_fix")
 
@@ -769,7 +769,7 @@ class UnifiedOrchestrator:
                     receipt_ref=backbone_receipt_ref
                     or str(getattr(result.plan_outcome, "receipt_id", "") or ""),
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001 — injected feedback_recorder
                 logger.warning("Feedback recording failed")
                 result.stages_skipped.append("feedback")
                 self._append_backbone_event(
@@ -786,7 +786,7 @@ class UnifiedOrchestrator:
                     targets = self._meta_loop.identify_targets()
                     result.meta_loop_result = self._meta_loop.execute(targets)
                 result.stages_completed.append("meta_loop")
-            except Exception:
+            except Exception:  # noqa: BLE001 — injected meta_loop
                 logger.warning("Meta-loop check failed")
                 result.stages_skipped.append("meta_loop")
 
