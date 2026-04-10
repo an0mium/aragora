@@ -35,6 +35,10 @@ def make_outcome(**kwargs) -> PipelineOutcome:
     return PipelineOutcome(**defaults)
 
 
+class BridgeFailure(Exception):
+    pass
+
+
 class TestRecording:
     def test_record_basic(self, recorder):
         recorder.record(make_outcome())
@@ -138,6 +142,13 @@ class TestKMIntegration:
         recorder.record(make_outcome())
         assert len(recorder._outcomes) == 1
 
+    def test_km_custom_failure_graceful(self):
+        km = MagicMock()
+        km.ingest.side_effect = BridgeFailure("custom fail")
+        recorder = OutcomeFeedbackRecorder(knowledge_mound=km)
+        recorder.record(make_outcome())
+        assert len(recorder._outcomes) == 1
+
 
 class TestELOIntegration:
     def test_elo_high_influence(self):
@@ -170,6 +181,15 @@ class TestELOIntegration:
             )
         )
         elo.update_domain_elo.assert_called_with("gpt4", "technical:execution", won=False)
+
+
+class TestCalibratorIntegration:
+    def test_calibrator_failure_graceful(self):
+        calibrator = MagicMock()
+        calibrator.record_pipeline_outcome.side_effect = BridgeFailure("custom fail")
+        recorder = OutcomeFeedbackRecorder(calibrator=calibrator)
+        recorder.record(make_outcome())
+        assert len(recorder._outcomes) == 1
 
 
 class TestSerialization:
