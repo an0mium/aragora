@@ -299,6 +299,16 @@ class BossLoopConfig:
     max_open_auto_publish_prs: int = 4
     auto_close_already_done_issues: bool = False
 
+    # Decomposition guardrails
+    max_decomposition_depth: int = 3
+    max_total_sub_issues_per_run: int = 15
+    max_decomposed_issue_ticks: int = 30
+
+    # Fast-fail circuit breaker: if N consecutive iterations complete in under
+    # threshold_seconds, skip decomposed issues and log a warning.
+    fast_fail_circuit_breaker_window: int = 5
+    fast_fail_threshold_seconds: float = 30.0
+
     # Reporting
     status_report_interval: int = 5  # every N iterations
     metrics_jsonl_path: str | None = ".aragora/overnight/boss_metrics.jsonl"
@@ -630,6 +640,13 @@ class BossLoop:
         self._pending_handoff_prompts: dict[int, tuple[str, str | None]] = {}
         self._stop_reason: str | None = None
         self._last_sanitation_summary: list[str] = []
+        # Decomposition guardrails
+        self._total_sub_issues_created: int = 0
+        self._ticks_spent_on_decomposed_issues: int = 0
+        # Fast-fail circuit breaker
+        self._recent_elapsed: list[float] = []
+        # Deferred publish retry queue: (issue, worker_result) pairs
+        self._deferred_publish_queue: list[tuple[Any, dict[str, Any]]] = []
 
     def _git_cmd(self, args: list[str], *, timeout: float = 30.0) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -1467,13 +1484,26 @@ class BossLoop:
 
         # Guard: cap decomposition depth to prevent runaway recursion.
         lineage_root, decomposition_depth = self._decomposition_lineage(issue)
-        max_decomposition_depth = 3
-        if decomposition_depth >= max_decomposition_depth:
+        if decomposition_depth >= self.config.max_decomposition_depth:
             self._label_boss_stuck(
                 issue_number,
                 repo,
                 f"Decomposition depth {decomposition_depth} reached limit of "
-                f"{max_decomposition_depth}. Needs manual attention.",
+                f"{self.config.max_decomposition_depth}. Needs manual attention.",
+            )
+            return
+
+        # Guard: cap total sub-issues created per run to prevent runaway fan-out.
+        if self._total_sub_issues_created >= self.config.max_total_sub_issues_per_run:
+            logger.warning(
+                "Skipping decomposition for issue #%s: per-run budget of %d sub-issues exhausted",
+                issue.number,
+                self.config.max_total_sub_issues_per_run,
+            )
+            self._label_boss_stuck(
+                issue_number,
+                repo,
+                f"Per-run sub-issue budget ({self.config.max_total_sub_issues_per_run}) exhausted.",
             )
             return
 
@@ -1575,16 +1605,35 @@ class BossLoop:
                             sub_title,
                         )
                         continue
-                    scope_lines = "\n".join(f"- `{f}`" for f in valid_scope)
+                    # Annotate files that don't exist on disk as (new file)
+                    scope_lines_parts = []
+                    for f in valid_scope:
+                        if (Path.cwd() / f).exists():
+                            scope_lines_parts.append(f"- `{f}`")
+                        else:
+                            scope_lines_parts.append(f"- `{f}` (new file)")
+                    scope_lines = "\n".join(scope_lines_parts)
                     # Build specific validation command
                     test_files = [f for f in valid_scope if f.startswith("tests/")]
                     src_files = [
                         f for f in valid_scope if f.endswith(".py") and not f.startswith("tests/")
                     ]
-                    if test_files:
-                        validation_cmd = f"`python3 -m pytest {test_files[0]} -q`"
+                    # Only use pytest if the test file exists; otherwise use ruff
+                    existing_test_files = [f for f in test_files if (Path.cwd() / f).exists()]
+                    if existing_test_files:
+                        validation_cmd = f"`python3 -m pytest {existing_test_files[0]} -q`"
                     elif src_files:
                         validation_cmd = f"`ruff check {' '.join(src_files)}`"
+                    elif test_files:
+                        # Test file doesn't exist yet — validate source instead
+                        related_src = [
+                            f.replace("tests/", "aragora/").replace("test_", "") for f in test_files
+                        ]
+                        existing_src = [f for f in related_src if (Path.cwd() / f).exists()]
+                        if existing_src:
+                            validation_cmd = f"`ruff check {' '.join(existing_src)}`"
+                        else:
+                            validation_cmd = "`ruff check` on the changed files passes"
                     else:
                         validation_cmd = "`pytest` on the changed files passes"
                     child_depth = decomposition_depth + 1
@@ -1625,6 +1674,7 @@ class BossLoop:
                         )
                         if proc.returncode == 0:
                             sub_issues_created += 1
+                            self._total_sub_issues_created += 1
                     except Exception:
                         pass
 
@@ -2483,6 +2533,35 @@ class BossLoop:
                     logger.debug("Exception promoting PR #%d: %s", pr_num, exc)
         return promoted
 
+    def _drain_deferred_publish_queue(self) -> int:
+        """Retry deferred branch publishes now that PR slots may have opened.
+
+        Returns count of successfully published branches.
+        """
+        if not self._deferred_publish_queue:
+            return 0
+        published = 0
+        remaining: list[tuple[Any, dict[str, Any]]] = []
+        for issue, worker_result in self._deferred_publish_queue:
+            result = self._maybe_publish_deliverable(issue, worker_result)
+            if result is not None and result.get("published"):
+                published += 1
+                logger.info(
+                    "Deferred publish succeeded for issue #%s: %s",
+                    issue.number,
+                    result.get("pr_url", "branch pushed"),
+                )
+            else:
+                remaining.append((issue, worker_result))
+        self._deferred_publish_queue = remaining
+        if published:
+            logger.info(
+                "Drained %d deferred publishes, %d remaining",
+                published,
+                len(remaining),
+            )
+        return published
+
     @staticmethod
     def _draft_promotion_ownership(head_ref_name: object) -> str | None:
         """Classify whether a draft PR is explicitly owned by boss-loop drafting."""
@@ -2544,6 +2623,9 @@ class BossLoop:
         publish_result = self._maybe_publish_deliverable(issue, worker_result)
         if publish_result is not None:
             worker_result["publish_result"] = publish_result
+            # Queue deferred publishes for retry later when PR slots open
+            if str(publish_result.get("action", "")).startswith("deferred"):
+                self._deferred_publish_queue.append((issue, worker_result))
         issue_comment_result = self._maybe_comment_published_deliverable(issue, worker_result)
         if issue_comment_result is not None:
             worker_result["issue_comment_result"] = issue_comment_result
@@ -2843,6 +2925,12 @@ class BossLoop:
             except Exception:
                 logger.debug("Draft PR promotion check skipped", exc_info=True)
 
+            # Retry deferred branch publishes now that slots may have opened
+            try:
+                self._drain_deferred_publish_queue()
+            except Exception:
+                logger.debug("Deferred publish drain skipped", exc_info=True)
+
             if self._maybe_auto_update(iteration):
                 break
 
@@ -2983,6 +3071,54 @@ class BossLoop:
             )
 
         # Step 3: Check runner freshness only when there is eligible work to dispatch
+        # Circuit breaker: skip decomposed issues if budget exhausted or fast-fail detected
+        is_selected_decomposed = bool(re.search(r"\[from #\d+\]", selected.title or ""))
+        if is_selected_decomposed:
+            if self._ticks_spent_on_decomposed_issues >= self.config.max_decomposed_issue_ticks:
+                logger.warning(
+                    "Skipping decomposed issue #%s: tick budget (%d/%d) exhausted",
+                    selected.number,
+                    self._ticks_spent_on_decomposed_issues,
+                    self.config.max_decomposed_issue_ticks,
+                )
+                return BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=now,
+                    runner_freshness={},
+                    selected_issue={"number": selected.number, "title": selected.title},
+                    worker_status="skipped",
+                    stop_reason=None,
+                    needs_human_reasons=[],
+                    next_actions=["Decomposed-issue tick budget exhausted; skipping."],
+                    elapsed_seconds=time.monotonic() - iter_start,
+                )
+            window = self.config.fast_fail_circuit_breaker_window
+            threshold = self.config.fast_fail_threshold_seconds
+            if len(self._recent_elapsed) >= window and all(
+                e < threshold for e in self._recent_elapsed[-window:]
+            ):
+                logger.warning(
+                    "Fast-fail circuit breaker: last %d iterations all under %.0fs, skipping decomposed #%s",
+                    window,
+                    threshold,
+                    selected.number,
+                )
+                return BossIterationStatus(
+                    iteration=iteration,
+                    run_id=self.run_id,
+                    timestamp=now,
+                    runner_freshness={},
+                    selected_issue={"number": selected.number, "title": selected.title},
+                    worker_status="skipped",
+                    stop_reason=None,
+                    needs_human_reasons=[],
+                    next_actions=[
+                        "Fast-fail circuit breaker triggered; skipping decomposed issue."
+                    ],
+                    elapsed_seconds=time.monotonic() - iter_start,
+                )
+
         freshness = self._freshness_checker(
             freshness_ttl_seconds=self.config.freshness_ttl_seconds,
             registry_path=self.config.registry_path,
@@ -3523,6 +3659,18 @@ class BossLoop:
         elapsed_seconds: float,
     ) -> BossIterationStatus:
         issue_number = int(issue.number)
+
+        # Track decomposed-issue ticks and fast-fail patterns
+        is_decomposed = bool(re.search(r"\[from #\d+\]", issue.title or ""))
+        if is_decomposed:
+            self._ticks_spent_on_decomposed_issues += 1
+
+        # Update fast-fail window
+        self._recent_elapsed.append(elapsed_seconds)
+        if len(self._recent_elapsed) > self.config.fast_fail_circuit_breaker_window:
+            self._recent_elapsed = self._recent_elapsed[
+                -self.config.fast_fail_circuit_breaker_window :
+            ]
 
         if worker_result.get("status") == "running":
             self._consecutive_failures = 0

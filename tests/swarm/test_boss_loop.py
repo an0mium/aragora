@@ -5127,3 +5127,141 @@ class TestPublishedPrTerminal:
         assert any(existing_pr_url in str(a) for a in actions), (
             f"next_actions should mention existing PR, got {actions}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Decomposition guardrails (Task 1 + Task 4)
+# ---------------------------------------------------------------------------
+
+
+def test_per_run_sub_issue_budget_stops_decomposition() -> None:
+    """After max_total_sub_issues_per_run is exhausted, decomposition is refused."""
+    issue = _make_issue(
+        100,
+        "[from #50] Fix failing tests",
+        body="## Task\nFix failing tests in the module.\n\n## Files\n- `tests/foo/test_bar.py`\n",
+        labels=["boss-ready"],
+    )
+    loop = BossLoop(
+        config=_boss_config(
+            repo="synaptent/aragora",
+            max_total_sub_issues_per_run=2,
+        )
+    )
+    # Simulate budget already exhausted
+    loop._total_sub_issues_created = 2
+
+    stuck_labels: list[str] = []
+
+    def _run(cmd, **kw):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        if cmd[:3] == ["gh", "issue", "edit"]:
+            stuck_labels.append("called")
+        if cmd[:3] == ["gh", "issue", "comment"]:
+            stuck_labels.append(cmd[cmd.index("--body") + 1])
+        return result
+
+    with patch("subprocess.run", side_effect=_run):
+        loop._auto_decompose_stuck_issue(100, [issue])
+
+    # Should label boss-stuck, not create sub-issues
+    assert any("budget" in s.lower() for s in stuck_labels if isinstance(s, str))
+
+
+def test_decompose_annotates_new_files() -> None:
+    """Sub-issue file scope should include (new file) for non-existent files."""
+    issue = _make_issue(
+        200,
+        "Add unit tests for foo.py",
+        body=(
+            "## Task\nCreate tests for foo module.\n\n"
+            "## Files\n- `aragora/foo.py`\n- `tests/foo/test_foo.py` (create)\n\n"
+            "## Acceptance\n`pytest tests/foo/test_foo.py -q`\n"
+        ),
+        labels=["boss-ready"],
+    )
+    loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+    created_bodies: list[str] = []
+
+    def _run(cmd, **kw):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        if cmd[:3] == ["gh", "issue", "list"]:
+            result.stdout = ""
+        if cmd[:3] == ["gh", "issue", "create"]:
+            body_idx = cmd.index("--body") + 1 if "--body" in cmd else None
+            if body_idx:
+                created_bodies.append(cmd[body_idx])
+        return result
+
+    subtask = SimpleNamespace(
+        title="Create test file",
+        description="Create comprehensive unit tests for the foo module in tests/foo/test_foo.py.",
+        file_scope=["tests/foo/test_foo.py"],
+        estimated_complexity="small",
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = SimpleNamespace(should_decompose=True, subtasks=[subtask])
+
+    with (
+        patch("subprocess.run", side_effect=_run),
+        patch("aragora.nomic.task_decomposer.TaskDecomposer", return_value=decomposer),
+    ):
+        loop._auto_decompose_stuck_issue(200, [issue])
+
+    assert created_bodies
+    body = created_bodies[0]
+    assert "(new file)" in body, (
+        f"Expected (new file) annotation in sub-issue body, got: {body[:200]}"
+    )
+
+
+def test_decompose_uses_ruff_for_nonexistent_test_files() -> None:
+    """When test file doesn't exist, validation should use ruff, not pytest."""
+    issue = _make_issue(
+        300,
+        "Add unit tests for bar.py",
+        body=(
+            "## Task\nCreate tests for bar module.\n\n"
+            "## Files\n- `aragora/bar.py`\n- `tests/bar/test_bar.py` (create)\n\n"
+            "## Acceptance\n`pytest tests/bar/test_bar.py -q`\n"
+        ),
+        labels=["boss-ready"],
+    )
+    loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+    created_bodies: list[str] = []
+
+    def _run(cmd, **kw):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        if cmd[:3] == ["gh", "issue", "create"]:
+            body_idx = cmd.index("--body") + 1 if "--body" in cmd else None
+            if body_idx:
+                created_bodies.append(cmd[body_idx])
+        return result
+
+    subtask = SimpleNamespace(
+        title="Create test file",
+        description="Create comprehensive unit tests for the bar module in tests/bar/test_bar.py.",
+        file_scope=["tests/bar/test_bar.py"],
+        estimated_complexity="small",
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = SimpleNamespace(should_decompose=True, subtasks=[subtask])
+
+    with (
+        patch("subprocess.run", side_effect=_run),
+        patch("aragora.nomic.task_decomposer.TaskDecomposer", return_value=decomposer),
+    ):
+        loop._auto_decompose_stuck_issue(300, [issue])
+
+    if created_bodies:
+        body = created_bodies[0]
+        # Should NOT use pytest on a non-existent file
+        assert "pytest tests/bar/test_bar.py" not in body, (
+            f"Should not use pytest on non-existent test file: {body[:200]}"
+        )
