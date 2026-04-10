@@ -79,7 +79,7 @@ async def refine_worker_prompt(
         )
         result["context_gathered"] = True
 
-    except Exception as exc:
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
         logger.warning("Prompt refinement failed, using raw goal: %s", exc)
 
     return result
@@ -156,7 +156,7 @@ async def _find_relevant_files(repo: Path, keywords: list[str]) -> list[str]:
             if f.strip() and "__pycache__" not in f
         ]
         return sorted(set(files))[:15]
-    except Exception:
+    except (OSError, RuntimeError, TimeoutError, UnicodeDecodeError, ValueError):
         return []
 
 
