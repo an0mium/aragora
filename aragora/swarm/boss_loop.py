@@ -2212,15 +2212,33 @@ class BossLoop:
             from aragora.swarm.tranche_integrate import publish_lane_deliverable
 
             repo_root = Path.cwd().resolve()
-            harvest_result = self._harvest_worker_commits_for_publish(
-                issue=issue,
-                repo_root=repo_root,
-                source_branch=branch,
-                commit_shas=commit_shas,
-            )
+            try:
+                harvest_result = self._harvest_worker_commits_for_publish(
+                    issue=issue,
+                    repo_root=repo_root,
+                    source_branch=branch,
+                    commit_shas=commit_shas,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Boss auto-harvest failed for issue #%s branch %s; "
+                    "publishing original branch: %s",
+                    issue.number,
+                    branch,
+                    exc,
+                )
+                harvest_result = {
+                    "action": "harvest_failed",
+                    "reason": type(exc).__name__,
+                    "branch": branch,
+                    "source_branch": branch,
+                    "commit_shas": commit_shas,
+                    "error": str(exc),
+                }
             if harvest_result is not None:
                 worker_result["harvest_result"] = harvest_result
-                branch = str(harvest_result.get("branch") or branch).strip() or branch
+                if str(harvest_result.get("action", "")).strip() != "harvest_failed":
+                    branch = str(harvest_result.get("branch") or branch).strip() or branch
             artifact = _BossDeliverableArtifact(
                 branch=branch,
                 metadata={
@@ -3789,6 +3807,48 @@ class BossLoop:
             logger.debug("Semantic dedup skipped: %s", exc)
             return issues
 
+    @staticmethod
+    def _scope_hint_is_specific(scope_entry: str) -> bool:
+        basename = str(scope_entry or "").rstrip("/").rsplit("/", 1)[-1]
+        return "*" in scope_entry or "." in basename
+
+    @staticmethod
+    def _scope_hint_is_validation_command_scope(issue: GitHubIssue, scope_entry: str) -> bool:
+        if BossLoop._scope_hint_is_specific(scope_entry):
+            return False
+        scope = str(scope_entry or "").strip().rstrip("/")
+        if not scope:
+            return False
+        validation_command_re = re.compile(
+            r"\b(pytest|ruff|mypy|npm|pnpm|yarn|python\s+-m\s+pytest)\b",
+            re.IGNORECASE,
+        )
+        for line in str(issue.body or "").splitlines():
+            normalized = line.strip().strip("-* ").replace("`", "").rstrip("/")
+            if scope in normalized and validation_command_re.search(normalized):
+                return True
+        return False
+
+    @staticmethod
+    def _parallel_claim_scope_entries(issue: GitHubIssue) -> list[str]:
+        return [
+            scope_entry
+            for scope_entry in infer_issue_scope_entries(issue)
+            if not BossLoop._scope_hint_is_validation_command_scope(issue, scope_entry)
+        ]
+
+    @staticmethod
+    def _has_explicit_parallel_lane_hint(issue: GitHubIssue) -> bool:
+        if any(
+            re.match(r"^(?:lane|area)[:/]", str(label or "").strip(), re.IGNORECASE)
+            for label in issue.labels
+        ):
+            return True
+        combined = "\n".join(
+            part for part in (str(issue.title or "").strip(), str(issue.body or "").strip()) if part
+        )
+        return bool(re.search(r"(?im)^(?:lane|owner lane|lane id)\s*:", combined))
+
     def _select_issues_for_iteration(
         self,
         issues: list[GitHubIssue],
@@ -3868,11 +3928,16 @@ class BossLoop:
             if candidate is None:
                 continue
 
-            # Deduplicate by file scope — don't dispatch two issues targeting the same files
-            scope_hints = set(infer_issue_scope_entries(candidate))
-            if scope_hints and scope_hints & claimed_scopes:
+            # Deduplicate by explicit edit scope. Broad validation commands such
+            # as `pytest -q tests/swarm/` are not exclusive edit claims.
+            claim_scope_hints = set(self._parallel_claim_scope_entries(candidate))
+            if claim_scope_hints and claim_scope_hints & claimed_scopes:
                 continue
-            lane_hints = set(infer_issue_lane_hints(candidate))
+            lane_hints = (
+                set(infer_issue_lane_hints(candidate))
+                if claim_scope_hints or self._has_explicit_parallel_lane_hint(candidate)
+                else set()
+            )
             if lane_hints and lane_hints & claimed_lanes:
                 continue
 
@@ -3884,7 +3949,7 @@ class BossLoop:
                 continue
 
             selected_issues.append(candidate)
-            claimed_scopes.update(scope_hints)
+            claimed_scopes.update(claim_scope_hints)
             claimed_lanes.update(lane_hints)
             claimed_stems.add(stem)
             if limit is not None and len(selected_issues) >= limit:
@@ -4010,6 +4075,8 @@ class BossLoop:
                 worker_result
             )
             has_deliverable = bool(normalized_deliverable_type)
+            raw_deliverable = worker_result.get("deliverable")
+            has_untyped_deliverable = isinstance(raw_deliverable, dict) and bool(raw_deliverable)
             pr_url = self._published_pr_url(worker_result)
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
 
@@ -4194,10 +4261,21 @@ class BossLoop:
 
             if self.config.auto_continue_on_needs_human:
                 self._consecutive_failures += 1
-                logger.warning(
-                    "boss_loop_skip issue=#%s (needs_human, no deliverable, auto-continue on)",
-                    issue_dict.get("number", "?"),
-                )
+                if has_untyped_deliverable:
+                    logger.warning(
+                        "boss_loop_skip issue=#%s "
+                        "(needs_human, untyped deliverable, auto-continue on)",
+                        issue_dict.get("number", "?"),
+                    )
+                    next_actions = [
+                        "Auto-continuing: worker returned a deliverable that still needs human review."
+                    ]
+                else:
+                    logger.warning(
+                        "boss_loop_skip issue=#%s (needs_human, no deliverable, auto-continue on)",
+                        issue_dict.get("number", "?"),
+                    )
+                    next_actions = ["Skipping to next issue (auto-continue mode)."]
                 self._append_iteration_metrics(
                     iteration=iteration,
                     issue_number=issue_number,
@@ -4215,7 +4293,7 @@ class BossLoop:
                     needs_human_reasons=worker_result.get(
                         "reasons", ["Worker requires human input."]
                     ),
-                    next_actions=["Skipping to next issue (auto-continue mode)."],
+                    next_actions=next_actions,
                     elapsed_seconds=elapsed_seconds,
                     worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
                 )
