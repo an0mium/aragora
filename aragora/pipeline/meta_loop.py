@@ -162,7 +162,7 @@ class MetaLoopTrigger:
                         "improved": result.improved,
                     }
                 )
-            except Exception:
+            except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
                 logger.warning("Failed to record meta-loop result to KM")
         return result
 
