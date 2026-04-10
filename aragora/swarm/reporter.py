@@ -420,7 +420,7 @@ def _telemetry_summary() -> dict[str, Any]:
             "avg_time_to_pr_seconds_7d": _LANE_TELEMETRY.get_avg_time_to_pr(window_days=7),
             "avg_time_to_merge_seconds_7d": _LANE_TELEMETRY.get_avg_time_to_merge(window_days=7),
         }
-    except Exception:
+    except (OSError, RuntimeError, TypeError, ValueError):
         logger.exception("Failed to summarize lane telemetry")
         return {}
 
@@ -2475,7 +2475,7 @@ class SwarmReporter:
                 duration_seconds=duration_seconds,
                 budget_spent_usd=self._extract_budget(result),
             )
-        except Exception:
+        except (AttributeError, ImportError, OSError, RuntimeError, TypeError, ValueError):
             logger.debug("LLM report generation failed, using template")
             return None
 
