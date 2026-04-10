@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from enum import Enum
+from typing import Any
 
 
 class UserProfile(str, Enum):
@@ -115,6 +116,16 @@ class InterrogatorConfig:
         if not self.system_prompt:
             self.system_prompt = USER_PROFILE_PROMPTS[self.user_profile]
 
+    def merge(self, overrides: dict[str, Any]) -> InterrogatorConfig:
+        """Return a new config with *overrides* applied on top of this one."""
+        merged = {f.name: getattr(self, f.name) for f in fields(self)}
+        merged.update(overrides)
+        return InterrogatorConfig(**merged)
+
+    def with_overrides(self, **kwargs: Any) -> InterrogatorConfig:
+        """Keyword convenience wrapper around :meth:`merge`."""
+        return self.merge(kwargs)
+
 
 @dataclass
 class SwarmCommanderConfig:
@@ -164,3 +175,33 @@ class SwarmCommanderConfig:
                 # Re-trigger prompt selection for the synchronized profile.
                 self.interrogator.system_prompt = ""
                 self.interrogator.__post_init__()
+
+    def merge(self, overrides: dict[str, Any]) -> SwarmCommanderConfig:
+        """Return a new config with *overrides* applied on top of this one.
+
+        Nested ``interrogator`` overrides may be supplied as a dict and will be
+        merged recursively into the existing :class:`InterrogatorConfig`.
+        """
+        merged: dict[str, Any] = {f.name: getattr(self, f.name) for f in fields(self)}
+        interrogator_overrides = overrides.pop("interrogator", None)
+        merged.update(overrides)
+        if isinstance(interrogator_overrides, dict):
+            merged["interrogator"] = self.interrogator.merge(interrogator_overrides)
+        elif interrogator_overrides is not None:
+            merged["interrogator"] = interrogator_overrides
+        return SwarmCommanderConfig(**merged)
+
+    def with_overrides(self, **kwargs: Any) -> SwarmCommanderConfig:
+        """Keyword convenience wrapper around :meth:`merge`."""
+        return self.merge(kwargs)
+
+
+def merge_configs(
+    base: SwarmCommanderConfig,
+    *layers: dict[str, Any],
+) -> SwarmCommanderConfig:
+    """Merge one or more override layers onto *base*, left to right."""
+    result = base
+    for layer in layers:
+        result = result.merge(dict(layer))
+    return result
