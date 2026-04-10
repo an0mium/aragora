@@ -181,14 +181,21 @@ class RLMContextHandler(BaseHandler):
         *,
         min_value: int | None = None,
         max_value: int | None = None,
+        default_on_invalid: bool = False,
     ) -> tuple[int, HandlerResult | None]:
         """Validate an optional integer field."""
         value = body.get(field_name, default)
         if type(value) is not int:
+            if default_on_invalid:
+                return default, None
             return default, error_response(f"'{field_name}' must be an integer", 400)
         if min_value is not None and value < min_value:
+            if default_on_invalid:
+                return default, None
             return default, error_response(f"'{field_name}' must be at least {min_value}", 400)
         if max_value is not None and value > max_value:
+            if default_on_invalid:
+                return default, None
             return default, error_response(f"'{field_name}' must be at most {max_value}", 400)
         return value, None
 
@@ -717,6 +724,7 @@ class RLMContextHandler(BaseHandler):
             3,
             min_value=1,
             max_value=10,
+            default_on_invalid=True,
         )
         if max_iterations_error:
             return max_iterations_error
