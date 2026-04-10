@@ -53,7 +53,7 @@ class PullRequestRegistry:
                 for branch, raw in data.items():
                     if isinstance(raw, dict):
                         self._entries[branch] = PREntry(**raw)
-            except Exception:
+            except (OSError, yaml.YAMLError, TypeError, KeyError):
                 logger.warning("Failed to load PR registry from %s", self._file)
 
     def _save(self) -> None:
