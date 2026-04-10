@@ -490,7 +490,9 @@ class OutlookCalendarConnector(EnterpriseConnector):
         except (httpx.RequestError, asyncio.TimeoutError, ValueError, OSError) as e:
             logger.warning("API request failed, recording circuit breaker failure: %s", e)
             self._circuit_breaker.record_failure()
-            raise
+            raise RuntimeError(
+                f"Outlook Calendar API request failed for {method} {endpoint}"
+            ) from e
 
     async def get_calendars(self) -> list[OutlookCalendarInfo]:
         """Get list of user's calendars."""
