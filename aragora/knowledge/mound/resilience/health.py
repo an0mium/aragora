@@ -92,18 +92,20 @@ class ConnectionHealthMonitor:
             )
 
         except (ConnectionError, TimeoutError, OSError) as e:
+            consecutive_failures = self._status.consecutive_failures + 1
             self._status = HealthStatus(
-                healthy=self._status.consecutive_failures < self._failure_threshold,
+                healthy=consecutive_failures < self._failure_threshold,
                 last_check=datetime.now(timezone.utc),
-                consecutive_failures=self._status.consecutive_failures + 1,
+                consecutive_failures=consecutive_failures,
                 last_error=f"Failed: {type(e).__name__}",
             )
             logger.debug("Health check failed with expected error: %s", e)
-        except (OSError, ConnectionError, TimeoutError, RuntimeError) as e:
+        except RuntimeError as e:
+            consecutive_failures = self._status.consecutive_failures + 1
             self._status = HealthStatus(
-                healthy=self._status.consecutive_failures < self._failure_threshold,
+                healthy=consecutive_failures < self._failure_threshold,
                 last_check=datetime.now(timezone.utc),
-                consecutive_failures=self._status.consecutive_failures + 1,
+                consecutive_failures=consecutive_failures,
                 last_error=f"Failed: {type(e).__name__}",
             )
             logger.warning("Health check failed with unexpected error: %s", e)
