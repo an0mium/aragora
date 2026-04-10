@@ -284,6 +284,17 @@ class TestValidateFileScope:
         scope = ["aragora/swarm/supervisor.py", "tests/swarm/test_supervisor.py"]
         assert SwarmSupervisor._validate_file_scope(scope, str(wt)) == scope
 
+    def test_parent_traversal_is_stripped(self, tmp_path: Path) -> None:
+        wt = tmp_path / "worktree"
+        wt.mkdir()
+        (wt / ".git").write_text("gitdir: /tmp/fake\n")
+        (wt / "aragora").mkdir()
+
+        scope = ["../outside.txt", "aragora/swarm/supervisor.py"]
+        assert SwarmSupervisor._validate_file_scope(scope, str(wt)) == [
+            "aragora/swarm/supervisor.py"
+        ]
+
     def test_no_git_dir_skips_validation(self, tmp_path: Path) -> None:
         """Directories without .git (e.g. test fixtures) skip validation."""
         wt = tmp_path / "worktree"

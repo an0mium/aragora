@@ -1460,10 +1460,21 @@ def _validate_file_scope(file_scope: list[str], worktree_path: str) -> list[str]
     dot_git = wt / ".git"
     if not dot_git.exists():
         return file_scope
+    wt_root = wt.resolve()
     valid: list[str] = []
     for scope_path in file_scope:
         clean = scope_path.removeprefix("./").strip()
         if not clean:
+            continue
+        try:
+            resolved = (wt_root / clean).resolve(strict=False)
+            resolved.relative_to(wt_root)
+        except ValueError:
+            logger.warning(
+                "Dropping out-of-worktree file_scope entry %r for %s",
+                scope_path,
+                worktree_path,
+            )
             continue
         root = clean.split("/")[0]
         if (wt / root).exists():

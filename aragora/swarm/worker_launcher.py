@@ -72,6 +72,18 @@ def _strip_github_tokens(env: dict[str, str]) -> None:
         env.pop(key, None)
 
 
+def _resolve_in_worktree(worktree_root: Path, raw_path: str) -> tuple[str, Path] | None:
+    clean = str(raw_path).removeprefix("./").strip()
+    if not clean:
+        return None
+    resolved = (worktree_root / clean).resolve(strict=False)
+    try:
+        relative = resolved.relative_to(worktree_root)
+    except ValueError:
+        return None
+    return relative.as_posix(), resolved
+
+
 class WorkerLauncher:
     """Launch and monitor Claude Code / Codex worker processes."""
 
@@ -859,10 +871,18 @@ class WorkerLauncher:
             return work_order
 
         context_snippets: list[str] = []
-        wt = Path(worktree_path)
+        wt = Path(worktree_path).resolve()
 
         for file_path in file_scope[:5]:  # Cap at 5 files
-            full_path = wt / file_path
+            resolved = _resolve_in_worktree(wt, file_path)
+            if resolved is None:
+                logger.warning(
+                    "Skipping out-of-worktree context path %r for %s",
+                    file_path,
+                    worktree_path,
+                )
+                continue
+            display_path, full_path = resolved
             if not full_path.exists():
                 continue
             try:
@@ -872,11 +892,11 @@ class WorkerLauncher:
                 if len(lines) > 200:
                     snippet = "\n".join(lines[:200])
                     context_snippets.append(
-                        f"--- {file_path} (first 200 of {len(lines)} lines) ---\n{snippet}\n--- end ---"
+                        f"--- {display_path} (first 200 of {len(lines)} lines) ---\n{snippet}\n--- end ---"
                     )
                 else:
                     context_snippets.append(
-                        f"--- {file_path} ({len(lines)} lines) ---\n{content}\n--- end ---"
+                        f"--- {display_path} ({len(lines)} lines) ---\n{content}\n--- end ---"
                     )
 
                 # Find key symbols (functions/classes) and their callers
@@ -891,7 +911,7 @@ class WorkerLauncher:
                             timeout=5,
                         )
                         callers = [
-                            f for f in result.stdout.strip().splitlines()[:5] if f != file_path
+                            f for f in result.stdout.strip().splitlines()[:5] if f != display_path
                         ]
                         if callers:
                             context_snippets.append(

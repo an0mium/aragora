@@ -206,6 +206,25 @@ class TestBuildPrompt:
         assert "stop and report that blocker" in prompt
 
 
+class TestEnrichTaskContext:
+    def test_skips_paths_outside_worktree(self, tmp_path: Path) -> None:
+        worktree = tmp_path / "wt"
+        worktree.mkdir()
+        (worktree / "inside.py").write_text("def inside():\n    return 1\n", encoding="utf-8")
+        outside = tmp_path / "outside.py"
+        outside.write_text("TOP_SECRET = 'nope'\n", encoding="utf-8")
+
+        enriched = WorkerLauncher._enrich_task_context(
+            {"task": "demo", "file_scope": ["../outside.py", "inside.py"]},
+            str(worktree),
+        )
+
+        context = enriched.get("_enriched_context", "")
+        assert "TOP_SECRET" not in context
+        assert "inside.py" in context
+        assert "def inside" in context
+
+
 class TestBuildCommand:
     def test_claude_command(self, monkeypatch):
         monkeypatch.setattr("aragora.swarm.worker_launcher.os.geteuid", lambda: 501)
