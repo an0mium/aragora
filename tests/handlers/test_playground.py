@@ -1597,6 +1597,8 @@ class TestTryOracleTentacles:
         assert result["confidence"] == 0.0
         assert result["is_live"] is False
         assert result["receipt"]["consensus"]["method"] == "landing_preview"
+        assert result["receipt"]["consensus"]["reached"] is False
+        assert result["receipt"]["consensus"]["supporting_agents"] == []
         assert "preview" in result["result_warning"].lower()
 
     def test_landing_source_rejects_off_topic_preview_drift(self):

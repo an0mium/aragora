@@ -2277,11 +2277,20 @@ def _try_oracle_tentacles(
                 "code": "landing_preview_needs_clarification",
                 "is_live": False,
             }
-    # Assess consensus from proposals using frontier model intelligence
-    consensus_reached, confidence = _assess_proposal_consensus(
-        question,
-        results,
-    )
+    consensus_method = "frontier_model_assessment"
+    supporting_agents = participants
+    dissenting_agents: list[str] = []
+    if is_landing_preview:
+        consensus_reached = False
+        confidence = 0.0
+        consensus_method = "landing_preview"
+        supporting_agents = []
+    else:
+        # Assess consensus from proposals using frontier model intelligence
+        consensus_reached, confidence = _assess_proposal_consensus(
+            question,
+            results,
+        )
     verdict_label = "consensus_reached" if consensus_reached else "needs_review"
     debate_id = client_debate_id or uuid.uuid4().hex[:16]
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -2313,10 +2322,10 @@ def _try_oracle_tentacles(
             "confidence": confidence,
             "consensus": {
                 "reached": consensus_reached,
-                "method": "frontier_model_assessment",
+                "method": consensus_method,
                 "confidence": confidence,
-                "supporting_agents": participants,
-                "dissenting_agents": [],
+                "supporting_agents": supporting_agents,
+                "dissenting_agents": dissenting_agents,
                 "dissents": [],
             },
             "agents": participants,
