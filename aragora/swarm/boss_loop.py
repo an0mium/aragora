@@ -1466,11 +1466,7 @@ class BossLoop:
             return
 
         # Guard: cap decomposition depth to prevent runaway recursion.
-        # Each decomposition adds a "[from #N]" prefix — count nesting depth.
-        import re
-
-        depth_markers = re.findall(r"\[from #\d+\]", issue.title)
-        decomposition_depth = len(depth_markers)
+        lineage_root, decomposition_depth = self._decomposition_lineage(issue)
         max_decomposition_depth = 3
         if decomposition_depth >= max_decomposition_depth:
             self._label_boss_stuck(
@@ -1591,9 +1587,14 @@ class BossLoop:
                         validation_cmd = f"`ruff check {' '.join(src_files)}`"
                     else:
                         validation_cmd = "`pytest` on the changed files passes"
+                    child_depth = decomposition_depth + 1
                     body = (
                         f"Auto-decomposed from #{issue.number} after {self.config.max_retries_per_issue} "
                         f"failed autonomous attempts.\n\n"
+                        f"## Decomposition Lineage\n"
+                        f"- Root issue: #{lineage_root}\n"
+                        f"- Parent issue: #{issue.number}\n"
+                        f"- Depth: {child_depth}\n\n"
                         f"## Task\n{sub_desc}\n\n"
                         f"## Files\n{scope_lines}\n\n"
                         f"## Acceptance\n"
@@ -1642,28 +1643,43 @@ class BossLoop:
                 f"producing a deliverable. The issue may be too complex for autonomous workers."
             )
 
-        try:
-            subprocess.run(
-                ["gh", "issue", "comment", str(issue_number), "--repo", repo, "--body", comment],
-                capture_output=True,
-                timeout=15,
-            )
-            subprocess.run(
-                [
-                    "gh",
-                    "issue",
-                    "edit",
-                    str(issue_number),
-                    "--repo",
-                    repo,
-                    "--add-label",
-                    "boss-stuck",
-                ],
-                capture_output=True,
-                timeout=15,
-            )
-        except Exception:
-            pass
+        self._label_boss_stuck(issue_number, repo, comment)
+
+    @staticmethod
+    def _decomposition_lineage(issue: GitHubIssue) -> tuple[int, int]:
+        body = issue.body or ""
+        title = issue.title or ""
+        title_parents = [
+            int(match) for match in re.findall(r"\[from #(\d+)\]", title) if match.isdigit()
+        ]
+
+        root_match = re.search(r"\bRoot issue:\s*#?(\d+)", body, flags=re.IGNORECASE)
+        depth_match = re.search(r"\bDepth:\s*(\d+)", body, flags=re.IGNORECASE)
+        legacy_parent_match = re.search(
+            r"\bAuto-decomposed from #(\d+)",
+            body,
+            flags=re.IGNORECASE,
+        )
+
+        if root_match:
+            root_issue = int(root_match.group(1))
+        elif title_parents:
+            root_issue = title_parents[0]
+        elif legacy_parent_match:
+            root_issue = int(legacy_parent_match.group(1))
+        else:
+            root_issue = int(issue.number)
+
+        if depth_match:
+            depth = int(depth_match.group(1))
+        elif title_parents:
+            depth = len(title_parents)
+        elif legacy_parent_match:
+            depth = 1
+        else:
+            depth = 0
+
+        return root_issue, depth
 
     @staticmethod
     def _extract_file_scope_hints(body: str) -> list[str]:

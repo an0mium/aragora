@@ -3626,6 +3626,83 @@ def test_boss_loop_batch_auto_decomposes_maxed_retry_issue() -> None:
     assert 462 in attempted_numbers
 
 
+def test_auto_decompose_carries_lineage_and_removes_ready_label() -> None:
+    issue = _make_issue(
+        4412,
+        "[from #4409] Add evidence metrics",
+        body="Auto-decomposed from #4409 after 2 failed autonomous attempts.",
+        labels=["boss-ready"],
+    )
+    loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+    created: list[list[str]] = []
+    edited: list[list[str]] = []
+
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        if cmd[:3] == ["gh", "issue", "create"]:
+            created.append(list(cmd))
+        if cmd[:3] == ["gh", "issue", "edit"]:
+            edited.append(list(cmd))
+        return result
+
+    subtask = SimpleNamespace(
+        title="Add focused evidence metric assertion",
+        description=(
+            "Add a focused regression that verifies evidence metrics are not "
+            "auto-decomposed recursively when the root issue is already stuck."
+        ),
+        file_scope=["tests/swarm/test_boss_loop.py"],
+        estimated_complexity="small",
+    )
+    decomposer = MagicMock()
+    decomposer.analyze.return_value = SimpleNamespace(should_decompose=True, subtasks=[subtask])
+
+    with (
+        patch("subprocess.run", side_effect=_run),
+        patch("aragora.nomic.task_decomposer.TaskDecomposer", return_value=decomposer),
+    ):
+        loop._auto_decompose_stuck_issue(4412, [issue])
+
+    assert len(created) == 1
+    create_body = created[0][created[0].index("--body") + 1]
+    assert "Root issue: #4409" in create_body
+    assert "Parent issue: #4412" in create_body
+    assert "Depth: 2" in create_body
+    assert edited
+    assert "--add-label" in edited[-1]
+    assert "boss-stuck" in edited[-1]
+    assert "--remove-label" in edited[-1]
+    assert "boss-ready" in edited[-1]
+
+
+def test_auto_decompose_stops_at_body_lineage_depth_limit() -> None:
+    issue = _make_issue(
+        4475,
+        "[from #4461] Recursive evidence metrics task",
+        body=("## Decomposition Lineage\n- Root issue: #4409\n- Parent issue: #4461\n- Depth: 3\n"),
+        labels=["boss-ready"],
+    )
+    loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        return result
+
+    with (
+        patch("subprocess.run", side_effect=_run),
+        patch.object(loop, "_label_boss_stuck") as mock_label_stuck,
+        patch("aragora.nomic.task_decomposer.TaskDecomposer") as mock_decomposer,
+    ):
+        loop._auto_decompose_stuck_issue(4475, [issue])
+
+    mock_label_stuck.assert_called_once()
+    mock_decomposer.assert_not_called()
+
+
 def test_boss_loop_batch_serializes_retry_routed_dispatches() -> None:
     feed = MagicMock(spec=GitHubIssueFeed)
     feed.fetch.return_value = [
