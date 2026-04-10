@@ -126,7 +126,7 @@ class OutcomeSignalBus:
         for handler in handlers:
             try:
                 handler(signal)
-            except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError) as exc:
+            except Exception as exc:  # noqa: BLE001 - subscriber callbacks are external and must not break the bus
                 logger.debug("Signal handler failed: %s", exc)
 
     def subscribe(self, key: str, handler: SignalHandler) -> None:
