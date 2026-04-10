@@ -49,10 +49,6 @@ def _validate_status(status: Any) -> str:
     normalized_status = status.strip()
     if not normalized_status:
         raise ValueError("status is required")
-    if normalized_status not in _VALID_VERIFICATION_STATUSES:
-        raise ValueError(
-            f"status must be one of: {', '.join(sorted(_VALID_VERIFICATION_STATUSES))}"
-        )
     return normalized_status
 
 
@@ -104,7 +100,8 @@ def track_verification(
 
     with _verification_lock:
         _verification_stats["total_claims_processed"] += 1
-        _verification_stats[status] += 1
+        if status in _VALID_VERIFICATION_STATUSES:
+            _verification_stats[status] += 1
         _verification_stats["total_verification_time_ms"] += verification_time_ms
 
 

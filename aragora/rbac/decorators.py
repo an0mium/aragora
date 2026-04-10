@@ -65,10 +65,10 @@ def _default_audit_on_denied(decision: AuthorizationDecision) -> None:
         )
     except ImportError:
         logger.exception("Failed to import permission denial audit emitter")
-        raise
+        return
     except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError):
         logger.exception("Failed to emit permission denial audit event")
-        raise
+        return
 
 
 __all__ = [
