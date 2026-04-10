@@ -75,6 +75,49 @@ def test_connect_sets_busy_timeout(store: DevCoordinationStore) -> None:
     assert timeout_ms == 60_000
 
 
+def test_dev_coordination_store_allows_shared_db_env_override(
+    repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shared_db = tmp_path / "shared" / "dev_coordination.db"
+    monkeypatch.setenv("ARAGORA_DEV_COORDINATION_DB", str(shared_db))
+
+    configured = DevCoordinationStore(repo_root=repo)
+
+    assert configured.db_path == shared_db
+    assert shared_db.exists()
+
+
+def test_record_worker_repair_journal_lists_by_handoff_key_and_publishes_event(
+    store: DevCoordinationStore,
+) -> None:
+    record = store.record_worker_repair_journal(
+        task_id="micro-1",
+        task_key="run-1:micro-1",
+        handoff_key="github-issue:synaptent/aragora:4188:micro-1",
+        work_order_id="micro-1",
+        supervisor_run_id="run-1",
+        lease_id="lease-1",
+        owner_agent="claude",
+        owner_session_id="session-1",
+        branch="codex/example",
+        worktree_path="/tmp/worktree",
+        entry={"failure_reason": "validation_failed", "exit_code": 1},
+    )
+
+    records = store.list_worker_repair_journals(
+        handoff_key="github-issue:synaptent/aragora:4188:micro-1"
+    )
+
+    assert records[0]["journal_id"] == record["journal_id"]
+    assert records[0]["handoff_key"] == "github-issue:synaptent/aragora:4188:micro-1"
+    assert records[0]["entry"]["failure_reason"] == "validation_failed"
+
+    events = store.event_bus.poll(event_type="worker_repair_journal_recorded")
+    assert len(events) == 1
+    assert events[0].data["journal_id"] == record["journal_id"]
+    assert events[0].data["handoff_key"] == "github-issue:synaptent/aragora:4188:micro-1"
+
+
 def test_claim_lease_detects_conflicting_scope(store: DevCoordinationStore) -> None:
     lease = store.claim_lease(
         task_id="clb-1",

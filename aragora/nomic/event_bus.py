@@ -31,6 +31,11 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _safe_event_filename_part(value: str) -> str:
+    safe = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "_" for ch in value)
+    return safe.strip("._-")[:80] or "event"
+
+
 @dataclass
 class WorktreeEvent:
     """An event published to the cross-worktree event bus."""
@@ -58,6 +63,7 @@ VALID_EVENT_TYPES = frozenset(
         "sync_requested",
         "merge_ready",
         "merge_completed",
+        "worker_repair_journal_recorded",
         "error",
     }
 )
@@ -116,7 +122,7 @@ class EventBus:
 
         # Write event as JSON file
         ts = int(time.time() * 1000)
-        filename = f"{ts}_{track}_{event_type}.json"
+        filename = f"{ts}_{_safe_event_filename_part(track)}_{event_type}.json"
         event_path = self.events_dir / filename
 
         with open(event_path, "w") as f:

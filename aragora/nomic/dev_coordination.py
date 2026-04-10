@@ -19,6 +19,7 @@ import argparse
 import asyncio
 import hashlib
 import json
+import os
 import re
 import shlex
 import sqlite3
@@ -56,6 +57,7 @@ _FAILED_NO_DELIVERABLE_ARCHIVE_GRACE_HOURS = 24.0
 _WORK_ORDER_LEASING_FAILED_ARCHIVE_GRACE_HOURS = 24.0
 _WORKER_TYPE_BLOCKED_ARCHIVE_GRACE_HOURS = 24.0
 _SQLITE_BUSY_TIMEOUT_MS = 60_000
+_DEV_COORDINATION_DB_ENV = "ARAGORA_DEV_COORDINATION_DB"
 _OPEN_DEVELOPER_TASK_STATUSES = {
     "queued",
     "leased",
@@ -568,9 +570,16 @@ class DevCoordinationStore:
         event_bus: EventBus | None = None,
     ) -> None:
         self.repo_root = (repo_root or Path.cwd()).resolve()
-        self.db_path = db_path or (
-            self._git_common_dir(self.repo_root) / "aragora-agent-state" / "dev_coordination.db"
-        )
+        env_db_path = os.environ.get(_DEV_COORDINATION_DB_ENV, "").strip()
+        if db_path is not None:
+            self.db_path = db_path
+        elif env_db_path:
+            configured = Path(env_db_path).expanduser()
+            self.db_path = configured if configured.is_absolute() else self.repo_root / configured
+        else:
+            self.db_path = (
+                self._git_common_dir(self.repo_root) / "aragora-agent-state" / "dev_coordination.db"
+            )
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._supervisor_run_snapshot_dir = self.db_path.parent / "supervisor_runs"
         self._supervisor_run_snapshot_dir.mkdir(parents=True, exist_ok=True)
@@ -653,6 +662,7 @@ class DevCoordinationStore:
                     journal_id TEXT PRIMARY KEY,
                     task_id TEXT NOT NULL,
                     task_key TEXT NOT NULL,
+                    handoff_key TEXT NOT NULL DEFAULT '',
                     work_order_id TEXT NOT NULL,
                     supervisor_run_id TEXT NOT NULL,
                     lease_id TEXT NOT NULL,
@@ -665,6 +675,7 @@ class DevCoordinationStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_repair_journal_task ON worker_repair_journals(task_id, created_at);
                 CREATE INDEX IF NOT EXISTS idx_repair_journal_key ON worker_repair_journals(task_key, created_at);
+                CREATE INDEX IF NOT EXISTS idx_repair_journal_handoff_key ON worker_repair_journals(handoff_key, created_at);
                 CREATE INDEX IF NOT EXISTS idx_repair_journal_work_order ON worker_repair_journals(work_order_id, created_at);
 
                 CREATE TABLE IF NOT EXISTS integration_decisions (
@@ -718,6 +729,7 @@ class DevCoordinationStore:
                 """
             )
             self._ensure_completion_receipt_columns(conn)
+            self._ensure_worker_repair_journal_columns(conn)
             conn.commit()
         finally:
             conn.close()
@@ -744,6 +756,24 @@ class DevCoordinationStore:
             conn.execute(f"ALTER TABLE completion_receipts ADD COLUMN {name} {ddl}")
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_receipts_task ON completion_receipts(task_id, created_at)"
+        )
+
+    @staticmethod
+    def _ensure_worker_repair_journal_columns(conn: sqlite3.Connection) -> None:
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(worker_repair_journals)").fetchall()
+        }
+        required_columns = {
+            "handoff_key": "TEXT NOT NULL DEFAULT ''",
+        }
+        for name, ddl in required_columns.items():
+            if name in columns:
+                continue
+            conn.execute(f"ALTER TABLE worker_repair_journals ADD COLUMN {name} {ddl}")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_repair_journal_handoff_key "
+            "ON worker_repair_journals(handoff_key, created_at)"
         )
 
     def status_summary(
@@ -1234,6 +1264,7 @@ class DevCoordinationStore:
         task_id: str,
         entry: dict[str, Any],
         task_key: str | None = None,
+        handoff_key: str | None = None,
         work_order_id: str | None = None,
         supervisor_run_id: str | None = None,
         lease_id: str | None = None,
@@ -1247,6 +1278,7 @@ class DevCoordinationStore:
             "journal_id": str(uuid.uuid4())[:12],
             "task_id": str(task_id or "").strip(),
             "task_key": str(task_key or "").strip(),
+            "handoff_key": str(handoff_key or "").strip(),
             "work_order_id": str(work_order_id or "").strip(),
             "supervisor_run_id": str(supervisor_run_id or "").strip(),
             "lease_id": str(lease_id or "").strip(),
@@ -1257,22 +1289,30 @@ class DevCoordinationStore:
             "entry": dict(entry),
             "created_at": now,
         }
-        if not record["task_id"] and not record["task_key"] and not record["work_order_id"]:
-            raise ValueError("repair journal requires task_id, task_key, or work_order_id")
+        if (
+            not record["task_id"]
+            and not record["task_key"]
+            and not record["handoff_key"]
+            and not record["work_order_id"]
+        ):
+            raise ValueError(
+                "repair journal requires task_id, task_key, handoff_key, or work_order_id"
+            )
         conn = self._connect()
         try:
             conn.execute(
                 """
                 INSERT INTO worker_repair_journals (
-                    journal_id, task_id, task_key, work_order_id, supervisor_run_id,
+                    journal_id, task_id, task_key, handoff_key, work_order_id, supervisor_run_id,
                     lease_id, owner_agent, owner_session_id, branch, worktree_path,
                     entry_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record["journal_id"],
                     record["task_id"],
                     record["task_key"],
+                    record["handoff_key"],
                     record["work_order_id"],
                     record["supervisor_run_id"],
                     record["lease_id"],
@@ -1294,6 +1334,7 @@ class DevCoordinationStore:
                 "journal_id": record["journal_id"],
                 "task_id": record["task_id"],
                 "task_key": record["task_key"],
+                "handoff_key": record["handoff_key"],
                 "work_order_id": record["work_order_id"],
                 "supervisor_run_id": record["supervisor_run_id"],
             },
@@ -1305,6 +1346,7 @@ class DevCoordinationStore:
         *,
         task_id: str | None = None,
         task_key: str | None = None,
+        handoff_key: str | None = None,
         work_order_id: str | None = None,
         limit: int = _REPAIR_JOURNAL_MAX_ENTRIES,
     ) -> list[dict[str, Any]]:
@@ -1313,6 +1355,7 @@ class DevCoordinationStore:
         for column, value in (
             ("task_id", task_id),
             ("task_key", task_key),
+            ("handoff_key", handoff_key),
             ("work_order_id", work_order_id),
         ):
             text = str(value or "").strip()
@@ -1337,6 +1380,7 @@ class DevCoordinationStore:
                 "journal_id": row["journal_id"],
                 "task_id": row["task_id"],
                 "task_key": row["task_key"],
+                "handoff_key": row["handoff_key"],
                 "work_order_id": row["work_order_id"],
                 "supervisor_run_id": row["supervisor_run_id"],
                 "lease_id": row["lease_id"],

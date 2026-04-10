@@ -23,6 +23,7 @@ THROTTLE_SECONDS="${BOSS_THROTTLE_SECONDS:-300}"
 ARAGORA_USER_ID="${ARAGORA_USER_ID:-${USER}}"
 ARAGORA_WORKSPACE_ID="${ARAGORA_WORKSPACE_ID:-aragora}"
 ARAGORA_CLAUDE_PROFILE="${ARAGORA_CLAUDE_PROFILE:-}"
+ARAGORA_DEV_COORDINATION_DB="${ARAGORA_DEV_COORDINATION_DB:-}"
 KEEPALIVE=true
 PING_PONG=false
 LABELS=()
@@ -48,6 +49,7 @@ Options:
   --user-id <id>                  Export ARAGORA_USER_ID for the service
   --workspace-id <id>             Export ARAGORA_WORKSPACE_ID for the service
   --claude-profile <name>         Export ARAGORA_CLAUDE_PROFILE for the service
+  --coordination-db <path>        Export ARAGORA_DEV_COORDINATION_DB for shared cross-host handoff
   --throttle-seconds <n>          launchd throttle interval after exits (default: 300)
   --log-path <file>               Log file path (default: .aragora/overnight/boss-loop-launchd.log)
   --no-keepalive                  Do not auto-restart the service after exits
@@ -134,6 +136,10 @@ while [[ $# -gt 0 ]]; do
             ARAGORA_CLAUDE_PROFILE="${2:-$ARAGORA_CLAUDE_PROFILE}"
             shift 2
             ;;
+        --coordination-db)
+            ARAGORA_DEV_COORDINATION_DB="${2:-$ARAGORA_DEV_COORDINATION_DB}"
+            shift 2
+            ;;
         --throttle-seconds)
             THROTTLE_SECONDS="${2:-$THROTTLE_SECONDS}"
             shift 2
@@ -191,6 +197,9 @@ VENV_ACTIVATE="${REPO_ROOT}/.venv/bin/activate"
 command_string="cd \"${REPO_ROOT}\" && export PATH=\"/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\$PATH\" && export ARAGORA_USER_ID=\"${ARAGORA_USER_ID}\" && export ARAGORA_WORKSPACE_ID=\"${ARAGORA_WORKSPACE_ID}\" && source \"${VENV_ACTIVATE}\""
 if [[ -n "${ARAGORA_CLAUDE_PROFILE}" ]]; then
     command_string="${command_string} && export ARAGORA_CLAUDE_PROFILE=\"${ARAGORA_CLAUDE_PROFILE}\""
+fi
+if [[ -n "${ARAGORA_DEV_COORDINATION_DB}" ]]; then
+    command_string="${command_string} && export ARAGORA_DEV_COORDINATION_DB=\"${ARAGORA_DEV_COORDINATION_DB}\""
 fi
 command_string="${command_string} && exec python3 -u -m aragora.cli.main swarm boss-loop --boss-repo \"${BOSS_REPO}\" --target-branch \"${TARGET_BRANCH}\" --worker-model \"${WORKER_MODEL}\" --review-model \"${REVIEW_MODEL}\""
 for label in "${LABELS[@]}"; do

@@ -79,6 +79,7 @@ def _append_repair_journal(
         self.store.record_worker_repair_journal(
             task_id=str(item.get("work_order_id", "")).strip(),
             task_key=str(item.get("task_key", "")).strip(),
+            handoff_key=str(metadata.get("handoff_key", "")).strip(),
             work_order_id=str(item.get("work_order_id", "")).strip(),
             supervisor_run_id=str(metadata.get("supervisor_run_id", "")).strip(),
             lease_id=str(item.get("lease_id", result.lease_id)).strip(),

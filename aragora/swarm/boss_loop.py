@@ -4041,6 +4041,8 @@ class BossLoop:
                 ],
             }
 
+        self._attach_issue_handoff_metadata(spec, issue)
+
         missing_validation_targets = find_missing_pre_dispatch_validation_targets(
             extract_pre_dispatch_validation_commands(issue.body or ""),
             repo_root=Path.cwd(),
@@ -4199,6 +4201,27 @@ class BossLoop:
             if error:
                 logger.warning("Boss dispatch failed for issue #%d: %s", issue.number, error)
         return result
+
+    def _attach_issue_handoff_metadata(self, spec: Any, issue: GitHubIssue) -> None:
+        repo_slug = self._repo_slug_for_issue(issue) or ""
+        work_orders = getattr(spec, "work_orders", None)
+        if not isinstance(work_orders, list):
+            return
+        for index, work_order in enumerate(work_orders, start=1):
+            if not isinstance(work_order, dict):
+                continue
+            work_order_id = str(work_order.get("work_order_id", "")).strip() or f"work-{index}"
+            metadata = dict(work_order.get("metadata") or {})
+            metadata.setdefault("issue_number", issue.number)
+            metadata.setdefault("issue_title", issue.title)
+            if repo_slug:
+                metadata.setdefault("boss_repo", repo_slug)
+            repo_part = repo_slug or "unknown-repo"
+            metadata.setdefault(
+                "handoff_key",
+                f"github-issue:{repo_part}:{issue.number}:{work_order_id}",
+            )
+            work_order["metadata"] = metadata
 
     def _receipt_metadata_for_result(
         self,

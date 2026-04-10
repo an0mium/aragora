@@ -1135,9 +1135,11 @@ def _lease_work_order(
     task_key = f"{run_id}:{wo_id}"
     session_key = f"swarm-{run_id[:8]}-{wo_id}"
     metadata = dict(work_order.get("metadata") or {})
+    handoff_key = str(metadata.get("handoff_key", "")).strip()
     persisted_journals = self.store.list_worker_repair_journals(
         task_id=wo_id,
         task_key=task_key,
+        handoff_key=handoff_key,
         work_order_id=wo_id,
     )
     if persisted_journals:
@@ -1205,6 +1207,7 @@ def _lease_work_order(
             "supervisor_run_id": run_id,
             "work_order_id": str(work_order.get("work_order_id", "")),
             "task_key": task_key,
+            "handoff_key": handoff_key,
             "reviewer_agent": str(work_order.get("reviewer_agent", "")),
             "risk_level": str(work_order.get("risk_level", "review")),
             "approval_required": True,

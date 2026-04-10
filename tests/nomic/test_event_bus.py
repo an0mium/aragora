@@ -80,6 +80,14 @@ class TestEventBusPublish:
             data = json.load(f)
         assert data["data"]["files"] == ["a.py", "b.py"]
 
+    def test_publish_sanitizes_track_in_filename(self, bus, event_dir):
+        event = bus.publish("worker_repair_journal_recorded", "codex/example")
+
+        files = list(event_dir.glob("*.json"))
+        assert len(files) == 1
+        assert files[0].parent == event_dir
+        assert event.track == "codex/example"
+
 
 class TestEventBusPoll:
     """Tests for polling events."""
