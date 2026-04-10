@@ -40,7 +40,7 @@ def refresh_run(self, run_id: str) -> SupervisorRun:
     # get downgraded into stale state first.
     try:
         self._collect_finished_workers_sync(run_id)
-    except Exception:
+    except (OSError, RuntimeError, KeyError, subprocess.SubprocessError):
         logger.debug("pre-reap worker collection failed", exc_info=True)
 
     # Reap dead-session active leases before deriving run status so
@@ -49,7 +49,7 @@ def refresh_run(self, run_id: str) -> SupervisorRun:
         stale = self.store.reap_stale_leases()
         if stale:
             logger.info("reaped %d stale leases during refresh_run", len(stale))
-    except Exception:
+    except (OSError, RuntimeError, KeyError, ValueError):
         logger.debug("reap_stale_leases failed during refresh_run", exc_info=True)
 
     # Proactively reap TTL-expired leases so stale locks don't accumulate
@@ -59,7 +59,7 @@ def refresh_run(self, run_id: str) -> SupervisorRun:
         reaped = self.store.reap_expired_leases()
         if reaped:
             logger.info("reaped %d expired leases during refresh_run", len(reaped))
-    except Exception:
+    except (OSError, RuntimeError, KeyError, ValueError):
         logger.debug("reap_expired_leases failed during refresh_run", exc_info=True)
 
     record = self.store.get_supervisor_run(run_id)
@@ -186,7 +186,7 @@ def _collect_finished_workers_sync(self, run_id: str) -> None:
 
     try:
         finished = self.launcher.collect_finished_sync(work_order_ids=dispatched_ids)
-    except Exception:
+    except (OSError, RuntimeError, subprocess.SubprocessError):
         logger.debug(
             "sync finished-worker collection failed for run %s",
             run_id,
@@ -416,7 +416,7 @@ def _collect_finished_results_before_reap(
                 run_id,
                 len(completed),
             )
-    except Exception:
+    except (OSError, RuntimeError, subprocess.SubprocessError):
         logger.debug(
             "collect_finished_results failed during pre-reap refresh for %s",
             run_id,
@@ -700,7 +700,7 @@ async def dispatch_workers(self, run_id: str) -> list[WorkerProcess]:
                 if lease_id and worker.pid is not None:
                     try:
                         self.store.update_lease_metadata(lease_id, {"worker_pid": worker.pid})
-                    except Exception:
+                    except (OSError, RuntimeError, KeyError, ValueError):
                         logger.debug(
                             "Failed to persist worker PID to lease %s",
                             lease_id,
@@ -830,7 +830,7 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
     # Try in-memory collection first (same process that launched workers)
     try:
         finished = await self.launcher.collect_finished(work_order_ids=dispatched_ids)
-    except Exception:
+    except (OSError, RuntimeError, subprocess.SubprocessError):
         logger.debug(
             "in-memory finished-worker collection failed for run %s",
             run_id,
@@ -866,7 +866,7 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                     if str(test).strip()
                 ],
             )
-        except Exception:
+        except (OSError, RuntimeError, subprocess.SubprocessError, ValueError):
             logger.debug("Detached result collection failed for %s", woid, exc_info=True)
             result = None
         if result is not None:
@@ -892,7 +892,7 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
 
         try:
             progress = await self.launcher.snapshot_progress(item)
-        except Exception:
+        except (OSError, RuntimeError, subprocess.SubprocessError):
             logger.debug("Progress snapshot failed for %s", woid, exc_info=True)
             continue
         observed_at = datetime.now(UTC).isoformat()
@@ -965,7 +965,7 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                             if str(test).strip()
                         ],
                     )
-                except Exception:
+                except (OSError, RuntimeError, subprocess.SubprocessError, ValueError):
                     logger.debug("Detached result collection failed for %s", woid, exc_info=True)
 
                 recovered_result: WorkerProcess | None = None
@@ -1039,7 +1039,7 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                         ],
                         allow_session_meta_pid_fallback=False,
                     )
-                except Exception:
+                except (OSError, RuntimeError, subprocess.SubprocessError, ValueError):
                     logger.debug("Timeout result collection failed for %s", woid, exc_info=True)
 
             recovered_timeout_result: WorkerProcess | None = None
@@ -1298,7 +1298,7 @@ def _record_terminal_work_order_telemetry(
                     },
                 )
             )
-        except Exception:
+        except (OSError, RuntimeError, ValueError, TypeError):
             logger.debug("Supervisor lane telemetry emission skipped", exc_info=True)
 
 
@@ -1317,7 +1317,7 @@ def _register_pr_if_present(self, item: dict[str, Any], result: WorkerProcess) -
     ).strip()
     try:
         self._get_pr_registry().register(branch, url, creator=creator)
-    except Exception:
+    except (OSError, RuntimeError, KeyError, ValueError):
         logger.debug("Failed to register PR %s in registry", url, exc_info=True)
 
 
