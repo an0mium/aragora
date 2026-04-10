@@ -458,12 +458,16 @@ class SlackMessageQueue:
                 signing_secret=workspace.signing_secret,
             )
 
-            await connector.send_message(
+            response = await connector.send_message(
                 channel_id=message.channel_id,
                 text=message.text,
                 blocks=message.blocks,
-                thread_ts=message.thread_ts,
+                thread_id=message.thread_ts,
             )
+
+            if not response.success:
+                error = response.error or "Slack API returned unsuccessful response"
+                raise RuntimeError(f"Slack API send failed: {error}")
 
             return True
 

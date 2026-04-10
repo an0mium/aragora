@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from aragora.connectors.chat.models import SendMessageResponse
 from aragora.connectors.chat.slack.queue import (
     MessageStatus,
     QueuedMessage,
@@ -356,6 +357,57 @@ class TestSlackMessageQueue:
         assert msg.status == MessageStatus.PENDING
         assert msg.retries == 1
         assert msg.last_error  # Sanitized error message present
+        assert msg.next_retry_at is not None
+
+    @pytest.mark.asyncio
+    async def test_process_pending_retries_unsuccessful_slack_response(self, queue):
+        """Test unsuccessful Slack API responses are retried, not marked delivered."""
+        msg_id = await queue.enqueue(
+            workspace_id="T1",
+            channel_id="C1",
+            text="Will fail",
+            thread_ts="111.222",
+        )
+        send_calls = []
+
+        class FakeSlackConnector:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+            async def send_message(self, **kwargs):
+                send_calls.append(kwargs)
+                return SendMessageResponse(success=False, error="channel_not_found")
+
+        workspace_store = SimpleNamespace(
+            get=lambda workspace_id: SimpleNamespace(
+                access_token=f"xoxb-{workspace_id}",
+                signing_secret="secret",
+                is_active=True,
+            )
+        )
+
+        with (
+            patch(
+                "aragora.storage.slack_workspace_store.get_slack_workspace_store",
+                return_value=workspace_store,
+            ),
+            patch("aragora.connectors.chat.slack.SlackConnector", FakeSlackConnector),
+        ):
+            stats = await queue.process_pending()
+
+        assert stats == {"processed": 1, "delivered": 0, "failed": 1, "dead": 0}
+        assert send_calls == [
+            {
+                "channel_id": "C1",
+                "text": "Will fail",
+                "blocks": None,
+                "thread_id": "111.222",
+            }
+        ]
+        msg = queue._store.get(msg_id)
+        assert msg.status == MessageStatus.PENDING
+        assert msg.retries == 1
+        assert msg.last_error
         assert msg.next_retry_at is not None
 
     @pytest.mark.asyncio
