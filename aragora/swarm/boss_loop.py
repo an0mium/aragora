@@ -1574,6 +1574,13 @@ class BossLoop:
         except Exception:
             pass
 
+        parent_signature = self._decomposition_issue_signature(
+            number=issue.number,
+            title=issue.title,
+            body=issue.body or "",
+            url=issue.url,
+        )
+
         # Try LLM-based decomposition
         sub_issues_created = 0
         decomposition_candidates = 0
@@ -1629,6 +1636,13 @@ class BossLoop:
                         scope_entries=valid_scope,
                         validation_command=validation_cmd,
                     )
+                    if decomposition_depth > 0 and self._decomposition_candidate_restates_parent(
+                        candidate=signature,
+                        parent=parent_signature,
+                        candidate_text=f"{sub_title}\n{sub_desc}",
+                    ):
+                        covered_candidates += 1
+                        continue
                     if self._decomposition_candidate_is_covered(
                         signature=signature,
                         existing_signatures=existing_decomposition_signatures,
@@ -1689,8 +1703,8 @@ class BossLoop:
         elif decomposition_candidates > 0 and covered_candidates == decomposition_candidates:
             comment = (
                 f"Boss loop exhausted {self.config.max_retries_per_issue} attempts. "
-                "All decomposition candidates are already covered by existing open "
-                "`boss-ready` issues or open PRs."
+                "All decomposition candidates are already covered by the parent task, "
+                "existing open `boss-ready` issues, or open PRs."
             )
         else:
             comment = (
@@ -1851,6 +1865,41 @@ class BossLoop:
             return False
         shared = left_tokens & right_tokens
         return len(shared) >= max(3, min(len(left_tokens), len(right_tokens)) // 2)
+
+    @staticmethod
+    def _decomposition_intent_is_generic(text: str) -> bool:
+        normalized = re.sub(r"\s+", " ", str(text or "").lower())
+        generic_phrases = (
+            "fix failing tests",
+            "repair failing tests",
+            "ensure comprehensive coverage",
+            "comprehensive test coverage",
+            "comprehensive unit tests",
+            "execute and verify",
+            "run and verify",
+        )
+        return any(phrase in normalized for phrase in generic_phrases)
+
+    @classmethod
+    def _decomposition_candidate_restates_parent(
+        cls,
+        *,
+        candidate: dict[str, Any],
+        parent: dict[str, Any],
+        candidate_text: str,
+    ) -> bool:
+        if not cls._decomposition_intent_is_generic(candidate_text):
+            return False
+        candidate_scopes = tuple(candidate.get("scopes") or ())
+        parent_scopes = tuple(parent.get("scopes") or ())
+        if not candidate_scopes or not parent_scopes:
+            return False
+        if not cls._decomposition_scope_sets_overlap(candidate_scopes, parent_scopes):
+            return False
+        return cls._decomposition_intents_overlap(
+            str(candidate.get("intent") or ""),
+            str(parent.get("intent") or ""),
+        )
 
     @classmethod
     def _decomposition_candidate_is_covered(
