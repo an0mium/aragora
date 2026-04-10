@@ -89,6 +89,7 @@ _DOCS_ONLY_GENERATE_CAPABILITY_MATRIX_COMMANDS = (
     "python3 scripts/generate_capability_matrix.py",
     "python3 scripts/generate_capability_matrix.py --out docs-site/docs/contributing/capability-matrix.md",
 )
+_REPAIR_JOURNAL_MAX_ENTRIES = 20
 
 
 def _is_docs_only_path(path: Any) -> bool:
@@ -647,6 +648,24 @@ class DevCoordinationStore:
                     artifact_hash TEXT NOT NULL
                 );
                 CREATE INDEX IF NOT EXISTS idx_receipts_lease ON completion_receipts(lease_id, created_at);
+
+                CREATE TABLE IF NOT EXISTS worker_repair_journals (
+                    journal_id TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL,
+                    task_key TEXT NOT NULL,
+                    work_order_id TEXT NOT NULL,
+                    supervisor_run_id TEXT NOT NULL,
+                    lease_id TEXT NOT NULL,
+                    owner_agent TEXT NOT NULL,
+                    owner_session_id TEXT NOT NULL,
+                    branch TEXT NOT NULL,
+                    worktree_path TEXT NOT NULL,
+                    entry_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_repair_journal_task ON worker_repair_journals(task_id, created_at);
+                CREATE INDEX IF NOT EXISTS idx_repair_journal_key ON worker_repair_journals(task_key, created_at);
+                CREATE INDEX IF NOT EXISTS idx_repair_journal_work_order ON worker_repair_journals(work_order_id, created_at);
 
                 CREATE TABLE IF NOT EXISTS integration_decisions (
                     decision_id TEXT PRIMARY KEY,
@@ -1208,6 +1227,129 @@ class DevCoordinationStore:
             if task.task_key == str(task_key).strip():
                 return task
         return None
+
+    def record_worker_repair_journal(
+        self,
+        *,
+        task_id: str,
+        entry: dict[str, Any],
+        task_key: str | None = None,
+        work_order_id: str | None = None,
+        supervisor_run_id: str | None = None,
+        lease_id: str | None = None,
+        owner_agent: str | None = None,
+        owner_session_id: str | None = None,
+        branch: str | None = None,
+        worktree_path: str | None = None,
+    ) -> dict[str, Any]:
+        now = _utcnow().isoformat()
+        record = {
+            "journal_id": str(uuid.uuid4())[:12],
+            "task_id": str(task_id or "").strip(),
+            "task_key": str(task_key or "").strip(),
+            "work_order_id": str(work_order_id or "").strip(),
+            "supervisor_run_id": str(supervisor_run_id or "").strip(),
+            "lease_id": str(lease_id or "").strip(),
+            "owner_agent": str(owner_agent or "").strip(),
+            "owner_session_id": str(owner_session_id or "").strip(),
+            "branch": str(branch or "").strip(),
+            "worktree_path": str(worktree_path or "").strip(),
+            "entry": dict(entry),
+            "created_at": now,
+        }
+        if not record["task_id"] and not record["task_key"] and not record["work_order_id"]:
+            raise ValueError("repair journal requires task_id, task_key, or work_order_id")
+        conn = self._connect()
+        try:
+            conn.execute(
+                """
+                INSERT INTO worker_repair_journals (
+                    journal_id, task_id, task_key, work_order_id, supervisor_run_id,
+                    lease_id, owner_agent, owner_session_id, branch, worktree_path,
+                    entry_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    record["journal_id"],
+                    record["task_id"],
+                    record["task_key"],
+                    record["work_order_id"],
+                    record["supervisor_run_id"],
+                    record["lease_id"],
+                    record["owner_agent"],
+                    record["owner_session_id"],
+                    record["branch"],
+                    record["worktree_path"],
+                    _json_dump(record["entry"]),
+                    record["created_at"],
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        self._publish(
+            "worker_repair_journal_recorded",
+            track=record["branch"] or record["task_id"] or record["task_key"],
+            data={
+                "journal_id": record["journal_id"],
+                "task_id": record["task_id"],
+                "task_key": record["task_key"],
+                "work_order_id": record["work_order_id"],
+                "supervisor_run_id": record["supervisor_run_id"],
+            },
+        )
+        return record
+
+    def list_worker_repair_journals(
+        self,
+        *,
+        task_id: str | None = None,
+        task_key: str | None = None,
+        work_order_id: str | None = None,
+        limit: int = _REPAIR_JOURNAL_MAX_ENTRIES,
+    ) -> list[dict[str, Any]]:
+        filters: list[str] = []
+        params: list[Any] = []
+        for column, value in (
+            ("task_id", task_id),
+            ("task_key", task_key),
+            ("work_order_id", work_order_id),
+        ):
+            text = str(value or "").strip()
+            if text:
+                filters.append(f"{column} = ?")
+                params.append(text)
+        if not filters:
+            return []
+        sql = (
+            "SELECT * FROM worker_repair_journals WHERE "
+            + " OR ".join(filters)
+            + " ORDER BY created_at DESC LIMIT ?"
+        )
+        params.append(max(1, int(limit)))
+        conn = self._connect()
+        try:
+            rows = conn.execute(sql, params).fetchall()
+        finally:
+            conn.close()
+        records = [
+            {
+                "journal_id": row["journal_id"],
+                "task_id": row["task_id"],
+                "task_key": row["task_key"],
+                "work_order_id": row["work_order_id"],
+                "supervisor_run_id": row["supervisor_run_id"],
+                "lease_id": row["lease_id"],
+                "owner_agent": row["owner_agent"],
+                "owner_session_id": row["owner_session_id"],
+                "branch": row["branch"],
+                "worktree_path": row["worktree_path"],
+                "entry": _json_loads(row["entry_json"], {}),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+        return list(reversed(records))
 
     def update_supervisor_run(
         self,

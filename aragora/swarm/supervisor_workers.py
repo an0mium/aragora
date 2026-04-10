@@ -1134,6 +1134,17 @@ def _lease_work_order(
     wo_id = str(work_order.get("work_order_id", "task"))
     task_key = f"{run_id}:{wo_id}"
     session_key = f"swarm-{run_id[:8]}-{wo_id}"
+    metadata = dict(work_order.get("metadata") or {})
+    persisted_journals = self.store.list_worker_repair_journals(
+        task_id=wo_id,
+        task_key=task_key,
+        work_order_id=wo_id,
+    )
+    if persisted_journals:
+        metadata["repair_journal"] = [
+            dict(record.get("entry") or {}) for record in persisted_journals if record.get("entry")
+        ][-3:]
+        work_order["metadata"] = metadata
     raw_scope = [str(item) for item in work_order.get("file_scope", []) if str(item).strip()]
     if not raw_scope:
         self._clear_stale_prelaunch_deliverable_state(work_order)
@@ -1197,6 +1208,7 @@ def _lease_work_order(
             "reviewer_agent": str(work_order.get("reviewer_agent", "")),
             "risk_level": str(work_order.get("risk_level", "review")),
             "approval_required": True,
+            "repair_journal_count": len(metadata.get("repair_journal", []) or []),
         },
     )
     work_order.update(
