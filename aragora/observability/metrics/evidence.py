@@ -86,6 +86,17 @@ def _ensure_init() -> None:
         init_evidence_metrics()
 
 
+def _reset_evidence_metrics_for_tests() -> None:
+    """Reset module-level metrics state for isolated unit tests."""
+    global _initialized
+    global EVIDENCE_STORED, EVIDENCE_CITATION_BONUSES, CULTURE_PATTERNS
+
+    EVIDENCE_STORED = None
+    EVIDENCE_CITATION_BONUSES = None
+    CULTURE_PATTERNS = None
+    _initialized = False
+
+
 # =============================================================================
 # Evidence Recording Functions
 # =============================================================================
