@@ -189,7 +189,7 @@ class InputExtensionEngine:
                 )
                 for r in items
             ][:3]
-        except Exception:
+        except (AttributeError, OSError, RuntimeError, TypeError, ValueError):
             logger.warning("Failed to query KM for prior art")
             return []
 
