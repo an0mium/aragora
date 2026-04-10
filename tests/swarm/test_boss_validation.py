@@ -149,11 +149,41 @@ class TestExtractDeclaredNewFilePaths:
         result = extract_declared_new_file_paths(body)
         assert "tests/swarm/test_new.py" in result
 
+    def test_create_marker(self):
+        body = "- `tests/swarm/test_config.py` (create)"
+        result = extract_declared_new_file_paths(body)
+        assert "tests/swarm/test_config.py" in result
+
+    def test_create_marker_case_insensitive(self):
+        body = "- `tests/foo/test_bar.py` (Create)"
+        assert "tests/foo/test_bar.py" in extract_declared_new_file_paths(body)
+
+    def test_new_marker_bare(self):
+        body = "- `tests/x/test_y.py` (new)"
+        assert "tests/x/test_y.py" in extract_declared_new_file_paths(body)
+
+    def test_to_be_created_marker(self):
+        body = "- `tests/a/test_b.py` (to be created)"
+        assert "tests/a/test_b.py" in extract_declared_new_file_paths(body)
+
+    def test_will_create_marker(self):
+        body = "- `tests/c/test_d.py` (will create)"
+        assert "tests/c/test_d.py" in extract_declared_new_file_paths(body)
+
+    def test_generated_marker(self):
+        body = "- `tests/e/test_f.py` (generated)"
+        assert "tests/e/test_f.py" in extract_declared_new_file_paths(body)
+
     def test_no_marker(self):
         assert extract_declared_new_file_paths("just text") == []
 
     def test_none_input(self):
         assert extract_declared_new_file_paths(None) == []
+
+    def test_modify_not_matched(self):
+        """Paths without a new/create marker should not appear."""
+        body = "- `aragora/swarm/config.py` (modify)"
+        assert extract_declared_new_file_paths(body) == []
 
 
 # -- run_pre_dispatch_validation_commands --

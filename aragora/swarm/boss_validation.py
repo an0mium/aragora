@@ -69,7 +69,10 @@ _PRE_DISPATCH_SAFE_COMMAND_PREFIXES = (
 )
 _BACKTICK_COMMAND_RE = re.compile(r"`(?P<command>[^`]+)`")
 _EXPLICIT_PYTEST_TARGET_RE = re.compile(r"(?<!\S)(?P<path>tests/\S+?\.py)(?:::\S+)?(?!\S)")
-_DECLARED_NEW_FILE_RE = re.compile(r"\(\s*new(?:\s+file)?\s*\)", re.IGNORECASE)
+_DECLARED_NEW_FILE_RE = re.compile(
+    r"\(\s*(?:new(?:\s+file)?|create|to\s+be\s+created|will\s+create|generated)\s*\)",
+    re.IGNORECASE,
+)
 _BACKTICK_PATH_RE = re.compile(r"`(?P<path>[^`\n]+/[^`\n]+)`")
 _TASK_HEADER_RE = re.compile(r"^#{1,6}\s*task\b", re.IGNORECASE)
 _AUTO_DECOMPOSED_RE = re.compile(r"auto-decomposed|auto decomposed", re.IGNORECASE)
