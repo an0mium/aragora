@@ -5213,6 +5213,51 @@ class TestMaybePublishDeliverable:
         assert worker_result["harvest_result"]["action"] == "harvest_failed"
         mock_publish.assert_not_called()
 
+    def test_harvest_fallback_publishes_when_branch_diff_unverified(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+                target_branch="release/2026.04",
+            )
+        )
+        issue = _make_issue(number=126)
+        worker_result = {
+            "status": "needs_human",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/swarm-valid",
+                "commit_shas": ["abc123"],
+            },
+        }
+
+        with (
+            patch.object(loop, "_list_open_boss_harvest_prs", return_value=[]),
+            patch.object(
+                loop,
+                "_harvest_worker_commits_for_publish",
+                side_effect=RuntimeError("fatal: invalid reference: release/2026.04"),
+            ),
+            patch.object(loop, "_publish_branch_has_target_diff", return_value=None),
+            patch(
+                "aragora.swarm.tranche_integrate.publish_lane_deliverable",
+                return_value={
+                    "published": True,
+                    "branch": "codex/swarm-valid",
+                    "pr_url": "https://github.com/synaptent/aragora/pull/2126",
+                },
+            ) as mock_publish,
+            patch("aragora.swarm.pr_registry.PullRequestRegistry"),
+        ):
+            result = loop._maybe_publish_deliverable(issue, worker_result)
+
+        assert result is not None
+        assert result["published"] is True
+        assert result["pr_url"] == "https://github.com/synaptent/aragora/pull/2126"
+        assert worker_result["harvest_result"]["action"] == "harvest_failed"
+        assert mock_publish.call_args.kwargs["target_branch"] == "release/2026.04"
+        assert mock_publish.call_args.args[0].branch == "codex/swarm-valid"
+
 
 class TestPostprocessConvertsToDraft:
     """Verify _postprocess_issue_result calls _convert_pr_to_draft."""
