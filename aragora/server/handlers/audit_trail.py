@@ -87,6 +87,17 @@ class AuditTrailHandler(BaseHandler):
             return await result
         return result
 
+    @staticmethod
+    def _extract_and_validate_id(path: str, index: int = 4) -> str | None:
+        """Extract a path segment and validate it is a non-empty string."""
+        parts = path.split("/")
+        if len(parts) <= index:
+            return None
+        segment = parts[index]
+        if not isinstance(segment, str) or not segment.strip():
+            return None
+        return segment
+
     @rate_limit(requests_per_minute=60)
     async def handle(  # type: ignore[override]
         self,
@@ -96,6 +107,9 @@ class AuditTrailHandler(BaseHandler):
         query_params: dict[str, Any] | None = None,
     ) -> HandlerResult:
         """Route request to appropriate handler method."""
+        if not isinstance(method_or_path, str):
+            return error_response("Invalid request: method_or_path must be a string", 400)
+
         # Support both handle(path, query_params, handler) and handle(method, path, ...)
         if method_or_path.startswith("/"):
             path = method_or_path
@@ -112,6 +126,8 @@ class AuditTrailHandler(BaseHandler):
             if handler
             else "GET"
         )
+        if query_params is not None and not isinstance(query_params, dict):
+            return error_response("Invalid request: query_params must be a dict", 400)
         query_params = query_params or {}
 
         try:
@@ -120,15 +136,21 @@ class AuditTrailHandler(BaseHandler):
                 return await self._list_audit_trails(query_params)
 
             if path.startswith("/api/v1/audit-trails/") and "/export" in path:
-                trail_id = path.split("/")[4]
+                trail_id = self._extract_and_validate_id(path)
+                if not trail_id:
+                    return error_response("Invalid or missing trail_id", 400)
                 return await self._export_audit_trail(trail_id, query_params)
 
             if path.startswith("/api/v1/audit-trails/") and "/verify" in path:
-                trail_id = path.split("/")[4]
+                trail_id = self._extract_and_validate_id(path)
+                if not trail_id:
+                    return error_response("Invalid or missing trail_id", 400)
                 return await self._verify_audit_trail(trail_id)
 
             if path.startswith("/api/v1/audit-trails/"):
-                trail_id = path.split("/")[4]
+                trail_id = self._extract_and_validate_id(path)
+                if not trail_id:
+                    return error_response("Invalid or missing trail_id", 400)
                 return await self._get_audit_trail(trail_id)
 
             # Receipt Routes
@@ -136,11 +158,15 @@ class AuditTrailHandler(BaseHandler):
                 return await self._list_receipts(query_params)
 
             if path.startswith("/api/v1/receipts/") and "/verify" in path:
-                receipt_id = path.split("/")[4]
+                receipt_id = self._extract_and_validate_id(path)
+                if not receipt_id:
+                    return error_response("Invalid or missing receipt_id", 400)
                 return await self._verify_receipt(receipt_id)
 
             if path.startswith("/api/v1/receipts/"):
-                receipt_id = path.split("/")[4]
+                receipt_id = self._extract_and_validate_id(path)
+                if not receipt_id:
+                    return error_response("Invalid or missing receipt_id", 400)
                 return await self._get_receipt(receipt_id)
 
             return error_response("Not found", 404)
