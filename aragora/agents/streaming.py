@@ -105,6 +105,8 @@ class StreamingMixin:
 
                 try:
                     event = json.loads(data_str)
+                    if not isinstance(event, dict):
+                        continue
                     content = self._extract_content_from_event(event, format_type)
                     if content:
                         yield content
