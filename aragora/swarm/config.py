@@ -88,6 +88,18 @@ USER_PROFILE_PROMPTS: dict[UserProfile, str] = {
 }
 
 
+def _coerce_user_profile(value: UserProfile | str) -> UserProfile:
+    """Normalize user profile values provided as enum members or raw strings."""
+
+    return value if isinstance(value, UserProfile) else UserProfile(value)
+
+
+def _coerce_autonomy_level(value: AutonomyLevel | str) -> AutonomyLevel:
+    """Normalize autonomy values provided as enum members or raw strings."""
+
+    return value if isinstance(value, AutonomyLevel) else AutonomyLevel(value)
+
+
 @dataclass
 class InterrogatorConfig:
     """Configuration for the SwarmInterrogator."""
@@ -99,10 +111,9 @@ class InterrogatorConfig:
     user_profile: UserProfile = UserProfile.CEO
 
     def __post_init__(self) -> None:
+        self.user_profile = _coerce_user_profile(self.user_profile)
         if not self.system_prompt:
-            self.system_prompt = USER_PROFILE_PROMPTS.get(
-                self.user_profile, USER_PROFILE_PROMPTS[UserProfile.CEO]
-            )
+            self.system_prompt = USER_PROFILE_PROMPTS[self.user_profile]
 
 
 @dataclass
@@ -142,9 +153,14 @@ class SwarmCommanderConfig:
     enable_cross_cycle_learning: bool = True
 
     def __post_init__(self) -> None:
+        self.user_profile = _coerce_user_profile(self.user_profile)
+        self.autonomy_level = _coerce_autonomy_level(self.autonomy_level)
+
         # Sync user_profile to interrogator if not explicitly set
         if self.interrogator.user_profile != self.user_profile:
+            has_custom_prompt = bool(self.interrogator.system_prompt)
             self.interrogator.user_profile = self.user_profile
-            # Re-trigger prompt selection
-            self.interrogator.system_prompt = ""
-            self.interrogator.__post_init__()
+            if not has_custom_prompt:
+                # Re-trigger prompt selection for the synchronized profile.
+                self.interrogator.system_prompt = ""
+                self.interrogator.__post_init__()
