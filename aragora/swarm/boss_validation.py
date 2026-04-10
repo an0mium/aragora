@@ -75,6 +75,30 @@ _TASK_HEADER_RE = re.compile(r"^#{1,6}\s*task\b", re.IGNORECASE)
 _AUTO_DECOMPOSED_RE = re.compile(r"auto-decomposed|auto decomposed", re.IGNORECASE)
 
 
+def _run_subprocess(
+    args: list[str],
+    *,
+    cwd: str,
+    timeout: int,
+    capture_output: bool = True,
+    text: bool = True,
+    check: bool = False,
+) -> subprocess.CompletedProcess[str]:
+    """Thin wrapper around :func:`subprocess.run` for test seam injection.
+
+    Tests can patch ``boss_validation._run_subprocess`` to avoid real process
+    spawning while exercising all surrounding logic.
+    """
+    return subprocess.run(
+        args,
+        cwd=cwd,
+        text=text,
+        capture_output=capture_output,
+        timeout=timeout,
+        check=check,
+    )
+
+
 def _ordered_unique_strings(items: list[str]) -> list[str]:
     seen: set[str] = set()
     ordered: list[str] = []
@@ -350,13 +374,10 @@ def run_pre_dispatch_validation_commands(
     timeout = max(1, int(timeout_seconds))
     for command in commands:
         try:
-            proc = subprocess.run(
+            proc = _run_subprocess(
                 ["/bin/bash", "-lc", command],
                 cwd=str(cwd),
-                text=True,
-                capture_output=True,
                 timeout=timeout,
-                check=False,
             )
         except subprocess.TimeoutExpired:
             results.append(
@@ -408,10 +429,8 @@ def discover_focused_tests(
     diff is empty.
     """
     try:
-        proc = subprocess.run(
+        proc = _run_subprocess(
             ["git", "diff", "--name-only", base_ref + "..HEAD"],
-            capture_output=True,
-            text=True,
             cwd=str(repo_path),
             timeout=15,
         )
