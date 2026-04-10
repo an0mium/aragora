@@ -13,9 +13,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import Any
-from collections.abc import AsyncIterator
 
 from aragora.connectors.enterprise.base import (
     EnterpriseConnector,
@@ -189,9 +189,9 @@ class MongoDBConnector(EnterpriseConnector):
             self._db = self._client[self.database_name]  # type: ignore[index]
             return self._client
 
-        except ImportError:
+        except ImportError as exc:
             logger.error("motor not installed. Run: pip install motor")
-            raise
+            raise ImportError("MongoDB connector requires motor. Run: pip install motor") from exc
 
     async def _discover_collections(self) -> list[str]:
         """Discover collections in the database."""
@@ -361,9 +361,14 @@ class MongoDBConnector(EnterpriseConnector):
 
             except (OSError, ConnectionError, ValueError, KeyError, RuntimeError) as e:
                 error_message = f"{collection_name}: sync failed"
-                logger.exception("Failed to sync collection %s", collection_name)
+                logger.warning(
+                    "Failed to sync collection %s (%s): %s",
+                    collection_name,
+                    type(e).__name__,
+                    e,
+                )
                 state.errors.append(error_message)
-                raise RuntimeError(error_message) from e
+                continue
 
     async def search(
         self,
@@ -382,7 +387,12 @@ class MongoDBConnector(EnterpriseConnector):
         results = []
 
         collections = self.collections or await self._discover_collections()
-        from pymongo.errors import OperationFailure
+        try:
+            from pymongo.errors import OperationFailure
+        except ImportError:
+
+            class OperationFailure(Exception):  # type: ignore[no-redef]
+                """Fallback sentinel for tests without pymongo installed."""
 
         for collection_name in collections[:5]:  # Limit to first 5 collections
             try:
@@ -409,7 +419,8 @@ class MongoDBConnector(EnterpriseConnector):
                     continue
                 except OperationFailure as e:
                     if "text index required" not in str(e).lower():
-                        raise
+                        error_message = f"{collection_name}: text search failed"
+                        raise RuntimeError(error_message) from e
                     logger.debug(
                         "Text search not available for %s, falling back to regex: %s",
                         collection_name,

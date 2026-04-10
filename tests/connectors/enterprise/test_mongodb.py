@@ -285,8 +285,10 @@ class TestMongoDBClientConnection:
 
         # Simulate motor not being installed
         with patch.dict(sys.modules, {"motor": None, "motor.motor_asyncio": None}):
-            with pytest.raises(ImportError):
+            with pytest.raises(ImportError, match="MongoDB connector requires motor") as exc_info:
                 await connector._get_client()
+
+        assert exc_info.value.__cause__ is not None
 
 
 class TestMongoDBSyncItems:
@@ -384,6 +386,45 @@ class TestMongoDBSearch:
 
             # Should return some results (may be empty if search not fully mocked)
             assert isinstance(results, list)
+
+    @pytest.mark.asyncio
+    async def test_search_preserves_text_search_failure_context(self, mock_credentials):
+        """Should add collection context while preserving text search failures."""
+        import sys
+        import types
+
+        from aragora.connectors.enterprise.database.mongodb import MongoDBConnector
+
+        class FakeOperationFailure(Exception):
+            pass
+
+        fake_errors = types.ModuleType("pymongo.errors")
+        fake_errors.OperationFailure = FakeOperationFailure
+
+        connector = MongoDBConnector(collections=["test"])
+        connector.credentials = mock_credentials
+
+        mock_collection = MagicMock()
+        mock_collection.find = MagicMock(side_effect=FakeOperationFailure("bad command"))
+
+        mock_db = MagicMock()
+        mock_db.__getitem__ = MagicMock(return_value=mock_collection)
+
+        with (
+            patch.dict(
+                sys.modules, {"pymongo": types.ModuleType("pymongo"), "pymongo.errors": fake_errors}
+            ),
+            patch.object(connector, "_get_client", new_callable=AsyncMock),
+        ):
+            connector._db = mock_db
+
+            with pytest.raises(RuntimeError, match="test: search failed") as exc_info:
+                await connector.search("document", limit=5)
+
+        text_search_error = exc_info.value.__cause__
+        assert isinstance(text_search_error, RuntimeError)
+        assert str(text_search_error) == "test: text search failed"
+        assert isinstance(text_search_error.__cause__, FakeOperationFailure)
 
 
 class TestMongoDBErrorHandling:
