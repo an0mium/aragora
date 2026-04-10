@@ -1,0 +1,78 @@
+# Automation Merge Contract
+
+This contract applies to both local Codex app automations and Aragora native boss-loop workers. The goal is not to maximize the number of opened PRs. The goal is to maximize PRs that are small, reviewable, validated, and mergeable without salvage work.
+
+## Producer Contract
+
+Every automation run should start from current `origin/main`, work on one bounded issue or one bounded maintenance task, and keep the branch scoped to the files needed for that task. It should prefer a disposable worktree when multiple agents are active.
+
+The run must not publish a PR for analysis-only output, a no-op branch, a branch containing session artifacts, or a branch whose final state is known to fail the declared validation. If it cannot finish, it should leave a handoff with the branch, failing command, blocker, and next action instead of opening a misleading PR.
+
+## Shared Preflight
+
+Before pushing or opening an automation PR, run:
+
+```bash
+bash scripts/automation_pr_preflight.sh origin/main HEAD
+```
+
+For local Codex app automation branches, `scripts/publish_codex_automation_branches.py --apply` runs this preflight by default before it pushes and opens a PR. Use `--skip-preflight` only for manual recovery when a human has already inspected the diff.
+
+For Aragora boss-loop workers, run the same script against the worker branch before merge arbitration:
+
+```bash
+bash scripts/automation_pr_preflight.sh origin/main <worker-branch>
+```
+
+The preflight fails on empty diffs, whitespace errors, and committed session artifacts such as worker logs, active-session markers, repair journals, or event directories. It also warns when source or config changes have no corresponding test-path changes so the PR body can explicitly name the validation command that covered the change.
+
+## PR Body Contract
+
+An automation PR should include:
+
+- the issue or task source
+- a short summary of changed behavior
+- the exact validation command and result
+- any skipped validation with the reason
+- known risks or assumptions
+- repair journal or handoff context when this is a retry
+
+Draft PRs are acceptable when the publisher is only preserving useful branch state. Ready PRs should have a passing preflight, scoped diff, and explicit validation evidence.
+
+## Merge Gate
+
+Automation PRs are merge candidates only when:
+
+- the diff is scoped to the task
+- CI or targeted validation passes
+- there is no duplicate open PR for the same issue or branch
+- any cross-host retry consumed the prior repair journal or explicitly explains why it ignored it
+- generated artifacts and local coordination files are absent from the branch
+
+If any gate fails, the next useful action is a repair attempt with the failure output in the handoff envelope, not another fresh worker staring at the same repo state.
+
+## Prompt Snippet For Codex App Automations
+
+Use this repo's automation merge contract at `docs/briefs/automation-merge-contract.md`. Work on one bounded issue or maintenance task. Make the smallest credible change, run the targeted validation, and before publishing run `bash scripts/automation_pr_preflight.sh origin/main HEAD`. If validation or publishing fails, leave an exact handoff with branch, failing command, blocker, and next action instead of opening a misleading PR.
+
+## Prompt Snippet For Boss-Loop Operators
+
+Run the boss loop with shared coordination state when multiple hosts are active:
+
+```bash
+export ARAGORA_DEV_COORDINATION_DB=/Users/armand/Development/aragora/.aragora/dev_coordination.sqlite3
+export ARAGORA_BOSS_VERIFIED_RUNNER_TARGET=0
+python3.11 -u -m aragora.cli.main swarm boss-loop \
+  --boss-repo synaptent/aragora \
+  --target-branch main \
+  --worker-model claude \
+  --label boss-ready \
+  --max-ticks 20 \
+  --interval 60 \
+  --autonomy full-auto \
+  --max-hours 8 \
+  --boss-max-parallel-dispatches 1 \
+  --allow-claude-write
+```
+
+Keep host parallelism conservative until repair journals, handoff envelopes, and the publisher preflight show that retries are improving PR quality rather than generating duplicate work.

@@ -24,6 +24,8 @@ When many agents are committing concurrently, use disposable worktrees with freq
 
 For Codex-driven automations in this repo, default to maximum safe autonomy. Finish the bounded task when the next action is clear, and only stop when the remaining step is irreversible, human-gated, or materially unsafe.
 
+- Use the shared automation merge contract in `docs/briefs/automation-merge-contract.md`.
+  Before publishing local Codex app automation or Aragora boss-loop worker branches, run `bash scripts/automation_pr_preflight.sh origin/main HEAD` from the branch worktree, or run it against the explicit worker branch.
 - Prefer execution over advice:
   verify the issue, make the smallest credible fix, validate it, commit it, push it, open the PR, and leave the inbox or memory handoff in the same run when the task is otherwise ready.
 - Do not stop at the first blocked path:

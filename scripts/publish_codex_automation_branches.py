@@ -23,6 +23,7 @@ DEFAULT_SINCE_HOURS = 72
 DEFAULT_PUBLISH_LIMIT = 1
 DEFAULT_MAX_OPEN_PRS = 1
 CODEX_BRANCH_PREFIX = "codex/"
+DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
 ACTIVE_SESSION_FILES = (
     ".claude-session-active",
     ".codex_session_active",
@@ -395,6 +396,23 @@ def _add_labels(repo_root: Path, repo: str, number: int, labels: list[str]) -> N
         return
 
 
+def _run_publish_preflight(
+    repo_root: Path,
+    base: str,
+    branch: str,
+    preflight_script: str,
+) -> tuple[bool, str]:
+    script_path = repo_root / preflight_script
+    if not script_path.exists():
+        return False, f"preflight script not found: {preflight_script}"
+
+    proc = _run(["bash", str(script_path), base, branch], cwd=repo_root)
+    output = "\n".join(part.strip() for part in (proc.stdout, proc.stderr) if part.strip()).strip()
+    if proc.returncode == 0:
+        return True, output
+    return False, output or f"preflight failed for {branch}"
+
+
 def _publish_decisions(
     repo_root: Path,
     repo: str,
@@ -405,6 +423,7 @@ def _publish_decisions(
     open_pr_count: int,
     max_open_prs: int,
     labels: list[str],
+    preflight_script: str | None = None,
 ) -> list[dict[str, Any]]:
     _ensure_gh_auth(repo_root)
     results: list[dict[str, Any]] = []
@@ -418,6 +437,25 @@ def _publish_decisions(
         if open_pr_count + published >= max_open_prs:
             break
 
+        if preflight_script:
+            ok, output = _run_publish_preflight(
+                repo_root,
+                base,
+                decision.branch,
+                preflight_script,
+            )
+            if not ok:
+                results.append(
+                    {
+                        "branch": decision.branch,
+                        "status": "preflight_failed",
+                        "subject": decision.subject,
+                        "head_sha": decision.head_sha,
+                        "reason": output[:2000],
+                    }
+                )
+                continue
+
         _push_branch(repo_root, decision.branch, decision.upstream)
         number = _existing_pr_number(repo_root, repo, decision.branch, base)
         if number is None:
@@ -427,6 +465,7 @@ def _publish_decisions(
         results.append(
             {
                 "branch": decision.branch,
+                "status": "published",
                 "pr_number": number,
                 "subject": decision.subject,
                 "head_sha": decision.head_sha,
@@ -488,6 +527,19 @@ def _build_parser() -> argparse.ArgumentParser:
         "--apply",
         action="store_true",
         help="Push eligible branches and open PRs; default is dry-run planning only",
+    )
+    parser.add_argument(
+        "--preflight-script",
+        default=DEFAULT_PREFLIGHT_SCRIPT,
+        help=(
+            "Repo-relative script to run before publishing each eligible branch "
+            f"(default: {DEFAULT_PREFLIGHT_SCRIPT})"
+        ),
+    )
+    parser.add_argument(
+        "--skip-preflight",
+        action="store_true",
+        help="Skip the automation PR preflight before publishing.",
     )
     return parser
 
@@ -555,6 +607,7 @@ def main(argv: list[str] | None = None) -> int:
             open_pr_count=len(open_pr_heads),
             max_open_prs=args.max_open_prs,
             labels=list(dict.fromkeys(args.labels)),
+            preflight_script=None if args.skip_preflight else str(args.preflight_script),
         )
         payload["published"] = published
 
@@ -569,7 +622,10 @@ def main(argv: list[str] | None = None) -> int:
             if published:
                 print("\npublished:")
                 for item in published:
-                    print(f"  - {item['branch']} -> PR #{item['pr_number']}")
+                    if item.get("status") == "preflight_failed":
+                        print(f"  - {item['branch']} skipped: preflight_failed")
+                    else:
+                        print(f"  - {item['branch']} -> PR #{item['pr_number']}")
 
     return 0
 

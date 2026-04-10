@@ -70,6 +70,8 @@ def test_parser_defaults_to_single_branch_publish_budget() -> None:
 
     assert args.limit == 1
     assert args.max_open_prs == 1
+    assert args.skip_preflight is False
+    assert args.preflight_script == mod.DEFAULT_PREFLIGHT_SCRIPT
 
 
 def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() -> None:
@@ -237,6 +239,57 @@ def test_publish_decisions_respects_open_pr_cap(monkeypatch: Any, tmp_path: Path
     )
 
     assert results == []
+    assert calls == []
+
+
+def test_publish_decisions_skips_branch_when_preflight_fails(
+    monkeypatch: Any, tmp_path: Path
+) -> None:
+    calls: list[str] = []
+
+    monkeypatch.setattr(mod, "_ensure_gh_auth", lambda repo_root: None)
+    monkeypatch.setattr(
+        mod,
+        "_run_publish_preflight",
+        lambda repo_root, base, branch, preflight_script: (False, "session artifact found"),
+    )
+    monkeypatch.setattr(
+        mod, "_push_branch", lambda repo_root, branch, upstream: calls.append(f"push:{branch}")
+    )
+
+    results = mod._publish_decisions(
+        tmp_path,
+        "synaptent/aragora",
+        "main",
+        [
+            mod.PublishDecision(
+                branch="codex/artifact-branch",
+                eligible=True,
+                reason="eligible",
+                subject="fix one",
+                head_sha="abc1234",
+                unique_commit_count=1,
+                upstream=None,
+                committed_at=datetime.now(UTC).isoformat(),
+                worktree_paths=[],
+            )
+        ],
+        limit=5,
+        open_pr_count=0,
+        max_open_prs=3,
+        labels=["codex"],
+        preflight_script=mod.DEFAULT_PREFLIGHT_SCRIPT,
+    )
+
+    assert results == [
+        {
+            "branch": "codex/artifact-branch",
+            "status": "preflight_failed",
+            "subject": "fix one",
+            "head_sha": "abc1234",
+            "reason": "session artifact found",
+        }
+    ]
     assert calls == []
 
 
