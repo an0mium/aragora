@@ -8,6 +8,7 @@ work to the loop most likely to succeed.
 Architecture:
     OutcomeSignal  — Canonical event emitted by any loop
     OutcomeSignalBus — JSONL-backed pub/sub with in-process subscribers
+    OutcomeLearner — Rolling aggregator for loop + agent outcomes
     GoalGenerator  — Consumes failure patterns → produces Nomic goals
     CalibrationHub — Consumes outcomes → adjusts estimator weights
 """
@@ -21,7 +22,10 @@ from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterable, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from aragora.swarm.outcome_learner import OutcomeLearner, OutcomeLearnerSnapshot
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +185,10 @@ class OutcomeSignalBus:
 # Singleton
 _bus: OutcomeSignalBus | None = None
 _bus_lock = threading.Lock()
+_learner: "OutcomeLearner | None" = None
+_learner_lock = threading.Lock()
+_learner: "OutcomeLearner | None" = None
+_learner_lock = threading.Lock()
 
 
 def get_signal_bus(*, log_path: Path | None = None) -> OutcomeSignalBus:
@@ -190,6 +198,30 @@ def get_signal_bus(*, log_path: Path | None = None) -> OutcomeSignalBus:
         if _bus is None:
             _bus = OutcomeSignalBus(log_path=log_path)
         return _bus
+
+
+def get_outcome_learner(*, window_size: int = 500) -> "OutcomeLearner":
+    """Get or create the global outcome learner."""
+    from aragora.swarm.outcome_learner import OutcomeLearner
+
+    global _learner
+    with _learner_lock:
+        if _learner is None:
+            _learner = OutcomeLearner(window_size=window_size)
+        return _learner
+
+
+def snapshot_outcome_signals(
+    signals: Iterable[OutcomeSignal],
+    *,
+    window_size: int = 500,
+) -> "OutcomeLearnerSnapshot":
+    """Compute a deterministic snapshot from a sequence of signals."""
+    from aragora.swarm.outcome_learner import OutcomeLearner
+
+    learner = OutcomeLearner(window_size=window_size)
+    learner.ingest_many(signals)
+    return learner.snapshot()
 
 
 # ---------------------------------------------------------------------------

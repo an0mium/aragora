@@ -12,6 +12,7 @@ from aragora.swarm.outcome_signals import (
     apply_calibration_to_estimator,
     compute_calibration,
     generate_goals_from_outcomes,
+    snapshot_outcome_signals,
 )
 
 
@@ -232,3 +233,16 @@ class TestCalibration:
         assert snap is not None
         data = snap.to_dict()
         assert data["timestamp_iso"] == snap.timestamp
+
+
+def test_snapshot_outcome_signals_returns_rolling_summary():
+    signals = [
+        _make_signal(source_loop="boss", signal_type="completed", did_merge=True),
+        _make_signal(source_loop="boss", signal_type="failed", failure_reason="boom"),
+        _make_signal(source_loop="nomic", signal_type="repaired"),
+    ]
+    snap = snapshot_outcome_signals(signals, window_size=10)
+    assert snap.total_signals == 3
+    assert snap.by_loop["boss"].total == 2
+    assert snap.by_loop["nomic"].total == 1
+    assert snap.failure_taxonomy["boom"] == 1
