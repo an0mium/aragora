@@ -30,8 +30,8 @@ def _load_local_dotenv() -> None:
 
         load_dotenv()
         load_dotenv("/etc/aragora/.env")
-    except (ImportError, OSError):
-        logger.debug("dotenv loading unavailable, skipping")
+    except (ImportError, OSError) as exc:
+        logger.debug("dotenv loading unavailable, skipping: %s", exc)
         return
 
 
@@ -41,8 +41,8 @@ def _get_secret_fallback(name: str) -> str:
         from aragora.config.secrets import get_secret
 
         return str(get_secret(name) or "")
-    except (ImportError, OSError, ValueError):
-        logger.debug("Secret fallback for %s unavailable", name)
+    except (ImportError, OSError, ValueError) as exc:
+        logger.debug("Secret fallback for %s unavailable: %s", name, exc)
         return ""
 
 
