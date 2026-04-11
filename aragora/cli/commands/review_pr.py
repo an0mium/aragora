@@ -441,7 +441,7 @@ async def _run_fix_pass(
             stderr_tail=worker.stderr[-4000:],
             error=None if pushed or worker.commit_shas else "Fixer produced no commit.",
         )
-    except Exception as exc:  # noqa: BLE001 - surface durable fixer result
+    except (RuntimeError, OSError, subprocess.SubprocessError, ValueError) as exc:
         logger.exception("review-pr fixer failed for PR #%s", target.number)
         return FixPass(
             fixer=fixer,
@@ -711,7 +711,7 @@ async def _publish_review_outcome(
             body=body,
             event=event,
         )
-    except Exception as exc:  # noqa: BLE001 - surface publish failure in artifacts/CLI
+    except (RuntimeError, OSError, ValueError) as exc:
         logger.warning(
             "review-pr could not publish GitHub review for PR #%s: %s", target.number, exc
         )
