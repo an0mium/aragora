@@ -542,6 +542,7 @@ class ReplicationHealthMonitor:
                 await asyncio.sleep(self._config.check_interval_seconds)
 
             except asyncio.CancelledError:
+                logger.debug("Replication monitoring loop cancelled")
                 break
             except (OSError, RuntimeError, ConnectionError) as e:
                 logger.error("Error in replication monitoring loop: %s", e)
