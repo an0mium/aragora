@@ -93,6 +93,7 @@ def _check_fidelity_llm(
         from aragora.agents import create_agent
         from aragora.agents.base import AgentType
     except ImportError:
+        logger.debug("Agent modules not available for LLM fidelity scoring")
         return None
 
     agent = None
@@ -101,7 +102,8 @@ def _check_fidelity_llm(
             agent = create_agent(AgentType(agent_type))  # type: ignore[arg-type]
             if agent is not None:
                 break
-        except (ImportError, ValueError, TypeError):
+        except (ImportError, ValueError, TypeError) as exc:
+            logger.debug("Agent type %s unavailable: %s", agent_type, exc)
             continue
 
     if agent is None:
