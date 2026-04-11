@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any
 
 from aragora.nomic.molecules.base import MoleculeStep
+
+__all__ = ["AgentStepExecutor", "StepExecutor"]
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +41,23 @@ class StepExecutor(ABC):
         """
         raise NotImplementedError("Step executors must implement execute().")
 
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}()"
+
 
 class AgentStepExecutor(StepExecutor):
     """Execute steps using AI agents."""
 
+    def __init__(self, agent_fn: Callable[..., Any] | None = None) -> None:
+        self._agent_fn = agent_fn
+
     async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
         """Execute step via agent."""
-        # This would integrate with the actual agent system
-        # For now, return a placeholder
         logger.info("Agent executing step: %s", step.name)
+        if self._agent_fn is not None:
+            return await self._agent_fn(step, context)
         return {"status": "executed", "step": step.name}
+
+    def __repr__(self) -> str:
+        has_fn = self._agent_fn is not None
+        return f"AgentStepExecutor(agent_fn={'set' if has_fn else 'None'})"
