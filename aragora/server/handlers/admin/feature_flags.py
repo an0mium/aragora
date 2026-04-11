@@ -235,6 +235,8 @@ class FeatureFlagAdminHandler(BaseHandler):
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
+        if not isinstance(body, dict):
+            return error_response("JSON body must deserialize to an object", 400)
 
         if "value" not in body:
             return error_response("'value' field is required", 400)

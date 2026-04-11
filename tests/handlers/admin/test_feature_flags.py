@@ -54,7 +54,7 @@ def _status(result: HandlerResult) -> int:
     return result.status_code
 
 
-def _make_http_handler(body: dict | None = None) -> MagicMock:
+def _make_http_handler(body: Any | None = None) -> MagicMock:
     """Create a mock HTTP handler with optional JSON body."""
     h = MagicMock()
     h.command = "GET"
@@ -738,6 +738,20 @@ class TestSetFlag:
             result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
         assert _status(result) == 400
         assert "'value'" in _body(result)["error"]
+
+    def test_set_flag_string_body_returns_object_validation_error(self, handler, mock_registry):
+        h = _make_http_handler(body="value")
+        with _patch_flags_available(mock_registry):
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
+        assert _status(result) == 400
+        assert "object" in _body(result)["error"].lower()
+
+    def test_set_flag_array_body_returns_object_validation_error(self, handler, mock_registry):
+        h = _make_http_handler(body=["value"])
+        with _patch_flags_available(mock_registry):
+            result = handler.handle_put("/api/v1/admin/feature-flags/enable_checkpointing", {}, h)
+        assert _status(result) == 400
+        assert "object" in _body(result)["error"].lower()
 
     def test_set_flag_wrong_type_str_for_bool(self, handler, mock_registry):
         h = _make_http_handler(body={"value": "true"})
