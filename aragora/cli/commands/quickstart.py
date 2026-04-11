@@ -1479,9 +1479,9 @@ async def _can_reach_provider_tls(provider: str) -> tuple[bool, str | None]:
     writer.close()
     try:
         await writer.wait_closed()
-    except (ConnectionError, OSError, ssl.SSLError):
+    except (ConnectionError, OSError, ssl.SSLError) as exc:
         # The verified handshake already succeeded; some transports raise while closing.
-        pass
+        logger.debug("TLS close raised after successful handshake: %s", exc)
     return True, None
 
 
