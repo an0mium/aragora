@@ -21,7 +21,19 @@ def test_analyze_boss_metrics_fixture():
     assert signals_summary is not None
     assert signals_summary["total_signals"] == 3
     assert signals_summary["by_loop"]["boss"]["total"] == 2
+    assert signals_summary["timestamp"] == "2026-04-10T00:10:00+00:00"
 
     text = render_text(report)
     assert "Boss Metrics Summary" in text
     assert "deliverable rate" in text
+
+
+def test_analyze_boss_metrics_is_stable_for_unchanged_signals():
+    root = Path(__file__).resolve().parents[2]
+    metrics_path = root / "benchmarks/fixtures/swarm/sample_boss_metrics.jsonl"
+    signals_path = root / "benchmarks/fixtures/swarm/sample_outcome_signals.jsonl"
+
+    first = analyze_boss_metrics(metrics_path=metrics_path, signals_path=signals_path)
+    second = analyze_boss_metrics(metrics_path=metrics_path, signals_path=signals_path)
+
+    assert first == second

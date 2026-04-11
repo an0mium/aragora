@@ -46,3 +46,15 @@ def test_recommendations_and_routing_hints_are_deterministic():
     assert "deprioritize_loops" in snap.routing_hints
     assert "boss" in snap.routing_hints["deprioritize_loops"]
     assert "claude" in snap.routing_hints["deprioritize_agents"]
+
+
+def test_snapshot_timestamp_is_stable_for_same_signals():
+    learner = OutcomeLearner(window_size=5, min_samples=1)
+    learner.ingest(_signal(timestamp="2026-04-10T00:00:00+00:00"))
+    learner.ingest(_signal(entity_id="2", timestamp="2026-04-10T00:05:00+00:00"))
+
+    first = learner.snapshot().to_dict()
+    second = learner.snapshot().to_dict()
+
+    assert first == second
+    assert first["timestamp"] == "2026-04-10T00:05:00+00:00"

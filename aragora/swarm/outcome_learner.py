@@ -142,7 +142,7 @@ class OutcomeLearner:
         routing_hints = self._routing_hints(by_loop, by_agent)
 
         return OutcomeLearnerSnapshot(
-            timestamp=datetime.now(UTC).isoformat(),
+            timestamp=self._snapshot_timestamp(signals),
             window_size=self._window_size,
             total_signals=len(signals),
             by_loop=self._sorted_aggregates(by_loop),
@@ -157,6 +157,22 @@ class OutcomeLearner:
         self, aggregates: dict[str, OutcomeAggregate]
     ) -> dict[str, OutcomeAggregate]:
         return {k: aggregates[k] for k in sorted(aggregates.keys())}
+
+    def _snapshot_timestamp(self, signals: list[OutcomeSignal]) -> str:
+        latest: datetime | None = None
+        for signal in signals:
+            if not signal.timestamp:
+                continue
+            try:
+                parsed = datetime.fromisoformat(signal.timestamp.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=UTC)
+            parsed = parsed.astimezone(UTC)
+            if latest is None or parsed > latest:
+                latest = parsed
+        return latest.isoformat() if latest else ""
 
     def _recommendations(
         self,
