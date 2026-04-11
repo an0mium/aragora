@@ -363,6 +363,7 @@ def _get_question(args: argparse.Namespace, *, stream: TextIO | None = None) -> 
         question = input().strip()
         return question if question else None
     except (EOFError, KeyboardInterrupt):
+        logger.debug("Interactive question prompt interrupted by user")
         return None
 
 
@@ -395,6 +396,7 @@ def _clamp_confidence(raw_confidence: Any) -> float:
     try:
         confidence = float(raw_confidence or 0.0)
     except (TypeError, ValueError):
+        logger.debug("Could not parse confidence value %r, defaulting to 0.0", raw_confidence)
         return 0.0
     return max(0.0, min(1.0, confidence))
 
@@ -606,6 +608,7 @@ def _coerce_positive_int(value: Any, *, default: int) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError):
+        logger.debug("Could not parse %r as positive int, using default %d", value, default)
         return default
     return parsed if parsed > 0 else default
 
@@ -618,6 +621,7 @@ def _parse_iso_datetime(value: Any) -> datetime:
     try:
         parsed = datetime.fromisoformat(raw)
     except ValueError:
+        logger.debug("Could not parse datetime %r, falling back to now(UTC)", raw)
         return datetime.now(timezone.utc)
     return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
 
