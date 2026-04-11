@@ -367,7 +367,7 @@ class BackupScheduler:
             try:
                 await task
             except asyncio.CancelledError:
-                pass
+                pass  # Expected during shutdown — task was intentionally cancelled
 
         self._tasks.clear()
 
