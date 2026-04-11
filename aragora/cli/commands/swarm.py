@@ -2968,7 +2968,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             try:
                 if state_path.exists():
                     run_state = load_tranche_run_state(manifest_path)
-            except (OSError, json.JSONDecodeError):
+            except (OSError, ValueError):
                 run_state = None
             results: list[dict[str, object]] = []
             for artifact in selected_artifacts:

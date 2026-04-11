@@ -1350,6 +1350,45 @@ class TestSwarmCommand:
         assert '"action": "retargeted"' in out
         mock_integrate.assert_awaited_once()
 
+    def test_cmd_swarm_tranche_integrate_ignores_malformed_run_state(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="integrate",
+            manifest="docs/examples/boss-lane-manifest-2026-03-19.yaml",
+            lane_id="lane_a",
+            json=True,
+        )
+        fake_manifest = SimpleNamespace(manifest_id="pmf-tranche")
+        fake_artifact = SimpleNamespace(
+            lane_id="lane_a",
+            status="review_passed",
+            metadata={"branch": "feat-branch", "review": {"status": "passed"}},
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche.load_tranche_manifest", return_value=fake_manifest),
+            patch("aragora.swarm.tranche.TrancheArtifactStore") as store_cls,
+            patch(
+                "aragora.swarm.tranche_watch.load_tranche_run_state",
+                side_effect=ValueError("Tranche run state must deserialize to an object."),
+            ),
+            patch(
+                "aragora.swarm.tranche_integrate.integrate_lane",
+                new_callable=AsyncMock,
+            ) as mock_integrate,
+        ):
+            store_cls.return_value.load.return_value = fake_artifact
+            mock_integrate.return_value = {"lane_id": "lane_a", "recommendation": "merge"}
+
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"mode": "tranche-integrate"' in out
+        assert '"lane_id": "lane_a"' in out
+        mock_integrate.assert_awaited_once()
+        assert mock_integrate.await_args.kwargs["run_state"] is None
+
     def test_cmd_swarm_tranche_watch_json(self, capsys):
         args = _swarm_args(
             swarm_action_or_goal="tranche",
