@@ -229,7 +229,7 @@ class ScheduledTrigger:
             try:
                 await self._task
             except asyncio.CancelledError:
-                pass
+                pass  # Expected during shutdown — not an error
         logger.info("Scheduled trigger manager stopped")
 
     async def _run_scheduler(self) -> None:
