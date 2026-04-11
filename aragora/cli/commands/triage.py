@@ -30,7 +30,8 @@ def _load_local_dotenv() -> None:
 
         load_dotenv()
         load_dotenv("/etc/aragora/.env")
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort dotenv loading
+        logger.debug("dotenv loading unavailable, skipping")
         return
 
 
@@ -40,7 +41,8 @@ def _get_secret_fallback(name: str) -> str:
         from aragora.config.secrets import get_secret
 
         return str(get_secret(name) or "")
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort secret resolution
+        logger.debug("Secret fallback for %s unavailable", name)
         return ""
 
 
@@ -429,6 +431,7 @@ async def _run_triage(
                     loop = CLIReviewLoop(review_fn=wedge_service.review_receipt)
                     loop.review_batch(decisions)
                 except ImportError:
+                    logger.debug("CLIReviewLoop not available, skipping interactive review")
                     return
         finally:
             await _shutdown_triage_storage()
@@ -715,6 +718,7 @@ def _show_dogfood_metrics() -> None:
     try:
         from aragora.config import resolve_db_path
     except ImportError:
+        logger.debug("resolve_db_path not available, skipping dogfood metrics")
         return
 
     db_path = resolve_db_path(
@@ -726,7 +730,8 @@ def _show_dogfood_metrics() -> None:
     try:
         conn = sqlite3.connect(db_path, timeout=5.0)
         conn.row_factory = sqlite3.Row
-    except sqlite3.Error:
+    except sqlite3.Error as exc:
+        logger.debug("Cannot open dogfood DB: %s", exc)
         return
 
     try:
@@ -781,7 +786,8 @@ def _show_dogfood_metrics() -> None:
                     escalated_count += 1
                 if d.get("blocked_by_policy"):
                     blocked_count += 1
-            except (json.JSONDecodeError, TypeError, ValueError):
+            except (json.JSONDecodeError, TypeError, ValueError) as exc:
+                logger.debug("Skipping malformed receipt metadata: %s", exc)
                 continue
 
         if confidences:
@@ -814,8 +820,8 @@ def _show_dogfood_metrics() -> None:
             override_pct = (override_count / total) * 100
             print(f"  Human overrides:      {override_count} ({override_pct:.1f}%)")
 
-    except sqlite3.Error:
-        pass
+    except sqlite3.Error as exc:
+        logger.debug("Error reading dogfood metrics: %s", exc)
     finally:
         conn.close()
 
