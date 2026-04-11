@@ -36,7 +36,7 @@ class StepExecutor(ABC):
         Returns:
             Step result
         """
-        pass
+        raise NotImplementedError("Step executors must implement execute().")
 
 
 class AgentStepExecutor(StepExecutor):
