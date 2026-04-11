@@ -1241,6 +1241,37 @@ def test_refresh_run_does_not_lease_downstream_lane_before_dependencies_complete
     assert work_orders["micro-2"]["status"] == "leased"
     assert work_orders["micro-3"]["status"] == "queued"
     assert "lease_id" not in work_orders["micro-3"]
+    assert work_orders["micro-2"]["file_scope"] == ["tests/swarm/test_boss_loop.py"]
+    assert work_orders["micro-2"]["description"].startswith(
+        "Upstream dependency context (reference only; do not widen file scope from these paths):"
+    )
+    dependency_context = work_orders["micro-2"]["metadata"]["dependency_context"]
+    assert work_orders["micro-2"]["metadata"]["dependency_context_ready"] is True
+    assert dependency_context == [
+        {
+            "dependency_id": "micro-task-1",
+            "work_order_id": "micro-1",
+            "pipeline_task_id": "micro-task-1",
+            "title": "Implementation lane",
+            "status": "completed",
+            "terminal_outcome": "deliverable_created",
+            "base_ref": "main",
+            "branch": "main",
+            "head_sha": current_head,
+            "changed_paths": ["README.md"],
+            "commit_shas": [current_head],
+            "tests_run": [],
+            "verification_outcomes": [],
+            "failure_reason": "",
+            "blocked_reason": "",
+            "deliverable": {
+                "type": "branch",
+                "branch": "main",
+                "commit_shas": [current_head],
+                "work_order_id": "micro-1",
+            },
+        }
+    ]
     assert lifecycle.ensure_managed_worktree.call_count == 1
 
 
@@ -8398,6 +8429,12 @@ def test_refresh_run_requeues_ignorable_scope_violation_and_dependency_children(
 def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branch(
     repo: Path, store: DevCoordinationStore
 ) -> None:
+    scope_path = repo / "tests" / "swarm" / "test_supervisor.py"
+    scope_path.parent.mkdir(parents=True, exist_ok=True)
+    scope_path.write_text("def test_placeholder() -> None:\n    pass\n", encoding="utf-8")
+    _run(repo, "git", "add", str(scope_path.relative_to(repo)))
+    _run(repo, "git", "commit", "-m", "add dependency scope file")
+
     dependency_branch = "codex/swarm-dependency-base"
     _run(repo, "git", "checkout", "-b", dependency_branch)
     (repo / "README.md").write_text("hello\ndependency\n", encoding="utf-8")
@@ -8453,6 +8490,14 @@ def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branc
                 "review_status": "pending_heterogeneous_review",
                 "branch": dependency_branch,
                 "head_sha": dependency_head,
+                "commit_shas": [dependency_head],
+                "changed_paths": ["README.md"],
+                "verification_results": [
+                    {
+                        "command": "python3 -m pytest tests/swarm/test_supervisor.py -q",
+                        "exit_code": 0,
+                    }
+                ],
                 "file_scope": ["README.md"],
                 "target_agent": "codex",
             },
@@ -8460,10 +8505,11 @@ def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branc
                 "work_order_id": "micro-2",
                 "pipeline_task_id": "micro-task-2",
                 "title": "Run validation and fix failures",
+                "description": "Run validation and fix failures",
                 "status": "queued",
                 "review_status": "pending",
                 "dependency_ids": ["micro-task-1"],
-                "file_scope": ["README.md"],
+                "file_scope": ["tests/swarm/test_supervisor.py"],
                 "target_agent": "codex",
                 "reviewer_agent": "claude",
             },
@@ -8479,6 +8525,44 @@ def test_refresh_run_leases_dependent_work_order_from_completed_dependency_branc
     assert dependent["status"] == "leased"
     assert dependent["dependency_base_ref"] == dependency_branch
     assert dependent["dependency_base_source"] == "micro-task-1"
+    assert dependent["file_scope"] == ["tests/swarm/test_supervisor.py"]
+    assert dependent["metadata"]["dependency_context_ready"] is True
+    assert dependent["metadata"]["dependency_context"] == [
+        {
+            "dependency_id": "micro-task-1",
+            "work_order_id": "micro-1",
+            "pipeline_task_id": "micro-task-1",
+            "title": "Write tests",
+            "status": "completed",
+            "terminal_outcome": "deliverable_created",
+            "base_ref": dependency_branch,
+            "branch": dependency_branch,
+            "head_sha": dependency_head,
+            "changed_paths": ["README.md"],
+            "commit_shas": [dependency_head],
+            "tests_run": [],
+            "verification_outcomes": [
+                {
+                    "command": "python3 -m pytest tests/swarm/test_supervisor.py -q",
+                    "status": "passed",
+                    "exit_code": 0,
+                }
+            ],
+            "failure_reason": "",
+            "blocked_reason": "",
+            "deliverable": {
+                "type": "branch",
+                "branch": dependency_branch,
+                "commit_shas": [dependency_head],
+                "work_order_id": "micro-1",
+            },
+        }
+    ]
+    assert dependent["metadata"]["dependency_context_prompt"].startswith(
+        "Upstream dependency context (reference only; do not widen file scope from these paths):"
+    )
+    assert dependent["description"].startswith("Run validation and fix failures\n\n")
+    assert "base_ref=" + dependency_branch in dependent["description"]
     assert _run(session_path, "git", "rev-parse", "HEAD").stdout.strip() == dependency_head
     assert (
         _run(session_path, "git", "rev-parse", "codex/swarm-dependent-base").stdout.strip()
@@ -8587,6 +8671,102 @@ def test_refresh_run_marks_invalid_dependency_ref_needs_human(
         assert cleared_key not in dependent
     assert dependent["blockers"] == [
         "Dependent lane received an invalid prerequisite branch reference; reconcile the dependency chain before rerunning."
+    ]
+
+
+def test_refresh_run_records_terminal_dependency_context_without_dispatch(
+    repo: Path, store: DevCoordinationStore
+) -> None:
+    supervisor = SwarmSupervisor(
+        repo_root=repo,
+        store=store,
+        lifecycle=MagicMock(),
+        decomposer=MagicMock(),
+    )
+    run_record = store.create_supervisor_run(
+        goal="record terminal dependency context",
+        target_branch="main",
+        supervisor_agents={},
+        approval_policy={},
+        spec={"raw_goal": "record terminal dependency context"},
+        metadata={"max_concurrency": 1},
+        work_orders=[
+            {
+                "work_order_id": "micro-1",
+                "pipeline_task_id": "micro-task-1",
+                "title": "Implementation lane",
+                "description": "Implementation lane",
+                "status": "discarded",
+                "failure_reason": "work_order_leasing_failed",
+                "dispatch_error": "worktree creation failed",
+                "branch": "codex/swarm-micro-1",
+                "file_scope": ["aragora/swarm/supervisor.py"],
+                "target_agent": "codex",
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                    "archived_due_to": "work_order_leasing_failed",
+                    "archive_reason": "work_order_leasing_failed",
+                },
+            },
+            {
+                "work_order_id": "micro-2",
+                "pipeline_task_id": "micro-task-2",
+                "title": "Validation lane",
+                "description": "Validation lane",
+                "status": "queued",
+                "dependency_ids": ["micro-task-1"],
+                "file_scope": ["tests/swarm/test_supervisor.py"],
+                "target_agent": "codex",
+                "reviewer_agent": "claude",
+                "metadata": {
+                    "source": "explicit_spec_work_order",
+                },
+            },
+        ],
+        status="active",
+    )
+
+    refreshed = supervisor.refresh_run(run_record["run_id"])
+
+    dependent = next(
+        item for item in refreshed.work_orders if item.get("pipeline_task_id") == "micro-task-2"
+    )
+    assert dependent["status"] == "discarded"
+    assert dependent["failure_reason"] == "terminal_dependency_failure"
+    assert dependent["file_scope"] == ["tests/swarm/test_supervisor.py"]
+    assert "lease_id" not in dependent
+    assert dependent["description"] == "Validation lane"
+    assert dependent["blocker"] == {
+        "reason": "terminal_dependency_failure",
+        "dependency_id": "micro-task-1",
+        "dependency_status": "discarded",
+        "dependency_reason": "work_order_leasing_failed",
+    }
+    assert dependent["metadata"]["dependency_context_ready"] is False
+    assert dependent["metadata"]["dependency_terminal_failure"] == {
+        "dependency_id": "micro-task-1",
+        "dependency_status": "discarded",
+        "dependency_reason": "work_order_leasing_failed",
+    }
+    assert dependent["metadata"]["dependency_context"] == [
+        {
+            "dependency_id": "micro-task-1",
+            "work_order_id": "micro-1",
+            "pipeline_task_id": "micro-task-1",
+            "title": "Implementation lane",
+            "status": "discarded",
+            "terminal_outcome": "blocked",
+            "base_ref": "codex/swarm-micro-1",
+            "branch": "codex/swarm-micro-1",
+            "head_sha": "",
+            "changed_paths": [],
+            "commit_shas": [],
+            "tests_run": [],
+            "verification_outcomes": [],
+            "failure_reason": "work_order_leasing_failed",
+            "blocked_reason": "worktree creation failed",
+            "deliverable": None,
+        }
     ]
 
 

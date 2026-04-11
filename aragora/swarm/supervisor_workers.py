@@ -86,6 +86,12 @@ def refresh_run(self, run_id: str) -> SupervisorRun:
         worker_type_circuit_breakers=worker_type_circuit_breakers,
         worker_type_circuit_breaker_policy=worker_type_circuit_breaker_policy,
     )
+    for item in work_orders:
+        self._sync_dependency_context_metadata(
+            item,
+            work_orders,
+            prompt_ready=str(item.get("status", "")).strip() in {"leased", "dispatched"},
+        )
     active_count = sum(
         1 for item in work_orders if str(item.get("status", "")) in {"leased", "dispatched"}
     )
@@ -1194,6 +1200,11 @@ def _lease_work_order(
     else:
         work_order.pop("dependency_base_ref", None)
         work_order.pop("dependency_base_source", None)
+    dependency_payload = self._sync_dependency_context_metadata(
+        work_order,
+        work_orders,
+        prompt_ready=True,
+    )
     claimed_paths = [item for item in file_scope if not self._looks_like_glob(item)]
     allowed_globs = [item for item in file_scope if self._looks_like_glob(item)]
     if not allowed_globs and not claimed_paths and file_scope:
@@ -1218,6 +1229,8 @@ def _lease_work_order(
             "risk_level": str(work_order.get("risk_level", "review")),
             "approval_required": True,
             "repair_journal_count": len(metadata.get("repair_journal", []) or []),
+            "dependency_context_ready": bool(dependency_payload["ready_for_dispatch"]),
+            "dependency_context_count": len(dependency_payload["contexts"]),
         },
     )
     work_order.update(

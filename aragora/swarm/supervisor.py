@@ -30,6 +30,11 @@ from aragora.nomic.dev_coordination import (
 )
 from aragora.nomic.pipeline_bridge import BoundedWorkOrder, NomicPipelineBridge
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposer
+from aragora.swarm.dependency_context import (
+    build_dependency_context_payload,
+    compose_dependency_description,
+    dependency_ids_for_work_order,
+)
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.terminal_truth import (
@@ -809,29 +814,71 @@ class SwarmSupervisor:
         item: dict[str, Any],
         work_orders: list[dict[str, Any]],
     ) -> bool:
-        dependency_ids = {
-            str(dep).strip() for dep in item.get("dependency_ids", []) if str(dep).strip()
-        }
+        return bool(build_dependency_context_payload(item, work_orders)["ready_for_dispatch"])
+
+    @staticmethod
+    def _sync_dependency_context_metadata(
+        item: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+        *,
+        prompt_ready: bool = False,
+    ) -> dict[str, Any]:
+        metadata = dict(item.get("metadata") or {})
+        dependency_ids = dependency_ids_for_work_order(item)
+        base_description = str(
+            metadata.get("dependency_context_base_description", item.get("description", "")) or ""
+        ).strip()
+
         if not dependency_ids:
-            return True
+            for key in (
+                "dependency_context",
+                "dependency_context_prompt",
+                "dependency_context_ready",
+                "dependency_missing_ids",
+                "dependency_terminal_failure",
+                "dependency_context_base_description",
+            ):
+                metadata.pop(key, None)
+            if metadata:
+                item["metadata"] = metadata
+            else:
+                item.pop("metadata", None)
+            item["description"] = base_description
+            return {
+                "dependency_ids": [],
+                "contexts": [],
+                "missing_dependency_ids": [],
+                "ready_for_dispatch": True,
+                "base_reference": None,
+                "base_reference_dependency_id": None,
+                "terminal_failure": None,
+                "prompt_summary": "",
+            }
 
-        completed_statuses = {"completed", "merged", "salvage"}
-        dependency_lookup: dict[str, dict[str, Any]] = {}
-        for candidate in work_orders:
-            if not isinstance(candidate, dict):
-                continue
-            for key in ("pipeline_task_id", "work_order_id", "task_key"):
-                candidate_id = str(candidate.get(key, "")).strip()
-                if candidate_id:
-                    dependency_lookup[candidate_id] = candidate
-
-        for dependency_id in dependency_ids:
-            dependency = dependency_lookup.get(dependency_id)
-            if not isinstance(dependency, dict):
-                return False
-            if str(dependency.get("status", "")).strip().lower() not in completed_statuses:
-                return False
-        return True
+        payload = build_dependency_context_payload(item, work_orders)
+        metadata["dependency_context_base_description"] = base_description
+        metadata["dependency_context"] = list(payload["contexts"])
+        metadata["dependency_context_ready"] = bool(payload["ready_for_dispatch"])
+        if payload["missing_dependency_ids"]:
+            metadata["dependency_missing_ids"] = list(payload["missing_dependency_ids"])
+        else:
+            metadata.pop("dependency_missing_ids", None)
+        if payload["terminal_failure"] is not None:
+            metadata["dependency_terminal_failure"] = dict(payload["terminal_failure"])
+        else:
+            metadata.pop("dependency_terminal_failure", None)
+        prompt_summary = str(payload["prompt_summary"]).strip()
+        if prompt_summary:
+            metadata["dependency_context_prompt"] = prompt_summary
+        else:
+            metadata.pop("dependency_context_prompt", None)
+        item["metadata"] = metadata
+        item["description"] = (
+            compose_dependency_description(base_description, prompt_summary)
+            if prompt_ready
+            else base_description
+        )
+        return payload
 
     @staticmethod
     def _replacement_active_lease(
@@ -1633,36 +1680,11 @@ class SwarmSupervisor:
         item: dict[str, Any],
         work_orders: list[dict[str, Any]],
     ) -> tuple[str, str] | None:
-        dependency_ids = [
-            str(dep).strip() for dep in item.get("dependency_ids", []) if str(dep).strip()
-        ]
-        if not dependency_ids:
-            return None
-
-        completed_statuses = {"completed", "merged", "salvage"}
-        references: dict[str, str] = {}
-        for candidate in work_orders:
-            if not isinstance(candidate, dict):
-                continue
-            status = str(candidate.get("status", "")).strip().lower()
-            if status not in completed_statuses:
-                continue
-            reference = (
-                str(candidate.get("branch", "")).strip()
-                or str(candidate.get("head_sha", "")).strip()
-                or str(candidate.get("initial_head", "")).strip()
-            )
-            if not reference:
-                continue
-            for key in ("pipeline_task_id", "work_order_id", "task_key"):
-                candidate_id = str(candidate.get(key, "")).strip()
-                if candidate_id:
-                    references[candidate_id] = reference
-
-        for dependency_id in reversed(dependency_ids):
-            resolved_reference = references.get(dependency_id)
-            if resolved_reference:
-                return resolved_reference, dependency_id
+        payload = build_dependency_context_payload(item, work_orders)
+        base_reference = str(payload.get("base_reference") or "").strip()
+        dependency_id = str(payload.get("base_reference_dependency_id") or "").strip()
+        if base_reference and dependency_id:
+            return base_reference, dependency_id
         return None
 
     def _reseed_dependent_session_branch(
