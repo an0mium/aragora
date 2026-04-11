@@ -525,8 +525,8 @@ def _cleanup_worktree(repo_root: Path, worktree_path: Path) -> None:
     if parent.exists():
         try:
             parent.rmdir()
-        except OSError:
-            pass
+        except OSError as exc:
+            logger.debug("review-pr parent cleanup skipped for %s: %s", parent, exc)
 
 
 def _build_review_prompt(*, target: PullRequestTarget, diff_text: str) -> str:

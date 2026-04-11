@@ -4,6 +4,7 @@ import json
 import subprocess
 from dataclasses import asdict
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -262,3 +263,30 @@ def test_cleanup_worktree_uses_safe_cleanup_helper(
             "--json",
         ]
     ]
+
+
+def test_cleanup_worktree_logs_parent_cleanup_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "scripts").mkdir()
+    (repo_root / "scripts" / "safe_worktree_cleanup.py").write_text("# stub\n")
+    worktree_path = tmp_path / "scratch" / "wt"
+    worktree_path.parent.mkdir(parents=True)
+
+    def _fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0], returncode=0, stdout='{"status":"removed"}', stderr=""
+        )
+
+    monkeypatch.setattr(review_pr.subprocess, "run", _fake_run)
+
+    with patch.object(Path, "rmdir", autospec=True, side_effect=OSError("directory busy")):
+        with patch.object(review_pr.logger, "debug") as debug:
+            review_pr._cleanup_worktree(repo_root, worktree_path)
+
+    debug.assert_called_once()
+    assert "review-pr parent cleanup skipped for" in debug.call_args.args[0]
+    assert debug.call_args.args[1] == worktree_path.parent
