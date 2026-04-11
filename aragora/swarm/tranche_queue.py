@@ -44,6 +44,7 @@ from aragora.swarm.tranche_watch import (
     DriverAlreadyClaimedError,
     claim_driver,
     load_tranche_run_state,
+    refresh_supervisor_run_dict,
     refresh_tranche_state,
     release_driver,
     run_state_path_for_manifest,
@@ -2584,19 +2585,15 @@ class TrancheQueueExecutor:
                 events.append(_event_summary("review", payload))
                 return payload
             supervisor = self._supervisor_store()
-            try:
-                run_dict = supervisor.refresh_run(run_id).to_dict()
-            except Exception:
-                record = supervisor.store.get_supervisor_run(run_id)
-                if not isinstance(record, dict):
-                    payload = {
-                        "lane_id": lane_id,
-                        "status": "blocked_nonreviewable",
-                        "findings": [f"Supervisor run {run_id} is not available."],
-                    }
-                    events.append(_event_summary("review", payload))
-                    return payload
-                run_dict = dict(record)
+            run_dict = refresh_supervisor_run_dict(supervisor, run_id)
+            if run_dict is None:
+                payload = {
+                    "lane_id": lane_id,
+                    "status": "blocked_nonreviewable",
+                    "findings": [f"Supervisor run {run_id} is not available."],
+                }
+                events.append(_event_summary("review", payload))
+                return payload
             lane = manifest.lane(lane_id)
             tier = select_review_tier(
                 write_scope=list(getattr(lane, "allowed_write_scope", [])),
