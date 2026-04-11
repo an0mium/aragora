@@ -7,10 +7,9 @@ when using Knowledge Mound operation mixins like FederationMixin, SyncMixin, etc
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
-if TYPE_CHECKING:
-    pass
+__all__ = ["KnowledgeMoundHostProtocol"]
 
 
 @runtime_checkable
