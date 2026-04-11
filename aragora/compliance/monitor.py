@@ -519,8 +519,8 @@ class ComplianceMonitor:
                     },
                 )
             )
-        except (ImportError, AttributeError, TypeError):
-            pass
+        except (ImportError, AttributeError, TypeError) as e:
+            logger.debug("Compliance event emission failed: %s", e)
 
     async def _send_alert(
         self,
@@ -579,7 +579,7 @@ class ComplianceMonitor:
                     context=alert_data,
                 )
         except ImportError:
-            pass
+            logger.debug("SLO alert bridge not available")
         except (RuntimeError, ValueError, TypeError, AttributeError) as e:
             logger.debug("Could not route to SLO alert bridge: %s", e)
 
