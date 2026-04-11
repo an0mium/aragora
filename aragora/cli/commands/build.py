@@ -383,7 +383,7 @@ async def _generate_spec(idea: str, *, skip_clarify: bool = False) -> dict[str, 
             ),
             "open_questions": unanswered_questions,
         }
-    except Exception as exc:
+    except (ImportError, asyncio.TimeoutError, AttributeError, TypeError, ValueError) as exc:
         logger.warning("Spec generation failed: %s", exc)
         return {
             "title": idea[:80],
@@ -412,7 +412,7 @@ async def _decompose_tasks(spec: dict[str, Any], *, max_tasks: int = 5) -> list[
             }
             for t in (raw_tasks if isinstance(raw_tasks, list) else [raw_tasks])
         ]
-    except Exception as exc:
+    except (ImportError, AttributeError, TypeError, ValueError) as exc:
         logger.warning("Task decomposition failed: %s, using spec as single task", exc)
         return [
             {
@@ -605,7 +605,7 @@ Implementation complete, tests pass, PR opened with evidence.
                 logger.info("Created issue #%d: %s", num, task["title"])
             else:
                 logger.warning("Failed to create issue: %s", result.stderr)
-        except Exception as exc:
+        except (subprocess.SubprocessError, OSError, ValueError) as exc:
             logger.warning("Issue creation failed: %s", exc)
 
     return issue_numbers
@@ -946,7 +946,7 @@ async def _close_shared_agent_connector() -> None:
         from aragora.agents.api_agents.common import close_shared_connector
 
         await close_shared_connector()
-    except Exception as exc:
+    except (ImportError, OSError) as exc:
         logger.debug("Shared API connector cleanup failed: %s", exc)
 
 
