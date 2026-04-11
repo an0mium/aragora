@@ -1132,7 +1132,9 @@ def get_policy_store(db_path: Path | None = None) -> PolicyStore | PostgresPolic
                         f"PostgreSQL backend unavailable: {e}",
                     )
                 except ImportError:
-                    pass
+                    logger.debug(
+                        "production_guards not available, skipping distributed store check"
+                    )
 
     # Default: SQLite
     from aragora.storage.production_guards import require_distributed_store, StorageMode
