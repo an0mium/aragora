@@ -22,6 +22,9 @@ def escape_like_pattern(value: str) -> str:
     Returns:
         The escaped string safe for use in LIKE patterns.
 
+    Raises:
+        TypeError: If ``value`` is not a string.
+
     Examples:
         >>> escape_like_pattern("100%")
         '100\\\\%'
@@ -39,6 +42,9 @@ def escape_like_pattern(value: str) -> str:
             (f"%{escaped}%",)
         )
     """
+    if not isinstance(value, str):
+        raise TypeError("value must be a string")
+
     # Escape backslash first (it's the escape character itself)
     value = value.replace("\\", "\\\\")
     # Escape LIKE metacharacters
