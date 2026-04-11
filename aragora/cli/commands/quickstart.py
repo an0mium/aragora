@@ -447,7 +447,7 @@ async def _run_quickstart_spec_first(question: str) -> dict[str, Any]:
             result["pipeline"] = "orchestrator"
             return result
         logger.info("quickstart_spec_first_empty_orchestrator_result")
-    except Exception:
+    except (RuntimeError, OSError, ValueError, KeyError, TypeError):
         logger.debug("quickstart_spec_first_orchestrator_failed", exc_info=True)
 
     return _build_quickstart_spec_fallback(
@@ -1157,7 +1157,7 @@ async def _run_live_debate(
         raise RuntimeError(
             f"Live debate timed out after {_LIVE_DEBATE_TIMEOUT_SECONDS:.0f}s"
         ) from exc
-    except Exception as exc:
+    except (RuntimeError, OSError, ValueError) as exc:
         detail = str(exc).strip() or type(exc).__name__
         raise RuntimeError(f"Live debate failed before producing a result: {detail}") from exc
 
@@ -1470,7 +1470,7 @@ async def _can_reach_provider_tls(provider: str) -> tuple[bool, str | None]:
             return False, "CERTIFICATE_VERIFY_FAILED"
         detail = str(exc).strip() or type(exc).__name__
         return False, detail
-    except Exception as exc:
+    except (OSError, TimeoutError, ConnectionError) as exc:
         if _is_tls_verification_failure(exc):
             return False, "CERTIFICATE_VERIFY_FAILED"
         detail = str(exc).strip() or type(exc).__name__
