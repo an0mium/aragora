@@ -5,7 +5,28 @@ Defines event types emitted during deliberation execution for real-time
 monitoring via ControlPlaneStreamServer.
 """
 
+from __future__ import annotations
+
 from enum import Enum, unique
+
+
+_CATEGORY_LIFECYCLE = "lifecycle"
+_CATEGORY_ROUND = "round"
+_CATEGORY_AGENT = "agent"
+_CATEGORY_CONSENSUS = "consensus"
+_CATEGORY_SLA = "sla"
+_CATEGORY_PROGRESS = "progress"
+_CATEGORY_ERROR = "error"
+
+CATEGORIES: tuple[str, ...] = (
+    _CATEGORY_LIFECYCLE,
+    _CATEGORY_ROUND,
+    _CATEGORY_AGENT,
+    _CATEGORY_CONSENSUS,
+    _CATEGORY_SLA,
+    _CATEGORY_PROGRESS,
+    _CATEGORY_ERROR,
+)
 
 
 @unique
@@ -47,5 +68,58 @@ class DeliberationEventType(str, Enum):
     AGENT_ERROR = "deliberation.agent_error"
     RECOVERY_ATTEMPTED = "deliberation.recovery_attempted"
 
+    @property
+    def category(self) -> str:
+        """Return the category this event belongs to."""
+        return _EVENT_CATEGORIES[self]
 
-__all__ = ["DeliberationEventType"]
+    @property
+    def is_terminal(self) -> bool:
+        """True if this event signals the end of a deliberation."""
+        return self in _TERMINAL_EVENTS
+
+    @classmethod
+    def by_category(cls, category: str) -> frozenset["DeliberationEventType"]:
+        """Return all events belonging to *category*.
+
+        Raises ``ValueError`` for unknown categories.
+        """
+        if category not in CATEGORIES:
+            raise ValueError(f"Unknown category {category!r}; choose from {CATEGORIES}")
+        return frozenset(e for e in cls if _EVENT_CATEGORIES[e] == category)
+
+
+_EVENT_CATEGORIES: dict[DeliberationEventType, str] = {
+    DeliberationEventType.DELIBERATION_STARTED: _CATEGORY_LIFECYCLE,
+    DeliberationEventType.DELIBERATION_COMPLETED: _CATEGORY_LIFECYCLE,
+    DeliberationEventType.DELIBERATION_FAILED: _CATEGORY_LIFECYCLE,
+    DeliberationEventType.DELIBERATION_CANCELLED: _CATEGORY_LIFECYCLE,
+    DeliberationEventType.ROUND_START: _CATEGORY_ROUND,
+    DeliberationEventType.ROUND_END: _CATEGORY_ROUND,
+    DeliberationEventType.AGENT_MESSAGE: _CATEGORY_AGENT,
+    DeliberationEventType.AGENT_PROPOSAL: _CATEGORY_AGENT,
+    DeliberationEventType.AGENT_CRITIQUE: _CATEGORY_AGENT,
+    DeliberationEventType.AGENT_REVISION: _CATEGORY_AGENT,
+    DeliberationEventType.VOTE: _CATEGORY_CONSENSUS,
+    DeliberationEventType.CONSENSUS_CHECK: _CATEGORY_CONSENSUS,
+    DeliberationEventType.CONSENSUS_REACHED: _CATEGORY_CONSENSUS,
+    DeliberationEventType.NO_CONSENSUS: _CATEGORY_CONSENSUS,
+    DeliberationEventType.SLA_WARNING: _CATEGORY_SLA,
+    DeliberationEventType.SLA_CRITICAL: _CATEGORY_SLA,
+    DeliberationEventType.SLA_VIOLATED: _CATEGORY_SLA,
+    DeliberationEventType.PROGRESS_UPDATE: _CATEGORY_PROGRESS,
+    DeliberationEventType.CONVERGENCE_UPDATE: _CATEGORY_PROGRESS,
+    DeliberationEventType.AGENT_ERROR: _CATEGORY_ERROR,
+    DeliberationEventType.RECOVERY_ATTEMPTED: _CATEGORY_ERROR,
+}
+
+_TERMINAL_EVENTS: frozenset[DeliberationEventType] = frozenset(
+    {
+        DeliberationEventType.DELIBERATION_COMPLETED,
+        DeliberationEventType.DELIBERATION_FAILED,
+        DeliberationEventType.DELIBERATION_CANCELLED,
+    }
+)
+
+
+__all__ = ["CATEGORIES", "DeliberationEventType"]
