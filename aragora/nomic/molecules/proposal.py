@@ -21,6 +21,11 @@ __all__ = ["AgentStepExecutor", "StepExecutor"]
 logger = logging.getLogger(__name__)
 
 
+def _step_name(step: MoleculeStep) -> str:
+    """Return a stable step name for logging and default results."""
+    return getattr(step, "name", type(step).__name__)
+
+
 class StepExecutor(ABC):
     """Abstract base class for step executors."""
 
@@ -54,13 +59,14 @@ class AgentStepExecutor(StepExecutor):
 
     async def execute(self, step: MoleculeStep, context: dict[str, Any]) -> Any:
         """Execute step via agent."""
-        logger.info("Agent executing step: %s", step.name)
+        step_name = _step_name(step)
+        logger.info("Agent executing step: %s", step_name)
         if self._agent_fn is not None:
             result = self._agent_fn(step, context)
             if inspect.isawaitable(result):
                 return await result
             return result
-        return {"status": "executed", "step": step.name}
+        return {"status": "executed", "step": step_name}
 
     def __repr__(self) -> str:
         has_fn = self._agent_fn is not None
