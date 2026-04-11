@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -1151,6 +1152,32 @@ class TestRLMStream:
             result = rlm_handler.handle_stream("/api/v1/rlm/stream", {}, handler)
 
         assert result.status_code == 501
+
+    def test_stream_import_error_logs_summary_extraction_failure(self, rlm_handler, caplog):
+        """Logs suppressed summary extraction errors before returning the fallback 501."""
+        ctx_id = self._seed_context(rlm_handler)
+        ctx = MagicMock()
+        ctx.get_at_level.side_effect = TypeError("summary boom")
+        rlm_handler._contexts[ctx_id]["context"] = ctx
+
+        handler = make_mock_handler(
+            body={"context_id": ctx_id},
+            method="POST",
+        )
+        with (
+            caplog.at_level(logging.WARNING, logger="aragora.server.handlers.rlm"),
+            patch.dict(
+                "sys.modules",
+                {
+                    "aragora.rlm.streaming": None,
+                    "aragora.rlm": MagicMock(AbstractionLevel=MockAbstractionLevel),
+                },
+            ),
+        ):
+            result = rlm_handler.handle_stream("/api/v1/rlm/stream", {}, handler)
+
+        assert result.status_code == 501
+        assert "Streaming fallback could not retrieve summary content: summary boom" in caplog.text
 
 
 # ===========================================================================

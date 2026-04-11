@@ -1250,8 +1250,11 @@ class RLMContextHandler(BaseHandler):
                             "timestamp": datetime.now().isoformat(),
                         }
                     )
-            except (ImportError, AttributeError, TypeError):
-                pass
+            except (ImportError, AttributeError, TypeError) as exc:
+                logger.warning(
+                    "Streaming fallback could not retrieve summary content: %s",
+                    exc,
+                )
 
             return error_response(
                 "RLM streaming module not available. "
