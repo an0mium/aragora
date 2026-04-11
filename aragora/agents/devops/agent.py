@@ -548,7 +548,7 @@ class DevOpsAgent:
                         }
                     )
             except json.JSONDecodeError:
-                pass
+                logger.debug("Failed to parse release JSON for %s", self._config.repo)
 
         result.details = checks
         result.items_processed = len(checks)
