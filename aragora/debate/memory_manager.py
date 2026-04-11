@@ -612,7 +612,7 @@ class MemoryManager:
             # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "continuum")
             logger.exception("  [continuum] Unexpected error storing outcome: %s", msg)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, StopIteration, ImportError) as e:
             logger.warning("  [continuum] Failed to store outcome: %s", e)
 
     def store_consensus_record(
@@ -986,7 +986,7 @@ class MemoryManager:
                     logger.warning(
                         "  [continuum] Unexpected error updating memory %s: %s", mem_id, e
                     )
-                except Exception as e:
+                except (ConnectionError, TimeoutError, StopIteration, ImportError) as e:
                     logger.warning("  [continuum] Failed to update memory %s: %s", mem_id, e)
 
             if updated_count > 0:
@@ -1007,7 +1007,7 @@ class MemoryManager:
             # Unexpected error - log with full context
             _, msg, exc_info = _build_error_action(e, "continuum")
             logger.exception("  [continuum] Unexpected error updating memory outcomes: %s", msg)
-        except Exception as e:
+        except (ConnectionError, TimeoutError, StopIteration, ImportError) as e:
             logger.warning("  [continuum] Failed to update memory outcomes: %s", e)
 
     async def update_km_item_confidence(
@@ -1300,7 +1300,7 @@ class MemoryManager:
             except (AttributeError, TypeError) as e:
                 # Expected: spectator method or signature issues
                 logger.debug("Spectator notification error: %s", e)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, KeyError) as e:
                 # Spectator delivery must never break debate execution.
                 logger.warning("Unexpected spectator notification error: %s", e)
 
