@@ -58,18 +58,24 @@ class TriageConfig:
 
         for priority_level, rule_list in data.get("priority_rules", {}).items():
             for rule_data in rule_list:
+                keywords = rule_data.get("keywords", [])
+                if any(not isinstance(keyword, str) for keyword in keywords):
+                    raise ValueError("triage rule keywords must be strings")
                 rules.append(
                     TriageRule(
                         label=rule_data.get("label", ""),
-                        keywords=rule_data.get("keywords", []),
+                        keywords=keywords,
                         priority=priority_level,
                     )
                 )
 
         escalation = data.get("escalation", {})
+        always_flag = escalation.get("always_flag", [])
+        if any(not isinstance(keyword, str) for keyword in always_flag):
+            raise ValueError("escalation keywords must be strings")
         return cls(
             rules=rules,
-            escalation_keywords=[kw.lower() for kw in escalation.get("always_flag", [])],
+            escalation_keywords=[kw.lower() for kw in always_flag],
             auto_handle_threshold=escalation.get("auto_handle_threshold", 0.85),
             gmail_labels=data.get("gmail_labels", {}),
             sync_interval_minutes=data.get("sync", {}).get("interval_minutes", 5),
@@ -92,6 +98,11 @@ class TriageRuleEngine:
 
     def __init__(self, config: TriageConfig) -> None:
         self.config = config
+        for rule in config.rules:
+            if any(not isinstance(keyword, str) for keyword in rule.keywords):
+                raise ValueError("triage rule keywords must be strings")
+        if any(not isinstance(keyword, str) for keyword in config.escalation_keywords):
+            raise ValueError("escalation keywords must be strings")
         # Pre-lowercase all keywords for fast matching
         self._rules_by_priority: dict[str, list[TriageRule]] = {}
         for rule in config.rules:

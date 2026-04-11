@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from aragora.analysis.email_triage import TriageConfig, TriageRuleEngine
+from aragora.analysis.email_triage import TriageConfig, TriageRule, TriageRuleEngine
 
 
 @pytest.fixture
@@ -91,6 +91,24 @@ class TestTriageConfig:
         assert config.escalation_keywords == []
         assert config.auto_handle_threshold == 0.85
         assert config.sync_interval_minutes == 5
+
+    def test_from_dict_rejects_non_string_rule_keywords(self) -> None:
+        data = {
+            "priority_rules": {
+                "high": [{"label": "bad", "keywords": [123]}],
+            },
+        }
+        with pytest.raises(ValueError, match="triage rule keywords must be strings"):
+            TriageConfig.from_dict(data)
+
+    def test_from_dict_rejects_non_string_escalation_keywords(self) -> None:
+        data = {
+            "escalation": {
+                "always_flag": ["legal", 123],
+            },
+        }
+        with pytest.raises(ValueError, match="escalation keywords must be strings"):
+            TriageConfig.from_dict(data)
 
 
 class TestTriageRuleEngine:
@@ -202,3 +220,18 @@ class TestTriageRuleEngine:
         )
         assert result.priority == "high"
         assert result.matched_rule == "regulatory"
+
+    def test_rejects_non_string_programmatic_rule_keywords(self) -> None:
+        config = TriageConfig(
+            rules=[TriageRule(label="bad", keywords=[123], priority="high")],
+        )
+        with pytest.raises(ValueError, match="triage rule keywords must be strings"):
+            TriageRuleEngine(config)
+
+    def test_rejects_non_string_programmatic_escalation_keywords(self) -> None:
+        config = TriageConfig(
+            rules=[],
+            escalation_keywords=["legal", 123],
+        )
+        with pytest.raises(ValueError, match="escalation keywords must be strings"):
+            TriageRuleEngine(config)

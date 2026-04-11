@@ -169,6 +169,43 @@ class TestUpdateRules:
         result = handler.handle_put("/api/v1/email/triage/rules", {}, http)
         assert result.status_code == 400
 
+    def test_update_rejects_non_string_rule_keywords_without_mutating_engine(self, handler):
+        http = _make_mock_handler(
+            method="PUT",
+            body={
+                "rules": [
+                    {"label": "bad", "keywords": [123], "priority": "high"},
+                ],
+            },
+        )
+        result = handler._handle_update_rules(http)
+        assert result.status_code == 400
+        body = _parse(result)
+        assert body["error"] == "Invalid rules configuration"
+
+        current = _parse(handler._handle_get_rules())
+        assert len(current["rules"]) == 3
+        assert current["rules"][0]["label"] == "urgent_order"
+
+    def test_update_rejects_non_string_escalation_keywords_without_mutating_engine(self, handler):
+        http = _make_mock_handler(
+            method="PUT",
+            body={
+                "rules": [
+                    {"label": "ok", "keywords": ["ok"], "priority": "high"},
+                ],
+                "escalation_keywords": ["legal", 123],
+            },
+        )
+        result = handler._handle_update_rules(http)
+        assert result.status_code == 400
+        body = _parse(result)
+        assert body["error"] == "Invalid rules configuration"
+
+        current = _parse(handler._handle_get_rules())
+        assert len(current["rules"]) == 3
+        assert current["escalation_keywords"] == ["legal", "lawsuit"]
+
     def test_update_invalid_json(self, handler):
         mock = MagicMock()
         mock.command = "PUT"
