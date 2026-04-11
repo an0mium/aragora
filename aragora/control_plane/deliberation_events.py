@@ -5,9 +5,10 @@ Defines event types emitted during deliberation execution for real-time
 monitoring via ControlPlaneStreamServer.
 """
 
-from enum import Enum
+from enum import Enum, unique
 
 
+@unique
 class DeliberationEventType(str, Enum):
     """Event types for deliberation lifecycle and progress."""
 
