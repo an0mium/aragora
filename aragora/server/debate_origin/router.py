@@ -10,6 +10,8 @@ import logging
 import os
 from typing import Any
 
+from aragora.gauntlet.receipt_models import _normalize_receipt_boolean
+
 from .models import DebateOrigin
 from .formatting import _format_receipt_summary, format_error_for_chat
 from .senders import (
@@ -78,11 +80,11 @@ def _should_fail_closed_slack_result(
         return False
 
     policy = _get_slack_delivery_policy(origin)
-    if not policy.get("fail_closed"):
+    if not _normalize_receipt_boolean(policy.get("fail_closed"), default=False):
         return False
 
-    require_consensus = bool(policy.get("require_consensus", True))
-    consensus_reached = bool(result.get("consensus_reached", False))
+    require_consensus = _normalize_receipt_boolean(policy.get("require_consensus"), default=True)
+    consensus_reached = _normalize_receipt_boolean(result.get("consensus_reached"))
     raw_confidence = result.get("confidence", 0.0)
     confidence = float(raw_confidence) if isinstance(raw_confidence, (int, float)) else 0.0
     min_confidence = float(policy.get("min_confidence", 0.0) or 0.0)
@@ -99,8 +101,10 @@ def _build_slack_fail_closed_message(
 ) -> str:
     """Build a user-facing Slack holdback message for low-confidence results."""
     policy = _get_slack_delivery_policy(origin)
+    require_consensus = _normalize_receipt_boolean(policy.get("require_consensus"), default=True)
+    consensus_reached = _normalize_receipt_boolean(result.get("consensus_reached"))
     reasons: list[str] = []
-    if policy.get("require_consensus", True) and not result.get("consensus_reached", False):
+    if require_consensus and not consensus_reached:
         reasons.append("consensus was not reached")
 
     raw_confidence = result.get("confidence", 0.0)

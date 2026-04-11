@@ -17,6 +17,7 @@ from aragora.agents.base import create_agent as create_real_agent
 from aragora.cli.commands.receipt import cmd_receipt_verify
 from aragora.cli.commands.quickstart import (
     _build_live_receipt,
+    _build_quickstart_receipt_payload,
     _build_live_team,
     _can_reach_provider_tls,
     _configure_inline_api_key,
@@ -516,6 +517,58 @@ class TestLiveQuickstartHelpers:
             "Quickstart could not derive explicit falsifiers" in note
             for note in receipt["settlement_metadata"]["review_notes"]
         )
+
+    @pytest.mark.parametrize(
+        ("raw_consensus", "expected"),
+        [("true", True), ("false", False)],
+    )
+    def test_build_live_receipt_parses_string_consensus_flags(self, raw_consensus, expected):
+        result = argparse.Namespace(
+            debate_id="debate-123",
+            participants=["alpha"],
+            final_answer="Ship it",
+            confidence=0.82,
+            consensus_reached=raw_consensus,
+            rounds_used=1,
+            dissenting_views=[],
+            proposals={},
+            votes=[],
+        )
+
+        receipt = _build_live_receipt(
+            result,
+            "Should we ship?",
+            1,
+            [{"name": "alpha", "provider": "openai-api"}],
+        )
+
+        assert receipt["consensus_reached"] is expected
+        assert receipt["consensus_proof"]["reached"] is expected
+
+    @pytest.mark.parametrize(
+        ("raw_consensus", "expected"),
+        [("true", True), ("false", False)],
+    )
+    def test_build_quickstart_receipt_payload_parses_string_consensus_flags(
+        self,
+        raw_consensus,
+        expected,
+    ):
+        payload = _build_quickstart_receipt_payload(
+            {
+                "question": "Should we ship?",
+                "mode": "demo",
+                "rounds": 1,
+                "agents": ["alpha"],
+                "summary": "Answer",
+                "confidence": 0.82,
+                "verdict": "consensus" if expected else "no_consensus",
+                "consensus_reached": raw_consensus,
+            }
+        )
+
+        assert payload["consensus_reached"] is expected
+        assert payload["consensus_proof"]["reached"] is expected
 
     @pytest.mark.asyncio
     async def test_can_reach_provider_tls_normalizes_wrapped_cert_errors(self):

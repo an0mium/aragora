@@ -163,3 +163,26 @@ def test_run_real_demo_calls_playground(capsys):
     assert "Should we use Rust?" in captured.out
     assert "completed" in captured.out
     assert "85%" in captured.out
+
+
+@pytest.mark.parametrize(
+    ("raw_consensus", "expected"),
+    [("true", True), ("false", False)],
+)
+def test_build_live_receipt_data_parses_string_consensus_flags(raw_consensus, expected):
+    """Live demo receipts normalize string consensus flags consistently."""
+    from aragora.cli.demo import _build_live_receipt_data
+
+    receipt = _build_live_receipt_data(
+        {
+            "consensus_reached": raw_consensus,
+            "confidence": 0.72,
+            "participants": ["alpha", "beta"],
+            "final_answer": "Answer",
+        },
+        "Should we ship?",
+        1.5,
+    )
+
+    assert receipt["consensus_proof"]["reached"] is expected
+    assert receipt["verdict"] == ("consensus" if expected else "no_consensus")

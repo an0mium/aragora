@@ -41,6 +41,8 @@ from aragora.server.handlers.admin.dashboard_metrics import (
     get_summary_metrics_legacy,
     get_summary_metrics_sql,
     process_debates_single_pass,
+    recent_activity_from_debate_records,
+    summarize_debate_records,
 )
 
 
@@ -442,6 +444,18 @@ class TestGetSummaryMetricsLegacy:
         result = get_summary_metrics_legacy(None, debates)
         assert result["avg_confidence"] == 0.5
 
+    def test_string_consensus_flags_are_not_counted_as_truthy(self):
+        debates = [
+            {"id": "d1", "consensus_reached": "false", "confidence": 0.4},
+            {"id": "d2", "consensus_reached": "true", "confidence": 0.9},
+        ]
+
+        result = get_summary_metrics_legacy(None, debates)
+
+        assert result["total_debates"] == 2
+        assert result["consensus_reached"] == 1
+        assert result["consensus_rate"] == 0.5
+
 
 # ===========================================================================
 # get_recent_activity_legacy
@@ -471,6 +485,18 @@ class TestGetRecentActivityLegacy:
         assert result["consensus_last_period"] == 2
         assert set(result["domains_active"]) == {"tech", "finance"}
         assert result["most_active_domain"] == "tech"
+
+    def test_string_consensus_flags_are_not_counted_as_truthy(self):
+        now = _now_iso()
+        debates = [
+            {"id": "d1", "consensus_reached": "false", "created_at": now},
+            {"id": "d2", "consensus_reached": "true", "created_at": now},
+        ]
+
+        result = get_recent_activity_legacy(None, 24, debates)
+
+        assert result["debates_last_period"] == 2
+        assert result["consensus_last_period"] == 1
 
     def test_filters_old_debates(self):
         now = _now_iso()
@@ -558,6 +584,20 @@ class TestProcessDebatesSinglePass:
         summary, activity, patterns = process_debates_single_pass([], None, 24)
         assert summary["total_debates"] == 0
         assert activity["debates_last_period"] == 0
+        assert patterns["disagreement_stats"]["with_disagreements"] == 0
+
+    def test_string_consensus_flags_fail_closed(self):
+        now = _now_iso()
+        debates = [
+            {"id": "d1", "consensus_reached": "false", "confidence": 0.4, "created_at": now},
+            {"id": "d2", "consensus_reached": "true", "confidence": 0.9, "created_at": now},
+        ]
+
+        summary, activity, patterns = process_debates_single_pass(debates, None, 24)
+
+        assert summary["consensus_reached"] == 1
+        assert summary["consensus_rate"] == 0.5
+        assert activity["consensus_last_period"] == 1
         assert patterns["disagreement_stats"]["with_disagreements"] == 0
         assert patterns["early_stopping"]["early_stopped"] == 0
 
@@ -1023,3 +1063,29 @@ class TestConsistency:
             == single_pat["disagreement_stats"]["with_disagreements"]
             == 0
         )
+
+
+class TestNormalizedDebateRecordMetrics:
+    def test_summarize_debate_records_parses_string_consensus_flags(self):
+        debates = [
+            {"id": "d1", "consensus_reached": "false", "confidence": 0.4},
+            {"id": "d2", "consensus_reached": "true", "confidence": 0.9},
+        ]
+
+        summary = summarize_debate_records(debates)
+
+        assert summary["total_debates"] == 2
+        assert summary["consensus_reached"] == 1
+        assert summary["high_confidence_consensus_count"] == 1
+
+    def test_recent_activity_from_debate_records_parses_string_consensus_flags(self):
+        now = datetime.now(timezone.utc)
+        debates = [
+            {"id": "d1", "consensus_reached": "false", "_sort_created_at": now},
+            {"id": "d2", "consensus_reached": "true", "_sort_created_at": now},
+        ]
+
+        activity = recent_activity_from_debate_records(debates, 24)
+
+        assert activity["debates_last_period"] == 2
+        assert activity["consensus_last_period"] == 1

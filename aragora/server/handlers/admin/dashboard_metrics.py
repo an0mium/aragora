@@ -19,6 +19,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from aragora.gauntlet.receipt_models import _normalize_receipt_boolean
 from aragora.rbac.checker import get_permission_checker
 from aragora.rbac.decorators import PermissionDeniedError
 from aragora.rbac.models import AuthorizationContext
@@ -120,6 +121,10 @@ def _coerce_float(value: Any) -> float | None:
         return float(str(value))
     except (TypeError, ValueError):
         return None
+
+
+def _coerce_consensus_reached(value: Any) -> bool:
+    return _normalize_receipt_boolean(value)
 
 
 def _coerce_int(value: Any) -> int | None:
@@ -564,7 +569,7 @@ def load_debate_records(storage: Any) -> list[dict[str, Any]]:
                 consensus_value = row_map.get("consensus_reached")
                 if consensus_value is None and payload:
                     consensus_value = payload.get("consensus_reached")
-                consensus_reached = bool(consensus_value)
+                consensus_reached = _coerce_consensus_reached(consensus_value)
 
                 confidence_value = row_map.get("confidence")
                 if confidence_value is None and payload:
@@ -687,7 +692,9 @@ def summarize_debate_records(debates: list[dict[str, Any]]) -> dict[str, Any]:
         return summary
 
     total = len(debates)
-    consensus_count = sum(1 for debate in debates if debate.get("consensus_reached"))
+    consensus_count = sum(
+        1 for debate in debates if _coerce_consensus_reached(debate.get("consensus_reached"))
+    )
     confidence_values = [
         confidence
         for debate in debates
@@ -744,7 +751,7 @@ def summarize_debate_records(debates: list[dict[str, Any]]) -> dict[str, Any]:
     summary["high_confidence_consensus_count"] = sum(
         1
         for debate in debates
-        if debate.get("consensus_reached")
+        if _coerce_consensus_reached(debate.get("consensus_reached"))
         and (
             (confidence := _coerce_float(debate.get("confidence"))) is not None
             and confidence >= HIGH_CONFIDENCE_THRESHOLD
@@ -786,7 +793,7 @@ def recent_activity_from_debate_records(
 
     activity["debates_last_period"] = len(recent_debates)
     activity["consensus_last_period"] = sum(
-        1 for debate in recent_debates if debate.get("consensus_reached")
+        1 for debate in recent_debates if _coerce_consensus_reached(debate.get("consensus_reached"))
     )
     activity["domains_active"] = list(domain_counts.keys())[:10]
     if domain_counts:
@@ -859,7 +866,9 @@ def get_summary_metrics_legacy(domain: str | None, debates: list) -> dict[str, A
     try:
         if debates:
             total = len(debates)
-            consensus_count = sum(1 for d in debates if d.get("consensus_reached"))
+            consensus_count = sum(
+                1 for d in debates if _coerce_consensus_reached(d.get("consensus_reached"))
+            )
             summary["total_debates"] = total
             summary["consensus_reached"] = consensus_count
             if total > 0:
@@ -917,7 +926,9 @@ def get_recent_activity_legacy(domain: str | None, hours: int, debates: list) ->
                         logger.debug("Skipping debate with invalid datetime: %s", e)
 
             activity["debates_last_period"] = len(recent)
-            activity["consensus_last_period"] = sum(1 for d in recent if d.get("consensus_reached"))
+            activity["consensus_last_period"] = sum(
+                1 for d in recent if _coerce_consensus_reached(d.get("consensus_reached"))
+            )
             activity["domains_active"] = list(domain_counts.keys())[:10]
 
             if domain_counts:
@@ -1005,7 +1016,7 @@ def process_debates_single_pass(
 
         for d in debates:
             # Summary metrics
-            if d.get("consensus_reached"):
+            if _coerce_consensus_reached(d.get("consensus_reached")):
                 consensus_count += 1
 
             conf = d.get("confidence")
@@ -1019,7 +1030,7 @@ def process_debates_single_pass(
                     dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
                     if dt.replace(tzinfo=None) > cutoff:
                         recent_count += 1
-                        if d.get("consensus_reached"):
+                        if _coerce_consensus_reached(d.get("consensus_reached")):
                             recent_consensus += 1
                         d_domain = d.get("domain", "general")
                         domain_counts[d_domain] = domain_counts.get(d_domain, 0) + 1

@@ -37,6 +37,7 @@ from aragora.core_types import (
     normalize_debate_status,
     normalize_debate_status_source,
 )
+from aragora.gauntlet.receipt_models import _normalize_receipt_boolean
 
 logger = logging.getLogger(__name__)
 
@@ -765,7 +766,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     dissent_records, dissenting_views = _normalize_dissent_records(payload, participants)
     consensus = payload.get("consensus_reached")
     if consensus is None and isinstance(payload.get("consensus_proof"), dict):
-        consensus = bool(payload["consensus_proof"].get("reached"))
+        consensus = payload["consensus_proof"].get("reached")
     if consensus is None:
         consensus = str(payload.get("verdict", "")).strip().lower() in {
             "consensus",
@@ -773,6 +774,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
             "approve",
             "approved",
         }
+    consensus_reached = _normalize_receipt_boolean(consensus)
 
     votes = payload.get("votes")
     if not isinstance(votes, list):
@@ -799,7 +801,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         if isinstance(existing_consensus, dict)
         else []
     )
-    if not supporting_agents and consensus:
+    if not supporting_agents and consensus_reached:
         supporting_agents = participants[:]
     if not dissenting_agents and dissent_records:
         dissenting_agents = _coerce_string_list([record["agent"] for record in dissent_records])
@@ -809,9 +811,9 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
         risk_summary = {}
     if not risk_summary:
         risk_summary = {
-            "critical": 0 if consensus else int(bool(dissenting_views)),
-            "high": len(dissenting_agents) if not consensus else 0,
-            "medium": len(dissenting_views) if not consensus else 0,
+            "critical": 0 if consensus_reached else int(bool(dissenting_views)),
+            "high": len(dissenting_agents) if not consensus_reached else 0,
+            "medium": len(dissenting_views) if not consensus_reached else 0,
             "low": 0,
         }
     risk_summary = dict(risk_summary)
@@ -826,7 +828,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     settlement_result = SimpleNamespace(
         debate_id=str(payload.get("debate_id") or receipt_id),
         confidence=confidence,
-        consensus_reached=bool(consensus),
+        consensus_reached=consensus_reached,
         winner=str(payload.get("winner") or "") or None,
         participants=participants,
         dissenting_views=dissenting_views,
@@ -869,7 +871,13 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
             ),
             attacks_successful=int(
                 payload.get("attacks_successful", 0)
-                or (0 if consensus else max(1, len(dissenting_views)) if dissenting_views else 0)
+                or (
+                    0
+                    if consensus_reached
+                    else max(1, len(dissenting_views))
+                    if dissenting_views
+                    else 0
+                )
             ),
             probes_run=int(payload.get("probes_run", 0) or len(votes)),
             vulnerabilities_found=int(
@@ -881,7 +889,7 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
             verdict_reasoning=str(payload.get("verdict_reasoning") or summary),
             dissenting_views=dissenting_views,
             consensus_proof=ConsensusProof(
-                reached=bool(consensus),
+                reached=consensus_reached,
                 confidence=confidence,
                 supporting_agents=supporting_agents,
                 dissenting_agents=dissenting_agents,
@@ -940,14 +948,14 @@ def _build_quickstart_receipt_payload(result: dict[str, Any]) -> dict[str, Any]:
     canonical["synthetic"] = debate_status_source == DebateStatusSource.SYNTHETIC.value
     canonical["votes"] = votes
     canonical["agent_votes"] = votes
-    canonical["consensus"] = bool(consensus)
-    canonical["consensus_reached"] = bool(consensus)
+    canonical["consensus"] = consensus_reached
+    canonical["consensus_reached"] = consensus_reached
     canonical["settlement_metadata"] = settlement_metadata
     canonical["settlement"] = settlement
     canonical["receipt"] = {
         "id": str(canonical.get("receipt_id") or receipt_id),
         "artifact_hash": str(canonical.get("artifact_hash") or ""),
-        "consensus_reached": bool(consensus),
+        "consensus_reached": consensus_reached,
         "confidence": confidence,
         "participants": participants,
     }
@@ -1291,7 +1299,7 @@ def _build_live_receipt(
 
     final_answer = str(getattr(result, "final_answer", "") or "")
     confidence = _clamp_confidence(getattr(result, "confidence", 0.0))
-    consensus_reached = bool(getattr(result, "consensus_reached", False))
+    consensus_reached = _normalize_receipt_boolean(getattr(result, "consensus_reached", False))
     legacy_status = str(getattr(result, "status", "") or "").strip()
     debate_status = normalize_debate_status(
         getattr(result, "debate_status", "") or legacy_status,

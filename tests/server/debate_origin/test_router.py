@@ -14,6 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from aragora.server.debate_origin import DebateOrigin
 from aragora.server.debate_origin.router import (
+    _should_fail_closed_slack_result,
     route_debate_result,
     post_receipt_to_channel,
     send_error_to_channel,
@@ -231,6 +232,32 @@ class TestRouteDebateResult:
         assert result is True
         mock_error.assert_called_once()
         mock_result_send.assert_not_called()
+
+    def test_should_fail_closed_slack_result_parses_string_consensus_flags(self, slack_origin):
+        slack_origin.metadata = {
+            "slack_policy": {
+                "fail_closed": True,
+                "require_consensus": True,
+                "min_confidence": 0.0,
+            }
+        }
+
+        assert (
+            _should_fail_closed_slack_result(
+                slack_origin,
+                {"consensus_reached": "false", "confidence": 1.0},
+                is_aux_event=False,
+            )
+            is True
+        )
+        assert (
+            _should_fail_closed_slack_result(
+                slack_origin,
+                {"consensus_reached": "true", "confidence": 1.0},
+                is_aux_event=False,
+            )
+            is False
+        )
 
     @pytest.mark.asyncio
     async def test_slack_fail_closed_when_confidence_too_low(self, sample_result):

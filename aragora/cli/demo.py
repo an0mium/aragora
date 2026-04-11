@@ -23,6 +23,8 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
+from aragora.gauntlet.receipt_models import _normalize_receipt_boolean
+
 try:
     from aragora_debate.arena import Arena
     from aragora_debate.events import EventType
@@ -575,7 +577,7 @@ def _build_live_receipt_data(
     elapsed: float,
 ) -> dict[str, Any]:
     """Build receipt payload from the live playground debate response."""
-    consensus_reached = bool(result.get("consensus_reached", False))
+    consensus_reached = _normalize_receipt_boolean(result.get("consensus_reached"))
     supporting_agents = list(result.get("participants") or []) if consensus_reached else []
     return {
         "receipt_id": "",
