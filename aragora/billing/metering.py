@@ -486,6 +486,7 @@ class UsageMeter:
 
             return get_current_tenant_id()
         except ImportError:
+            logger.debug("Tenancy module not available; skipping tenant ID lookup")
             return None
 
     def _get_billing_period(self, dt: datetime) -> str:
