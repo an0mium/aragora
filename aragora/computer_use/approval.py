@@ -45,8 +45,13 @@ async def _audit_approval_action(
             resource_id=request_id,
             **details,
         )
-    except (ImportError, TypeError, RuntimeError):
-        pass
+    except (ImportError, TypeError, RuntimeError) as exc:
+        logger.debug(
+            "Approval audit skipped for request %s action %s: %s",
+            request_id,
+            action,
+            exc,
+        )
 
 
 class ApprovalStatus(str, Enum):
@@ -537,7 +542,7 @@ class ApprovalWorkflow:
             )
 
         except asyncio.CancelledError:
-            pass
+            logger.debug("Expiry task cancelled for request %s", request_id)
         finally:
             # Ensure expired/cancelled tasks are removed from tracking
             self._expiry_tasks.pop(request_id, None)

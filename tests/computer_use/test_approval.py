@@ -5,9 +5,12 @@ Tests approval requests, decisions, and workflow management.
 """
 
 import asyncio
+import logging
 import pytest
 import time
+from unittest.mock import AsyncMock, patch
 
+from aragora.computer_use import approval as approval_module
 from aragora.computer_use.approval import (
     ApprovalCategory,
     ApprovalConfig,
@@ -363,6 +366,40 @@ class TestApprovalWorkflow:
         """Test approving nonexistent request."""
         result = await workflow.approve("nonexistent", "admin")
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_audit_action_logs_skipped_backend_failure(self, caplog):
+        """Audit backend failures should be visible in debug logs."""
+        with patch(
+            "aragora.observability.security_audit.audit_rbac_decision",
+            new=AsyncMock(side_effect=RuntimeError("audit backend offline")),
+        ):
+            with caplog.at_level(logging.DEBUG, logger="aragora.computer_use.approval"):
+                await approval_module._audit_approval_action(
+                    actor_id="admin",
+                    action="approved",
+                    request_id="req-123",
+                    granted=True,
+                )
+
+        assert "Approval audit skipped for request req-123 action approved" in caplog.text
+        assert "audit backend offline" in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_handle_expiry_logs_cancelled_task(
+        self, workflow: ApprovalWorkflow, caplog, monkeypatch
+    ):
+        """Cancelled expiry handlers should log the skip instead of failing silently."""
+
+        async def cancelled_sleep(_timeout: float) -> None:
+            raise asyncio.CancelledError()
+
+        monkeypatch.setattr(approval_module.asyncio, "sleep", cancelled_sleep)
+
+        with caplog.at_level(logging.DEBUG, logger="aragora.computer_use.approval"):
+            await workflow._handle_expiry("req-cancelled", timeout=5.0)
+
+        assert "Expiry task cancelled for request req-cancelled" in caplog.text
 
     @pytest.mark.asyncio
     async def test_get_stats(self, workflow: ApprovalWorkflow):
