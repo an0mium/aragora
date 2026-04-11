@@ -522,14 +522,14 @@ def get_cv_builder() -> CVBuilder:
 
             elo_system = get_elo_store()
         except ImportError:
-            pass
+            logger.debug("ELO system unavailable, skipping for CV builder")
 
         try:
             from aragora.agents.calibration import CalibrationTracker
 
             calibration_tracker = CalibrationTracker()
         except ImportError:
-            pass
+            logger.debug("CalibrationTracker unavailable, skipping for CV builder")
 
         _cv_builder = CVBuilder(
             elo_system=elo_system,
