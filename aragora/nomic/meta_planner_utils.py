@@ -50,7 +50,7 @@ def infer_track(description: str, available_tracks: list[Track]) -> Track:
         result = _infer_track_llm(description, available_tracks)
         if result is not None:
             return result
-    except Exception:
+    except (ImportError, ValueError, TypeError, RuntimeError, OSError, TimeoutError):
         logger.debug("LLM track classification unavailable, using keyword fallback")
 
     # Keyword-based fallback
@@ -103,7 +103,7 @@ def _infer_track_llm(description: str, available_tracks: list[Track]) -> Track |
                 response = pool.submit(asyncio.run, agent.generate(prompt)).result(timeout=15)
         else:
             response = asyncio.run(agent.generate(prompt))
-    except Exception:
+    except (RuntimeError, OSError, TimeoutError):
         logger.debug("LLM classification call failed")
         return None
 
