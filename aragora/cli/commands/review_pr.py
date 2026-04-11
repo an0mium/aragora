@@ -619,6 +619,7 @@ def _extract_first_json_object(text: str) -> dict[str, Any]:
             continue
         if isinstance(payload, dict):
             return payload
+    logger.warning("no valid JSON object found in response text (%d chars)", len(text))
     return {}
 
 
