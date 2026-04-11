@@ -112,16 +112,27 @@ class EmailTriageHandler(BaseHandler):
         if body is None:
             return error_response("Invalid JSON body", 400)
 
+        if not isinstance(body, dict):
+            return error_response("Request body must be a JSON object", 400)
+
         from aragora.analysis.email_triage import TriageConfig, TriageRuleEngine
 
         try:
             # Build config from body
             config_data = {}
             if "rules" in body:
+                if not isinstance(body["rules"], list):
+                    return error_response("'rules' must be an array", 400)
                 # Convert flat rules list to priority_rules format
                 priority_rules: dict[str, list[dict]] = {}
-                for rule in body["rules"]:
+                for i, rule in enumerate(body["rules"]):
+                    if not isinstance(rule, dict):
+                        return error_response(f"rules[{i}] must be an object", 400)
+                    if "keywords" in rule and not isinstance(rule["keywords"], list):
+                        return error_response(f"rules[{i}].keywords must be an array", 400)
                     priority = rule.get("priority", "medium")
+                    if not isinstance(priority, str):
+                        return error_response(f"rules[{i}].priority must be a string", 400)
                     if priority not in ("high", "medium", "low"):
                         return error_response(
                             f"Invalid priority '{priority}'. Must be high, medium, or low",
@@ -136,6 +147,8 @@ class EmailTriageHandler(BaseHandler):
                 config_data["priority_rules"] = priority_rules
 
             if "escalation_keywords" in body:
+                if not isinstance(body["escalation_keywords"], list):
+                    return error_response("'escalation_keywords' must be an array", 400)
                 config_data["escalation"] = {
                     "always_flag": body["escalation_keywords"],
                     "auto_handle_threshold": body.get(
@@ -166,6 +179,16 @@ class EmailTriageHandler(BaseHandler):
         body = self.read_json_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
+
+        if not isinstance(body, dict):
+            return error_response("Request body must be a JSON object", 400)
+
+        for field in ("subject", "from_address", "snippet"):
+            if field in body and not isinstance(body[field], str):
+                return error_response(f"'{field}' must be a string", 400)
+
+        if "labels" in body and not isinstance(body["labels"], list):
+            return error_response("'labels' must be an array", 400)
 
         subject = body.get("subject", "")
         from_address = body.get("from_address", "")
