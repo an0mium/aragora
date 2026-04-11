@@ -164,8 +164,10 @@ class BackupSchedule:
                             next_time = next_time.replace(month=now.month + 1)
                     return next_time
                 except ValueError:
-                    # Day doesn't exist in this month
-                    pass
+                    logger.debug(
+                        "Monthly day %d does not exist in current month, skipping",
+                        self.monthly_day,
+                    )
 
         elif schedule_type == ScheduleType.CUSTOM and self.custom_interval_seconds:
             return now + timedelta(seconds=self.custom_interval_seconds)
@@ -307,7 +309,7 @@ class BackupScheduler:
             if _record_fn is not None:
                 _record_fn(operation, success, duration_seconds)
         except (ImportError, AttributeError):
-            pass
+            logger.debug("Metrics module not available for backup operation recording")
         except (OSError, RuntimeError, ValueError) as e:
             logger.debug("Failed to record metric: %s", e)
 
