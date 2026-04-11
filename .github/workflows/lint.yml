@@ -307,6 +307,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Verify checkout integrity
         shell: bash
@@ -371,10 +373,49 @@ jobs:
           "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user -e .
           "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user mypy types-requests types-redis types-python-dateutil types-setuptools
 
-      - name: Run typecheck tier
+      - name: Resolve phase-1 typecheck plan
+        id: typecheck_plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          TARGETS_FILE="${RUNNER_TEMP}/typecheck-targets.txt"
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            git fetch --no-tags origin "${{ github.base_ref }}" --depth=1
+            "${{ steps.typecheck_python.outputs.python_bin }}" scripts/run_typecheck_gate.py \
+              --repo-root . \
+              --base-ref "${{ github.base_ref }}" \
+              --github-output "$GITHUB_OUTPUT" \
+              --targets-file "$TARGETS_FILE"
+          else
+            echo "mode=full" >> "$GITHUB_OUTPUT"
+            echo "target_count=0" >> "$GITHUB_OUTPUT"
+            echo "summary=Run the full typecheck tier on non-pull_request events." >> "$GITHUB_OUTPUT"
+            : > "$TARGETS_FILE"
+          fi
+          echo "targets_file=$TARGETS_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Run full typecheck tier
+        if: steps.typecheck_plan.outputs.mode == 'full'
         run: PATH="$HOME/.local/bin:$PATH" bash scripts/test_tiers.sh typecheck
         shell: bash
         # Phase 5: mypy now REQUIRED (43→0 errors fixed Jan 2026)
+
+      - name: Run changed-file typecheck gate
+        if: steps.typecheck_plan.outputs.mode == 'changed'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t TARGETS < "${{ steps.typecheck_plan.outputs.targets_file }}"
+          echo "Running mypy on ${#TARGETS[@]} touched aragora file(s)"
+          PATH="$HOME/.local/bin:$PATH" \
+            "${{ steps.typecheck_python.outputs.python_bin }}" -m mypy \
+            --ignore-missing-imports \
+            --show-error-codes \
+            "${TARGETS[@]}"
+
+      - name: Skip typecheck gate
+        if: steps.typecheck_plan.outputs.mode == 'skip'
+        run: echo "${{ steps.typecheck_plan.outputs.summary }}"
 
   typecheck:
     needs: [changes, typecheck-run]
