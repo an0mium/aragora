@@ -277,7 +277,7 @@ class MultiModelDebateRunner:
                 debate_result=debate_result,
                 started_at=started_at,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 – intentional catch-all: one combination failure must not abort the batch
             return self._build_failure_result(
                 combination=combination,
                 resolved_specs=resolved_specs,
