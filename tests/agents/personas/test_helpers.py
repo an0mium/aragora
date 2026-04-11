@@ -62,9 +62,7 @@ class TestGetOrCreatePersona:
         mock_manager.get_persona.assert_called_once_with("tester")
         mock_manager.create_persona.assert_not_called()
 
-    def test_creates_from_default_when_not_found(
-        self, mock_manager: MagicMock
-    ) -> None:
+    def test_creates_from_default_when_not_found(self, mock_manager: MagicMock) -> None:
         mock_manager.get_persona.return_value = None
 
         result = get_or_create_persona(mock_manager, "claude_critic")
@@ -76,20 +74,14 @@ class TestGetOrCreatePersona:
         assert "traits" in call_kwargs[1]
         assert "expertise" in call_kwargs[1]
 
-    def test_creates_empty_persona_for_unknown_agent(
-        self, mock_manager: MagicMock
-    ) -> None:
+    def test_creates_empty_persona_for_unknown_agent(self, mock_manager: MagicMock) -> None:
         mock_manager.get_persona.return_value = None
 
         get_or_create_persona(mock_manager, "totally_unknown_agent")
 
-        mock_manager.create_persona.assert_called_once_with(
-            agent_name="totally_unknown_agent"
-        )
+        mock_manager.create_persona.assert_called_once_with(agent_name="totally_unknown_agent")
 
-    def test_base_name_extraction_uses_first_segment(
-        self, mock_manager: MagicMock
-    ) -> None:
+    def test_base_name_extraction_uses_first_segment(self, mock_manager: MagicMock) -> None:
         """Agent name 'grok_specialist' should match default persona 'grok'."""
         mock_manager.get_persona.return_value = None
 
@@ -109,9 +101,7 @@ class TestGetOrCreatePersona:
 class TestApplyPersonaToAgent:
     """Tests for apply_persona_to_agent."""
 
-    def test_applies_default_persona_sets_system_prompt(
-        self, sample_persona: Persona
-    ) -> None:
+    def test_applies_default_persona_sets_system_prompt(self, sample_persona: Persona) -> None:
         agent = MagicMock()
         agent.system_prompt = "Existing prompt."
 
@@ -126,9 +116,7 @@ class TestApplyPersonaToAgent:
         # Persona context is prepended
         assert agent.system_prompt.startswith("Your role:")
 
-    def test_applies_generation_params_via_method(
-        self, sample_persona: Persona
-    ) -> None:
+    def test_applies_generation_params_via_method(self, sample_persona: Persona) -> None:
         agent = MagicMock()
         agent.system_prompt = ""
 
@@ -144,9 +132,7 @@ class TestApplyPersonaToAgent:
             frequency_penalty=0.1,
         )
 
-    def test_applies_generation_params_via_attributes(
-        self, sample_persona: Persona
-    ) -> None:
+    def test_applies_generation_params_via_attributes(self, sample_persona: Persona) -> None:
         agent = MagicMock(spec=[])  # no methods
         agent.system_prompt = ""
         agent.temperature = 0.7
@@ -166,9 +152,7 @@ class TestApplyPersonaToAgent:
     def test_returns_false_for_unknown_persona(self) -> None:
         agent = MagicMock()
 
-        with patch(
-            "aragora.agents.personas.helpers.DEFAULT_PERSONAS", {}
-        ):
+        with patch("aragora.agents.personas.helpers.DEFAULT_PERSONAS", {}):
             result = apply_persona_to_agent(agent, "nonexistent")
 
         assert result is False
@@ -179,12 +163,8 @@ class TestApplyPersonaToAgent:
         agent = MagicMock()
         agent.system_prompt = ""
 
-        with patch(
-            "aragora.agents.personas.helpers.DEFAULT_PERSONAS", {}
-        ):
-            result = apply_persona_to_agent(
-                agent, "tester", manager=mock_manager
-            )
+        with patch("aragora.agents.personas.helpers.DEFAULT_PERSONAS", {}):
+            result = apply_persona_to_agent(agent, "tester", manager=mock_manager)
 
         assert result is True
         mock_manager.get_persona.assert_called_once_with("tester")
@@ -249,9 +229,7 @@ class TestGetPersonaPrompt:
     def test_uses_manager_when_not_in_defaults(
         self, mock_manager: MagicMock, sample_persona: Persona
     ) -> None:
-        with patch(
-            "aragora.agents.personas.helpers.DEFAULT_PERSONAS", {}
-        ):
+        with patch("aragora.agents.personas.helpers.DEFAULT_PERSONAS", {}):
             prompt = get_persona_prompt("tester", manager=mock_manager)
 
         assert "Your role:" in prompt
@@ -266,9 +244,7 @@ class TestGetPersonaPrompt:
         mgr = MagicMock(spec=PersonaManager)
         mgr.get_persona.return_value = persona
 
-        with patch(
-            "aragora.agents.personas.helpers.DEFAULT_PERSONAS", {}
-        ):
+        with patch("aragora.agents.personas.helpers.DEFAULT_PERSONAS", {}):
             prompt = get_persona_prompt("custom", manager=mgr)
 
         # to_prompt_context produces content because traits + expertise are set
@@ -285,9 +261,7 @@ class TestGetPersonaPrompt:
         mgr = MagicMock(spec=PersonaManager)
         mgr.get_persona.return_value = persona
 
-        with patch(
-            "aragora.agents.personas.helpers.DEFAULT_PERSONAS", {}
-        ):
+        with patch("aragora.agents.personas.helpers.DEFAULT_PERSONAS", {}):
             prompt = get_persona_prompt("minimal", manager=mgr)
 
         assert "Minimal agent" in prompt
