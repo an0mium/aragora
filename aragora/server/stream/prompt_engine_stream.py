@@ -299,7 +299,15 @@ async def _run_pipeline(
             },
         )
 
-    except Exception as exc:
+    except (
+        KeyError,
+        ValueError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+        OSError,
+        ImportError,
+    ) as exc:
         logger.exception("Prompt engine pipeline error: %s", exc)
         await emitter.emit(
             session_id,
