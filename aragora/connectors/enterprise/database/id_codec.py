@@ -23,9 +23,12 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import re
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class PKType(Enum):
@@ -198,7 +201,8 @@ def parse_evidence_id(evidence_id: str) -> dict[str, Any] | None:
                     "pk_value": pk_value,
                     "is_legacy": False,
                 }
-            except (ValueError, KeyError, UnicodeDecodeError, json.JSONDecodeError):
+            except (ValueError, KeyError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                logger.debug("Failed to decode evidence ID %r: %s", evidence_id, exc)
                 return None
 
     # New Snowflake 6-part: sf:account:db:table:pk_type:encoded_pk
@@ -216,7 +220,8 @@ def parse_evidence_id(evidence_id: str) -> dict[str, Any] | None:
                     "pk_value": pk_value,
                     "is_legacy": False,
                 }
-            except (ValueError, KeyError, UnicodeDecodeError, json.JSONDecodeError):
+            except (ValueError, KeyError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+                logger.debug("Failed to decode evidence ID %r: %s", evidence_id, exc)
                 return None
 
     return None
