@@ -18,6 +18,9 @@ from aragora.resilience_config import CircuitBreakerConfig
 
 logger = logging.getLogger(__name__)
 
+_PROMETHEUS_ERRORS = (TypeError, ValueError, AttributeError, RuntimeError)
+_CALLBACK_ERRORS = (TypeError, ValueError, AttributeError, RuntimeError, OSError)
+
 T = TypeVar("T")
 EntityT = TypeVar("EntityT")
 
@@ -92,7 +95,7 @@ def _prom_record_state(circuit_name: str, state: int) -> None:
                 circuit_name=circuit_name,
                 to_state=state_map.get(state, str(state)),
             ).inc()
-    except Exception as e:  # noqa: BLE001
+    except _PROMETHEUS_ERRORS as e:
         logger.debug("Error recording prometheus circuit breaker metrics: %s", e)
 
 
@@ -111,7 +114,7 @@ def _prom_record_failure(circuit_name: str) -> None:
         )
         if counter:
             counter.labels(circuit_name=circuit_name).inc()
-    except Exception as e:  # noqa: BLE001
+    except _PROMETHEUS_ERRORS as e:
         logger.debug("Error recording prometheus circuit breaker failure: %s", e)
 
 
@@ -130,7 +133,7 @@ def _prom_record_success(circuit_name: str) -> None:
         )
         if counter:
             counter.labels(circuit_name=circuit_name).inc()
-    except Exception as e:  # noqa: BLE001
+    except _PROMETHEUS_ERRORS as e:
         logger.debug("Error recording prometheus circuit breaker success: %s", e)
 
 
@@ -164,7 +167,7 @@ def _emit_metrics(circuit_name: str, state: int) -> None:
     if _metrics_callback:
         try:
             _metrics_callback(circuit_name, state)
-        except Exception as e:  # noqa: BLE001 - metrics emission must never break callers
+        except _CALLBACK_ERRORS as e:
             logger.debug("Error emitting circuit breaker metrics: %s", e)
 
 
@@ -199,7 +202,7 @@ class CircuitBreaker:
             try:
                 result = await call_api()
                 breaker.record_success()
-            except Exception:
+            except OSError:
                 breaker.record_failure()
 
     Usage (multi-entity):
@@ -208,7 +211,7 @@ class CircuitBreaker:
             try:
                 result = await agent.generate(...)
                 breaker.record_success("agent-1")
-            except Exception:
+            except OSError:
                 breaker.record_failure("agent-1")
 
     Usage (with config):
@@ -668,8 +671,15 @@ class CircuitBreaker:
         except asyncio.CancelledError:
             # Task cancellation is not a service failure - don't record
             raise
-        except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
-            # Record all other exceptions as failures
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            LookupError,
+            ArithmeticError,
+        ) as e:
             logger.debug(
                 "Circuit breaker recorded failure for %s: %s: %s", name, type(e).__name__, e
             )
@@ -707,8 +717,15 @@ class CircuitBreaker:
         try:
             yield
             self.record_success(entity)
-        except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
-            # Record all exceptions as failures
+        except (
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            LookupError,
+            ArithmeticError,
+        ) as e:
             logger.debug(
                 "Circuit breaker (sync) recorded failure for %s: %s: %s", name, type(e).__name__, e
             )
