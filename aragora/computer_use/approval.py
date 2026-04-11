@@ -268,6 +268,7 @@ class ChatApprovalNotifier(ApprovalNotifier):
         try:
             from aragora.approvals.chat import send_chat_approval_request
         except ImportError:
+            logger.debug("Chat approval integration not available")
             return
 
         fields = [
