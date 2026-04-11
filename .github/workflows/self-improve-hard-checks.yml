@@ -11,9 +11,13 @@ on:
       - "aragora/nomic/meta_planner_utils.py"
       - "scripts/run_dogfood_ab_pairs.py"
       - "scripts/run_dogfood_benchmark.py"
+      - "scripts/analyze_boss_metrics.py"
+      - "aragora/swarm/terminal_truth.py"
       - "scripts/ci_core_suites.sh"
       - "docs/plans/dogfood_pipeline_integration_fixture.json"
       - "docs/plans/dogfood_pipeline_self_improve_base_report.json"
+      - "tests/scripts/test_analyze_boss_metrics.py"
+      - "tests/scripts/test_run_dogfood_benchmark.py"
       - "tests/cli/test_pipeline_command.py"
       - "tests/nomic/test_meta_planner.py"
       - "tests/nomic/test_improvement_queue.py"
@@ -133,6 +137,8 @@ jobs:
       - name: Run hard-check test suites
         run: |
           python -m pytest -q \
+            tests/scripts/test_analyze_boss_metrics.py \
+            tests/scripts/test_run_dogfood_benchmark.py \
             tests/cli/test_pipeline_command.py \
             tests/nomic/test_meta_planner.py \
             tests/nomic/test_improvement_queue.py \
@@ -269,21 +275,42 @@ jobs:
         run: |
           python3 - <<'PY'
           import json
+          import os
           from pathlib import Path
           import sys
 
+          sys.path.insert(0, str(Path.cwd()))
+          from scripts.analyze_boss_metrics import analyze_boss_metrics
+
           benchmark_path = Path("/tmp/dogfood_pipeline_self_improve_benchmark_ci.json")
           aggregate_path = Path("/tmp/dogfood_ab_integration_vague_ci/aggregate_summary.json")
+          metrics_path = Path(".aragora/overnight/boss_metrics.jsonl")
           if not benchmark_path.exists():
               print("::error::Missing benchmark output")
               sys.exit(1)
+          if not metrics_path.exists():
+              print("::error::Missing boss metrics output")
+              sys.exit(1)
 
           benchmark = json.loads(benchmark_path.read_text(encoding="utf-8"))
+          terminal_truth_report = analyze_boss_metrics(
+              metrics_path=metrics_path,
+              signals_path=None,
+          )
+          terminal_truth_path = Path("/tmp/self_improve_terminal_truth_report.json")
+          terminal_truth_path.write_text(
+              json.dumps(terminal_truth_report, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
           summary = benchmark.get("summary", {})
           checks = summary.get("pipeline_hard_checks", {})
           rates = checks.get("check_pass_rates", {}) or {}
+          terminal_truth = terminal_truth_report.get("terminal_truth_benchmark", {}) or {}
           execution_path_live = rates.get("execution_path_live")
           quality_gate_pass = rates.get("quality_gate_pass")
+          no_rescue_rate = terminal_truth.get("no_rescue_rate")
+          meets_30d_target = terminal_truth.get("meets_30d_target")
+          actionable_failures = terminal_truth.get("actionable_failures")
           fallback_rate = None if execution_path_live is None else round(1.0 - float(execution_path_live), 4)
           quality_fail_rate = None if quality_gate_pass is None else round(1.0 - float(quality_gate_pass), 4)
 
@@ -294,6 +321,9 @@ jobs:
               f"- quality_gate_pass pass rate: {quality_gate_pass}",
               f"- inferred fallback_rate: {fallback_rate}",
               f"- inferred quality_fail_rate: {quality_fail_rate}",
+              f"- terminal_truth no_rescue_rate: {no_rescue_rate}",
+              f"- terminal_truth meets_30d_target: {meets_30d_target}",
+              f"- terminal_truth actionable_failures: {actionable_failures}",
           ]
 
           if aggregate_path.exists():
@@ -302,7 +332,7 @@ jobs:
                   f"- A/B timeout_rate: {aggregate.get('mean_timeout_rate')}"
               )
 
-          summary_path = Path(__import__('os').environ['GITHUB_STEP_SUMMARY'])
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
           summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
           if fallback_rate is not None and fallback_rate > 0.10:
@@ -310,6 +340,12 @@ jobs:
               sys.exit(1)
           if quality_fail_rate is not None and quality_fail_rate > 0.20:
               print(f"::error::quality_fail_rate {quality_fail_rate} exceeds 0.20 threshold")
+              sys.exit(1)
+          if meets_30d_target is not True:
+              print(
+                  "::error::terminal_truth no_rescue_rate "
+                  f"{no_rescue_rate} misses the 0.50 30-day target"
+              )
               sys.exit(1)
           PY
 
@@ -321,3 +357,5 @@ jobs:
           path: |
             /tmp/dogfood_ab_integration_vague_ci
             /tmp/dogfood_pipeline_self_improve_benchmark_ci.json
+            /tmp/self_improve_terminal_truth_report.json
+            .aragora/overnight/boss_metrics.jsonl

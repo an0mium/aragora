@@ -12,10 +12,16 @@ def test_analyze_boss_metrics_fixture():
 
     report = analyze_boss_metrics(metrics_path=metrics_path, signals_path=signals_path)
     metrics_summary = report["metrics_summary"]
+    terminal_truth = report["terminal_truth_benchmark"]
 
     assert metrics_summary["totals"]["records"] == 3
     assert metrics_summary["deliverables"]["count"] == 1
     assert metrics_summary["publish_actions"]["opened_pr"] == 1
+    assert terminal_truth["total"] == 3
+    assert terminal_truth["no_rescue_rate"] == 0.333
+    assert terminal_truth["meets_30d_target"] is False
+    assert terminal_truth["actionable_failures"] == 1
+    assert terminal_truth["classes"]["deliverable_branch_pushed"] == 1
 
     signals_summary = report["signals_summary"]
     assert signals_summary is not None
@@ -25,3 +31,4 @@ def test_analyze_boss_metrics_fixture():
     text = render_text(report)
     assert "Boss Metrics Summary" in text
     assert "deliverable rate" in text
+    assert "terminal-truth no-rescue rate" in text
