@@ -9,7 +9,24 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-__all__ = ["KnowledgeMoundHostProtocol"]
+KNOWLEDGE_MOUND_HOST_PROTOCOL_MEMBERS: tuple[str, ...] = (
+    "workspace_id",
+    "config",
+    "_initialized",
+    "_continuum",
+    "_consensus",
+    "_facts",
+    "_evidence",
+    "_critique",
+    "_ensure_initialized",
+    "query",
+    "store",
+)
+
+__all__ = [
+    "KNOWLEDGE_MOUND_HOST_PROTOCOL_MEMBERS",
+    "KnowledgeMoundHostProtocol",
+]
 
 
 @runtime_checkable
