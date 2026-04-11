@@ -150,6 +150,7 @@ class IdeaCanvasHandler(SecureHandler):
         field: str,
         *,
         allow_blank: bool = True,
+        max_length: int = 5000,
     ) -> str | None:
         if field not in body:
             return None
@@ -158,11 +159,15 @@ class IdeaCanvasHandler(SecureHandler):
             raise InvalidRequestError(f"{field} must be a string")
         if not allow_blank and not value.strip():
             raise InvalidRequestError(f"{field} must be a non-empty string")
+        if len(value) > max_length:
+            raise InvalidRequestError(f"{field} exceeds maximum length of {max_length}")
         return value
 
-    def _validate_required_string(self, value: Any, field: str) -> str:
+    def _validate_required_string(self, value: Any, field: str, *, max_length: int = 1000) -> str:
         if not isinstance(value, str) or not value.strip():
             raise InvalidRequestError(f"{field} is required and must be a non-empty string")
+        if len(value) > max_length:
+            raise InvalidRequestError(f"{field} exceeds maximum length of {max_length}")
         return value
 
     def _validate_optional_object(self, body: dict[str, Any], field: str) -> dict[str, Any] | None:
@@ -306,12 +311,23 @@ class IdeaCanvasHandler(SecureHandler):
         workspace_id: str | None,
     ) -> HandlerResult:
         try:
+            raw_limit = query_params.get("limit", 100)
+            raw_offset = query_params.get("offset", 0)
+            try:
+                limit = max(1, min(int(raw_limit), 1000))
+            except (TypeError, ValueError):
+                raise InvalidRequestError("limit must be an integer")
+            try:
+                offset = max(0, int(raw_offset))
+            except (TypeError, ValueError):
+                raise InvalidRequestError("offset must be an integer")
+
             store = self._get_store()
             canvases = store.list_canvases(
                 workspace_id=query_params.get("workspace_id") or workspace_id,
                 owner_id=query_params.get("owner_id") or user_id,
-                limit=max(1, min(int(query_params.get("limit", 100)), 1000)),
-                offset=max(0, int(query_params.get("offset", 0))),
+                limit=limit,
+                offset=offset,
             )
             return json_response({"canvases": canvases, "count": len(canvases)})
         except (ImportError, KeyError, ValueError, TypeError, OSError, RuntimeError) as e:
@@ -568,6 +584,8 @@ class IdeaCanvasHandler(SecureHandler):
             target_id = body.get("target_id") or body.get("target")
             source_id = self._validate_required_string(source_id, "source_id")
             target_id = self._validate_required_string(target_id, "target_id")
+            if source_id == target_id:
+                raise InvalidRequestError("source_id and target_id must be different")
 
             edge_type_str = body.get("type", "default")
             if not isinstance(edge_type_str, str) or not edge_type_str.strip():
@@ -658,7 +676,9 @@ class IdeaCanvasHandler(SecureHandler):
             if not canvas:
                 return error_response("Canvas not found", 404)
 
-            node_ids = self._validate_string_list(body.get("node_ids"), "node_ids")
+            if "node_ids" not in body:
+                raise InvalidRequestError("node_ids is required")
+            node_ids = self._validate_string_list(body["node_ids"], "node_ids")
 
             goals_canvas, provenance = promote_ideas_to_goals(
                 canvas,
