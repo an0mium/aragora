@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
@@ -55,7 +56,7 @@ _REGISTRY_LISTING_SCHEMA: dict[str, Any] = {
 
 def get_registry_listing_schema() -> dict[str, Any]:
     """Return a copy of the registry listing schema for validation and testing."""
-    return dict(_REGISTRY_LISTING_SCHEMA)
+    return deepcopy(_REGISTRY_LISTING_SCHEMA)
 
 
 TEMPLATE_REGISTRY_ENDPOINTS: dict[str, Any] = {
