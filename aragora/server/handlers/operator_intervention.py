@@ -200,6 +200,8 @@ class OperatorInterventionHandler(BaseHandler):
         if reason_value is not None and not isinstance(reason_value, str):
             return error_response("reason must be a string", 400)
         reason = reason_value.strip() if isinstance(reason_value, str) else ""
+        if len(reason) > 1000:
+            return error_response("reason must not exceed 1000 characters", 400)
 
         success = manager.pause(debate_id, reason=reason)
         if not success:
@@ -253,6 +255,8 @@ class OperatorInterventionHandler(BaseHandler):
         from_round = body.get("from_round", 0)
         if isinstance(from_round, bool) or not isinstance(from_round, int) or from_round < 0:
             return error_response("from_round must be a non-negative integer", 400)
+        if from_round > 10000:
+            return error_response("from_round exceeds maximum allowed value", 400)
 
         success = manager.restart(debate_id, from_round=from_round)
         if not success:
