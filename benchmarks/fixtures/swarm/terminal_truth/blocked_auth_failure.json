@@ -1,0 +1,29 @@
+[
+  {
+    "worker_status": "failed",
+    "worker_outcome": "auth_failure",
+    "elapsed_seconds": 5.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_auth_failure"
+  },
+  {
+    "worker_status": "error",
+    "worker_outcome": "github_auth_expired",
+    "elapsed_seconds": 10.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_auth_failure"
+  },
+  {
+    "worker_status": "blocked",
+    "worker_outcome": "auth_token_invalid",
+    "elapsed_seconds": 3.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_auth_failure"
+  }
+]

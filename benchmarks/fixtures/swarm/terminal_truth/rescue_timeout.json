@@ -1,0 +1,29 @@
+[
+  {
+    "worker_status": "timed_out",
+    "worker_outcome": "timeout",
+    "elapsed_seconds": 3600.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "rescue_timeout"
+  },
+  {
+    "worker_status": "failed",
+    "worker_outcome": "timeout",
+    "elapsed_seconds": 1800.0,
+    "files_changed": 2,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "rescue_timeout"
+  },
+  {
+    "worker_status": "error",
+    "worker_outcome": "timeout",
+    "elapsed_seconds": 7200.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "rescue_timeout"
+  }
+]

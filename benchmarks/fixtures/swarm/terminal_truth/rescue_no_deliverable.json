@@ -1,0 +1,38 @@
+[
+  {
+    "worker_status": "completed",
+    "worker_outcome": "no_output",
+    "elapsed_seconds": 300.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "rescue_no_deliverable"
+  },
+  {
+    "worker_status": "completed",
+    "worker_outcome": "",
+    "elapsed_seconds": 120.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "none",
+    "expected_class": "rescue_no_deliverable"
+  },
+  {
+    "worker_status": "stalled",
+    "worker_outcome": "",
+    "elapsed_seconds": 500.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "rescue_no_deliverable"
+  },
+  {
+    "worker_status": "",
+    "worker_outcome": "",
+    "elapsed_seconds": 30.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "rescue_no_deliverable"
+  }
+]

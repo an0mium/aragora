@@ -1,0 +1,47 @@
+[
+  {
+    "worker_status": "failed",
+    "worker_outcome": "sanitation_failed",
+    "elapsed_seconds": 5.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_sanitation_failed"
+  },
+  {
+    "worker_status": "blocked",
+    "worker_outcome": "sanitation_failed",
+    "elapsed_seconds": 15.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_sanitation_failed"
+  },
+  {
+    "worker_status": "error",
+    "worker_outcome": "sanitation_failed",
+    "elapsed_seconds": 60.0,
+    "files_changed": 2,
+    "has_deliverable": true,
+    "publish_action": "",
+    "expected_class": "blocked_sanitation_failed"
+  },
+  {
+    "worker_status": "",
+    "worker_outcome": "",
+    "elapsed_seconds": 29.9,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_sanitation_failed"
+  },
+  {
+    "worker_status": "unknown",
+    "worker_outcome": "",
+    "elapsed_seconds": 25.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_sanitation_failed"
+  }
+]

@@ -102,6 +102,8 @@ def classify_from_metrics(row: dict[str, Any]) -> TerminalClass:
         return TerminalClass.BLOCKED_NO_RUNNER
     if "auth" in outcome:
         return TerminalClass.BLOCKED_AUTH_FAILURE
+    if "decomposition_limit" in outcome:
+        return TerminalClass.BLOCKED_DECOMPOSITION_LIMIT
 
     if "crash" in outcome:
         return TerminalClass.RESCUE_WORKER_CRASH

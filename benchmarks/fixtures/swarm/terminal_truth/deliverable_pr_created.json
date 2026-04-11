@@ -1,0 +1,38 @@
+[
+  {
+    "worker_status": "completed",
+    "worker_outcome": "pr_adopted",
+    "elapsed_seconds": 342.5,
+    "files_changed": 12,
+    "has_deliverable": true,
+    "publish_action": "merged",
+    "expected_class": "deliverable_pr_created"
+  },
+  {
+    "worker_status": "completed",
+    "worker_outcome": "success",
+    "elapsed_seconds": 185.0,
+    "files_changed": 5,
+    "has_deliverable": true,
+    "publish_action": "pr_created",
+    "expected_class": "deliverable_pr_created"
+  },
+  {
+    "worker_status": "completed",
+    "worker_outcome": "pr_adopted",
+    "elapsed_seconds": 120.3,
+    "files_changed": 3,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "deliverable_pr_created"
+  },
+  {
+    "worker_status": "completed",
+    "worker_outcome": "",
+    "elapsed_seconds": 450.0,
+    "files_changed": 8,
+    "has_deliverable": false,
+    "publish_action": "pr_created_and_merged",
+    "expected_class": "deliverable_pr_created"
+  }
+]

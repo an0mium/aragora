@@ -1,0 +1,38 @@
+[
+  {
+    "worker_status": "failed",
+    "worker_outcome": "verification_failed",
+    "elapsed_seconds": 125.0,
+    "files_changed": 5,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "rescue_verification_failed"
+  },
+  {
+    "worker_status": "error",
+    "worker_outcome": "tests_failed",
+    "elapsed_seconds": 200.3,
+    "files_changed": 3,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "rescue_verification_failed"
+  },
+  {
+    "worker_status": "failed",
+    "worker_outcome": "lint_failed",
+    "elapsed_seconds": 310.0,
+    "files_changed": 8,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "rescue_verification_failed"
+  },
+  {
+    "worker_status": "unknown",
+    "worker_outcome": "",
+    "elapsed_seconds": 180.0,
+    "files_changed": 2,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "rescue_verification_failed"
+  }
+]

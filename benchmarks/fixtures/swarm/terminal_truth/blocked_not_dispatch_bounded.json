@@ -1,0 +1,29 @@
+[
+  {
+    "worker_status": "blocked",
+    "worker_outcome": "blocked",
+    "elapsed_seconds": 0.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_not_dispatch_bounded"
+  },
+  {
+    "worker_status": "failed",
+    "worker_outcome": "blocked",
+    "elapsed_seconds": 10.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_not_dispatch_bounded"
+  },
+  {
+    "worker_status": "error",
+    "worker_outcome": "blocked",
+    "elapsed_seconds": 300.0,
+    "files_changed": 2,
+    "has_deliverable": true,
+    "publish_action": "skipped",
+    "expected_class": "blocked_not_dispatch_bounded"
+  }
+]
