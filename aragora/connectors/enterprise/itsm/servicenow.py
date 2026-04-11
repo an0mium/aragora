@@ -676,6 +676,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
             except (OSError, RuntimeError, ValueError, TypeError, KeyError) as e:
                 logger.error("[%s] Search in %s failed: %s", self.name, tbl, e)
+                raise
 
         return results[:limit]
 
@@ -727,7 +728,7 @@ class ServiceNowConnector(EnterpriseConnector):
 
         except (OSError, RuntimeError, ValueError, TypeError, KeyError) as e:
             logger.error("[%s] Fetch failed: %s", self.name, e)
-            return None
+            raise
 
     async def handle_webhook(
         self,
@@ -889,8 +890,7 @@ class ServiceNowConnector(EnterpriseConnector):
             return results[0] if results else None
         except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("[%s] Reference resolution failed: %s", self.name, e)
-
-        return None
+            raise
 
     async def get_user_details(self, user_sys_id: str) -> dict[str, str] | None:
         """
