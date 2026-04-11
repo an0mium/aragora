@@ -2360,3 +2360,90 @@ async def test_drive_manifest_dispatches_all_ready_lanes_only_when_parallel_cap_
     )
 
     assert seen["all_ready"] is expected_all_ready
+
+
+@pytest.mark.asyncio
+async def test_drive_manifest_stops_on_unexpected_refresh_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queue_path = tmp_path / "overnight.yaml"
+    _write_queue(queue_path)
+    executor = TrancheQueueExecutor(queue_path=queue_path, repo_root=tmp_path)
+    manifest_path = tmp_path / "tranche.yaml"
+    manifest_path.write_text("manifest_id: tranche-test\n", encoding="utf-8")
+    item = TrancheQueueItem(
+        item_id="issue-1046",
+        kind="issue",
+        source="1046",
+        merge_class="manual",
+        max_lanes=1,
+    )
+    item_state = TrancheQueueItemRunState(
+        item_id=item.item_id,
+        status=QUEUE_ITEM_STATUS_RUNNING,
+        effective_autonomy_mode="adaptive",
+    )
+    current = TrancheRunState(
+        manifest_id="tranche-test",
+        status="running",
+        autonomy_mode="adaptive",
+        lane_states={"lane-a": LaneRunState(lane_id="lane-a", status="running")},
+    )
+    artifact = TrancheLaneArtifact(
+        lane_id="lane-a",
+        source_ref="issue-1046",
+        status="completed",
+        run_id="run-1",
+        metadata={},
+    )
+
+    class _FakeSupervisor:
+        def __init__(self) -> None:
+            self.store = SimpleNamespace(
+                get_supervisor_run=lambda _run_id: {
+                    "run_id": "run-1",
+                    "status": "completed",
+                    "work_orders": [],
+                }
+            )
+
+        def refresh_run(self, run_id: str):
+            raise TypeError(f"refresh exploded for {run_id}")
+
+    async def fake_watch_loop(state, *, review_fn, manifest, **kwargs):
+        await review_fn(manifest=manifest, lane_id="lane-a", artifact=artifact)
+        return state
+
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.load_tranche_run_state",
+        lambda _: current,
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.claim_driver",
+        lambda state, **kwargs: state,
+    )
+    monkeypatch.setattr(
+        "aragora.swarm.tranche_queue.release_driver",
+        lambda state, **kwargs: state,
+    )
+    monkeypatch.setattr("aragora.swarm.tranche_queue.watch_loop", fake_watch_loop)
+    monkeypatch.setattr(executor, "_github_client", lambda: object())
+    monkeypatch.setattr(executor, "_registry_client", lambda: object())
+    executor._supervisor = _FakeSupervisor()
+
+    result = await executor._drive_manifest(
+        item=item,
+        item_state=item_state,
+        manifest_path=manifest_path,
+        tranche_manifest=SimpleNamespace(
+            manifest_id="tranche-test",
+            lane=lambda _lane_id: SimpleNamespace(allowed_write_scope=["aragora/swarm/**"]),
+        ),
+        deadline=datetime.now(timezone.utc) + timedelta(minutes=5),
+    )
+
+    assert result == "watch_failure"
+    assert item_state.status == QUEUE_ITEM_STATUS_STOPPED
+    assert item_state.stop_reason == "watch_failure"
+    assert item_state.result["watch_error"] == {"error_type": "TypeError"}

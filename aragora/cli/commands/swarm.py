@@ -2460,6 +2460,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             claim_driver,
             list_tranche_states,
             load_tranche_run_state,
+            refresh_supervisor_run_dict,
             release_driver,
             run_state_path_for_manifest,
             watch_loop,
@@ -2746,16 +2747,12 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     }
                 if supervisor is None:
                     supervisor = SwarmSupervisor(repo_root=repo_root)
-                try:
-                    run_dict = supervisor.refresh_run(run_id).to_dict()
-                except Exception:
-                    record = supervisor.store.get_supervisor_run(run_id)
-                    if not isinstance(record, dict):
-                        return {
-                            "status": "blocked_nonreviewable",
-                            "findings": [f"Supervisor run {run_id} is not available."],
-                        }
-                    run_dict = dict(record)
+                run_dict = refresh_supervisor_run_dict(supervisor, run_id)
+                if run_dict is None:
+                    return {
+                        "status": "blocked_nonreviewable",
+                        "findings": [f"Supervisor run {run_id} is not available."],
+                    }
                 lane = manifest.lane(lane_id)
                 tier = select_review_tier(
                     write_scope=list(getattr(lane, "allowed_write_scope", [])),
@@ -2903,13 +2900,9 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 run_id = str(getattr(artifact, "run_id", None) or "").strip()
                 if not run_id:
                     raise ValueError(f"Artifact {artifact.lane_id} has no run_id.")
-                try:
-                    run_dict = supervisor.refresh_run(run_id).to_dict()
-                except Exception:
-                    record = supervisor.store.get_supervisor_run(run_id)
-                    if not isinstance(record, dict):
-                        raise ValueError(f"Supervisor run {run_id} is not available.") from None
-                    run_dict = dict(record)
+                run_dict = refresh_supervisor_run_dict(supervisor, run_id)
+                if run_dict is None:
+                    raise ValueError(f"Supervisor run {run_id} is not available.") from None
                 tier_arg = str(getattr(args, "tier", "auto") or "auto").strip()
                 if tier_arg == "auto":
                     lane = manifest.lane(artifact.lane_id)

@@ -8,6 +8,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+
 from aragora.cli.commands.swarm import _classify_issue_validation_status, cmd_swarm
 from aragora.swarm.initiative_models import InitiativeRecord, InitiativeSlice
 from aragora.swarm.initiative_store import InitiativeStore
@@ -1235,6 +1237,48 @@ class TestSwarmCommand:
         assert '"mode": "tranche-review"' in out
         assert '"status": "passed"' in out
         assert '"action": "review"' in out
+
+    def test_cmd_swarm_tranche_review_raises_unexpected_refresh_errors(self):
+        args = _swarm_args(
+            swarm_action_or_goal="tranche",
+            swarm_goal="review",
+            manifest="docs/examples/boss-lane-manifest-2026-03-19.yaml",
+            lane_id="lane_a",
+            tier="1",
+            json=True,
+        )
+        fake_manifest = SimpleNamespace(
+            manifest_id="pmf-tranche",
+            lane=lambda _lane_id: SimpleNamespace(allowed_write_scope=["aragora/live/**"]),
+        )
+        fake_artifact = SimpleNamespace(
+            lane_id="lane_a",
+            status="completed",
+            run_id="run-1",
+            metadata={},
+        )
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("aragora.worktree.fleet.resolve_repo_root", return_value=Path("/tmp/repo")),
+            patch("aragora.swarm.tranche.load_tranche_manifest", return_value=fake_manifest),
+            patch("aragora.swarm.tranche.TrancheArtifactStore") as store_cls,
+            patch("aragora.swarm.supervisor.SwarmSupervisor") as supervisor_cls,
+            patch("aragora.swarm.tranche_review.review_lane") as mock_review,
+        ):
+            store_cls.return_value.load.return_value = fake_artifact
+            store_cls.return_value.list.return_value = [fake_artifact]
+            supervisor = supervisor_cls.return_value
+            supervisor.refresh_run.side_effect = TypeError("refresh exploded")
+            supervisor.store.get_supervisor_run.return_value = {
+                "run_id": "run-1",
+                "status": "completed",
+                "work_orders": [],
+            }
+
+            with pytest.raises(TypeError, match="refresh exploded"):
+                cmd_swarm(args)
+
+        mock_review.assert_not_called()
 
     def test_cmd_swarm_tranche_integrate_json(self, capsys):
         args = _swarm_args(

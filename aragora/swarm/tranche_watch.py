@@ -657,6 +657,28 @@ def _get_supervisor_run(store: Any | None, run_id: str | None) -> dict[str, Any]
     return record if isinstance(record, dict) else None
 
 
+def refresh_supervisor_run_dict(supervisor: Any, run_id: str | None) -> dict[str, Any] | None:
+    run = _optional_text(run_id)
+    if supervisor is None or not run or not hasattr(supervisor, "refresh_run"):
+        return None
+    try:
+        refreshed = supervisor.refresh_run(run)
+    except (KeyError, OSError, RuntimeError, ValueError):
+        logger.debug(
+            "Supervisor refresh failed for run %s; falling back to stored record",
+            run,
+            exc_info=True,
+        )
+        record = _get_supervisor_run(getattr(supervisor, "store", None), run)
+        return dict(record) if isinstance(record, dict) else None
+    if not hasattr(refreshed, "to_dict"):
+        raise TypeError(f"Supervisor refresh for {run} returned {type(refreshed).__name__}")
+    payload = refreshed.to_dict()
+    if not isinstance(payload, dict):
+        raise TypeError(f"Supervisor refresh for {run} returned non-dict payload")
+    return dict(payload)
+
+
 def _get_completion_receipt(store: Any | None, receipt_id: str | None) -> Any | None:
     if store is None or not receipt_id or not hasattr(store, "get_completion_receipt"):
         return None

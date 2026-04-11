@@ -19,6 +19,7 @@ from aragora.swarm.tranche_watch import (
     DriverAlreadyClaimedError,
     claim_driver,
     heartbeat_driver,
+    refresh_supervisor_run_dict,
     refresh_tranche_state,
     release_driver,
 )
@@ -122,6 +123,43 @@ class _FakeCoordinationStore:
         if isinstance(limit, int) and limit > 0:
             return items[:limit]
         return items
+
+
+def test_refresh_supervisor_run_dict_falls_back_on_expected_refresh_errors(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    store = _FakeCoordinationStore(
+        runs={"run-1": {"run_id": "run-1", "status": "completed", "source": "store"}}
+    )
+
+    class _FakeSupervisor:
+        def __init__(self) -> None:
+            self.store = store
+
+        def refresh_run(self, run_id: str):
+            raise RuntimeError(f"refresh failed for {run_id}")
+
+    with caplog.at_level("DEBUG"):
+        run_dict = refresh_supervisor_run_dict(_FakeSupervisor(), "run-1")
+
+    assert run_dict == {"run_id": "run-1", "status": "completed", "source": "store"}
+    assert "falling back to stored record" in caplog.text
+
+
+def test_refresh_supervisor_run_dict_raises_unexpected_errors() -> None:
+    store = _FakeCoordinationStore(
+        runs={"run-1": {"run_id": "run-1", "status": "completed", "source": "store"}}
+    )
+
+    class _FakeSupervisor:
+        def __init__(self) -> None:
+            self.store = store
+
+        def refresh_run(self, run_id: str):
+            raise TypeError(f"unexpected refresh failure for {run_id}")
+
+    with pytest.raises(TypeError, match="unexpected refresh failure"):
+        refresh_supervisor_run_dict(_FakeSupervisor(), "run-1")
 
 
 def test_refresh_updates_lane_status_from_artifact_store():
