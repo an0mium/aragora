@@ -537,7 +537,7 @@ class ApprovalWorkflow:
             )
 
         except asyncio.CancelledError:
-            pass
+            logger.debug("Expiry task cancelled for request %s", request_id)
         finally:
             # Ensure expired/cancelled tasks are removed from tracking
             self._expiry_tasks.pop(request_id, None)
