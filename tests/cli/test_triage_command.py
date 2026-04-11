@@ -15,7 +15,10 @@ from aragora.cli.commands import triage as triage_cmd
 from aragora.inbox.triage_diagnostics import DiagnosticSeverity, record_triage_diagnostic
 from aragora.inbox.trust_wedge import InboxWedgeAction, TriageDecision
 from aragora.storage.gmail_token_store import (
+    EncryptionError,
+    GmailUserState,
     InMemoryGmailTokenStore,
+    SQLiteGmailTokenStore,
     reset_gmail_token_store,
     set_gmail_token_store,
 )
@@ -264,6 +267,38 @@ async def test_sync_gmail_connector_to_token_store_saves_connector_tokens():
     assert state.refresh_token == "refresh-token-123"
     assert state.access_token == "access-token-456"
     assert state.token_expiry == "expiry-marker"
+
+
+@pytest.mark.asyncio
+async def test_sync_gmail_connector_to_token_store_ignores_encryption_errors(tmp_path):
+    store = SQLiteGmailTokenStore(tmp_path / "gmail_tokens.db")
+    connector = SimpleNamespace(
+        user_id="me",
+        _refresh_token="refresh-token-123",
+        _access_token="access-token-456",
+    )
+    set_gmail_token_store(store)
+    try:
+        with (
+            patch(
+                "aragora.storage.gmail_token_store.is_encryption_required",
+                return_value=True,
+            ),
+            patch(
+                "aragora.storage.gmail_token_store.get_encryption_service",
+                side_effect=RuntimeError("kms offline"),
+            ),
+        ):
+            with pytest.raises(EncryptionError):
+                await store.save(GmailUserState(user_id="me", refresh_token="refresh-token-123"))
+
+            await triage_cmd._sync_gmail_connector_to_token_store(connector)
+            state = await store.get("me")
+    finally:
+        reset_gmail_token_store()
+        await store.close()
+
+    assert state is None
 
 
 def test_print_decisions_formats_enum_values(capsys):

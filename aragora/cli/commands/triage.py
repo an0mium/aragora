@@ -563,7 +563,11 @@ async def _sync_gmail_connector_to_token_store(connector: object | None) -> None
         return
 
     try:
-        from aragora.storage.gmail_token_store import GmailUserState, get_gmail_token_store
+        from aragora.storage.gmail_token_store import (
+            EncryptionError,
+            GmailUserState,
+            get_gmail_token_store,
+        )
 
         user_id = str(getattr(connector, "user_id", "") or "me")
         store = get_gmail_token_store()
@@ -573,7 +577,7 @@ async def _sync_gmail_connector_to_token_store(connector: object | None) -> None
         state.access_token = str(getattr(connector, "_access_token", "") or state.access_token)
         state.token_expiry = getattr(connector, "_token_expiry", None) or state.token_expiry
         await store.save(state)
-    except (ImportError, OSError, RuntimeError) as exc:
+    except (EncryptionError, ImportError, OSError, RuntimeError) as exc:
         logger.debug("Gmail token-store sync skipped: %s", exc)
 
 
