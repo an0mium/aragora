@@ -39,6 +39,7 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from aragora.agents.errors import AgentError
+from aragora.gauntlet.receipt_models import _normalize_receipt_boolean
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -2153,7 +2154,7 @@ def _assess_proposal_consensus(
         else:
             parsed = json.loads(raw)
 
-        reached = bool(parsed.get("consensus", False))
+        reached = _normalize_receipt_boolean(parsed.get("consensus"))
         conf = float(parsed.get("confidence", 0.0))
         conf = max(0.0, min(1.0, conf))  # clamp
         return reached, conf

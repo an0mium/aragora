@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import AliasChoices, BaseModel, Field, field_validator, model_validator
 
 from aragora.config import DEFAULT_CONSENSUS, DEFAULT_ROUNDS, MAX_ROUNDS
+from aragora.gauntlet.receipt_models import _normalize_receipt_boolean
 
 
 class DebateStatus(str, Enum):
@@ -149,7 +150,7 @@ class Debate(BaseModel):
             supporting = [agent for agent, agreed in vote_breakdown.items() if agreed]
             dissenting = [agent for agent, agreed in vote_breakdown.items() if not agreed]
             self.consensus = ConsensusResult(
-                reached=bool(proof.get("reached", False)),
+                reached=_normalize_receipt_boolean(proof.get("reached")),
                 agreement=proof.get("confidence"),
                 confidence=proof.get("confidence"),
                 final_answer=proof.get("final_answer"),

@@ -800,6 +800,25 @@ class TestResponseValidation:
             assert debate.consensus.confidence == 0.85
             assert len(debate.consensus.supporting_agents) == 2
 
+    def test_consensus_result_parsing_treats_string_false_as_false(self):
+        debate = Debate.model_validate(
+            {
+                "id": "debate-123",
+                "task": "Test task",
+                "status": "completed",
+                "consensus_proof": {
+                    "reached": "false",
+                    "confidence": 0.15,
+                    "final_answer": "No consensus",
+                    "vote_breakdown": {"claude": True, "gpt-4": False},
+                },
+            }
+        )
+
+        assert debate.consensus is not None
+        assert debate.consensus.reached is False
+        assert debate.consensus.confidence == pytest.approx(0.15)
+
     def test_verification_status_parsing(self, mock_client, mock_responses):
         """Test VerifyStatusResponse is parsed correctly."""
         with patch.object(mock_client, "_get", return_value=mock_responses["verify_status"]):

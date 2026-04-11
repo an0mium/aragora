@@ -25,6 +25,7 @@ import pytest
 from aragora.server.handlers.playground import (
     PlaygroundHandler,
     _DEFAULT_AGENTS,
+    _assess_proposal_consensus,
     _check_rate_limit,
     _reset_oracle_sessions,
     _reset_rate_limits,
@@ -69,6 +70,17 @@ def _make_live_debate_response(topic: str = "test", agent_count: int = 3):
             "upgrade_cta": {},
         }
     )
+
+
+def test_assess_proposal_consensus_parses_string_false():
+    with patch(
+        "aragora.server.handlers.playground.PlaygroundHandler._call_frontier_model",
+        return_value='{"consensus": "false", "confidence": 0.2}',
+    ):
+        reached, confidence = _assess_proposal_consensus("test", {"a": "yes", "b": "no"})
+
+    assert reached is False
+    assert confidence == pytest.approx(0.2)
 
 
 @pytest.fixture(autouse=True)
