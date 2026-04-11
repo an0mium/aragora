@@ -186,7 +186,8 @@ def _agent_names_for_graph_matrix(agents_str: str) -> list[str]:
     try:
         specs = parse_agents(agents_str)
         return [spec.provider for spec in specs if spec.provider]
-    except (ValueError, AttributeError, TypeError):
+    except (ValueError, AttributeError, TypeError) as e:
+        logger.debug("Agent spec parsing failed, falling back to split: %s", e)
         return _split_agents_list(agents_str)
 
 
@@ -194,7 +195,8 @@ def _agents_payload_for_api(agents_str: str) -> list[Any]:
     """Build API payload for agents (strings or dicts) from CLI input."""
     try:
         specs = parse_agents(agents_str)
-    except (ValueError, AttributeError, TypeError):
+    except (ValueError, AttributeError, TypeError) as e:
+        logger.debug("Agent spec parsing failed, falling back to split: %s", e)
         return _split_agents_list(agents_str)
 
     if not specs:
@@ -232,7 +234,8 @@ def _is_server_available(server_url: str) -> bool:
         with urllib.request.urlopen(f"{server_url}/api/health", timeout=2) as resp:  # noqa: S310 -- local server health check
             status_code = getattr(resp, "status", None) or resp.getcode()
             return status_code == 200
-    except (OSError, TimeoutError):
+    except (OSError, TimeoutError) as e:
+        logger.debug("Server health check failed at %s: %s", server_url, e)
         return False
 
 
@@ -552,6 +555,9 @@ def _detect_provider(model: str | None) -> str:
 
         detected = detect_provider(candidate)
     except ImportError:
+        logger.debug(
+            "provider_diversity module not available, cannot detect provider for %s", candidate
+        )
         detected = "unknown"
     return "" if detected == "unknown" else detected
 
@@ -1943,7 +1949,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 try:
                     ordered_specs.append(AgentSpec(provider=provider_name, role="synthesizer"))
                     seen.add(provider_name)
-                except ValueError:
+                except ValueError as e:
+                    logger.debug("Skipping preferred provider %s: %s", provider_name, e)
                     continue
 
         # Optional OpenRouter fallback for quota/billing/provider outages.
