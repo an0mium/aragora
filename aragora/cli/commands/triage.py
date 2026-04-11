@@ -430,8 +430,10 @@ async def _run_triage(
 
                     loop = CLIReviewLoop(review_fn=wedge_service.review_receipt)
                     loop.review_batch(decisions)
-                except ImportError:
-                    logger.debug("CLIReviewLoop not available, skipping interactive review")
+                except ImportError as exc:
+                    logger.debug(
+                        "CLIReviewLoop not available, skipping interactive review: %s", exc
+                    )
                     return
         finally:
             await _shutdown_triage_storage()
