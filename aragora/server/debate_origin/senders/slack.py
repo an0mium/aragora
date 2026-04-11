@@ -79,7 +79,7 @@ async def _get_slack_token() -> str:
                     return access_token
                 else:
                     logger.warning("Slack token refresh failed: %s", data.get("error"))
-        except Exception as exc:
+        except (httpx.HTTPError, OSError, ValueError, KeyError) as exc:
             logger.warning("Slack token refresh error: %s", exc)
 
     # Fallback to static token
