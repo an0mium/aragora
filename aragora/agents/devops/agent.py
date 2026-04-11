@@ -265,6 +265,7 @@ class DevOpsAgent:
         try:
             prs = json.loads(output) if output and output != "[dry run]" else []
         except json.JSONDecodeError:
+            logger.warning("Failed to parse PR list JSON: %s", output[:200] if output else "")
             prs = []
 
         for pr in prs:
@@ -342,6 +343,9 @@ class DevOpsAgent:
         try:
             data = json.loads(review_json)
         except json.JSONDecodeError:
+            logger.warning(
+                "Failed to parse review JSON for PR #%d: %s", pr_number, review_json[:200]
+            )
             data = {}
 
         lines = [
@@ -392,6 +396,7 @@ class DevOpsAgent:
         try:
             issues = json.loads(output) if output and output != "[dry run]" else []
         except json.JSONDecodeError:
+            logger.warning("Failed to parse issue list JSON: %s", output[:200] if output else "")
             issues = []
 
         for issue in issues:
@@ -516,6 +521,7 @@ class DevOpsAgent:
             try:
                 pr_count = int(output.strip())
             except ValueError:
+                logger.warning("Failed to parse open PR count: %s", output[:100])
                 pr_count = -1
             checks.append({"check": "open_prs", "count": pr_count})
 
@@ -528,6 +534,7 @@ class DevOpsAgent:
             try:
                 issue_count = int(output.strip())
             except ValueError:
+                logger.warning("Failed to parse open issue count: %s", output[:100])
                 issue_count = -1
             checks.append({"check": "open_issues", "count": issue_count})
 
@@ -548,7 +555,9 @@ class DevOpsAgent:
                         }
                     )
             except json.JSONDecodeError:
-                pass
+                logger.warning(
+                    "Failed to parse release list JSON: %s", output[:200] if output else ""
+                )
 
         result.details = checks
         result.items_processed = len(checks)
