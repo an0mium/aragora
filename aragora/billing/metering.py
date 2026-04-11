@@ -434,7 +434,7 @@ class UsageMeter:
             try:
                 await self._flush_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Flush task cancelled during stop")
         await self._flush_events()
         logger.info("Usage metering stopped")
 
