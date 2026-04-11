@@ -16,6 +16,7 @@ Example:
 
 from __future__ import annotations
 
+import importlib
 import logging
 from typing import Any
 
@@ -220,51 +221,22 @@ def _register_builtin_docks(registry: DockRegistry) -> None:
     Called automatically when the registry is first accessed.
     """
     # Import and register available docks
-    try:
-        from aragora.channels.docks.slack import SlackDock
+    _optional_docks = [
+        ("aragora.channels.docks.slack", "SlackDock", "Slack"),
+        ("aragora.channels.docks.telegram", "TelegramDock", "Telegram"),
+        ("aragora.channels.docks.discord", "DiscordDock", "Discord"),
+        ("aragora.channels.docks.teams", "TeamsDock", "Teams"),
+        ("aragora.channels.docks.whatsapp", "WhatsAppDock", "WhatsApp"),
+        ("aragora.channels.docks.email", "EmailDock", "Email"),
+        ("aragora.channels.docks.google_chat", "GoogleChatDock", "Google Chat"),
+    ]
 
-        registry.register(SlackDock)
-    except ImportError:
-        logger.debug("Slack dock not available (missing dependencies)")
-
-    try:
-        from aragora.channels.docks.telegram import TelegramDock
-
-        registry.register(TelegramDock)
-    except ImportError:
-        logger.debug("Telegram dock not available (missing dependencies)")
-
-    try:
-        from aragora.channels.docks.discord import DiscordDock
-
-        registry.register(DiscordDock)
-    except ImportError:
-        logger.debug("Discord dock not available (missing dependencies)")
-
-    try:
-        from aragora.channels.docks.teams import TeamsDock
-
-        registry.register(TeamsDock)
-    except ImportError:
-        logger.debug("Teams dock not available (missing dependencies)")
-
-    try:
-        from aragora.channels.docks.whatsapp import WhatsAppDock
-
-        registry.register(WhatsAppDock)
-    except ImportError:
-        logger.debug("WhatsApp dock not available (missing dependencies)")
-
-    try:
-        from aragora.channels.docks.email import EmailDock
-
-        registry.register(EmailDock)
-    except ImportError:
-        logger.debug("Email dock not available (missing dependencies)")
-
-    try:
-        from aragora.channels.docks.google_chat import GoogleChatDock
-
-        registry.register(GoogleChatDock)
-    except ImportError:
-        logger.debug("Google Chat dock not available (missing dependencies)")
+    for module_path, class_name, label in _optional_docks:
+        try:
+            mod = importlib.import_module(module_path)
+            dock_class = getattr(mod, class_name)
+            registry.register(dock_class)
+        except ImportError:
+            logger.debug("%s dock not available (missing dependencies)", label)
+        except Exception:
+            logger.warning("Failed to register %s dock", label, exc_info=True)
