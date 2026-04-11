@@ -484,7 +484,12 @@ class User:
             return []
         try:
             return json.loads(self.service_account_scopes)
-        except (json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError) as e:
+            logger.warning(
+                "Failed to parse service_account_scopes for user %s: %s",
+                self.id,
+                e,
+            )
             return []
 
     def set_service_account_scopes(self, scopes: list[str]) -> None:
