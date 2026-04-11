@@ -2363,7 +2363,7 @@ class HardenedOrchestrator(BudgetMixin, GauntletMixin, AuditMixin, AutonomousOrc
             # C. Post-execution gauntlet validation
             if self.hardened_config.enable_gauntlet_validation and assignment.status == "completed":
                 await self._run_gauntlet_validation(assignment)
-        except Exception:
+        except (OSError, RuntimeError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
             self._cancel_budget_reservation(assignment, reason="assignment_aborted")
             raise
 
