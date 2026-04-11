@@ -12,6 +12,11 @@
 
 - [ ] **RS-01** Define canonical failure taxonomy buckets
 - [ ] **RS-02** Harvest benchmark fixtures from rescue receipts
+- [ ] **RS-03** Add a benchmark scoring lane and regression guardrails in CI
+
+### Milestone 1.2 — Worker Contracts & Credential Envelopes [30-90d]
+
+- [ ] **RS-04** Introduce persisted WorkerContract objects with checksum and admission rules
 
 ## Epic 2 — Bounded Autonomy Control Plane
 

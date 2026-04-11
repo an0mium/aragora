@@ -20,7 +20,7 @@ def test_cli_dry_run_heuristic_only() -> None:
             "--heuristic-only",
             "--no-scanner",
             "--max-issues",
-            "3",
+            "4",
         ],
         capture_output=True,
         text=True,
@@ -29,3 +29,5 @@ def test_cli_dry_run_heuristic_only() -> None:
     assert result.returncode == 0
     assert "Strategic issue candidates" in result.stdout
     assert "RS-01" in result.stdout
+    assert "scripts/run_dogfood_benchmark.py" in result.stdout
+    assert "scripts/check_benchmark_regression.py" in result.stdout

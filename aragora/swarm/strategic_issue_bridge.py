@@ -85,6 +85,145 @@ FALLBACK_VALIDATION = "python3 -m pytest tests/ -q"
 
 
 @dataclass(frozen=True)
+class RoadmapSignalHint:
+    keywords: tuple[str, ...]
+    file_hints: tuple[str, ...]
+    validation: str
+
+
+ROADMAP_SIGNAL_HINTS = (
+    RoadmapSignalHint(
+        keywords=(
+            "terminal-truth",
+            "canonical failure taxonomy",
+            "task-shape failures",
+        ),
+        file_hints=(
+            "aragora/swarm/worker_launcher.py",
+            "aragora/swarm/tranche_integrate.py",
+            "aragora/swarm/boss_validation.py",
+        ),
+        validation=(
+            "python3 -m pytest tests/swarm/test_worker_launcher.py "
+            "tests/swarm/test_tranche_integrate.py tests/swarm/test_boss_validation.py -q"
+        ),
+    ),
+    RoadmapSignalHint(
+        keywords=(
+            "benchmark scoring",
+            "scoring lane",
+            "regression guardrails",
+            "guardrails in ci",
+        ),
+        file_hints=(
+            ".github/workflows/benchmarks.yml",
+            "scripts/check_benchmark_regression.py",
+            "scripts/dogfood_score.py",
+        ),
+        validation=(
+            "python3 -m pytest tests/scripts/test_run_dogfood_benchmark.py "
+            "tests/scripts/test_phase0b_role_benchmark.py -q"
+        ),
+    ),
+    RoadmapSignalHint(
+        keywords=(
+            "benchmark fixtures",
+            "benchmark corpus",
+            "rescue receipts",
+            "publication-failure receipts",
+        ),
+        file_hints=(
+            "scripts/run_dogfood_benchmark.py",
+            "scripts/dogfood_score.py",
+            "aragora/swarm/worker_launcher.py",
+        ),
+        validation=(
+            "python3 -m pytest tests/scripts/test_run_dogfood_benchmark.py "
+            "tests/swarm/test_worker_launcher.py -q"
+        ),
+    ),
+    RoadmapSignalHint(
+        keywords=(
+            "workercontract",
+            "credentialenvelope",
+            "admission rules",
+            "complete contracts",
+        ),
+        file_hints=(
+            "aragora/swarm/worker_contract.py",
+            "aragora/swarm/worker_launcher.py",
+            "aragora/swarm/runner_registry.py",
+        ),
+        validation=(
+            "python3 -m pytest tests/swarm/test_worker_launcher.py "
+            "tests/swarm/test_runner_registry.py -q"
+        ),
+    ),
+    RoadmapSignalHint(
+        keywords=(
+            "sanitizer outcomes",
+            "rewritten",
+            "dropped",
+            "quarantined",
+        ),
+        file_hints=(
+            "aragora/swarm/spec.py",
+            "aragora/swarm/boss_validation.py",
+            "aragora/swarm/prompt_refiner.py",
+        ),
+        validation=(
+            "python3 -m pytest tests/swarm/test_spec.py tests/swarm/test_boss_validation.py -q"
+        ),
+    ),
+    RoadmapSignalHint(
+        keywords=(
+            "preflight run --contract",
+            "production code path",
+            "receipt-backed preflight",
+            "shell-only host checks",
+        ),
+        file_hints=(
+            "aragora/swarm/preflight.py",
+            "scripts/swarm_host_preflight.sh",
+            "scripts/nomic/preflight.py",
+        ),
+        validation="python3 -m pytest tests/scripts/test_swarm_host_preflight.py -q",
+    ),
+    RoadmapSignalHint(
+        keywords=(
+            "quarantine",
+            "publication failures",
+            "permission mismatch",
+            "rate limits",
+        ),
+        file_hints=(
+            "aragora/swarm/tranche_integrate.py",
+            "aragora/swarm/runner_registry.py",
+            "aragora/swarm/boss_validation.py",
+        ),
+        validation=(
+            "python3 -m pytest tests/swarm/test_tranche_integrate.py "
+            "tests/swarm/test_runner_registry.py tests/swarm/test_boss_validation.py -q"
+        ),
+    ),
+    RoadmapSignalHint(
+        keywords=(
+            "reviewable specs",
+            "explicit constraints",
+            "manual rewrite",
+            "missing context",
+        ),
+        file_hints=(
+            "aragora/swarm/spec.py",
+            "aragora/cli/commands/spec.py",
+            "aragora/prompt_engine/spec_builder.py",
+        ),
+        validation=("python3 -m pytest tests/swarm/test_spec.py tests/cli/test_spec_command.py -q"),
+    ),
+)
+
+
+@dataclass(frozen=True)
 class RoadmapItem:
     code: str
     title: str
@@ -250,15 +389,23 @@ class StrategicIssueBridge:
         self, item: RoadmapItem, context: dict[str, str]
     ) -> StrategicIssueCandidate | None:
         prefix = item.code.split("-")[0]
-        theme_files = _existing_paths(self.repo_root, THEME_FILE_HINTS.get(prefix, []))
+        hint = _roadmap_signal_hint(item)
+        theme_files: list[str] = []
+        validation = THEME_VALIDATION.get(prefix, FALLBACK_VALIDATION)
+        if hint is not None:
+            theme_files = _existing_paths(self.repo_root, hint.file_hints)
+            if not theme_files:
+                theme_files = list(hint.file_hints[:3])
+            validation = hint.validation
+        else:
+            theme_files = _existing_paths(self.repo_root, THEME_FILE_HINTS.get(prefix, []))
         if not theme_files:
             theme_files = list(THEME_FILE_HINTS.get(prefix, [])[:2])
         file_scope = _sanitize_file_scope(theme_files)
         if not file_scope:
             return None
 
-        validation = THEME_VALIDATION.get(prefix, FALLBACK_VALIDATION)
-        acceptance = _default_acceptance_criteria(item, validation)
+        acceptance = _default_acceptance_criteria(item, validation, file_scope)
 
         description = _compose_description(item, context)
         priority = _priority_from_rank(item.priority_rank)
@@ -506,12 +653,27 @@ def _sanitize_file_scope(paths: Iterable[str]) -> list[str]:
     return list(dict.fromkeys(result))
 
 
-def _default_acceptance_criteria(item: RoadmapItem, validation: str) -> list[str]:
-    return [
-        f"Deliver milestone {item.code} scope: {item.title}",
-        "Acceptance criteria and verification are explicit and bounded.",
-        f"Run and satisfy: {validation}",
-    ]
+def _default_acceptance_criteria(
+    item: RoadmapItem, validation: str, file_scope: list[str]
+) -> list[str]:
+    scoped_files = ", ".join(file_scope[:3])
+    criteria = [f"Deliver milestone {item.code} scope: {item.title}"]
+    if scoped_files:
+        criteria.append(f"Keep the diff focused to: {scoped_files}")
+    criteria.append(f"Run and satisfy: {validation}")
+    return criteria
+
+
+def _roadmap_signal_hint(item: RoadmapItem) -> RoadmapSignalHint | None:
+    haystack = " ".join(
+        part.strip().lower()
+        for part in (item.code, item.title, item.milestone, item.epic)
+        if part and part.strip()
+    )
+    for hint in ROADMAP_SIGNAL_HINTS:
+        if any(keyword in haystack for keyword in hint.keywords):
+            return hint
+    return None
 
 
 def _compose_description(item: RoadmapItem, context: dict[str, str]) -> str:

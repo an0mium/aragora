@@ -42,6 +42,71 @@ def test_generate_candidates_heuristic_only() -> None:
         assert 0.0 <= candidate.success_estimate <= 1.0
 
 
+def test_generate_candidates_scope_roadmap_items_by_signal() -> None:
+    config = StrategicIssueBridgeConfig(
+        max_issues=6,
+        heuristic_only=True,
+        enable_scanner=False,
+    )
+    bridge = StrategicIssueBridge(repo_root=FIXTURE_ROOT, config=config)
+    candidates = bridge.generate_candidates()
+    by_code = {
+        candidate.roadmap_refs[0]: candidate for candidate in candidates if candidate.roadmap_refs
+    }
+
+    assert "RS-01" in by_code
+    assert "RS-02" in by_code
+    assert "RS-03" in by_code
+    assert "RS-04" in by_code
+    assert "BC-04" in by_code
+    assert "TW-07" in by_code
+
+    assert by_code["RS-01"].file_scope == [
+        "aragora/swarm/worker_launcher.py",
+        "aragora/swarm/tranche_integrate.py",
+        "aragora/swarm/boss_validation.py",
+    ]
+    assert by_code["RS-02"].file_scope == [
+        "scripts/run_dogfood_benchmark.py",
+        "scripts/dogfood_score.py",
+        "aragora/swarm/worker_launcher.py",
+    ]
+    assert by_code["RS-03"].file_scope == [
+        "github/workflows/benchmarks.yml",
+        "scripts/check_benchmark_regression.py",
+        "scripts/dogfood_score.py",
+    ]
+    assert by_code["RS-04"].file_scope == [
+        "aragora/swarm/worker_contract.py",
+        "aragora/swarm/worker_launcher.py",
+        "aragora/swarm/runner_registry.py",
+    ]
+    assert by_code["BC-04"].file_scope == [
+        "aragora/swarm/spec.py",
+        "aragora/swarm/boss_validation.py",
+        "aragora/swarm/prompt_refiner.py",
+    ]
+    assert by_code["TW-07"].file_scope == [
+        "aragora/swarm/spec.py",
+        "aragora/cli/commands/spec.py",
+        "aragora/prompt_engine/spec_builder.py",
+    ]
+
+    assert (
+        by_code["RS-03"].validation_command
+        == "python3 -m pytest tests/scripts/test_run_dogfood_benchmark.py "
+        "tests/scripts/test_phase0b_role_benchmark.py -q"
+    )
+    assert (
+        by_code["BC-04"].validation_command
+        == "python3 -m pytest tests/swarm/test_spec.py tests/swarm/test_boss_validation.py -q"
+    )
+    assert by_code["RS-02"].acceptance_criteria[1].startswith("Keep the diff focused to:")
+    assert (
+        len({tuple(by_code[code].file_scope) for code in ("RS-01", "RS-02", "RS-03", "RS-04")}) == 4
+    )
+
+
 def test_llm_fallback_without_keys(monkeypatch) -> None:
     for key in (
         "ANTHROPIC_API_KEY",
