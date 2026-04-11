@@ -787,8 +787,18 @@ class ReceiptStore:
             signature_key_id=row[12],
             signed_at=row[13],
             audit_trail_id=row[14],
-            data=json.loads(row[15]) if row[15] else {},
+            data=self._deserialize_receipt_data(row[15]),
         )
+
+    @staticmethod
+    def _deserialize_receipt_data(raw_data: Any) -> dict[str, Any]:
+        """Return a normalized receipt payload or fail closed on corruption."""
+        if raw_data in (None, ""):
+            return {}
+        data = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
+        if not isinstance(data, dict):
+            raise ValueError("Receipt data_json must deserialize to an object.")
+        return data
 
     @staticmethod
     def _filter_file_receipt(
@@ -1802,13 +1812,6 @@ class ReceiptStore:
 
     def _row_to_stored_receipt_extended(self, row: tuple) -> StoredReceipt:
         """Convert a database row to StoredReceipt including new fields."""
-        data = {}
-        if row[23]:  # data_json
-            try:
-                data = json.loads(row[23]) if isinstance(row[23], str) else row[23]
-            except (json.JSONDecodeError, TypeError):
-                data = {}
-
         return StoredReceipt(
             receipt_id=row[0],
             gauntlet_id=row[1],
@@ -1833,7 +1836,7 @@ class ReceiptStore:
             legal_hold_placed_at=row[20],
             legal_hold_matter_id=row[21],
             audit_trail_id=row[22],
-            data=data,
+            data=self._deserialize_receipt_data(row[23]),
         )
 
 

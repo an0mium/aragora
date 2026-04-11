@@ -12,6 +12,7 @@ Tests cover:
 
 import importlib
 import json
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -1015,6 +1016,44 @@ class TestReceiptStoreGDPR:
         assert "already_expired" in status
         assert "timestamps" in status
         assert "generated_at" in status
+
+
+class TestReceiptStoreLegalHold:
+    """Tests for legal hold listing behavior."""
+
+    def test_list_under_legal_hold_raises_on_corrupt_data_json(
+        self,
+        temp_db_path,
+        sample_receipt_dict,
+    ):
+        """Legal-hold listing should fail closed on the same corruption as get()."""
+        store = ReceiptStore(db_path=temp_db_path, backend="sqlite", file_receipt_dirs=[])
+        try:
+            store.save(sample_receipt_dict)
+            assert store.place_legal_hold(
+                sample_receipt_dict["receipt_id"],
+                "litigation",
+                "tester",
+                matter_id="matter-123",
+            )
+
+            conn = sqlite3.connect(temp_db_path)
+            try:
+                conn.execute(
+                    "UPDATE receipts SET data_json = ? WHERE receipt_id = ?",
+                    ("{bad json", sample_receipt_dict["receipt_id"]),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+            with pytest.raises(json.JSONDecodeError):
+                store.get(sample_receipt_dict["receipt_id"])
+
+            with pytest.raises(json.JSONDecodeError):
+                store.list_under_legal_hold()
+        finally:
+            store.close()
 
 
 # ===========================================================================
