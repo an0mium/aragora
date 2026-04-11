@@ -1137,13 +1137,16 @@ def get_policy_store(db_path: Path | None = None) -> PolicyStore | PostgresPolic
                     )
 
     # Default: SQLite
-    from aragora.storage.production_guards import require_distributed_store, StorageMode
+    try:
+        from aragora.storage.production_guards import require_distributed_store, StorageMode
 
-    require_distributed_store(
-        "policy_store",
-        StorageMode.SQLITE,
-        "Compliance policy store using SQLite - configure PostgreSQL for multi-instance deployments.",
-    )
+        require_distributed_store(
+            "policy_store",
+            StorageMode.SQLITE,
+            "Compliance policy store using SQLite - configure PostgreSQL for multi-instance deployments.",
+        )
+    except ImportError:
+        logger.debug("production_guards not available, skipping distributed store check")
 
     _policy_store = PolicyStore(db_path)
     return _policy_store
