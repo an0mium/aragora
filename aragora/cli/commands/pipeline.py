@@ -74,8 +74,8 @@ def _check_objective_fidelity(
         scores = _check_fidelity_llm(original_goal, objectives)
         if scores is not None:
             return scores
-    except (ImportError, ValueError, TypeError, RuntimeError, OSError):
-        pass
+    except (ImportError, ValueError, TypeError, RuntimeError, OSError) as exc:
+        logger.debug("LLM fidelity scoring unavailable, falling back to keywords: %s", exc)
 
     # Fallback: keyword-based Jaccard similarity
     return _check_fidelity_keywords(original_goal, objectives)
@@ -124,8 +124,8 @@ def _check_fidelity_llm(
             scores = _json.loads(match.group())
             if len(scores) == len(objectives):
                 return [max(0.0, min(1.0, float(s))) for s in scores]
-    except (ValueError, TypeError, RuntimeError, OSError, json.JSONDecodeError):
-        pass
+    except (ValueError, TypeError, RuntimeError, OSError, json.JSONDecodeError) as exc:
+        logger.debug("LLM fidelity response parsing failed: %s", exc)
 
     return None
 
@@ -1065,7 +1065,7 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
                 )
                 queue.enqueue(suggestion)
         except ImportError:
-            pass
+            logger.debug("Suggestion queue unavailable, skipping enqueue")
 
     print("-" * 60)
     print("STEP 4: HANDOFF TO SELF-IMPROVEMENT ENGINE")
