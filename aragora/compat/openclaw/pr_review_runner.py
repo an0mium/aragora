@@ -733,7 +733,7 @@ class PRReviewRunner:
         except ImportError as exc:
             logger.debug("Direct review import unavailable: %s, falling back to subprocess", exc)
         except (RuntimeError, ValueError, TypeError, OSError) as exc:
-            logger.debug("Direct review import failed: %s, falling back to subprocess", exc)
+            logger.warning("Direct review import failed: %s, falling back to subprocess", exc)
 
         # Fallback: run as subprocess
         return self._run_review_subprocess(diff)
@@ -789,7 +789,8 @@ class PRReviewRunner:
             return None, "aragora CLI not found"
         except subprocess.TimeoutExpired:
             return None, f"Review timed out after {self.policy.max_execution_seconds}s"
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as exc:
+            logger.warning("Review subprocess output not parseable as JSON: %s", exc)
             return {"raw_output": result.stdout}, None
 
     def _post_comment(
