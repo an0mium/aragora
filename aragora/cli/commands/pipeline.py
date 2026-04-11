@@ -1021,7 +1021,8 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
             except ImportError as exc:
                 logger.debug("Output quality module unavailable, skipping quality gate: %s", exc)
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
-                logger.debug("Quality gate check failed: %s", e)
+                logger.warning("Quality gate check failed: %s", e)
+                print(f"[QUALITY GATE] Check failed ({e}), skipping gate.")
 
     if quality_gate_failed and plan_quality_fail_closed:
         print("[QUALITY GATE] Blocking handoff because fail-closed policy is active.")
