@@ -6,6 +6,8 @@ Provides status normalization and debate response formatting for SDK compatibili
 
 from __future__ import annotations
 
+from aragora.gauntlet.receipt_models import _normalize_receipt_boolean
+
 # Status normalization map: converts internal status values to canonical SDK-compatible values
 # Server uses: active, paused, concluded, archived
 # SDKs expect: pending, running, completed, failed, cancelled, paused
@@ -86,12 +88,22 @@ def normalize_debate_response(debate: dict | None) -> dict | None:
 
     # Promote consensus_proof into consensus if needed
     if "consensus" not in debate and "consensus_proof" in debate:
-        consensus_proof = debate.get("consensus_proof") or {}
+        consensus_proof_raw = debate.get("consensus_proof")
+        consensus_proof = consensus_proof_raw or {}
         vote_breakdown = consensus_proof.get("vote_breakdown") or {}
-        supporting_agents = [agent for agent, agreed in vote_breakdown.items() if agreed]
-        dissenting_agents = [agent for agent, agreed in vote_breakdown.items() if not agreed]
+        reached = False
+        if isinstance(consensus_proof_raw, dict) and "reached" in consensus_proof_raw:
+            reached = consensus_proof_raw.get("reached")
+        supporting_agents = [
+            agent for agent, agreed in vote_breakdown.items() if _normalize_receipt_boolean(agreed)
+        ]
+        dissenting_agents = [
+            agent
+            for agent, agreed in vote_breakdown.items()
+            if not _normalize_receipt_boolean(agreed)
+        ]
         debate["consensus"] = {
-            "reached": consensus_proof.get("reached", False),
+            "reached": None if reached is None else _normalize_receipt_boolean(reached),
             "agreement": consensus_proof.get("confidence"),
             "confidence": consensus_proof.get("confidence"),
             "final_answer": consensus_proof.get("final_answer"),
@@ -101,11 +113,14 @@ def normalize_debate_response(debate: dict | None) -> dict | None:
         }
 
     # consensus_reached/concordance helpers for UI
+    consensus = debate.get("consensus") or {}
+    if isinstance(consensus, dict) and "reached" in consensus:
+        reached = consensus.get("reached")
+        if reached is not None:
+            consensus["reached"] = _normalize_receipt_boolean(reached)
     if "consensus_reached" not in debate:
-        consensus = debate.get("consensus") or {}
-        debate["consensus_reached"] = bool(consensus.get("reached", False))
+        debate["consensus_reached"] = _normalize_receipt_boolean(consensus.get("reached"))
     if "confidence" not in debate:
-        consensus = debate.get("consensus") or {}
         confidence = consensus.get("confidence", consensus.get("agreement"))
         if confidence is not None:
             debate["confidence"] = confidence

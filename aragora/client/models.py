@@ -147,8 +147,16 @@ class Debate(BaseModel):
         if self.consensus is None and self.consensus_proof:
             proof = self.consensus_proof or {}
             vote_breakdown = proof.get("vote_breakdown") or {}
-            supporting = [agent for agent, agreed in vote_breakdown.items() if agreed]
-            dissenting = [agent for agent, agreed in vote_breakdown.items() if not agreed]
+            supporting = [
+                agent
+                for agent, agreed in vote_breakdown.items()
+                if _normalize_receipt_boolean(agreed)
+            ]
+            dissenting = [
+                agent
+                for agent, agreed in vote_breakdown.items()
+                if not _normalize_receipt_boolean(agreed)
+            ]
             self.consensus = ConsensusResult(
                 reached=_normalize_receipt_boolean(proof.get("reached")),
                 agreement=proof.get("confidence"),

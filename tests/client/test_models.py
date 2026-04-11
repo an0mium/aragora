@@ -445,6 +445,24 @@ class TestDebate:
         assert "claude" in debate.consensus.supporting_agents
         assert "gpt-4" in debate.consensus.dissenting_agents
 
+    def test_derive_consensus_normalizes_string_booleans(self):
+        """Stringified consensus booleans should not rely on Python truthiness."""
+        debate = Debate(
+            debate_id="test",
+            task="Task",
+            status=DebateStatus.COMPLETED,
+            consensus_proof={
+                "reached": "false",
+                "confidence": 0.9,
+                "final_answer": "The answer",
+                "vote_breakdown": {"claude": "false", "gpt-4": "true"},
+            },
+        )
+        assert debate.consensus is not None
+        assert debate.consensus.reached is False
+        assert debate.consensus.supporting_agents == ["gpt-4"]
+        assert debate.consensus.dissenting_agents == ["claude"]
+
 
 class TestDebateCreateRequest:
     """Tests for DebateCreateRequest model."""

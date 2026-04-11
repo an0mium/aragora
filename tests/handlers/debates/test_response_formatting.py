@@ -349,6 +349,22 @@ class TestNormalizeDebateResponseConsensusProofPromotion:
         assert consensus["supporting_agents"] == []
         assert consensus["dissenting_agents"] == []
 
+    def test_consensus_proof_normalizes_string_booleans(self):
+        debate = {
+            "consensus_proof": {
+                "reached": "false",
+                "confidence": 0.75,
+                "final_answer": "Go with option A",
+                "vote_breakdown": {"claude": "false", "gpt4": "true"},
+            }
+        }
+        result = normalize_debate_response(debate)
+        consensus = result["consensus"]
+        assert consensus["reached"] is False
+        assert consensus["supporting_agents"] == ["gpt4"]
+        assert consensus["dissenting_agents"] == ["claude"]
+        assert result["consensus_reached"] is False
+
 
 class TestNormalizeDebateResponseConsensusReached:
     """Tests for consensus_reached helper field."""
@@ -378,6 +394,12 @@ class TestNormalizeDebateResponseConsensusReached:
         """consensus key set to None."""
         debate = {"consensus": None}
         result = normalize_debate_response(debate)
+        assert result["consensus_reached"] is False
+
+    def test_consensus_reached_normalizes_string_false(self):
+        debate = {"consensus": {"reached": "false"}}
+        result = normalize_debate_response(debate)
+        assert result["consensus"]["reached"] is False
         assert result["consensus_reached"] is False
 
 
