@@ -243,6 +243,37 @@ class TestScannersOnRealRepo:
             assert c.category == "broad_exception"
             assert "except Exception" in c.description
 
+    def test_bare_except_scanner_ignores_docstring_examples(self, tmp_path):
+        aragora_dir = tmp_path / "aragora"
+        aragora_dir.mkdir()
+        (aragora_dir / "__init__.py").write_text("", encoding="utf-8")
+        (aragora_dir / "docstring_only.py").write_text(
+            '"""Example:\n'
+            "try:\n"
+            "    run()\n"
+            "except Exception:\n"
+            "    fallback()\n"
+            '"""\n'
+            "\n"
+            "def demo() -> None:\n"
+            "    return None\n",
+            encoding="utf-8",
+        )
+        (aragora_dir / "real_handler.py").write_text(
+            "def demo() -> None:\n"
+            "    try:\n"
+            "        run()\n"
+            "    except Exception:\n"
+            "        return None\n",
+            encoding="utf-8",
+        )
+
+        results = scan_bare_except_handlers(tmp_path, limit=10)
+        scopes = {candidate.file_scope[0] for candidate in results}
+
+        assert "aragora/docstring_only.py" not in scopes
+        assert "aragora/real_handler.py" in scopes
+
     def test_todo_scanner(self, repo_root):
         results = scan_actionable_todos(repo_root, limit=5)
         for c in results:

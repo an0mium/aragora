@@ -9,6 +9,7 @@ and creates GitHub issues with the ``boss-ready`` label.
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import re
 from dataclasses import dataclass, field
@@ -39,18 +40,6 @@ class BossIssueCandidate:
 # ---------------------------------------------------------------------------
 # Scanning helpers
 # ---------------------------------------------------------------------------
-
-_COMMENT_OR_DOCSTRING_RE = re.compile(r'^\s*#|^\s*"""|\s*"""')
-
-
-def _is_code_line(line: str) -> bool:
-    """Return True if the line is likely executable code (not comment/docstring)."""
-    stripped = line.strip()
-    if not stripped:
-        return False
-    if stripped.startswith("#"):
-        return False
-    return True
 
 
 def _count_lines(path: Path) -> int:
@@ -239,7 +228,30 @@ def scan_silent_exception_swallowing(
 # Scanner 3: Bare except Exception handlers
 # ---------------------------------------------------------------------------
 
-_BROAD_EXCEPT_RE = re.compile(r"except\s+Exception\s*(?:as\s+\w+)?\s*:")
+
+def _find_broad_except_lines(content: str) -> list[int]:
+    """Return line numbers for real ``except Exception`` handlers."""
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return []
+
+    lines = content.splitlines()
+    matches: list[int] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ExceptHandler):
+            continue
+        if not isinstance(node.type, ast.Name) or node.type.id != "Exception":
+            continue
+
+        line_num = getattr(node, "lineno", None)
+        if line_num is None or line_num < 1 or line_num > len(lines):
+            continue
+        if "# noqa" in lines[line_num - 1]:
+            continue
+        matches.append(line_num)
+
+    return matches
 
 
 def scan_bare_except_handlers(
@@ -261,13 +273,7 @@ def scan_bare_except_handlers(
         except OSError:
             continue
 
-        matches = []
-        for m in _BROAD_EXCEPT_RE.finditer(content):
-            line_start = content.rfind("\n", 0, m.start()) + 1
-            line = content[line_start : content.find("\n", m.end())]
-            if "# noqa" not in line:
-                line_num = content[: m.start()].count("\n") + 1
-                matches.append(line_num)
+        matches = _find_broad_except_lines(content)
 
         if not matches:
             continue
