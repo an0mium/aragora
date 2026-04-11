@@ -550,6 +550,62 @@ def test_prepare_creates_workspace_artifact_for_ready_lane(tmp_path: Path) -> No
     assert saved.worktree_path == f"{repo}/.worktrees/codex-auto/lane-1"
 
 
+def test_inspect_uses_declared_source_refs_when_lookup_fails(tmp_path: Path) -> None:
+    manifest = TrancheManifest.from_dict(
+        {
+            "manifest_id": "pmf-tranche",
+            "repo": {"name": "synaptent/aragora", "root": str(tmp_path), "base_ref": "origin/main"},
+            "references": {
+                "source_refs": {
+                    "issue_1046": {
+                        "kind": "issue",
+                        "url": "https://github.com/synaptent/aragora/issues/1046",
+                        "state": "open",
+                        "meaning": "PMF source issue",
+                    }
+                }
+            },
+            "gates": {},
+            "lanes": [
+                {
+                    "lane_id": "pmf_impl",
+                    "owner_role": "critical_path_engineer",
+                    "prompt": "Make the end-to-end PMF flow work.",
+                    "target_agent": "codex",
+                    "source_refs": ["https://github.com/synaptent/aragora/issues/1046"],
+                    "allowed_write_scope": ["aragora/api/**"],
+                    "dependencies": ["issue_1046"],
+                    "verification_commands": ["pytest tests/api/test_pmf.py -q"],
+                    "stop_conditions": ["needs_human returned"],
+                    "expected_receipts_artifacts": ["PR URL"],
+                }
+            ],
+            "terminal_outcomes": {"success": {"definition": "done"}},
+        }
+    )
+    failing_client = SimpleNamespace(
+        get_issue=lambda repo, number: (_ for _ in ()).throw(RuntimeError("offline lookup failed"))
+    )
+    inspector = TrancheInspector(
+        repo_root=tmp_path,
+        reference_client=failing_client,
+        artifact_store=TrancheArtifactStore(tmp_path),
+    )
+
+    payload = inspector.inspect(manifest)
+
+    reference = payload["references"]["issue_1046"]
+    assert reference["status"] == "actionable"
+    assert reference["observed_state"] == "open"
+    assert "lookup failed" in reference["reason"].lower()
+    assert reference["lookup_error"] == "offline lookup failed"
+    assert payload["recommended_action"] == {
+        "kind": "run_lane",
+        "lane_id": "pmf_impl",
+        "reason": "All dependencies satisfied",
+    }
+
+
 def test_prepare_preserves_nested_base_branch_names(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     _run(repo, "git", "update-ref", "refs/remotes/origin/release/v2", "HEAD")

@@ -994,11 +994,20 @@ class TrancheInspector:
             for ref_id, ref in refs.items():
                 target = parse_github_reference_url(ref.url)
                 repo = f"{target.owner}/{target.repo}"
-                payload = (
-                    self.reference_client.get_pr(repo, target.number)
-                    if target.kind == "pull_request"
-                    else self.reference_client.get_issue(repo, target.number)
-                )
+                lookup_error: str | None = None
+                try:
+                    payload = (
+                        self.reference_client.get_pr(repo, target.number)
+                        if target.kind == "pull_request"
+                        else self.reference_client.get_issue(repo, target.number)
+                    )
+                except RuntimeError as exc:
+                    lookup_error = str(exc).strip() or "reference lookup failed"
+                    payload = self._fallback_reference_payload(
+                        group=group,
+                        target=target,
+                        ref=ref,
+                    )
                 observed_state = _observed_reference_state(target.kind, payload)
                 status = self._classify_reference_status(
                     group=group,
@@ -1006,6 +1015,15 @@ class TrancheInspector:
                     declared_state=ref.state,
                     observed_state=observed_state,
                 )
+                reason = _reference_reason(group, target.kind, observed_state, status)
+                if lookup_error:
+                    if group == "source_refs":
+                        reason = f"Reference lookup failed; using declared {observed_state} state"
+                    elif group == "live_target":
+                        status = "blocked"
+                        reason = f"Live target lookup failed: {lookup_error}"
+                    else:
+                        reason = f"Reference lookup failed: {lookup_error}"
                 resolved[ref_id] = {
                     "group": group,
                     "kind": target.kind,
@@ -1030,9 +1048,45 @@ class TrancheInspector:
                     "mergeable": payload.get("mergeable"),
                     "merge_state_status": payload.get("mergeStateStatus"),
                     "review_decision": payload.get("reviewDecision"),
-                    "reason": _reference_reason(group, target.kind, observed_state, status),
+                    "reason": reason,
                 }
+                if lookup_error:
+                    resolved[ref_id]["lookup_error"] = lookup_error
         return resolved
+
+    def _fallback_reference_payload(
+        self,
+        *,
+        group: str,
+        target: GitHubReferenceTarget,
+        ref: Any,
+    ) -> dict[str, Any]:
+        if group == "source_refs":
+            state = str(ref.state or "open").strip().upper() or "OPEN"
+        else:
+            state = "UNKNOWN"
+        title_prefix = "PR" if target.kind == "pull_request" else "Issue"
+        payload: dict[str, Any] = {
+            "number": target.number,
+            "state": state,
+            "title": str(ref.label or ref.meaning or f"{title_prefix} {target.number}").strip(),
+            "url": ref.url,
+            "labels": [],
+        }
+        if target.kind == "pull_request":
+            payload.update(
+                {
+                    "mergedAt": None,
+                    "mergeable": "UNKNOWN",
+                    "mergeStateStatus": "UNKNOWN",
+                    "reviewDecision": "",
+                    "headRefName": "",
+                    "baseRefName": "",
+                }
+            )
+        else:
+            payload["closedAt"] = None
+        return payload
 
     def _classify_reference_status(
         self,
