@@ -74,7 +74,7 @@ def _check_objective_fidelity(
         scores = _check_fidelity_llm(original_goal, objectives)
         if scores is not None:
             return scores
-    except Exception:
+    except (ImportError, ValueError, TypeError, RuntimeError, OSError):
         pass
 
     # Fallback: keyword-based Jaccard similarity
@@ -124,7 +124,7 @@ def _check_fidelity_llm(
             scores = _json.loads(match.group())
             if len(scores) == len(objectives):
                 return [max(0.0, min(1.0, float(s))) for s in scores]
-    except Exception:
+    except (ValueError, TypeError, RuntimeError, OSError, json.JSONDecodeError):
         pass
 
     return None
