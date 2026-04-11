@@ -406,8 +406,8 @@ def scan_test_failures(repo_path: Path) -> list[NextStep]:
                     )
                 )
             return steps
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        logger.debug("Test failure scan failed: %s", exc)
 
     return []
 
@@ -446,8 +446,8 @@ def scan_dependency_health(repo_path: Path) -> list[NextStep]:
                             },
                         )
                     )
-        except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
-            pass
+        except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+            logger.debug("Python dependency check failed: %s", exc)
 
     # Check npm dependencies
     package_json = repo_path / "package.json"
@@ -477,8 +477,8 @@ def scan_dependency_health(repo_path: Path) -> list[NextStep]:
                             metadata={"critical": critical, "high": high},
                         )
                     )
-        except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
-            pass
+        except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+            logger.debug("npm audit check failed: %s", exc)
 
     return steps
 
@@ -520,8 +520,8 @@ def scan_doc_gaps(repo_path: Path) -> list[NextStep]:
                         file_path=str(readme.relative_to(repo_path)),
                     )
                 )
-        except OSError:
-            pass
+        except OSError as exc:
+            logger.debug("Failed to read README: %s", exc)
 
     # Check for CONTRIBUTING.md
     if not (repo_path / "CONTRIBUTING.md").exists():
@@ -660,8 +660,8 @@ class NextStepsRunner:
                     match = re.search(r"github\.com[/:]([^/]+/[^/.]+)", url)
                     if match:
                         return match.group(1)
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                pass
+            except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+                logger.debug("Git remote lookup failed: %s", exc)
 
         return None
 
