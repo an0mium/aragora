@@ -265,6 +265,7 @@ class DevOpsAgent:
         try:
             prs = json.loads(output) if output and output != "[dry run]" else []
         except json.JSONDecodeError:
+            logger.debug("Failed to parse PR list JSON, defaulting to empty list")
             prs = []
 
         for pr in prs:
@@ -342,6 +343,7 @@ class DevOpsAgent:
         try:
             data = json.loads(review_json)
         except json.JSONDecodeError:
+            logger.debug("Failed to parse review JSON for PR #%d, using empty data", pr_number)
             data = {}
 
         lines = [
@@ -392,6 +394,7 @@ class DevOpsAgent:
         try:
             issues = json.loads(output) if output and output != "[dry run]" else []
         except json.JSONDecodeError:
+            logger.debug("Failed to parse issue list JSON, defaulting to empty list")
             issues = []
 
         for issue in issues:
@@ -516,6 +519,7 @@ class DevOpsAgent:
             try:
                 pr_count = int(output.strip())
             except ValueError:
+                logger.debug("Failed to parse open PR count from output: %s", output[:50])
                 pr_count = -1
             checks.append({"check": "open_prs", "count": pr_count})
 
@@ -528,6 +532,7 @@ class DevOpsAgent:
             try:
                 issue_count = int(output.strip())
             except ValueError:
+                logger.debug("Failed to parse open issue count from output: %s", output[:50])
                 issue_count = -1
             checks.append({"check": "open_issues", "count": issue_count})
 
