@@ -936,7 +936,7 @@ class BugDetector:
                 report.bugs.extend(bugs)
                 report.files_scanned += 1
 
-            except (SyntaxError, ValueError, OSError) as e:
+            except OSError as e:
                 logger.warning("[%s] Error analyzing %s: %s", scan_id, file_path, e)
 
         report.lines_scanned = total_lines
@@ -945,7 +945,7 @@ class BugDetector:
 
         elapsed = (report.completed_at - start_time).total_seconds()
         logger.info(
-            f"[{scan_id}] Completed in {elapsed:.2f}s: {report.total_bugs} potential bugs found"
+            "[%s] Completed in %.2fs: %s potential bugs found", scan_id, elapsed, report.total_bugs
         )
 
         return report
