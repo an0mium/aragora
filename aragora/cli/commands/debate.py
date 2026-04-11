@@ -110,10 +110,9 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Any | N
 
                     return SyncEventEmitter()
                 except ImportError:
-                    pass
+                    logger.debug("SyncEventEmitter not available")
     except (OSError, TimeoutError):
-        # Server not available - network error, timeout, or connection refused
-        pass
+        logger.debug("Streaming server not available at %s", server_url)
     return None
 
 
@@ -1155,7 +1154,7 @@ async def run_debate(
                         f"Approach arguments from that perspective.\n\n{existing}"
                     ).strip()
             except ImportError:
-                pass  # Personas module not available
+                logger.debug("Personas module not available for spec %s", spec.persona)
 
         # Apply mode system prompt if specified (takes precedence)
         if mode_system_prompt:
@@ -1953,8 +1952,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
         ):
             try:
                 ordered_specs.append(AgentSpec(provider="openrouter", role="synthesizer"))
-            except ValueError:
-                pass
+            except ValueError as e:
+                logger.debug("Could not add openrouter fallback agent: %s", e)
 
         ranked_specs = list(enumerate(ordered_specs))
         ranked_specs.sort(
@@ -2602,8 +2601,8 @@ def cmd_ask(args: argparse.Namespace) -> None:
                 print("\nWHY THIS ANSWER:")
                 print("-" * 40)
                 print(summary)
-            except (ImportError, AttributeError, TypeError):
-                pass
+            except (ImportError, AttributeError, TypeError) as e:
+                logger.debug("Could not generate explanation summary: %s", e)
 
     if result.dissenting_views and args.verbose:
         print("\n" + "-" * 60)
