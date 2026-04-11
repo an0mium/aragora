@@ -215,7 +215,8 @@ def scan_code_markers(repo_path: Path) -> tuple[list[NextStep], int]:
 
             try:
                 content = filepath.read_text(errors="replace")
-            except OSError:
+            except OSError as exc:
+                logger.debug("Failed to read %s: %s", filepath, exc)
                 continue
 
             rel_path = str(filepath.relative_to(repo_path))
@@ -332,10 +333,12 @@ def scan_github_prs(repo: str, limit: int = 20) -> list[NextStep]:
             timeout=30,
         )
         if result.returncode != 0:
+            logger.debug("gh pr list failed: %s", result.stderr)
             return []
 
         prs = json.loads(result.stdout)
-    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
+    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
+        logger.debug("GitHub PRs scan failed: %s", exc)
         return []
 
     steps = []
