@@ -225,46 +225,46 @@ def _register_builtin_docks(registry: DockRegistry) -> None:
 
         registry.register(SlackDock)
     except ImportError:
-        pass
+        logger.debug("Slack dock not available (missing dependencies)")
 
     try:
         from aragora.channels.docks.telegram import TelegramDock
 
         registry.register(TelegramDock)
     except ImportError:
-        pass
+        logger.debug("Telegram dock not available (missing dependencies)")
 
     try:
         from aragora.channels.docks.discord import DiscordDock
 
         registry.register(DiscordDock)
     except ImportError:
-        pass
+        logger.debug("Discord dock not available (missing dependencies)")
 
     try:
         from aragora.channels.docks.teams import TeamsDock
 
         registry.register(TeamsDock)
     except ImportError:
-        pass
+        logger.debug("Teams dock not available (missing dependencies)")
 
     try:
         from aragora.channels.docks.whatsapp import WhatsAppDock
 
         registry.register(WhatsAppDock)
     except ImportError:
-        pass
+        logger.debug("WhatsApp dock not available (missing dependencies)")
 
     try:
         from aragora.channels.docks.email import EmailDock
 
         registry.register(EmailDock)
     except ImportError:
-        pass
+        logger.debug("Email dock not available (missing dependencies)")
 
     try:
         from aragora.channels.docks.google_chat import GoogleChatDock
 
         registry.register(GoogleChatDock)
     except ImportError:
-        pass
+        logger.debug("Google Chat dock not available (missing dependencies)")
