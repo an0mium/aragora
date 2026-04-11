@@ -992,6 +992,7 @@ class BackupManager:
                     tmp_path.unlink()
 
         except (OSError, IOError, RuntimeError, zlib.error) as e:
+            logger.error("Restore drill failed for backup %s: %s", backup_id, e)
             report.errors.append(f"Restore drill failed: {e}")
 
         # Finalize report
