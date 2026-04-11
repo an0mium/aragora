@@ -9,16 +9,19 @@ PLIST_PATH="${HOME}/Library/LaunchAgents/${LABEL}.plist"
 LOG_PATH="${REPO_ROOT}/.aragora/overnight/boss-loop-launchd.log"
 BOSS_REPO="${BOSS_REPO:-synaptent/aragora}"
 TARGET_BRANCH="${TARGET_BRANCH:-main}"
-WORKER_MODEL="${WORKER_MODEL:-claude}"
+WORKER_MODEL="${WORKER_MODEL:-codex}"
 REVIEW_MODEL="${REVIEW_MODEL:-codex}"
 CLAUDE_RUNNER_PROFILES="${CLAUDE_RUNNER_PROFILES:-}"
 BOSS_LABELS_RAW="${BOSS_LABELS:-boss-ready}"
-MAX_TICKS="${BOSS_MAX_TICKS:-25}"
+MAX_TICKS="${BOSS_MAX_TICKS:-50}"
 INTERVAL_SECONDS="${BOSS_INTERVAL_SECONDS:-60}"
-MAX_HOURS="${BOSS_MAX_HOURS:-12}"
+MAX_HOURS="${BOSS_MAX_HOURS:-7}"
 MAX_CONSECUTIVE_FAILURES="${BOSS_MAX_CONSECUTIVE_FAILURES:-12}"
-MAX_PARALLEL_DISPATCHES="${BOSS_MAX_PARALLEL_DISPATCHES:-4}"
+MAX_PARALLEL_DISPATCHES="${BOSS_MAX_PARALLEL_DISPATCHES:-1}"
 AUTONOMY_MODE="${BOSS_AUTONOMY_MODE:-full-auto}"
+BOSS_POST_LOOP_ISSUE_REFILL="${BOSS_POST_LOOP_ISSUE_REFILL:-1}"
+BOSS_POST_LOOP_MAX_ISSUES="${BOSS_POST_LOOP_MAX_ISSUES:-20}"
+BOSS_POST_LOOP_DRY_RUN="${BOSS_POST_LOOP_DRY_RUN:-0}"
 THROTTLE_SECONDS="${BOSS_THROTTLE_SECONDS:-300}"
 ARAGORA_USER_ID="${ARAGORA_USER_ID:-${USER}}"
 ARAGORA_WORKSPACE_ID="${ARAGORA_WORKSPACE_ID:-aragora}"
@@ -36,16 +39,19 @@ Options:
   --repo <owner/repo>             GitHub repo for boss-loop issue feed (default: synaptent/aragora)
   --target-branch <branch>        Target branch for boss-loop deliverables (default: main)
   --label <label>                 Label filter for boss-loop issue selection (repeatable)
-  --worker-model <model>          Worker model (default: claude)
+  --worker-model <model>          Worker model (default: codex)
   --review-model <model>          Review model (default: codex)
   --claude-runner-profiles <csv>  Preferred Claude profiles for boss-loop routing
-  --max-ticks <n>                 Maximum boss-loop iterations before recycle (default: 25)
+  --max-ticks <n>                 Maximum boss-loop iterations before recycle (default: 50)
   --interval-seconds <n>          Boss-loop polling interval seconds (default: 60)
-  --max-hours <n>                 Maximum runtime hours before recycle (default: 12)
+  --max-hours <n>                 Maximum runtime hours before recycle (default: 7)
   --max-consecutive-failures <n>  Stop after N hard failures (default: 12)
-  --max-parallel-dispatches <n>   Maximum parallel boss-loop dispatches (default: 4)
+  --max-parallel-dispatches <n>   Maximum parallel boss-loop dispatches (default: 1)
   --autonomy <mode>               Autonomy mode passed to boss-loop (default: full-auto)
   --ping-pong                     Enable ping-pong retry mode
+  --post-loop-max-issues <n>      Create up to N fresh issues after a clean boss-loop exit (default: 20)
+  --post-loop-dry-run             Preview post-loop issue generation without creating issues
+  --no-post-loop-issue-refill     Disable post-loop boss-ready issue generation
   --user-id <id>                  Export ARAGORA_USER_ID for the service
   --workspace-id <id>             Export ARAGORA_WORKSPACE_ID for the service
   --claude-profile <name>         Export ARAGORA_CLAUDE_PROFILE for the service
@@ -122,6 +128,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         --ping-pong)
             PING_PONG=true
+            shift
+            ;;
+        --post-loop-max-issues)
+            BOSS_POST_LOOP_MAX_ISSUES="${2:-$BOSS_POST_LOOP_MAX_ISSUES}"
+            shift 2
+            ;;
+        --post-loop-dry-run)
+            BOSS_POST_LOOP_DRY_RUN=1
+            shift
+            ;;
+        --no-post-loop-issue-refill)
+            BOSS_POST_LOOP_ISSUE_REFILL=0
             shift
             ;;
         --user-id)
@@ -201,7 +219,8 @@ fi
 if [[ -n "${ARAGORA_DEV_COORDINATION_DB}" ]]; then
     command_string="${command_string} && export ARAGORA_DEV_COORDINATION_DB=\"${ARAGORA_DEV_COORDINATION_DB}\""
 fi
-command_string="${command_string} && exec python3 -u -m aragora.cli.main swarm boss-loop --boss-repo \"${BOSS_REPO}\" --target-branch \"${TARGET_BRANCH}\" --worker-model \"${WORKER_MODEL}\" --review-model \"${REVIEW_MODEL}\""
+command_string="${command_string} && export ARAGORA_POST_LOOP_ISSUE_REFILL=\"${BOSS_POST_LOOP_ISSUE_REFILL}\" && export ARAGORA_POST_LOOP_MAX_ISSUES=\"${BOSS_POST_LOOP_MAX_ISSUES}\" && export ARAGORA_POST_LOOP_DRY_RUN=\"${BOSS_POST_LOOP_DRY_RUN}\""
+command_string="${command_string} && exec \"${REPO_ROOT}/scripts/run_boss_cycle.sh\" --boss-repo \"${BOSS_REPO}\" --target-branch \"${TARGET_BRANCH}\" --worker-model \"${WORKER_MODEL}\" --review-model \"${REVIEW_MODEL}\""
 for label in "${LABELS[@]}"; do
     command_string="${command_string} --label \"${label}\""
 done
