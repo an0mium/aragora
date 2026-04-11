@@ -68,6 +68,7 @@ DEMO_TASKS: dict[str, dict[str, Any]] = {
 }
 
 _DEFAULT_DEMO = "microservices"
+_REAL_DEMO_HANDLED_ERRORS = (ImportError, OSError, RuntimeError, TimeoutError, ValueError)
 
 
 def list_demos() -> list[str]:
@@ -565,7 +566,7 @@ def _run_real_demo(topic: str, receipt_path: str | None = None) -> None:
         print("=" * 64)
         print()
 
-    except Exception as exc:
+    except _REAL_DEMO_HANDLED_ERRORS as exc:
         print(f"  Debate failed: {exc}")
         print("  Try 'aragora demo --offline' for an offline demo.")
         print()

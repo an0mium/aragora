@@ -165,6 +165,33 @@ def test_run_real_demo_calls_playground(capsys):
     assert "85%" in captured.out
 
 
+def test_run_real_demo_handles_expected_live_errors(capsys):
+    """Operational live-demo failures should still render the offline hint."""
+    from aragora.cli.demo import _run_real_demo
+
+    with patch(
+        "aragora.server.handlers.playground.start_playground_debate",
+        side_effect=ValueError("At least 2 agent providers with API keys are required"),
+    ):
+        _run_real_demo("Should we use Rust?")
+
+    captured = capsys.readouterr()
+    assert "Debate failed: At least 2 agent providers with API keys are required" in captured.out
+    assert "Try 'aragora demo --offline' for an offline demo." in captured.out
+
+
+def test_run_real_demo_reraises_unexpected_live_errors():
+    """Unexpected programmer errors should not be hidden behind the offline fallback."""
+    from aragora.cli.demo import _run_real_demo
+
+    with patch(
+        "aragora.server.handlers.playground.start_playground_debate",
+        side_effect=TypeError("boom-typeerror"),
+    ):
+        with pytest.raises(TypeError, match="boom-typeerror"):
+            _run_real_demo("Should we use Rust?")
+
+
 @pytest.mark.parametrize(
     ("raw_consensus", "expected"),
     [("true", True), ("false", False)],
