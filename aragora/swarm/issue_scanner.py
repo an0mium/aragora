@@ -531,10 +531,10 @@ def scan_type_annotation_gaps(
 # ---------------------------------------------------------------------------
 
 CATEGORY_PRIORITY = {
-    "broad_exception": 0,
-    "silent_exception": 1,
-    "test_coverage": 2,
-    "handler_validation": 3,
+    "test_coverage": 0,
+    "handler_validation": 1,
+    "silent_exception": 2,
+    "broad_exception": 3,
     "actionable_todo": 4,
     "type_annotation": 5,
 }
@@ -563,11 +563,12 @@ def scan_all(
         if scanner:
             candidates.extend(scanner(repo_root))
 
-    # Sort: highest success rate first, then by category priority
+    # Sort roadmap-aligned categories ahead of broad cleanup work, then favor
+    # higher-confidence slices within each category.
     candidates.sort(
         key=lambda c: (
-            -c.expected_success_rate,
             CATEGORY_PRIORITY.get(c.category, 99),
+            -c.expected_success_rate,
         ),
     )
     return candidates

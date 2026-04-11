@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -9,6 +10,7 @@ import pytest
 
 from aragora.swarm.issue_scanner import (
     BossIssueCandidate,
+    CATEGORY_PRIORITY,
     scan_all,
     scan_bare_except_handlers,
     scan_silent_exception_swallowing,
@@ -214,14 +216,115 @@ class TestScannersOnRealRepo:
             assert c.fingerprint, f"Missing fingerprint for {c.title}"
             assert 0 < c.expected_success_rate <= 1.0
 
-    def test_scan_all_sorted_by_success_rate(self, repo_root):
+    def test_scan_all_sorted_by_category_priority(self, repo_root):
         candidates = scan_all(repo_root)
-        rates = [c.expected_success_rate for c in candidates]
-        # Should be roughly descending (within same rate, category order matters)
-        for i in range(len(rates) - 1):
-            if rates[i] < rates[i + 1]:
-                # Only ok if categories differ
-                assert candidates[i].category != candidates[i + 1].category
+        priorities = [CATEGORY_PRIORITY.get(c.category, 99) for c in candidates]
+        assert priorities == sorted(priorities)
+
+        grouped_rates: dict[str, list[float]] = {}
+        for candidate in candidates:
+            grouped_rates.setdefault(candidate.category, []).append(candidate.expected_success_rate)
+        for rates in grouped_rates.values():
+            assert rates == sorted(rates, reverse=True)
+
+    def test_scan_all_prioritizes_roadmap_aligned_categories(self, monkeypatch):
+        import aragora.swarm.issue_scanner as issue_scanner
+
+        def candidate(category: str, rate: float) -> BossIssueCandidate:
+            return BossIssueCandidate(
+                category=category,
+                title=f"{category} candidate",
+                description=f"{category} description",
+                file_scope=[f"aragora/{category}.py"],
+                expected_success_rate=rate,
+            )
+
+        monkeypatch.setattr(
+            issue_scanner,
+            "scan_bare_except_handlers",
+            lambda repo_root: [candidate("broad_exception", 0.9)],
+        )
+        monkeypatch.setattr(
+            issue_scanner,
+            "scan_silent_exception_swallowing",
+            lambda repo_root: [candidate("silent_exception", 0.8)],
+        )
+        monkeypatch.setattr(
+            issue_scanner,
+            "scan_untested_modules",
+            lambda repo_root: [candidate("test_coverage", 0.7)],
+        )
+        monkeypatch.setattr(
+            issue_scanner,
+            "scan_handler_validation_gaps",
+            lambda repo_root: [candidate("handler_validation", 0.5)],
+        )
+        monkeypatch.setattr(issue_scanner, "scan_actionable_todos", lambda repo_root: [])
+        monkeypatch.setattr(issue_scanner, "scan_type_annotation_gaps", lambda repo_root: [])
+
+        candidates = issue_scanner.scan_all(Path("/tmp/repo"))
+
+        assert [candidate.category for candidate in candidates] == [
+            "test_coverage",
+            "handler_validation",
+            "silent_exception",
+            "broad_exception",
+        ]
+
+
+class TestGitHubDiscovery:
+    def test_fetch_existing_boss_issues_raises_on_gh_failure(self):
+        import scripts.generate_boss_issues as generate_boss_issues
+
+        failure = SimpleNamespace(
+            returncode=1, stdout="", stderr="error connecting to api.github.com"
+        )
+        with patch.object(generate_boss_issues.subprocess, "run", return_value=failure):
+            with pytest.raises(
+                generate_boss_issues.GitHubDiscoveryError, match="gh issue list failed"
+            ):
+                generate_boss_issues.fetch_existing_boss_issues("synaptent/aragora")
+
+    def test_main_aborts_when_github_discovery_fails(self, monkeypatch, capsys):
+        import scripts.generate_boss_issues as generate_boss_issues
+
+        monkeypatch.setattr(
+            generate_boss_issues,
+            "scan_all",
+            lambda repo_root, categories=None: [
+                BossIssueCandidate(
+                    category="test_coverage",
+                    title="Add tests for example.py",
+                    description="Create tests for example.py",
+                    file_scope=["aragora/example.py"],
+                    new_files=["tests/test_example.py"],
+                    validation_command="pytest tests/test_example.py -v",
+                )
+            ],
+        )
+        monkeypatch.setattr(
+            generate_boss_issues,
+            "fetch_existing_boss_issues",
+            lambda repo: (_ for _ in ()).throw(
+                generate_boss_issues.GitHubDiscoveryError("gh issue list failed: error connecting")
+            ),
+        )
+        monkeypatch.setattr(
+            generate_boss_issues.sys,
+            "argv",
+            ["generate_boss_issues.py", "--dry-run", "--max-issues", "1"],
+        )
+
+        assert generate_boss_issues.main() == 1
+
+        captured = capsys.readouterr()
+        assert "GitHub discovery failed: gh issue list failed: error connecting" in captured.err
+
+
+class TestAdditionalRealRepoScanners:
+    @pytest.fixture
+    def repo_root(self):
+        return Path(__file__).resolve().parent.parent.parent
 
     def test_untested_modules_finds_some(self, repo_root):
         results = scan_untested_modules(repo_root, limit=5)

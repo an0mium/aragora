@@ -28,6 +28,10 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.swarm.issue_scanner import BossIssueCandidate, scan_all  # noqa: E402
 
 
+class GitHubDiscoveryError(RuntimeError):
+    """Raised when GitHub discovery data cannot be fetched safely."""
+
+
 def format_boss_ready_body(candidate: BossIssueCandidate) -> str:
     """Format a candidate into the proven boss-ready issue body."""
     parts: list[str] = []
@@ -90,11 +94,19 @@ def fetch_existing_boss_issues(repo: str) -> list[dict]:
             text=True,
             timeout=30,
         )
-        if result.returncode == 0:
-            return json.loads(result.stdout or "[]")
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
-        pass
-    return []
+    except subprocess.TimeoutExpired as exc:
+        raise GitHubDiscoveryError("gh issue list timed out") from exc
+    except OSError as exc:
+        raise GitHubDiscoveryError(f"gh issue list failed to start: {exc}") from exc
+
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip() or f"exit {result.returncode}"
+        raise GitHubDiscoveryError(f"gh issue list failed: {detail}")
+
+    try:
+        return json.loads(result.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        raise GitHubDiscoveryError("gh issue list returned invalid JSON") from exc
 
 
 def fetch_open_pr_files(repo: str) -> set[str]:
@@ -118,18 +130,27 @@ def fetch_open_pr_files(repo: str) -> set[str]:
             text=True,
             timeout=30,
         )
-        if result.returncode == 0:
-            prs = json.loads(result.stdout or "[]")
-            files: set[str] = set()
-            for pr in prs:
-                for f in pr.get("files", []):
-                    path = f.get("path", "") if isinstance(f, dict) else str(f)
-                    if path:
-                        files.add(path)
-            return files
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
-        pass
-    return set()
+    except subprocess.TimeoutExpired as exc:
+        raise GitHubDiscoveryError("gh pr list timed out") from exc
+    except OSError as exc:
+        raise GitHubDiscoveryError(f"gh pr list failed to start: {exc}") from exc
+
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip() or f"exit {result.returncode}"
+        raise GitHubDiscoveryError(f"gh pr list failed: {detail}")
+
+    try:
+        prs = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        raise GitHubDiscoveryError("gh pr list returned invalid JSON") from exc
+
+    files: set[str] = set()
+    for pr in prs:
+        for f in pr.get("files", []):
+            path = f.get("path", "") if isinstance(f, dict) else str(f)
+            if path:
+                files.add(path)
+    return files
 
 
 def _normalize_tokens(text: str) -> set[str]:
@@ -229,7 +250,7 @@ def create_github_issue(repo: str, title: str, body: str, label: str) -> bool:
         return False
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Generate boss-ready GitHub issues by scanning the codebase"
     )
@@ -259,12 +280,20 @@ def main() -> None:
 
     # 2. Deduplicate against existing issues (always fetch, even in dry-run)
     print("Fetching existing boss-ready issues...")
-    existing = fetch_existing_boss_issues(args.repo)
+    try:
+        existing = fetch_existing_boss_issues(args.repo)
+    except GitHubDiscoveryError as exc:
+        print(f"GitHub discovery failed: {exc}", file=sys.stderr)
+        return 1
     print(f"  {len(existing)} existing issues")
 
     # 3. Check PR conflicts (always fetch, even in dry-run)
     print("Fetching open PR files...")
-    pr_files = fetch_open_pr_files(args.repo)
+    try:
+        pr_files = fetch_open_pr_files(args.repo)
+    except GitHubDiscoveryError as exc:
+        print(f"GitHub discovery failed: {exc}", file=sys.stderr)
+        return 1
     print(f"  {len(pr_files)} files in open PRs")
 
     # 4. Filter
@@ -321,6 +350,7 @@ def main() -> None:
             print(f"FINGERPRINT: {candidate.fingerprint}")
             if args.verbose:
                 print(f"\nBODY:\n{body}")
+        return 0
     else:
         created = 0
         failed = 0
@@ -335,7 +365,8 @@ def main() -> None:
             time.sleep(1)  # Rate limit safety
 
         print(f"\nDone: {created} created, {failed} failed")
+        return 0 if failed == 0 else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
