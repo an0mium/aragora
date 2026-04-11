@@ -1,8 +1,17 @@
 """Template registry endpoint definitions."""
 
+from __future__ import annotations
+
+from typing import Any
+
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
 
-_REGISTRY_LISTING_SCHEMA = {
+__all__ = [
+    "TEMPLATE_REGISTRY_ENDPOINTS",
+    "get_registry_listing_schema",
+]
+
+_REGISTRY_LISTING_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "properties": {
@@ -44,7 +53,12 @@ _REGISTRY_LISTING_SCHEMA = {
 }
 
 
-TEMPLATE_REGISTRY_ENDPOINTS = {
+def get_registry_listing_schema() -> dict[str, Any]:
+    """Return a copy of the registry listing schema for validation and testing."""
+    return dict(_REGISTRY_LISTING_SCHEMA)
+
+
+TEMPLATE_REGISTRY_ENDPOINTS: dict[str, Any] = {
     "/api/v1/templates/registry/{listing_id}": {
         "get": {
             "tags": ["Templates"],
