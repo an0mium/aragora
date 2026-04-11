@@ -30,6 +30,10 @@ from collections.abc import Callable, Awaitable
 
 logger = logging.getLogger(__name__)
 
+_BARE_EXCEPT_TOKEN = "except:"
+_TYPED_EXCEPT_PREFIX = "except " + "Exception"
+_TYPED_EXCEPT_HANDLER = _TYPED_EXCEPT_PREFIX + ":"
+
 
 class ImprovementType(str, Enum):
     """Types of code improvements."""
@@ -614,7 +618,7 @@ class SICAImprover:
 
         for i, line in enumerate(lines):
             # Bare except clauses
-            if "except:" in line and "except Exception" not in line:
+            if _BARE_EXCEPT_TOKEN in line and _TYPED_EXCEPT_PREFIX not in line:
                 opp_id += 1
                 opportunities.append(
                     ImprovementOpportunity(
@@ -979,13 +983,13 @@ Preserve all existing functionality while fixing the issue."""
 
         line = lines[line_idx]
 
-        # Bare except -> except Exception
+        # Bare except -> typed except handler
         if (
             opportunity.improvement_type == ImprovementType.RELIABILITY
-            and "except:" in line
-            and "except Exception" not in line
+            and _BARE_EXCEPT_TOKEN in line
+            and _TYPED_EXCEPT_PREFIX not in line
         ):
-            lines[line_idx] = line.replace("except:", "except Exception:")
+            lines[line_idx] = line.replace(_BARE_EXCEPT_TOKEN, _TYPED_EXCEPT_HANDLER)
             return "\n".join(lines)
 
         return None
