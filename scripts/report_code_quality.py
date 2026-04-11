@@ -39,7 +39,7 @@ SUBSYSTEMS = {
 
 # Ratchet thresholds — these should only go DOWN over time
 RATCHET = {
-    "max_file_loc": 6000,  # No single file above this
+    "max_file_loc": 5400,  # No single file above this
     "max_except_exception": 900,  # Total across aragora/
     "max_type_ignore": 700,  # Total across aragora/
     "max_noqa": 2800,  # Total across aragora/
