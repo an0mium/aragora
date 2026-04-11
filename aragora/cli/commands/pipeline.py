@@ -92,8 +92,8 @@ def _check_fidelity_llm(
     try:
         from aragora.agents import create_agent
         from aragora.agents.base import AgentType
-    except ImportError:
-        logger.debug("Agent modules not available for LLM fidelity scoring")
+    except ImportError as exc:
+        logger.debug("Agent modules not available for LLM fidelity scoring: %s", exc)
         return None
 
     agent = None
@@ -1018,8 +1018,8 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
                         min_p=plan_quality_min_practicality,
                     )
                 )
-            except ImportError:
-                logger.debug("Output quality module unavailable, skipping quality gate")
+            except ImportError as exc:
+                logger.debug("Output quality module unavailable, skipping quality gate: %s", exc)
             except (RuntimeError, ValueError, TypeError, AttributeError) as e:
                 logger.debug("Quality gate check failed: %s", e)
 
@@ -1074,8 +1074,8 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
                     fidelity_score=avg_fidelity,
                 )
                 queue.enqueue(suggestion)
-        except ImportError:
-            logger.debug("Suggestion queue unavailable, skipping enqueue")
+        except ImportError as exc:
+            logger.debug("Suggestion queue unavailable, skipping enqueue: %s", exc)
 
     print("-" * 60)
     print("STEP 4: HANDOFF TO SELF-IMPROVEMENT ENGINE")
