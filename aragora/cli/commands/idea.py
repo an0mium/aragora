@@ -557,7 +557,7 @@ async def _generate_founder_handoffs(
             acceptance_criteria=success_criteria or None,
             constraints=constraints or None,
         )
-    except Exception as exc:
+    except (asyncio.TimeoutError, OSError, ValueError, RuntimeError, ImportError) as exc:
         logger.warning("Idea triage planner fell back to heuristic decomposition: %s", exc)
         decomposition = decomposer.analyze(
             planning_prompt, file_scope_hints=file_scope_hints or None
@@ -968,7 +968,7 @@ async def _model_review_founder_handoffs(
             agent.generate(_founder_review_model_prompt(brief=brief, handoffs=handoffs)),
             timeout=timeout_seconds,
         )
-    except Exception as exc:
+    except (asyncio.TimeoutError, OSError, ValueError, RuntimeError, ImportError) as exc:
         logger.warning("model founder review unavailable: %s", exc)
         return {
             "status": "approved",
