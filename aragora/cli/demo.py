@@ -565,7 +565,7 @@ def _run_real_demo(topic: str, receipt_path: str | None = None) -> None:
         print("=" * 64)
         print()
 
-    except Exception as exc:
+    except (OSError, RuntimeError, ValueError, TimeoutError) as exc:
         print(f"  Debate failed: {exc}")
         print("  Try 'aragora demo --offline' for an offline demo.")
         print()
