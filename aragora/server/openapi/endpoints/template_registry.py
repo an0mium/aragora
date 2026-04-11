@@ -4,6 +4,7 @@ from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
 
 _REGISTRY_LISTING_SCHEMA = {
     "type": "object",
+    "additionalProperties": False,
     "properties": {
         "id": {"type": "string"},
         "name": {"type": "string"},
@@ -22,6 +23,24 @@ _REGISTRY_LISTING_SCHEMA = {
         "updated_at": {"type": "string", "format": "date-time"},
         "approved_by": {"type": ["string", "null"]},
     },
+    "required": [
+        "id",
+        "name",
+        "description",
+        "category",
+        "author_id",
+        "version",
+        "tags",
+        "status",
+        "is_verified",
+        "is_builtin",
+        "install_count",
+        "rating_average",
+        "rating_count",
+        "created_at",
+        "updated_at",
+        "approved_by",
+    ],
 }
 
 
