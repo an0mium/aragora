@@ -75,6 +75,10 @@ require_provider_keys() {
     return "${missing}"
 }
 
+run_worker_preflight() {
+    python3 -m aragora.cli.main swarm preflight --worker-model "${WORKER_MODEL}"
+}
+
 main() {
     if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
         usage
@@ -132,7 +136,7 @@ main() {
     if [[ "${ARAGORA_PREFLIGHT_SKIP_WORKER:-0}" != "1" ]]; then
         echo ""
         echo "--- worker preflight (read/write/commit/push/pr) ---"
-        python3 -m aragora.swarm.preflight --repo-root "${REPO_ROOT}" --agent "${WORKER_MODEL}"
+        run_worker_preflight
     fi
     echo ""
     echo "preflight=ok"
