@@ -213,7 +213,13 @@ def _parse_datetime(value: Any, fallback: datetime | None = None) -> datetime:
     if isinstance(value, datetime):
         return value
     if isinstance(value, str) and value:
-        return datetime.fromisoformat(value)
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            logger.warning("Failed to parse datetime string: %s", value)
+            return fallback or datetime.now(timezone.utc)
+    if value is not None:
+        logger.debug("Unexpected datetime value type %s, using fallback", type(value).__name__)
     return fallback or datetime.now(timezone.utc)
 
 
@@ -224,7 +230,12 @@ def _parse_optional_datetime(value: Any) -> datetime | None:
     if isinstance(value, datetime):
         return value
     if isinstance(value, str) and value:
-        return datetime.fromisoformat(value)
+        try:
+            return datetime.fromisoformat(value)
+        except ValueError:
+            logger.warning("Failed to parse optional datetime string: %s", value)
+            return None
+    logger.debug("Unexpected optional datetime value type %s, returning None", type(value).__name__)
     return None
 
 
