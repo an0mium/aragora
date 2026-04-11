@@ -48,6 +48,9 @@ __all__ = [
     "VERSION_SUFFIX",
     "RELEASE_DATE",
     "PACKAGE_NAME",
+    "AUTHOR",
+    "LICENSE",
+    "REPOSITORY",
     "get_version",
     "get_version_tuple",
 ]
