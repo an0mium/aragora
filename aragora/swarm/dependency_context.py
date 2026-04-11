@@ -15,6 +15,9 @@ _TERMINAL_FAILURE_DEPENDENCY_STATUSES = frozenset(
 _MAX_CHANGED_PATHS = 10
 _MAX_COMMIT_SHAS = 5
 _MAX_VERIFICATION_RESULTS = 5
+_NON_TERMINAL_NEEDS_HUMAN_REASONS = frozenset(
+    {"stale_lease_reaped", "expired_lease_reaped", "needs_human"}
+)
 
 
 def _text(value: Any) -> str:
@@ -40,6 +43,9 @@ def _normalize_verification_status(result: dict[str, Any]) -> str:
         value = _text(result.get(key))
         if value:
             return value.lower()
+    passed = result.get("passed")
+    if isinstance(passed, bool):
+        return "passed" if passed else "failed"
     success = result.get("success")
     if isinstance(success, bool):
         return "passed" if success else "failed"
@@ -47,6 +53,34 @@ def _normalize_verification_status(result: dict[str, Any]) -> str:
     if isinstance(exit_code, int):
         return "passed" if exit_code == 0 else "failed"
     return "unknown"
+
+
+def _terminal_dependency_failure_reason(work_order: dict[str, Any]) -> str:
+    metadata = work_order.get("metadata")
+    archived_due_to = _text(metadata.get("archived_due_to")) if isinstance(metadata, dict) else ""
+    return (
+        _text(work_order.get("failure_reason"))
+        or _text(work_order.get("dispatch_error"))
+        or (_text(metadata.get("archive_reason")) if isinstance(metadata, dict) else "")
+        or archived_due_to
+        or _text(work_order.get("worker_outcome"))
+        or _text(work_order.get("status")).lower()
+    )
+
+
+def _is_terminal_dependency_failure(work_order: dict[str, Any]) -> bool:
+    status = _text(work_order.get("status")).lower()
+    if status in {"discarded", "dispatch_failed", "failed", "scope_violation", "timed_out"}:
+        return True
+    if status != "needs_human":
+        return False
+
+    metadata = work_order.get("metadata")
+    archived_due_to = _text(metadata.get("archived_due_to")) if isinstance(metadata, dict) else ""
+    dependency_reason = _terminal_dependency_failure_reason(work_order).lower()
+    if dependency_reason in _NON_TERMINAL_NEEDS_HUMAN_REASONS and not archived_due_to:
+        return False
+    return True
 
 
 @dataclass(slots=True)
@@ -85,6 +119,7 @@ class DependencyContext:
     failure_reason: str = ""
     blocked_reason: str = ""
     deliverable: dict[str, Any] | None = None
+    terminal_failure_reason: str = ""
 
     @property
     def ready_for_dispatch(self) -> bool:
@@ -92,7 +127,7 @@ class DependencyContext:
 
     @property
     def terminal_failure(self) -> bool:
-        return self.status in _TERMINAL_FAILURE_DEPENDENCY_STATUSES
+        return bool(self.terminal_failure_reason)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -184,6 +219,11 @@ def build_dependency_context(
         deliverable=dict(qualification.deliverable)
         if isinstance(qualification.deliverable, dict)
         else None,
+        terminal_failure_reason=(
+            _terminal_dependency_failure_reason(work_order)
+            if _is_terminal_dependency_failure(work_order)
+            else ""
+        ),
     )
 
 
@@ -234,7 +274,7 @@ def build_dependency_context_payload(
         terminal_failure = {
             "dependency_id": context.dependency_id,
             "dependency_status": context.status,
-            "dependency_reason": context.failure_reason or context.blocked_reason or context.status,
+            "dependency_reason": context.terminal_failure_reason,
         }
         break
 

@@ -30,7 +30,10 @@ def test_build_dependency_context_payload_summarizes_completed_dependency() -> N
         "changed_paths": ["aragora/swarm/supervisor.py", "tests/swarm/test_supervisor.py"],
         "tests_run": ["python3 -m pytest tests/swarm/test_supervisor.py -q"],
         "verification_results": [
-            {"command": "python3 -m pytest tests/swarm/test_supervisor.py -q", "exit_code": 0}
+            {
+                "command": "python3 -m pytest tests/swarm/test_supervisor.py -q",
+                "passed": True,
+            }
         ],
     }
     dependent = {
@@ -58,7 +61,7 @@ def test_build_dependency_context_payload_summarizes_completed_dependency() -> N
         {
             "command": "python3 -m pytest tests/swarm/test_supervisor.py -q",
             "status": "passed",
-            "exit_code": 0,
+            "exit_code": None,
         }
     ]
     assert "do not widen file scope" in payload["prompt_summary"]
@@ -102,3 +105,45 @@ def test_build_dependency_context_payload_records_terminal_failure_and_missing_d
     assert context["failure_reason"] == "work_order_leasing_failed"
     assert "missing dependencies: micro-task-2" in payload["prompt_summary"]
     assert "blocked_reason: worktree creation failed" in payload["prompt_summary"]
+
+
+def test_build_dependency_context_payload_does_not_mark_recoverable_needs_human_as_terminal() -> (
+    None
+):
+    dependency = {
+        "work_order_id": "micro-1",
+        "pipeline_task_id": "micro-task-1",
+        "title": "Implementation lane",
+        "status": "needs_human",
+        "failure_reason": "stale_lease_reaped",
+        "branch": "codex/swarm-micro-1",
+    }
+
+    payload = build_dependency_context_payload({"dependency_ids": ["micro-task-1"]}, [dependency])
+
+    assert payload["ready_for_dispatch"] is False
+    assert payload["terminal_failure"] is None
+    assert payload["contexts"][0]["status"] == "needs_human"
+
+
+def test_build_dependency_context_payload_marks_archived_needs_human_as_terminal() -> None:
+    dependency = {
+        "work_order_id": "micro-1",
+        "pipeline_task_id": "micro-task-1",
+        "title": "Implementation lane",
+        "status": "needs_human",
+        "failure_reason": "stale_lease_reaped",
+        "branch": "codex/swarm-micro-1",
+        "metadata": {
+            "archived_due_to": "stale_lease_reaped",
+        },
+    }
+
+    payload = build_dependency_context_payload({"dependency_ids": ["micro-task-1"]}, [dependency])
+
+    assert payload["ready_for_dispatch"] is False
+    assert payload["terminal_failure"] == {
+        "dependency_id": "micro-task-1",
+        "dependency_status": "needs_human",
+        "dependency_reason": "stale_lease_reaped",
+    }
