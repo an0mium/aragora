@@ -537,6 +537,7 @@ class WorkerLauncher:
         *,
         worktree_path: str,
         branch: str = "main",
+        timeout: float | None = None,
     ) -> WorkerProcess:
         """Launch a worker and wait for it to complete."""
         worker = await self.launch(
@@ -544,7 +545,7 @@ class WorkerLauncher:
             worktree_path=worktree_path,
             branch=branch,
         )
-        return await self.wait(worker.work_order_id)
+        return await self.wait(worker.work_order_id, timeout=timeout)
 
     def get_worker(self, work_order_id: str) -> WorkerProcess | None:
         return self._workers.get(work_order_id)

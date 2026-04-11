@@ -1133,6 +1133,36 @@ class TestLaunchAndWait:
         assert result.exit_code == 0
         assert result.stdout == "done"
 
+    @pytest.mark.asyncio
+    async def test_launch_and_wait_forwards_timeout_to_wait(self):
+        launcher = WorkerLauncher(LaunchConfig(auto_commit=False))
+        work_order = {"work_order_id": "wo-timeout"}
+        worker = WorkerProcess(
+            work_order_id="wo-timeout",
+            agent="codex",
+            worktree_path="/tmp/wt",
+            branch="feature/test-timeout",
+        )
+
+        with (
+            patch.object(WorkerLauncher, "launch", AsyncMock(return_value=worker)) as launch,
+            patch.object(WorkerLauncher, "wait", AsyncMock(return_value=worker)) as wait,
+        ):
+            result = await launcher.launch_and_wait(
+                work_order,
+                worktree_path="/tmp/wt",
+                branch="feature/test-timeout",
+                timeout=321.0,
+            )
+
+        launch.assert_awaited_once_with(
+            work_order,
+            worktree_path="/tmp/wt",
+            branch="feature/test-timeout",
+        )
+        wait.assert_awaited_once_with("wo-timeout", timeout=321.0)
+        assert result is worker
+
 
 class TestVerificationCommands:
     def test_prepare_verification_command_wraps_pytest_with_pytest_main(self) -> None:
