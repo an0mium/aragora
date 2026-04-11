@@ -29,6 +29,7 @@ from typing import Any
 
 from aragora.nomic.dev_coordination import DevCoordinationStore
 from aragora.pipeline.execution_mode import ExecutionMode
+from aragora.swarm.debate_gate import DebateGate, DebateGateConfig, DebateGateRequest
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.terminal_truth import (
     extract_run_deliverable,
@@ -297,6 +298,10 @@ class BossLoopConfig:
     # Autonomous post-processing: publish verified branch deliverables and
     # optionally close already-resolved no-op issues.
     auto_publish_deliverables: bool = False
+    use_debate_publish_gate: bool = False
+    debate_publish_gate_fail_closed: bool = False
+    debate_publish_gate_agent: str | None = None
+    debate_publish_gate_timeout_seconds: float = 90.0
     max_open_auto_publish_prs: int = 4
     auto_close_already_done_issues: bool = False
 
@@ -2126,6 +2131,93 @@ class BossLoop:
         worker_result["pr_number"] = BossLoop._pr_number_from_url(pr_url)
         return dict(publish_result)
 
+    @staticmethod
+    def _debate_gate_changed_files(worker_result: dict[str, Any]) -> list[str]:
+        changed_files: list[str] = []
+        seen: set[str] = set()
+        run = worker_result.get("run")
+        if isinstance(run, dict):
+            for work_order in run.get("work_orders", []) or []:
+                if not isinstance(work_order, dict):
+                    continue
+                for path in work_order.get("changed_paths", []) or []:
+                    text = str(path).strip()
+                    if not text or text in seen:
+                        continue
+                    seen.add(text)
+                    changed_files.append(text)
+        deliverable = worker_result.get("deliverable")
+        if isinstance(deliverable, dict):
+            for path in deliverable.get("changed_paths", []) or []:
+                text = str(path).strip()
+                if not text or text in seen:
+                    continue
+                seen.add(text)
+                changed_files.append(text)
+        return changed_files
+
+    def _run_debate_publish_gate(
+        self,
+        issue: GitHubIssue,
+        worker_result: dict[str, Any],
+        *,
+        branch: str,
+        commit_shas: list[str],
+    ) -> dict[str, Any] | None:
+        if not self.config.use_debate_publish_gate:
+            return None
+        gate = DebateGate(
+            repo_root=Path.cwd().resolve(),
+            config=DebateGateConfig(
+                enabled=True,
+                fail_closed=bool(self.config.debate_publish_gate_fail_closed),
+                agent_type=(
+                    str(self.config.debate_publish_gate_agent or "").strip()
+                    or str(self.config.default_reviewer_agent or "").strip()
+                    or "codex"
+                ),
+                timeout_seconds=float(self.config.debate_publish_gate_timeout_seconds or 90.0),
+            ),
+        )
+        result = gate.evaluate(
+            DebateGateRequest(
+                issue_number=issue.number,
+                issue_title=issue.title,
+                issue_body=issue.body,
+                source_branch=branch,
+                target_branch=self.config.target_branch,
+                commit_shas=list(commit_shas),
+                changed_files=self._debate_gate_changed_files(worker_result),
+                tests_run=[
+                    str(item).strip()
+                    for item in worker_result.get("tests_run", []) or []
+                    if str(item).strip()
+                ],
+                verification_results=[
+                    dict(item)
+                    for item in worker_result.get("verification_results", []) or []
+                    if isinstance(item, dict)
+                ],
+                receipt_id=str(worker_result.get("receipt_id", "")).strip() or None,
+            )
+        ).to_dict()
+        worker_result["debate_gate_result"] = dict(result)
+        if result.get("verdict") == "blocked":
+            blocked_reason = (
+                f"Debate publish gate blocked publication: "
+                f"{str(result.get('reason', '')).strip() or 'human review required before PR publication.'}"
+            )
+            reasons = worker_result.get("reasons")
+            normalized_reasons = (
+                [str(item).strip() for item in reasons if str(item).strip()]
+                if isinstance(reasons, list)
+                else []
+            )
+            if blocked_reason not in normalized_reasons:
+                normalized_reasons.append(blocked_reason)
+            worker_result["reasons"] = normalized_reasons
+        return result
+
     def _maybe_publish_deliverable(
         self,
         issue: GitHubIssue,
@@ -2334,6 +2426,47 @@ class BossLoop:
                             issue.number,
                             branch,
                         )
+            debate_gate_result = None
+            if self.config.use_debate_publish_gate:
+                debate_gate_result = self._run_debate_publish_gate(
+                    issue,
+                    worker_result,
+                    branch=branch,
+                    commit_shas=commit_shas,
+                )
+            if isinstance(debate_gate_result, dict):
+                worker_result.setdefault("debate_gate_result", dict(debate_gate_result))
+            if isinstance(debate_gate_result, dict) and not debate_gate_result.get(
+                "publication_allowed", True
+            ):
+                blocked_reason = "Debate publish gate blocked publication: " + (
+                    str(debate_gate_result.get("reason", "")).strip()
+                    or "human review required before PR publication."
+                )
+                reasons = worker_result.get("reasons")
+                normalized_reasons = (
+                    [str(item).strip() for item in reasons if str(item).strip()]
+                    if isinstance(reasons, list)
+                    else []
+                )
+                if blocked_reason not in normalized_reasons:
+                    normalized_reasons.append(blocked_reason)
+                worker_result["reasons"] = normalized_reasons
+                logger.info(
+                    "Boss publish blocked by debate gate for issue #%s branch %s: %s",
+                    issue.number,
+                    branch,
+                    str(debate_gate_result.get("reason", "")).strip() or "no reason provided",
+                )
+                return {
+                    "action": "blocked_by_debate_gate",
+                    "published": False,
+                    "branch": branch,
+                    "pr_url": None,
+                    "reason": str(debate_gate_result.get("reason", "")).strip()
+                    or "Debate gate blocked publication.",
+                    "concerns": list(debate_gate_result.get("concerns", []) or []),
+                }
             artifact = _BossDeliverableArtifact(
                 branch=branch,
                 metadata={
@@ -2794,6 +2927,11 @@ class BossLoop:
             normalized_harvest = dict(harvest_result)
             receipt_metadata["harvest_result"] = normalized_harvest
             postprocess["harvest_result"] = normalized_harvest
+        debate_gate_result = worker_result.get("debate_gate_result")
+        if isinstance(debate_gate_result, dict):
+            normalized_gate = dict(debate_gate_result)
+            receipt_metadata["debate_gate_result"] = normalized_gate
+            postprocess["debate_gate_result"] = normalized_gate
         issue_comment_result = worker_result.get("issue_comment_result")
         if isinstance(issue_comment_result, dict):
             normalized_comment = dict(issue_comment_result)
@@ -2855,6 +2993,19 @@ class BossLoop:
         if action == "pr_created":
             return f"Auto-continuing: published PR {pr_url} for human review."
         return f"Auto-continuing: deliverable is available at {pr_url} for human review."
+
+    @staticmethod
+    def _debate_gate_followup(worker_result: dict[str, Any]) -> str | None:
+        gate_result = worker_result.get("debate_gate_result")
+        if not isinstance(gate_result, dict):
+            return None
+        verdict = str(gate_result.get("verdict", "")).strip()
+        if verdict != "blocked":
+            return None
+        reason = str(gate_result.get("reason", "")).strip()
+        if not reason:
+            reason = "human review required before PR publication."
+        return f"Publish skipped by debate gate: {reason}"
 
     def _convert_pr_to_draft(self, worker_result: dict[str, Any]) -> None:
         """Convert a newly-created PR to draft so only the 5 required checks run.
@@ -4252,7 +4403,11 @@ class BossLoop:
             self._consecutive_failures = 0
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
             self._log_value_outcome(issue_dict, "completed", elapsed_seconds)
-            next_action = self._published_pr_followup(worker_result) or "Proceeding to next issue."
+            next_action = (
+                self._published_pr_followup(worker_result)
+                or self._debate_gate_followup(worker_result)
+                or "Proceeding to next issue."
+            )
             self._append_iteration_metrics(
                 iteration=iteration,
                 issue_number=issue_number,
@@ -4307,6 +4462,15 @@ class BossLoop:
                     worker_result=worker_result,
                     elapsed_seconds=elapsed_seconds,
                 )
+                next_action = (
+                    self._published_pr_followup(worker_result)
+                    or self._debate_gate_followup(worker_result)
+                    or (
+                        f"Terminal: deliverable ({normalized_deliverable_type}) for issue "
+                        f"#{issue_dict.get('number', '?')}"
+                        f"{f' PR {pr_url}' if pr_url else ''}. Proceeding to next issue."
+                    )
+                )
                 return BossIterationStatus(
                     iteration=iteration,
                     run_id=self.run_id,
@@ -4316,11 +4480,7 @@ class BossLoop:
                     worker_status="completed",
                     stop_reason=None,
                     needs_human_reasons=[],
-                    next_actions=[
-                        f"Terminal: deliverable ({normalized_deliverable_type}) for issue "
-                        f"#{issue_dict.get('number', '?')}"
-                        f"{f' PR {pr_url}' if pr_url else ''}. Proceeding to next issue."
-                    ],
+                    next_actions=[next_action],
                     elapsed_seconds=elapsed_seconds,
                     worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
                 )

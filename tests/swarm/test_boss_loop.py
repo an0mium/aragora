@@ -5042,6 +5042,55 @@ class TestListOpenBossHarvestPrs:
 class TestMaybePublishDeliverable:
     """Tests for auto-publish queue capping."""
 
+    def test_debate_gate_disabled_preserves_existing_publish_path(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+            )
+        )
+        issue = _make_issue(number=127)
+        worker_result = {
+            "status": "needs_human",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/issue-127",
+                "commit_shas": ["abc123"],
+            },
+        }
+
+        with (
+            patch.object(loop, "_run_debate_publish_gate") as gate_mock,
+            patch.object(loop, "_list_open_boss_harvest_prs", return_value=[]),
+            patch.object(
+                loop,
+                "_harvest_worker_commits_for_publish",
+                return_value={
+                    "action": "harvested",
+                    "branch": "codex/issue-127",
+                    "source_branch": "codex/issue-127",
+                    "commit_shas": ["abc123"],
+                },
+            ),
+            patch(
+                "aragora.swarm.tranche_integrate.publish_lane_deliverable",
+                return_value={
+                    "published": True,
+                    "branch": "codex/issue-127",
+                    "pr_url": "https://github.com/synaptent/aragora/pull/2127",
+                },
+            ) as mock_publish,
+            patch("aragora.swarm.pr_registry.PullRequestRegistry"),
+        ):
+            result = loop._maybe_publish_deliverable(issue, worker_result)
+
+        gate_mock.assert_not_called()
+        assert result is not None
+        assert result["published"] is True
+        assert result["pr_url"] == "https://github.com/synaptent/aragora/pull/2127"
+        assert "debate_gate_result" not in worker_result
+        assert mock_publish.called
+
     def test_reuses_existing_published_pr_for_branch_deliverable(self) -> None:
         loop = BossLoop(
             config=BossLoopConfig(
@@ -5269,6 +5318,128 @@ class TestMaybePublishDeliverable:
         assert mock_publish.call_args.kwargs["target_branch"] == "release/2026.04"
         assert mock_publish.call_args.args[0].branch == "codex/swarm-valid"
 
+    def test_debate_gate_blocks_publish_and_records_metadata(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+                use_debate_publish_gate=True,
+            )
+        )
+        issue = _make_issue(number=128)
+        worker_result = {
+            "status": "needs_human",
+            "outcome": "blocked",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/issue-128",
+                "commit_shas": ["abc123"],
+            },
+        }
+
+        with (
+            patch.object(
+                loop,
+                "_run_debate_publish_gate",
+                return_value={
+                    "verdict": "blocked",
+                    "publication_allowed": False,
+                    "passed": False,
+                    "reason": "Publish summary mismatches the verified diff.",
+                    "concerns": ["publish metadata hides a blocker"],
+                    "fail_open_used": False,
+                    "ran": True,
+                },
+            ),
+            patch.object(loop, "_list_open_boss_harvest_prs", return_value=[]),
+            patch.object(
+                loop,
+                "_harvest_worker_commits_for_publish",
+                return_value={
+                    "action": "harvested",
+                    "branch": "codex/issue-128",
+                    "source_branch": "codex/issue-128",
+                    "commit_shas": ["abc123"],
+                },
+            ),
+            patch("aragora.swarm.tranche_integrate.publish_lane_deliverable") as mock_publish,
+            patch.object(loop, "_maybe_comment_published_deliverable", return_value=None),
+            patch.object(loop, "_maybe_auto_close_already_done_issue", return_value=None),
+            patch.object(loop, "_convert_pr_to_draft"),
+        ):
+            result = loop._postprocess_issue_result(issue, worker_result)
+
+        assert result["status"] == "needs_human"
+        assert result["publish_result"]["action"] == "blocked_by_debate_gate"
+        assert result["publish_result"]["published"] is False
+        assert result["receipt_metadata"]["debate_gate_result"]["verdict"] == "blocked"
+        assert "Debate publish gate blocked publication" in result["reasons"][-1]
+        mock_publish.assert_not_called()
+
+    def test_debate_gate_fail_open_preserves_publish(self) -> None:
+        loop = BossLoop(
+            config=BossLoopConfig(
+                repo="synaptent/aragora",
+                auto_publish_deliverables=True,
+                use_debate_publish_gate=True,
+            )
+        )
+        issue = _make_issue(number=129)
+        worker_result = {
+            "status": "needs_human",
+            "outcome": "blocked",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/issue-129",
+                "commit_shas": ["abc123"],
+            },
+        }
+
+        with (
+            patch.object(
+                loop,
+                "_run_debate_publish_gate",
+                return_value={
+                    "verdict": "fail_open",
+                    "publication_allowed": True,
+                    "passed": False,
+                    "reason": "TimeoutError: model unavailable",
+                    "concerns": [],
+                    "fail_open_used": True,
+                    "ran": False,
+                },
+            ),
+            patch.object(loop, "_list_open_boss_harvest_prs", return_value=[]),
+            patch.object(
+                loop,
+                "_harvest_worker_commits_for_publish",
+                return_value={
+                    "action": "harvested",
+                    "branch": "codex/issue-129",
+                    "source_branch": "codex/issue-129",
+                    "commit_shas": ["abc123"],
+                },
+            ),
+            patch(
+                "aragora.swarm.tranche_integrate.publish_lane_deliverable",
+                return_value={
+                    "published": True,
+                    "branch": "codex/issue-129",
+                    "pr_url": "https://github.com/synaptent/aragora/pull/2129",
+                },
+            ) as mock_publish,
+            patch("aragora.swarm.pr_registry.PullRequestRegistry"),
+            patch.object(loop, "_maybe_comment_published_deliverable", return_value=None),
+            patch.object(loop, "_maybe_auto_close_already_done_issue", return_value=None),
+            patch.object(loop, "_convert_pr_to_draft"),
+        ):
+            result = loop._postprocess_issue_result(issue, worker_result)
+
+        assert result["publish_result"]["published"] is True
+        assert result["receipt_metadata"]["debate_gate_result"]["verdict"] == "fail_open"
+        assert result["deliverable"]["type"] == "pr"
+        assert mock_publish.called
+
 
 class TestPostprocessConvertsToDraft:
     """Verify _postprocess_issue_result calls _convert_pr_to_draft."""
@@ -5289,6 +5460,69 @@ class TestPostprocessConvertsToDraft:
         ):
             loop._postprocess_issue_result(issue, worker_result)
         mock_convert.assert_called_once_with(worker_result)
+
+    def test_run_iteration_reports_debate_gate_block_followup(self) -> None:
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(130, "Publish gate followup")]
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=1,
+                auto_publish_deliverables=True,
+                use_debate_publish_gate=True,
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._emit_lane_receipt = MagicMock(return_value="lane-130")
+        loop._log_value_outcome = MagicMock()
+
+        with patch.object(
+            loop,
+            "_dispatch_issue",
+            AsyncMock(
+                return_value={
+                    "status": "needs_human",
+                    "outcome": "blocked",
+                    "deliverable": {
+                        "type": "branch",
+                        "branch": "codex/issue-130",
+                        "commit_shas": ["abc123"],
+                    },
+                    "publish_result": {
+                        "action": "blocked_by_debate_gate",
+                        "published": False,
+                        "branch": "codex/issue-130",
+                        "pr_url": None,
+                        "reason": "Publish gate requires human review before PR creation.",
+                        "concerns": ["diff summary omits the blocker"],
+                    },
+                    "debate_gate_result": {
+                        "verdict": "blocked",
+                        "publication_allowed": False,
+                        "passed": False,
+                        "reason": "Publish gate requires human review before PR creation.",
+                        "concerns": ["diff summary omits the blocker"],
+                        "fail_open_used": False,
+                        "ran": True,
+                    },
+                    "receipt_metadata": {
+                        "debate_gate_result": {
+                            "verdict": "blocked",
+                            "publication_allowed": False,
+                            "passed": False,
+                            "reason": "Publish gate requires human review before PR creation.",
+                            "concerns": ["diff summary omits the blocker"],
+                            "fail_open_used": False,
+                            "ran": True,
+                        }
+                    },
+                }
+            ),
+        ):
+            status = asyncio.run(loop._run_iteration(1))
+
+        assert status.worker_status == "completed"
+        assert "Publish skipped by debate gate" in status.next_actions[0]
 
 
 # ---------------------------------------------------------------------------
