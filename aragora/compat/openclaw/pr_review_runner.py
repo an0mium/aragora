@@ -730,8 +730,8 @@ class PRReviewRunner:
             )
             findings = extract_review_findings(debate_result)
             return findings, None
-        except ImportError:
-            pass
+        except ImportError as exc:
+            logger.debug("Direct review import unavailable: %s, falling back to subprocess", exc)
         except (RuntimeError, ValueError, TypeError, OSError) as exc:
             logger.debug("Direct review import failed: %s, falling back to subprocess", exc)
 
@@ -773,16 +773,16 @@ class PRReviewRunner:
             stdout = result.stdout.strip()
             try:
                 return json.loads(stdout), None
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as exc:
+                logger.debug("Review subprocess stdout was not valid JSON: %s", exc)
 
             # Try to find a JSON object in the output
             brace_start = stdout.find("{")
             if brace_start >= 0:
                 try:
                     return json.loads(stdout[brace_start:]), None
-                except json.JSONDecodeError:
-                    pass
+                except json.JSONDecodeError as exc:
+                    logger.debug("Review subprocess embedded JSON parse failed: %s", exc)
 
             return {"raw_output": stdout}, None
         except FileNotFoundError:

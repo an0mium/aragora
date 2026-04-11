@@ -445,6 +445,23 @@ class TestPRReviewRunner:
         assert findings == {"high_issues": ["gauntlet finding"]}
         mock_subprocess.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_run_review_logs_import_fallback(self):
+        runner = PRReviewRunner(dry_run=True)
+        with patch.dict("sys.modules", {"aragora.cli.review": None}):
+            with patch.object(
+                runner,
+                "_run_review_subprocess",
+                return_value=({"raw_output": "fallback"}, None),
+            ) as mock_subprocess:
+                with patch("aragora.compat.openclaw.pr_review_runner.logger.debug") as mock_debug:
+                    findings, error = await runner._run_review("diff --git a/x b/x")
+        assert error is None
+        assert findings == {"raw_output": "fallback"}
+        mock_subprocess.assert_called_once()
+        assert mock_debug.call_count == 1
+        assert "Direct review import unavailable" in mock_debug.call_args.args[0]
+
     def test_from_policy_file_missing(self):
         runner = PRReviewRunner.from_policy_file("/nonexistent/policy.yaml")
         # Falls back to default
@@ -650,6 +667,20 @@ class TestReviewSubprocess:
             findings, error = runner._run_review_subprocess("diff content")
         assert error is None
         assert findings["agreement_score"] == 0.8
+
+    def test_subprocess_invalid_json_logs_debug(self):
+        runner = PRReviewRunner(dry_run=True)
+        mock_result = MagicMock(returncode=0, stdout="log line\n{invalid json", stderr="")
+        with patch("subprocess.run", return_value=mock_result):
+            with patch("aragora.compat.openclaw.pr_review_runner.logger.debug") as mock_debug:
+                findings, error = runner._run_review_subprocess("diff content")
+        assert error is None
+        assert findings == {"raw_output": "log line\n{invalid json"}
+        assert mock_debug.call_count == 2
+        assert "Review subprocess stdout was not valid JSON" in mock_debug.call_args_list[0].args[0]
+        assert (
+            "Review subprocess embedded JSON parse failed" in mock_debug.call_args_list[1].args[0]
+        )
 
     def test_subprocess_failure(self):
         runner = PRReviewRunner(dry_run=True)
