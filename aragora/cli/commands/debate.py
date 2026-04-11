@@ -111,8 +111,8 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Any | N
                     return SyncEventEmitter()
                 except ImportError:
                     logger.debug("SyncEventEmitter not available")
-    except (OSError, TimeoutError):
-        logger.debug("Streaming server not available at %s", server_url)
+    except (OSError, TimeoutError) as e:
+        logger.debug("Streaming server not available at %s: %s", server_url, e)
     return None
 
 
@@ -488,9 +488,9 @@ def _maybe_add_vertical_specialist_local(
         )
         try:
             specialist.system_prompt = specialist.build_system_prompt()
-        except (AttributeError, TypeError, ValueError):
+        except (AttributeError, TypeError, ValueError) as e:
             logger.debug(
-                "Failed to build system prompt for specialist %s", resolved_vertical, exc_info=True
+                "Failed to build system prompt for specialist %s: %s", resolved_vertical, e
             )
         agents.append(specialist)
         print(f"[verticals] Injected specialist: {resolved_vertical}")
