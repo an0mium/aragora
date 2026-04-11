@@ -40,8 +40,17 @@ def get_handler_stability(handler_name: str) -> Stability:
 
 
 def get_all_handler_stability() -> dict[str, str]:
-    """Get all handler stability levels as strings for API response."""
-    return {name: stability.value for name, stability in HANDLER_STABILITY.items()}
+    """Get all handler stability levels as strings for API response.
+
+    Registered handlers that do not have an explicit classification default to
+    EXPERIMENTAL to match get_handler_stability().
+    """
+    all_stability = {
+        handler.__name__: get_handler_stability(handler.__name__).value for handler in ALL_HANDLERS
+    }
+    for name, stability in HANDLER_STABILITY.items():
+        all_stability.setdefault(name, stability.value)
+    return all_stability
 
 
 __all__ = [
