@@ -266,8 +266,8 @@ def _load_dotenv() -> bool:
                         if key and key not in os.environ:
                             os.environ[key] = value
                 return True
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.debug("Failed to load .env from %s: %s", candidate, exc)
     return False
 
 
@@ -1072,7 +1072,7 @@ async def _run_live_debate(
 
         reset_secret_manager()
     except ImportError:
-        pass
+        logger.debug("aragora.config.secrets not available, skipping reset")
 
     from aragora.agents.base import AgentType, create_agent
     from aragora.core import Environment
