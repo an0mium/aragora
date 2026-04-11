@@ -502,7 +502,7 @@ async def run_daemon(config: WatcherConfig) -> None:
         try:
             loop.add_signal_handler(sig, _on_signal)
         except NotImplementedError:
-            pass  # Windows
+            logger.debug("Signal %s not supported on this platform", sig)
 
     if daemon._task:
         try:
