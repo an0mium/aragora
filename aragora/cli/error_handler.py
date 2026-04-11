@@ -9,7 +9,7 @@ Usage:
 
     try:
         # CLI operation
-    except Exception as e:
+    except (OSError, ValueError, RuntimeError) as e:
         handle_cli_error(e)
 """
 
