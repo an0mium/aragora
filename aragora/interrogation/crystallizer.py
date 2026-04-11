@@ -309,7 +309,12 @@ class Crystallizer:
             if not summary and hasattr(research_result, "summary"):
                 try:
                     summary = str(research_result.summary())
-                except Exception:  # pragma: no cover - defensive
+                except (
+                    TypeError,
+                    ValueError,
+                    AttributeError,
+                    RuntimeError,
+                ):  # pragma: no cover - defensive
                     summary = ""
 
         return Spec(
