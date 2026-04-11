@@ -266,6 +266,31 @@ async def test_sync_gmail_connector_to_token_store_saves_connector_tokens():
     assert state.token_expiry == "expiry-marker"
 
 
+@pytest.mark.asyncio
+async def test_sync_gmail_connector_to_token_store_skips_unexpected_store_errors(caplog):
+    class FailingStore:
+        async def get(self, user_id):
+            return None
+
+        async def save(self, state):
+            raise ValueError("save exploded")
+
+    connector = SimpleNamespace(
+        user_id="me",
+        _refresh_token="refresh-token-123",
+        _access_token="access-token-456",
+        _token_expiry="expiry-marker",
+    )
+    caplog.set_level("DEBUG")
+    set_gmail_token_store(FailingStore())
+    try:
+        await triage_cmd._sync_gmail_connector_to_token_store(connector)
+    finally:
+        reset_gmail_token_store()
+
+    assert "Gmail token-store sync skipped: save exploded" in caplog.text
+
+
 def test_print_decisions_formats_enum_values(capsys):
     decision = TriageDecision.create(
         final_action=InboxWedgeAction.IGNORE,
@@ -356,6 +381,54 @@ async def test_shutdown_triage_storage_closes_http_pool_and_resets_singletons():
     reset_inbox_trust_wedge_service.assert_called_once()
     reset_inbox_trust_wedge_store.assert_called_once()
     sleep.assert_awaited_once_with(0.05)
+
+
+@pytest.mark.asyncio
+async def test_shutdown_triage_storage_skips_unexpected_cleanup_errors(caplog):
+    caplog.set_level("DEBUG")
+    with (
+        patch(
+            "aragora.server.startup.database.close_postgres_pool",
+            AsyncMock(side_effect=ValueError("close exploded")),
+        ) as close_postgres_pool,
+        patch(
+            "aragora.server.http_client_pool.close_http_pool",
+            AsyncMock(),
+        ) as close_http_pool,
+        patch(
+            "aragora.agents.api_agents.common.close_shared_connector",
+            AsyncMock(),
+        ) as close_shared_connector,
+        patch(
+            "aragora.storage.connection_factory.close_all_pools",
+            AsyncMock(),
+        ) as close_all_pools,
+        patch(
+            "aragora.events.dispatcher.shutdown_dispatcher",
+        ) as shutdown_dispatcher,
+        patch(
+            "aragora.storage.webhook_config_store.reset_webhook_config_store",
+        ) as reset_webhook_config_store,
+        patch(
+            "aragora.inbox.trust_wedge.reset_inbox_trust_wedge_service",
+        ) as reset_inbox_trust_wedge_service,
+        patch(
+            "aragora.inbox.trust_wedge.reset_inbox_trust_wedge_store",
+        ) as reset_inbox_trust_wedge_store,
+        patch("aragora.cli.commands.triage.asyncio.sleep", AsyncMock()) as sleep,
+    ):
+        await triage_cmd._shutdown_triage_storage()
+
+    close_postgres_pool.assert_awaited_once()
+    close_http_pool.assert_awaited_once()
+    close_shared_connector.assert_awaited_once()
+    close_all_pools.assert_awaited_once()
+    shutdown_dispatcher.assert_called_once_with(wait=True)
+    reset_webhook_config_store.assert_called_once()
+    reset_inbox_trust_wedge_service.assert_called_once()
+    reset_inbox_trust_wedge_store.assert_called_once()
+    sleep.assert_awaited_once_with(0.05)
+    assert "Triage shared-pool shutdown skipped: close exploded" in caplog.text
 
 
 def test_get_gmail_connector_loads_refresh_token_from_home_file(tmp_path, monkeypatch):
