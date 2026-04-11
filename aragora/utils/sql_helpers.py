@@ -22,11 +22,15 @@ def escape_like_pattern(value: str) -> str:
     Returns:
         The escaped string safe for use in LIKE patterns.
 
-    Example:
+    Examples:
         >>> escape_like_pattern("100%")
         '100\\\\%'
         >>> escape_like_pattern("test_value")
         'test\\\\_value'
+        >>> escape_like_pattern(r"folder\\name")
+        'folder\\\\\\\\name'
+        >>> escape_like_pattern(r"100%_match\\path")
+        '100\\\\%\\\\_match\\\\\\\\path'
 
     Usage in SQL:
         escaped = escape_like_pattern(user_input)
