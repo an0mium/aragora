@@ -615,6 +615,7 @@ def _extract_first_json_object(text: str) -> dict[str, Any]:
         try:
             payload, _ = decoder.raw_decode(text[index:])
         except json.JSONDecodeError:
+            logger.debug("skipping non-JSON fragment at offset %d", index)
             continue
         if isinstance(payload, dict):
             return payload
