@@ -45,8 +45,8 @@ async def _audit_approval_action(
             resource_id=request_id,
             **details,
         )
-    except (ImportError, TypeError, RuntimeError):
-        pass
+    except (ImportError, TypeError, RuntimeError) as e:
+        logger.debug("Audit approval action unavailable: %s", e)
 
 
 class ApprovalStatus(str, Enum):
