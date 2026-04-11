@@ -548,7 +548,7 @@ class DevOpsAgent:
                         }
                     )
             except json.JSONDecodeError:
-                pass
+                logger.debug("Failed to parse release JSON for health check")
 
         result.details = checks
         result.items_processed = len(checks)
