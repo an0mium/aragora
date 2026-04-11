@@ -2121,6 +2121,15 @@ class SwarmSupervisor:
             target_agent=first.target_agent,
             reviewer_agent=first.reviewer_agent,
             approval_required=True,
+            mission_id=first.mission_id or spec.mission_id,
+            stage_id=first.stage_id or spec.stage_id,
+            assertion_ids=list(first.assertion_ids or spec.assertion_ids),
+            roadmap_refs=list(first.roadmap_refs or spec.roadmap_refs),
+            evidence_expectations=list(first.evidence_expectations or spec.evidence_expectations),
+            gate_expectations=dict(first.gate_expectations or spec.gate_expectations),
+            mission_context_policies=dict(
+                first.mission_context_policies or spec.mission_context_policies
+            ),
             metadata={
                 **dict(first.metadata),
                 "collapsed_redundant_work_orders": [item.work_order_id for item in work_orders],
@@ -2212,6 +2221,30 @@ class SwarmSupervisor:
                         payload.get("approval_required"),
                         default=True,
                     ),
+                    mission_id=str(payload.get("mission_id", "")).strip() or spec.mission_id,
+                    stage_id=str(payload.get("stage_id", "")).strip() or spec.stage_id,
+                    assertion_ids=[
+                        str(item).strip()
+                        for item in payload.get("assertion_ids", [])
+                        if str(item).strip()
+                    ]
+                    or list(spec.assertion_ids),
+                    roadmap_refs=[
+                        str(item).strip()
+                        for item in payload.get("roadmap_refs", [])
+                        if str(item).strip()
+                    ]
+                    or list(spec.roadmap_refs),
+                    evidence_expectations=[
+                        str(item).strip()
+                        for item in payload.get("evidence_expectations", [])
+                        if str(item).strip()
+                    ]
+                    or list(spec.evidence_expectations),
+                    gate_expectations=dict(payload.get("gate_expectations") or {})
+                    or dict(spec.gate_expectations),
+                    mission_context_policies=dict(payload.get("mission_context_policies") or {})
+                    or dict(spec.mission_context_policies),
                     metadata={
                         **dict(payload.get("metadata") or {}),
                         "source": "explicit_spec_work_order",

@@ -26,6 +26,12 @@ class TestSwarmSpecCreation:
         assert spec.track_hints == []
         assert spec.file_scope_hints == []
         assert spec.work_orders == []
+        assert spec.mission_id == ""
+        assert spec.stage_id == ""
+        assert spec.assertion_ids == []
+        assert spec.roadmap_refs == []
+        assert spec.evidence_expectations == []
+        assert set(spec.mission_context_policies) == {"worker", "validator"}
 
     def test_creation_with_values(self):
         spec = SwarmSpec(
@@ -36,6 +42,11 @@ class TestSwarmSpecCreation:
             budget_limit_usd=10.0,
             track_hints=["sme", "core"],
             work_orders=[{"work_order_id": "wo-1", "title": "lane"}],
+            mission_id="mission-rs-01",
+            stage_id="stage-rs-01",
+            assertion_ids=["RS-01-ASSERT-1"],
+            roadmap_refs=["RS-01"],
+            evidence_expectations=["validation_command", "receipt"],
             estimated_complexity="high",
             requires_approval=True,
             user_expertise="developer",
@@ -46,6 +57,8 @@ class TestSwarmSpecCreation:
         assert spec.budget_limit_usd == 10.0
         assert spec.track_hints == ["sme", "core"]
         assert spec.work_orders == [{"work_order_id": "wo-1", "title": "lane"}]
+        assert spec.mission_id == "mission-rs-01"
+        assert spec.stage_id == "stage-rs-01"
         assert spec.estimated_complexity == "high"
         assert spec.requires_approval is True
 
@@ -61,6 +74,11 @@ class TestSwarmSpecSerialization:
             constraints=["No breaking changes"],
             budget_limit_usd=7.50,
             track_hints=["qa"],
+            mission_id="mission-rs-credential-envelope",
+            stage_id="stage-contract-aware-preflight",
+            assertion_ids=["RS-04-ASSERT-1"],
+            roadmap_refs=["RS-04", "RS-05"],
+            evidence_expectations=["validation_command", "worker_contract", "receipt"],
             work_orders=[
                 {
                     "work_order_id": "docs-lane",
@@ -81,6 +99,12 @@ class TestSwarmSpecSerialization:
         assert restored.track_hints == spec.track_hints
         assert restored.work_orders == spec.work_orders
         assert restored.id == spec.id
+        assert restored.mission_id == spec.mission_id
+        assert restored.stage_id == spec.stage_id
+        assert restored.assertion_ids == spec.assertion_ids
+        assert restored.roadmap_refs == spec.roadmap_refs
+        assert restored.evidence_expectations == spec.evidence_expectations
+        assert set(restored.mission_context_policies) == {"worker", "validator"}
 
     def test_to_json_and_back(self):
         spec = SwarmSpec(
@@ -151,6 +175,15 @@ class TestSwarmSpecSummary:
         spec = SwarmSpec(work_orders=[{"work_order_id": "docs-lane"}])
         summary = spec.summary()
         assert "Explicit work orders: 1" in summary
+
+    def test_summary_includes_mission_and_stage(self):
+        spec = SwarmSpec(
+            mission_id="mission-rs-credential-envelope",
+            stage_id="stage-contract-aware-preflight",
+        )
+        summary = spec.summary()
+        assert "mission-rs-credential-envelope" in summary
+        assert "stage-contract-aware-preflight" in summary
 
 
 class TestSwarmSpecDispatchBounds:

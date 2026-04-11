@@ -79,7 +79,30 @@ class BoundedWorkOrder:
     target_agent: str = ExecutionTarget.CODEX.value
     reviewer_agent: str = ExecutionTarget.CLAUDE.value
     approval_required: bool = False
+    mission_id: str = ""
+    stage_id: str = ""
+    assertion_ids: list[str] = field(default_factory=list)
+    roadmap_refs: list[str] = field(default_factory=list)
+    evidence_expectations: list[str] = field(default_factory=list)
+    gate_expectations: dict[str, Any] = field(default_factory=dict)
+    mission_context_policies: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        from aragora.swarm.mission import normalize_context_policies
+
+        self.mission_id = str(self.mission_id or "").strip()
+        self.stage_id = str(self.stage_id or "").strip()
+        self.assertion_ids = _dedupe_nonempty(self.assertion_ids)
+        self.roadmap_refs = _dedupe_nonempty(self.roadmap_refs)
+        self.evidence_expectations = _dedupe_nonempty(self.evidence_expectations)
+        self.gate_expectations = dict(self.gate_expectations or {})
+        self.mission_context_policies = normalize_context_policies(
+            self.mission_context_policies,
+            file_scope=list(self.file_scope),
+            evidence_expectations=list(self.evidence_expectations),
+        )
+        self.metadata = dict(self.metadata or {})
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -96,6 +119,13 @@ class BoundedWorkOrder:
             "target_agent": self.target_agent,
             "reviewer_agent": self.reviewer_agent,
             "approval_required": self.approval_required,
+            "mission_id": self.mission_id,
+            "stage_id": self.stage_id,
+            "assertion_ids": list(self.assertion_ids),
+            "roadmap_refs": list(self.roadmap_refs),
+            "evidence_expectations": list(self.evidence_expectations),
+            "gate_expectations": dict(self.gate_expectations),
+            "mission_context_policies": dict(self.mission_context_policies),
             "metadata": dict(self.metadata),
         }
 
@@ -462,6 +492,13 @@ class NomicPipelineBridge:
             budget_limit_usd=self._budget_limit_usd,
             file_scope_hints=list(work_order.file_scope),
             work_orders=[work_order.to_dict()],
+            mission_id=work_order.mission_id,
+            stage_id=work_order.stage_id,
+            assertion_ids=list(work_order.assertion_ids),
+            roadmap_refs=list(work_order.roadmap_refs),
+            evidence_expectations=list(work_order.evidence_expectations),
+            gate_expectations=dict(work_order.gate_expectations),
+            mission_context_policies=dict(work_order.mission_context_policies),
             estimated_complexity=work_order.estimated_complexity,
             requires_approval=work_order.approval_required,
             research_context={

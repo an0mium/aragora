@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from aragora.nomic.pipeline_bridge import NomicPipelineBridge
+from aragora.nomic.pipeline_bridge import BoundedWorkOrder, NomicPipelineBridge
 from aragora.nomic.task_decomposer import SubTask
 from aragora.pipeline.execution_mode import ExecutionMode
 
@@ -216,6 +216,59 @@ class TestBoundedWorkOrders:
         assert work_order.expected_tests == ["python -m pytest tests/scripts -q"]
         assert work_order.risk_level == "critical"
         assert work_order.approval_required is True
+
+    def test_bounded_work_order_serializes_mission_lineage(self):
+        work_order = BoundedWorkOrder(
+            work_order_id="sub-1",
+            pipeline_task_id="task-1",
+            title="Contract-aware preflight",
+            description="Thread mission lineage into the work order",
+            file_scope=["aragora/swarm/preflight.py"],
+            mission_id="mission-rs-credential-envelope",
+            stage_id="stage-contract-aware-preflight",
+            assertion_ids=["RS-04-ASSERT-1"],
+            roadmap_refs=["RS-04", "RS-05"],
+            evidence_expectations=["validation_command", "worker_contract", "receipt"],
+        )
+
+        payload = work_order.to_dict()
+
+        assert payload["mission_id"] == "mission-rs-credential-envelope"
+        assert payload["stage_id"] == "stage-contract-aware-preflight"
+        assert payload["assertion_ids"] == ["RS-04-ASSERT-1"]
+        assert payload["roadmap_refs"] == ["RS-04", "RS-05"]
+        assert payload["evidence_expectations"] == [
+            "validation_command",
+            "worker_contract",
+            "receipt",
+        ]
+        assert set(payload["mission_context_policies"]) == {"worker", "validator"}
+
+    def test_ralph_manifest_projects_inherit_mission_lineage(self):
+        bridge = NomicPipelineBridge()
+        work_order = BoundedWorkOrder(
+            work_order_id="sub-1",
+            pipeline_task_id="task-1",
+            title="Contract-aware preflight",
+            description="Thread mission lineage into the work order",
+            file_scope=["aragora/swarm/preflight.py"],
+            mission_id="mission-rs-credential-envelope",
+            stage_id="stage-contract-aware-preflight",
+            assertion_ids=["RS-04-ASSERT-1"],
+            roadmap_refs=["RS-04"],
+            evidence_expectations=["validation_command", "worker_contract", "receipt"],
+        )
+
+        manifest = bridge._build_ralph_manifest_for_work_order(
+            "Improve dispatch readiness", work_order
+        )
+        spec = manifest.projects[0].spec
+
+        assert spec.mission_id == "mission-rs-credential-envelope"
+        assert spec.stage_id == "stage-contract-aware-preflight"
+        assert spec.assertion_ids == ["RS-04-ASSERT-1"]
+        assert spec.roadmap_refs == ["RS-04"]
+        assert "worker_contract" in spec.evidence_expectations
 
     def test_write_ralph_handoff_persists_manifest_with_truthful_receipt_metadata(self, tmp_path):
         bridge = NomicPipelineBridge(repo_path=tmp_path)

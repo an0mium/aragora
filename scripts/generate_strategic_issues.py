@@ -27,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repo", default=".", help="Repository root")
     parser.add_argument("--max-issues", type=int, default=10)
     parser.add_argument("--max-per-theme", type=int, default=4)
+    parser.add_argument("--categories", nargs="*", default=[], help="Filter by theme/category")
     parser.add_argument("--dry-run", action="store_true", help="Preview only")
     parser.add_argument("--heuristic-only", action="store_true")
     parser.add_argument("--no-scanner", action="store_true")
@@ -42,6 +43,7 @@ def main() -> int:
     config = StrategicIssueBridgeConfig(
         max_issues=args.max_issues,
         max_per_theme=args.max_per_theme,
+        categories=list(args.categories),
         heuristic_only=args.heuristic_only,
         enable_scanner=not args.no_scanner,
         enable_llm=args.enable_llm,

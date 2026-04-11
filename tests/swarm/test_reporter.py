@@ -2222,6 +2222,76 @@ class TestIntegratorView:
         )
         assert payload["summary"]["scope_violation_lanes"] == 1
 
+    def test_build_integrator_view_exposes_mission_and_gate_metadata(self):
+        now = datetime(2026, 3, 30, 12, 0, tzinfo=UTC)
+
+        payload = build_integrator_view(
+            coordination={
+                "integrator": {
+                    "developer_tasks": [
+                        {
+                            "task_key": "run-1:wo-gated",
+                            "task_id": "wo-gated",
+                            "run_id": "run-1",
+                            "status": "blocked",
+                            "title": "Credential envelope gate",
+                            "owner_agent": "codex",
+                            "updated_at": now.isoformat(),
+                            "metadata": {
+                                "mission_id": "mission-rs-credential-envelope",
+                                "stage_id": "stage-contract-aware-preflight",
+                                "assertion_ids": ["ASSERT-001"],
+                                "evidence_expectations": [
+                                    "worker_contract",
+                                    "preflight_result",
+                                ],
+                                "dispatch_gate": {
+                                    "gate_type": "dispatch_ready",
+                                    "verdict": "blocked",
+                                    "mission_id": "mission-rs-credential-envelope",
+                                    "stage_id": "stage-contract-aware-preflight",
+                                    "assertion_ids": ["ASSERT-001"],
+                                    "failure_classes": ["contract_missing"],
+                                    "repair_eligible": False,
+                                    "required_evidence": [
+                                        "worker_contract",
+                                        "preflight_result",
+                                    ],
+                                    "notes": "Credential envelope checksum absent",
+                                },
+                            },
+                        }
+                    ],
+                    "leases": [],
+                    "completion_receipts": [],
+                    "integration_decisions": [],
+                    "salvage_candidates": [],
+                }
+            },
+            now=now,
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["mission_id"] == "mission-rs-credential-envelope"
+        assert lane["stage_id"] == "stage-contract-aware-preflight"
+        assert lane["assertion_ids"] == ["ASSERT-001"]
+        assert lane["evidence_expectations"] == ["worker_contract", "preflight_result"]
+        assert lane["dispatch_gate"] == {
+            "gate_type": "dispatch_ready",
+            "verdict": "blocked",
+            "mission_id": "mission-rs-credential-envelope",
+            "stage_id": "stage-contract-aware-preflight",
+            "assertion_ids": ["ASSERT-001"],
+            "failure_classes": ["contract_missing"],
+            "repair_eligible": False,
+            "required_evidence": ["worker_contract", "preflight_result"],
+            "notes": "Credential envelope checksum absent",
+        }
+        assert lane["gate_evaluations"] == [lane["dispatch_gate"]]
+        assert lane["last_gate_type"] == "dispatch_ready"
+        assert lane["last_gate_verdict"] == "blocked"
+        assert lane["failure_classes"] == ["contract_missing"]
+
     def test_build_integrator_view_excludes_superseded_scope_violation_from_summary(self):
         now = datetime(2026, 3, 30, 12, 0, tzinfo=UTC)
 

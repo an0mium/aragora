@@ -19,6 +19,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.mission import GateEvaluation, GateType, GateVerdict
+
 logger = logging.getLogger(__name__)
 
 
@@ -418,6 +420,37 @@ def run_pre_dispatch_validation_commands(
     return {"satisfied": True, "results": results}
 
 
+def _pre_dispatch_gate_evaluation(
+    *,
+    sanitation_ok: bool,
+    sanitation_reason: str | None,
+    unresolved_missing: list[str],
+    validation_commands: list[str],
+) -> dict[str, Any]:
+    failure_classes: list[str] = []
+    notes: list[str] = []
+    if not sanitation_ok:
+        failure_classes.append("sanitation_failed")
+        if sanitation_reason:
+            notes.append(f"sanitation_reason={sanitation_reason}")
+    if unresolved_missing:
+        failure_classes.append("validation_target_missing")
+        notes.append("missing_targets=" + ", ".join(unresolved_missing))
+
+    verdict = GateVerdict.PASS.value if not failure_classes else GateVerdict.BLOCKED.value
+    gate = GateEvaluation(
+        gate_type=GateType.DISPATCH_READY.value,
+        verdict=verdict,
+        failure_classes=failure_classes,
+        repair_eligible=bool(
+            set(failure_classes).intersection({"sanitation_failed", "validation_target_missing"})
+        ),
+        required_evidence=["issue_body", *(["validation_command"] if validation_commands else [])],
+        notes=" ".join(notes).strip(),
+    )
+    return gate.to_dict()
+
+
 # ---------------------------------------------------------------------------
 # LLM-based semantic issue parsing
 # ---------------------------------------------------------------------------
@@ -652,6 +685,12 @@ async def check_pre_dispatch_gate(
             pre_dispatch_cmds, repo_root=repo_root
         )
         unresolved = [t for t in missing if t not in set(declared_new)]
+        gate = _pre_dispatch_gate_evaluation(
+            sanitation_ok=san_ok,
+            sanitation_reason=san_reason,
+            unresolved_missing=unresolved,
+            validation_commands=validation_cmds,
+        )
 
         return {
             "pass": san_ok and not unresolved,
@@ -662,6 +701,7 @@ async def check_pre_dispatch_gate(
             "validation_commands": validation_cmds,
             "missing_targets": missing,
             "unresolved_missing": unresolved,
+            "gate_evaluation": gate,
         }
 
     # --- Regex fallback ---
@@ -670,6 +710,12 @@ async def check_pre_dispatch_gate(
     validation_cmds = extract_pre_dispatch_validation_commands(body)
     missing = find_missing_pre_dispatch_validation_targets(validation_cmds, repo_root=repo_root)
     unresolved = [t for t in missing if t not in set(declared_new)]
+    gate = _pre_dispatch_gate_evaluation(
+        sanitation_ok=san_ok,
+        sanitation_reason=san_reason,
+        unresolved_missing=unresolved,
+        validation_commands=validation_cmds,
+    )
 
     return {
         "pass": san_ok and not unresolved,
@@ -680,6 +726,7 @@ async def check_pre_dispatch_gate(
         "validation_commands": validation_cmds,
         "missing_targets": missing,
         "unresolved_missing": unresolved,
+        "gate_evaluation": gate,
     }
 
 

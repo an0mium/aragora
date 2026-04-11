@@ -226,6 +226,12 @@ class TerminalQualification:
     reasons: list[str] = field(default_factory=list)
     receipt_expected: bool = False
     human_intervention_required: bool = False
+    mission_id: str = ""
+    stage_id: str = ""
+    assertion_ids: list[str] = field(default_factory=list)
+    evidence_expectations: list[str] = field(default_factory=list)
+    gate_evaluations: list[dict[str, Any]] = field(default_factory=list)
+    failure_classes: list[str] = field(default_factory=list)
 
     @property
     def deliverable_type(self) -> str | None:
@@ -249,6 +255,104 @@ class TerminalQualification:
         if self.terminal_outcome in {"crash", "timeout"}:
             return "fail"
         return "unknown"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "terminal_outcome": self.terminal_outcome,
+            "deliverable": dict(self.deliverable) if isinstance(self.deliverable, dict) else None,
+            "worker_outcome": self.worker_outcome,
+            "blocked_reason": self.blocked_reason,
+            "reasons": list(self.reasons),
+            "receipt_expected": self.receipt_expected,
+            "human_intervention_required": self.human_intervention_required,
+            "mission_id": self.mission_id,
+            "stage_id": self.stage_id,
+            "assertion_ids": list(self.assertion_ids),
+            "evidence_expectations": list(self.evidence_expectations),
+            "gate_evaluations": [dict(item) for item in self.gate_evaluations],
+            "failure_classes": list(self.failure_classes),
+            "receipt_outcome": self.receipt_outcome,
+        }
+
+
+def _extract_lineage_mapping(record: dict[str, Any]) -> dict[str, Any]:
+    sources: list[dict[str, Any]] = [record]
+    worker_contract = record.get("worker_contract")
+    if isinstance(worker_contract, dict):
+        sources.append(worker_contract)
+    metadata = record.get("metadata")
+    if isinstance(metadata, dict):
+        sources.append(metadata)
+
+    mission_id = ""
+    stage_id = ""
+    assertion_ids: list[str] = []
+    evidence_expectations: list[str] = []
+    gate_evaluations: list[dict[str, Any]] = []
+
+    for source in sources:
+        if not mission_id:
+            mission_id = _text(source.get("mission_id"))
+        if not stage_id:
+            stage_id = _text(source.get("stage_id"))
+        assertion_ids.extend(_text_list(source.get("assertion_ids")))
+        evidence_expectations.extend(_text_list(source.get("evidence_expectations")))
+        gate_expectations = source.get("gate_expectations")
+        if isinstance(gate_expectations, dict):
+            gate_evaluations.extend(
+                dict(value) for value in gate_expectations.values() if isinstance(value, dict)
+            )
+        direct_gate = source.get("dispatch_gate")
+        if isinstance(direct_gate, dict):
+            gate_evaluations.append(dict(direct_gate))
+        listed_gates = source.get("gate_evaluations")
+        if isinstance(listed_gates, list):
+            gate_evaluations.extend(dict(item) for item in listed_gates if isinstance(item, dict))
+
+    return {
+        "mission_id": mission_id,
+        "stage_id": stage_id,
+        "assertion_ids": _ordered_unique(assertion_ids),
+        "evidence_expectations": _ordered_unique(evidence_expectations),
+        "gate_evaluations": gate_evaluations,
+    }
+
+
+def _terminal_failure_classes(
+    *,
+    terminal_outcome: str,
+    worker_outcome: str | None,
+    blocked_reason: str | None,
+    gate_evaluations: list[dict[str, Any]],
+) -> list[str]:
+    failure_classes: list[str] = []
+    lowered_outcome = _text(terminal_outcome).lower()
+    lowered_worker = _text(worker_outcome).lower()
+    lowered_reason = _text(blocked_reason).lower()
+
+    for gate in gate_evaluations:
+        failure_classes.extend(_text_list(gate.get("failure_classes")))
+
+    if lowered_worker == "scope_violation" or "scope" in lowered_reason:
+        failure_classes.append("scope_violation")
+    if "sanitation" in lowered_reason:
+        failure_classes.append("sanitation_failed")
+    if "runner" in lowered_reason:
+        failure_classes.append("no_fresh_runner")
+    if "auth" in lowered_reason:
+        failure_classes.append("auth_failure")
+    if "crash" in lowered_worker or lowered_outcome == "crash":
+        failure_classes.append("worker_crash")
+    if "timeout" in lowered_worker or lowered_outcome == "timeout":
+        failure_classes.append("timeout")
+    if lowered_outcome == "needs_human":
+        failure_classes.append("needs_human")
+    if lowered_outcome == "blocked" and not failure_classes:
+        failure_classes.append("blocked")
+    if lowered_outcome == "clean_exit_no_deliverable":
+        failure_classes.append("missing_evidence")
+
+    return _ordered_unique(failure_classes)
 
 
 def extract_work_order_deliverable(
@@ -394,6 +498,13 @@ def qualify_work_order_terminal_state(work_order: dict[str, Any]) -> TerminalQua
     receipt_expected = (
         terminal_outcome != "unknown" or deliverable is not None or bool(blocked_reason)
     )
+    lineage = _extract_lineage_mapping(work_order)
+    failure_classes = _terminal_failure_classes(
+        terminal_outcome=terminal_outcome,
+        worker_outcome=worker_outcome,
+        blocked_reason=blocked_reason,
+        gate_evaluations=list(lineage["gate_evaluations"]),
+    )
 
     return TerminalQualification(
         terminal_outcome=terminal_outcome,
@@ -403,6 +514,12 @@ def qualify_work_order_terminal_state(work_order: dict[str, Any]) -> TerminalQua
         reasons=blockers,
         receipt_expected=receipt_expected,
         human_intervention_required=human_intervention_required,
+        mission_id=str(lineage["mission_id"]),
+        stage_id=str(lineage["stage_id"]),
+        assertion_ids=list(lineage["assertion_ids"]),
+        evidence_expectations=list(lineage["evidence_expectations"]),
+        gate_evaluations=list(lineage["gate_evaluations"]),
+        failure_classes=failure_classes,
     )
 
 
@@ -504,6 +621,56 @@ def qualify_run_terminal_state(run_dict: dict[str, Any]) -> TerminalQualificatio
     receipt_expected = (
         terminal_outcome != "unknown" or deliverable is not None or bool(blocked_reason)
     )
+    lineage = _extract_lineage_mapping(run_dict)
+    if not lineage["mission_id"]:
+        lineage["mission_id"] = next(
+            (
+                qualification.mission_id
+                for qualification in work_order_qualifications
+                if qualification.mission_id
+            ),
+            "",
+        )
+    if not lineage["stage_id"]:
+        lineage["stage_id"] = next(
+            (
+                qualification.stage_id
+                for qualification in work_order_qualifications
+                if qualification.stage_id
+            ),
+            "",
+        )
+    lineage["assertion_ids"] = _ordered_unique(
+        list(lineage["assertion_ids"])
+        + [
+            assertion_id
+            for qualification in work_order_qualifications
+            for assertion_id in qualification.assertion_ids
+        ]
+    )
+    lineage["evidence_expectations"] = _ordered_unique(
+        list(lineage["evidence_expectations"])
+        + [
+            expectation
+            for qualification in work_order_qualifications
+            for expectation in qualification.evidence_expectations
+        ]
+    )
+    lineage["gate_evaluations"] = [
+        *list(lineage["gate_evaluations"]),
+        *[
+            dict(gate)
+            for qualification in work_order_qualifications
+            for gate in qualification.gate_evaluations
+            if isinstance(gate, dict)
+        ],
+    ]
+    failure_classes = _terminal_failure_classes(
+        terminal_outcome=terminal_outcome,
+        worker_outcome=worker_outcome,
+        blocked_reason=blocked_reason,
+        gate_evaluations=list(lineage["gate_evaluations"]),
+    )
 
     return TerminalQualification(
         terminal_outcome=terminal_outcome,
@@ -513,6 +680,12 @@ def qualify_run_terminal_state(run_dict: dict[str, Any]) -> TerminalQualificatio
         reasons=blockers,
         receipt_expected=receipt_expected,
         human_intervention_required=human_intervention_required,
+        mission_id=str(lineage["mission_id"]),
+        stage_id=str(lineage["stage_id"]),
+        assertion_ids=list(lineage["assertion_ids"]),
+        evidence_expectations=list(lineage["evidence_expectations"]),
+        gate_evaluations=list(lineage["gate_evaluations"]),
+        failure_classes=failure_classes,
     )
 
 

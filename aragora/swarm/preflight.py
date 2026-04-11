@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from aragora.swarm.env_utils import git_safe_env
+from aragora.swarm.mission import GateEvaluation, GateType, GateVerdict, MissionContextPolicy
 from aragora.swarm.worker_contract import checksum_contract_payload
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
 
@@ -28,6 +29,7 @@ class PreflightResult:
     pull_request_closed: bool
     cleanup_worktree_removed: bool
     cleanup_branch_removed: bool
+    dispatch_gate: dict[str, Any] = field(default_factory=dict)
     worker: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -42,6 +44,7 @@ class PreflightResult:
             "pull_request_closed": self.pull_request_closed,
             "cleanup_worktree_removed": self.cleanup_worktree_removed,
             "cleanup_branch_removed": self.cleanup_branch_removed,
+            "dispatch_gate": dict(self.dispatch_gate),
             "worker": dict(self.worker),
         }
 
@@ -79,6 +82,14 @@ def _work_order(agent: str) -> dict[str, object]:
     return {
         "work_order_id": f"preflight-{int(time.time())}",
         "target_agent": agent,
+        "mission_id": "mission-rs-worker-contract-preflight",
+        "stage_id": "stage-dispatch-ready-preflight",
+        "assertion_ids": ["RS-PREFLIGHT-ASSERT-1"],
+        "evidence_expectations": [
+            "worker_contract",
+            "worker_contract_checksum",
+            "receipt",
+        ],
         "title": "Preflight worker check",
         "description": (
             "Create a file named `scratch/preflight_worker_check.txt` with a single line "
@@ -112,7 +123,56 @@ async def _run_worker(
     )
 
 
-def _validate_worker_contract(worker: WorkerProcess) -> None:
+def evaluate_preflight_dispatch_gate(worker: WorkerProcess) -> dict[str, Any]:
+    contract = dict(worker.worker_contract or {})
+    mission_id = str(contract.get("mission_id", "") or "").strip()
+    stage_id = str(contract.get("stage_id", "") or "").strip()
+    assertion_ids = [
+        str(item).strip() for item in contract.get("assertion_ids", []) if str(item).strip()
+    ]
+    failure_classes: list[str] = []
+    notes: list[str] = []
+
+    if not contract:
+        failure_classes.append("contract_missing")
+        notes.append("Preflight worker did not emit a worker contract.")
+    if not worker.worker_contract_checksum:
+        failure_classes.append("contract_missing")
+        notes.append("Preflight worker did not emit a worker contract checksum.")
+    if contract and worker.worker_contract_checksum:
+        checksum = checksum_contract_payload(contract)
+        if checksum != worker.worker_contract_checksum:
+            failure_classes.append("contract_missing")
+            notes.append("Worker contract checksum does not match the contract payload.")
+
+    policy = MissionContextPolicy.from_dict(contract.get("mission_context_policy"))
+    if not policy.is_resolvable():
+        failure_classes.append("context_policy_unresolved")
+        notes.append("Worker mission context policy is missing or not enforceable.")
+
+    verdict = GateVerdict.PASS.value if not failure_classes else GateVerdict.BLOCKED.value
+    gate = GateEvaluation(
+        gate_type=GateType.DISPATCH_READY.value,
+        verdict=verdict,
+        mission_id=mission_id,
+        stage_id=stage_id,
+        assertion_ids=assertion_ids,
+        failure_classes=failure_classes,
+        repair_eligible=any(
+            failure in {"contract_missing", "context_policy_unresolved"}
+            for failure in failure_classes
+        ),
+        required_evidence=[
+            "worker_contract",
+            "worker_contract_checksum",
+            "mission_context_policy",
+        ],
+        notes=" ".join(notes).strip(),
+    )
+    return gate.to_dict()
+
+
+def _validate_worker_contract(worker: WorkerProcess) -> dict[str, Any]:
     if not worker.worker_contract:
         raise RuntimeError("Preflight worker did not emit a worker contract.")
     if not worker.worker_contract_checksum:
@@ -122,6 +182,10 @@ def _validate_worker_contract(worker: WorkerProcess) -> None:
         raise RuntimeError(
             "Preflight worker emitted a worker contract checksum that does not match the contract payload."
         )
+    gate = evaluate_preflight_dispatch_gate(worker)
+    if str(gate.get("verdict", "")).strip() != GateVerdict.PASS.value:
+        raise RuntimeError(str(gate.get("notes") or "Preflight dispatch gate failed."))
+    return gate
 
 
 def _create_pr(repo_root: Path, branch: str, base_ref: str) -> None:
@@ -184,6 +248,7 @@ def run_preflight(
     pull_request_closed = False
     cleanup_worktree_removed = False
     cleanup_branch_removed = False
+    dispatch_gate: dict[str, Any] = {}
 
     try:
         _run(
@@ -200,7 +265,7 @@ def run_preflight(
                 agent=normalized_agent,
             )
         )
-        _validate_worker_contract(worker)
+        dispatch_gate = _validate_worker_contract(worker)
         if not worker.commit_shas:
             raise RuntimeError("Preflight worker did not produce a commit.")
 
@@ -241,6 +306,7 @@ def run_preflight(
         pull_request_closed=pull_request_closed,
         cleanup_worktree_removed=cleanup_worktree_removed,
         cleanup_branch_removed=cleanup_branch_removed,
+        dispatch_gate=dispatch_gate,
         worker=worker.to_dict() if worker is not None else {},
     )
 

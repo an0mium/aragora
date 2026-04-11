@@ -9,6 +9,8 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.swarm.mission import normalize_context_policies
+
 _FILE_SCOPE_HINT_RE = re.compile(r"(?:\./)?(?:[A-Za-z0-9_*?\[\]{}.-]+/)+[A-Za-z0-9_*?\[\]{}.-]+/?")
 _EXACT_FILE_SCOPE_RE = re.compile(r"(?:\./)?(?:[A-Za-z0-9_*?\[\]{}.-]+/)*[A-Za-z0-9_*?\[\]{}.-]+/?")
 _URL_RE = re.compile(r"https?://\S+")
@@ -69,6 +71,15 @@ class SwarmSpec:
     file_scope_hints: list[str] = field(default_factory=list)
     work_orders: list[dict[str, Any]] = field(default_factory=list)
 
+    # Mission lineage (additive envelope over live execution contracts)
+    mission_id: str = ""
+    stage_id: str = ""
+    assertion_ids: list[str] = field(default_factory=list)
+    roadmap_refs: list[str] = field(default_factory=list)
+    evidence_expectations: list[str] = field(default_factory=list)
+    gate_expectations: dict[str, Any] = field(default_factory=dict)
+    mission_context_policies: dict[str, Any] = field(default_factory=dict)
+
     # Risk assessment
     estimated_complexity: str = "medium"
     requires_approval: bool = False
@@ -89,6 +100,26 @@ class SwarmSpec:
     # Metadata
     interrogation_turns: int = 0
     user_expertise: str = "non-developer"
+
+    def __post_init__(self) -> None:
+        self.raw_goal = str(self.raw_goal or "").strip()
+        self.refined_goal = str(self.refined_goal or "").strip()
+        self.acceptance_criteria = self._nonempty_strings(self.acceptance_criteria)
+        self.constraints = self._nonempty_strings(self.constraints)
+        self.track_hints = self._nonempty_strings(self.track_hints)
+        self.file_scope_hints = self._nonempty_strings(self.file_scope_hints)
+        self.work_orders = [dict(item) for item in self.work_orders if isinstance(item, dict)]
+        self.mission_id = str(self.mission_id or "").strip()
+        self.stage_id = str(self.stage_id or "").strip()
+        self.assertion_ids = self._nonempty_strings(self.assertion_ids)
+        self.roadmap_refs = self._nonempty_strings(self.roadmap_refs)
+        self.evidence_expectations = self._nonempty_strings(self.evidence_expectations)
+        self.gate_expectations = dict(self.gate_expectations or {})
+        self.mission_context_policies = normalize_context_policies(
+            self.mission_context_policies,
+            file_scope=list(self.file_scope_hints),
+            evidence_expectations=list(self.evidence_expectations),
+        )
 
     @staticmethod
     def _nonempty_strings(values: list[str]) -> list[str]:
@@ -306,4 +337,8 @@ class SwarmSpec:
             lines.append(f"File scope: {', '.join(self.file_scope_hints[:5])}")
         if self.work_orders:
             lines.append(f"Explicit work orders: {len(self.work_orders)}")
+        if self.mission_id:
+            lines.append(f"Mission: {self.mission_id}")
+        if self.stage_id:
+            lines.append(f"Stage: {self.stage_id}")
         return "\n".join(lines)

@@ -114,6 +114,16 @@ def _first_list(*values: Any) -> list[str]:
     return []
 
 
+def _first_dict_list(*values: Any) -> list[dict[str, Any]]:
+    for value in values:
+        if not isinstance(value, (list, tuple, set)):
+            continue
+        items = [dict(item) for item in value if isinstance(item, dict)]
+        if items:
+            return items
+    return []
+
+
 def _extract_receipt_id(*sources: dict[str, Any] | None) -> str:
     for source in sources:
         if not isinstance(source, dict):
@@ -1105,6 +1115,48 @@ def build_integrator_view(
             "worker_outcome": worker_outcome,
             "branch": branch,
             "commit_shas": commit_shas,
+            "mission_id": _first_text(
+                work_order.get("mission_id"),
+                task.get("mission_id"),
+                task_meta.get("mission_id"),
+                receipt.get("mission_id"),
+                receipt_meta.get("mission_id"),
+            ),
+            "stage_id": _first_text(
+                work_order.get("stage_id"),
+                task.get("stage_id"),
+                task_meta.get("stage_id"),
+                receipt.get("stage_id"),
+                receipt_meta.get("stage_id"),
+            ),
+            "assertion_ids": _first_list(
+                work_order.get("assertion_ids"),
+                task.get("assertion_ids"),
+                task_meta.get("assertion_ids"),
+                receipt.get("assertion_ids"),
+                receipt_meta.get("assertion_ids"),
+            ),
+            "evidence_expectations": _first_list(
+                work_order.get("evidence_expectations"),
+                task.get("evidence_expectations"),
+                task_meta.get("evidence_expectations"),
+                receipt.get("evidence_expectations"),
+                receipt_meta.get("evidence_expectations"),
+            ),
+            "dispatch_gate": _pick_first(
+                work_order.get("dispatch_gate"),
+                task.get("dispatch_gate"),
+                task_meta.get("dispatch_gate"),
+                receipt.get("dispatch_gate"),
+                receipt_meta.get("dispatch_gate"),
+            ),
+            "gate_evaluations": _first_dict_list(
+                work_order.get("gate_evaluations"),
+                task.get("gate_evaluations"),
+                task_meta.get("gate_evaluations"),
+                receipt.get("gate_evaluations"),
+                receipt_meta.get("gate_evaluations"),
+            ),
             "pr_url": _first_text(
                 work_order.get("pr_url"),
                 task.get("pr_url"),
@@ -1530,6 +1582,17 @@ def build_integrator_view(
                 if _text(blocker).lower() not in {"stale_lease_reaped", "expired_lease_reaped"}
             ]
         blockers = sorted(set(blockers))
+        dispatch_gate = next(
+            (
+                dict(gate)
+                for gate in qualification.gate_evaluations
+                if _text(gate.get("gate_type")).lower() == "dispatch_ready"
+            ),
+            None,
+        )
+        last_gate = (
+            dict(qualification.gate_evaluations[-1]) if qualification.gate_evaluations else None
+        )
 
         available_actions = _available_actions(
             canonical_lane=canonical_lane,
@@ -1568,6 +1631,15 @@ def build_integrator_view(
             ),
             "deliverable_type": qualification.deliverable_type,
             "worker_outcome": worker_outcome or None,
+            "mission_id": qualification.mission_id or None,
+            "stage_id": qualification.stage_id or None,
+            "assertion_ids": list(qualification.assertion_ids),
+            "evidence_expectations": list(qualification.evidence_expectations),
+            "gate_evaluations": [dict(item) for item in qualification.gate_evaluations],
+            "dispatch_gate": dispatch_gate,
+            "last_gate_type": _text(last_gate.get("gate_type")) or None if last_gate else None,
+            "last_gate_verdict": _text(last_gate.get("verdict")) or None if last_gate else None,
+            "failure_classes": list(qualification.failure_classes),
             "canonical_lane": canonical_lane,
             "owner_agent": owner_agent or None,
             "reviewer_agent": reviewer_agent or None,

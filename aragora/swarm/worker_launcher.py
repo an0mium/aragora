@@ -170,6 +170,7 @@ class WorkerLauncher:
             config=self.config,
             worktree_path=worktree_path,
             env=worker_env,
+            work_order=work_order,
         )
         contract.validate()
         contract_dict = contract.to_dict()

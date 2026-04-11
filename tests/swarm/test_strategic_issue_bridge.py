@@ -39,6 +39,12 @@ def test_generate_candidates_heuristic_only() -> None:
         assert candidate.file_scope
         assert candidate.acceptance_criteria
         assert candidate.validation_command
+        assert candidate.mission_id
+        assert candidate.stage_id
+        assert candidate.assertion_ids
+        assert candidate.evidence_expectations
+        assert candidate.gate_expectations["draft_ready"]["verdict"] == "pass"
+        assert set(candidate.mission_context_policies) == {"worker", "validator"}
         assert 0.0 <= candidate.success_estimate <= 1.0
 
 
@@ -105,6 +111,35 @@ def test_generate_candidates_scope_roadmap_items_by_signal() -> None:
     assert (
         len({tuple(by_code[code].file_scope) for code in ("RS-01", "RS-02", "RS-03", "RS-04")}) == 4
     )
+
+
+def test_candidate_formats_boss_ready_mission_body() -> None:
+    bridge = StrategicIssueBridge(repo_root=FIXTURE_ROOT)
+    candidate = bridge.generate_candidates()[0]
+
+    body = candidate.boss_ready_issue_body()
+
+    assert "### Mission" in body
+    assert candidate.mission_id in body
+    assert candidate.stage_id in body
+    assert "### Gate Expectations" in body
+    assert "### Context Policies" in body
+    assert "<!-- fingerprint:" in body
+
+
+def test_generate_candidates_can_filter_by_theme() -> None:
+    config = StrategicIssueBridgeConfig(
+        max_issues=6,
+        heuristic_only=True,
+        enable_scanner=False,
+        categories=["BC"],
+    )
+    bridge = StrategicIssueBridge(repo_root=FIXTURE_ROOT, config=config)
+
+    candidates = bridge.generate_candidates()
+
+    assert candidates
+    assert all(candidate.metadata["theme"] == "BC" for candidate in candidates)
 
 
 def test_llm_fallback_without_keys(monkeypatch) -> None:

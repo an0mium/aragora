@@ -18,6 +18,13 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from aragora.nomic.strategic_scanner import StrategicAssessment, StrategicFinding, StrategicScanner
+from aragora.swarm.mission import (
+    GateEvaluation,
+    GateType,
+    GateVerdict,
+    RepairPolicy,
+    normalize_context_policies,
+)
 from aragora.swarm.spec import SwarmSpec
 
 logger = logging.getLogger(__name__)
@@ -244,7 +251,14 @@ class StrategicIssueCandidate:
     priority: int
     success_estimate: float
     source: str
+    mission_id: str = ""
+    stage_id: str = ""
+    assertion_ids: list[str] = field(default_factory=list)
     roadmap_refs: list[str] = field(default_factory=list)
+    evidence_expectations: list[str] = field(default_factory=list)
+    repair_policy: dict[str, Any] = field(default_factory=dict)
+    gate_expectations: dict[str, Any] = field(default_factory=dict)
+    mission_context_policies: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -259,15 +273,105 @@ class StrategicIssueCandidate:
             "priority": self.priority,
             "success_estimate": self.success_estimate,
             "source": self.source,
+            "mission_id": self.mission_id,
+            "stage_id": self.stage_id,
+            "assertion_ids": list(self.assertion_ids),
             "roadmap_refs": list(self.roadmap_refs),
+            "evidence_expectations": list(self.evidence_expectations),
+            "repair_policy": dict(self.repair_policy),
+            "gate_expectations": dict(self.gate_expectations),
+            "mission_context_policies": dict(self.mission_context_policies),
             "metadata": dict(self.metadata),
         }
+
+    def boss_ready_issue_body(self) -> str:
+        parts: list[str] = [f"## Task\n\n{self.description}"]
+
+        mission_lines = [
+            f"- Mission ID: `{self.mission_id}`" if self.mission_id else "",
+            f"- Stage ID: `{self.stage_id}`" if self.stage_id else "",
+            (
+                f"- Assertion IDs: {', '.join(f'`{item}`' for item in self.assertion_ids)}"
+                if self.assertion_ids
+                else ""
+            ),
+            (
+                f"- Roadmap refs: {', '.join(f'`{item}`' for item in self.roadmap_refs)}"
+                if self.roadmap_refs
+                else ""
+            ),
+            (
+                "- Evidence expectations: "
+                + ", ".join(f"`{item}`" for item in self.evidence_expectations)
+                if self.evidence_expectations
+                else ""
+            ),
+        ]
+        mission_lines = [line for line in mission_lines if line]
+        if mission_lines:
+            parts.append("### Mission\n" + "\n".join(mission_lines))
+
+        if self.file_scope:
+            scope_lines = "\n".join(f"- `{path}`" for path in self.file_scope)
+            parts.append("### File Scope\n" + scope_lines)
+
+        if self.validation_command:
+            parts.append(f"### Validation\n```bash\n{self.validation_command}\n```")
+
+        if self.acceptance_criteria:
+            criteria = "\n".join(f"- {item}" for item in self.acceptance_criteria)
+            parts.append("### Acceptance Criteria\n" + criteria)
+
+        gate_lines: list[str] = []
+        for gate_name, gate in sorted(self.gate_expectations.items()):
+            if not isinstance(gate, dict):
+                continue
+            verdict = str(gate.get("verdict", "")).strip()
+            failures = ", ".join(str(item) for item in gate.get("failure_classes", []) if item)
+            line = f"- `{gate_name}`: `{verdict}`"
+            if failures:
+                line += f" failure_classes={failures}"
+            gate_lines.append(line)
+        if gate_lines:
+            parts.append("### Gate Expectations\n" + "\n".join(gate_lines))
+
+        context_lines: list[str] = []
+        for role in ("worker", "validator"):
+            policy = self.mission_context_policies.get(role)
+            if not isinstance(policy, dict):
+                continue
+            context_lines.append(
+                "- "
+                + f"`{role}` max_sources={policy.get('max_source_count')} "
+                + f"max_chars={policy.get('max_chars')} "
+                + f"ttl={policy.get('freshness_ttl_seconds')} "
+                + f"transcripts={policy.get('transcript_allowance')}"
+            )
+        if context_lines:
+            parts.append("### Context Policies\n" + "\n".join(context_lines))
+
+        constraint_lines = [
+            f"- Estimated complexity: {self.complexity}",
+            f"- Priority: {self.priority}",
+            f"- Success estimate: {self.success_estimate:.2f}",
+        ]
+        if self.repair_policy:
+            constraint_lines.append(
+                "- Repair budget: "
+                + f"repairs={self.repair_policy.get('max_repair_rounds')} "
+                + f"validators={self.repair_policy.get('max_validator_rounds')} "
+                + f"wall_time_minutes={self.repair_policy.get('max_stage_wall_time_minutes')}"
+            )
+        parts.append("### Constraints\n" + "\n".join(constraint_lines))
+        parts.append(f"<!-- fingerprint:{self.fingerprint} -->")
+        return "\n\n".join(parts)
 
 
 @dataclass
 class StrategicIssueBridgeConfig:
     max_issues: int = 10
     max_per_theme: int = 4
+    categories: list[str] = field(default_factory=list)
     heuristic_only: bool = False
     enable_scanner: bool = True
     enable_llm: bool = False
@@ -353,6 +457,7 @@ class StrategicIssueBridge:
 
         if llm_candidates:
             ranked = self._rank_candidates(llm_candidates, priority_order)
+            ranked = self._filter_candidates(ranked)
             return ranked[: self.config.max_issues]
 
         heuristic_candidates = self._generate_heuristic_candidates(
@@ -361,6 +466,7 @@ class StrategicIssueBridge:
             priority_order,
         )
         ranked = self._rank_candidates(heuristic_candidates, priority_order)
+        ranked = self._filter_candidates(ranked)
         limited = _limit_per_theme(ranked, self.config.max_per_theme)
         return limited[: self.config.max_issues]
 
@@ -373,8 +479,6 @@ class StrategicIssueBridge:
         candidates: list[StrategicIssueCandidate] = []
 
         for item in roadmap_items:
-            if len(candidates) >= self.config.max_issues:
-                break
             candidate = self._candidate_from_roadmap_item(item, context)
             if candidate:
                 candidates.append(candidate)
@@ -406,11 +510,28 @@ class StrategicIssueBridge:
             return None
 
         acceptance = _default_acceptance_criteria(item, validation, file_scope)
-
+        mission_id = _mission_id_for_item(item)
+        stage_id = _stage_id_for_item(item)
+        assertion_ids = _assertion_ids_for_item(item)
+        evidence_expectations = _evidence_expectations_for_item(item)
+        repair_policy = _repair_policy_for_item(item).to_dict()
+        context_policies = normalize_context_policies(
+            None,
+            file_scope=file_scope,
+            evidence_expectations=evidence_expectations,
+        )
         description = _compose_description(item, context)
         priority = _priority_from_rank(item.priority_rank)
         success_estimate = _success_estimate(item, file_scope)
         fingerprint = _fingerprint("roadmap", item.code, item.title, file_scope)
+        draft_gate = _draft_ready_gate(
+            mission_id=mission_id,
+            stage_id=stage_id,
+            assertion_ids=assertion_ids,
+            goal_summary=item.title,
+            file_scope=file_scope,
+            validation_command=validation,
+        )
 
         return StrategicIssueCandidate(
             title=f"{item.code}: {item.title}",
@@ -423,7 +544,14 @@ class StrategicIssueBridge:
             priority=priority,
             success_estimate=success_estimate,
             source="roadmap",
+            mission_id=mission_id,
+            stage_id=stage_id,
+            assertion_ids=assertion_ids,
             roadmap_refs=[item.code],
+            evidence_expectations=evidence_expectations,
+            repair_policy=repair_policy,
+            gate_expectations={GateType.DRAFT_READY.value: draft_gate},
+            mission_context_policies=context_policies,
             metadata={
                 "epic": item.epic,
                 "milestone": item.milestone,
@@ -476,6 +604,23 @@ class StrategicIssueBridge:
         fingerprint = _fingerprint("scanner", finding.file_path, finding.description, file_scope)
         priority = _priority_from_rank(_priority_rank(_theme_label(prefix), priority_order))
         success_estimate = 0.55 if finding.severity in {"high", "critical"} else 0.7
+        mission_id = f"mission-{prefix.lower()}-scanner"
+        stage_id = f"stage-{_slug(finding.category)}-{_slug(Path(finding.file_path).stem)}"
+        assertion_ids = [f"{prefix}-ASSERT-SCANNER-1"]
+        evidence_expectations = ["validation_command", "receipt", "artifact_refs"]
+        draft_gate = _draft_ready_gate(
+            mission_id=mission_id,
+            stage_id=stage_id,
+            assertion_ids=assertion_ids,
+            goal_summary=finding.suggested_action,
+            file_scope=file_scope,
+            validation_command=validation,
+        )
+        context_policies = normalize_context_policies(
+            None,
+            file_scope=file_scope,
+            evidence_expectations=evidence_expectations,
+        )
 
         return StrategicIssueCandidate(
             title=title,
@@ -488,7 +633,14 @@ class StrategicIssueBridge:
             priority=priority,
             success_estimate=success_estimate,
             source="scanner",
+            mission_id=mission_id,
+            stage_id=stage_id,
+            assertion_ids=assertion_ids,
             roadmap_refs=[prefix] if prefix else [],
+            evidence_expectations=evidence_expectations,
+            repair_policy=_repair_policy_for_prefix(prefix).to_dict(),
+            gate_expectations={GateType.DRAFT_READY.value: draft_gate},
+            mission_context_policies=context_policies,
             metadata={
                 "category": finding.category,
                 "severity": finding.severity,
@@ -555,6 +707,28 @@ class StrategicIssueBridge:
             seen.add(candidate.fingerprint)
             result.append(candidate)
         return result
+
+    def _filter_candidates(
+        self, candidates: list[StrategicIssueCandidate]
+    ) -> list[StrategicIssueCandidate]:
+        selected = {
+            str(item).strip().lower() for item in self.config.categories if str(item).strip()
+        }
+        if not selected:
+            return candidates
+
+        filtered: list[StrategicIssueCandidate] = []
+        for candidate in candidates:
+            theme = str(candidate.metadata.get("theme", "")).strip().lower()
+            category = str(candidate.metadata.get("category", "")).strip().lower()
+            refs = {
+                str(ref).split("-", 1)[0].strip().lower()
+                for ref in candidate.roadmap_refs
+                if str(ref).strip()
+            }
+            if theme in selected or category in selected or bool(refs.intersection(selected)):
+                filtered.append(candidate)
+        return filtered
 
 
 def _read_text(path: Path, max_chars: int = 200000) -> str:
@@ -750,6 +924,25 @@ def _candidate_from_goal(
     acceptance = ["Deliver the goal outcome", f"Run and satisfy: {validation}"]
     title = str(getattr(goal, "description", ""))[:80]
     fingerprint = _fingerprint("goal", title, file_scope)
+    roadmap_refs = _match_goal_to_roadmap(title, roadmap_items)
+    prefix = roadmap_refs[0].split("-")[0] if roadmap_refs else "RS"
+    mission_id = f"mission-{_slug(title)}"
+    stage_id = f"stage-{_slug(title)}"
+    assertion_ids = [f"{prefix}-ASSERT-1"]
+    evidence_expectations = ["validation_command", "receipt", "artifact_refs"]
+    draft_gate = _draft_ready_gate(
+        mission_id=mission_id,
+        stage_id=stage_id,
+        assertion_ids=assertion_ids,
+        goal_summary=title,
+        file_scope=file_scope,
+        validation_command=validation,
+    )
+    context_policies = normalize_context_policies(
+        None,
+        file_scope=file_scope,
+        evidence_expectations=evidence_expectations,
+    )
 
     return StrategicIssueCandidate(
         title=title,
@@ -762,7 +955,14 @@ def _candidate_from_goal(
         priority=int(getattr(goal, "priority", 3)),
         success_estimate=0.6,
         source="planner",
-        roadmap_refs=_match_goal_to_roadmap(title, roadmap_items),
+        mission_id=mission_id,
+        stage_id=stage_id,
+        assertion_ids=assertion_ids,
+        roadmap_refs=roadmap_refs,
+        evidence_expectations=evidence_expectations,
+        repair_policy=_repair_policy_for_prefix(prefix).to_dict(),
+        gate_expectations={GateType.DRAFT_READY.value: draft_gate},
+        mission_context_policies=context_policies,
         metadata={"track": getattr(goal, "track", "")},
     )
 
@@ -818,13 +1018,96 @@ def format_candidates_markdown(candidates: list[StrategicIssueCandidate]) -> str
         lines.append(
             f"   Priority: {candidate.priority}  Success: {candidate.success_estimate:.2f}"
         )
+        if candidate.mission_id or candidate.stage_id:
+            lines.append(f"   Mission: {candidate.mission_id}  Stage: {candidate.stage_id}")
+        if candidate.assertion_ids:
+            lines.append(f"   Assertions: {', '.join(candidate.assertion_ids)}")
         lines.append(f"   File scope: {', '.join(candidate.file_scope)}")
         lines.append(f"   Validation: {candidate.validation_command}")
+        if candidate.evidence_expectations:
+            lines.append(f"   Evidence: {', '.join(candidate.evidence_expectations)}")
         lines.append("   Acceptance:")
         for criterion in candidate.acceptance_criteria:
             lines.append(f"   - {criterion}")
         lines.append("")
     return "\n".join(lines).strip()
+
+
+def _slug(text: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", str(text or "").strip().lower())
+    normalized = normalized.strip("-")
+    return normalized[:48] or "stage"
+
+
+def _mission_id_for_item(item: RoadmapItem) -> str:
+    return f"mission-{item.code.lower()}-{_slug(item.title)}"
+
+
+def _stage_id_for_item(item: RoadmapItem) -> str:
+    return f"stage-{item.code.lower()}-{_slug(item.title)}"
+
+
+def _assertion_ids_for_item(item: RoadmapItem) -> list[str]:
+    return [f"{item.code}-ASSERT-1"]
+
+
+def _evidence_expectations_for_item(item: RoadmapItem) -> list[str]:
+    expectations = ["validation_command", "receipt", "artifact_refs"]
+    if item.code.startswith("BC-"):
+        expectations.append("scope_report")
+    if item.code.startswith("RS-"):
+        expectations.append("worker_contract")
+    return list(dict.fromkeys(expectations))
+
+
+def _repair_policy_for_prefix(prefix: str) -> RepairPolicy:
+    wall_time = 90 if prefix in {"RS", "BC"} else 120
+    return RepairPolicy(
+        max_repair_rounds=2,
+        max_validator_rounds=3,
+        max_stage_wall_time_minutes=wall_time,
+        escalate_after_terminal_classes=[
+            "auth_failure",
+            "contract_missing",
+            "unsafe_scope",
+        ],
+    )
+
+
+def _repair_policy_for_item(item: RoadmapItem) -> RepairPolicy:
+    return _repair_policy_for_prefix(item.code.split("-")[0])
+
+
+def _draft_ready_gate(
+    *,
+    mission_id: str,
+    stage_id: str,
+    assertion_ids: list[str],
+    goal_summary: str,
+    file_scope: list[str],
+    validation_command: str,
+) -> dict[str, Any]:
+    failure_classes: list[str] = []
+    if not str(goal_summary or "").strip():
+        failure_classes.append("missing_goal")
+    if not assertion_ids:
+        failure_classes.append("missing_assertions")
+    if not file_scope:
+        failure_classes.append("unbounded_scope")
+    if not str(validation_command or "").strip():
+        failure_classes.append("missing_validation")
+    verdict = GateVerdict.PASS.value if not failure_classes else GateVerdict.BLOCKED.value
+    gate = GateEvaluation(
+        gate_type=GateType.DRAFT_READY.value,
+        verdict=verdict,
+        mission_id=mission_id,
+        stage_id=stage_id,
+        assertion_ids=assertion_ids,
+        failure_classes=failure_classes,
+        repair_eligible=bool(failure_classes),
+        required_evidence=["goal_summary", "file_scope", "validation_command"],
+    )
+    return gate.to_dict()
 
 
 __all__ = [
