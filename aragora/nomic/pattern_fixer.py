@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 ANTIPATTERNS: dict[str, dict[str, str]] = {
     "bare_except": {
         "pattern": r"except\s*(?:Exception)?\s*:\s*(?:pass|\.\.\.)",
-        "description": "Bare exception swallowing (except: pass or except Exception: pass)",
+        "description": "Bare exception swallowing (except: pass or broad-except: pass)",
     },
     "str_e_leak": {
         "pattern": r"(?:message|error|detail|response).*=.*str\(e\)",
