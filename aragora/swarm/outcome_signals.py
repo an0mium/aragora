@@ -187,8 +187,6 @@ _bus: OutcomeSignalBus | None = None
 _bus_lock = threading.Lock()
 _learner: "OutcomeLearner | None" = None
 _learner_lock = threading.Lock()
-_learner: "OutcomeLearner | None" = None
-_learner_lock = threading.Lock()
 
 
 def get_signal_bus(*, log_path: Path | None = None) -> OutcomeSignalBus:
