@@ -34,6 +34,7 @@ def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | Non
     second = getattr(args, "swarm_goal", None)
     if first in {
         "run",
+        "preflight",
         "boss",
         "boss-loop",
         "audit-issues",
@@ -1141,6 +1142,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     concurrency_cap = min(max(1, int(getattr(args, "concurrency_cap", 8))), 8)
     no_loop = getattr(args, "no_loop", False)
     target_branch = getattr(args, "target_branch", "main")
+    skip_publication = bool(getattr(args, "skip_publication", False))
     managed_dir_pattern = getattr(args, "managed_dir_pattern", ".worktrees/{agent}-auto")
     as_json = bool(getattr(args, "json", False))
     run_id = getattr(args, "run_id", None)
@@ -1190,6 +1192,31 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         "metrics": AutonomyLevel.METRICS_DRIVEN,
     }
     autonomy_level = autonomy_map.get(autonomy_str, AutonomyLevel.PROPOSE_APPROVE)
+
+    if action == "preflight":
+        from aragora.swarm.preflight import run_preflight
+
+        repo_root = resolve_repo_root(Path.cwd())
+        result = run_preflight(
+            repo_root=repo_root,
+            agent=str(getattr(args, "worker_model", "claude") or "claude"),
+            base_ref=str(target_branch or "main"),
+            skip_publication=skip_publication,
+        )
+        payload = {"mode": "swarm-preflight", **result.to_dict()}
+        if as_json:
+            print(json.dumps(payload, indent=2))
+        else:
+            print("swarm preflight: ok")
+            print(f"repo_root={payload['repo_root']}")
+            print(f"agent={payload['agent']}")
+            print(f"base_ref={payload['base_ref']}")
+            print(f"branch={payload['branch']}")
+            worker = payload.get("worker", {})
+            checksum = str(worker.get("worker_contract_checksum", "")).strip()
+            if checksum:
+                print(f"worker_contract_checksum={checksum}")
+        return
 
     if action in {"coord", "assign", "claim-pr", "report", "findings"}:
         from aragora.swarm.session_coordinator import (

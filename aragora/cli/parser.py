@@ -2298,8 +2298,8 @@ def _add_swarm_parser(subparsers) -> None:
         "swarm_action_or_goal",
         nargs="?",
         help=(
-            "Action (run/status/reconcile/campaign/initiative/integrator/tranche/coord/assign/"
-            "claim-pr/report/findings/merge-arbiter/dispatch) or your goal in plain language"
+            "Action (run/preflight/status/reconcile/campaign/initiative/integrator/tranche/coord/"
+            "assign/claim-pr/report/findings/merge-arbiter/dispatch) or your goal in plain language"
         ),
     )
     swarm_parser.add_argument(
@@ -2403,6 +2403,11 @@ def _add_swarm_parser(subparsers) -> None:
         "--target-branch",
         default="main",
         help="Branch to integrate toward (default: main)",
+    )
+    swarm_parser.add_argument(
+        "--skip-publication",
+        action="store_true",
+        help="For 'swarm preflight', skip push/PR steps and validate the worker locally only",
     )
     swarm_parser.add_argument(
         "--concurrency-cap",

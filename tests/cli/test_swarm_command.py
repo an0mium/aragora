@@ -41,6 +41,7 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "max_parallel": 20,
         "no_loop": False,
         "target_branch": "main",
+        "skip_publication": False,
         "concurrency_cap": 8,
         "managed_dir_pattern": ".worktrees/{agent}-auto",
         "json": False,
@@ -75,6 +76,8 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "all_runs": False,
         "dispatch_only": False,
         "no_wait": False,
+        "worker_model": "claude",
+        "review_model": "codex",
         "manifest": ".aragora/campaign_manifest.yaml",
         "queue": None,
         "execute_merge": False,
@@ -169,6 +172,29 @@ class TestSwarmParser:
         assert args.command == "swarm"
         assert args.swarm_action_or_goal == "status"
         assert args.run_id == "run-123"
+        assert args.json is True
+
+    def test_swarm_preflight_parser(self):
+        from aragora.cli.parser import build_parser
+
+        parser = build_parser()
+        args = parser.parse_args(
+            [
+                "swarm",
+                "preflight",
+                "--worker-model",
+                "codex",
+                "--target-branch",
+                "origin/main",
+                "--skip-publication",
+                "--json",
+            ]
+        )
+        assert args.command == "swarm"
+        assert args.swarm_action_or_goal == "preflight"
+        assert args.worker_model == "codex"
+        assert args.target_branch == "origin/main"
+        assert args.skip_publication is True
         assert args.json is True
 
     def test_swarm_coord_parser(self):
@@ -511,6 +537,44 @@ class TestSwarmParser:
         assert config.auto_close_already_done_issues is True
         assert config.auto_continue_on_needs_human is True
         assert '"mode": "boss-loop"' in capsys.readouterr().out
+
+    def test_cmd_swarm_preflight_routes_to_module(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="preflight",
+            worker_model="codex",
+            target_branch="origin/main",
+            skip_publication=True,
+            json=True,
+        )
+        fake_result = SimpleNamespace(
+            to_dict=lambda: {
+                "repo_root": "/tmp/aragora",
+                "base_ref": "origin/main",
+                "branch": "preflight/20260411-test",
+                "worktree_path": "/tmp/aragora/.worktrees/preflight-test",
+                "agent": "codex",
+                "published": False,
+                "pull_request_created": False,
+                "pull_request_closed": False,
+                "cleanup_worktree_removed": True,
+                "cleanup_branch_removed": True,
+                "worker": {"worker_contract_checksum": "abc123", "commit_shas": ["deadbeef"]},
+            }
+        )
+
+        with patch(
+            "aragora.swarm.preflight.run_preflight", return_value=fake_result
+        ) as run_preflight:
+            cmd_swarm(args)
+
+        kwargs = run_preflight.call_args.kwargs
+        assert kwargs["agent"] == "codex"
+        assert kwargs["base_ref"] == "origin/main"
+        assert kwargs["skip_publication"] is True
+        assert isinstance(kwargs["repo_root"], Path)
+        out = capsys.readouterr().out
+        assert '"mode": "swarm-preflight"' in out
+        assert '"worker_contract_checksum": "abc123"' in out
 
     def test_swarm_integrator_parser(self):
         from aragora.cli.parser import build_parser

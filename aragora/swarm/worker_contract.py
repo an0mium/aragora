@@ -21,6 +21,15 @@ _ENV_CHECKSUM_KEYS = (
 )
 
 
+def checksum_contract_payload(payload: Mapping[str, Any]) -> str:
+    serialized = json.dumps(
+        dict(payload),
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(serialized).hexdigest()
+
+
 @dataclass(slots=True)
 class WorkerContract:
     runner_type: str
@@ -51,8 +60,7 @@ class WorkerContract:
         }
 
     def checksum(self) -> str:
-        payload = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":")).encode()
-        return hashlib.sha256(payload).hexdigest()
+        return checksum_contract_payload(self.to_dict())
 
     def validate(self) -> None:
         required = {
