@@ -303,7 +303,7 @@ def process_chain_action(action_id: str, *, approval_id: str = "") -> ChainActio
             result={"token_id": token_id, "owner": signer.address},
         )
         return confirmed or record
-    except Exception as exc:
+    except (RuntimeError, ValueError, TypeError, KeyError, OSError) as exc:
         logger.error("Chain action %s failed: %s", action_id, exc)
         get_chain_action_store().update_action(
             action_id,
