@@ -662,6 +662,7 @@ def _run_pipeline_execute(
         print("Check that aragora/pipeline/ is properly installed.")
 
     except (OSError, RuntimeError, ValueError) as e:
+        logger.debug("Pipeline execution failed: %s", e)
         print(f"\nPipeline failed: {e}")
 
 
@@ -819,6 +820,7 @@ def _cmd_pipeline_self_improve(args: argparse.Namespace) -> None:
                     raise RuntimeError("Live pipeline returned only 0.0s stages.")
                 execution_path = "live"
             except (RuntimeError, OSError, ConnectionError) as exc:
+                logger.debug("Live pipeline failed in strict mode: %s", exc)
                 print(f"\n[WARN] Live pipeline failed ({exc}), no fallback in strict mode.")
                 raise
         elif pipeline_mode == "hybrid":
