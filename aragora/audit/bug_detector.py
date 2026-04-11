@@ -436,7 +436,7 @@ class BugDetector:
             severity=BugSeverity.MEDIUM,
             description="Bare except clause catches all exceptions",
             explanation="Catches SystemExit, KeyboardInterrupt, and GeneratorExit unexpectedly",
-            fix_suggestion="Use 'except Exception:' or specific exception types",
+            fix_suggestion="Use specific exception types instead of a catch-all handler",
             languages=["python"],
         ),
         BugPattern(
