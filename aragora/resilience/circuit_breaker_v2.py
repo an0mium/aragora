@@ -22,7 +22,7 @@ Usage:
         try:
             result = call_service()
             cb.record_success()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, LookupError) as e:
             cb.record_failure(e)
             raise
 
@@ -361,7 +361,7 @@ class BaseCircuitBreaker:
         if self.config.on_state_change:
             try:
                 self.config.on_state_change(self.name, old_state, new_state)
-            except Exception as e:  # noqa: BLE001 - callback must not break state transitions
+            except (TypeError, ValueError, RuntimeError, AttributeError) as e:
                 logger.warning("[%s] State change callback error: %s", self.name, e)
 
     def _add_result(self, success: bool) -> None:
@@ -419,7 +419,7 @@ def with_circuit_breaker(
                 result = await func(*args, **kwargs)
                 cb.record_success()
                 return result
-            except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
+            except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, LookupError) as e:
                 cb.record_failure(e)
                 raise
 
@@ -454,7 +454,7 @@ def with_circuit_breaker_sync(
                 result = func(*args, **kwargs)
                 cb.record_success()
                 return result
-            except Exception as e:  # noqa: BLE001 - circuit breaker must catch all failures
+            except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, LookupError) as e:
                 cb.record_failure(e)
                 raise
 
@@ -497,7 +497,7 @@ def get_circuit_breaker(
             try:
                 result = await call_api()
                 cb.record_success()
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError, TimeoutError, LookupError) as e:
                 cb.record_failure(e)
                 raise
     """
