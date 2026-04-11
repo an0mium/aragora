@@ -70,18 +70,23 @@ class NotificationTemplateStore:
     def _read_user_file(self, user_id: str) -> dict[str, dict[str, Any]]:
         """Read a user's override file. Returns empty dict if missing."""
         path = self._user_path(user_id)
-        if not path.exists():
-            return {}
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict):
-                raise ValueError(
-                    f"Invalid template override file for {user_id}: expected object, got {type(data).__name__}"
-                )
-            return data
-        except (json.JSONDecodeError, OSError) as exc:
+            raw = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            return {}
+        except OSError as exc:
             logger.error("Failed to read template overrides for %s: %s", user_id, exc)
             raise
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            logger.error("Failed to parse template overrides for %s: %s", user_id, exc)
+            raise
+        if not isinstance(data, dict):
+            raise ValueError(
+                f"Invalid template override file for {user_id}: expected object, got {type(data).__name__}"
+            )
+        return data
 
     def _write_user_file(self, user_id: str, data: dict[str, dict[str, Any]]) -> None:
         """Write a user's override file atomically."""
