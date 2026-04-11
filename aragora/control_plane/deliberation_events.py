@@ -47,5 +47,36 @@ class DeliberationEventType(str, Enum):
     AGENT_ERROR = "deliberation.agent_error"
     RECOVERY_ATTEMPTED = "deliberation.recovery_attempted"
 
+    @classmethod
+    def lifecycle_events(cls) -> list["DeliberationEventType"]:
+        """Return lifecycle-related event types."""
+        return [
+            cls.DELIBERATION_STARTED,
+            cls.DELIBERATION_COMPLETED,
+            cls.DELIBERATION_FAILED,
+            cls.DELIBERATION_CANCELLED,
+        ]
+
+    @classmethod
+    def agent_events(cls) -> list["DeliberationEventType"]:
+        """Return agent interaction event types."""
+        return [
+            cls.AGENT_MESSAGE,
+            cls.AGENT_PROPOSAL,
+            cls.AGENT_CRITIQUE,
+            cls.AGENT_REVISION,
+        ]
+
+    @classmethod
+    def sla_events(cls) -> list["DeliberationEventType"]:
+        """Return SLA-related event types."""
+        return [cls.SLA_WARNING, cls.SLA_CRITICAL, cls.SLA_VIOLATED]
+
+    @property
+    def category(self) -> str:
+        """Extract the event category from the value (e.g. 'sla_warning' -> 'sla')."""
+        suffix = self.value.removeprefix("deliberation.")
+        return suffix.split("_")[0] if "_" in suffix else suffix
+
 
 __all__ = ["DeliberationEventType"]
