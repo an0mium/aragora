@@ -8,6 +8,7 @@ This module contains executors for steps related to the proposal phase:
 
 from __future__ import annotations
 
+import inspect
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -55,7 +56,10 @@ class AgentStepExecutor(StepExecutor):
         """Execute step via agent."""
         logger.info("Agent executing step: %s", step.name)
         if self._agent_fn is not None:
-            return await self._agent_fn(step, context)
+            result = self._agent_fn(step, context)
+            if inspect.isawaitable(result):
+                return await result
+            return result
         return {"status": "executed", "step": step.name}
 
     def __repr__(self) -> str:

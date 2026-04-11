@@ -524,6 +524,48 @@ class TestAgentStepExecutor:
         assert result["status"] == "executed"
         assert result["step"] == "agent_step"
 
+    @pytest.mark.asyncio
+    async def test_execute_with_sync_agent_fn(self):
+        """Test injected synchronous callables for DI-based tests."""
+        step = MoleculeStep.create("agent_step", "agent", {"task": "review"})
+        executor = AgentStepExecutor(
+            agent_fn=lambda step, context: {
+                "status": "mocked",
+                "step": step.name,
+                "context": context,
+            }
+        )
+
+        result = await executor.execute(step, {"mock": True})
+
+        assert result == {
+            "status": "mocked",
+            "step": "agent_step",
+            "context": {"mock": True},
+        }
+
+    @pytest.mark.asyncio
+    async def test_execute_with_async_agent_fn(self):
+        """Test injected async callables still execute correctly."""
+
+        async def agent_fn(step, context):
+            return {
+                "status": "async-mocked",
+                "step": step.name,
+                "context": context,
+            }
+
+        step = MoleculeStep.create("agent_step", "agent", {"task": "review"})
+        executor = AgentStepExecutor(agent_fn=agent_fn)
+
+        result = await executor.execute(step, {"async": True})
+
+        assert result == {
+            "status": "async-mocked",
+            "step": "agent_step",
+            "context": {"async": True},
+        }
+
 
 class TestShellStepExecutor:
     """Tests for ShellStepExecutor with sandboxing."""
