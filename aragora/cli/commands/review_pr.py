@@ -512,11 +512,11 @@ def _cleanup_worktree(repo_root: Path, worktree_path: Path) -> None:
             text=True,
             check=False,
         )
-    except OSError:
-        logger.debug("could not invoke safe review-pr cleanup for %s", worktree_path)
+    except OSError as exc:
+        logger.warning("could not invoke safe review-pr cleanup for %s: %s", worktree_path, exc)
         return
     if proc.returncode != 0:
-        logger.debug(
+        logger.warning(
             "review-pr safe cleanup skipped for %s: %s",
             worktree_path,
             proc.stdout.strip() or proc.stderr.strip(),
@@ -526,7 +526,7 @@ def _cleanup_worktree(repo_root: Path, worktree_path: Path) -> None:
         try:
             parent.rmdir()
         except OSError as exc:
-            logger.debug("review-pr parent cleanup skipped for %s: %s", parent, exc)
+            logger.warning("review-pr parent cleanup skipped for %s: %s", parent, exc)
 
 
 def _build_review_prompt(*, target: PullRequestTarget, diff_text: str) -> str:
