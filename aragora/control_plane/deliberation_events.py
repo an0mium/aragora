@@ -8,6 +8,7 @@ monitoring via ControlPlaneStreamServer.
 from __future__ import annotations
 
 from enum import Enum, unique
+from types import MappingProxyType
 
 
 _CATEGORY_LIFECYCLE = "lifecycle"
@@ -76,7 +77,7 @@ class DeliberationEventType(str, Enum):
     @property
     def is_terminal(self) -> bool:
         """True if this event signals the end of a deliberation."""
-        return self in _TERMINAL_EVENTS
+        return self in TERMINAL_EVENT_TYPES
 
     @classmethod
     def by_category(cls, category: str) -> frozenset["DeliberationEventType"]:
@@ -86,7 +87,7 @@ class DeliberationEventType(str, Enum):
         """
         if category not in CATEGORIES:
             raise ValueError(f"Unknown category {category!r}; choose from {CATEGORIES}")
-        return frozenset(e for e in cls if _EVENT_CATEGORIES[e] == category)
+        return EVENT_TYPES_BY_CATEGORY[category]
 
 
 _EVENT_CATEGORIES: dict[DeliberationEventType, str] = {
@@ -113,7 +114,18 @@ _EVENT_CATEGORIES: dict[DeliberationEventType, str] = {
     DeliberationEventType.RECOVERY_ATTEMPTED: _CATEGORY_ERROR,
 }
 
-_TERMINAL_EVENTS: frozenset[DeliberationEventType] = frozenset(
+EVENT_TYPES_BY_CATEGORY = MappingProxyType(
+    {
+        category: frozenset(
+            event
+            for event, mapped_category in _EVENT_CATEGORIES.items()
+            if mapped_category == category
+        )
+        for category in CATEGORIES
+    }
+)
+
+TERMINAL_EVENT_TYPES: frozenset[DeliberationEventType] = frozenset(
     {
         DeliberationEventType.DELIBERATION_COMPLETED,
         DeliberationEventType.DELIBERATION_FAILED,
@@ -122,4 +134,9 @@ _TERMINAL_EVENTS: frozenset[DeliberationEventType] = frozenset(
 )
 
 
-__all__ = ["CATEGORIES", "DeliberationEventType"]
+__all__ = [
+    "CATEGORIES",
+    "DeliberationEventType",
+    "EVENT_TYPES_BY_CATEGORY",
+    "TERMINAL_EVENT_TYPES",
+]
