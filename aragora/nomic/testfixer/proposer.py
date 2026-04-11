@@ -318,7 +318,7 @@ class SimpleCodeGenerator:
                         "try:\n"
                         "    import tiktoken\n"
                         "    TIKTOKEN_AVAILABLE = True  # Kept for backwards compatibility\n"
-                        "except Exception:\n"
+                        "except ImportError:\n"
                         "    tiktoken = None\n"
                         "    TIKTOKEN_AVAILABLE = False\n"
                     )
