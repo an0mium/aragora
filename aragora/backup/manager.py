@@ -1591,7 +1591,7 @@ class BackupManager:
             LAST_BACKUP_TIMESTAMP.labels(**labels).set(backup.created_at.timestamp())
 
         except ImportError:
-            pass  # Metrics not available
+            logger.debug("Prometheus metrics not available for backup emission")
 
     def _emit_verification_metrics(self, result: VerificationResult) -> None:
         """Emit Prometheus metrics for verification."""
@@ -1611,7 +1611,7 @@ class BackupManager:
             BACKUP_VERIFICATION_SUCCESS.labels(verified=str(result.verified).lower()).inc()
 
         except ImportError:
-            pass
+            logger.debug("Prometheus metrics not available for verification emission")
 
     def _emit_restore_metrics(self, backup_id: str, success: bool) -> None:
         """Emit Prometheus metrics for restore operation."""
@@ -1627,7 +1627,7 @@ class BackupManager:
             BACKUP_RESTORE_SUCCESS.labels(success=str(success).lower()).inc()
 
         except ImportError:
-            pass
+            logger.debug("Prometheus metrics not available for restore emission")
 
 
 # Global backup manager instance
