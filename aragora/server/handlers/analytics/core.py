@@ -34,7 +34,8 @@ from .._analytics_metrics_impl import (
     _parse_time_range,
 )
 
-__all__ = [
+# Keep the public re-export surface stable for imports and tests.
+__all__ = (
     # Core analytics handler
     "AnalyticsHandler",
     "ANALYTICS_PERMISSION",
@@ -49,4 +50,4 @@ __all__ = [
     # Constants
     "VALID_GRANULARITIES",
     "VALID_TIME_RANGES",
-]
+)
