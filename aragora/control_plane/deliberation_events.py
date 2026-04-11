@@ -24,8 +24,8 @@ class DeliberationEventType(str, Enum):
     # Agent interaction events
     AGENT_MESSAGE = "deliberation.agent_message"
     AGENT_PROPOSAL = "deliberation.agent_proposal"
-    AGENT_CRITIQUE = "deliberation.critique"
-    AGENT_REVISION = "deliberation.revision"
+    AGENT_CRITIQUE = "deliberation.agent_critique"
+    AGENT_REVISION = "deliberation.agent_revision"
 
     # Voting and consensus events
     VOTE = "deliberation.vote"
