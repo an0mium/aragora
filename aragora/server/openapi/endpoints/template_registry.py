@@ -12,7 +12,9 @@ __all__ = [
     "get_registry_listing_schema",
     "get_registry_listing_required_fields",
     "get_registry_listing_property_names",
+    "get_registry_listing_field_types",
     "build_sample_listing",
+    "validate_listing",
 ]
 
 _REGISTRY_LISTING_SCHEMA: dict[str, Any] = {
@@ -70,6 +72,75 @@ def get_registry_listing_required_fields() -> list[str]:
 def get_registry_listing_property_names() -> list[str]:
     """Return all property names defined in the registry listing schema."""
     return sorted(_REGISTRY_LISTING_SCHEMA["properties"].keys())
+
+
+def get_registry_listing_field_types() -> dict[str, Any]:
+    """Return a mapping of field name to its JSON Schema type descriptor."""
+    return {
+        name: deepcopy(spec.get("type", "string"))
+        for name, spec in _REGISTRY_LISTING_SCHEMA["properties"].items()
+    }
+
+
+def validate_listing(data: dict[str, Any]) -> list[str]:
+    """Validate *data* against the registry listing schema, returning error messages.
+
+    Returns an empty list when the listing is valid.  Checks required fields,
+    disallowed extra keys, and basic JSON-Schema type conformance so that tests
+    can assert validity without pulling in a full jsonschema dependency.
+    """
+    _JS_TYPE_MAP: dict[str, type | tuple[type, ...]] = {
+        "string": str,
+        "integer": int,
+        "number": (int, float),
+        "boolean": bool,
+        "array": list,
+    }
+    errors: list[str] = []
+    props = _REGISTRY_LISTING_SCHEMA["properties"]
+
+    for field in _REGISTRY_LISTING_SCHEMA["required"]:
+        if field not in data:
+            errors.append(f"missing required field: {field}")
+
+    if _REGISTRY_LISTING_SCHEMA.get("additionalProperties") is False:
+        extra = set(data) - set(props)
+        if extra:
+            errors.append(f"unexpected fields: {sorted(extra)}")
+
+    for field, value in data.items():
+        if field not in props:
+            continue
+        spec_type = props[field].get("type")
+        if spec_type is None:
+            continue
+        if value is None:
+            if isinstance(spec_type, list) and "null" in spec_type:
+                continue
+            errors.append(f"field '{field}' is null but not nullable")
+            continue
+        expected_types = spec_type if isinstance(spec_type, list) else [spec_type]
+        py_types = tuple(
+            t
+            for st in expected_types
+            if st != "null"
+            for t in (
+                (_JS_TYPE_MAP.get(st, ()),)
+                if not isinstance(_JS_TYPE_MAP.get(st, ()), tuple)
+                else (_JS_TYPE_MAP.get(st, ()),)
+            )  # noqa: E501
+        )
+        # Flatten the tuple of python types
+        flat: list[type] = []
+        for entry in py_types:
+            if isinstance(entry, tuple):
+                flat.extend(entry)
+            else:
+                flat.append(entry)
+        if flat and not isinstance(value, tuple(flat)):
+            errors.append(f"field '{field}' expected {expected_types}, got {type(value).__name__}")
+
+    return errors
 
 
 def build_sample_listing(**overrides: Any) -> dict[str, Any]:
