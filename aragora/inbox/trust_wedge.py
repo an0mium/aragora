@@ -493,7 +493,7 @@ class InboxTrustWedgeStore:
         try:
             yield cursor
             conn.commit()
-        except Exception:
+        except Exception:  # noqa: BLE001 — rollback on any error before re-raise
             conn.rollback()
             raise
         finally:
@@ -1579,7 +1579,7 @@ class InboxTrustWedgeService:
             if updated is None or updated.receipt.state is not ReceiptState.EXECUTED:
                 raise ValueError("receipt execution state not persisted")
             return result
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — release claim on any error before re-raise
             self.store.release_execution_claim(receipt_id, claim_token, error=str(exc))
             raise
 
