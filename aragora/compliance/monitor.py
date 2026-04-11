@@ -191,7 +191,7 @@ class ComplianceMonitor:
             try:
                 await self._task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Compliance monitor task cancelled")
         logger.info("Compliance monitor stopped")
 
     async def _monitoring_loop(self) -> None:
