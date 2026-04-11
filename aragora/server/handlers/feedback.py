@@ -261,19 +261,30 @@ async def handle_submit_nps(ctx: dict[str, Any]) -> HandlerResult:
 
     try:
         body = ctx.get("body", {})
+        if not isinstance(body, dict):
+            return error_response("Request body must be a JSON object", status=400)
+
         user_id = ctx.get("user_id", "anonymous")
         score = body.get("score")
 
         if score is None or not isinstance(score, int) or not 0 <= score <= 10:
             return error_response("Score must be an integer between 0 and 10", status=400)
 
+        comment = body.get("comment")
+        if comment is not None and not isinstance(comment, str):
+            return error_response("Comment must be a string", status=400)
+
+        context = body.get("context", {})
+        if not isinstance(context, dict):
+            return error_response("Context must be a JSON object", status=400)
+
         entry = FeedbackEntry(
             id=str(uuid.uuid4()),
             user_id=user_id,
             feedback_type=FeedbackType.NPS,
             score=score,
-            comment=body.get("comment"),
-            metadata=body.get("context", {}),
+            comment=comment,
+            metadata=context,
         )
 
         store = get_feedback_store()
@@ -321,9 +332,14 @@ async def handle_submit_feedback(ctx: dict[str, Any]) -> HandlerResult:
 
     try:
         body = ctx.get("body", {})
+        if not isinstance(body, dict):
+            return error_response("Request body must be a JSON object", status=400)
+
         user_id = ctx.get("user_id", "anonymous")
 
         feedback_type_str = body.get("type", "general")
+        if not isinstance(feedback_type_str, str):
+            return error_response("Type must be a string", status=400)
         try:
             feedback_type = FeedbackType(feedback_type_str)
         except ValueError:
@@ -332,14 +348,24 @@ async def handle_submit_feedback(ctx: dict[str, Any]) -> HandlerResult:
         comment = body.get("comment")
         if not comment:
             return error_response("Comment is required", status=400)
+        if not isinstance(comment, str):
+            return error_response("Comment must be a string", status=400)
+
+        score = body.get("score")
+        if score is not None and not isinstance(score, int):
+            return error_response("Score must be an integer", status=400)
+
+        context = body.get("context", {})
+        if not isinstance(context, dict):
+            return error_response("Context must be a JSON object", status=400)
 
         entry = FeedbackEntry(
             id=str(uuid.uuid4()),
             user_id=user_id,
             feedback_type=feedback_type,
-            score=body.get("score"),
+            score=score,
             comment=comment,
-            metadata=body.get("context", {}),
+            metadata=context,
         )
 
         store = get_feedback_store()
