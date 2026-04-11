@@ -409,11 +409,7 @@ def get_mfa_status(user_id: str, user_store: Any = None) -> MFAStatus:
 
 def _fetch_mfa_status_from_store(user_id: str, user_store: Any) -> MFAStatus:
     """Fetch MFA status from a user store backend."""
-    try:
-        user = user_store.get_user_by_id(user_id)
-    except Exception:
-        logger.warning("Failed to fetch user %s from store", user_id)
-        return MFAStatus(user_id=user_id)
+    user = user_store.get_user_by_id(user_id)
 
     if user is None:
         return MFAStatus(user_id=user_id)

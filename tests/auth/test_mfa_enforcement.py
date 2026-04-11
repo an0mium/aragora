@@ -155,6 +155,16 @@ class TestAdminBlockedWithoutMFA:
         assert not decision.allowed
         assert decision.result == MFAEnforcementResult.DENIED
 
+    def test_admin_store_failure_propagates(self):
+        store = MagicMock()
+        store.get_user_by_id.side_effect = RuntimeError("DB down")
+
+        ctx = FakeUserContext(user_id="admin-1", roles={"admin"})
+        mw = _make_middleware(user_store=store)
+
+        with pytest.raises(RuntimeError, match="DB down"):
+            mw.enforce(ctx, path="/api/v1/admin/users")
+
 
 # ---------------------------------------------------------------------------
 # Non-admin users pass through
@@ -553,9 +563,8 @@ class TestGetMFAStatus:
         store = MagicMock()
         store.get_user_by_id.side_effect = RuntimeError("DB down")
 
-        status = get_mfa_status("user-1", user_store=store)
-        assert status.user_id == "user-1"
-        assert status.mfa_enabled is False
+        with pytest.raises(RuntimeError, match="DB down"):
+            get_mfa_status("user-1", user_store=store)
 
     def test_service_account_bypass_detection(self):
         store = MagicMock()
