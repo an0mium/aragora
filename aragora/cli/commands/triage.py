@@ -30,7 +30,7 @@ def _load_local_dotenv() -> None:
 
         load_dotenv()
         load_dotenv("/etc/aragora/.env")
-    except Exception:  # noqa: BLE001 - best-effort dotenv loading
+    except (ImportError, OSError):
         logger.debug("dotenv loading unavailable, skipping")
         return
 
@@ -41,7 +41,7 @@ def _get_secret_fallback(name: str) -> str:
         from aragora.config.secrets import get_secret
 
         return str(get_secret(name) or "")
-    except Exception:  # noqa: BLE001 - best-effort secret resolution
+    except (ImportError, OSError, ValueError):
         logger.debug("Secret fallback for %s unavailable", name)
         return ""
 
@@ -264,7 +264,7 @@ async def _initialize_triage_storage() -> None:
         from aragora.server.startup.database import init_postgres_pool
 
         await init_postgres_pool()
-    except Exception as exc:  # noqa: BLE001 - best-effort CLI initialization
+    except (ImportError, OSError, RuntimeError) as exc:
         logger.debug("Triage storage initialization skipped: %s", exc)
 
 
@@ -274,42 +274,42 @@ async def _shutdown_triage_storage() -> None:
         from aragora.server.startup.database import close_postgres_pool
 
         await close_postgres_pool()
-    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+    except (ImportError, OSError, RuntimeError) as exc:
         logger.debug("Triage shared-pool shutdown skipped: %s", exc)
 
     try:
         from aragora.server.http_client_pool import close_http_pool
 
         await close_http_pool()
-    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+    except (ImportError, OSError, RuntimeError) as exc:
         logger.debug("Triage HTTP client pool shutdown skipped: %s", exc)
 
     try:
         from aragora.agents.api_agents.common import close_shared_connector
 
         await close_shared_connector()
-    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+    except (ImportError, OSError, RuntimeError) as exc:
         logger.debug("Triage API connector shutdown skipped: %s", exc)
 
     try:
         from aragora.storage.connection_factory import close_all_pools
 
         await close_all_pools()
-    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+    except (ImportError, OSError, RuntimeError) as exc:
         logger.debug("Triage connection-factory shutdown skipped: %s", exc)
 
     try:
         from aragora.events.dispatcher import shutdown_dispatcher
 
         shutdown_dispatcher(wait=True)
-    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+    except (ImportError, OSError, RuntimeError) as exc:
         logger.debug("Triage dispatcher shutdown skipped: %s", exc)
 
     try:
         from aragora.storage.webhook_config_store import reset_webhook_config_store
 
         reset_webhook_config_store()
-    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+    except (ImportError, OSError, RuntimeError) as exc:
         logger.debug("Triage webhook config reset skipped: %s", exc)
 
     try:
@@ -320,7 +320,7 @@ async def _shutdown_triage_storage() -> None:
 
         reset_inbox_trust_wedge_service()
         reset_inbox_trust_wedge_store()
-    except Exception as exc:  # noqa: BLE001 - best-effort CLI shutdown
+    except (ImportError, OSError, RuntimeError) as exc:
         logger.debug("Triage trust wedge reset skipped: %s", exc)
 
     # Give async transports a brief chance to finish their close callbacks
@@ -573,7 +573,7 @@ async def _sync_gmail_connector_to_token_store(connector: object | None) -> None
         state.access_token = str(getattr(connector, "_access_token", "") or state.access_token)
         state.token_expiry = getattr(connector, "_token_expiry", None) or state.token_expiry
         await store.save(state)
-    except Exception as exc:  # noqa: BLE001 - best-effort CLI auth sync
+    except (ImportError, OSError, RuntimeError) as exc:
         logger.debug("Gmail token-store sync skipped: %s", exc)
 
 
