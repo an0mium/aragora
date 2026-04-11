@@ -53,9 +53,35 @@ def get_all_handler_stability() -> dict[str, str]:
     return all_stability
 
 
+def register_handler(
+    handler: type[BaseHandler],
+    stability: Stability = Stability.EXPERIMENTAL,
+) -> None:
+    """Register a handler and its stability classification.
+
+    Args:
+        handler: The handler class to register.
+        stability: Stability level for the handler.
+    """
+    if handler not in ALL_HANDLERS:
+        ALL_HANDLERS.append(handler)
+    HANDLER_STABILITY[handler.__name__] = stability
+
+
+def reset_registry() -> None:
+    """Clear all registered handlers and stability classifications.
+
+    Intended for use in unit tests to isolate registry state between tests.
+    """
+    ALL_HANDLERS.clear()
+    HANDLER_STABILITY.clear()
+
+
 __all__ = [
     "ALL_HANDLERS",
     "HANDLER_STABILITY",
-    "get_handler_stability",
     "get_all_handler_stability",
+    "get_handler_stability",
+    "register_handler",
+    "reset_registry",
 ]
