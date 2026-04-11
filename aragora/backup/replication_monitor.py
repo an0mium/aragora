@@ -516,7 +516,7 @@ class ReplicationHealthMonitor:
             try:
                 await self._monitoring_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Replication monitoring task cancelled")
             self._monitoring_task = None
 
         logger.info("Stopped replication monitoring")
