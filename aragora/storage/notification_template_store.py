@@ -53,7 +53,10 @@ class NotificationTemplateStore:
             data_dir = str(Path(base).parent / "notification_templates")
 
         self._dir = Path(data_dir)
-        self._dir.mkdir(parents=True, exist_ok=True)
+        try:
+            self._dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            logger.warning("Could not create template store directory %s: %s", self._dir, exc)
         self._lock = threading.Lock()
         logger.info("NotificationTemplateStore initialized at %s", self._dir)
 
