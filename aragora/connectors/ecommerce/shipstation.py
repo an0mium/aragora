@@ -657,10 +657,12 @@ def _parse_datetime(value: str | None) -> datetime | None:
     try:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
-        try:
-            return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%f")
-        except (ValueError, AttributeError):
-            return None
+        pass
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%f")
+    except (ValueError, AttributeError):
+        logger.warning("shipstation: unparseable datetime value: %r", value)
+        return None
 
 
 # -----------------------------------------------------------------------------
