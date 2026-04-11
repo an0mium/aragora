@@ -834,6 +834,7 @@ class BackupScheduler:
             )
 
         except (OSError, IOError, RuntimeError) as e:
+            logger.error("DR drill failed: %s", e)
             result["error"] = str(e)
             result["success"] = False
 
