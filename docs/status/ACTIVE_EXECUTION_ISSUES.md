@@ -1,6 +1,6 @@
 # Active Execution Issues
 
-Last updated: 2026-04-09
+Last updated: 2026-04-12
 
 This document is the canonical epic, milestone, and execution-issue tree for the current roadmap tranche.
 
@@ -42,14 +42,14 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 
 ### Milestone 1.1 — Failure Taxonomy & Benchmark Corpus `[30d]`
 
-- [ ] **RS-01** Define canonical terminal-truth classes for auth, publication, validation, runtime, and task-shape failures
-- [ ] **RS-02** Harvest benchmark fixtures from real `needs_human` and publication-failure receipts
-- [ ] **RS-03** Add a benchmark scoring lane and regression guardrails in CI
+- [x] **RS-01** Define canonical terminal-truth classes for auth, publication, validation, runtime, and task-shape failures
+- [x] **RS-02** Harvest benchmark fixtures from real `needs_human` and publication-failure receipts
+- [x] **RS-03** Add a benchmark scoring lane and regression guardrails in CI
 
 ### Milestone 1.2 — Worker Contracts & Credential Envelopes `[30-90d]`
 
-- [ ] **RS-04** Introduce persisted `WorkerContract` objects with checksum and admission rules
-- [ ] **RS-05** Introduce `CredentialEnvelope` slices for runner, git, GitHub API, provider, and verification auth
+- [x] **RS-04** Introduce persisted `WorkerContract` objects with checksum and admission rules
+- [x] **RS-05** Introduce `CredentialEnvelope` slices for runner, git, GitHub API, provider, and verification auth
 - [ ] **RS-06** Require launcher, supervisor, and tranche queue to dispatch only from complete contracts
 
 ### Milestone 1.3 — Contract-Aware Preflight `[30-90d]`
@@ -76,8 +76,8 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 
 ### Milestone 2.2 — Task Sanitizer & Admission Gate `[30-90d]`
 
-- [ ] **BC-04** Add sanitizer outcomes: accepted, rewritten, dropped, quarantined
-- [ ] **BC-05** Detect truncated, contradictory, or impossible tasks before dispatch
+- [x] **BC-04** Add sanitizer outcomes: accepted, rewritten, dropped, quarantined
+- [x] **BC-05** Detect truncated, contradictory, or impossible tasks before dispatch
 - [ ] **BC-06** Preserve original versus sanitized task text for audit
 
 ### Milestone 2.3 — Truthful Lane / Integrator State `[90d]`

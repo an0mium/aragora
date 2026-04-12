@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-04-09
+Last updated: 2026-04-12
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
@@ -18,13 +18,17 @@ What is already true:
 - host-side install and preflight scripts exist
 - bounded product wedges such as prompt-to-spec and inbox workflows exist
 - the approved reliability substrate spec identifies the missing layer clearly
+- terminal-truth taxonomy, benchmark fixtures, and the benchmark scoring lane are now on `main`
+- `WorkerContract` and `CredentialEnvelope` primitives exist on the live swarm path
+- launcher-side contract admission and module-level contract-aware preflight are on `main`
+- task sanitizer outcomes and success-rate filtering are shaping safer boss-loop intake
 
 What is still missing:
 
 - honest benchmarked proof of semi-autonomous success
-- contract-backed worker admission on the safest classes of work
-- production-equivalent preflight on those classes
-- truthful failure taxonomy and repair loops
+- contract-backed worker admission across launcher, supervisor, and tranche queue on the safest classes of work
+- top-level production-equivalent preflight on those classes
+- broader repair-loop coverage and persisted original-versus-sanitized task audit
 - lower-rescue unattended operation on bounded backlogs
 
 The work now is not “add more speculative autonomy.” It is “make bounded unattended execution boring.”
