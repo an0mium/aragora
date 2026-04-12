@@ -608,7 +608,7 @@ class LLMJudge:
             result.weaknesses = feedback.get("weaknesses", [])
             result.suggestions = feedback.get("suggestions", [])
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, OSError, json.JSONDecodeError) as e:
             logger.error("Evaluation failed: %s", e)
             # Return partial result with error
             result.summary = f"Evaluation error: {e}"
@@ -672,7 +672,7 @@ class LLMJudge:
             result.dimension_preferences = parsed.get("dimension_preferences", {})
             result.explanation = parsed.get("explanation", "")
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, OSError, json.JSONDecodeError) as e:
             logger.error("Comparison failed: %s", e)
             result.winner = "tie"
             result.explanation = f"Comparison error: {e}"
@@ -1034,7 +1034,7 @@ Provide your comparison:"""
             result.calculate_overall_score(self._weights)
             result.judge_model = f"{self._config.model}+{self._config.secondary_model}"
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, OSError, json.JSONDecodeError) as e:
             logger.warning("Secondary evaluation failed: %s", e)
 
 
