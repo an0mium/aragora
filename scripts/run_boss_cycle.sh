@@ -5,6 +5,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 POST_LOOP_ISSUE_REFILL="${ARAGORA_POST_LOOP_ISSUE_REFILL:-1}"
 POST_LOOP_MAX_ISSUES="${ARAGORA_POST_LOOP_MAX_ISSUES:-20}"
 POST_LOOP_DRY_RUN="${ARAGORA_POST_LOOP_DRY_RUN:-0}"
+POST_LOOP_MIN_SUCCESS_RATE="${ARAGORA_POST_LOOP_MIN_SUCCESS_RATE:-0.3}"
 POST_LOOP_LABEL="${ARAGORA_POST_LOOP_LABEL:-}"
 boss_repo=""
 boss_label=""
@@ -54,6 +55,8 @@ refill_cmd=(
     "${boss_repo}"
     --max-issues
     "${POST_LOOP_MAX_ISSUES}"
+    --min-success-rate
+    "${POST_LOOP_MIN_SUCCESS_RATE}"
     --label
     "${boss_label}"
 )
@@ -61,5 +64,6 @@ if [[ "${POST_LOOP_DRY_RUN}" == "1" ]]; then
     refill_cmd+=(--dry-run)
 fi
 
+echo "Post-loop issue refill success-rate threshold: ${POST_LOOP_MIN_SUCCESS_RATE}"
 echo "Running post-loop issue refill: ${refill_cmd[*]}"
 "${refill_cmd[@]}"

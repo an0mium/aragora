@@ -52,6 +52,7 @@ def test_run_boss_cycle_runs_post_loop_refill_after_success(tmp_path: Path) -> N
     env["FAKE_PYTHON3_REFILL_EXIT"] = "0"
     env["ARAGORA_POST_LOOP_DRY_RUN"] = "1"
     env["ARAGORA_POST_LOOP_MAX_ISSUES"] = "7"
+    env["ARAGORA_POST_LOOP_MIN_SUCCESS_RATE"] = "0.55"
     env["ARAGORA_POST_LOOP_ISSUE_REFILL"] = "1"
 
     result = subprocess.run(
@@ -84,10 +85,13 @@ def test_run_boss_cycle_runs_post_loop_refill_after_success(tmp_path: Path) -> N
         "org/repo",
         "--max-issues",
         "7",
+        "--min-success-rate",
+        "0.55",
         "--label",
         "lane:test",
         "--dry-run",
     ]
+    assert "Post-loop issue refill success-rate threshold: 0.55" in result.stdout
 
 
 def test_run_boss_cycle_skips_post_loop_refill_after_failure(tmp_path: Path) -> None:

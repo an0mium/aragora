@@ -22,6 +22,7 @@ AUTONOMY_MODE="${BOSS_AUTONOMY_MODE:-full-auto}"
 BOSS_POST_LOOP_ISSUE_REFILL="${BOSS_POST_LOOP_ISSUE_REFILL:-1}"
 BOSS_POST_LOOP_MAX_ISSUES="${BOSS_POST_LOOP_MAX_ISSUES:-20}"
 BOSS_POST_LOOP_DRY_RUN="${BOSS_POST_LOOP_DRY_RUN:-0}"
+BOSS_POST_LOOP_MIN_SUCCESS_RATE="${BOSS_POST_LOOP_MIN_SUCCESS_RATE:-0.3}"
 THROTTLE_SECONDS="${BOSS_THROTTLE_SECONDS:-300}"
 ARAGORA_USER_ID="${ARAGORA_USER_ID:-${USER}}"
 ARAGORA_WORKSPACE_ID="${ARAGORA_WORKSPACE_ID:-aragora}"
@@ -50,6 +51,8 @@ Options:
   --autonomy <mode>               Autonomy mode passed to boss-loop (default: full-auto)
   --ping-pong                     Enable ping-pong retry mode
   --post-loop-max-issues <n>      Create up to N fresh issues after a clean boss-loop exit (default: 20)
+  --post-loop-min-success-rate <n>
+                                   Minimum historical success rate for post-loop issue refill (default: 0.3)
   --post-loop-dry-run             Preview post-loop issue generation without creating issues
   --no-post-loop-issue-refill     Disable post-loop boss-ready issue generation
   --user-id <id>                  Export ARAGORA_USER_ID for the service
@@ -134,6 +137,10 @@ while [[ $# -gt 0 ]]; do
             BOSS_POST_LOOP_MAX_ISSUES="${2:-$BOSS_POST_LOOP_MAX_ISSUES}"
             shift 2
             ;;
+        --post-loop-min-success-rate)
+            BOSS_POST_LOOP_MIN_SUCCESS_RATE="${2:-$BOSS_POST_LOOP_MIN_SUCCESS_RATE}"
+            shift 2
+            ;;
         --post-loop-dry-run)
             BOSS_POST_LOOP_DRY_RUN=1
             shift
@@ -206,6 +213,10 @@ if ! [[ "${MAX_HOURS}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
     echo "max-hours must be numeric" >&2
     exit 2
 fi
+if ! [[ "${BOSS_POST_LOOP_MIN_SUCCESS_RATE}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+    echo "post-loop-min-success-rate must be numeric" >&2
+    exit 2
+fi
 
 mkdir -p "$(dirname "${PLIST_PATH}")"
 mkdir -p "$(dirname "${LOG_PATH}")"
@@ -219,7 +230,7 @@ fi
 if [[ -n "${ARAGORA_DEV_COORDINATION_DB}" ]]; then
     command_string="${command_string} && export ARAGORA_DEV_COORDINATION_DB=\"${ARAGORA_DEV_COORDINATION_DB}\""
 fi
-command_string="${command_string} && export ARAGORA_POST_LOOP_ISSUE_REFILL=\"${BOSS_POST_LOOP_ISSUE_REFILL}\" && export ARAGORA_POST_LOOP_MAX_ISSUES=\"${BOSS_POST_LOOP_MAX_ISSUES}\" && export ARAGORA_POST_LOOP_DRY_RUN=\"${BOSS_POST_LOOP_DRY_RUN}\""
+command_string="${command_string} && export ARAGORA_POST_LOOP_ISSUE_REFILL=\"${BOSS_POST_LOOP_ISSUE_REFILL}\" && export ARAGORA_POST_LOOP_MAX_ISSUES=\"${BOSS_POST_LOOP_MAX_ISSUES}\" && export ARAGORA_POST_LOOP_DRY_RUN=\"${BOSS_POST_LOOP_DRY_RUN}\" && export ARAGORA_POST_LOOP_MIN_SUCCESS_RATE=\"${BOSS_POST_LOOP_MIN_SUCCESS_RATE}\""
 command_string="${command_string} && exec \"${REPO_ROOT}/scripts/run_boss_cycle.sh\" --boss-repo \"${BOSS_REPO}\" --target-branch \"${TARGET_BRANCH}\" --worker-model \"${WORKER_MODEL}\" --review-model \"${REVIEW_MODEL}\""
 for label in "${LABELS[@]}"; do
     command_string="${command_string} --label \"${label}\""
