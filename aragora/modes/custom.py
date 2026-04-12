@@ -148,7 +148,7 @@ class CustomModeLoader:
 
         if unknown_groups:
             unknown = ", ".join(sorted(unknown_groups))
-            raise ValueError(f"Unknown tool_groups in custom mode '{name}': {unknown}")
+            logger.warning("Ignoring unknown tool_groups in custom mode '%s': %s", name, unknown)
 
         return CustomMode(
             name=name,
