@@ -445,6 +445,7 @@ class UsageMeter:
                 await asyncio.sleep(self.config.flush_interval)
                 await self._flush_events()
             except asyncio.CancelledError:
+                logger.debug("Flush loop cancelled")
                 break
             except (OSError, ConnectionError, TimeoutError, RuntimeError, ValueError) as e:
                 logger.error("Error in flush loop: %s", e)
