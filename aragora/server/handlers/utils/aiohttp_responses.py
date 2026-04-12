@@ -42,11 +42,11 @@ def web_error_response(
         return web_error_response("Not found", 404, code="NOT_FOUND")
         # -> {"error": {"code": "NOT_FOUND", "message": "Not found"}}
     """
-    if code or details:
+    if code is not None or details is not None:
         error_obj: dict[str, Any] = {"message": message}
-        if code:
+        if code is not None:
             error_obj["code"] = code
-        if details:
+        if details is not None:
             error_obj["details"] = details
         payload: dict[str, Any] = {"error": error_obj}
     else:
