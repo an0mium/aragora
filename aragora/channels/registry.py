@@ -238,5 +238,5 @@ def _register_builtin_docks(registry: DockRegistry) -> None:
             registry.register(dock_class)
         except ImportError:
             logger.debug("%s dock not available (missing dependencies)", label)
-        except Exception:
-            logger.warning("Failed to register %s dock", label, exc_info=True)
+        except Exception as exc:
+            logger.warning("Failed to register %s dock: %s", label, exc, exc_info=True)
