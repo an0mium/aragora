@@ -12,6 +12,7 @@ Tests cover:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -20,6 +21,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from aragora.server.handlers.admin.security import SecurityHandler
+
+
+def _call_unwrapped(method: Any, request: Any, *args: Any):
+    """Run the undecorated async endpoint with the fixture auth context."""
+    auth_context = getattr(request, "_auth_context", MagicMock())
+    return asyncio.run(method.__wrapped__(method.__self__, request, auth_context, *args))
 
 
 class MockEncryptionKey:
@@ -180,7 +187,7 @@ class TestGetStatus:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._get_status.__wrapped__(security_handler, mock_handler)
+                result = _call_unwrapped(security_handler._get_status, mock_handler)
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
@@ -195,7 +202,7 @@ class TestGetStatus:
     ):
         """Status handles missing cryptography library."""
         with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", False):
-            result = security_handler._get_status.__wrapped__(security_handler, mock_handler)
+            result = _call_unwrapped(security_handler._get_status, mock_handler)
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
@@ -209,7 +216,7 @@ class TestGetStatus:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._get_status.__wrapped__(security_handler, mock_handler)
+                result = _call_unwrapped(security_handler._get_status, mock_handler)
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
@@ -224,7 +231,7 @@ class TestGetStatus:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._get_status.__wrapped__(security_handler, mock_handler)
+                result = _call_unwrapped(security_handler._get_status, mock_handler)
 
         body = json.loads(result.body.decode())
         assert body["rotation_recommended"] is True
@@ -239,7 +246,7 @@ class TestGetStatus:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._get_status.__wrapped__(security_handler, mock_handler)
+                result = _call_unwrapped(security_handler._get_status, mock_handler)
 
         body = json.loads(result.body.decode())
         assert body["rotation_required"] is True
@@ -254,15 +261,15 @@ class TestCreateKey:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._create_key.__wrapped__(
-                    security_handler,
+                result = _call_unwrapped(
+                    security_handler._create_key,
+                    mock_handler,
                     {
                         "name": "backup_key",
                         "algorithm": "AES-256-GCM",
                         "expires_in_days": 365,
                         "metadata": {"purpose": "backup"},
                     },
-                    mock_handler,
                 )
 
         assert result.status_code == 201
@@ -280,8 +287,8 @@ class TestCreateKey:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._create_key.__wrapped__(
-                    security_handler, {"algorithm": "AES-256-GCM"}, mock_handler
+                result = _call_unwrapped(
+                    security_handler._create_key, mock_handler, {"algorithm": "AES-256-GCM"}
                 )
 
         assert result.status_code == 400
@@ -296,10 +303,10 @@ class TestCreateKey:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._create_key.__wrapped__(
-                    security_handler,
-                    {"name": "backup_key", "algorithm": "rsa-4096"},
+                result = _call_unwrapped(
+                    security_handler._create_key,
                     mock_handler,
+                    {"name": "backup_key", "algorithm": "rsa-4096"},
                 )
 
         assert result.status_code == 400
@@ -321,8 +328,8 @@ class TestRotateKey:
                     f"{MIGRATION_MODULE}.rotate_encryption_key",
                     return_value=result_obj,
                 ):
-                    result = security_handler._rotate_key.__wrapped__(
-                        security_handler, {"dry_run": True}, mock_handler
+                    result = _call_unwrapped(
+                        security_handler._rotate_key, mock_handler, {"dry_run": True}
                     )
 
         assert result.status_code == 200
@@ -342,8 +349,8 @@ class TestRotateKey:
                     f"{MIGRATION_MODULE}.rotate_encryption_key",
                     return_value=result_obj,
                 ):
-                    result = security_handler._rotate_key.__wrapped__(
-                        security_handler, {"force": True}, mock_handler
+                    result = _call_unwrapped(
+                        security_handler._rotate_key, mock_handler, {"force": True}
                     )
 
         assert result.status_code == 200
@@ -362,9 +369,7 @@ class TestRotateKey:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._rotate_key.__wrapped__(
-                    security_handler, {}, mock_handler
-                )
+                result = _call_unwrapped(security_handler._rotate_key, mock_handler, {})
 
         assert result.status_code == 400
         body = json.loads(result.body.decode())
@@ -375,7 +380,7 @@ class TestRotateKey:
     ):
         """Rotation fails when crypto unavailable."""
         with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", False):
-            result = security_handler._rotate_key.__wrapped__(security_handler, {}, mock_handler)
+            result = _call_unwrapped(security_handler._rotate_key, mock_handler, {})
 
         assert result.status_code == 400
 
@@ -389,7 +394,7 @@ class TestGetHealth:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._get_health.__wrapped__(security_handler, mock_handler)
+                result = _call_unwrapped(security_handler._get_health, mock_handler)
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
@@ -404,7 +409,7 @@ class TestGetHealth:
     ):
         """Health returns unhealthy when crypto unavailable."""
         with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", False):
-            result = security_handler._get_health.__wrapped__(security_handler, mock_handler)
+            result = _call_unwrapped(security_handler._get_health, mock_handler)
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
@@ -420,7 +425,7 @@ class TestGetHealth:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._get_health.__wrapped__(security_handler, mock_handler)
+                result = _call_unwrapped(security_handler._get_health, mock_handler)
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
@@ -434,7 +439,7 @@ class TestGetHealth:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._get_health.__wrapped__(security_handler, mock_handler)
+                result = _call_unwrapped(security_handler._get_health, mock_handler)
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
@@ -451,7 +456,7 @@ class TestListKeys:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._list_keys.__wrapped__(security_handler, mock_handler)
+                result = _call_unwrapped(security_handler._list_keys, mock_handler)
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
@@ -478,7 +483,7 @@ class TestListKeys:
 
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
-                result = security_handler._list_keys.__wrapped__(security_handler, mock_handler)
+                result = _call_unwrapped(security_handler._list_keys, mock_handler)
 
         assert result.status_code == 200
         body = json.loads(result.body.decode())
@@ -497,7 +502,7 @@ class TestListKeys:
     ):
         """List keys fails when crypto unavailable."""
         with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", False):
-            result = security_handler._list_keys.__wrapped__(security_handler, mock_handler)
+            result = _call_unwrapped(security_handler._list_keys, mock_handler)
 
         assert result.status_code == 400
 
@@ -580,9 +585,7 @@ class TestIntegration:
         with patch(f"{ENCRYPTION_MODULE}.get_encryption_service", return_value=service):
             with patch(f"{ENCRYPTION_MODULE}.CRYPTO_AVAILABLE", True):
                 # Step 1: Check status
-                status_result = security_handler._get_status.__wrapped__(
-                    security_handler, mock_handler
-                )
+                status_result = _call_unwrapped(security_handler._get_status, mock_handler)
                 status_body = json.loads(status_result.body.decode())
                 assert status_body["rotation_recommended"] is False
                 assert status_body["key_age_days"] == 45
@@ -592,8 +595,8 @@ class TestIntegration:
                     f"{MIGRATION_MODULE}.rotate_encryption_key",
                     return_value=MockRotationResult(),
                 ):
-                    dry_result = security_handler._rotate_key.__wrapped__(
-                        security_handler, {"dry_run": True}, mock_handler
+                    dry_result = _call_unwrapped(
+                        security_handler._rotate_key, mock_handler, {"dry_run": True}
                     )
                     dry_body = json.loads(dry_result.body.decode())
                     assert dry_body["dry_run"] is True
@@ -603,8 +606,8 @@ class TestIntegration:
                     f"{MIGRATION_MODULE}.rotate_encryption_key",
                     return_value=MockRotationResult(),
                 ):
-                    rotate_result = security_handler._rotate_key.__wrapped__(
-                        security_handler, {"force": True}, mock_handler
+                    rotate_result = _call_unwrapped(
+                        security_handler._rotate_key, mock_handler, {"force": True}
                     )
                     rotate_body = json.loads(rotate_result.body.decode())
                     assert rotate_body["success"] is True
