@@ -29,7 +29,7 @@ class CoderMode(Mode):
     system_prompt_additions: str = ""
 
     def get_system_prompt(self) -> str:
-        return """## Coder Mode
+        prompt = """## Coder Mode
 
 You are operating in CODER mode. Your role is to implement solutions efficiently.
 
@@ -59,3 +59,6 @@ You are operating in CODER mode. Your role is to implement solutions efficiently
 - Creating unnecessary abstractions
 - Ignoring existing error handling patterns
 """
+        if self.system_prompt_additions:
+            return f"{prompt.rstrip()}\n\n{self.system_prompt_additions.strip()}\n"
+        return prompt
