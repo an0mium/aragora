@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -49,6 +50,20 @@ def _worker(*, branch: str, checksum: str | None = None) -> WorkerProcess:
         commit_shas=["deadbeef"],
         worker_contract=contract,
         worker_contract_checksum=checksum or checksum_contract_payload(contract),
+    )
+
+
+def _envelope() -> CredentialEnvelope:
+    return CredentialEnvelope.from_environment(
+        {
+            "ARAGORA_CLAUDE_PROFILE": "claude",
+            "GITHUB_TOKEN": "token",
+            "OPENAI_API_KEY": "key",
+            "ARAGORA_PROVIDER": "openai",
+            "PYTEST_AVAILABLE": "true",
+            "RUFF_AVAILABLE": "true",
+            "SSH_AUTH_SOCK": "/tmp/agent.sock",
+        }
     )
 
 
@@ -340,3 +355,249 @@ def test_run_preflight_rejects_emitted_contract_drift(monkeypatch, tmp_path: Pat
         )
 
     assert cleanup_commands[0][:4] == ["git", "worktree", "remove", "--force"]
+
+
+def test_run_scratch_validation_receipt_persists_success(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 12, 19, 45, 0, tzinfo=timezone.utc)
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(mod, "_receipt_token", lambda: "ab12cd34")
+
+    def fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        commands.append(list(cmd))
+        if cmd[:3] == ["git", "worktree", "add"]:
+            Path(cmd[5]).mkdir(parents=True, exist_ok=True)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    receipt = mod.run_scratch_validation_receipt(repo_root=repo_root, envelope=envelope)
+
+    assert receipt.check_type == "scratch"
+    assert receipt.passed is True
+    assert receipt.ttl_seconds == 86400
+    assert receipt.artifacts["draft_pr_number"] is None
+    assert receipt.artifacts["draft_pr_url"] == ""
+    assert any(check["name"] == "git_commit" for check in receipt.checks)
+    receipt_path = (
+        repo_root / ".aragora" / "receipts" / "preflight" / f"scratch-{receipt.cache_key}.json"
+    )
+    assert receipt_path.exists()
+    payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+    assert payload["receipt_id"] == receipt.receipt_id
+    assert commands[0][:3] == ["git", "worktree", "add"]
+
+
+def test_run_remote_publish_validation_receipt_records_pr_artifacts(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 12, 19, 50, 0, tzinfo=timezone.utc)
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(mod, "_receipt_token", lambda: "ef56aa11")
+
+    def fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        commands.append(list(cmd))
+        if cmd[:3] == ["git", "worktree", "add"]:
+            Path(cmd[5]).mkdir(parents=True, exist_ok=True)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if cmd[:3] == ["gh", "pr", "create"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout="https://github.com/synaptent/aragora/pull/5123\n",
+                stderr="",
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    receipt = mod.run_remote_publish_validation_receipt(
+        repo_root=repo_root,
+        envelope=envelope,
+    )
+
+    assert receipt.check_type == "remote_publish"
+    assert receipt.passed is True
+    assert receipt.ttl_seconds == 3600
+    assert receipt.artifacts["draft_pr_number"] == 5123
+    assert receipt.artifacts["draft_pr_url"] == "https://github.com/synaptent/aragora/pull/5123"
+    assert any(check["name"] == "gh_pr_capture" for check in receipt.checks)
+    assert ["git", "push", "origin", "HEAD"] in commands
+    assert any(cmd[:3] == ["gh", "pr", "close"] for cmd in commands)
+
+
+def test_load_cached_preflight_receipt_reuses_fresh_successful_receipt(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 12, 20, 0, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+
+    cache_key = mod._preflight_cache_key(repo_root, envelope, "scratch")
+    receipt = mod.PreflightReceipt(
+        schema_version=1,
+        receipt_id="preflight-scratch-20260412T200000Z-cache1234",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root.resolve()),
+        check_type="scratch",
+        started_at="2026-04-12T20:00:00Z",
+        finished_at="2026-04-12T20:00:05Z",
+        passed=True,
+        checks=[{"name": "git_commit", "passed": True, "detail": "ok"}],
+        cache_key=cache_key,
+        ttl_seconds=86400,
+        expires_at="2026-04-13T20:00:05Z",
+        artifacts={"branch": "preflight/scratch/test", "worktree_path": "/tmp/worktree"},
+    )
+    mod._save_preflight_receipt(repo_root, receipt)
+
+    loaded = mod._load_cached_preflight_receipt(repo_root, envelope, "scratch", now=now)
+
+    assert loaded is not None
+    assert loaded.receipt_id == receipt.receipt_id
+
+
+def test_load_cached_preflight_receipt_misses_when_ttl_expired(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 12, 20, 0, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+
+    cache_key = mod._preflight_cache_key(repo_root, envelope, "remote_publish")
+    receipt = mod.PreflightReceipt(
+        schema_version=1,
+        receipt_id="preflight-remote_publish-20260412T190000Z-expired1",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root.resolve()),
+        check_type="remote_publish",
+        started_at="2026-04-12T19:00:00Z",
+        finished_at="2026-04-12T19:00:10Z",
+        passed=True,
+        checks=[{"name": "git_push", "passed": True, "detail": "ok"}],
+        cache_key=cache_key,
+        ttl_seconds=3600,
+        expires_at="2026-04-12T19:30:00Z",
+        artifacts={"branch": "preflight/remote/test", "worktree_path": "/tmp/worktree"},
+    )
+    mod._save_preflight_receipt(repo_root, receipt)
+
+    loaded = mod._load_cached_preflight_receipt(
+        repo_root,
+        envelope,
+        "remote_publish",
+        now=now,
+    )
+
+    assert loaded is None
+
+
+def test_load_cached_preflight_receipt_misses_when_envelope_changes(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    changed_envelope = CredentialEnvelope.from_environment(
+        {
+            "ARAGORA_CLAUDE_PROFILE": "claude",
+            "GITHUB_TOKEN": "token",
+            "OPENAI_API_KEY": "key",
+            "ARAGORA_PROVIDER": "openai",
+            "PYTEST_AVAILABLE": "true",
+            "RUFF_AVAILABLE": "true",
+        }
+    )
+
+    cache_key = mod._preflight_cache_key(repo_root, envelope, "scratch")
+    receipt = mod.PreflightReceipt(
+        schema_version=1,
+        receipt_id="preflight-scratch-20260412T200000Z-envelope1",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root.resolve()),
+        check_type="scratch",
+        started_at="2026-04-12T20:00:00Z",
+        finished_at="2026-04-12T20:00:05Z",
+        passed=True,
+        checks=[{"name": "git_commit", "passed": True, "detail": "ok"}],
+        cache_key=cache_key,
+        ttl_seconds=86400,
+        expires_at="2026-04-13T20:00:05Z",
+        artifacts={"branch": "preflight/scratch/test", "worktree_path": "/tmp/worktree"},
+    )
+    mod._save_preflight_receipt(repo_root, receipt)
+
+    loaded = mod._load_cached_preflight_receipt(repo_root, changed_envelope, "scratch")
+
+    assert loaded is None
+
+
+def test_failed_receipts_are_not_reused(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+
+    cache_key = mod._preflight_cache_key(repo_root, envelope, "scratch")
+    receipt = mod.PreflightReceipt(
+        schema_version=1,
+        receipt_id="preflight-scratch-20260412T200000Z-failed001",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root.resolve()),
+        check_type="scratch",
+        started_at="2026-04-12T20:00:00Z",
+        finished_at="2026-04-12T20:00:05Z",
+        passed=False,
+        checks=[{"name": "git_commit", "passed": False, "detail": "failed"}],
+        cache_key=cache_key,
+        ttl_seconds=86400,
+        expires_at="2026-04-13T20:00:05Z",
+        artifacts={"branch": "preflight/scratch/test", "worktree_path": "/tmp/worktree"},
+    )
+    mod._save_preflight_receipt(repo_root, receipt)
+
+    loaded = mod._load_cached_preflight_receipt(repo_root, envelope, "scratch")
+
+    assert loaded is None
+
+
+def test_cleanup_failure_marks_receipt_not_cacheable(monkeypatch, tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 12, 19, 55, 0, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(mod, "_receipt_token", lambda: "deadbeef")
+
+    def fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        if cmd[:3] == ["git", "worktree", "add"]:
+            Path(cmd[5]).mkdir(parents=True, exist_ok=True)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if cmd[:3] == ["git", "branch", "-D"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="branch delete failed")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    receipt = mod.run_scratch_validation_receipt(
+        repo_root=repo_root,
+        envelope=envelope,
+        force_refresh=True,
+    )
+
+    assert receipt.passed is False
+    assert any(
+        check["name"] == "cleanup_branch_delete" and check["passed"] is False
+        for check in receipt.checks
+    )
+    assert mod._load_cached_preflight_receipt(repo_root, envelope, "scratch", now=now) is None

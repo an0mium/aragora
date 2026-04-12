@@ -150,3 +150,64 @@ def test_seal_changes_when_envelope_changes():
         {"GITHUB_TOKEN": "token", "ARAGORA_PROVIDER": "openai", "OPENAI_API_KEY": "key"}
     )
     assert envelope.seal() != altered.seal()
+
+
+def test_preflight_cache_seal_ignores_safe_env_changes():
+    base_env = {
+        "ARAGORA_CLAUDE_PROFILE": "default",
+        "GITHUB_TOKEN": "token",
+        "OPENAI_API_KEY": "key",
+        "ARAGORA_PROVIDER": "openai",
+        "PYTEST_AVAILABLE": "true",
+        "RUFF_AVAILABLE": "true",
+        "SSH_AUTH_SOCK": "/tmp/agent.sock",
+        "PATH": "/bin",
+    }
+    altered_env = dict(base_env)
+    altered_env["PATH"] = "/usr/local/bin"
+
+    envelope = CredentialEnvelope.from_environment(base_env)
+    altered = CredentialEnvelope.from_environment(altered_env)
+
+    assert envelope.preflight_cache_seal() == altered.preflight_cache_seal()
+    assert envelope.seal() != altered.seal()
+
+
+def test_preflight_cache_seal_ignores_rate_limit_remaining():
+    base_env = {
+        "ARAGORA_CLAUDE_PROFILE": "default",
+        "GITHUB_TOKEN": "token",
+        "OPENAI_API_KEY": "key",
+        "ARAGORA_PROVIDER": "openai",
+        "PYTEST_AVAILABLE": "true",
+        "RUFF_AVAILABLE": "true",
+        "SSH_AUTH_SOCK": "/tmp/agent.sock",
+        "GITHUB_RATE_LIMIT_REMAINING": "42",
+    }
+    altered_env = dict(base_env)
+    altered_env["GITHUB_RATE_LIMIT_REMAINING"] = "7"
+
+    envelope = CredentialEnvelope.from_environment(base_env)
+    altered = CredentialEnvelope.from_environment(altered_env)
+
+    assert envelope.preflight_cache_seal() == altered.preflight_cache_seal()
+    assert envelope.seal() != altered.seal()
+
+
+def test_preflight_cache_seal_changes_when_auth_capability_changes():
+    base_env = {
+        "ARAGORA_CLAUDE_PROFILE": "default",
+        "GITHUB_TOKEN": "token",
+        "OPENAI_API_KEY": "key",
+        "ARAGORA_PROVIDER": "openai",
+        "PYTEST_AVAILABLE": "true",
+        "RUFF_AVAILABLE": "true",
+        "SSH_AUTH_SOCK": "/tmp/agent.sock",
+    }
+    altered_env = dict(base_env)
+    altered_env.pop("SSH_AUTH_SOCK")
+
+    envelope = CredentialEnvelope.from_environment(base_env)
+    altered = CredentialEnvelope.from_environment(altered_env)
+
+    assert envelope.preflight_cache_seal() != altered.preflight_cache_seal()

@@ -3,11 +3,15 @@ from __future__ import annotations
 import argparse
 import asyncio
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +20,13 @@ from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.mission import GateEvaluation, GateType, GateVerdict, MissionContextPolicy
 from aragora.swarm.worker_contract import WorkerContract, checksum_contract_payload
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
+
+_PREFLIGHT_RECEIPT_SCHEMA_VERSION = 1
+_PREFLIGHT_TTL_SECONDS = {
+    "scratch": 86400,
+    "remote_publish": 3600,
+}
+_PR_URL_RE = re.compile(r"https://github\.com/[^/\s]+/[^/\s]+/pull/(?P<number>\d+)")
 
 
 @dataclass(slots=True)
@@ -58,8 +69,319 @@ class PreflightResult:
         }
 
 
+@dataclass(slots=True)
+class PreflightReceipt:
+    receipt_id: str
+    envelope_seal: str
+    repo_root: str
+    check_type: str
+    started_at: str
+    finished_at: str
+    passed: bool
+    checks: list[dict[str, Any]] = field(default_factory=list)
+    schema_version: int = _PREFLIGHT_RECEIPT_SCHEMA_VERSION
+    cache_key: str = ""
+    ttl_seconds: int = 0
+    expires_at: str = ""
+    artifacts: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "receipt_id": self.receipt_id,
+            "envelope_seal": self.envelope_seal,
+            "repo_root": self.repo_root,
+            "check_type": self.check_type,
+            "started_at": self.started_at,
+            "finished_at": self.finished_at,
+            "passed": self.passed,
+            "checks": [dict(item) for item in self.checks],
+            "cache_key": self.cache_key,
+            "ttl_seconds": self.ttl_seconds,
+            "expires_at": self.expires_at,
+            "artifacts": dict(self.artifacts),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "PreflightReceipt":
+        return cls(
+            schema_version=int(data.get("schema_version", _PREFLIGHT_RECEIPT_SCHEMA_VERSION) or 0),
+            receipt_id=str(data.get("receipt_id", "") or ""),
+            envelope_seal=str(data.get("envelope_seal", "") or ""),
+            repo_root=str(data.get("repo_root", "") or ""),
+            check_type=str(data.get("check_type", "") or ""),
+            started_at=str(data.get("started_at", "") or ""),
+            finished_at=str(data.get("finished_at", "") or ""),
+            passed=bool(data.get("passed", False)),
+            checks=[dict(item) for item in list(data.get("checks", []) or [])],
+            cache_key=str(data.get("cache_key", "") or ""),
+            ttl_seconds=int(data.get("ttl_seconds", 0) or 0),
+            expires_at=str(data.get("expires_at", "") or ""),
+            artifacts=dict(data.get("artifacts", {}) or {}),
+        )
+
+
 def _write_stdout_line(text: str) -> None:
     sys.stdout.write(f"{text}\n")
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _isoformat_utc(value: datetime) -> str:
+    return value.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _parse_isoformat_utc(value: str) -> datetime:
+    return datetime.fromisoformat(str(value or "").replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def _validate_check_type(check_type: str) -> str:
+    normalized = str(check_type or "").strip()
+    if normalized not in _PREFLIGHT_TTL_SECONDS:
+        raise ValueError(f"Unsupported preflight check type: {normalized or '<empty>'}")
+    return normalized
+
+
+def _receipt_token() -> str:
+    return uuid.uuid4().hex[:8]
+
+
+def _preflight_receipt_id(check_type: str, *, now: datetime | None = None) -> str:
+    stamp = _isoformat_utc(now or _utc_now()).replace(":", "").replace("-", "")
+    return f"preflight-{check_type}-{stamp}-{_receipt_token()}"
+
+
+def _validation_branch_name(check_type: str, *, now: datetime | None = None) -> str:
+    normalized = _validate_check_type(check_type)
+    stamp = (now or _utc_now()).astimezone(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    branch_scope = "remote" if normalized == "remote_publish" else "scratch"
+    return f"preflight/{branch_scope}/{stamp}-{_receipt_token()}"
+
+
+def _validation_worktree_path(repo_root: Path, branch: str) -> Path:
+    return repo_root / ".worktrees" / f"preflight-{branch.replace('/', '-')}"
+
+
+def _scratch_validation_file(worktree_path: Path) -> Path:
+    return worktree_path / "scratch" / "preflight_receipt_check.txt"
+
+
+def _check_detail(stdout: str, stderr: str, *, default: str) -> str:
+    detail = (stderr or stdout or "").strip()
+    return detail or default
+
+
+def _append_check(
+    checks: list[dict[str, Any]],
+    *,
+    name: str,
+    passed: bool,
+    detail: str,
+) -> None:
+    checks.append(
+        {
+            "name": str(name).strip(),
+            "passed": bool(passed),
+            "detail": str(detail or "").strip() or ("ok" if passed else "failed"),
+        }
+    )
+
+
+def _run_check(
+    checks: list[dict[str, Any]],
+    *,
+    name: str,
+    cmd: list[str],
+    cwd: Path,
+    env: dict[str, str] | None = None,
+    timeout: int = 60,
+) -> subprocess.CompletedProcess[str] | None:
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(cwd),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        _append_check(checks, name=name, passed=False, detail=str(exc))
+        return None
+
+    _append_check(
+        checks,
+        name=name,
+        passed=result.returncode == 0,
+        detail=_check_detail(
+            result.stdout,
+            result.stderr,
+            default="ok" if result.returncode == 0 else f"Command failed: {' '.join(cmd)}",
+        ),
+    )
+    return result
+
+
+def _record_file_write_check(
+    checks: list[dict[str, Any]],
+    *,
+    name: str,
+    path: Path,
+    content: str,
+) -> bool:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    except OSError as exc:
+        _append_check(checks, name=name, passed=False, detail=str(exc))
+        return False
+    _append_check(checks, name=name, passed=True, detail="ok")
+    return True
+
+
+def _preflight_receipt_dir(repo_root: Path) -> Path:
+    return repo_root / ".aragora" / "receipts" / "preflight"
+
+
+def _preflight_cache_key(
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    check_type: str,
+) -> str:
+    normalized = _validate_check_type(check_type)
+    payload = json.dumps(
+        {
+            "schema_version": _PREFLIGHT_RECEIPT_SCHEMA_VERSION,
+            "repo_root": str(repo_root.resolve()),
+            "envelope_seal": envelope.preflight_cache_seal(),
+            "check_type": normalized,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _preflight_receipt_path(
+    repo_root: Path,
+    *,
+    check_type: str,
+    cache_key: str,
+) -> Path:
+    return _preflight_receipt_dir(repo_root) / f"{check_type}-{cache_key}.json"
+
+
+def _receipt_is_cacheable(
+    receipt: PreflightReceipt,
+    *,
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    check_type: str,
+    now: datetime | None = None,
+) -> bool:
+    normalized = _validate_check_type(check_type)
+    if receipt.schema_version != _PREFLIGHT_RECEIPT_SCHEMA_VERSION:
+        return False
+    if not receipt.passed:
+        return False
+    if str(receipt.repo_root or "") != str(repo_root.resolve()):
+        return False
+    if receipt.check_type != normalized:
+        return False
+    if receipt.envelope_seal != envelope.preflight_cache_seal():
+        return False
+    expected_cache_key = _preflight_cache_key(repo_root, envelope, normalized)
+    if receipt.cache_key != expected_cache_key:
+        return False
+    if any(not bool(item.get("passed")) for item in receipt.checks):
+        return False
+    try:
+        expires_at = _parse_isoformat_utc(receipt.expires_at)
+    except ValueError:
+        return False
+    return (now or _utc_now()) < expires_at
+
+
+def _load_cached_preflight_receipt(
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    check_type: str,
+    *,
+    now: datetime | None = None,
+) -> PreflightReceipt | None:
+    normalized = _validate_check_type(check_type)
+    cache_key = _preflight_cache_key(repo_root, envelope, normalized)
+    path = _preflight_receipt_path(repo_root, check_type=normalized, cache_key=cache_key)
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        receipt = PreflightReceipt.from_dict(payload)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+    if not _receipt_is_cacheable(
+        receipt,
+        repo_root=repo_root,
+        envelope=envelope,
+        check_type=normalized,
+        now=now,
+    ):
+        return None
+    return receipt
+
+
+def _save_preflight_receipt(repo_root: Path, receipt: PreflightReceipt) -> Path:
+    directory = _preflight_receipt_dir(repo_root)
+    directory.mkdir(parents=True, exist_ok=True)
+    path = _preflight_receipt_path(
+        repo_root,
+        check_type=receipt.check_type,
+        cache_key=receipt.cache_key,
+    )
+    path.write_text(json.dumps(receipt.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+    return path
+
+
+def _finalize_preflight_receipt(
+    *,
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    check_type: str,
+    started_at: datetime,
+    finished_at: datetime,
+    checks: list[dict[str, Any]],
+    artifacts: dict[str, Any],
+) -> PreflightReceipt:
+    normalized = _validate_check_type(check_type)
+    ttl_seconds = _PREFLIGHT_TTL_SECONDS[normalized]
+    passed = all(bool(item.get("passed")) for item in checks)
+    cache_key = _preflight_cache_key(repo_root, envelope, normalized)
+    return PreflightReceipt(
+        schema_version=_PREFLIGHT_RECEIPT_SCHEMA_VERSION,
+        receipt_id=_preflight_receipt_id(normalized, now=finished_at),
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root.resolve()),
+        check_type=normalized,
+        started_at=_isoformat_utc(started_at),
+        finished_at=_isoformat_utc(finished_at),
+        passed=passed,
+        checks=[dict(item) for item in checks],
+        cache_key=cache_key,
+        ttl_seconds=ttl_seconds,
+        expires_at=_isoformat_utc(finished_at + timedelta(seconds=ttl_seconds)),
+        artifacts=dict(artifacts),
+    )
+
+
+def _parse_pr_create_output(stdout: str, stderr: str) -> tuple[int | None, str]:
+    text = "\n".join(part for part in [stdout, stderr] if part).strip()
+    match = _PR_URL_RE.search(text)
+    if match is None:
+        return None, ""
+    return int(match.group("number")), match.group(0)
 
 
 def _run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
@@ -222,6 +544,279 @@ def run_preflight_checks(
         dispatch_gate={},
         worker={},
     )
+
+
+def run_scratch_validation_receipt(
+    *,
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    force_refresh: bool = False,
+) -> PreflightReceipt:
+    resolved_repo_root = repo_root.resolve()
+    if not force_refresh:
+        cached = _load_cached_preflight_receipt(resolved_repo_root, envelope, "scratch")
+        if cached is not None:
+            return cached
+
+    started_at = _utc_now()
+    branch = _validation_branch_name("scratch", now=started_at)
+    worktree_path = _validation_worktree_path(resolved_repo_root, branch)
+    artifacts = {
+        "branch": branch,
+        "worktree_path": str(worktree_path),
+        "draft_pr_number": None,
+        "draft_pr_url": "",
+    }
+    checks: list[dict[str, Any]] = []
+    worktree_created = False
+    scratch_file = _scratch_validation_file(worktree_path)
+
+    try:
+        worktree_path.parent.mkdir(parents=True, exist_ok=True)
+        worktree_result = _run_check(
+            checks,
+            name="git_worktree_add",
+            cmd=["git", "worktree", "add", "-b", branch, str(worktree_path), "HEAD"],
+            cwd=resolved_repo_root,
+            env=git_safe_env(),
+        )
+        if worktree_result is not None and worktree_result.returncode == 0:
+            worktree_created = True
+            _append_check(checks, name="git_branch_create", passed=True, detail="ok")
+
+        if worktree_created and _record_file_write_check(
+            checks,
+            name="scratch_file_write",
+            path=scratch_file,
+            content="preflight scratch validation\n",
+        ):
+            add_result = _run_check(
+                checks,
+                name="git_add",
+                cmd=["git", "add", str(scratch_file.relative_to(worktree_path))],
+                cwd=worktree_path,
+                env=git_safe_env(),
+            )
+            if add_result is not None and add_result.returncode == 0:
+                _run_check(
+                    checks,
+                    name="git_commit",
+                    cmd=["git", "commit", "-m", "chore: preflight scratch validation"],
+                    cwd=worktree_path,
+                    env=git_safe_env(),
+                )
+    finally:
+        if worktree_created:
+            _run_check(
+                checks,
+                name="cleanup_worktree_remove",
+                cmd=["git", "worktree", "remove", "--force", str(worktree_path)],
+                cwd=resolved_repo_root,
+            )
+            _run_check(
+                checks,
+                name="cleanup_branch_delete",
+                cmd=["git", "branch", "-D", branch],
+                cwd=resolved_repo_root,
+            )
+
+    finished_at = _utc_now()
+    receipt = _finalize_preflight_receipt(
+        repo_root=resolved_repo_root,
+        envelope=envelope,
+        check_type="scratch",
+        started_at=started_at,
+        finished_at=finished_at,
+        checks=checks,
+        artifacts=artifacts,
+    )
+    _save_preflight_receipt(resolved_repo_root, receipt)
+    return receipt
+
+
+def run_remote_publish_validation_receipt(
+    *,
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    base_ref: str = "main",
+    force_refresh: bool = False,
+) -> PreflightReceipt:
+    resolved_repo_root = repo_root.resolve()
+    if not force_refresh:
+        cached = _load_cached_preflight_receipt(
+            resolved_repo_root,
+            envelope,
+            "remote_publish",
+        )
+        if cached is not None:
+            return cached
+
+    started_at = _utc_now()
+    branch = _validation_branch_name("remote_publish", now=started_at)
+    worktree_path = _validation_worktree_path(resolved_repo_root, branch)
+    artifacts = {
+        "branch": branch,
+        "worktree_path": str(worktree_path),
+        "draft_pr_number": None,
+        "draft_pr_url": "",
+    }
+    checks: list[dict[str, Any]] = []
+    worktree_created = False
+    pushed = False
+    draft_created = False
+    scratch_file = _scratch_validation_file(worktree_path)
+
+    try:
+        worktree_path.parent.mkdir(parents=True, exist_ok=True)
+        worktree_result = _run_check(
+            checks,
+            name="git_worktree_add",
+            cmd=["git", "worktree", "add", "-b", branch, str(worktree_path), "HEAD"],
+            cwd=resolved_repo_root,
+            env=git_safe_env(),
+        )
+        if worktree_result is not None and worktree_result.returncode == 0:
+            worktree_created = True
+            _append_check(checks, name="git_branch_create", passed=True, detail="ok")
+
+        if worktree_created and _record_file_write_check(
+            checks,
+            name="scratch_file_write",
+            path=scratch_file,
+            content="preflight remote publish validation\n",
+        ):
+            add_result = _run_check(
+                checks,
+                name="git_add",
+                cmd=["git", "add", str(scratch_file.relative_to(worktree_path))],
+                cwd=worktree_path,
+                env=git_safe_env(),
+            )
+            if add_result is not None and add_result.returncode == 0:
+                commit_result = _run_check(
+                    checks,
+                    name="git_commit",
+                    cmd=["git", "commit", "-m", "chore: preflight remote publish validation"],
+                    cwd=worktree_path,
+                    env=git_safe_env(),
+                )
+                if commit_result is not None and commit_result.returncode == 0:
+                    push_result = _run_check(
+                        checks,
+                        name="git_push",
+                        cmd=["git", "push", "origin", "HEAD"],
+                        cwd=worktree_path,
+                        env=git_safe_env(),
+                    )
+                    pushed = push_result is not None and push_result.returncode == 0
+                    if pushed:
+                        pr_result = _run_check(
+                            checks,
+                            name="gh_pr_create_draft",
+                            cmd=[
+                                "gh",
+                                "pr",
+                                "create",
+                                "--base",
+                                str(base_ref or "main"),
+                                "--head",
+                                branch,
+                                "--title",
+                                "[preflight] remote publish validation",
+                                "--body",
+                                "Internal remote publish preflight validation.",
+                                "--draft",
+                            ],
+                            cwd=worktree_path,
+                        )
+                        if pr_result is not None and pr_result.returncode == 0:
+                            pr_number, pr_url = _parse_pr_create_output(
+                                pr_result.stdout,
+                                pr_result.stderr,
+                            )
+                            if pr_number is None or not pr_url:
+                                _append_check(
+                                    checks,
+                                    name="gh_pr_capture",
+                                    passed=False,
+                                    detail="Draft PR create output did not include a parseable PR URL.",
+                                )
+                            else:
+                                draft_created = True
+                                artifacts["draft_pr_number"] = pr_number
+                                artifacts["draft_pr_url"] = pr_url
+                                _append_check(
+                                    checks,
+                                    name="gh_pr_capture",
+                                    passed=True,
+                                    detail=pr_url,
+                                )
+    finally:
+        if draft_created:
+            close_target = str(artifacts.get("draft_pr_number") or branch)
+            _run_check(
+                checks,
+                name="gh_pr_close",
+                cmd=[
+                    "gh",
+                    "pr",
+                    "close",
+                    close_target,
+                    "--comment",
+                    "Preflight complete - closing.",
+                ],
+                cwd=worktree_path if worktree_created else resolved_repo_root,
+            )
+        elif pushed:
+            _append_check(
+                checks,
+                name="gh_pr_close",
+                passed=True,
+                detail="skipped (draft PR not created)",
+            )
+
+        if pushed:
+            _run_check(
+                checks,
+                name="cleanup_remote_branch_delete",
+                cmd=["git", "push", "origin", "--delete", branch],
+                cwd=worktree_path if worktree_created else resolved_repo_root,
+                env=git_safe_env(),
+            )
+        else:
+            _append_check(
+                checks,
+                name="cleanup_remote_branch_delete",
+                passed=True,
+                detail="skipped (branch was not pushed)",
+            )
+
+        if worktree_created:
+            _run_check(
+                checks,
+                name="cleanup_worktree_remove",
+                cmd=["git", "worktree", "remove", "--force", str(worktree_path)],
+                cwd=resolved_repo_root,
+            )
+            _run_check(
+                checks,
+                name="cleanup_branch_delete",
+                cmd=["git", "branch", "-D", branch],
+                cwd=resolved_repo_root,
+            )
+
+    finished_at = _utc_now()
+    receipt = _finalize_preflight_receipt(
+        repo_root=resolved_repo_root,
+        envelope=envelope,
+        check_type="remote_publish",
+        started_at=started_at,
+        finished_at=finished_at,
+        checks=checks,
+        artifacts=artifacts,
+    )
+    _save_preflight_receipt(resolved_repo_root, receipt)
+    return receipt
 
 
 def _branch_name() -> str:

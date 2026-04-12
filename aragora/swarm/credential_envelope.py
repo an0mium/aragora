@@ -290,6 +290,37 @@ class CredentialEnvelope:
             "verification": self.verification.to_dict(),
         }
 
+    def preflight_cache_payload(self) -> dict[str, Any]:
+        """Return a stable capability-only payload for preflight receipt caching.
+
+        This intentionally excludes volatile fields such as ``git.safe_env`` and
+        ``github_api.rate_limit_remaining`` so cached receipts do not churn when
+        ambient environment details change without affecting execution capability.
+        """
+
+        return {
+            "runner": {
+                "profile": self.runner.profile,
+                "command_path": self.runner.command_path,
+                "auth_mode": self.runner.auth_mode,
+            },
+            "git": {
+                "ssh_key_available": self.git.ssh_key_available,
+                "https_token_available": self.git.https_token_available,
+            },
+            "github_api": {
+                "token_source": self.github_api.token_source,
+            },
+            "provider": {
+                "api_key_present": self.provider.api_key_present,
+                "provider_name": self.provider.provider_name,
+            },
+            "verification": {
+                "can_run_pytest": self.verification.can_run_pytest,
+                "can_run_ruff": self.verification.can_run_ruff,
+            },
+        }
+
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "CredentialEnvelope":
         return cls(
@@ -302,4 +333,12 @@ class CredentialEnvelope:
 
     def seal(self) -> str:
         payload = json.dumps(self.to_dict(), sort_keys=True, separators=(",", ":")).encode()
+        return hashlib.sha256(payload).hexdigest()
+
+    def preflight_cache_seal(self) -> str:
+        payload = json.dumps(
+            self.preflight_cache_payload(),
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
         return hashlib.sha256(payload).hexdigest()
