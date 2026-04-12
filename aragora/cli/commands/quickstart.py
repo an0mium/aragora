@@ -395,6 +395,7 @@ def _clamp_confidence(raw_confidence: Any) -> float:
     try:
         confidence = float(raw_confidence or 0.0)
     except (TypeError, ValueError):
+        logger.debug("clamp_confidence_invalid_value: %r", raw_confidence)
         return 0.0
     return max(0.0, min(1.0, confidence))
 
@@ -606,6 +607,7 @@ def _coerce_positive_int(value: Any, *, default: int) -> int:
     try:
         parsed = int(value)
     except (TypeError, ValueError):
+        logger.debug("coerce_positive_int_invalid_value: %r, using default=%d", value, default)
         return default
     return parsed if parsed > 0 else default
 
