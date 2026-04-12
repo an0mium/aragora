@@ -51,3 +51,7 @@ __all__ = (
     "VALID_GRANULARITIES",
     "VALID_TIME_RANGES",
 )
+
+# Guard the re-export contract against accidental duplicate additions.
+if len(__all__) != len(set(__all__)):
+    raise ImportError("analytics.core __all__ must stay duplicate-free")
