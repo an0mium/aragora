@@ -4,15 +4,14 @@ Provides utilities for sanitizing GitHub issue bodies for worker dispatch,
 extracting explicit validation contracts (acceptance criteria, test commands),
 running pre-dispatch validation commands, and discovering focused test files.
 
-When an Anthropic API key is available, semantic parsing uses a fast LLM call
-(Haiku) to extract structured data from the issue body.  This avoids the
+When a configured fast agent provider is available, semantic parsing uses an
+LLM to extract structured data from the issue body.  This avoids the
 brittleness of regex-only parsing.  On any LLM failure the module falls back
 to the original regex pipeline transparently.
 """
 
 from __future__ import annotations
 
-import json as _json
 import logging
 import re
 import subprocess
@@ -20,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from aragora.swarm.mission import GateEvaluation, GateType, GateVerdict
+from aragora.utils.semantic_extraction import ExtractionProvider, extract_json_object_llm_first
 
 logger = logging.getLogger(__name__)
 
@@ -488,50 +488,30 @@ Issue body:
 {issue_body}
 """
 
+_ISSUE_PARSE_OPENROUTER_MODEL = "anthropic/claude-haiku-4-5-20251001"
 
-async def _call_anthropic(prompt: str, model: str, timeout: float) -> str | None:
-    """Try Anthropic API directly."""
-    import os
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        return None
-    import anthropic
-
-    client = anthropic.AsyncAnthropic()
-    response = await client.messages.create(
-        model=model,
-        max_tokens=512,
-        messages=[{"role": "user", "content": prompt}],
-        timeout=timeout,
+def _issue_parse_providers(model: str) -> tuple[ExtractionProvider, ...]:
+    return (
+        ExtractionProvider(
+            agent_type="anthropic-api",
+            model=model,
+            role="critic",
+            name="boss-issue-parser",
+            env_vars=("ANTHROPIC_API_KEY",),
+        ),
+        ExtractionProvider(
+            agent_type="openrouter",
+            model=_ISSUE_PARSE_OPENROUTER_MODEL,
+            role="critic",
+            name="boss-issue-parser",
+            env_vars=("OPENROUTER_API_KEY",),
+        ),
     )
-    return response.content[0].text.strip()
 
 
-async def _call_openrouter(prompt: str, timeout: float) -> str | None:
-    """Try OpenRouter as fallback (supports Haiku via anthropic/claude-haiku-4.5)."""
-    import os
-
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        return None
-    import httpx
-
-    async with httpx.AsyncClient(timeout=timeout) as http:
-        resp = await http.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "anthropic/claude-haiku-4.5",
-                "max_tokens": 512,
-                "messages": [{"role": "user", "content": prompt}],
-            },
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"].strip()
+def _normalize_issue_parse_payload(parsed: dict[str, Any]) -> dict[str, Any] | None:
+    return parsed if isinstance(parsed, dict) else None
 
 
 async def parse_issue_with_llm(
@@ -542,8 +522,8 @@ async def parse_issue_with_llm(
 ) -> dict[str, Any] | None:
     """Parse an issue body using a fast LLM call.
 
-    Tries Anthropic API first, then OpenRouter, then returns ``None``
-    so callers fall back to the regex pipeline.
+    Tries configured agent providers in order, then returns ``None`` so
+    callers fall back to the regex pipeline.
     """
     body = str(issue_body or "").strip()
     if not body:
@@ -551,37 +531,23 @@ async def parse_issue_with_llm(
 
     prompt = _ISSUE_PARSE_PROMPT.format(issue_body=body[:3000])
 
-    text: str | None = None
-    try:
-        text = await _call_anthropic(prompt, model, timeout)
-        if text:
-            logger.debug("LLM issue parsing via Anthropic API")
-    except Exception as exc:
-        logger.debug("Anthropic API unavailable for issue parsing: %s", exc)
-
-    if text is None:
-        try:
-            text = await _call_openrouter(prompt, timeout)
-            if text:
-                logger.debug("LLM issue parsing via OpenRouter")
-        except Exception as exc:
-            logger.debug("OpenRouter unavailable for issue parsing: %s", exc)
-
-    if text is None:
-        logger.debug("LLM issue parsing unavailable, falling back to regex")
+    result = await extract_json_object_llm_first(
+        prompt,
+        providers=_issue_parse_providers(model),
+        normalizer=_normalize_issue_parse_payload,
+        timeout=timeout,
+        logger=logger,
+        context="LLM issue parsing",
+    )
+    if result.value is None:
+        logger.debug(
+            "LLM issue parsing unavailable, falling back to regex: source=%s error=%s",
+            result.source,
+            result.error,
+        )
         return None
-
-    try:
-        # Strip markdown fences if the model wraps JSON
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
-        data = _json.loads(text)
-        if not isinstance(data, dict):
-            return None
-        return data
-    except (_json.JSONDecodeError, IndexError, ValueError) as exc:
-        logger.debug("LLM returned unparseable response: %s", exc)
-        return None
+    logger.debug("LLM issue parsing via %s", result.source)
+    return result.value
 
 
 def llm_result_to_declared_new_files(parsed: dict[str, Any]) -> list[str]:

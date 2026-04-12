@@ -24,6 +24,7 @@ from aragora.inbox.trust_wedge import (
     TriageDecision,
     compute_content_hash,
 )
+from aragora.utils.semantic_extraction import ExtractionResult
 
 
 class _DummyGmail:
@@ -92,6 +93,97 @@ def test_extract_fast_tier_json_parses_fenced_payload():
         "confidence": 0.95,
         "rationale": "Promotional email.",
     }
+
+
+@pytest.mark.asyncio
+async def test_run_fast_tier_once_uses_shared_semantic_extraction(monkeypatch):
+    runner = InboxTriageRunner(gmail_connector=None)
+
+    async def fake_extract(prompt, **kwargs):
+        assert "Test subject" in prompt
+        return ExtractionResult(
+            value={
+                "action": "archive",
+                "confidence": 0.95,
+                "rationale": "Promotional email.",
+            },
+            source="openai-api",
+        )
+
+    monkeypatch.setattr(
+        "aragora.inbox.triage_runner.extract_json_object_llm_first",
+        fake_extract,
+    )
+
+    result = await runner._run_fast_tier_once(
+        {
+            "subject": "Test subject",
+            "from_address": "sender@example.com",
+            "body_text": "Promotional body",
+        }
+    )
+
+    assert result["final_answer"] == "archive: Promotional email."
+    assert result["confidence"] == pytest.approx(0.95)
+    assert result["status"] == "completed"
+    assert result["metadata"]["triage_fast_provider"] == "openai-api"
+
+
+@pytest.mark.asyncio
+async def test_run_fast_tier_once_returns_blocked_when_no_provider_available(monkeypatch):
+    runner = InboxTriageRunner(gmail_connector=None)
+
+    async def fake_extract(_prompt, **kwargs):
+        return ExtractionResult(
+            value=None,
+            source="none",
+            error="no_available_providers",
+        )
+
+    monkeypatch.setattr(
+        "aragora.inbox.triage_runner.extract_json_object_llm_first",
+        fake_extract,
+    )
+
+    result = await runner._run_fast_tier_once(
+        {
+            "subject": "Test subject",
+            "from_address": "sender@example.com",
+            "body_text": "Promotional body",
+        }
+    )
+
+    assert result["confidence"] == 0.0
+    assert result["status"] == "insufficient_participation"
+
+
+@pytest.mark.asyncio
+async def test_run_fast_tier_once_returns_failed_when_semantic_extraction_fails(monkeypatch):
+    runner = InboxTriageRunner(gmail_connector=None)
+
+    async def fake_extract(_prompt, **kwargs):
+        return ExtractionResult(
+            value=None,
+            source="openai-api",
+            raw_response="not-json",
+            error="openai-api:invalid_json",
+        )
+
+    monkeypatch.setattr(
+        "aragora.inbox.triage_runner.extract_json_object_llm_first",
+        fake_extract,
+    )
+
+    result = await runner._run_fast_tier_once(
+        {
+            "subject": "Test subject",
+            "from_address": "sender@example.com",
+            "body_text": "Promotional body",
+        }
+    )
+
+    assert result["confidence"] == 0.0
+    assert result["status"] == "failed"
 
 
 @pytest.mark.asyncio
