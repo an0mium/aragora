@@ -248,7 +248,7 @@ class MemoryProfiler:
         return records
 
     @contextmanager
-    def profile(self, operation: str):
+    def profile(self, operation: str) -> Generator[MemoryProfiler, None, None]:
         """Context manager for profiling an operation."""
         # Start tracing if not already
         if not tracemalloc.is_tracing():
@@ -522,19 +522,23 @@ class KMMemoryProfiler:
     def __init__(self):
         self.profiles: list[MemoryProfileResult] = []
 
-    def profile_store(self, operation: str = "km_store"):
+    def profile_store(self, operation: str = "km_store") -> Generator[MemoryProfiler, None, None]:
         """Profile a KM store operation."""
         return profile_memory(operation, MemoryCategory.KM_STORE)
 
-    def profile_query(self, operation: str = "km_query"):
+    def profile_query(self, operation: str = "km_query") -> Generator[MemoryProfiler, None, None]:
         """Profile a KM query operation."""
         return profile_memory(operation, MemoryCategory.KM_QUERY)
 
-    def profile_retrieval(self, operation: str = "km_retrieval"):
+    def profile_retrieval(
+        self, operation: str = "km_retrieval"
+    ) -> Generator[MemoryProfiler, None, None]:
         """Profile a KM retrieval operation."""
         return profile_memory(operation, MemoryCategory.KM_RETRIEVAL)
 
-    def profile_embedding(self, operation: str = "km_embedding"):
+    def profile_embedding(
+        self, operation: str = "km_embedding"
+    ) -> Generator[MemoryProfiler, None, None]:
         """Profile embedding generation."""
         return profile_memory(operation, MemoryCategory.KM_EMBEDDING)
 
@@ -586,15 +590,21 @@ class ConsensusMemoryProfiler:
     def __init__(self):
         self.profiles: list[MemoryProfileResult] = []
 
-    def profile_store(self, operation: str = "consensus_store"):
+    def profile_store(
+        self, operation: str = "consensus_store"
+    ) -> Generator[MemoryProfiler, None, None]:
         """Profile a consensus store operation."""
         return profile_memory(operation, MemoryCategory.CONSENSUS_STORE)
 
-    def profile_query(self, operation: str = "consensus_query"):
+    def profile_query(
+        self, operation: str = "consensus_query"
+    ) -> Generator[MemoryProfiler, None, None]:
         """Profile a consensus query operation."""
         return profile_memory(operation, MemoryCategory.CONSENSUS_QUERY)
 
-    def profile_dissent(self, operation: str = "consensus_dissent"):
+    def profile_dissent(
+        self, operation: str = "consensus_dissent"
+    ) -> Generator[MemoryProfiler, None, None]:
         """Profile dissent retrieval."""
         return profile_memory(operation, MemoryCategory.CONSENSUS_DISSENT)
 
