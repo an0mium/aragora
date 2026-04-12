@@ -32,6 +32,8 @@ from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm.debate_gate import DebateGate, DebateGateConfig, DebateGateRequest
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.terminal_truth import (
+    TerminalClass,
+    classify_from_metrics,
     extract_run_deliverable,
     extract_run_worker_outcome,
     qualify_work_order_terminal_state,
@@ -913,6 +915,14 @@ class BossLoop:
                 "has_deliverable": has_deliverable,
                 "publish_action": publish_action,
             }
+
+            # RS-01: classify terminal truth after all 14 fields are populated
+            try:
+                terminal_class = classify_from_metrics(payload)
+                payload["terminal_class"] = terminal_class.value
+            except Exception:
+                payload["terminal_class"] = TerminalClass.RESCUE_NO_DELIVERABLE.value
+
             with metrics_path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(payload, sort_keys=True))
                 handle.write("\n")
