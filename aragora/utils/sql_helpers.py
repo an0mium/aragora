@@ -25,6 +25,11 @@ def escape_like_pattern(value: str) -> str:
     Raises:
         TypeError: If ``value`` is not a string.
 
+    Notes:
+        This helper is intentionally single-pass. Passing an already escaped
+        pattern will escape the backslashes again, so callers should apply it
+        exactly once to raw input before binding SQL parameters.
+
     Examples:
         >>> escape_like_pattern("100%")
         '100\\\\%'
