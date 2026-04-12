@@ -724,7 +724,7 @@ class ArenaControlPlaneBridge:
                 try:
                     await sla_task
                 except asyncio.CancelledError:
-                    pass
+                    pass  # Expected: SLA task was intentionally cancelled
 
         except asyncio.TimeoutError:
             task.metrics.completed_at = time.time()
