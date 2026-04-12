@@ -138,6 +138,85 @@ class IssueGenerator:
         except (subprocess.TimeoutExpired, FileNotFoundError):
             return []
 
+    def _read_module(self, path: Path) -> str | None:
+        try:
+            return path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return None
+
+    def _extract_functions(self, content: str) -> list[str]:
+        return [
+            match.group(1)
+            for match in re.finditer(r"(?:def|async def)\s+(\w+)\s*\(", content)
+            if not match.group(1).startswith("_")
+        ]
+
+    def _extract_classes(self, content: str) -> list[str]:
+        return [match.group(1) for match in re.finditer(r"class\s+(\w+)\s*[:(]", content)]
+
+    def _extract_imports(self, content: str) -> list[str]:
+        imports: list[str] = []
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("import ") or stripped.startswith("from "):
+                imports.append(stripped)
+        return imports
+
+    def _extract_docstring(self, content: str) -> str:
+        docstring_match = re.search(r'"""(.*?)"""', content, re.DOTALL)
+        if not docstring_match:
+            return ""
+        return " ".join(docstring_match.group(1).strip().split())[:200]
+
+    def _needs_mocking(self, imports: list[str]) -> list[str]:
+        mock_patterns = [
+            "redis",
+            "postgres",
+            "sqlite",
+            "database",
+            "db",
+            "httpx",
+            "requests",
+            "aiohttp",
+            "subprocess",
+            "os.environ",
+            "anthropic",
+            "openai",
+            "boto3",
+            "s3",
+        ]
+        hints: list[str] = []
+        for imp in imports:
+            lowered = imp.lower()
+            for pattern in mock_patterns:
+                if pattern in lowered:
+                    hints.append(f"Mock `{imp.split()[-1]}` — external dependency")
+                    break
+        return hints
+
+    def _estimate_test_complexity(
+        self,
+        *,
+        loc: int,
+        num_functions: int,
+        num_imports: int,
+        has_async: bool,
+    ) -> Literal["small", "medium", "large"]:
+        if loc < 30 and num_functions <= 3:
+            return "small"
+        if loc < 100 and num_functions <= 7 and num_imports < 5 and not has_async:
+            return "small"
+        if loc < 300 and num_functions <= 15:
+            return "medium"
+        return "large"
+
+    def _suggest_test_path(self, rel_path: Path) -> Path:
+        if rel_path.parts and rel_path.parts[0] == "aragora":
+            return Path("tests") / Path(*rel_path.parts[1:-1]) / f"test_{rel_path.name}"
+        if rel_path.parts and rel_path.parts[0] == "scripts":
+            return Path("tests") / "scripts" / f"test_{rel_path.stem}.py"
+        return Path("tests") / f"test_{rel_path.stem}.py"
+
     def _extract_todo_issues(self) -> list[Issue]:
         """Convert TODO/FIXME comments to issues."""
         issues = []
@@ -273,24 +352,55 @@ class IssueGenerator:
 
                     # Check file size - only report for substantial files
                     try:
-                        with open(py_file, encoding="utf-8") as f:
-                            lines = sum(1 for _ in f)
+                        content = self._read_module(py_file)
+                        if content is None:
+                            continue
+                        lines = len(content.splitlines())
                         if lines < 50:
                             continue
-                    except (OSError, UnicodeDecodeError):
+                    except OSError:
                         continue
+
+                    functions = self._extract_functions(content)
+                    classes = self._extract_classes(content)
+                    imports = self._extract_imports(content)
+                    docstring = self._extract_docstring(content)
+                    has_async = "async def" in content
+                    mock_hints = self._needs_mocking(imports)
+                    suggested_test_path = self._suggest_test_path(rel_path)
+                    complexity = self._estimate_test_complexity(
+                        loc=lines,
+                        num_functions=len(functions),
+                        num_imports=len(imports),
+                        has_async=has_async,
+                    )
+                    function_text = (
+                        ", ".join(f"{name}()" for name in functions[:8])
+                        if functions
+                        else "no public functions found"
+                    )
+                    class_text = ", ".join(classes[:6]) if classes else "no classes found"
+                    mock_text = (
+                        "; ".join(mock_hints[:4])
+                        if mock_hints
+                        else "No obvious external dependencies"
+                    )
 
                     issue = Issue(
                         id=self._generate_id(f"untested:{rel_path}"),
-                        title=f"Add tests for {module_name}",
+                        title=f"Add focused tests for {rel_path}",
                         description=(
-                            f"Module {rel_path} ({lines} LOC) has no corresponding test file.\n\n"
-                            f"Expected test file: tests/test_{module_name}.py"
+                            f"Module {rel_path} ({lines} LOC) has no corresponding focused test file.\n\n"
+                            f"Module purpose: {docstring or 'No module docstring found.'}\n"
+                            f"Public API candidates: {function_text}\n"
+                            f"Classes: {class_text}\n"
+                            f"Mocking hints: {mock_text}\n"
+                            f"Suggested test file: {suggested_test_path}"
                         ),
                         category="debt",
                         priority=4,
-                        file_hints=[str(rel_path)],
-                        complexity="medium",
+                        file_hints=[str(rel_path), str(suggested_test_path)],
+                        complexity=complexity,
                         source=f"analysis:untested:{rel_path}",
                     )
                     issues.append(issue)
