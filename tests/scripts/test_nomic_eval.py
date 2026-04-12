@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
 
 
@@ -81,3 +83,20 @@ def test_cleanup_worktree_raises_when_safe_cleanup_fails(
 
     with pytest.raises(RuntimeError, match="blocked"):
         mod._cleanup_worktree(repo_root, tmp_path / "wt", "codex/test")
+
+
+def test_nomic_eval_help_runs_from_repo_root() -> None:
+    env = os.environ.copy()
+    env.pop("PYTHONPATH", None)
+
+    result = subprocess.run(
+        [sys.executable, "scripts/nomic_eval.py", "--help"],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "usage: nomic_eval.py" in result.stdout
