@@ -253,7 +253,7 @@ class AutoScaler:
             try:
                 await self._task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Auto-scaler task cancelled during shutdown")
             self._task = None
 
         logger.info("Auto-scaler stopped")
