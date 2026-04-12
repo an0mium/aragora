@@ -39,6 +39,37 @@ def get_version_tuple() -> tuple[int, int, int]:
     return VERSION_INFO
 
 
+def get_version_info() -> dict[str, object]:
+    """Return a dict of all version metadata."""
+    return {
+        "version": __version__,
+        "major": VERSION_MAJOR,
+        "minor": VERSION_MINOR,
+        "patch": VERSION_PATCH,
+        "suffix": VERSION_SUFFIX,
+        "release_date": RELEASE_DATE,
+        "package": PACKAGE_NAME,
+        "author": AUTHOR,
+        "license": LICENSE,
+        "repository": REPOSITORY,
+    }
+
+
+def parse_version(version_string: str) -> tuple[int, int, int, str]:
+    """Parse a PEP 440 version string into (major, minor, patch, suffix).
+
+    Raises ValueError for malformed version strings.
+    """
+    import re
+
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)(.*)$", version_string)
+    if not match:
+        msg = f"Invalid version string: {version_string!r}"
+        raise ValueError(msg)
+    major, minor, patch, suffix = match.groups()
+    return int(major), int(minor), int(patch), suffix
+
+
 __all__ = [
     "__version__",
     "VERSION_INFO",
@@ -52,5 +83,7 @@ __all__ = [
     "LICENSE",
     "REPOSITORY",
     "get_version",
+    "get_version_info",
     "get_version_tuple",
+    "parse_version",
 ]
