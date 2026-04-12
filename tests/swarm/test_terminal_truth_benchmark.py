@@ -16,7 +16,11 @@ from pathlib import Path
 
 import pytest
 
-from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics
+from aragora.swarm.terminal_truth import (
+    TerminalClass,
+    classify_from_metrics,
+    score_benchmark,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FIXTURES_DIR = REPO_ROOT / "benchmarks" / "fixtures" / "swarm" / "terminal_truth"
@@ -97,6 +101,86 @@ def test_fixtures_cover_all_families() -> None:
             tc = classify_from_metrics(row)
             families.add(tc.family)
     assert families == {"success", "rescue", "blocked"}
+
+
+# ---------------------------------------------------------------------------
+# score_benchmark() function tests
+# ---------------------------------------------------------------------------
+
+
+def test_score_benchmark_with_fixture_rows() -> None:
+    """score_benchmark() returns a correct summary when given all fixture rows."""
+    all_rows: list[dict] = []
+    for fixture_file in _fixture_files:
+        with fixture_file.open() as fh:
+            all_rows.extend(json.load(fh))
+
+    summary = score_benchmark(all_rows)
+
+    assert summary["total"] == len(all_rows)
+    assert isinstance(summary["successes"], int)
+    assert 0.0 <= summary["no_rescue_rate"] <= 1.0
+    assert isinstance(summary["meets_30d_target"], bool)
+    assert isinstance(summary["families"], dict)
+    assert isinstance(summary["classes"], dict)
+    # All three families must be represented
+    assert set(summary["families"].keys()) == {"success", "rescue", "blocked"}
+    # Family counts must sum to total
+    assert sum(summary["families"].values()) == summary["total"]
+    # Class counts must sum to total
+    assert sum(summary["classes"].values()) == summary["total"]
+    assert isinstance(summary["actionable_failures"], int)
+    assert summary["actionable_failures"] >= 0
+
+
+def test_score_benchmark_empty_input() -> None:
+    """score_benchmark() handles an empty list gracefully."""
+    summary = score_benchmark([])
+    assert summary["total"] == 0
+    assert summary["no_rescue_rate"] == 0.0
+
+
+def test_score_benchmark_single_success_row() -> None:
+    """score_benchmark() correctly scores a single success row."""
+    row = {
+        "worker_status": "completed",
+        "worker_outcome": "pr_adopted",
+        "elapsed_seconds": 120.0,
+        "files_changed": 5,
+        "has_deliverable": True,
+        "publish_action": "merged",
+    }
+    summary = score_benchmark([row])
+    assert summary["total"] == 1
+    assert summary["successes"] == 1
+    assert summary["no_rescue_rate"] == 1.0
+    assert summary["meets_30d_target"] is True
+    assert summary["families"]["success"] == 1
+
+
+def test_score_benchmark_mixed_rows() -> None:
+    """score_benchmark() correctly computes rates for mixed success/failure rows."""
+    success_row = {
+        "worker_status": "completed",
+        "worker_outcome": "pr_adopted",
+        "elapsed_seconds": 120.0,
+        "files_changed": 5,
+        "has_deliverable": True,
+        "publish_action": "merged",
+    }
+    rescue_row = {
+        "worker_status": "running",
+        "worker_outcome": "timeout",
+        "elapsed_seconds": 3600.0,
+        "files_changed": 0,
+        "has_deliverable": False,
+        "publish_action": "",
+    }
+    summary = score_benchmark([success_row, rescue_row])
+    assert summary["total"] == 2
+    assert summary["successes"] == 1
+    assert summary["no_rescue_rate"] == 0.5
+    assert summary["meets_30d_target"] is True
 
 
 # ---------------------------------------------------------------------------
