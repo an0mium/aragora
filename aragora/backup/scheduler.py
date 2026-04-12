@@ -489,7 +489,7 @@ class BackupScheduler:
                     },
                 )
 
-            except (OSError, IOError, RuntimeError) as e:
+            except (OSError, RuntimeError) as e:
                 job.status = "failed"
                 job.error = str(e)
                 job.completed_at = datetime.now(timezone.utc)
@@ -547,7 +547,7 @@ class BackupScheduler:
                     await asyncio.sleep(60)  # Check again in a minute
             except asyncio.CancelledError:
                 break
-            except (OSError, IOError, RuntimeError) as e:
+            except (OSError, RuntimeError) as e:
                 logger.error("Hourly schedule error: %s", e)
                 await asyncio.sleep(60)
 
@@ -577,7 +577,7 @@ class BackupScheduler:
                     await asyncio.sleep(3600)  # Check again in an hour
             except asyncio.CancelledError:
                 break
-            except (OSError, IOError, RuntimeError) as e:
+            except (OSError, RuntimeError) as e:
                 logger.error("Daily schedule error: %s", e)
                 await asyncio.sleep(300)
 
@@ -607,7 +607,7 @@ class BackupScheduler:
                     await asyncio.sleep(3600)
             except asyncio.CancelledError:
                 break
-            except (OSError, IOError, RuntimeError) as e:
+            except (OSError, RuntimeError) as e:
                 logger.error("Weekly schedule error: %s", e)
                 await asyncio.sleep(300)
 
@@ -637,7 +637,7 @@ class BackupScheduler:
                     await asyncio.sleep(3600)
             except asyncio.CancelledError:
                 break
-            except (OSError, IOError, RuntimeError) as e:
+            except (OSError, RuntimeError) as e:
                 logger.error("Monthly schedule error: %s", e)
                 await asyncio.sleep(300)
 
@@ -661,7 +661,7 @@ class BackupScheduler:
                     break
             except asyncio.CancelledError:
                 break
-            except (OSError, IOError, RuntimeError) as e:
+            except (OSError, RuntimeError) as e:
                 logger.error("Custom schedule error: %s", e)
                 await asyncio.sleep(60)
 
@@ -679,7 +679,7 @@ class BackupScheduler:
 
             except asyncio.CancelledError:
                 break
-            except (OSError, IOError, RuntimeError) as e:
+            except (OSError, RuntimeError) as e:
                 logger.error("DR drill schedule error: %s", e)
                 await asyncio.sleep(3600)
 
@@ -833,7 +833,7 @@ class BackupScheduler:
                 },
             )
 
-        except (OSError, IOError, RuntimeError) as e:
+        except (OSError, RuntimeError) as e:
             logger.error("DR drill failed: %s", e)
             result["error"] = str(e)
             result["success"] = False
