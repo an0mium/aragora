@@ -426,7 +426,7 @@ def _ensure_backbone_run(
                 safety_mode=safety_mode,
                 message=f"Failed to record plan stage for backbone run {run_id}",
             )
-        except Exception as exc:
+        except (BackbonePersistenceError, OSError, TypeError, ValueError, KeyError) as exc:
             _backbone_write_failed(
                 safety_mode,
                 f"Failed to seed backbone run {run_id}",
@@ -446,7 +446,7 @@ def _ensure_backbone_run(
                 safety_mode=safety_mode,
                 message=f"Failed to update backbone run {run_id}",
             )
-        except Exception as exc:
+        except (BackbonePersistenceError, OSError, TypeError, ValueError, KeyError) as exc:
             _backbone_write_failed(
                 safety_mode,
                 f"Failed to update backbone run {run_id}",
