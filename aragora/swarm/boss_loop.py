@@ -878,20 +878,26 @@ class BossLoop:
 
             # Extract prompt/context instrumentation from work order data
             run_dict = worker_result.get("run")
+            receipt_metadata = worker_result.get("receipt_metadata")
             prompt_chars = 0
             enriched_context_chars = 0
             prompt_version = "v2"  # Context-first prompt (post a11848eac)
-            is_decomposed = bool(
-                re.search(
-                    r"\[from #\d+\]",
-                    str((worker_result.get("receipt_metadata") or {}).get("issue_title", "")),
-                )
-            )
+            issue_title = ""
+            if isinstance(receipt_metadata, dict):
+                issue_title = str(receipt_metadata.get("issue_title", "")).strip()
+            if not issue_title:
+                issue_title = str(worker_result.get("issue_title", "")).strip()
+            is_decomposed = bool(re.search(r"\[from #\d+\]", issue_title))
+            cohort_tag = "B0-cohort" if issue_title.startswith("[B0-cohort]") else None
             worker_outcome = str(worker_result.get("outcome", "")).strip()
             has_deliverable = bool(worker_result.get("deliverable"))
             publish_action = (
                 str((worker_result.get("publish_result") or {}).get("action", "")).strip() or None
             )
+            sanitizer_outcome = str(worker_result.get("sanitizer_outcome", "")).strip() or None
+            checks_failed = worker_result.get("checks_failed")
+            if not isinstance(checks_failed, list):
+                checks_failed = []
 
             # Read prompt size from persisted WorkerProcess fields
             if isinstance(run_dict, dict):
@@ -913,6 +919,12 @@ class BossLoop:
                 "prompt_chars": prompt_chars,
                 "enriched_context_chars": enriched_context_chars,
                 "is_decomposed_issue": is_decomposed,
+                "deferred_queue_depth": len(self._deferred_publish_queue),
+                "sanitizer_outcome": sanitizer_outcome,
+                "sanitizer_checks_failed_count": len(
+                    [str(item).strip() for item in checks_failed if str(item).strip()]
+                ),
+                "cohort_tag": cohort_tag,
                 "has_deliverable": has_deliverable,
                 "publish_action": publish_action,
             }
@@ -4779,6 +4791,12 @@ class BossLoop:
             sanitization.outcome.value,
             ",".join(sanitization.checks_failed) if sanitization.checks_failed else "-",
         )
+
+        def _with_sanitizer_metadata(result: dict[str, Any]) -> dict[str, Any]:
+            result.setdefault("sanitizer_outcome", sanitization.outcome.value)
+            result.setdefault("checks_failed", list(sanitization.checks_failed))
+            return result
+
         if sanitization.outcome in {
             SanitizationOutcome.DROPPED,
             SanitizationOutcome.QUARANTINED,
@@ -4812,14 +4830,16 @@ class BossLoop:
                         f"{sanitization.reason}"
                     )
                 ]
-            return {
-                "status": "needs_human",
-                "outcome": outcome,
-                "sanitizer_outcome": sanitization.outcome.value,
-                "checks_failed": list(sanitization.checks_failed),
-                "reasons": reasons,
-                "next_actions": next_actions,
-            }
+            return _with_sanitizer_metadata(
+                {
+                    "status": "needs_human",
+                    "outcome": outcome,
+                    "sanitizer_outcome": sanitization.outcome.value,
+                    "checks_failed": list(sanitization.checks_failed),
+                    "reasons": reasons,
+                    "next_actions": next_actions,
+                }
+            )
 
         refinement: dict[str, Any] = {}
         refined_prompt = ""
@@ -4955,16 +4975,18 @@ class BossLoop:
         if self.config.require_validation_contract and not bool(
             getattr(spec, "acceptance_criteria", None)
         ):
-            return {
-                "status": "needs_human",
-                "reasons": [
-                    f"Issue #{issue.number} lacks an explicit validation contract or acceptance criteria."
-                ],
-                "next_actions": [
-                    "Add an Acceptance Criteria, Validation, Definition of Done, or Test Plan section to the issue body.",
-                    "Include at least one concrete verification step such as a pytest command or observable success criterion.",
-                ],
-            }
+            return _with_sanitizer_metadata(
+                {
+                    "status": "needs_human",
+                    "reasons": [
+                        f"Issue #{issue.number} lacks an explicit validation contract or acceptance criteria."
+                    ],
+                    "next_actions": [
+                        "Add an Acceptance Criteria, Validation, Definition of Done, or Test Plan section to the issue body.",
+                        "Include at least one concrete verification step such as a pytest command or observable success criterion.",
+                    ],
+                }
+            )
 
         self._attach_issue_handoff_metadata(spec, issue)
 
@@ -4982,16 +5004,18 @@ class BossLoop:
             gate.get("unresolved_missing", []),
         )
         if not gate["sanitation_ok"]:
-            return {
-                "status": "needs_human",
-                "outcome": "sanitation_failed",
-                "reasons": [
-                    f"Issue #{issue.number} failed sanitation: {gate.get('sanitation_reason', 'unknown')}"
-                ],
-                "next_actions": [
-                    "Rewrite the issue body with a clear task description.",
-                ],
-            }
+            return _with_sanitizer_metadata(
+                {
+                    "status": "needs_human",
+                    "outcome": "sanitation_failed",
+                    "reasons": [
+                        f"Issue #{issue.number} failed sanitation: {gate.get('sanitation_reason', 'unknown')}"
+                    ],
+                    "next_actions": [
+                        "Rewrite the issue body with a clear task description.",
+                    ],
+                }
+            )
         if gate.get("unresolved_missing"):
             if gate.get("missing_targets") and not gate["unresolved_missing"]:
                 logger.info(
@@ -5001,41 +5025,47 @@ class BossLoop:
                 )
             else:
                 targets_text = ", ".join(gate["unresolved_missing"])
-                return {
-                    "status": "needs_human",
-                    "outcome": "verification_target_missing",
-                    "reasons": [
-                        f"Issue #{issue.number} references missing validation targets: {targets_text}"
-                    ],
-                    "next_actions": [
-                        "Refresh the issue's Acceptance Criteria or Test Plan so pytest points at current repo paths.",
-                        "Update the Files/Reference section or add explicit work orders before rerunning Boss dispatch.",
-                    ],
-                }
+                return _with_sanitizer_metadata(
+                    {
+                        "status": "needs_human",
+                        "outcome": "verification_target_missing",
+                        "reasons": [
+                            f"Issue #{issue.number} references missing validation targets: {targets_text}"
+                        ],
+                        "next_actions": [
+                            "Refresh the issue's Acceptance Criteria or Test Plan so pytest points at current repo paths.",
+                            "Update the Files/Reference section or add explicit work orders before rerunning Boss dispatch.",
+                        ],
+                    }
+                )
 
         if not spec.is_dispatch_bounded():
-            return {
-                "status": "needs_human",
-                "reasons": [
-                    f"Issue #{issue.number} is not safely dispatchable: {spec.dispatch_gate_reason()}"
-                ],
-                "next_actions": [
-                    "Add file-scope hints, constraints, acceptance criteria, or explicit work orders before dispatch.",
-                ],
-            }
+            return _with_sanitizer_metadata(
+                {
+                    "status": "needs_human",
+                    "reasons": [
+                        f"Issue #{issue.number} is not safely dispatchable: {spec.dispatch_gate_reason()}"
+                    ],
+                    "next_actions": [
+                        "Add file-scope hints, constraints, acceptance criteria, or explicit work orders before dispatch.",
+                    ],
+                }
+            )
 
         if not self.config.dispatch_enabled:
-            return {
-                "status": "needs_human",
-                "outcome": "preview_only",
-                "reasons": [
-                    f"No-dispatch preview only for issue #{issue.number}; supervised execution was intentionally skipped."
-                ],
-                "next_actions": [
-                    "Review the selected issue and derived validation contract.",
-                    "Rerun without --no-dispatch to execute the bounded Boss loop lane.",
-                ],
-            }
+            return _with_sanitizer_metadata(
+                {
+                    "status": "needs_human",
+                    "outcome": "preview_only",
+                    "reasons": [
+                        f"No-dispatch preview only for issue #{issue.number}; supervised execution was intentionally skipped."
+                    ],
+                    "next_actions": [
+                        "Review the selected issue and derived validation contract.",
+                        "Rerun without --no-dispatch to execute the bounded Boss loop lane.",
+                    ],
+                }
+            )
 
         requested_target_agent = (
             str(pending_handoff[1]).strip().lower()
@@ -5110,6 +5140,7 @@ class BossLoop:
             dispatch_started = _dispatch_result_started(result)
             if result.get("status") != "failed" or dispatch_started:
                 self._pending_handoff_prompts.pop(issue.number, None)
+        result = _with_sanitizer_metadata(result)
         result["receipt_metadata"] = self._receipt_metadata_for_result(
             result,
             issue=issue,
@@ -5209,6 +5240,7 @@ class BossLoop:
 
         return {
             "issue_number": issue.number,
+            "issue_title": issue.title,
             "requested_target_agent": requested_target_agent,
             "requested_reviewer_agent": self.config.default_reviewer_agent,
             "actual_target_agent": actual_target_agent,

@@ -2010,6 +2010,10 @@ class TestBossLoop:
         assert payload["prompt_version"] == "v2"
         assert payload["prompt_chars"] == 2048
         assert payload["enriched_context_chars"] == 1536
+        assert payload["deferred_queue_depth"] == 0
+        assert payload["sanitizer_outcome"] is None
+        assert payload["sanitizer_checks_failed_count"] == 0
+        assert payload["cohort_tag"] is None
         assert payload["has_deliverable"] is True
         assert payload["publish_action"] == "opened_pr"
         assert payload["elapsed_seconds"] >= 0.0
@@ -2068,6 +2072,10 @@ class TestBossLoop:
         assert "prompt_chars" in payload
         assert "enriched_context_chars" in payload
         assert "is_decomposed_issue" in payload
+        assert "deferred_queue_depth" in payload
+        assert "sanitizer_outcome" in payload
+        assert "sanitizer_checks_failed_count" in payload
+        assert "cohort_tag" in payload
         assert "has_deliverable" in payload
         assert "publish_action" in payload
         # New terminal_class field
@@ -2075,6 +2083,134 @@ class TestBossLoop:
         assert payload["terminal_class"] in valid_values, (
             f"terminal_class value {payload['terminal_class']!r} is not a valid TerminalClass"
         )
+
+    @pytest.mark.parametrize(
+        ("title", "body", "expected_outcome"),
+        [
+            (
+                "Too short",
+                "Tiny task only.",
+                "dropped",
+            ),
+            (
+                "Broad scope",
+                (
+                    "Implement the reliability substrate end-to-end.\n\n"
+                    "Allowed write set:\n"
+                    "- `aragora/swarm/a.py` (modify)\n"
+                    "- `aragora/swarm/b.py` (modify)\n"
+                    "- `aragora/swarm/c.py` (modify)\n"
+                    "- `aragora/swarm/d.py` (modify)\n"
+                    "- `aragora/swarm/e.py` (modify)\n"
+                    "- `aragora/swarm/f.py` (modify)\n"
+                ),
+                "quarantined",
+            ),
+        ],
+    )
+    def test_metrics_emit_sanitizer_outcome_for_filtered_issues(
+        self,
+        tmp_path: Path,
+        title: str,
+        body: str,
+        expected_outcome: str,
+    ) -> None:
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(2420, title, body=body)]
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=1,
+                metrics_jsonl_path=str(tmp_path / "boss_metrics.jsonl"),
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NEEDS_HUMAN.value
+        payload = json.loads((tmp_path / "boss_metrics.jsonl").read_text(encoding="utf-8"))
+        assert payload["worker_status"] == "needs_human"
+        assert payload["sanitizer_outcome"] == expected_outcome
+        assert payload["sanitizer_checks_failed_count"] >= 1
+
+    def test_metrics_emit_deferred_queue_depth_when_publish_deferred(self, tmp_path: Path) -> None:
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=1,
+                metrics_jsonl_path=str(tmp_path / "boss_metrics.jsonl"),
+                auto_publish_deliverables=True,
+            ),
+        )
+        issue = _make_issue(123, "Deferred publish metrics")
+        worker_result = {
+            "status": "completed",
+            "outcome": "deliverable_created",
+            "deliverable": {
+                "type": "branch",
+                "branch": "codex/issue-123",
+                "commit_shas": ["abc123"],
+            },
+            "receipt_metadata": {"issue_title": issue.title},
+            "run": {"work_orders": []},
+        }
+
+        with patch.object(
+            loop,
+            "_maybe_publish_deliverable",
+            return_value={
+                "action": "deferred_due_to_open_boss_prs",
+                "reason": "open_boss_harvest_pr_limit",
+                "branch": "codex/issue-123",
+                "max_open_prs": 20,
+                "open_prs": [],
+            },
+        ):
+            processed = loop._postprocess_issue_result(issue, worker_result)
+
+        loop._append_iteration_metrics(
+            iteration=1,
+            issue_number=issue.number,
+            worker_result=processed,
+            elapsed_seconds=0.25,
+        )
+
+        payload = json.loads((tmp_path / "boss_metrics.jsonl").read_text(encoding="utf-8"))
+        assert payload["publish_action"] == "deferred_due_to_open_boss_prs"
+        assert payload["deferred_queue_depth"] == 1
+        assert len(loop._deferred_publish_queue) == 1
+
+    def test_metrics_emit_cohort_tag_from_issue_title(self, tmp_path: Path) -> None:
+        feed = MagicMock(spec=GitHubIssueFeed)
+        issue = _make_issue(77, "[B0-cohort] Measure clean publish path")
+        feed.fetch.return_value = [issue]
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=1,
+                metrics_jsonl_path=str(tmp_path / "boss_metrics.jsonl"),
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        async def _completed_dispatch(issue, freshness):
+            return {
+                "status": "completed",
+                "outcome": "deliverable_created",
+                "deliverable": {"branch": "codex/test-branch"},
+                "receipt_metadata": {"issue_title": issue.title},
+                "run": {"work_orders": []},
+            }
+
+        loop._dispatch_issue = _completed_dispatch
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+        payload = json.loads((tmp_path / "boss_metrics.jsonl").read_text(encoding="utf-8"))
+        assert payload["cohort_tag"] == "B0-cohort"
 
     def test_terminal_class_fallback_on_classification_error(self, tmp_path: Path):
         """terminal_class uses fallback value when classify_from_metrics raises."""
@@ -4514,6 +4650,28 @@ class TestRunnerHeartbeatRefresh:
         assert len(refresh_calls) == 2, (
             f"Expected 2 heartbeat refreshes (one per iteration), got {len(refresh_calls)}"
         )
+
+    def test_deferred_publish_queue_drained_each_iteration(self) -> None:
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.side_effect = [
+            [_make_issue(1, "First issue")],
+            [_make_issue(2, "Second issue")],
+        ]
+
+        loop = BossLoop(
+            config=_boss_config(max_iterations=2),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        drain_calls: list[int] = []
+        loop._drain_deferred_publish_queue = lambda: drain_calls.append(1) or 0
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+        assert len(drain_calls) == 2
 
     def test_heartbeat_refresh_skipped_without_owner_context(self, tmp_path):
         """Without ARAGORA_USER_ID, heartbeat refresh is a no-op (no crash)."""
