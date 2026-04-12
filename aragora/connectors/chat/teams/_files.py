@@ -15,12 +15,13 @@ from aragora.connectors.chat.models import FileAttachment
 
 import aragora.connectors.chat.teams._constants as _tc
 
+logger = logging.getLogger(__name__)
+
 try:
     import httpx
 except ImportError:
-    pass
-
-logger = logging.getLogger(__name__)
+    httpx = None  # type: ignore[assignment]
+    logger.debug("httpx not installed; Teams file operations will be unavailable")
 
 
 class _TeamsConnectorProtocol(Protocol):
