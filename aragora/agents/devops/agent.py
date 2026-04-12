@@ -311,30 +311,36 @@ class DevOpsAgent:
                 logger.error("Failed to write diff for PR %s: %s", pr_number, e)
                 return {"pr": pr_number, "success": False, "error": "Failed to write diff file"}
 
-            # Run aragora review
-            ok, review_output = self._execute(
-                f"aragora review --diff-file {diff_path} "
-                f"--agents {self._config.review_agents} "
-                f"--rounds {self._config.review_rounds} "
-                f"--focus {self._config.review_focus} "
-                f"--output-format json",
-                "run_review",
-            )
-
-            if ok and review_output and review_output != "[dry run]":
-                # Post review as PR comment
-                comment = self._format_review_comment(review_output, pr_number)
-                comment_escaped = comment.replace("'", "'\\''")
-                self._execute(
-                    f"gh pr comment {pr_number} -R {self._config.repo} --body '{comment_escaped}'",
-                    "post_review_comment",
+            try:
+                # Run aragora review
+                ok, review_output = self._execute(
+                    f"aragora review --diff-file {diff_path} "
+                    f"--agents {self._config.review_agents} "
+                    f"--rounds {self._config.review_rounds} "
+                    f"--focus {self._config.review_focus} "
+                    f"--output-format json",
+                    "run_review",
                 )
 
-                # Add reviewed label
-                self._execute(
-                    f"gh pr edit {pr_number} -R {self._config.repo} --add-label aragora-reviewed",
-                    "add_reviewed_label",
-                )
+                if ok and review_output and review_output != "[dry run]":
+                    # Post review as PR comment
+                    comment = self._format_review_comment(review_output, pr_number)
+                    comment_escaped = comment.replace("'", "'\\''")
+                    self._execute(
+                        f"gh pr comment {pr_number} -R {self._config.repo} --body '{comment_escaped}'",
+                        "post_review_comment",
+                    )
+
+                    # Add reviewed label
+                    self._execute(
+                        f"gh pr edit {pr_number} -R {self._config.repo} --add-label aragora-reviewed",
+                        "add_reviewed_label",
+                    )
+            finally:
+                try:
+                    os.unlink(diff_path)
+                except OSError:
+                    logger.debug("Failed to clean up temp diff file: %s", diff_path)
 
         return {"pr": pr_number, "success": True, "title": title}
 
