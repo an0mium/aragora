@@ -31,6 +31,7 @@ from aragora.nomic.dev_coordination import DevCoordinationStore
 from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm.debate_gate import DebateGate, DebateGateConfig, DebateGateRequest
 from aragora.swarm.env_utils import git_safe_env
+from aragora.swarm.task_sanitizer import SanitizationOutcome, TaskSanitizer
 from aragora.swarm.terminal_truth import (
     TerminalClass,
     classify_from_metrics,
@@ -2836,7 +2837,9 @@ class BossLoop:
     @staticmethod
     def _published_deliverable_comment(worker_result: dict[str, Any]) -> str | None:
         publish_result = worker_result.get("publish_result")
-        if not BossLoop._publish_result_succeeded(publish_result):
+        if not isinstance(publish_result, dict) or not BossLoop._publish_result_succeeded(
+            publish_result
+        ):
             return None
         pr_url = BossLoop._published_pr_url(worker_result)
         if pr_url is None:
@@ -4760,6 +4763,64 @@ class BossLoop:
         """
         from aragora.swarm.spec import SwarmSpec
 
+        original_issue_body = str(issue.body or "").strip()
+        sanitizer = TaskSanitizer(repo_root=Path.cwd())
+        sanitization = sanitizer.sanitize(issue.title, original_issue_body)
+        sanitized_issue_body = str(sanitization.sanitized_text or "").strip()
+        issue_title_text = str(issue.title or "").strip()
+        if issue_title_text and sanitized_issue_body.startswith(issue_title_text):
+            sanitized_issue_body = sanitized_issue_body[len(issue_title_text) :].strip()
+        if not sanitized_issue_body:
+            sanitized_issue_body = original_issue_body
+
+        logger.info(
+            "task_sanitizer issue=#%s outcome=%s checks=%s",
+            issue.number,
+            sanitization.outcome.value,
+            ",".join(sanitization.checks_failed) if sanitization.checks_failed else "-",
+        )
+        if sanitization.outcome in {
+            SanitizationOutcome.DROPPED,
+            SanitizationOutcome.QUARANTINED,
+        }:
+            if "impossible_validation" in sanitization.checks_failed:
+                outcome = "verification_target_missing"
+                missing_targets_text = sanitization.reason.partition(":")[2].strip()
+                if not missing_targets_text:
+                    missing_targets_text = "unknown targets"
+                next_actions = [
+                    "Refresh the issue's Acceptance Criteria or Test Plan so validation commands reference current repo paths.",
+                    "Update the Files/Reference section or add explicit work orders before rerunning Boss dispatch.",
+                ]
+                reasons = [
+                    f"Issue #{issue.number} references missing validation targets: {missing_targets_text}"
+                ]
+            else:
+                outcome = "sanitation_failed"
+                next_actions = (
+                    [
+                        "Rewrite the issue body so it contains a complete bounded task description before redispatch.",
+                    ]
+                    if sanitization.outcome is SanitizationOutcome.DROPPED
+                    else [
+                        "Narrow the write scope, validation targets, or task breakdown before redispatch.",
+                    ]
+                )
+                reasons = [
+                    (
+                        f"Issue #{issue.number} was {sanitization.outcome.value} by task sanitizer: "
+                        f"{sanitization.reason}"
+                    )
+                ]
+            return {
+                "status": "needs_human",
+                "outcome": outcome,
+                "sanitizer_outcome": sanitization.outcome.value,
+                "checks_failed": list(sanitization.checks_failed),
+                "reasons": reasons,
+                "next_actions": next_actions,
+            }
+
         refinement: dict[str, Any] = {}
         refined_prompt = ""
         pending_handoff = self._pending_handoff_prompts.get(issue.number)
@@ -4774,7 +4835,7 @@ class BossLoop:
 
             refinement = await refine_worker_prompt(
                 issue.title,
-                issue.body or "",
+                sanitized_issue_body,
                 repo_path=Path.cwd(),
             )
             refinement_worker_env = build_refinement_worker_env(refinement)
@@ -4791,7 +4852,7 @@ class BossLoop:
             logger.debug("Prompt refinement skipped: %s", exc)
             refinement_worker_env = {}
 
-        body_lines = [str(line).strip() for line in str(issue.body or "").splitlines()]
+        body_lines = [str(line).strip() for line in sanitized_issue_body.splitlines()]
         scope_hints = list(
             dict.fromkeys(
                 [
@@ -4800,7 +4861,7 @@ class BossLoop:
                         for path in refinement.get("files_to_change", [])
                         if str(path).strip()
                     ],
-                    *SwarmSpec.infer_file_scope_hints(issue.body or ""),
+                    *SwarmSpec.infer_file_scope_hints(sanitized_issue_body),
                 ]
             )
         )
@@ -4819,7 +4880,7 @@ class BossLoop:
         goal = _compose_issue_dispatch_goal(
             issue.number,
             issue.title,
-            issue_body=issue.body or "",
+            issue_body=sanitized_issue_body,
             refined_prompt=refined_prompt,
         )
         if "git add -A && git commit" not in goal:
@@ -4847,7 +4908,7 @@ class BossLoop:
             try:
                 from aragora.swarm.micro_decomposer import build_micro_work_orders
 
-                validation_contract_raw = extract_issue_validation_contract(issue.body)
+                validation_contract_raw = extract_issue_validation_contract(sanitized_issue_body)
                 micro_orders = build_micro_work_orders(
                     goal=goal,
                     file_scope_hints=scope_hints,
@@ -4870,7 +4931,7 @@ class BossLoop:
             except Exception as exc:
                 logger.debug("Micro-decomposition skipped: %s", exc)
 
-        validation_contract = extract_issue_validation_contract(issue.body)
+        validation_contract = extract_issue_validation_contract(sanitized_issue_body)
         if validation_contract and self.config.use_focused_verification:
             # Replace broad test suite commands with focused verification
             # that only tests files related to the worker's changes
@@ -4908,7 +4969,7 @@ class BossLoop:
         self._attach_issue_handoff_metadata(spec, issue)
 
         gate = await check_pre_dispatch_gate(
-            issue.body or "",
+            sanitized_issue_body,
             repo_root=Path.cwd(),
             use_llm=self.config.use_llm_pre_dispatch_gate,
         )

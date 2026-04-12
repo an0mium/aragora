@@ -2964,6 +2964,146 @@ async def test_dispatch_issue_allows_missing_validation_target_for_explicit_new_
 
 
 @pytest.mark.asyncio
+async def test_dispatch_issue_rewrites_missing_validation_before_dispatch() -> None:
+    issue = _make_issue(
+        2460,
+        "Add sanitizer admission wiring",
+        body=(
+            "## File Scope\n"
+            "- `aragora/swarm/task_sanitizer.py` (modify)\n\n"
+            "Tighten the admission path so broad or contradictory tasks stop before worker launch."
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    fake_run = MagicMock()
+    fake_run.to_dict.return_value = {
+        "status": "completed",
+        "run_id": "run-2460",
+        "work_orders": [
+            {"status": "completed", "branch": "codex/task-sanitizer", "commit_shas": ["abc123"]}
+        ],
+    }
+    refinement_mock = AsyncMock(
+        return_value={
+            "refined_prompt": "",
+            "files_to_change": [],
+            "test_patterns": [],
+            "constraints": [],
+            "context_gathered": False,
+        }
+    )
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=refinement_mock,
+        ),
+        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+    ):
+        mock_commander_cls.return_value.run_supervised_from_spec = AsyncMock(return_value=fake_run)
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    spec = mock_commander_cls.return_value.run_supervised_from_spec.await_args.args[0]
+    assert spec.acceptance_criteria == ["python3 -m ruff check aragora/swarm/task_sanitizer.py"]
+    assert "## Validation" in refinement_mock.await_args.args[1]
+    assert (
+        "python3 -m ruff check aragora/swarm/task_sanitizer.py"
+        in refinement_mock.await_args.args[1]
+    )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_quarantines_broad_scope_before_dispatch() -> None:
+    issue = _make_issue(
+        2461,
+        "Over-broad crash cleanup lane",
+        body=(
+            "## Allowed Write Set\n"
+            "- `aragora/swarm/a.py` (modify)\n"
+            "- `aragora/swarm/b.py` (modify)\n"
+            "- `aragora/swarm/c.py` (modify)\n"
+            "- `aragora/swarm/d.py` (modify)\n"
+            "- `aragora/swarm/e.py` (modify)\n"
+            "- `aragora/swarm/f.py` (modify)\n"
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(
+                return_value={
+                    "refined_prompt": "",
+                    "files_to_change": [],
+                    "test_patterns": [],
+                    "constraints": [],
+                    "context_gathered": False,
+                }
+            ),
+        ),
+        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "sanitation_failed"
+    assert result["sanitizer_outcome"] == "quarantined"
+    assert "scope_too_broad" in result["checks_failed"]
+    mock_commander_cls.return_value.run_supervised_from_spec.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_drops_short_task_before_dispatch() -> None:
+    issue = _make_issue(
+        2462,
+        "Too short",
+        body="Tiny task only.",
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(
+                return_value={
+                    "refined_prompt": "",
+                    "files_to_change": [],
+                    "test_patterns": [],
+                    "constraints": [],
+                    "context_gathered": False,
+                }
+            ),
+        ),
+        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "sanitation_failed"
+    assert result["sanitizer_outcome"] == "dropped"
+    assert "description_length" in result["checks_failed"]
+    mock_commander_cls.return_value.run_supervised_from_spec.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_dispatch_issue_consumes_pending_handoff_prompt_and_target_agent() -> None:
     issue = _make_issue(1701, "Retry same issue with handoff")
     loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="claude"))
