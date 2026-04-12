@@ -593,6 +593,25 @@ class TestBaseHandlerJsonParsing:
         assert err is None
         assert body == {"valid": True}
 
+    def test_read_json_body_validated_rejects_non_object_json(self):
+        """read_json_body_validated rejects JSON arrays and scalars."""
+        from aragora.server.handlers.base import BaseHandler
+
+        handler = BaseHandler({})
+        mock_http = MagicMock()
+        body_bytes = b'["valid"]'
+        mock_http.headers = {
+            "Content-Type": "application/json",
+            "Content-Length": str(len(body_bytes)),
+        }
+        mock_http.rfile = BytesIO(body_bytes)
+
+        body, err = handler.read_json_body_validated(mock_http)
+        assert body is None
+        assert err is not None
+        assert err.status_code == 400
+        assert json.loads(err.body)["error"] == "Request body must be a JSON object"
+
     def test_read_json_body_validated_wrong_content_type(self):
         """read_json_body_validated rejects wrong Content-Type."""
         from aragora.server.handlers.base import BaseHandler

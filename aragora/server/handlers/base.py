@@ -1225,6 +1225,8 @@ class BaseHandler:
         body = self.read_json_body(handler, max_size)
         if body is None:
             return None, error_response("Invalid or too large JSON body", 400)
+        if not isinstance(body, dict):
+            return None, error_response("Request body must be a JSON object", 400)
 
         return body, None
 

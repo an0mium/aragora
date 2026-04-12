@@ -1798,6 +1798,20 @@ class TestPostRouting:
         assert _status(result) == 201
 
     @pytest.mark.asyncio
+    async def test_route_post_submit_task_rejects_array_body(self, handler, mock_http_handler):
+        body = ["not", "an", "object"]
+        mock_http_handler.rfile.read.return_value = json.dumps(body).encode()
+        mock_http_handler.headers = {
+            "Content-Length": str(len(json.dumps(body).encode())),
+            "Content-Type": "application/json",
+        }
+
+        result = await handler.handle_post("/api/control-plane/tasks", {}, mock_http_handler)
+
+        assert _status(result) == 400
+        assert _body(result)["error"] == "Request body must be a JSON object"
+
+    @pytest.mark.asyncio
     async def test_route_post_claim_task(self, handler, mock_coordinator, mock_http_handler):
         body = {"agent_id": "agent-A", "capabilities": ["reasoning"]}
         mock_coordinator.claim_task = AsyncMock(return_value=None)
