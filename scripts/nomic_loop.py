@@ -72,6 +72,11 @@ import traceback
 import logging
 from collections import defaultdict
 
+# Support direct execution via `python scripts/nomic_loop.py ...`.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 if TYPE_CHECKING:
     from aragora.core import DebateResult, DisagreementReport
 
