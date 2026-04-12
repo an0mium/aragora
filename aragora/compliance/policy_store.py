@@ -223,6 +223,15 @@ def _parse_datetime(value: Any, fallback: datetime | None = None) -> datetime:
     return fallback or datetime.now(timezone.utc)
 
 
+def _safe_json_loads(raw: str | None, fallback: str = "{}") -> Any:
+    """Parse JSON string with fallback on decode errors."""
+    try:
+        return json.loads(raw or fallback)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("Failed to parse JSON value, using fallback: %.100s", raw)
+        return json.loads(fallback)
+
+
 def _parse_optional_datetime(value: Any) -> datetime | None:
     """Parse optional datetime from string or datetime."""
     if value is None:
@@ -633,11 +642,11 @@ class PolicyStore(SQLiteStore):
             vertical_id=row[5],
             level=row[6] or "recommended",
             enabled=bool(row[7]),
-            rules=[PolicyRule.from_dict(r) for r in json.loads(row[8] or "[]")],
+            rules=[PolicyRule.from_dict(r) for r in _safe_json_loads(row[8], "[]")],
             created_at=_parse_datetime(row[9]),
             updated_at=_parse_datetime(row[10]),
             created_by=row[11],
-            metadata=json.loads(row[12] or "{}"),
+            metadata=_safe_json_loads(row[12], "{}"),
         )
 
     def _row_to_violation(self, row: tuple) -> Violation:
@@ -661,7 +670,7 @@ class PolicyStore(SQLiteStore):
             resolved_at=_parse_optional_datetime(row[12]),
             resolved_by=row[13],
             resolution_notes=row[14],
-            metadata=json.loads(row[15] or "{}"),
+            metadata=_safe_json_loads(row[15], "{}"),
         )
 
     def _log_audit(
@@ -1041,11 +1050,11 @@ class PostgresPolicyStore:
             vertical_id=row[5],
             level=row[6] or "recommended",
             enabled=bool(row[7]),
-            rules=[PolicyRule.from_dict(r) for r in json.loads(row[8] or "[]")],
+            rules=[PolicyRule.from_dict(r) for r in _safe_json_loads(row[8], "[]")],
             created_at=_parse_datetime(row[9]),
             updated_at=_parse_datetime(row[10]),
             created_by=row[11],
-            metadata=json.loads(row[12] or "{}"),
+            metadata=_safe_json_loads(row[12], "{}"),
         )
 
     def _row_to_violation(self, row: tuple) -> Violation:
@@ -1066,7 +1075,7 @@ class PostgresPolicyStore:
             resolved_at=_parse_optional_datetime(row[12]),
             resolved_by=row[13],
             resolution_notes=row[14],
-            metadata=json.loads(row[15] or "{}"),
+            metadata=_safe_json_loads(row[15], "{}"),
         )
 
     def _log_audit(
