@@ -9,6 +9,7 @@ import pytest
 
 from aragora.swarm.issue_scanner import (
     BossIssueCandidate,
+    expected_success_rates,
     historical_success_rates,
     infer_issue_category_from_title,
     scan_all,
@@ -306,6 +307,43 @@ class TestHistoricalSuccessRates:
         assert rates["broad_exception"] == pytest.approx(0.5)
         assert rates["handler_validation"] == pytest.approx(0.0)
 
+    def test_expected_success_rates_prefers_learner_calibration(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        metrics_path = tmp_path / "boss_metrics.jsonl"
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.historical_success_rates",
+            lambda path: {"handler_validation": 0.8, "broad_exception": 0.6},
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.load_category_success_rates",
+            lambda log_path=None: {"handler_validation": 0.25},
+        )
+
+        rates = expected_success_rates(metrics_path)
+
+        assert rates == {
+            "broad_exception": 0.6,
+            "handler_validation": 0.25,
+        }
+
+    def test_expected_success_rates_falls_back_when_learner_calibration_absent(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        metrics_path = tmp_path / "boss_metrics.jsonl"
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.historical_success_rates",
+            lambda path: {"handler_validation": 0.2},
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.load_category_success_rates",
+            lambda log_path=None: {},
+        )
+
+        rates = expected_success_rates(metrics_path)
+
+        assert rates == {"handler_validation": 0.2}
+
     def test_scan_all_overrides_rates_and_filters(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
@@ -345,6 +383,10 @@ class TestHistoricalSuccessRates:
             "aragora.swarm.issue_scanner.historical_success_rates",
             lambda metrics_path: {"handler_validation": 0.2},
         )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.load_category_success_rates",
+            lambda log_path=None: {},
+        )
 
         filtered = scan_all(
             tmp_path,
@@ -362,3 +404,132 @@ class TestHistoricalSuccessRates:
         )
         assert len(unfiltered) == 1
         assert unfiltered[0].expected_success_rate == pytest.approx(0.2)
+
+    def test_scan_all_uses_learner_calibration_to_deprioritize_low_value_categories(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        low_value = BossIssueCandidate(
+            category="type_annotation",
+            title="Add return type annotations to low.py",
+            description="desc",
+            file_scope=["aragora/low.py"],
+            expected_success_rate=0.4,
+        )
+        high_value = BossIssueCandidate(
+            category="broad_exception",
+            title="Narrow broad except Exception in high.py",
+            description="desc",
+            file_scope=["aragora/high.py"],
+            expected_success_rate=0.9,
+        )
+
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_type_annotation_gaps",
+            lambda repo_root, limit=10: [low_value],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_bare_except_handlers",
+            lambda repo_root, limit=20: [high_value],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_silent_exception_swallowing",
+            lambda repo_root, limit=20: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_untested_modules",
+            lambda repo_root, min_loc=50, max_loc=300, limit=30: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_handler_validation_gaps",
+            lambda repo_root, limit=15: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_actionable_todos",
+            lambda repo_root, min_length=25, limit=15: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.historical_success_rates",
+            lambda metrics_path: {"type_annotation": 0.7, "broad_exception": 0.4},
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.load_category_success_rates",
+            lambda log_path=None: {"type_annotation": 0.1, "broad_exception": 0.8},
+        )
+
+        candidates = scan_all(
+            tmp_path,
+            categories=["type_annotation", "broad_exception"],
+            metrics_path=tmp_path / "boss_metrics.jsonl",
+            min_success_rate=0.0,
+        )
+
+        assert [candidate.category for candidate in candidates] == [
+            "broad_exception",
+            "type_annotation",
+        ]
+        assert candidates[0].expected_success_rate == pytest.approx(0.8)
+        assert candidates[1].expected_success_rate == pytest.approx(0.1)
+
+    def test_scan_all_preserves_historical_for_uncalibrated_categories(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        calibrated = BossIssueCandidate(
+            category="handler_validation",
+            title="Add request body validation to foo.py handlers",
+            description="desc",
+            file_scope=["aragora/server/handlers/foo.py"],
+            expected_success_rate=0.5,
+        )
+        fallback = BossIssueCandidate(
+            category="actionable_todo",
+            title="Address TODO/FIXME items in foo.py",
+            description="desc",
+            file_scope=["aragora/foo.py"],
+            expected_success_rate=0.5,
+        )
+
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_handler_validation_gaps",
+            lambda repo_root, limit=15: [calibrated],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_actionable_todos",
+            lambda repo_root, min_length=25, limit=15: [fallback],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_bare_except_handlers",
+            lambda repo_root, limit=20: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_silent_exception_swallowing",
+            lambda repo_root, limit=20: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_untested_modules",
+            lambda repo_root, min_loc=50, max_loc=300, limit=30: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_type_annotation_gaps",
+            lambda repo_root, limit=10: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.historical_success_rates",
+            lambda metrics_path: {"handler_validation": 0.2, "actionable_todo": 0.6},
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.load_category_success_rates",
+            lambda log_path=None: {"handler_validation": 0.75},
+        )
+
+        candidates = scan_all(
+            tmp_path,
+            categories=["handler_validation", "actionable_todo"],
+            metrics_path=tmp_path / "boss_metrics.jsonl",
+            min_success_rate=0.0,
+        )
+
+        rates = {candidate.category: candidate.expected_success_rate for candidate in candidates}
+        assert rates == {
+            "actionable_todo": pytest.approx(0.6),
+            "handler_validation": pytest.approx(0.75),
+        }

@@ -11,11 +11,14 @@ from __future__ import annotations
 from collections import Counter, deque
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+import json
+from pathlib import Path
 from typing import Any, Iterable
 
 from aragora.swarm.outcome_signals import OutcomeSignal
 
 UTC = timezone.utc
+_DEFAULT_OUTCOME_SIGNAL_LOG = Path("~/.aragora/outcome_signals.jsonl").expanduser()
 
 
 @dataclass
@@ -106,6 +109,7 @@ class OutcomeLearner:
         signals = list(self._signals)
         by_loop: dict[str, OutcomeAggregate] = {}
         by_agent: dict[str, OutcomeAggregate] = {}
+        by_category: dict[str, OutcomeAggregate] = {}
         failure_reasons: Counter[str] = Counter()
         blocker_kinds: Counter[str] = Counter()
 
@@ -133,13 +137,34 @@ class OutcomeLearner:
                         agg.blocker_kinds.get(signal.blocker_kind, 0) + 1
                     )
 
+            category_key = _infer_signal_category(signal)
+            if category_key:
+                category_agg = by_category.setdefault(category_key, OutcomeAggregate())
+                category_agg.total += 1
+                if signal.is_success:
+                    category_agg.successes += 1
+                if signal.is_failure:
+                    category_agg.failures += 1
+                if signal.did_merge:
+                    category_agg.merge_count += 1
+                if signal.needed_human_rescue:
+                    category_agg.rescue_count += 1
+                if signal.failure_reason:
+                    category_agg.failure_reasons[signal.failure_reason] = (
+                        category_agg.failure_reasons.get(signal.failure_reason, 0) + 1
+                    )
+                if signal.blocker_kind:
+                    category_agg.blocker_kinds[signal.blocker_kind] = (
+                        category_agg.blocker_kinds.get(signal.blocker_kind, 0) + 1
+                    )
+
             if signal.failure_reason:
                 failure_reasons[signal.failure_reason] += 1
             if signal.blocker_kind:
                 blocker_kinds[signal.blocker_kind] += 1
 
         recommendations = self._recommendations(by_loop, by_agent, failure_reasons, blocker_kinds)
-        routing_hints = self._routing_hints(by_loop, by_agent)
+        routing_hints = self._routing_hints(by_loop, by_agent, by_category)
 
         return OutcomeLearnerSnapshot(
             timestamp=datetime.now(UTC).isoformat(),
@@ -206,16 +231,89 @@ class OutcomeLearner:
         self,
         by_loop: dict[str, OutcomeAggregate],
         by_agent: dict[str, OutcomeAggregate],
+        by_category: dict[str, OutcomeAggregate],
     ) -> dict[str, Any]:
         deprioritize_loops: list[str] = []
         deprioritize_agents: list[str] = []
+        deprioritize_categories: list[str] = []
+        category_success_rates: dict[str, float] = {}
         for loop, agg in sorted(by_loop.items()):
             if agg.total >= self._min_samples and agg.merge_rate < self._merge_rate_threshold:
                 deprioritize_loops.append(loop)
         for agent, agg in sorted(by_agent.items()):
             if agg.total >= self._min_samples and agg.success_rate < self._merge_rate_threshold:
                 deprioritize_agents.append(agent)
+        for category, agg in sorted(by_category.items()):
+            if agg.total < self._min_samples:
+                continue
+            category_success_rates[category] = agg.success_rate
+            if agg.success_rate < self._merge_rate_threshold:
+                deprioritize_categories.append(category)
         return {
             "deprioritize_loops": deprioritize_loops,
             "deprioritize_agents": deprioritize_agents,
+            "deprioritize_categories": deprioritize_categories,
+            "category_success_rates": category_success_rates,
         }
+
+
+def _infer_signal_category(signal: OutcomeSignal) -> str | None:
+    title = str(signal.entity_title or "").strip()
+    if not title:
+        return None
+    from aragora.swarm.issue_scanner import infer_issue_category_from_title
+
+    return infer_issue_category_from_title(title)
+
+
+def _parse_signal_row(data: dict[str, Any]) -> OutcomeSignal | None:
+    if not isinstance(data, dict):
+        return None
+    fields = OutcomeSignal.__dataclass_fields__.keys()
+    try:
+        return OutcomeSignal(**{key: value for key, value in data.items() if key in fields})
+    except (TypeError, ValueError):
+        return None
+
+
+def load_category_success_rates(
+    *,
+    log_path: Path | None = None,
+    window_size: int = 500,
+    min_samples: int = 3,
+) -> dict[str, float]:
+    """Load deterministic per-category success rates from the outcome signal log."""
+    path = log_path or _DEFAULT_OUTCOME_SIGNAL_LOG
+    if window_size <= 0:
+        raise ValueError("window_size must be positive")
+    if min_samples <= 0:
+        raise ValueError("min_samples must be positive")
+    if not path.exists():
+        return {}
+
+    rows: deque[OutcomeSignal] = deque(maxlen=window_size)
+    try:
+        with path.open(encoding="utf-8", errors="replace") as f:
+            for line in f:
+                try:
+                    payload = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                signal = _parse_signal_row(payload)
+                if signal is not None:
+                    rows.append(signal)
+    except OSError:
+        return {}
+
+    if not rows:
+        return {}
+
+    learner = OutcomeLearner(window_size=window_size, min_samples=min_samples)
+    learner.ingest_many(rows)
+    snapshot = learner.snapshot()
+    hints = snapshot.routing_hints.get("category_success_rates", {})
+    return {
+        str(category): float(rate)
+        for category, rate in sorted(hints.items())
+        if isinstance(category, str)
+    }

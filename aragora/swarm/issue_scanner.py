@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.outcome_learner import load_category_success_rates
 from aragora.swarm.terminal_truth import classify_from_metrics
 
 
@@ -217,6 +218,19 @@ def historical_success_rates(metrics_path: Path) -> dict[str, float]:
         category: stats["success_rate"]
         for category, stats in historical_category_stats(metrics_path).items()
     }
+
+
+def expected_success_rates(
+    metrics_path: Path,
+    *,
+    signal_log_path: Path | None = None,
+) -> dict[str, float]:
+    """Return category success rates, preferring learner calibration when available."""
+    rates = historical_success_rates(metrics_path)
+    calibrated_rates = load_category_success_rates(log_path=signal_log_path)
+    for category, success_rate in calibrated_rates.items():
+        rates[category] = success_rate
+    return rates
 
 
 # ---------------------------------------------------------------------------
@@ -728,6 +742,7 @@ def scan_all(
     *,
     categories: list[str] | None = None,
     metrics_path: Path | None = None,
+    signal_log_path: Path | None = None,
     min_success_rate: float = 0.3,
 ) -> list[BossIssueCandidate]:
     """Run all scanners and return merged, prioritized candidates."""
@@ -749,10 +764,13 @@ def scan_all(
             candidates.extend(scanner(repo_root))
 
     resolved_metrics_path = metrics_path or repo_root / DEFAULT_BOSS_METRICS_PATH
-    historical_rates = historical_success_rates(resolved_metrics_path)
+    calibrated_rates = expected_success_rates(
+        resolved_metrics_path,
+        signal_log_path=signal_log_path,
+    )
     for candidate in candidates:
-        if candidate.category in historical_rates:
-            candidate.expected_success_rate = historical_rates[candidate.category]
+        if candidate.category in calibrated_rates:
+            candidate.expected_success_rate = calibrated_rates[candidate.category]
 
     if min_success_rate > 0:
         candidates = [
