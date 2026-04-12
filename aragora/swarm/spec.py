@@ -532,7 +532,7 @@ class SwarmSpec:
     def to_yaml(self) -> str:
         """Serialize to YAML string."""
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
 
             data = self.to_dict()
             return yaml.safe_dump(data, default_flow_style=False, sort_keys=False)
@@ -543,7 +543,7 @@ class SwarmSpec:
     def from_yaml(cls, text: str) -> SwarmSpec:
         """Deserialize from YAML string."""
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
 
             data = yaml.safe_load(text)
         except ImportError:
