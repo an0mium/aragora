@@ -846,6 +846,9 @@ class AuditLog:
     async def _query_redis(self, query: AuditQuery) -> list[AuditEntry]:
         """Query entries from Redis."""
         entries: list[AuditEntry] = []
+        redis_client = self._redis
+        if redis_client is None:
+            return entries
 
         try:
             # Determine time range for Redis XRANGE
@@ -858,7 +861,7 @@ class AuditLog:
                 end = str(int(query.end_time.timestamp() * 1000))
 
             # Fetch entries (Redis handles time-based filtering)
-            raw_entries = await self._redis.xrange(
+            raw_entries = await redis_client.xrange(
                 self._stream_key,
                 min=start,
                 max=end,
