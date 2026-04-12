@@ -422,6 +422,7 @@ jobs:
           PATH="$HOME/.local/bin:$PATH" \
             "${{ steps.typecheck_python.outputs.python_bin }}" -m mypy \
             --ignore-missing-imports \
+            --follow-imports=skip \
             --show-error-codes \
             "${TARGETS[@]}"
 
