@@ -559,7 +559,7 @@ class ComputerUseOrchestrator:
                 if is_receipt_enforcement_enabled("computer_use"):
                     transition_receipt_executed(receipt_id)
             except ImportError:
-                pass
+                logger.debug("Receipt enforcement module not available, skipping transition")
 
         return result
 
