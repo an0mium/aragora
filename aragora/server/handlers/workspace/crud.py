@@ -155,6 +155,8 @@ class WorkspaceCrudMixin:
 
         # SECURITY: Only list workspaces from user's own organization
         org_id = auth_ctx.org_id
+        if not org_id:
+            return m.error_response("organization_id is required", 400)
 
         # Reject requests that attempt to access another organization's workspaces
         requested_org_id = query_params.get("organization_id")
