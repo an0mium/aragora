@@ -13,8 +13,14 @@ from aragora.server.handlers.backup_handler import BackupHandler
 router = APIRouter(prefix="/api/v2", tags=["Backups"])
 
 
+def _request_context(request: Request) -> dict[str, object]:
+    app = getattr(request, "app", None)
+    state = getattr(app, "state", None)
+    return getattr(state, "context", None) or {}
+
+
 def _build_handler(request: Request, auth: AuthorizationContext) -> BackupHandler:
-    ctx = getattr(request.app.state, "context", None) or {}
+    ctx = _request_context(request)
     handler = BackupHandler(ctx)
     backup_manager = ctx.get("backup_manager")
     if backup_manager is not None:
