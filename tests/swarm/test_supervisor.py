@@ -14,6 +14,7 @@ import pytest
 from aragora.nomic.dev_coordination import DevCoordinationStore, FileScopeViolationError
 from aragora.nomic.task_decomposer import SubTask, TaskDecomposition
 from aragora.swarm.spec import SwarmSpec
+from aragora.swarm.supervisor_probes import _finalize_completed_work_order_result
 from aragora.swarm.supervisor import (
     CAMPAIGN_OUTCOME_METADATA_KEY,
     LAUNCHER_CONFIG_METADATA_KEY,
@@ -4413,6 +4414,70 @@ async def test_collect_results_blocks_merge_gate_when_required_checks_fail(
 
     summary = store.status_summary()
     assert summary["counts"]["active_leases"] == 0
+
+
+@pytest.mark.parametrize("salvage_outcome", ["timeout_with_salvage", "crash_with_salvage"])
+def test_finalize_completed_work_order_preserves_salvage_outcome_on_merge_gate_failure(
+    repo: Path, store: DevCoordinationStore, salvage_outcome: str
+) -> None:
+    supervisor = SwarmSupervisor(repo_root=repo, store=store)
+    item = {
+        "work_order_id": f"wo-{salvage_outcome}",
+        "status": "completed",
+        "branch": "main",
+        "worktree_path": str(repo),
+        "target_agent": "claude",
+        "owner_session_id": f"{salvage_outcome}-session",
+        "review_status": "pending_heterogeneous_review",
+        "file_scope": ["aragora/swarm/supervisor.py"],
+        "changed_paths": ["aragora/swarm/supervisor.py"],
+        "expected_tests": ["python -m pytest tests/swarm/test_supervisor.py -q"],
+        "verification_results": [
+            {
+                "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                "exit_code": 1,
+                "passed": False,
+                "stdout": "",
+                "stderr": "FAILED tests/swarm/test_supervisor.py::test_regression",
+                "duration_seconds": 0.7,
+            }
+        ],
+        "worker_outcome": salvage_outcome,
+        "receipt_id": "receipt-stale",
+        "confidence": 0.91,
+        "resource_error": "old resource wait",
+        "conflicts": [{"source": "lease", "lease_id": "lease-stale"}],
+        "scope_violation": {"violations": [{"path": "old.py"}]},
+        "blockers": ["old blocker"],
+    }
+    result = WorkerProcess(
+        work_order_id=f"wo-{salvage_outcome}",
+        agent="claude",
+        worktree_path=str(repo),
+        branch="main",
+        session_id=f"{salvage_outcome}-session",
+        pid=100,
+        exit_code=0,
+        completed_at="2026-03-06T20:00:00+00:00",
+        diff="diff --git a/aragora/swarm/supervisor.py",
+        changed_paths=["aragora/swarm/supervisor.py"],
+        commit_shas=["abc12345"],
+        tests_run=["python -m pytest tests/swarm/test_supervisor.py -q"],
+    )
+
+    finalized = _finalize_completed_work_order_result(
+        supervisor,
+        item,
+        result,
+        clean_paths=["aragora/swarm/supervisor.py"],
+    )
+
+    assert finalized is False
+    assert item["status"] == "needs_human"
+    assert item["review_status"] == "changes_requested"
+    assert item["worker_outcome"] == salvage_outcome
+    assert item["failure_reason"] == "merge_gate_failed"
+    assert item["receipt_id"] is None
 
 
 @pytest.mark.asyncio
