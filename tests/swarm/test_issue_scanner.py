@@ -9,6 +9,8 @@ import pytest
 
 from aragora.swarm.issue_scanner import (
     BossIssueCandidate,
+    historical_success_rates,
+    infer_issue_category_from_title,
     scan_all,
     scan_bare_except_handlers,
     scan_silent_exception_swallowing,
@@ -200,12 +202,12 @@ class TestScannersOnRealRepo:
         return Path(__file__).resolve().parent.parent.parent
 
     def test_scan_all_returns_candidates(self, repo_root):
-        candidates = scan_all(repo_root)
+        candidates = scan_all(repo_root, metrics_path=repo_root / ".missing-boss-metrics.jsonl")
         assert len(candidates) > 0
         assert all(isinstance(c, BossIssueCandidate) for c in candidates)
 
     def test_candidates_have_required_fields(self, repo_root):
-        candidates = scan_all(repo_root)
+        candidates = scan_all(repo_root, metrics_path=repo_root / ".missing-boss-metrics.jsonl")
         for c in candidates[:10]:
             assert len(c.title) > 20, f"Title too short: {c.title}"
             assert len(c.description) > 40, f"Description too short for {c.title}"
@@ -215,7 +217,7 @@ class TestScannersOnRealRepo:
             assert 0 < c.expected_success_rate <= 1.0
 
     def test_scan_all_sorted_by_success_rate(self, repo_root):
-        candidates = scan_all(repo_root)
+        candidates = scan_all(repo_root, metrics_path=repo_root / ".missing-boss-metrics.jsonl")
         rates = [c.expected_success_rate for c in candidates]
         # Should be roughly descending (within same rate, category order matters)
         for i in range(len(rates) - 1):
@@ -248,3 +250,115 @@ class TestScannersOnRealRepo:
         for c in results:
             assert c.category == "actionable_todo"
             assert "TODO" in c.description or "FIXME" in c.description
+
+
+class TestHistoricalSuccessRates:
+    def test_infer_issue_category_from_title(self) -> None:
+        assert infer_issue_category_from_title("Narrow broad except Exception in foo.py")
+        assert infer_issue_category_from_title("Replace silent exception swallowing in foo.py")
+        assert infer_issue_category_from_title("Add unit tests for swarm/foo.py")
+        assert infer_issue_category_from_title("Add request body validation to foo.py handlers")
+        assert infer_issue_category_from_title("Add return type annotations to foo.py")
+        assert infer_issue_category_from_title("Address TODO/FIXME items in foo.py")
+        assert infer_issue_category_from_title("Unrelated issue title") is None
+
+    def test_historical_success_rates_uses_inline_issue_titles(self, tmp_path: Path) -> None:
+        metrics_path = tmp_path / "boss_metrics.jsonl"
+        rows = [
+            {
+                "issue_number": 101,
+                "issue_title": "Narrow broad except Exception in foo.py",
+                "prompt_chars": 1000,
+                "worker_status": "completed",
+                "worker_outcome": "pr_adopted",
+                "publish_action": "pr_created",
+                "elapsed_seconds": 120.0,
+                "files_changed": 1,
+                "has_deliverable": True,
+            },
+            {
+                "issue_number": 102,
+                "issue_title": "Narrow broad except Exception in bar.py",
+                "prompt_chars": 1200,
+                "worker_status": "failed",
+                "worker_outcome": "worker_crash",
+                "publish_action": "",
+                "elapsed_seconds": 240.0,
+                "files_changed": 0,
+                "has_deliverable": False,
+            },
+            {
+                "issue_number": 201,
+                "issue_title": "Add request body validation to baz.py handlers",
+                "prompt_chars": 1500,
+                "worker_status": "needs_human",
+                "worker_outcome": "blocked",
+                "publish_action": "",
+                "elapsed_seconds": 90.0,
+                "files_changed": 0,
+                "has_deliverable": False,
+            },
+        ]
+        metrics_path.write_text("\n".join(__import__("json").dumps(row) for row in rows) + "\n")
+
+        rates = historical_success_rates(metrics_path)
+
+        assert rates["broad_exception"] == pytest.approx(0.5)
+        assert rates["handler_validation"] == pytest.approx(0.0)
+
+    def test_scan_all_overrides_rates_and_filters(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        candidate = BossIssueCandidate(
+            category="handler_validation",
+            title="Add request body validation to foo.py handlers",
+            description="desc",
+            file_scope=["aragora/server/handlers/foo.py"],
+            expected_success_rate=0.5,
+        )
+
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_handler_validation_gaps",
+            lambda repo_root, limit=15: [candidate],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_bare_except_handlers",
+            lambda repo_root, limit=20: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_silent_exception_swallowing",
+            lambda repo_root, limit=20: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_untested_modules",
+            lambda repo_root, min_loc=50, max_loc=300, limit=30: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_actionable_todos",
+            lambda repo_root, min_length=25, limit=15: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.scan_type_annotation_gaps",
+            lambda repo_root, limit=10: [],
+        )
+        monkeypatch.setattr(
+            "aragora.swarm.issue_scanner.historical_success_rates",
+            lambda metrics_path: {"handler_validation": 0.2},
+        )
+
+        filtered = scan_all(
+            tmp_path,
+            categories=["handler_validation"],
+            metrics_path=tmp_path / "boss_metrics.jsonl",
+            min_success_rate=0.3,
+        )
+        assert filtered == []
+
+        unfiltered = scan_all(
+            tmp_path,
+            categories=["handler_validation"],
+            metrics_path=tmp_path / "boss_metrics.jsonl",
+            min_success_rate=0.0,
+        )
+        assert len(unfiltered) == 1
+        assert unfiltered[0].expected_success_rate == pytest.approx(0.2)

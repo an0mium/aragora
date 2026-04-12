@@ -9,10 +9,27 @@ and creates GitHub issues with the ``boss-ready`` label.
 
 from __future__ import annotations
 
+import json
 import hashlib
 import re
+import subprocess
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
+
+from aragora.swarm.terminal_truth import classify_from_metrics
+
+
+DEFAULT_BOSS_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
+_CATEGORY_TITLE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"^narrow broad except", re.IGNORECASE), "broad_exception"),
+    (re.compile(r"^replace silent", re.IGNORECASE), "silent_exception"),
+    (re.compile(r"^add unit tests", re.IGNORECASE), "test_coverage"),
+    (re.compile(r"^add request body", re.IGNORECASE), "handler_validation"),
+    (re.compile(r"^add return type", re.IGNORECASE), "type_annotation"),
+    (re.compile(r"^address todo", re.IGNORECASE), "actionable_todo"),
+)
 
 
 @dataclass
@@ -34,6 +51,172 @@ class BossIssueCandidate:
         if not self.fingerprint:
             raw = f"{self.category}:{':'.join(sorted(self.file_scope + self.new_files))}"
             self.fingerprint = hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def infer_issue_category_from_title(title: str | None) -> str | None:
+    """Infer scanner category from a boss-issue title."""
+    if not title:
+        return None
+
+    normalized = title.strip()
+    for pattern, category in _CATEGORY_TITLE_PATTERNS:
+        if pattern.match(normalized):
+            return category
+    return None
+
+
+def _load_prompt_metric_rows(metrics_path: Path) -> list[dict[str, Any]]:
+    if not metrics_path.exists():
+        return []
+
+    rows: list[dict[str, Any]] = []
+    try:
+        with metrics_path.open(encoding="utf-8", errors="replace") as f:
+            for line in f:
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                if float(row.get("prompt_chars", 0) or 0) <= 0:
+                    continue
+                rows.append(row)
+    except OSError:
+        return []
+    return rows
+
+
+def _fetch_issue_titles(
+    issue_numbers: set[int], *, repo: str = "synaptent/aragora"
+) -> dict[int, str]:
+    """Fetch GitHub issue titles in batches via gh GraphQL.
+
+    Returns an empty mapping if gh is unavailable or the call fails.
+    """
+    if not issue_numbers:
+        return {}
+
+    owner, sep, name = repo.partition("/")
+    if not sep or not owner or not name:
+        return {}
+
+    titles: dict[int, str] = {}
+    batch_size = 25
+    sorted_numbers = sorted(issue_numbers)
+    for idx in range(0, len(sorted_numbers), batch_size):
+        batch = sorted_numbers[idx : idx + batch_size]
+        aliases = "\n".join(
+            f"issue_{number}: issue(number: {number}) {{ number title }}" for number in batch
+        )
+        query = f'query {{ repository(owner: "{owner}", name: "{name}") {{\n{aliases}\n}} }}'
+        try:
+            result = subprocess.run(
+                ["gh", "api", "graphql", "-f", f"query={query}"],
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return {}
+
+        if result.returncode != 0:
+            return {}
+
+        try:
+            payload = json.loads(result.stdout or "{}")
+        except json.JSONDecodeError:
+            return {}
+
+        repository = payload.get("data", {}).get("repository", {})
+        if not isinstance(repository, dict):
+            return {}
+
+        for issue in repository.values():
+            if not isinstance(issue, dict):
+                continue
+            number = issue.get("number")
+            title = issue.get("title")
+            if isinstance(number, int) and isinstance(title, str) and title.strip():
+                titles[number] = title.strip()
+
+    return titles
+
+
+def historical_category_stats(metrics_path: Path) -> dict[str, dict[str, float]]:
+    """Compute per-category success and crash rates from prompt-era boss metrics."""
+    rows = _load_prompt_metric_rows(metrics_path)
+    if not rows:
+        return {}
+
+    title_by_issue: dict[int, str] = {}
+    missing_titles: set[int] = set()
+    for row in rows:
+        issue_number = row.get("issue_number")
+        if not isinstance(issue_number, int):
+            continue
+        issue_title = row.get("issue_title")
+        if isinstance(issue_title, str) and issue_title.strip():
+            title_by_issue[issue_number] = issue_title.strip()
+        else:
+            missing_titles.add(issue_number)
+
+    title_by_issue.update(
+        {
+            number: title
+            for number, title in _fetch_issue_titles(missing_titles).items()
+            if title.strip()
+        }
+    )
+
+    totals: dict[str, dict[str, float]] = defaultdict(
+        lambda: {
+            "total": 0.0,
+            "successes": 0.0,
+            "crashes": 0.0,
+            "elapsed_seconds": 0.0,
+            "success_rate": 0.0,
+            "crash_rate": 0.0,
+            "avg_elapsed_seconds": 0.0,
+        }
+    )
+    for row in rows:
+        issue_number = row.get("issue_number")
+        if not isinstance(issue_number, int):
+            continue
+        category = infer_issue_category_from_title(title_by_issue.get(issue_number))
+        if not category:
+            continue
+
+        terminal_class = classify_from_metrics(row)
+        entry = totals[category]
+        entry["total"] += 1.0
+        entry["elapsed_seconds"] += float(row.get("elapsed_seconds", 0.0) or 0.0)
+        if terminal_class.family == "success":
+            entry["successes"] += 1.0
+        if terminal_class.value == "rescue_worker_crash":
+            entry["crashes"] += 1.0
+
+    finalized: dict[str, dict[str, float]] = {}
+    for category, entry in totals.items():
+        total = entry["total"]
+        if total <= 0:
+            continue
+        finalized[category] = {
+            **entry,
+            "success_rate": entry["successes"] / total,
+            "crash_rate": entry["crashes"] / total,
+            "avg_elapsed_seconds": entry["elapsed_seconds"] / total,
+        }
+    return finalized
+
+
+def historical_success_rates(metrics_path: Path) -> dict[str, float]:
+    """Return real success rates per scanner category from boss metrics."""
+    return {
+        category: stats["success_rate"]
+        for category, stats in historical_category_stats(metrics_path).items()
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -544,6 +727,8 @@ def scan_all(
     repo_root: Path,
     *,
     categories: list[str] | None = None,
+    metrics_path: Path | None = None,
+    min_success_rate: float = 0.3,
 ) -> list[BossIssueCandidate]:
     """Run all scanners and return merged, prioritized candidates."""
     all_scanners = {
@@ -562,6 +747,19 @@ def scan_all(
         scanner = all_scanners.get(cat)
         if scanner:
             candidates.extend(scanner(repo_root))
+
+    resolved_metrics_path = metrics_path or repo_root / DEFAULT_BOSS_METRICS_PATH
+    historical_rates = historical_success_rates(resolved_metrics_path)
+    for candidate in candidates:
+        if candidate.category in historical_rates:
+            candidate.expected_success_rate = historical_rates[candidate.category]
+
+    if min_success_rate > 0:
+        candidates = [
+            candidate
+            for candidate in candidates
+            if candidate.expected_success_rate >= min_success_rate
+        ]
 
     # Sort: highest success rate first, then by category priority
     candidates.sort(
