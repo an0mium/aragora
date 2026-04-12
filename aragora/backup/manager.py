@@ -1091,11 +1091,15 @@ class BackupManager:
         src_conn = sqlite3.connect(str(source))
         dst_conn = sqlite3.connect(str(dest))
 
-        with dst_conn:
-            src_conn.backup(dst_conn)
-
-        src_conn.close()
-        dst_conn.close()
+        try:
+            with dst_conn:
+                src_conn.backup(dst_conn)
+        except sqlite3.Error as e:
+            logger.error("SQLite backup failed from %s to %s: %s", source, dest, e)
+            raise
+        finally:
+            src_conn.close()
+            dst_conn.close()
 
     def _get_database_info(self, db_path: Path) -> tuple[list[str], dict[str, int]]:
         """Get table names and row counts from a database."""
@@ -1557,12 +1561,15 @@ class BackupManager:
 
     def _save_manifest(self) -> None:
         """Save backup manifest to disk."""
-        data = {
-            "backups": {k: v.to_dict() for k, v in self._backups.items()},
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }
-        with open(self._manifest_path, "w") as f:
-            json.dump(data, f, indent=2)
+        try:
+            data = {
+                "backups": {k: v.to_dict() for k, v in self._backups.items()},
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            with open(self._manifest_path, "w") as f:
+                json.dump(data, f, indent=2)
+        except (OSError, ValueError) as e:
+            logger.error("Failed to save manifest: %s", e)
 
     def _emit_backup_metrics(self, backup: BackupMetadata, success: bool) -> None:
         """Emit Prometheus metrics for backup operation."""
