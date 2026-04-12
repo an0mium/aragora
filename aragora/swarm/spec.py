@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import re
 import uuid
 from dataclasses import asdict, dataclass, field
@@ -10,6 +12,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 from aragora.swarm.mission import normalize_context_policies
+from aragora.utils.semantic_extraction import ExtractionProvider, extract_json_object_llm_first
+
+logger = logging.getLogger(__name__)
 
 _FILE_SCOPE_HINT_RE = re.compile(r"(?:\./)?(?:[A-Za-z0-9_*?\[\]{}.-]+/)+[A-Za-z0-9_*?\[\]{}.-]+/?")
 _EXACT_FILE_SCOPE_RE = re.compile(r"(?:\./)?(?:[A-Za-z0-9_*?\[\]{}.-]+/)*[A-Za-z0-9_*?\[\]{}.-]+/?")
@@ -41,6 +46,31 @@ _FALSE_POSITIVE_SCOPE_HINTS = frozenset(
     }
 )
 _PATH_WRAPPER_CHARS = "`'\".,;:()[]{}<>"
+_DIRECT_GOAL_TRACK_HINTS = frozenset({"sme", "developer", "self_hosted", "qa", "core", "security"})
+_DIRECT_GOAL_COMPLEXITIES = frozenset({"low", "medium", "high"})
+_DIRECT_GOAL_OPENROUTER_MODEL = "anthropic/claude-haiku-4-5-20251001"
+_DIRECT_GOAL_SPEC_PROMPT = """\
+You are refining a developer's direct goal into a dispatch-bounded swarm spec.
+
+Goal:
+{raw_goal}
+
+Return ONLY a JSON object with these fields:
+{{
+  "refined_goal": "<clearer 1-2 sentence goal>",
+  "acceptance_criteria": ["<success condition>", "..."],
+  "constraints": ["<boundary to preserve>", "..."],
+  "track_hints": ["sme" | "developer" | "self_hosted" | "qa" | "core" | "security"],
+  "file_scope_hints": ["<relative repo path>", "..."],
+  "estimated_complexity": "low" | "medium" | "high"
+}}
+
+Rules:
+- Do not invent files, tests, or constraints that are not grounded in the goal.
+- Keep arrays empty when the goal does not specify that field.
+- file_scope_hints should only include concrete path-like hints from the goal.
+- refined_goal should preserve the original intent while making it easier to dispatch.
+"""
 
 
 @dataclass
@@ -124,6 +154,18 @@ class SwarmSpec:
     @staticmethod
     def _nonempty_strings(values: list[str]) -> list[str]:
         return [str(item).strip() for item in values if str(item).strip()]
+
+    @staticmethod
+    def _ordered_unique_strings(values: list[str]) -> list[str]:
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for value in values:
+            text = str(value).strip()
+            if not text or text in seen:
+                continue
+            seen.add(text)
+            ordered.append(text)
+        return ordered
 
     @staticmethod
     def _normalize_exact_file_scope_hint(value: str) -> str | None:
@@ -217,7 +259,100 @@ class SwarmSpec:
         return list(dict.fromkeys(criteria))
 
     @classmethod
-    def from_direct_goal(
+    def _direct_goal_providers(cls) -> tuple[ExtractionProvider, ...]:
+        return (
+            ExtractionProvider(
+                agent_type="anthropic-api",
+                model="claude-haiku-4-5-20251001",
+                role="critic",
+                name="swarm-direct-goal-refiner",
+                env_vars=("ANTHROPIC_API_KEY",),
+            ),
+            ExtractionProvider(
+                agent_type="openai-api",
+                model="gpt-4.1-mini",
+                role="critic",
+                name="swarm-direct-goal-refiner",
+                env_vars=("OPENAI_API_KEY",),
+            ),
+            ExtractionProvider(
+                agent_type="gemini",
+                model="gemini-2.0-flash",
+                role="critic",
+                name="swarm-direct-goal-refiner",
+                env_vars=("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+            ),
+            ExtractionProvider(
+                agent_type="openrouter",
+                model=_DIRECT_GOAL_OPENROUTER_MODEL,
+                role="critic",
+                name="swarm-direct-goal-refiner",
+                env_vars=("OPENROUTER_API_KEY",),
+            ),
+        )
+
+    @classmethod
+    def _direct_goal_provider_available(cls) -> bool:
+        return any(provider.is_available() for provider in cls._direct_goal_providers())
+
+    @classmethod
+    def _normalize_direct_goal_payload(cls, parsed: dict[str, Any]) -> dict[str, Any] | None:
+        refined_goal = str(parsed.get("refined_goal", "")).strip()
+        acceptance_criteria = cls._ordered_unique_strings(
+            cls._nonempty_strings(
+                parsed.get("acceptance_criteria", [])
+                if isinstance(parsed.get("acceptance_criteria", []), list)
+                else []
+            )
+        )
+        constraints = cls._ordered_unique_strings(
+            cls._nonempty_strings(
+                parsed.get("constraints", [])
+                if isinstance(parsed.get("constraints", []), list)
+                else []
+            )
+        )
+        track_hints = cls._ordered_unique_strings(
+            [
+                str(track).strip()
+                for track in parsed.get("track_hints", [])
+                if str(track).strip() in _DIRECT_GOAL_TRACK_HINTS
+            ]
+            if isinstance(parsed.get("track_hints", []), list)
+            else []
+        )
+        file_scope_hints = cls._ordered_unique_strings(
+            [
+                sanitized
+                for sanitized in (
+                    cls.sanitize_file_scope_entry(value)
+                    for value in (
+                        parsed.get("file_scope_hints", [])
+                        if isinstance(parsed.get("file_scope_hints", []), list)
+                        else []
+                    )
+                )
+                if sanitized
+            ]
+        )
+        estimated_complexity = str(parsed.get("estimated_complexity", "")).strip().lower()
+        if estimated_complexity not in _DIRECT_GOAL_COMPLEXITIES:
+            estimated_complexity = "medium"
+
+        if not any([refined_goal, acceptance_criteria, constraints, track_hints, file_scope_hints]):
+            return None
+
+        return {
+            "refined_goal": refined_goal,
+            "acceptance_criteria": acceptance_criteria,
+            "constraints": constraints,
+            "track_hints": track_hints,
+            "file_scope_hints": file_scope_hints,
+            "estimated_complexity": estimated_complexity,
+        }
+
+    @classmethod
+    def _build_direct_goal_heuristic_spec(
         cls,
         raw_goal: str,
         *,
@@ -225,17 +360,113 @@ class SwarmSpec:
         requires_approval: bool,
         user_expertise: str,
     ) -> SwarmSpec:
-        """Build a direct spec from a raw goal without conversational interrogation."""
         return cls(
             id=str(uuid.uuid4()),
             created_at=datetime.now(timezone.utc),
             raw_goal=raw_goal,
             refined_goal=raw_goal,
+            acceptance_criteria=cls.infer_acceptance_criteria([raw_goal]),
             constraints=cls.infer_constraints([raw_goal]),
             budget_limit_usd=budget_limit_usd,
             file_scope_hints=cls.infer_file_scope_hints(raw_goal),
             requires_approval=requires_approval,
             interrogation_turns=0,
+            user_expertise=user_expertise,
+        )
+
+    @classmethod
+    async def from_direct_goal_async(
+        cls,
+        raw_goal: str,
+        *,
+        budget_limit_usd: float | None,
+        requires_approval: bool,
+        user_expertise: str,
+        use_llm: bool = True,
+        timeout: float = 15.0,
+    ) -> SwarmSpec:
+        spec = cls._build_direct_goal_heuristic_spec(
+            raw_goal,
+            budget_limit_usd=budget_limit_usd,
+            requires_approval=requires_approval,
+            user_expertise=user_expertise,
+        )
+        if not use_llm or not spec.raw_goal or not cls._direct_goal_provider_available():
+            return spec
+
+        result = await extract_json_object_llm_first(
+            _DIRECT_GOAL_SPEC_PROMPT.format(raw_goal=spec.raw_goal[:3000]),
+            providers=cls._direct_goal_providers(),
+            normalizer=cls._normalize_direct_goal_payload,
+            timeout=timeout,
+            logger=logger,
+            context="direct goal spec refinement",
+        )
+        if result.value is None:
+            logger.debug(
+                "Direct goal LLM refinement unavailable, using heuristics: source=%s error=%s",
+                result.source,
+                result.error,
+            )
+            return spec
+
+        enriched = result.value
+        spec.refined_goal = str(enriched.get("refined_goal", "")).strip() or spec.refined_goal
+        spec.acceptance_criteria = cls._ordered_unique_strings(
+            [*spec.acceptance_criteria, *enriched.get("acceptance_criteria", [])]
+        )
+        spec.constraints = cls._ordered_unique_strings(
+            [*spec.constraints, *enriched.get("constraints", [])]
+        )
+        spec.track_hints = cls._ordered_unique_strings(
+            [*spec.track_hints, *enriched.get("track_hints", [])]
+        )
+        spec.file_scope_hints = cls._ordered_unique_strings(
+            [*spec.file_scope_hints, *enriched.get("file_scope_hints", [])]
+        )
+        spec.estimated_complexity = (
+            str(enriched.get("estimated_complexity", spec.estimated_complexity)).strip().lower()
+            or spec.estimated_complexity
+        )
+        return spec
+
+    @classmethod
+    def from_direct_goal(
+        cls,
+        raw_goal: str,
+        *,
+        budget_limit_usd: float | None,
+        requires_approval: bool,
+        user_expertise: str,
+        use_llm: bool = True,
+        timeout: float = 15.0,
+    ) -> SwarmSpec:
+        """Build a direct spec from a raw goal without conversational interrogation."""
+        if not use_llm or not cls._direct_goal_provider_available():
+            return cls._build_direct_goal_heuristic_spec(
+                raw_goal,
+                budget_limit_usd=budget_limit_usd,
+                requires_approval=requires_approval,
+                user_expertise=user_expertise,
+            )
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(
+                cls.from_direct_goal_async(
+                    raw_goal,
+                    budget_limit_usd=budget_limit_usd,
+                    requires_approval=requires_approval,
+                    user_expertise=user_expertise,
+                    use_llm=use_llm,
+                    timeout=timeout,
+                )
+            )
+        logger.debug("Direct goal LLM refinement skipped because an event loop is already running")
+        return cls._build_direct_goal_heuristic_spec(
+            raw_goal,
+            budget_limit_usd=budget_limit_usd,
+            requires_approval=requires_approval,
             user_expertise=user_expertise,
         )
 
