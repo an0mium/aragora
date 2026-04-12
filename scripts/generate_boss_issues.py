@@ -10,6 +10,7 @@ Usage:
     python scripts/generate_boss_issues.py --dry-run            # Preview
     python scripts/generate_boss_issues.py --max-issues 10      # Create 10
     python scripts/generate_boss_issues.py --categories test_coverage silent_exception
+    python scripts/generate_boss_issues.py --categories handler_validation --min-success-rate 0
 """
 
 from __future__ import annotations
@@ -203,6 +204,30 @@ def validate_body(body: str) -> tuple[bool, str]:
         return True, ""
 
 
+def _count_categories(candidates: list[BossIssueCandidate]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for candidate in candidates:
+        counts[candidate.category] = counts.get(candidate.category, 0) + 1
+    return counts
+
+
+def _compute_suppressed_candidates(
+    repo_root: Path,
+    *,
+    categories: list[str] | None,
+    min_success_rate: float,
+    kept_candidates: list[BossIssueCandidate],
+) -> list[BossIssueCandidate]:
+    if min_success_rate <= 0:
+        return []
+
+    all_candidates = scan_all(repo_root, categories=categories, min_success_rate=0.0)
+    kept_fingerprints = {candidate.fingerprint for candidate in kept_candidates}
+    return [
+        candidate for candidate in all_candidates if candidate.fingerprint not in kept_fingerprints
+    ]
+
+
 def create_github_issue(repo: str, title: str, body: str, label: str) -> bool:
     """Create a GitHub issue and return success."""
     try:
@@ -237,6 +262,12 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="Preview without creating")
     parser.add_argument("--max-issues", type=int, default=20, help="Max issues to create")
     parser.add_argument("--categories", nargs="*", help="Filter to specific categories")
+    parser.add_argument(
+        "--min-success-rate",
+        type=float,
+        default=0.3,
+        help="Hide categories below this historical success rate threshold; use 0 to disable",
+    )
     parser.add_argument("--label", default="boss-ready", help="Label for created issues")
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     args = parser.parse_args()
@@ -245,17 +276,36 @@ def main() -> None:
 
     # 1. Scan
     print(f"Scanning {repo_root}...")
-    candidates = scan_all(repo_root, categories=args.categories)
+    candidates = scan_all(
+        repo_root,
+        categories=args.categories,
+        min_success_rate=args.min_success_rate,
+    )
+    suppressed = _compute_suppressed_candidates(
+        repo_root,
+        categories=args.categories,
+        min_success_rate=args.min_success_rate,
+        kept_candidates=candidates,
+    )
     print(
         f"  Found {len(candidates)} candidates across {len(set(c.category for c in candidates))} categories"
     )
+    if suppressed:
+        suppressed_counts = _count_categories(suppressed)
+        print(
+            "  Suppressed "
+            f"{len(suppressed)} low-signal candidates across {len(suppressed_counts)} categories "
+            f"at min success rate {args.min_success_rate:.0%}"
+        )
+        print("  Use --min-success-rate 0 to include them.")
 
     if args.verbose:
-        by_cat: dict[str, int] = {}
-        for c in candidates:
-            by_cat[c.category] = by_cat.get(c.category, 0) + 1
+        by_cat = _count_categories(candidates)
         for cat, count in sorted(by_cat.items()):
             print(f"    {cat}: {count}")
+        if suppressed:
+            for cat, count in sorted(_count_categories(suppressed).items()):
+                print(f"    suppressed {cat}: {count}")
 
     # 2. Deduplicate against existing issues (always fetch, even in dry-run)
     print("Fetching existing boss-ready issues...")
