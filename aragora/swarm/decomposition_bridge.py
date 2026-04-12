@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -95,6 +96,32 @@ def _success_criteria_lines(success_criteria: dict[str, Any]) -> list[str]:
     return _ordered_unique(lines)
 
 
+@dataclass(slots=True)
+class DecompositionStats:
+    """Telemetry for one parent-issue decomposition attempt."""
+
+    raw_candidates: int = 0
+    accepted_candidates: int = 0
+    rejected_candidates: int = 0
+    sanitizer_rejections: int = 0
+    overlap_rejections: int = 0
+    complexity_rejections: int = 0
+    empty_scope_rejections: int = 0
+    validation_rejections: int = 0
+    sanitation_rejections: int = 0
+    overscope_rejections: int = 0
+    skipped_validation_only_orders: int = 0
+    used_micro_fallback: bool = False
+
+
+@dataclass(slots=True)
+class DecompositionOutcome:
+    """Accepted child issues plus telemetry for one parent issue."""
+
+    children: list[BossIssueCandidate]
+    stats: DecompositionStats
+
+
 class DecompositionBridge:
     """Transform a vague parent issue into bounded child candidates."""
 
@@ -110,12 +137,24 @@ class DecompositionBridge:
         *,
         max_children: int = 5,
     ) -> list[BossIssueCandidate]:
+        return (
+            await self.decompose_issue_with_stats(title, body, max_children=max_children)
+        ).children
+
+    async def decompose_issue_with_stats(
+        self,
+        title: str,
+        body: str,
+        *,
+        max_children: int = 5,
+    ) -> DecompositionOutcome:
         if max_children <= 0:
-            return []
+            return DecompositionOutcome(children=[], stats=DecompositionStats())
 
         spec = self._build_parent_spec(title, body)
         parent_category = infer_issue_category_from_title(title) or "decomposed_issue"
         actionable = spec.refined_goal or spec.raw_goal or str(title or "").strip()
+        stats = DecompositionStats()
 
         decomposition = self._task_decomposer.analyze(
             actionable,
@@ -133,9 +172,11 @@ class DecompositionBridge:
                         parent_title=title,
                         parent_category=parent_category,
                         parent_spec=spec,
+                        stats=stats,
                     )
                 )
         elif spec.file_scope_hints:
+            stats.used_micro_fallback = True
             candidates.extend(
                 await self._candidates_from_micro_work_orders(
                     goal=actionable,
@@ -144,9 +185,11 @@ class DecompositionBridge:
                     file_scope_hints=list(spec.file_scope_hints),
                     acceptance_criteria=list(spec.acceptance_criteria),
                     constraints=list(spec.constraints),
+                    stats=stats,
                 )
             )
 
+        stats.raw_candidates = len(candidates)
         accepted: list[BossIssueCandidate] = []
         seen_paths: set[str] = set()
         for candidate in candidates:
@@ -154,19 +197,37 @@ class DecompositionBridge:
                 break
             candidate_paths = set(candidate.file_scope + candidate.new_files)
             if not candidate_paths:
+                stats.rejected_candidates += 1
+                stats.empty_scope_rejections += 1
                 continue
             if candidate_paths & seen_paths:
+                stats.rejected_candidates += 1
+                stats.overlap_rejections += 1
                 continue
             if candidate.estimated_complexity not in {"small", "medium"}:
+                stats.rejected_candidates += 1
+                stats.complexity_rejections += 1
                 continue
-            gated = self._gate_candidate(candidate)
+            gated, gate_reason = self._gate_candidate_with_reason(candidate)
             if gated is None:
+                stats.rejected_candidates += 1
+                if gate_reason == "sanitizer":
+                    stats.sanitizer_rejections += 1
+                elif gate_reason == "missing_validation":
+                    stats.validation_rejections += 1
+                elif gate_reason == "body_sanitation":
+                    stats.sanitation_rejections += 1
+                elif gate_reason == "scope_too_broad":
+                    stats.overscope_rejections += 1
+                elif gate_reason == "missing_scope":
+                    stats.empty_scope_rejections += 1
                 continue
             accepted.append(gated)
+            stats.accepted_candidates += 1
             seen_paths.update(gated.file_scope)
             seen_paths.update(gated.new_files)
 
-        return accepted[:max_children]
+        return DecompositionOutcome(children=accepted[:max_children], stats=stats)
 
     def decompose_issue_sync(
         self,
@@ -179,6 +240,20 @@ class DecompositionBridge:
         except RuntimeError:
             return asyncio.run(self.decompose_issue(title, body, **kwargs))
         raise RuntimeError("decompose_issue_sync() cannot run inside an active event loop")
+
+    def decompose_issue_sync_with_stats(
+        self,
+        title: str,
+        body: str,
+        **kwargs: Any,
+    ) -> DecompositionOutcome:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self.decompose_issue_with_stats(title, body, **kwargs))
+        raise RuntimeError(
+            "decompose_issue_sync_with_stats() cannot run inside an active event loop"
+        )
 
     def _build_parent_spec(self, title: str, body: str) -> SwarmSpec:
         issue_body = str(body or "").strip()
@@ -219,9 +294,11 @@ class DecompositionBridge:
         parent_title: str,
         parent_category: str,
         parent_spec: SwarmSpec,
+        stats: DecompositionStats,
     ) -> list[BossIssueCandidate]:
         scope = _normalize_scope_paths(list(subtask.file_scope))
         if self._needs_micro_decomposition(subtask):
+            stats.used_micro_fallback = True
             return await self._candidates_from_micro_work_orders(
                 goal=subtask.description
                 or subtask.title
@@ -235,6 +312,7 @@ class DecompositionBridge:
                     or list(parent_spec.acceptance_criteria)
                 ),
                 constraints=list(parent_spec.constraints),
+                stats=stats,
             )
 
         return [
@@ -260,6 +338,7 @@ class DecompositionBridge:
         file_scope_hints: list[str],
         acceptance_criteria: list[str],
         constraints: list[str],
+        stats: DecompositionStats,
     ) -> list[BossIssueCandidate]:
         orders = build_micro_work_orders(
             goal=goal,
@@ -272,6 +351,7 @@ class DecompositionBridge:
         for order in orders:
             title = str(order.get("title", "")).strip()
             if "validation" in title.lower():
+                stats.skipped_validation_only_orders += 1
                 continue
             scope_paths = [
                 str(path).strip() for path in order.get("file_scope", []) if str(path).strip()
@@ -416,13 +496,19 @@ class DecompositionBridge:
         return text
 
     def _gate_candidate(self, candidate: BossIssueCandidate) -> BossIssueCandidate | None:
+        gated, _ = self._gate_candidate_with_reason(candidate)
+        return gated
+
+    def _gate_candidate_with_reason(
+        self, candidate: BossIssueCandidate
+    ) -> tuple[BossIssueCandidate | None, str | None]:
         body = self._render_candidate_body(candidate)
         sanitation = self._task_sanitizer.sanitize(candidate.title, body)
         if sanitation.outcome in {
             SanitizationOutcome.DROPPED,
             SanitizationOutcome.QUARANTINED,
         }:
-            return None
+            return None, "sanitizer"
 
         effective_text = sanitation.sanitized_text or f"{candidate.title}\n\n{body}"
         effective_body = self._extract_body_text(candidate.title, effective_text)
@@ -452,16 +538,20 @@ class DecompositionBridge:
             candidate.acceptance_criteria = _ordered_unique(criteria)
 
         if len(candidate.file_scope) + len(candidate.new_files) > _MAX_SCOPE_PATHS:
-            return None
+            return None, "scope_too_broad"
 
         sanitation_ok, _ = assess_issue_body_sanitation(effective_body)
         if not sanitation_ok:
-            return None
+            return None, "body_sanitation"
         if not candidate.validation_command:
-            return None
+            return None, "missing_validation"
         if not (candidate.file_scope or candidate.new_files):
-            return None
-        return candidate
+            return None, "missing_scope"
+        return candidate, None
 
 
-__all__ = ["DecompositionBridge"]
+__all__ = [
+    "DecompositionBridge",
+    "DecompositionOutcome",
+    "DecompositionStats",
+]

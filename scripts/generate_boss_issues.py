@@ -19,6 +19,7 @@ import json
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 # Add repo root to path
@@ -28,6 +29,28 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.swarm.decomposition_bridge import DecompositionBridge  # noqa: E402
 from aragora.swarm.issue_scanner import BossIssueCandidate, scan_all  # noqa: E402
 from aragora.swarm.issue_upgrader import upgrade_issue_heuristic  # noqa: E402
+
+_GENERIC_PARENT_PHRASES: tuple[str, ...] = (
+    "read the module and identify all public functions",
+    "create a test file with broad coverage",
+    "covering all public api surface",
+    "while preserving existing behavior and keeping the work reviewable",
+    "supporting tests",
+    "think about it",
+)
+
+
+@dataclass(slots=True)
+class DecompositionTelemetry:
+    """Aggregate telemetry for one generator run."""
+
+    parents_seen: int = 0
+    parents_eligible: int = 0
+    parents_preserved: int = 0
+    parents_replaced: int = 0
+    children_emitted: int = 0
+    children_rejected: int = 0
+    sanitizer_rejections: int = 0
 
 
 def format_boss_ready_body(candidate: BossIssueCandidate) -> str:
@@ -222,6 +245,81 @@ def validate_body(body: str) -> tuple[bool, str]:
         return True, ""
 
 
+def is_low_quality_parent(candidate: BossIssueCandidate, body: str) -> bool:
+    """Return True only for generic parent issues worth decomposing.
+
+    The bridge should operate on broad or templated parent issues, not on
+    already-bounded single-file work orders produced by the scanner.
+    """
+    total_scope = len(candidate.file_scope) + len(candidate.new_files)
+    normalized_body = " ".join(body.lower().split())
+
+    if total_scope == 0:
+        return True
+    if total_scope > 2:
+        return True
+    if not candidate.validation_command:
+        return True
+    if candidate.estimated_complexity not in {"small", "medium"}:
+        return True
+    return any(phrase in normalized_body for phrase in _GENERIC_PARENT_PHRASES)
+
+
+def _print_decomposition_telemetry(telemetry: DecompositionTelemetry) -> None:
+    print(
+        "  Decomposition telemetry:"
+        f" seen={telemetry.parents_seen}"
+        f" eligible={telemetry.parents_eligible}"
+        f" preserved={telemetry.parents_preserved}"
+        f" replaced={telemetry.parents_replaced}"
+        f" children={telemetry.children_emitted}"
+        f" rejected={telemetry.children_rejected}"
+        f" sanitizer={telemetry.sanitizer_rejections}"
+    )
+
+
+def maybe_decompose_candidates_with_telemetry(
+    candidates: list[BossIssueCandidate],
+    *,
+    enabled: bool,
+    max_children_per_parent: int,
+    repo_root: Path,
+) -> tuple[list[BossIssueCandidate], DecompositionTelemetry]:
+    """Optionally replace low-quality parents with bounded child candidates."""
+    telemetry = DecompositionTelemetry(parents_seen=len(candidates))
+    if not enabled or not candidates:
+        telemetry.parents_preserved = len(candidates)
+        return list(candidates), telemetry
+
+    bridge = DecompositionBridge(repo_root)
+    expanded: list[BossIssueCandidate] = []
+    for candidate in candidates:
+        parent_body = format_boss_ready_body(candidate)
+        if not is_low_quality_parent(candidate, parent_body):
+            expanded.append(candidate)
+            telemetry.parents_preserved += 1
+            continue
+
+        telemetry.parents_eligible += 1
+        outcome = bridge.decompose_issue_sync_with_stats(
+            candidate.title,
+            parent_body,
+            max_children=max_children_per_parent,
+        )
+        telemetry.children_rejected += outcome.stats.rejected_candidates
+        telemetry.sanitizer_rejections += outcome.stats.sanitizer_rejections
+
+        if len(outcome.children) >= 2:
+            expanded.extend(outcome.children)
+            telemetry.parents_replaced += 1
+            telemetry.children_emitted += len(outcome.children)
+        else:
+            expanded.append(candidate)
+            telemetry.parents_preserved += 1
+
+    return expanded, telemetry
+
+
 def maybe_decompose_candidates(
     candidates: list[BossIssueCandidate],
     *,
@@ -229,34 +327,12 @@ def maybe_decompose_candidates(
     max_children_per_parent: int,
     repo_root: Path,
 ) -> list[BossIssueCandidate]:
-    """Optionally replace low-quality parents with bounded child candidates.
-
-    The parent candidate is preserved unless decomposition produces a meaningful
-    child set. This keeps the feature safe to enable experimentally.
-    """
-    if not enabled or not candidates:
-        return list(candidates)
-
-    bridge = DecompositionBridge(repo_root)
-    expanded: list[BossIssueCandidate] = []
-    decomposed_count = 0
-    for candidate in candidates:
-        parent_body = format_boss_ready_body(candidate)
-        children = bridge.decompose_issue_sync(
-            candidate.title,
-            parent_body,
-            max_children=max_children_per_parent,
-        )
-        if len(children) >= 2:
-            expanded.extend(children)
-            decomposed_count += 1
-        else:
-            expanded.append(candidate)
-
-    if decomposed_count:
-        print(
-            f"  Decomposed {decomposed_count} parent issue(s) into {len(expanded)} bounded candidates"
-        )
+    expanded, _ = maybe_decompose_candidates_with_telemetry(
+        candidates,
+        enabled=enabled,
+        max_children_per_parent=max_children_per_parent,
+        repo_root=repo_root,
+    )
     return expanded
 
 
@@ -324,12 +400,14 @@ def main() -> None:
         categories=args.categories,
         min_success_rate=args.min_success_rate,
     )
-    candidates = maybe_decompose_candidates(
+    candidates, decomposition_telemetry = maybe_decompose_candidates_with_telemetry(
         candidates,
         enabled=args.decompose_low_quality,
         max_children_per_parent=args.max_children_per_parent,
         repo_root=repo_root,
     )
+    if args.decompose_low_quality:
+        _print_decomposition_telemetry(decomposition_telemetry)
     print(
         f"  Found {len(candidates)} candidates across {len(set(c.category for c in candidates))} categories"
     )

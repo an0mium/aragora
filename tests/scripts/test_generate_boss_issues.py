@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+from types import SimpleNamespace
 
 from aragora.swarm.issue_scanner import BossIssueCandidate
 from scripts import generate_boss_issues as mod
@@ -201,16 +202,29 @@ def test_maybe_decompose_candidates_replaces_parent_when_children_emitted(monkey
         new_files=["tests/test_module_b.py"],
         validation_command="python3 -m pytest -q tests/test_module_b.py",
     )
+    monkeypatch.setattr(
+        mod,
+        "format_boss_ready_body",
+        lambda candidate: (
+            "## Task\n\nAdd comprehensive unit tests.\n\n"
+            "### Requirements\n"
+            "1. Read the module and identify all public functions.\n"
+            "2. Create a test file with broad coverage.\n"
+        ),
+    )
 
     class FakeBridge:
         def __init__(self, repo_root):  # noqa: D401, ANN001
             self.repo_root = repo_root
 
-        def decompose_issue_sync(self, title, body, *, max_children):  # noqa: ANN001
+        def decompose_issue_sync_with_stats(self, title, body, *, max_children):  # noqa: ANN001
             assert title == parent.title
             assert "## Task" in body
             assert max_children == 3
-            return [child_a, child_b]
+            return SimpleNamespace(
+                children=[child_a, child_b],
+                stats=SimpleNamespace(rejected_candidates=1, sanitizer_rejections=1),
+            )
 
     monkeypatch.setattr(mod, "DecompositionBridge", FakeBridge)
 
@@ -235,13 +249,26 @@ def test_maybe_decompose_candidates_keeps_parent_when_child_set_is_not_meaningfu
         file_scope=["aragora/module_a.py"],
         validation_command="python3 -m ruff check aragora/module_a.py",
     )
+    monkeypatch.setattr(
+        mod,
+        "format_boss_ready_body",
+        lambda candidate: (
+            "## Task\n\nAdd comprehensive unit tests.\n\n"
+            "### Requirements\n"
+            "1. Read the module and identify all public functions.\n"
+            "2. Create a test file with broad coverage.\n"
+        ),
+    )
 
     class FakeBridge:
         def __init__(self, repo_root):  # noqa: D401, ANN001
             self.repo_root = repo_root
 
-        def decompose_issue_sync(self, title, body, *, max_children):  # noqa: ANN001
-            return [single_child]
+        def decompose_issue_sync_with_stats(self, title, body, *, max_children):  # noqa: ANN001
+            return SimpleNamespace(
+                children=[single_child],
+                stats=SimpleNamespace(rejected_candidates=2, sanitizer_rejections=1),
+            )
 
     monkeypatch.setattr(mod, "DecompositionBridge", FakeBridge)
 
@@ -253,6 +280,85 @@ def test_maybe_decompose_candidates_keeps_parent_when_child_set_is_not_meaningfu
     )
 
     assert result == [parent]
+
+
+def test_is_low_quality_parent_skips_bounded_module_aware_issue() -> None:
+    candidate = _candidate(
+        "analytics_core", file_scope=["aragora/server/handlers/analytics/core.py"]
+    )
+    body = (
+        "## Task\n\n"
+        "Write focused unit tests for `aragora/server/handlers/analytics/core.py` (53 lines, 0 public functions).\n\n"
+        "**Module purpose:** Analytics Core Module.\n\n"
+        "### What to test\n"
+        "- happy path behavior\n\n"
+        "### Validation\n```bash\npytest tests/test_analytics_core.py -v\n```"
+    )
+
+    assert mod.is_low_quality_parent(candidate, body) is False
+
+
+def test_is_low_quality_parent_detects_generic_template() -> None:
+    candidate = _candidate("module", file_scope=["aragora/pkg/module.py"])
+    body = (
+        "## Task\n\n"
+        "Add comprehensive unit tests for `aragora/pkg/module.py`.\n\n"
+        "### Requirements\n"
+        "1. Read the module and identify all public functions.\n"
+        "2. Create a test file with broad coverage.\n"
+    )
+
+    assert mod.is_low_quality_parent(candidate, body) is True
+
+
+def test_maybe_decompose_candidates_with_telemetry_tracks_counts(monkeypatch) -> None:
+    low_quality = _candidate("generic_module", file_scope=["aragora/generic_module.py"])
+    bounded = _candidate("bounded_module", file_scope=["aragora/bounded_module.py"])
+    child_a = _candidate("child_a", file_scope=["aragora/child_a.py"])
+    child_b = _candidate("child_b", file_scope=["aragora/child_b.py"])
+
+    original_formatter = mod.format_boss_ready_body
+
+    def fake_format(candidate: BossIssueCandidate) -> str:
+        if candidate.title == low_quality.title:
+            return (
+                "## Task\n\n"
+                "Add comprehensive unit tests for `aragora/generic_module.py`.\n\n"
+                "### Requirements\n"
+                "1. Read the module and identify all public functions.\n"
+                "2. Create a test file with broad coverage.\n"
+            )
+        return original_formatter(candidate)
+
+    class FakeBridge:
+        def __init__(self, repo_root):  # noqa: D401, ANN001
+            self.repo_root = repo_root
+
+        def decompose_issue_sync_with_stats(self, title, body, *, max_children):  # noqa: ANN001
+            assert title == low_quality.title
+            return SimpleNamespace(
+                children=[child_a, child_b],
+                stats=SimpleNamespace(rejected_candidates=3, sanitizer_rejections=2),
+            )
+
+    monkeypatch.setattr(mod, "format_boss_ready_body", fake_format)
+    monkeypatch.setattr(mod, "DecompositionBridge", FakeBridge)
+
+    result, telemetry = mod.maybe_decompose_candidates_with_telemetry(
+        [low_quality, bounded],
+        enabled=True,
+        max_children_per_parent=4,
+        repo_root=mod.REPO_ROOT,
+    )
+
+    assert result == [child_a, child_b, bounded]
+    assert telemetry.parents_seen == 2
+    assert telemetry.parents_eligible == 1
+    assert telemetry.parents_replaced == 1
+    assert telemetry.parents_preserved == 1
+    assert telemetry.children_emitted == 2
+    assert telemetry.children_rejected == 3
+    assert telemetry.sanitizer_rejections == 2
 
 
 def test_main_passes_decomposition_flags(monkeypatch, capsys) -> None:
@@ -269,10 +375,16 @@ def test_main_passes_decomposition_flags(monkeypatch, capsys) -> None:
     )
     monkeypatch.setattr(
         mod,
-        "maybe_decompose_candidates",
+        "maybe_decompose_candidates_with_telemetry",
         lambda candidates, *, enabled, max_children_per_parent, repo_root: (
             decompose_calls.append((list(candidates), enabled, max_children_per_parent, repo_root))
-            or list(candidates)
+            or (
+                list(candidates),
+                mod.DecompositionTelemetry(
+                    parents_seen=len(candidates),
+                    parents_preserved=len(candidates),
+                ),
+            )
         ),
     )
     monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])

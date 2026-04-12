@@ -9,7 +9,11 @@ import pytest
 
 from aragora.nomic.task_decomposer import SubTask
 from aragora.swarm.boss_validation import assess_issue_body_sanitation
-from aragora.swarm.decomposition_bridge import DecompositionBridge, _partition_paths
+from aragora.swarm.decomposition_bridge import (
+    DecompositionBridge,
+    DecompositionOutcome,
+    _partition_paths,
+)
 from aragora.swarm.task_sanitizer import SanitizationOutcome, SanitizationResult
 
 
@@ -533,6 +537,24 @@ class TestDecomposeIssue:
         )
         assert len(result) == 1
 
+    def test_sync_wrapper_with_stats_counts_rejections(self, bridge: DecompositionBridge) -> None:
+        bridge._task_decomposer = _FakeDecomposer(
+            [
+                _make_subtask(title="first", file_scope=["aragora/pkg/module.py"]),
+                _make_subtask(title="second", file_scope=["aragora/pkg/module.py"]),
+            ]
+        )
+        result = bridge.decompose_issue_sync_with_stats(
+            "Parent",
+            "## Task\n\nParent task body that is long enough for dispatch gating to accept it safely.",
+        )
+        assert isinstance(result, DecompositionOutcome)
+        assert len(result.children) == 1
+        assert result.stats.raw_candidates == 2
+        assert result.stats.accepted_candidates == 1
+        assert result.stats.rejected_candidates == 1
+        assert result.stats.overlap_rejections == 1
+
 
 class TestRealIssueCorpus:
     @pytest.mark.asyncio
@@ -540,9 +562,9 @@ class TestRealIssueCorpus:
         ("title", "body"),
         [
             (
-                "Add unit tests for aragora/pkg/module.py",
+                "Add unit tests for server/fastapi/routes/dr.py",
                 "## Task\n\n"
-                "Add comprehensive unit tests for `aragora/pkg/module.py`.\n\n"
+                "Add comprehensive unit tests for `aragora/server/fastapi/routes/dr.py`.\n\n"
                 "### Requirements\n"
                 "1. Read the module and identify all public functions.\n"
                 "2. Create a test file with broad coverage.\n\n"
@@ -569,6 +591,18 @@ class TestRealIssueCorpus:
                 "- `aragora/pkg/helper.py`\n"
                 "- `tests/pkg/test_module.py` (create)\n",
             ),
+            (
+                "Replace silent exception swallowing in scheduler_bridge.py",
+                "## Task\n\n"
+                "Replace `except ...: pass` patterns with proper error handling in `aragora/pkg/helper.py`.\n\n"
+                "### Requirements\n"
+                "1. Read the file and find all silent exception swallowing.\n"
+                "2. Add logging or specific handling where appropriate.\n\n"
+                "### File Scope\n"
+                "- `aragora/pkg/helper.py`\n\n"
+                "### Validation\n"
+                "- python3 -m ruff check aragora/pkg/helper.py\n",
+            ),
         ],
     )
     async def test_realish_parent_templates_emit_bounded_children(
@@ -586,6 +620,7 @@ class TestRealIssueCorpus:
             assert candidate.validation_command
             assert candidate.estimated_complexity in {"small", "medium"}
             assert 1 <= len(candidate.file_scope) + len(candidate.new_files) <= 5
+            assert candidate.file_scope or candidate.new_files
             rendered = bridge._render_candidate_body(candidate)
             ok, reason = assess_issue_body_sanitation(rendered)
             assert ok, reason
