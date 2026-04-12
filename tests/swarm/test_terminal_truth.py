@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from aragora.swarm.terminal_truth import (
+    classify_from_metrics,
     qualify_run_terminal_state,
     qualify_work_order_terminal_state,
 )
@@ -65,3 +69,23 @@ def test_qualify_run_terminal_state_derives_failure_classes_from_lineage_and_out
     assert qualification.stage_id == "stage-dispatch-ready"
     assert qualification.failure_classes == ["unsafe_scope", "scope_violation"]
     assert qualification.to_dict()["receipt_outcome"] == "blocked"
+
+
+def test_terminal_truth_fixtures_match_expected_classes() -> None:
+    fixture_dir = (
+        Path(__file__).resolve().parents[2] / "benchmarks" / "fixtures" / "swarm" / "terminal_truth"
+    )
+    fixture_files = sorted(fixture_dir.glob("*.json"))
+
+    assert fixture_files, "expected terminal-truth fixtures to exist"
+
+    for fixture_file in fixture_files:
+        rows = json.loads(fixture_file.read_text(encoding="utf-8"))
+        assert isinstance(rows, list), f"{fixture_file.name} must contain a list of examples"
+
+        for row in rows:
+            expected = row["expected_class"]
+            observed = classify_from_metrics(row).value
+            assert observed == expected, (
+                f"{fixture_file.name}: expected {expected!r}, observed {observed!r} for row {row!r}"
+            )
