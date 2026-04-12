@@ -44,7 +44,7 @@ class TaskBriefV1:
 
     def __post_init__(self) -> None:
         """Perform validation after the object is initialized."""
-        if not self.goal or not self.goal.strip():
+        if not isinstance(self.goal, str) or not self.goal.strip():
             raise ValueError("The 'goal' field cannot be empty.")
 
         if not 0.0 <= self.confidence <= 1.0:
