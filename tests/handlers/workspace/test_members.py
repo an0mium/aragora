@@ -601,6 +601,13 @@ class TestAddMember:
         assert _status(result) == 400
         assert "JSON" in _error(result)
 
+    def test_add_member_rejects_non_object_json_body(self, handler, make_handler_request):
+        req = make_handler_request(method="POST", body=None)
+        req._json_body = ["not-an-object"]
+        result = handler._handle_add_member(req, "ws-1")
+        assert _status(result) == 400
+        assert _error(result) == "JSON body must deserialize to an object"
+
     def test_add_member_not_authenticated(
         self, handler, make_handler_request, mock_workspace_module
     ):

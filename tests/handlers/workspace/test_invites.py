@@ -596,6 +596,13 @@ class TestCreateInvite:
         assert _status(result) == 400
         assert "JSON" in _error(result)
 
+    def test_create_rejects_non_object_json_body(self, handler, make_handler_request):
+        req = make_handler_request(body=None)
+        req._json_body = "not-an-object"
+        result = handler._handle_create_invite(req, "ws-1")
+        assert _status(result) == 400
+        assert _error(result) == "JSON body must deserialize to an object"
+
     def test_create_email_masked_format(self, handler, make_handler_request):
         req = make_handler_request(body={"email": "alice@example.com"})
         result = handler._handle_create_invite(req, "ws-1")

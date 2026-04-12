@@ -247,6 +247,8 @@ class WorkspaceInvitesMixin:
         body = self.read_json_body(handler)
         if body is None:
             return m.error_response("Invalid JSON body", 400)
+        if not isinstance(body, dict):
+            return m.error_response("JSON body must deserialize to an object", 400)
 
         email = body.get("email")
         if not email or "@" not in email:
