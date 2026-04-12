@@ -71,7 +71,7 @@ class MetricsCollector:
     - Rate calculations (calls per second)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._last_snapshot: MetricsSnapshot | None = None
         self._last_collect_time: float = 0
         self._callbacks: list[Callable[[MetricsSnapshot], None]] = []
@@ -219,7 +219,7 @@ def export_to_prometheus(
             pass
 
     # Update metrics with current values
-    def update_prometheus_metrics():
+    def update_prometheus_metrics() -> None:
         current = get_factory_metrics()
         for name, counter in metrics_map.items():
             if name in current:
@@ -349,7 +349,7 @@ def create_periodic_exporter(
 
     stop_event = threading.Event()
 
-    def run():
+    def run() -> None:
         while not stop_event.is_set():
             try:
                 export_fn()
@@ -360,7 +360,7 @@ def create_periodic_exporter(
     thread = threading.Thread(target=run, daemon=True)
     thread.start()
 
-    def stop():
+    def stop() -> None:
         stop_event.set()
         thread.join(timeout=5.0)
 
