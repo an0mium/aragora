@@ -882,11 +882,11 @@ class BossLoop:
             prompt_chars = 0
             enriched_context_chars = 0
             prompt_version = "v2"  # Context-first prompt (post a11848eac)
-            issue_title = ""
-            if isinstance(receipt_metadata, dict):
-                issue_title = str(receipt_metadata.get("issue_title", "")).strip()
-            if not issue_title:
-                issue_title = str(worker_result.get("issue_title", "")).strip()
+            issue_title = (
+                str(receipt_metadata.get("issue_title", "")).strip()
+                if isinstance(receipt_metadata, dict)
+                else ""
+            ) or str(worker_result.get("issue_title", "")).strip()
             is_decomposed = bool(re.search(r"\[from #\d+\]", issue_title))
             cohort_tag = "B0-cohort" if issue_title.startswith("[B0-cohort]") else None
             worker_outcome = str(worker_result.get("outcome", "")).strip()
@@ -4834,8 +4834,6 @@ class BossLoop:
                 {
                     "status": "needs_human",
                     "outcome": outcome,
-                    "sanitizer_outcome": sanitization.outcome.value,
-                    "checks_failed": list(sanitization.checks_failed),
                     "reasons": reasons,
                     "next_actions": next_actions,
                 }
