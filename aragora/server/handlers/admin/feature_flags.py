@@ -11,6 +11,7 @@ from __future__ import annotations
 
 __all__ = ["FeatureFlagAdminHandler"]
 
+import json
 import logging
 from typing import Any
 
@@ -232,8 +233,8 @@ class FeatureFlagAdminHandler(BaseHandler):
         if not definition:
             return error_response(f"Flag not found: {name}", 404)
 
-        body = self.read_json_body(handler)
-        if body is None:
+        body, parsed = self._read_json_body_value(handler)
+        if not parsed:
             return error_response("Invalid JSON body", 400)
         if not isinstance(body, dict):
             return error_response("JSON body must deserialize to an object", 400)
@@ -266,3 +267,45 @@ class FeatureFlagAdminHandler(BaseHandler):
                 "updated": True,
             }
         )
+
+    def _read_json_body_value(
+        self,
+        handler: Any,
+        max_size: int | None = None,
+    ) -> tuple[Any | None, bool]:
+        """Read JSON while distinguishing parse failures from non-object payloads."""
+        max_size = max_size or self.MAX_BODY_SIZE
+        try:
+            for raw_body in (
+                getattr(handler, "body", None),
+                getattr(getattr(handler, "request", None), "body", None),
+            ):
+                if isinstance(raw_body, str):
+                    raw_body = raw_body.encode("utf-8")
+                if isinstance(raw_body, (bytes, bytearray)):
+                    if len(raw_body) > max_size:
+                        return None, False
+                    if not raw_body:
+                        return {}, True
+                    return json.loads(bytes(raw_body)), True
+
+            content_length = int(handler.headers.get("Content-Length", 0))
+            is_chunked = "chunked" in (handler.headers.get("Transfer-Encoding", "") or "").lower()
+
+            if content_length > max_size:
+                return None, False
+
+            if content_length > 0:
+                body = handler.rfile.read(content_length)
+            elif is_chunked or content_length == 0:
+                body = handler.rfile.read(max_size)
+            else:
+                return {}, True
+
+            if not body:
+                return {}, True
+            if len(body) > max_size:
+                return None, False
+            return json.loads(body), True
+        except (AttributeError, json.JSONDecodeError, TypeError, ValueError):
+            return None, False

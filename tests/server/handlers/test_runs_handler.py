@@ -51,6 +51,18 @@ def _make_http_handler() -> Any:
     return handler
 
 
+def _assert_stage_payload(
+    actual: list[dict[str, Any]],
+    expected: list[tuple[str, str]],
+) -> None:
+    assert [(stage["stage"], stage["status"]) for stage in actual] == expected
+    for stage in actual:
+        assert isinstance(stage.get("event_id"), str)
+        assert "created_at" in stage
+        assert stage.get("artifact_ref") == ""
+        assert stage.get("details") == {}
+
+
 @pytest.fixture(autouse=True)
 def isolated_plan_store(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> PlanStore:
     store = PlanStore(db_path=str(tmp_path / "runs_handler.db"))
@@ -100,21 +112,21 @@ def test_handle_runs_list_returns_compact_backbone_payload(
     parsed = _parse(result)
 
     assert parsed["status"] == 200
-    assert parsed["body"] == {
-        "runs": [
-            {
-                "run_id": "run-001",
-                "status": "plan_ready",
-                "stages": [
-                    {"stage": BackboneStage.INTAKE.value, "status": "received"},
-                    {"stage": BackboneStage.PLAN.value, "status": "completed"},
-                ],
-                "execution_id": "exec-001",
-                "receipt_id": "receipt-001",
-                "safety_mode": ExecutionMode.INTERACTIVE.value,
-            }
-        ]
-    }
+    assert len(parsed["body"]["runs"]) == 1
+    payload = parsed["body"]["runs"][0]
+    assert payload["run_id"] == "run-001"
+    assert payload["status"] == "plan_ready"
+    assert payload["execution_id"] == "exec-001"
+    assert payload["receipt_id"] == "receipt-001"
+    assert payload["safety_mode"] == ExecutionMode.INTERACTIVE.value
+    _assert_stage_payload(
+        payload["stages"],
+        [
+            (BackboneStage.INTAKE.value, "received"),
+            (BackboneStage.PLAN.value, "completed"),
+        ],
+    )
+    assert payload["stage_timeline"] == payload["stages"]
 
 
 def test_handle_runs_list_prefers_backbone_lister() -> None:
@@ -146,9 +158,11 @@ def test_handle_runs_list_prefers_backbone_lister() -> None:
     assert parsed["status"] == 200
     assert store.calls == [("receipt_ready", 5, 2)]
     assert parsed["body"]["runs"][0]["run_id"] == "run-compat"
-    assert parsed["body"]["runs"][0]["stages"] == [
-        {"stage": BackboneStage.RECEIPT.value, "status": "completed"}
-    ]
+    _assert_stage_payload(
+        parsed["body"]["runs"][0]["stages"],
+        [(BackboneStage.RECEIPT.value, "completed")],
+    )
+    assert parsed["body"]["runs"][0]["stage_timeline"] == parsed["body"]["runs"][0]["stages"]
 
 
 def test_handle_run_detail_prefers_get_backbone_run() -> None:
@@ -174,18 +188,17 @@ def test_handle_run_detail_prefers_get_backbone_run() -> None:
 
     assert parsed["status"] == 200
     assert store.seen == ["run-detail"]
-    assert parsed["body"] == {
-        "run": {
-            "run_id": "run-detail",
-            "status": "execution_started",
-            "stages": [
-                {"stage": BackboneStage.EXECUTION.value, "status": "running"},
-            ],
-            "execution_id": "exec-detail",
-            "receipt_id": None,
-            "safety_mode": ExecutionMode.AUTONOMOUS.value,
-        }
-    }
+    payload = parsed["body"]["run"]
+    assert payload["run_id"] == "run-detail"
+    assert payload["status"] == "execution_started"
+    assert payload["execution_id"] == "exec-detail"
+    assert payload["receipt_id"] is None
+    assert payload["safety_mode"] == ExecutionMode.AUTONOMOUS.value
+    _assert_stage_payload(
+        payload["stages"],
+        [(BackboneStage.EXECUTION.value, "running")],
+    )
+    assert payload["stage_timeline"] == payload["stages"]
 
 
 def test_handle_run_detail_returns_404_when_missing() -> None:
