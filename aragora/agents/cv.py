@@ -523,7 +523,7 @@ def get_cv_builder() -> CVBuilder:
             elo_system = get_elo_store()
         except ImportError:
             logger.debug("ELO system not available for CV builder")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning("Failed to initialise ELO system for CV builder: %s", e)
 
         try:
@@ -532,7 +532,7 @@ def get_cv_builder() -> CVBuilder:
             calibration_tracker = CalibrationTracker()
         except ImportError:
             logger.debug("CalibrationTracker not available for CV builder")
-        except Exception as e:
+        except (RuntimeError, OSError, ValueError, TypeError) as e:
             logger.warning("Failed to initialise CalibrationTracker for CV builder: %s", e)
 
         _cv_builder = CVBuilder(
