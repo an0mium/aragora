@@ -323,7 +323,7 @@ class AutoScaler:
                 metrics.pending_tasks = stats.get("pending_tasks", 0)
                 metrics.running_tasks = stats.get("running_tasks", 0)
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.debug("Failed to get scheduler stats: %s", e)
+                logger.warning("Failed to get scheduler stats: %s", e)
 
         # Get registry stats
         if self._registry:
@@ -337,7 +337,7 @@ class AutoScaler:
                 if metrics.total_agents > 0:
                     metrics.utilization = metrics.busy_agents / metrics.total_agents
             except (OSError, ConnectionError, RuntimeError) as e:
-                logger.debug("Failed to get registry stats: %s", e)
+                logger.warning("Failed to get registry stats: %s", e)
 
         # Calculate p99 latency from samples
         if self._latency_samples:
