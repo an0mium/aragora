@@ -4,9 +4,10 @@ OpenClaw Credential Vault - Protocol definitions.
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 
+@runtime_checkable
 class KMSProviderProtocol(Protocol):
     """Protocol for KMS providers."""
 
@@ -23,6 +24,7 @@ class KMSProviderProtocol(Protocol):
         ...
 
 
+@runtime_checkable
 class AuditLoggerProtocol(Protocol):
     """Protocol for audit logging."""
 
@@ -39,6 +41,7 @@ class AuditLoggerProtocol(Protocol):
         ...
 
 
+@runtime_checkable
 class AuthorizationContextProtocol(Protocol):
     """Protocol for authorization context."""
 
