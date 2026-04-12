@@ -509,6 +509,19 @@ class TestBaseHandlerJsonParsing:
         result = handler.read_json_body(mock_http)
         assert result is None
 
+    def test_read_json_body_rejects_non_object_json(self):
+        """read_json_body returns None for non-object JSON payloads."""
+        from aragora.server.handlers.base import BaseHandler
+
+        handler = BaseHandler({})
+        mock_http = MagicMock()
+        body_bytes = b'["not", "an", "object"]'
+        mock_http.headers = {"Content-Length": str(len(body_bytes))}
+        mock_http.rfile = BytesIO(body_bytes)
+
+        result = handler.read_json_body(mock_http)
+        assert result is None
+
     def test_read_json_body_too_large(self):
         """read_json_body returns None for oversized body."""
         from aragora.server.handlers.base import BaseHandler

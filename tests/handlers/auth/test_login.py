@@ -490,6 +490,12 @@ class TestLoginInvalidBody:
         result = handler._handle_login(http)
         assert _status(result) == 400
 
+    def test_non_object_json_returns_400(self, handler):
+        http = MockHTTPHandler(body=["oops"])
+        result = handler._handle_login(http)
+        assert _status(result) == 400
+        assert "invalid json body" in _body(result).get("error", "").lower()
+
     def test_empty_body_returns_400(self, handler):
         http = MockHTTPHandler(body={})
         result = handler._handle_login(http)

@@ -1111,6 +1111,7 @@ class BaseHandler:
 
         Returns:
             Parsed JSON dict, empty dict for no content, or None for parse errors
+            or non-object JSON payloads
         """
         max_size = max_size or self.MAX_BODY_SIZE
         try:
@@ -1125,7 +1126,8 @@ class BaseHandler:
                         return None
                     if not raw_body:
                         return {}
-                    return json.loads(bytes(raw_body))
+                    parsed = json.loads(bytes(raw_body))
+                    return parsed if isinstance(parsed, dict) else None
 
             content_length = int(handler.headers.get("Content-Length", 0))
             is_chunked = "chunked" in (handler.headers.get("Transfer-Encoding", "") or "").lower()
@@ -1146,7 +1148,8 @@ class BaseHandler:
                 return {}
             if len(body) > max_size:
                 return None  # Body too large after read
-            return json.loads(body)
+            parsed = json.loads(body)
+            return parsed if isinstance(parsed, dict) else None
         except (json.JSONDecodeError, ValueError, TypeError):
             return None
 
