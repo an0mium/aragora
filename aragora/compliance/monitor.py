@@ -317,11 +317,7 @@ class ComplianceMonitor:
             Summary dict of relevant audit findings, or None
         """
         try:
-            # Try to get the audit log for recent findings
-            try:
-                from aragora.audit.log import AuditQuery, get_audit_log
-            except ImportError:
-                return None
+            from aragora.audit.log import AuditQuery, get_audit_log
 
             audit_log = get_audit_log()
             if not audit_log:
