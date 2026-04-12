@@ -200,6 +200,13 @@ class AuthHandler(SecureHandler):
             return True
         return False
 
+    def read_json_body(self, handler: Any, max_size: int | None = None) -> dict[str, Any] | None:
+        """Auth endpoints only accept JSON objects for request bodies."""
+        body = super().read_json_body(handler, max_size=max_size)
+        if body is None or isinstance(body, dict):
+            return body
+        return None
+
     async def handle(
         self,
         path: str,

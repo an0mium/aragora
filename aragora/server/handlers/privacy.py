@@ -64,6 +64,13 @@ class PrivacyHandler(SecureHandler):
         """Check if this handler can process the given path."""
         return path in self.ROUTES
 
+    def read_json_body(self, handler: Any, max_size: int | None = None) -> dict[str, Any] | None:
+        """Privacy endpoints only accept JSON objects for request bodies."""
+        body = super().read_json_body(handler, max_size=max_size)
+        if body is None or isinstance(body, dict):
+            return body
+        return None
+
     @require_permission("privacy:read")
     def handle(
         self, path: str, query_params: dict, handler: Any, method: str = "GET"

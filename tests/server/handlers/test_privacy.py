@@ -555,6 +555,17 @@ class TestAccountDeletion:
         assert len(email_updates) > 0
         assert "deleted" in email_updates[-1]["email"]
 
+    @patch("aragora.server.handlers.privacy.extract_user_from_request")
+    def test_deletion_rejects_non_object_json_body(self, mock_extract, handler, auth_context):
+        mock_extract.return_value = auth_context
+        mock_handler = create_mock_handler("DELETE", ["bad"])
+
+        result = handler.handle("/api/v1/privacy/account", {}, mock_handler, "DELETE")
+
+        assert get_status(result) == 400
+        body = get_body(result)
+        assert "invalid json body" in body.get("error", "").lower()
+
 
 # ===========================================================================
 # Privacy Preferences Tests
@@ -633,6 +644,19 @@ class TestPrivacyPreferences:
         assert len(user_store.audit_log) > initial_count
         last_entry = user_store.audit_log[-1]
         assert last_entry["action"] == "privacy_preferences_updated"
+
+    @patch("aragora.server.handlers.privacy.extract_user_from_request")
+    def test_update_preferences_rejects_non_object_json_body(
+        self, mock_extract, handler, auth_context
+    ):
+        mock_extract.return_value = auth_context
+        mock_handler = create_mock_handler("POST", ["bad"])
+
+        result = handler.handle("/api/v1/privacy/preferences", {}, mock_handler, "POST")
+
+        assert get_status(result) == 400
+        body = get_body(result)
+        assert "invalid json body" in body.get("error", "").lower()
 
 
 # ===========================================================================

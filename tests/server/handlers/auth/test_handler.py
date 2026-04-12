@@ -380,6 +380,17 @@ class TestRegistration:
         assert parsed["success"] is False
         assert parsed["status_code"] == 400
 
+    def test_register_rejects_non_object_json_body(self, auth_handler):
+        """Test registration rejects JSON arrays instead of crashing."""
+        request = make_mock_handler(body=["bad"], command="POST")
+
+        result = auth_handler._handle_register(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] == 400
+        assert "invalid json body" in parsed.get("error", "").lower()
+
 
 # ===========================================================================
 # Test: Login Flow
@@ -576,6 +587,17 @@ class TestLogin:
 
         assert parsed["success"] is False
         assert parsed["status_code"] == 400
+
+    def test_login_rejects_non_object_json_body(self, auth_handler):
+        """Test login rejects JSON arrays instead of crashing."""
+        request = make_mock_handler(body=["bad"], command="POST")
+
+        result = auth_handler._handle_login(request)
+        parsed = parse_result(result)
+
+        assert parsed["success"] is False
+        assert parsed["status_code"] == 400
+        assert "invalid json body" in parsed.get("error", "").lower()
 
 
 # ===========================================================================
@@ -936,6 +958,24 @@ class TestProfileOperations:
         parsed = parse_result(result)
         assert parsed["success"] is False
         assert parsed["status_code"] == 400
+
+    def test_change_password_rejects_non_object_json_body(self, auth_handler, mock_auth_context):
+        """Test password change rejects JSON arrays instead of crashing."""
+        request = make_mock_handler(body=["bad"], command="POST")
+
+        with patch(
+            "aragora.server.handlers.auth.handler.extract_user_from_request",
+            return_value=mock_auth_context,
+        ):
+            with patch("aragora.server.handlers.auth.handler.check_permission") as mock_check:
+                mock_check.return_value = MagicMock(allowed=True)
+
+                result = auth_handler._handle_change_password(request)
+
+        parsed = parse_result(result)
+        assert parsed["success"] is False
+        assert parsed["status_code"] == 400
+        assert "invalid json body" in parsed.get("error", "").lower()
 
 
 # ===========================================================================
