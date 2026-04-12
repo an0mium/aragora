@@ -353,7 +353,7 @@ class AuditLog:
             try:
                 from aragora.storage.production_guards import require_distributed_store, StorageMode
             except ImportError:
-                pass
+                logger.debug("production_guards not available, skipping distributed store check")
             else:
                 require_distributed_store(
                     "control_plane_audit_log",
@@ -368,7 +368,7 @@ class AuditLog:
             try:
                 from aragora.storage.production_guards import require_distributed_store, StorageMode
             except ImportError:
-                pass
+                logger.debug("production_guards not available, skipping distributed store check")
             else:
                 require_distributed_store(
                     "control_plane_audit_log",
