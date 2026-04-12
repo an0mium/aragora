@@ -256,6 +256,12 @@ def main() -> None:
     parser.add_argument("--max-issues", type=int, default=20, help="Max issues to create")
     parser.add_argument("--categories", nargs="*", help="Filter to specific categories")
     parser.add_argument("--label", default="boss-ready", help="Label for created issues")
+    parser.add_argument(
+        "--min-success-rate",
+        type=float,
+        default=0.3,
+        help="Drop candidate categories below this historical success rate",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     args = parser.parse_args()
 
@@ -263,9 +269,11 @@ def main() -> None:
 
     # 1. Scan
     print(f"Scanning {repo_root}...")
-    # Use min_success_rate=0.0 when upgrader is active — the upgrader transforms
-    # low-quality issues into high-quality ones, so historical rates don't apply
-    candidates = scan_all(repo_root, categories=args.categories, min_success_rate=0.0)
+    candidates = scan_all(
+        repo_root,
+        categories=args.categories,
+        min_success_rate=args.min_success_rate,
+    )
     print(
         f"  Found {len(candidates)} candidates across {len(set(c.category for c in candidates))} categories"
     )

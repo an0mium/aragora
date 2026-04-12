@@ -26,7 +26,7 @@ def test_main_dry_run_fetches_and_filters_like_real_mode(
     pr_conflict = _candidate("pr_conflict_module", file_scope=["aragora/pr_conflict_module.py"])
     eligible = _candidate("eligible_module", file_scope=["aragora/eligible_module.py"])
 
-    scan_calls: list[tuple[object, object]] = []
+    scan_calls: list[tuple[object, object, object]] = []
     fetch_existing_calls: list[str] = []
     fetch_pr_calls: list[str] = []
     create_calls: list[tuple[str, str, str, str]] = []
@@ -34,8 +34,9 @@ def test_main_dry_run_fetches_and_filters_like_real_mode(
     monkeypatch.setattr(
         mod,
         "scan_all",
-        lambda repo_root, categories=None: (
-            scan_calls.append((repo_root, categories)) or [duplicate, pr_conflict, eligible]
+        lambda repo_root, categories=None, min_success_rate=0.3: (
+            scan_calls.append((repo_root, categories, min_success_rate))
+            or [duplicate, pr_conflict, eligible]
         ),
     )
     monkeypatch.setattr(
@@ -74,6 +75,7 @@ def test_main_dry_run_fetches_and_filters_like_real_mode(
 
     out = capsys.readouterr().out
     assert scan_calls
+    assert scan_calls[0][2] == 0.3
     assert fetch_existing_calls == ["org/repo"]
     assert fetch_pr_calls == ["org/repo"]
     assert "DRY RUN — would create 1 issues" in out
@@ -90,7 +92,11 @@ def test_main_create_mode_trims_to_max_and_writes_fingerprint(
     second = _candidate("second_module", file_scope=["aragora/second_module.py"])
 
     created: list[tuple[str, str, str, str]] = []
-    monkeypatch.setattr(mod, "scan_all", lambda repo_root, categories=None: [first, second])
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: [first, second],
+    )
     monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
     monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
     monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
@@ -124,3 +130,35 @@ def test_main_create_mode_trims_to_max_and_writes_fingerprint(
     assert title == first.title
     assert label == "boss-ready"
     assert f"<!-- fingerprint:{first.fingerprint} -->" in body
+
+
+def test_main_passes_explicit_min_success_rate(monkeypatch, capsys) -> None:
+    eligible = _candidate("eligible_module", file_scope=["aragora/eligible_module.py"])
+    scan_calls: list[tuple[object, object, object]] = []
+
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: (
+            scan_calls.append((repo_root, categories, min_success_rate)) or [eligible]
+        ),
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_boss_issues.py",
+            "--dry-run",
+            "--min-success-rate",
+            "0.5",
+        ],
+    )
+
+    mod.main()
+
+    _ = capsys.readouterr()
+    assert scan_calls
+    assert scan_calls[0][2] == 0.5
