@@ -32,7 +32,7 @@ from aragora_sdk.namespaces.spectate import (  # noqa: E402
 
 
 @pytest.fixture
-def sync_client():
+def sync_client() -> MagicMock:
     """Return a mock synchronous client."""
     client = MagicMock()
     client.request.return_value = {"status": "ok"}
@@ -40,7 +40,7 @@ def sync_client():
 
 
 @pytest.fixture
-def async_client():
+def async_client() -> MagicMock:
     """Return a mock asynchronous client."""
     client = MagicMock()
     client.request = AsyncMock(return_value={"status": "ok"})
@@ -56,39 +56,39 @@ class TestModerationSync:
     """Sync ModerationAPI -- 6 methods."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, sync_client):
+    def setup(self, sync_client: MagicMock) -> None:
         self.client = sync_client
         self.api = ModerationAPI(sync_client)
 
-    def test_get_config(self):
+    def test_get_config(self) -> None:
         result = self.api.get_config()
         self.client.request.assert_called_once_with("GET", "/api/v1/moderation/config")
         assert result == {"status": "ok"}
 
-    def test_update_config(self):
+    def test_update_config(self) -> None:
         config = {"spam_threshold": 0.9, "auto_reject": True}
         result = self.api.update_config(config)
         self.client.request.assert_called_once_with("PUT", "/api/v1/moderation/config", json=config)
         assert result == {"status": "ok"}
 
-    def test_get_stats(self):
+    def test_get_stats(self) -> None:
         result = self.api.get_stats()
         self.client.request.assert_called_once_with("GET", "/api/v1/moderation/stats")
         assert result == {"status": "ok"}
 
-    def test_get_queue(self):
+    def test_get_queue(self) -> None:
         result = self.api.get_queue()
         self.client.request.assert_called_once_with("GET", "/api/v1/moderation/queue")
         assert result == {"status": "ok"}
 
-    def test_approve_item(self):
+    def test_approve_item(self) -> None:
         result = self.api.approve_item("item-42")
         self.client.request.assert_called_once_with(
             "POST", "/api/v1/moderation/items/item-42/approve"
         )
         assert result == {"status": "ok"}
 
-    def test_reject_item(self):
+    def test_reject_item(self) -> None:
         result = self.api.reject_item("item-99")
         self.client.request.assert_called_once_with(
             "POST", "/api/v1/moderation/items/item-99/reject"
@@ -100,18 +100,18 @@ class TestModerationAsync:
     """Async ModerationAPI -- 6 methods."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, async_client):
+    def setup(self, async_client: MagicMock) -> None:
         self.client = async_client
         self.api = AsyncModerationAPI(async_client)
 
     @pytest.mark.asyncio
-    async def test_get_config(self):
+    async def test_get_config(self) -> None:
         result = await self.api.get_config()
         self.client.request.assert_awaited_once_with("GET", "/api/v1/moderation/config")
         assert result == {"status": "ok"}
 
     @pytest.mark.asyncio
-    async def test_update_config(self):
+    async def test_update_config(self) -> None:
         config = {"spam_threshold": 0.5}
         result = await self.api.update_config(config)
         self.client.request.assert_awaited_once_with(
@@ -120,19 +120,19 @@ class TestModerationAsync:
         assert result == {"status": "ok"}
 
     @pytest.mark.asyncio
-    async def test_get_stats(self):
+    async def test_get_stats(self) -> None:
         result = await self.api.get_stats()
         self.client.request.assert_awaited_once_with("GET", "/api/v1/moderation/stats")
         assert result == {"status": "ok"}
 
     @pytest.mark.asyncio
-    async def test_get_queue(self):
+    async def test_get_queue(self) -> None:
         result = await self.api.get_queue()
         self.client.request.assert_awaited_once_with("GET", "/api/v1/moderation/queue")
         assert result == {"status": "ok"}
 
     @pytest.mark.asyncio
-    async def test_approve_item(self):
+    async def test_approve_item(self) -> None:
         result = await self.api.approve_item("item-async-1")
         self.client.request.assert_awaited_once_with(
             "POST", "/api/v1/moderation/items/item-async-1/approve"
@@ -140,7 +140,7 @@ class TestModerationAsync:
         assert result == {"status": "ok"}
 
     @pytest.mark.asyncio
-    async def test_reject_item(self):
+    async def test_reject_item(self) -> None:
         result = await self.api.reject_item("item-async-2")
         self.client.request.assert_awaited_once_with(
             "POST", "/api/v1/moderation/items/item-async-2/reject"
@@ -157,18 +157,18 @@ class TestAudienceSync:
     """Sync AudienceAPI -- get_suggestions, submit_suggestion."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, sync_client):
+    def setup(self, sync_client: MagicMock) -> None:
         self.client = sync_client
         self.api = AudienceAPI(sync_client)
 
-    def test_get_suggestions(self):
+    def test_get_suggestions(self) -> None:
         result = self.api.get_suggestions("debate-100")
         self.client.request.assert_called_once_with(
             "GET", "/api/v1/debates/debate-100/audience/suggestions"
         )
         assert result == {"status": "ok"}
 
-    def test_submit_suggestion(self):
+    def test_submit_suggestion(self) -> None:
         suggestion = {"text": "Consider environmental impact", "author": "user-5"}
         result = self.api.submit_suggestion("debate-200", suggestion)
         self.client.request.assert_called_once_with(
@@ -178,13 +178,13 @@ class TestAudienceSync:
         )
         assert result == {"status": "ok"}
 
-    def test_get_suggestions_with_different_id(self):
+    def test_get_suggestions_with_different_id(self) -> None:
         self.api.get_suggestions("abc-xyz")
         self.client.request.assert_called_once_with(
             "GET", "/api/v1/debates/abc-xyz/audience/suggestions"
         )
 
-    def test_submit_empty_suggestion(self):
+    def test_submit_empty_suggestion(self) -> None:
         self.api.submit_suggestion("debate-300", {})
         self.client.request.assert_called_once_with(
             "POST",
@@ -192,7 +192,7 @@ class TestAudienceSync:
             json={},
         )
 
-    def test_list_suggestions(self):
+    def test_list_suggestions(self) -> None:
         """Test the list_suggestions method with clustering parameters."""
         result = self.api.list_suggestions("debate-400", max_clusters=3, threshold=0.7)
         self.client.request.assert_called_once_with(
@@ -202,7 +202,7 @@ class TestAudienceSync:
         )
         assert result == {"status": "ok"}
 
-    def test_create_suggestion(self):
+    def test_create_suggestion(self) -> None:
         """Test the create_suggestion method."""
         suggestion = {"text": "New idea"}
         result = self.api.create_suggestion("debate-500", suggestion)
@@ -218,12 +218,12 @@ class TestAudienceAsync:
     """Async AudienceAPI -- get_suggestions, submit_suggestion."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, async_client):
+    def setup(self, async_client: MagicMock) -> None:
         self.client = async_client
         self.api = AsyncAudienceAPI(async_client)
 
     @pytest.mark.asyncio
-    async def test_get_suggestions(self):
+    async def test_get_suggestions(self) -> None:
         result = await self.api.get_suggestions("debate-async-1")
         self.client.request.assert_awaited_once_with(
             "GET", "/api/v1/debates/debate-async-1/audience/suggestions"
@@ -231,7 +231,7 @@ class TestAudienceAsync:
         assert result == {"status": "ok"}
 
     @pytest.mark.asyncio
-    async def test_submit_suggestion(self):
+    async def test_submit_suggestion(self) -> None:
         suggestion = {"text": "Async suggestion"}
         result = await self.api.submit_suggestion("debate-async-2", suggestion)
         self.client.request.assert_awaited_once_with(
@@ -242,7 +242,7 @@ class TestAudienceAsync:
         assert result == {"status": "ok"}
 
     @pytest.mark.asyncio
-    async def test_list_suggestions(self):
+    async def test_list_suggestions(self) -> None:
         result = await self.api.list_suggestions("debate-async-3")
         self.client.request.assert_awaited_once_with(
             "GET",
@@ -252,7 +252,7 @@ class TestAudienceAsync:
         assert result == {"status": "ok"}
 
     @pytest.mark.asyncio
-    async def test_create_suggestion(self):
+    async def test_create_suggestion(self) -> None:
         suggestion = {"text": "Async new idea"}
         result = await self.api.create_suggestion("debate-async-4", suggestion)
         self.client.request.assert_awaited_once_with(
@@ -272,29 +272,29 @@ class TestModesSync:
     """Sync ModesAPI -- list_modes, get_mode."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, sync_client):
+    def setup(self, sync_client: MagicMock) -> None:
         self.client = sync_client
         self.api = ModesAPI(sync_client)
 
-    def test_list_modes(self):
+    def test_list_modes(self) -> None:
         result = self.api.list_modes()
         self.client.request.assert_called_once_with("GET", "/api/v1/modes")
         assert result == {"status": "ok"}
 
-    def test_get_mode_architect(self):
+    def test_get_mode_architect(self) -> None:
         result = self.api.get_mode("architect")
         self.client.request.assert_called_once_with("GET", "/api/v1/modes/architect")
         assert result == {"status": "ok"}
 
-    def test_get_mode_coder(self):
+    def test_get_mode_coder(self) -> None:
         self.api.get_mode("coder")
         self.client.request.assert_called_once_with("GET", "/api/v1/modes/coder")
 
-    def test_get_mode_reviewer(self):
+    def test_get_mode_reviewer(self) -> None:
         self.api.get_mode("reviewer")
         self.client.request.assert_called_once_with("GET", "/api/v1/modes/reviewer")
 
-    def test_get_mode_custom(self):
+    def test_get_mode_custom(self) -> None:
         self.api.get_mode("my-custom-mode")
         self.client.request.assert_called_once_with("GET", "/api/v1/modes/my-custom-mode")
 
@@ -303,18 +303,18 @@ class TestModesAsync:
     """Async ModesAPI -- list_modes, get_mode."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, async_client):
+    def setup(self, async_client: MagicMock) -> None:
         self.client = async_client
         self.api = AsyncModesAPI(async_client)
 
     @pytest.mark.asyncio
-    async def test_list_modes(self):
+    async def test_list_modes(self) -> None:
         result = await self.api.list_modes()
         self.client.request.assert_awaited_once_with("GET", "/api/v1/modes")
         assert result == {"status": "ok"}
 
     @pytest.mark.asyncio
-    async def test_get_mode(self):
+    async def test_get_mode(self) -> None:
         result = await self.api.get_mode("architect")
         self.client.request.assert_awaited_once_with("GET", "/api/v1/modes/architect")
         assert result == {"status": "ok"}
@@ -329,11 +329,11 @@ class TestSpectateSync:
     """Sync SpectateAPI -- connect_sse (SSE streaming), get_recent, get_status, get_stream."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, sync_client):
+    def setup(self, sync_client: MagicMock) -> None:
         self.client = sync_client
         self.api = SpectateAPI(sync_client)
 
-    def test_connect_sse(self):
+    def test_connect_sse(self) -> None:
         self.client.request.return_value = {
             "stream_url": "/sse/debate-1",
             "debate_id": "debate-1",
@@ -342,17 +342,17 @@ class TestSpectateSync:
         self.client.request.assert_called_once_with("GET", "/api/v1/spectate/debate-1/stream")
         assert result["stream_url"] == "/sse/debate-1"
 
-    def test_connect_sse_different_id(self):
+    def test_connect_sse_different_id(self) -> None:
         self.api.connect_sse("debate-xyz")
         self.client.request.assert_called_once_with("GET", "/api/v1/spectate/debate-xyz/stream")
 
-    def test_get_recent_defaults(self):
+    def test_get_recent_defaults(self) -> None:
         self.api.get_recent()
         self.client.request.assert_called_once_with(
             "GET", "/api/v1/spectate/recent", params={"count": 50}
         )
 
-    def test_get_recent_with_params(self):
+    def test_get_recent_with_params(self) -> None:
         self.api.get_recent(count=10, debate_id="d-123")
         self.client.request.assert_called_once_with(
             "GET",
@@ -360,11 +360,11 @@ class TestSpectateSync:
             params={"count": 10, "debate_id": "d-123"},
         )
 
-    def test_get_status(self):
+    def test_get_status(self) -> None:
         self.api.get_status()
         self.client.request.assert_called_once_with("GET", "/api/v1/spectate/status")
 
-    def test_get_stream(self):
+    def test_get_stream(self) -> None:
         self.api.get_stream(count=25)
         self.client.request.assert_called_once_with(
             "GET",
@@ -377,19 +377,19 @@ class TestSpectateAsync:
     """Async SpectateAPI -- connect_sse, get_recent, get_status, get_stream."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, async_client):
+    def setup(self, async_client: MagicMock) -> None:
         self.client = async_client
         self.api = AsyncSpectateAPI(async_client)
 
     @pytest.mark.asyncio
-    async def test_connect_sse(self):
+    async def test_connect_sse(self) -> None:
         self.client.request.return_value = {"stream_url": "/sse/debate-async"}
         result = await self.api.connect_sse("debate-async")
         self.client.request.assert_awaited_once_with("GET", "/api/v1/spectate/debate-async/stream")
         assert result["stream_url"] == "/sse/debate-async"
 
     @pytest.mark.asyncio
-    async def test_get_recent(self):
+    async def test_get_recent(self) -> None:
         await self.api.get_recent(count=20, debate_id="d-456")
         self.client.request.assert_awaited_once_with(
             "GET",
@@ -398,12 +398,12 @@ class TestSpectateAsync:
         )
 
     @pytest.mark.asyncio
-    async def test_get_status(self):
+    async def test_get_status(self) -> None:
         await self.api.get_status()
         self.client.request.assert_awaited_once_with("GET", "/api/v1/spectate/status")
 
     @pytest.mark.asyncio
-    async def test_get_stream(self):
+    async def test_get_stream(self) -> None:
         await self.api.get_stream()
         self.client.request.assert_awaited_once_with(
             "GET",
@@ -420,25 +420,25 @@ class TestSpectateAsync:
 class TestNamespaceExports:
     """Verify all classes are importable from the namespaces package."""
 
-    def test_moderation_exports(self):
+    def test_moderation_exports(self) -> None:
         from aragora_sdk.namespaces import AsyncModerationAPI, ModerationAPI
 
         assert ModerationAPI is not None
         assert AsyncModerationAPI is not None
 
-    def test_audience_exports(self):
+    def test_audience_exports(self) -> None:
         from aragora_sdk.namespaces import AsyncAudienceAPI, AudienceAPI
 
         assert AudienceAPI is not None
         assert AsyncAudienceAPI is not None
 
-    def test_modes_exports(self):
+    def test_modes_exports(self) -> None:
         from aragora_sdk.namespaces import AsyncModesAPI, ModesAPI
 
         assert ModesAPI is not None
         assert AsyncModesAPI is not None
 
-    def test_spectate_exports(self):
+    def test_spectate_exports(self) -> None:
         from aragora_sdk.namespaces import AsyncSpectateAPI, SpectateAPI
 
         assert SpectateAPI is not None
@@ -453,7 +453,7 @@ class TestNamespaceExports:
 class TestClientRegistration:
     """Verify namespaces are registered on AragoraClient and AragoraAsyncClient."""
 
-    def test_sync_client_has_namespaces(self):
+    def test_sync_client_has_namespaces(self) -> None:
         from aragora_sdk.client import AragoraClient
 
         client = AragoraClient(base_url="http://localhost:8080", demo=True)
@@ -466,7 +466,7 @@ class TestClientRegistration:
         assert isinstance(client.modes, ModesAPI)
         assert isinstance(client.spectate, SpectateAPI)
 
-    def test_async_client_has_namespaces(self):
+    def test_async_client_has_namespaces(self) -> None:
         from aragora_sdk.client import AragoraAsyncClient
 
         client = AragoraAsyncClient(base_url="http://localhost:8080", demo=True)
