@@ -17,8 +17,8 @@ import aragora.connectors.chat.teams._constants as _tc
 
 try:
     import httpx
-except ImportError:
-    pass
+except ImportError:  # pragma: no cover – httpx is optional; _tc.HTTPX_AVAILABLE gates usage
+    httpx = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
