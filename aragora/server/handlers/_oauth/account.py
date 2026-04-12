@@ -45,6 +45,11 @@ class AccountManagementMixin:
     _handle_apple_callback: Any
     _handle_oidc_callback: Any
 
+    def _read_json_object_body(self, handler: Any) -> dict[str, Any] | None:
+        """Read JSON bodies for account APIs and reject non-object payloads."""
+        body = self.read_json_body(handler)
+        return body if isinstance(body, dict) else None
+
     @handle_errors("list OAuth providers")
     def _handle_list_providers(self, handler: Any) -> HandlerResult:
         """List configured OAuth providers."""
@@ -144,7 +149,7 @@ class AccountManagementMixin:
     @handle_errors("OAuth callback (API)")
     def _handle_oauth_callback_api(self, handler: Any) -> HandlerResult:
         """Complete OAuth flow and return tokens as JSON."""
-        body = self.read_json_body(handler)
+        body = self._read_json_object_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
 
@@ -253,7 +258,7 @@ class AccountManagementMixin:
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
 
-        body = self.read_json_body(handler)
+        body = self._read_json_object_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
 
@@ -368,7 +373,7 @@ class AccountManagementMixin:
         user_store = self._get_user_store()
         auth_ctx = extract_user_from_request(handler, user_store)
 
-        body = self.read_json_body(handler)
+        body = self._read_json_object_body(handler)
         if body is None:
             return error_response("Invalid JSON body", 400)
 

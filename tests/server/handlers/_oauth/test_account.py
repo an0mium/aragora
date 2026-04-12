@@ -765,6 +765,19 @@ class TestLinkAccount:
         assert b"Invalid JSON body" in result.body
 
     @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_link_account_non_object_json(
+        self, mock_extract, account_handler, mock_request_handler
+    ):
+        """Test link account rejects non-object JSON bodies."""
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id="user_1")
+        mock_request_handler._json_body = ["google"]
+
+        result = account_handler._handle_link_account(mock_request_handler)
+
+        assert result.status_code == 400
+        assert b"Invalid JSON body" in result.body
+
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
     def test_link_account_unsupported_provider(
         self, mock_extract, account_handler, mock_request_handler
     ):
@@ -846,6 +859,19 @@ class TestUnlinkAccount:
         mock_extract.return_value = MagicMock(is_authenticated=True, user_id="user_1")
 
         mock_request_handler._json_body = None
+
+        result = account_handler._handle_unlink_account(mock_request_handler)
+
+        assert result.status_code == 400
+        assert b"Invalid JSON body" in result.body
+
+    @patch("aragora.billing.jwt_auth.extract_user_from_request")
+    def test_unlink_account_non_object_json(
+        self, mock_extract, account_handler, mock_request_handler
+    ):
+        """Test unlink account rejects non-object JSON bodies."""
+        mock_extract.return_value = MagicMock(is_authenticated=True, user_id="user_1")
+        mock_request_handler._json_body = ["google"]
 
         result = account_handler._handle_unlink_account(mock_request_handler)
 
@@ -950,6 +976,15 @@ class TestOAuthCallbackApi:
     def test_callback_api_invalid_json(self, account_handler, mock_request_handler):
         """Test callback API with invalid JSON."""
         mock_request_handler._json_body = None
+
+        result = account_handler._handle_oauth_callback_api(mock_request_handler)
+
+        assert result.status_code == 400
+        assert b"Invalid JSON body" in result.body
+
+    def test_callback_api_non_object_json(self, account_handler, mock_request_handler):
+        """Test callback API rejects non-object JSON bodies."""
+        mock_request_handler._json_body = ["google", "code", "state"]
 
         result = account_handler._handle_oauth_callback_api(mock_request_handler)
 
