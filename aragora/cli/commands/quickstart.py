@@ -1079,8 +1079,8 @@ async def _run_live_debate(
         from aragora.config.secrets import reset_secret_manager
 
         reset_secret_manager()
-    except ImportError:
-        logger.debug("aragora.config.secrets not available, skipping reset")
+    except ImportError as exc:
+        logger.debug("aragora.config.secrets not available, skipping reset: %s", exc)
 
     from aragora.agents.base import AgentType, create_agent
     from aragora.core import Environment
@@ -1471,7 +1471,8 @@ async def _can_reach_provider_tls(provider: str) -> tuple[bool, str | None]:
             ),
             timeout=_LIVE_PRECHECK_TIMEOUT_SECONDS,
         )
-    except ssl.SSLCertVerificationError:
+    except ssl.SSLCertVerificationError as exc:
+        logger.debug("TLS certificate verification failed: %s", exc)
         return False, "CERTIFICATE_VERIFY_FAILED"
     except ssl.SSLError as exc:
         if _is_tls_verification_failure(exc):
@@ -1989,8 +1990,8 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             state="CREATED",
         )
         logger.info("receipt_persisted id=%s", canonical_result.get("receipt_id", ""))
-    except Exception:  # noqa: BLE001 - best-effort, local file is primary
-        logger.debug("receipt_store_persist_skipped", exc_info=True)
+    except (ImportError, OSError, RuntimeError, ValueError, TypeError) as exc:
+        logger.debug("receipt_store_persist_skipped: %s", exc)
 
     # Step 6b: Report KM ingestion status truthfully
     if result.get("mode") == "live":
