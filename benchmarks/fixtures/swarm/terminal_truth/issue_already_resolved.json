@@ -1,0 +1,29 @@
+[
+  {
+    "worker_status": "completed",
+    "worker_outcome": "issue_already_resolved",
+    "elapsed_seconds": 45.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "issue_already_resolved"
+  },
+  {
+    "worker_status": "completed",
+    "worker_outcome": "issue_already_resolved",
+    "elapsed_seconds": 15.8,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "skipped",
+    "expected_class": "issue_already_resolved"
+  },
+  {
+    "worker_status": "completed",
+    "worker_outcome": "issue_already_resolved",
+    "elapsed_seconds": 62.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "none",
+    "expected_class": "issue_already_resolved"
+  }
+]

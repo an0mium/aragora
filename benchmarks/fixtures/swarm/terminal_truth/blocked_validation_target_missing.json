@@ -1,0 +1,29 @@
+[
+  {
+    "worker_status": "failed",
+    "worker_outcome": "verification_target_missing",
+    "elapsed_seconds": 10.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_validation_target_missing"
+  },
+  {
+    "worker_status": "blocked",
+    "worker_outcome": "verification_target_missing",
+    "elapsed_seconds": 30.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_validation_target_missing"
+  },
+  {
+    "worker_status": "error",
+    "worker_outcome": "verification_target_missing",
+    "elapsed_seconds": 5.5,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "skipped",
+    "expected_class": "blocked_validation_target_missing"
+  }
+]

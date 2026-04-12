@@ -1,0 +1,29 @@
+[
+  {
+    "worker_status": "blocked",
+    "worker_outcome": "decomposition_limit_reached",
+    "elapsed_seconds": 10.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_decomposition_limit"
+  },
+  {
+    "worker_status": "failed",
+    "worker_outcome": "decomposition_limit",
+    "elapsed_seconds": 5.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_decomposition_limit"
+  },
+  {
+    "worker_status": "error",
+    "worker_outcome": "hit_decomposition_limit",
+    "elapsed_seconds": 15.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "",
+    "expected_class": "blocked_decomposition_limit"
+  }
+]

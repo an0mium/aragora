@@ -1,0 +1,29 @@
+[
+  {
+    "worker_status": "pending",
+    "worker_outcome": "",
+    "elapsed_seconds": 300.0,
+    "files_changed": 2,
+    "has_deliverable": false,
+    "publish_action": "publish_deferred",
+    "expected_class": "rescue_publish_deferred"
+  },
+  {
+    "worker_status": "failed",
+    "worker_outcome": "partial",
+    "elapsed_seconds": 600.0,
+    "files_changed": 5,
+    "has_deliverable": true,
+    "publish_action": "deferred_pending_review",
+    "expected_class": "rescue_publish_deferred"
+  },
+  {
+    "worker_status": "stalled",
+    "worker_outcome": "",
+    "elapsed_seconds": 200.0,
+    "files_changed": 0,
+    "has_deliverable": false,
+    "publish_action": "deferred",
+    "expected_class": "rescue_publish_deferred"
+  }
+]
