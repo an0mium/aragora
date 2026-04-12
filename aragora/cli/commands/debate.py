@@ -109,8 +109,8 @@ def get_event_emitter_if_available(server_url: str = DEFAULT_API_URL) -> Any | N
                     from aragora.server.stream import SyncEventEmitter
 
                     return SyncEventEmitter()
-                except ImportError:
-                    logger.debug("SyncEventEmitter not available")
+                except ImportError as e:
+                    logger.debug("SyncEventEmitter not available: %s", e)
     except (OSError, TimeoutError) as e:
         logger.debug("Streaming server not available at %s: %s", server_url, e)
     return None
@@ -459,8 +459,8 @@ def _maybe_add_vertical_specialist_local(
     try:
         import aragora.verticals.specialists  # noqa: F401
         from aragora.verticals.registry import VerticalRegistry
-    except ImportError:
-        logger.debug("Verticals registry not available; skipping specialist injection")
+    except ImportError as e:
+        logger.debug("Verticals registry not available; skipping specialist injection: %s", e)
         return agents
 
     resolved_vertical = vertical_id or VerticalRegistry.get_for_task(task)
@@ -554,9 +554,11 @@ def _detect_provider(model: str | None) -> str:
         from aragora.debate.provider_diversity import detect_provider
 
         detected = detect_provider(candidate)
-    except ImportError:
+    except ImportError as e:
         logger.debug(
-            "provider_diversity module not available, cannot detect provider for %s", candidate
+            "provider_diversity module not available, cannot detect provider for %s: %s",
+            candidate,
+            e,
         )
         detected = "unknown"
     return "" if detected == "unknown" else detected
@@ -1159,8 +1161,8 @@ async def run_debate(
                         f"You are a {spec.persona} in this debate. "
                         f"Approach arguments from that perspective.\n\n{existing}"
                     ).strip()
-            except ImportError:
-                logger.debug("Personas module not available for spec %s", spec.persona)
+            except ImportError as e:
+                logger.debug("Personas module not available for spec %s: %s", spec.persona, e)
 
         # Apply mode system prompt if specified (takes precedence)
         if mode_system_prompt:
