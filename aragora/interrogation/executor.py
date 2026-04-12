@@ -77,10 +77,10 @@ class InterrogationExecutor:
                 subtasks_completed=getattr(result, "completed_subtasks", 0),
                 subtasks_failed=getattr(result, "failed_subtasks", 0),
             )
-        except Exception:
+        except (RuntimeError, ValueError, TypeError, OSError) as exc:
             logger.exception("Execution failed")
             return ExecutionResult(
                 success=False,
                 goal_text=goal_text,
-                error="Execution failed",
+                error=f"Execution failed: {exc}",
             )
