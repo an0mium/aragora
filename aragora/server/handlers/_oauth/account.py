@@ -7,7 +7,7 @@ Provides OAuth account linking, unlinking, and provider listing methods.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlencode
 
 from aragora.audit.unified import audit_action
@@ -153,20 +153,22 @@ class AccountManagementMixin:
         if body is None:
             return error_response("Invalid JSON body", 400)
 
-        provider = body.get("provider")
-        code = body.get("code")
-        state = body.get("state")
+        provider_value = body.get("provider")
+        code_value = body.get("code")
+        state_value = body.get("state")
 
         if any(
             value is None or (isinstance(value, str) and not value)
-            for value in (provider, code, state)
+            for value in (provider_value, code_value, state_value)
         ):
             return error_response("provider, code, and state are required", 400)
 
-        if not all(isinstance(value, str) for value in (provider, code, state)):
+        if not all(isinstance(value, str) for value in (provider_value, code_value, state_value)):
             return error_response("provider, code, and state must be strings", 400)
 
-        provider = provider.lower()
+        provider = cast(str, provider_value).lower()
+        code = cast(str, code_value)
+        state = cast(str, state_value)
 
         callback_map = {
             "google": self._handle_google_callback,
