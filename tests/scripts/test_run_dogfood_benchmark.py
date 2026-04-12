@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
@@ -11,6 +12,21 @@ if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
 import run_dogfood_benchmark  # noqa: E402
+
+
+def test_cli_help_runs_from_checked_out_script_path() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    script = repo_root / "scripts" / "run_dogfood_benchmark.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--help"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Run controlled dogfood benchmark loops" in result.stdout
 
 
 def _run_template(checks: dict[str, bool | None]) -> dict[str, object]:
