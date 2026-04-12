@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from aragora.pipeline.execution_mode import ExecutionMode
-from aragora.swarm.mission import normalize_context_policies
 from aragora.swarm.worker_process import LaunchConfig
 
 
@@ -43,11 +42,6 @@ class WorkerContract:
     gh_api_auth_mode: str
     budget: dict[str, Any]
     env_checksum: str
-    mission_id: str = ""
-    stage_id: str = ""
-    assertion_ids: list[str] | None = None
-    evidence_expectations: list[str] | None = None
-    mission_context_policy: dict[str, Any] | None = None
     contract_version: str = _CONTRACT_VERSION
     _expected_checksum: str = field(default="", init=False, repr=False)
 
@@ -66,17 +60,6 @@ class WorkerContract:
             "gh_api_auth_mode": self.gh_api_auth_mode,
             "budget": dict(self.budget),
             "env_checksum": self.env_checksum,
-            "mission_id": str(self.mission_id or "").strip(),
-            "stage_id": str(self.stage_id or "").strip(),
-            "assertion_ids": [
-                str(item).strip() for item in list(self.assertion_ids or []) if str(item).strip()
-            ],
-            "evidence_expectations": [
-                str(item).strip()
-                for item in list(self.evidence_expectations or [])
-                if str(item).strip()
-            ],
-            "mission_context_policy": dict(self.mission_context_policy or {}),
             "contract_version": self.contract_version,
         }
 
@@ -95,14 +78,11 @@ class WorkerContract:
             "gh_api_auth_mode": self.gh_api_auth_mode,
             "budget": self.budget,
             "env_checksum": self.env_checksum,
-            "mission_context_policy": self.mission_context_policy,
             "contract_version": self.contract_version,
         }
         missing = [key for key, value in required.items() if value is None or value == ""]
         if missing:
             raise ValueError(f"Worker contract missing required fields: {', '.join(missing)}")
-        if not dict(self.mission_context_policy or {}):
-            raise ValueError("Worker contract missing required field: mission_context_policy")
 
     def admission_check(self) -> bool:
         """Check contract completeness and integrity for dispatch admission.
@@ -132,8 +112,6 @@ class WorkerContract:
             for value in required_fields:
                 if value is None or value == "":
                     return False
-            if not dict(self.mission_context_policy or {}):
-                return False
 
             # 2. Detect checksum drift.
             current_checksum = checksum_contract_payload(self.to_dict())
@@ -192,7 +170,6 @@ def build_worker_contract(
     config: LaunchConfig,
     worktree_path: str,
     env: Mapping[str, str] | None = None,
-    work_order: Mapping[str, Any] | None = None,
 ) -> WorkerContract:
     normalized_agent = str(agent or "").strip() or "unknown"
     if normalized_agent == "claude":
@@ -220,30 +197,6 @@ def build_worker_contract(
         "max_tokens": None,
         "max_retries": None,
     }
-    work_order_data = dict(work_order or {})
-    file_scope = [
-        str(item).strip() for item in work_order_data.get("file_scope", []) if str(item).strip()
-    ]
-    evidence_expectations = [
-        str(item).strip()
-        for item in work_order_data.get("evidence_expectations", [])
-        if str(item).strip()
-    ]
-    if not evidence_expectations:
-        evidence_expectations = [
-            "worker_contract",
-            "worker_contract_checksum",
-            *[
-                str(item).strip()
-                for item in work_order_data.get("expected_tests", [])
-                if str(item).strip()
-            ],
-        ]
-    context_policy = normalize_context_policies(
-        work_order_data.get("mission_context_policies"),
-        file_scope=file_scope,
-        evidence_expectations=evidence_expectations,
-    )["worker"]
 
     execution_mode = (
         config.execution_mode.value
@@ -262,13 +215,4 @@ def build_worker_contract(
         gh_api_auth_mode=_gh_api_auth_mode(env),
         budget=budget,
         env_checksum=_env_checksum(env),
-        mission_id=str(work_order_data.get("mission_id", "") or "").strip(),
-        stage_id=str(work_order_data.get("stage_id", "") or "").strip(),
-        assertion_ids=[
-            str(item).strip()
-            for item in work_order_data.get("assertion_ids", [])
-            if str(item).strip()
-        ],
-        evidence_expectations=evidence_expectations,
-        mission_context_policy=context_policy,
     )
