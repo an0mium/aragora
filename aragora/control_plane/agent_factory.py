@@ -242,8 +242,10 @@ class AgentFactory:
                             credentials_missing=True,
                         )
             except ImportError:
-                # Credential validator not available, proceed without validation
-                pass
+                logger.debug(
+                    "credential_validator_unavailable",
+                    extra={"agent_id": agent_info.agent_id, "agent_type": agent_type},
+                )
 
         # Load API key from environment
         api_key = self._get_api_key(agent_type)
@@ -359,7 +361,7 @@ class AgentFactory:
                 if value:
                     return value
         except ImportError:
-            pass
+            logger.debug("secrets_module_unavailable", extra={"agent_type": agent_type})
 
         # Fallback to environment variables
         import os
