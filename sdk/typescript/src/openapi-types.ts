@@ -163635,24 +163635,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        id?: string;
-                        name?: string;
-                        description?: string;
-                        category?: string;
-                        author_id?: string;
-                        version?: string;
-                        tags?: string[];
-                        status?: string;
-                        is_verified?: boolean;
-                        is_builtin?: boolean;
-                        install_count?: number;
-                        rating_average?: number;
-                        rating_count?: number;
+                        id: string;
+                        name: string;
+                        description: string;
+                        category: string;
+                        author_id: string;
+                        version: string;
+                        tags: string[];
+                        status: string;
+                        is_verified: boolean;
+                        is_builtin: boolean;
+                        install_count: number;
+                        rating_average: number;
+                        rating_count: number;
                         /** Format: date-time */
-                        created_at?: string;
+                        created_at: string;
                         /** Format: date-time */
-                        updated_at?: string;
-                        approved_by?: string | null;
+                        updated_at: string;
+                        approved_by: string | null;
                     };
                 };
             };
