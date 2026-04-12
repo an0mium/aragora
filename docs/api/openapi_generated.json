@@ -202035,6 +202035,7 @@
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "additionalProperties": false,
                   "properties": {
                     "id": {
                       "type": "string"
@@ -202092,7 +202093,25 @@
                         "null"
                       ]
                     }
-                  }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "description",
+                    "category",
+                    "author_id",
+                    "version",
+                    "tags",
+                    "status",
+                    "is_verified",
+                    "is_builtin",
+                    "install_count",
+                    "rating_average",
+                    "rating_count",
+                    "created_at",
+                    "updated_at",
+                    "approved_by"
+                  ]
                 }
               }
             }
