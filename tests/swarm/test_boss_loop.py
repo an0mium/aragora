@@ -3146,6 +3146,9 @@ async def test_dispatch_issue_rewrites_missing_validation_before_dispatch() -> N
         result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
     assert result["status"] == "completed"
+    assert result["original_issue_body"] == issue.body.strip()
+    assert result["sanitized_issue_body"] != result["original_issue_body"]
+    assert "## Validation" in result["sanitized_issue_body"]
     spec = mock_commander_cls.return_value.run_supervised_from_spec.await_args.args[0]
     assert spec.acceptance_criteria == ["python3 -m ruff check aragora/swarm/task_sanitizer.py"]
     assert "## Validation" in refinement_mock.await_args.args[1]

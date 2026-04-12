@@ -4791,6 +4791,8 @@ class BossLoop:
         def _with_sanitizer_metadata(result: dict[str, Any]) -> dict[str, Any]:
             result.setdefault("sanitizer_outcome", sanitization.outcome.value)
             result.setdefault("checks_failed", list(sanitization.checks_failed))
+            result.setdefault("original_issue_body", original_issue_body)
+            result.setdefault("sanitized_issue_body", sanitized_issue_body)
             return result
 
         if sanitization.outcome in {
