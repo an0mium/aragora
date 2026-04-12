@@ -389,7 +389,7 @@ class ReplicationHealthMonitor:
         if self._alert_callback:
             try:
                 self._alert_callback(alert_type, health)
-            except (OSError, RuntimeError, ValueError) as e:
+            except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
                 logger.error("Failed to invoke alert callback: %s", e)
 
     def _update_metrics(self) -> None:
