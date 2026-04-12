@@ -56,6 +56,11 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    # Support direct `python scripts/self_develop.py ...` invocation.
+    sys.path.insert(0, str(REPO_ROOT))
+
 from aragora.nomic.autonomous_orchestrator import (
     OrchestrationResult,
     Track,

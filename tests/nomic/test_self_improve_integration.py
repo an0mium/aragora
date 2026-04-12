@@ -19,6 +19,7 @@ import json
 import subprocess
 import sys
 from contextlib import contextmanager
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -330,12 +331,13 @@ class TestDryRunIntegration:
         The full CLI may timeout due to the scanner; we just verify it
         doesn't crash immediately with an import or argument error.
         """
+        repo_root = Path(__file__).resolve().parents[2]
         try:
             result = subprocess.run(
-                [sys.executable, "scripts/self_develop.py", "--assess"],
+                [sys.executable, str(repo_root / "scripts" / "self_develop.py"), "--assess"],
                 capture_output=True,
                 text=True,
-                cwd="/Users/armand/Development/aragora",
+                cwd=repo_root,
                 timeout=20,
             )
         except subprocess.TimeoutExpired:
