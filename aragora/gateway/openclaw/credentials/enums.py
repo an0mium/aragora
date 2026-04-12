@@ -4,9 +4,10 @@ OpenClaw Credential Vault - Enum definitions.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, unique
 
 
+@unique
 class CredentialType(str, Enum):
     """Types of credentials that can be stored."""
 
@@ -22,6 +23,7 @@ class CredentialType(str, Enum):
     ENCRYPTION_KEY = "encryption_key"
 
 
+@unique
 class CredentialFramework(str, Enum):
     """External frameworks that credentials may be used with."""
 
@@ -38,6 +40,7 @@ class CredentialFramework(str, Enum):
     CUSTOM = "custom"
 
 
+@unique
 class CredentialAuditEvent(str, Enum):
     """Audit events for credential operations."""
 
