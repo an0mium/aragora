@@ -13,6 +13,8 @@ __all__ = [
     "get_registry_listing_required_fields",
     "get_registry_listing_property_names",
     "get_registry_listing_field_types",
+    "get_registry_nullable_fields",
+    "get_registry_endpoint_paths",
     "build_sample_listing",
     "validate_listing",
 ]
@@ -80,6 +82,20 @@ def get_registry_listing_field_types() -> dict[str, Any]:
         name: deepcopy(spec.get("type", "string"))
         for name, spec in _REGISTRY_LISTING_SCHEMA["properties"].items()
     }
+
+
+def get_registry_nullable_fields() -> list[str]:
+    """Return field names that accept ``null`` according to the schema."""
+    return sorted(
+        name
+        for name, spec in _REGISTRY_LISTING_SCHEMA["properties"].items()
+        if isinstance(spec.get("type"), list) and "null" in spec["type"]
+    )
+
+
+def get_registry_endpoint_paths() -> list[str]:
+    """Return all registered endpoint paths for the template registry."""
+    return sorted(TEMPLATE_REGISTRY_ENDPOINTS.keys())
 
 
 def validate_listing(data: dict[str, Any]) -> list[str]:
