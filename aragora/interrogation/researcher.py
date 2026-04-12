@@ -118,8 +118,23 @@ class UnifiedResearcher:
                 results = await self._query_source(source, query, max_results_per_source)
                 ctx.results.extend(results)
                 ctx.sources_queried.append(source)
-            except Exception:
-                logger.warning("Research source %s failed for query: %s", source, query)
+            except (OSError, TimeoutError, ConnectionError) as exc:
+                logger.warning(
+                    "Research source %s failed (network/IO) for query: %s: %s", source, query, exc
+                )
+                ctx.sources_failed.append(source)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                logger.warning(
+                    "Research source %s returned bad data for query: %s: %s", source, query, exc
+                )
+                ctx.sources_failed.append(source)
+            except RuntimeError as exc:
+                logger.error(
+                    "Research source %s hit unexpected runtime error for query: %s: %s",
+                    source,
+                    query,
+                    exc,
+                )
                 ctx.sources_failed.append(source)
         return ctx
 
