@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from aragora.swarm.outcome_signals import OutcomeSignal, snapshot_outcome_signals
+from aragora.swarm.terminal_truth import score_benchmark
 
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -119,12 +120,14 @@ def analyze_metrics(records: Iterable[dict[str, Any]]) -> dict[str, Any]:
 def analyze_boss_metrics(*, metrics_path: Path, signals_path: Path | None) -> dict[str, Any]:
     metrics_records = _load_jsonl(metrics_path)
     metrics_summary = analyze_metrics(metrics_records)
+    terminal_truth_benchmark = score_benchmark(metrics_records)
     signals_summary: dict[str, Any] | None = None
     if signals_path:
         signals = _load_signals(signals_path)
         signals_summary = snapshot_outcome_signals(signals).to_dict()
     return {
         "metrics_summary": metrics_summary,
+        "terminal_truth_benchmark": terminal_truth_benchmark,
         "signals_summary": signals_summary,
     }
 
@@ -137,6 +140,12 @@ def render_text(report: dict[str, Any]) -> str:
     deliverables = metrics.get("deliverables", {})
     publish_actions = metrics.get("publish_actions", {})
     failure_taxonomy = metrics.get("failure_taxonomy", {})
+    terminal_truth = report.get("terminal_truth_benchmark") or {}
+    no_rescue_rate = float(terminal_truth.get("no_rescue_rate", 0.0) or 0.0)
+    meets_target = bool(terminal_truth.get("meets_30d_target", False))
+    actionable_failures = int(terminal_truth.get("actionable_failures", 0) or 0)
+    terminal_families = terminal_truth.get("families", {})
+    terminal_classes = terminal_truth.get("classes", {})
 
     lines = [
         "Boss Metrics Summary",
@@ -144,6 +153,9 @@ def render_text(report: dict[str, Any]) -> str:
         f"  prompt_chars avg: {prompt.get('avg', 0):.1f}",
         f"  enriched_context_chars avg: {context.get('avg', 0):.1f}",
         f"  deliverable rate: {deliverables.get('rate', 0):.0%}",
+        f"  terminal-truth no-rescue rate: {no_rescue_rate:.0%}",
+        f"  terminal-truth meets 30d target: {meets_target}",
+        f"  terminal-truth actionable failures: {actionable_failures}",
         "  publish actions:",
     ]
     for action, count in publish_actions.items():
@@ -155,6 +167,14 @@ def render_text(report: dict[str, Any]) -> str:
         lines.append("  failure taxonomy:")
         for reason, count in failure_taxonomy.items():
             lines.append(f"    - {reason}: {count}")
+    if terminal_families:
+        lines.append("  terminal-truth families:")
+        for family, count in sorted(terminal_families.items()):
+            lines.append(f"    - {family}: {count}")
+    if terminal_classes:
+        lines.append("  terminal-truth classes:")
+        for terminal_class, count in sorted(terminal_classes.items()):
+            lines.append(f"    - {terminal_class}: {count}")
     return "\n".join(lines)
 
 

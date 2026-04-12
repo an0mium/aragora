@@ -17,6 +17,15 @@ def test_analyze_boss_metrics_fixture():
     assert metrics_summary["deliverables"]["count"] == 1
     assert metrics_summary["publish_actions"]["opened_pr"] == 1
 
+    terminal_truth = report["terminal_truth_benchmark"]
+    assert terminal_truth["no_rescue_rate"] == 0.333
+    assert terminal_truth["families"] == {"success": 1, "blocked": 1, "rescue": 1}
+    assert terminal_truth["classes"] == {
+        "deliverable_branch_pushed": 1,
+        "blocked_not_dispatch_bounded": 1,
+        "rescue_worker_crash": 1,
+    }
+
     signals_summary = report["signals_summary"]
     assert signals_summary is not None
     assert signals_summary["total_signals"] == 3
@@ -25,3 +34,5 @@ def test_analyze_boss_metrics_fixture():
     text = render_text(report)
     assert "Boss Metrics Summary" in text
     assert "deliverable rate" in text
+    assert "terminal-truth families" in text
+    assert "terminal-truth classes" in text
