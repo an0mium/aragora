@@ -429,6 +429,7 @@ class TestModuleGetattr:
 
         handlers_pkg._handler_cache.clear()
         handlers_pkg._all_handlers_cache = None
+        handlers_pkg._registry_populated = False
 
     def test_getattr_raises_for_unknown_name(self):
         """Accessing an unknown attribute should raise AttributeError."""
@@ -458,13 +459,15 @@ class TestModuleGetattr:
     def test_getattr_all_handlers_returns_list(self):
         """Accessing ALL_HANDLERS should return a list."""
         import aragora.server.handlers as handlers_pkg
+        from aragora.server.handlers import _registry as registry_module
 
         # We can't easily test the full ALL_HANDLERS (would import all modules),
         # so we mock _get_all_handlers
         mock_list = [MagicMock(), MagicMock()]
         with patch.object(handlers_pkg, "_get_all_handlers", return_value=mock_list):
             result = handlers_pkg.__getattr__("ALL_HANDLERS")
-            assert result is mock_list
+            assert result == mock_list
+            assert result is registry_module.ALL_HANDLERS
 
     def test_getattr_gauntlet_v1_handlers(self):
         """Accessing GAUNTLET_V1_HANDLERS should use _lazy_import."""

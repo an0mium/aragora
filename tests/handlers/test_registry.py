@@ -24,6 +24,8 @@ from aragora.server.handlers._registry import (
     __all__,
     get_all_handler_stability,
     get_handler_stability,
+    register_handler,
+    reset_registry,
 )
 
 
@@ -66,8 +68,14 @@ class TestExports:
     def test_all_contains_get_all_handler_stability(self):
         assert "get_all_handler_stability" in __all__
 
-    def test_all_has_exactly_four_entries(self):
-        assert len(__all__) == 4
+    def test_all_contains_register_handler(self):
+        assert "register_handler" in __all__
+
+    def test_all_contains_reset_registry(self):
+        assert "reset_registry" in __all__
+
+    def test_all_has_exactly_six_entries(self):
+        assert len(__all__) == 6
 
 
 # ---------------------------------------------------------------------------
@@ -310,3 +318,18 @@ class TestRegistryIntegration:
         assert HANDLER_STABILITY == {}
         assert get_handler_stability("H") == Stability.EXPERIMENTAL
         assert get_all_handler_stability() == {}
+
+    def test_register_handler_updates_public_package_registry(self):
+        import aragora.server.handlers as handlers_pkg
+
+        handlers_pkg._all_handlers_cache = None
+        handlers_pkg._registry_populated = False
+        reset_registry()
+
+        handler_cls = type("SyncedHandler", (), {})
+        register_handler(handler_cls, Stability.STABLE)
+
+        assert handlers_pkg.ALL_HANDLERS is ALL_HANDLERS
+        assert handlers_pkg.HANDLER_STABILITY is HANDLER_STABILITY
+        assert handlers_pkg.ALL_HANDLERS == [handler_cls]
+        assert handlers_pkg.HANDLER_STABILITY["SyncedHandler"] == Stability.STABLE

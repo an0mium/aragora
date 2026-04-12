@@ -28,12 +28,9 @@ from __future__ import annotations
 import importlib
 from typing import TYPE_CHECKING, Any
 
-# Handler stability classifications (extracted to reduce file complexity)
-from ._stability import (
-    HANDLER_STABILITY,
-    get_all_handler_stability,
-    get_handler_stability,
-)
+# Shared registry state and default handler stability classifications.
+from . import _registry as _handler_registry
+from ._stability import HANDLER_STABILITY as _DEFAULT_HANDLER_STABILITY
 
 # Lazy loading infrastructure - load early, contains only string mappings
 from ._lazy_imports import ALL_HANDLER_NAMES, HANDLER_MODULES
@@ -438,6 +435,18 @@ _handler_cache: dict[str, Any] = {}
 # Cached ALL_HANDLERS list
 _all_handlers_cache: list[type] | None = None
 
+# Keep the public stability map and the private registry map in sync.
+HANDLER_STABILITY = _handler_registry.HANDLER_STABILITY
+for _handler_name, _stability in _DEFAULT_HANDLER_STABILITY.items():
+    HANDLER_STABILITY.setdefault(_handler_name, _stability)
+
+# Public helpers should read from the shared registry map.
+get_handler_stability = _handler_registry.get_handler_stability
+get_all_handler_stability = _handler_registry.get_all_handler_stability
+
+# Track whether the lazily imported handler list has been copied into _registry.
+_registry_populated = False
+
 
 def _get_all_handlers() -> list[type]:
     """Lazily load and return all handler classes."""
@@ -477,7 +486,8 @@ def __getattr__(name: str) -> Any:
     """Lazy loading via module __getattr__."""
     # Handle ALL_HANDLERS specially
     if name == "ALL_HANDLERS":
-        return _get_all_handlers()
+        _populate_registry()
+        return _handler_registry.ALL_HANDLERS
 
     # Handle GAUNTLET_V1_HANDLERS specially
     if name == "GAUNTLET_V1_HANDLERS":
@@ -495,10 +505,16 @@ def __getattr__(name: str) -> Any:
 # This is deferred to avoid importing all handlers
 def _populate_registry() -> None:
     """Populate the handler registry with lazily loaded handlers."""
-    from aragora.server.handlers import _registry
+    global _registry_populated
 
-    _registry.ALL_HANDLERS[:] = _get_all_handlers()
-    _registry.HANDLER_STABILITY.update(HANDLER_STABILITY)
+    if _registry_populated:
+        return
+    if _handler_registry.ALL_HANDLERS:
+        _registry_populated = True
+        return
+
+    _handler_registry.ALL_HANDLERS[:] = _get_all_handlers()
+    _registry_populated = True
 
 
 __all__ = [

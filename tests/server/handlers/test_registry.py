@@ -20,6 +20,20 @@ from aragora.server.handlers._registry import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _clean_registry():
+    """Save and restore registry state around each test."""
+    saved_handlers = ALL_HANDLERS[:]
+    saved_stability = HANDLER_STABILITY.copy()
+    ALL_HANDLERS.clear()
+    HANDLER_STABILITY.clear()
+    yield
+    ALL_HANDLERS.clear()
+    ALL_HANDLERS.extend(saved_handlers)
+    HANDLER_STABILITY.clear()
+    HANDLER_STABILITY.update(saved_stability)
+
+
 class TestGetHandlerStability:
     """Test get_handler_stability function."""
 
