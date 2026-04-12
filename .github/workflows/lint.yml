@@ -389,11 +389,20 @@ jobs:
               --base-ref "${{ github.base_ref }}" \
               --github-output "$GITHUB_OUTPUT" \
               --targets-file "$TARGETS_FILE"
-          else
+          elif [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
+            # Direct push to main: run full typecheck
             echo "mode=full" >> "$GITHUB_OUTPUT"
             echo "target_count=0" >> "$GITHUB_OUTPUT"
-            echo "summary=Run the full typecheck tier on non-pull_request events." >> "$GITHUB_OUTPUT"
+            echo "summary=Run the full typecheck tier on direct main push." >> "$GITHUB_OUTPUT"
             : > "$TARGETS_FILE"
+          else
+            # Branch push (e.g., boss loop harvest): check only changed files
+            git fetch --no-tags origin main --depth=1 2>/dev/null || true
+            "${{ steps.typecheck_python.outputs.python_bin }}" scripts/run_typecheck_gate.py \
+              --repo-root . \
+              --base-ref "origin/main" \
+              --github-output "$GITHUB_OUTPUT" \
+              --targets-file "$TARGETS_FILE"
           fi
           echo "targets_file=$TARGETS_FILE" >> "$GITHUB_OUTPUT"
 
