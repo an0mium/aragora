@@ -250,7 +250,8 @@ def test_score_script_mismatch_exits_nonzero() -> None:
                         "files_changed": 5,
                         "has_deliverable": True,
                         "publish_action": "merged",
-                        "expected_class": "rescue_timeout",  # wrong!
+                        # Intentional mismatch to prove benchmark failures stay detectable.
+                        "expected_class": "rescue_timeout",
                     },
                     {
                         "worker_status": "completed",
@@ -259,7 +260,7 @@ def test_score_script_mismatch_exits_nonzero() -> None:
                         "files_changed": 3,
                         "has_deliverable": True,
                         "publish_action": "merged",
-                        "expected_class": "rescue_timeout",  # wrong!
+                        "expected_class": "rescue_timeout",
                     },
                     {
                         "worker_status": "completed",
@@ -268,7 +269,7 @@ def test_score_script_mismatch_exits_nonzero() -> None:
                         "files_changed": 7,
                         "has_deliverable": True,
                         "publish_action": "merged",
-                        "expected_class": "rescue_timeout",  # wrong!
+                        "expected_class": "rescue_timeout",
                     },
                 ]
             )
@@ -282,3 +283,34 @@ def test_score_script_mismatch_exits_nonzero() -> None:
         assert result.returncode != 0, (
             f"Should exit non-zero for mismatch:\n{result.stdout}\n{result.stderr}"
         )
+
+
+def test_score_script_bad_schema_exits_nonzero() -> None:
+    """Schema/type problems in fixture rows must fail the benchmark."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        bad_fixture = Path(tmpdir) / "bad_schema.json"
+        bad_fixture.write_text(
+            json.dumps(
+                [
+                    {
+                        "worker_status": "completed",
+                        "worker_outcome": "pr_adopted",
+                        "elapsed_seconds": "100.0",
+                        "files_changed": True,
+                        "has_deliverable": "yes",
+                        "publish_action": "merged",
+                        "expected_class": "deliverable_pr_created",
+                    }
+                ]
+            )
+        )
+        result = subprocess.run(
+            [sys.executable, str(SCORE_SCRIPT), "--fixtures-dir", tmpdir],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 1, (
+            f"Bad schema should fail benchmark with exit 1:\n{result.stdout}\n{result.stderr}"
+        )
+        assert "schema error" in result.stdout

@@ -122,6 +122,10 @@ def find_review_gate_policy_violations(
         violations.append("review gate must parse the current json artifact schema")
     if "python -m aragora.cli.review" in review_run and "|| true" in review_run:
         violations.append("review execution must not use || true")
+    if "Gate on Critical Findings" in gate_text or (
+        "::error::Aragora review found ${CRITICAL_COUNT} critical issue(s)" in gate_text
+    ):
+        violations.append("review findings must stay advisory and must not fail on critical-count")
     if 'if [[ "$REVIEW_RESULT" != "success" ]]' not in gate_text:
         violations.append("gate result must fail unless review job concluded with success")
     if 'if [[ "$SHOULD_REVIEW" != "true" ]]' not in gate_text:

@@ -230,6 +230,25 @@ def test_policy_rejects_manual_workflow_pull_request_trigger() -> None:
     assert "manual Aragora review workflow must not trigger on pull_request" in violations
 
 
+def test_policy_rejects_critical_count_blocking_gate() -> None:
+    gate_text = (
+        _valid_gate_text()
+        + """
+      - name: Gate on Critical Findings
+        if: steps.review.outputs.critical != '' && steps.review.outputs.critical != '0'
+        run: |
+          echo "::error::Aragora review found ${CRITICAL_COUNT} critical issue(s)"
+          exit 1
+"""
+    )
+    violations = find_review_gate_policy_violations(
+        _valid_gate_data(),
+        gate_text,
+        _valid_manual_data(),
+    )
+    assert "review findings must stay advisory and must not fail on critical-count" in violations
+
+
 def test_repo_review_gate_policy_passes_for_current_tree() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     assert check_repo(repo_root) == []

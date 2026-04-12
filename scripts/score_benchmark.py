@@ -48,6 +48,41 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _is_str(value: object) -> bool:
+    return isinstance(value, str)
+
+
+def _is_numeric(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _is_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _validate_row(row: object) -> list[str]:
+    if not isinstance(row, dict):
+        return ["row must be a JSON object"]
+
+    validators = {
+        "worker_status": ("str", _is_str),
+        "worker_outcome": ("str", _is_str),
+        "elapsed_seconds": ("int|float", _is_numeric),
+        "files_changed": ("int", _is_int),
+        "has_deliverable": ("bool", lambda value: isinstance(value, bool)),
+        "publish_action": ("str", _is_str),
+        "expected_class": ("str", _is_str),
+    }
+    errors: list[str] = []
+    for key, (expected_type, validator) in validators.items():
+        if key not in row:
+            errors.append(f"missing required key {key!r}")
+            continue
+        if not validator(row[key]):
+            errors.append(f"invalid {key!r}: expected {expected_type}")
+    return errors
+
+
 def score_fixtures(fixtures_dir: Path) -> tuple[bool, str]:
     """Load and score all fixture files.
 
@@ -73,7 +108,20 @@ def score_fixtures(fixtures_dir: Path) -> tuple[bool, str]:
         file_fail = 0
         file_errors: list[str] = []
 
+        if not isinstance(examples, list):
+            total_fail += 1
+            lines.append(f"  FAIL  {fixture_file.name} (0/1)")
+            lines.append("  [root] fixture root must be a JSON array")
+            continue
+
         for idx, row in enumerate(examples):
+            row_errors = _validate_row(row)
+            if row_errors:
+                file_fail += 1
+                for err in row_errors:
+                    file_errors.append(f"  [{idx}] schema error: {err}")
+                continue
+
             expected = row.get("expected_class", "")
             result = classify_from_metrics(row)
             if result.value == expected:
@@ -113,10 +161,7 @@ def main(argv: list[str] | None = None) -> int:
     all_passed, report = score_fixtures(fixtures_dir)
     print(report)
 
-    if not fixtures_dir.is_dir():
-        return 2
-    fixture_files = sorted(fixtures_dir.glob("*.json"))
-    if not fixture_files:
+    if report.startswith("ERROR:"):
         return 2
 
     return 0 if all_passed else 1

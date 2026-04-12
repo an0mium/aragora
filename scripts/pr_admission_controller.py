@@ -28,6 +28,22 @@ from urllib import error, parse, request
 
 
 STREAM_LABEL_PREFIXES = ("lane:", "lane/", "stream:", "stream/")
+_TITLE_STOPWORDS = {
+    "a",
+    "add",
+    "an",
+    "and",
+    "for",
+    "in",
+    "of",
+    "on",
+    "phase",
+    "pr",
+    "rs",
+    "the",
+    "to",
+    "with",
+}
 
 
 def _normalize_stream_value(raw: str) -> str:
@@ -262,6 +278,106 @@ def _build_block_comment(
     )
 
 
+def _normalize_title_tokens(title: str) -> set[str]:
+    tokens = {
+        token
+        for token in re.findall(r"[a-z0-9]+", title.lower())
+        if len(token) > 2 and token not in _TITLE_STOPWORDS
+    }
+    return tokens
+
+
+def _title_similarity(left: str, right: str) -> float:
+    left_tokens = _normalize_title_tokens(left)
+    right_tokens = _normalize_title_tokens(right)
+    if not left_tokens or not right_tokens:
+        return 0.0
+    overlap = left_tokens & right_tokens
+    universe = left_tokens | right_tokens
+    return len(overlap) / len(universe)
+
+
+def _normalized_file_set(files: list[str]) -> set[str]:
+    return {path.strip() for path in files if path.strip()}
+
+
+def _file_overlap_ratio(left: set[str], right: set[str]) -> float:
+    if not left or not right:
+        return 0.0
+    return len(left & right) / min(len(left), len(right))
+
+
+def _oldest_pr_number(pr_numbers: set[int], ready_prs: list[dict[str, Any]]) -> int:
+    indexed = {int(pr["number"]): pr for pr in ready_prs}
+    oldest = min(
+        pr_numbers,
+        key=lambda number: (
+            str(indexed.get(number, {}).get("created_at", "")),
+            number,
+        ),
+    )
+    return oldest
+
+
+def _build_duplicate_scope_comment(
+    *,
+    stream: str,
+    canonical_pr_number: int,
+    duplicate_pr_numbers: set[int],
+    current_pr_number: int,
+) -> str:
+    duplicates = ", ".join(f"#{n}" for n in sorted(duplicate_pr_numbers)) or "(none)"
+    return (
+        "⚠️ PR Admission Controller detected duplicate PR scope in the same stream.\n\n"
+        f"- Stream: `{stream}`\n"
+        f"- Canonical PR to keep ready: `#{canonical_pr_number}`\n"
+        f"- Overlapping PR(s): {duplicates}\n"
+        f"- This PR: `#{current_pr_number}` was converted back to draft.\n\n"
+        "To proceed: merge/close the canonical PR or materially narrow this diff, then mark this PR ready again."
+    )
+
+
+def find_duplicate_scope_pr_numbers(
+    current_pr_number: int,
+    ready_prs: list[dict[str, Any]],
+    files_by_pr: dict[int, list[str]],
+) -> set[int]:
+    indexed = {int(pr["number"]): pr for pr in ready_prs}
+    current_pr = indexed.get(current_pr_number)
+    if current_pr is None:
+        return set()
+
+    current_files = _normalized_file_set(files_by_pr.get(current_pr_number, []))
+    current_title = str(current_pr.get("title", ""))
+    if not current_files or not current_title.strip():
+        return set()
+
+    duplicates: set[int] = set()
+    for pr in ready_prs:
+        number = int(pr["number"])
+        if number == current_pr_number:
+            continue
+
+        other_files = _normalized_file_set(files_by_pr.get(number, []))
+        if not other_files:
+            continue
+
+        title_similarity = _title_similarity(current_title, str(pr.get("title", "")))
+        file_overlap = _file_overlap_ratio(current_files, other_files)
+        exact_small_lane = current_files == other_files and len(current_files) <= 6
+        subset_small_lane = min(len(current_files), len(other_files)) <= 4 and (
+            current_files.issubset(other_files) or other_files.issubset(current_files)
+        )
+
+        if (exact_small_lane or subset_small_lane) and title_similarity >= 0.35:
+            duplicates.add(number)
+            continue
+        if file_overlap >= 0.85 and title_similarity >= 0.45:
+            duplicates.add(number)
+
+    return duplicates
+
+
 def evaluate_admission(
     *,
     client: GitHubClient,
@@ -294,6 +410,23 @@ def evaluate_admission(
         stream_by_pr[number] = classify_stream_from_files(files)
 
     current_stream = stream_by_pr.get(current_pr_number, "core")
+    same_stream_ready_prs = [
+        pr for pr in ready_prs if stream_by_pr.get(int(pr["number"])) == current_stream
+    ]
+    for pr in same_stream_ready_prs:
+        number = int(pr["number"])
+        files_cache.setdefault(number, client.list_pull_files(number))
+
+    duplicate_prs = find_duplicate_scope_pr_numbers(
+        current_pr_number=current_pr_number,
+        ready_prs=same_stream_ready_prs,
+        files_by_pr=files_cache,
+    )
+    duplicate_canonical: int | None = None
+    if duplicate_prs:
+        duplicate_cluster = duplicate_prs | {current_pr_number}
+        duplicate_canonical = _oldest_pr_number(duplicate_cluster, same_stream_ready_prs)
+
     admitted = select_admitted_pr_numbers(
         ready_prs=ready_prs,
         stream_by_pr=stream_by_pr,
@@ -308,9 +441,44 @@ def evaluate_admission(
                 "stream": current_stream,
                 "max_ready_per_stream": max_ready_per_stream,
                 "admitted_ready_prs": sorted(admitted),
+                "duplicate_scope_prs": sorted(duplicate_prs),
+                "duplicate_scope_canonical_pr": duplicate_canonical,
             }
         )
     )
+
+    if duplicate_canonical and duplicate_canonical != current_pr_number:
+        duplicate_text = ", ".join(f"#{n}" for n in sorted(duplicate_prs)) or "(none)"
+        print(
+            f"Duplicate scope detected for PR #{current_pr_number} in stream '{current_stream}'. "
+            f"Canonical ready PR: #{duplicate_canonical}. Overlap with: {duplicate_text}"
+        )
+        if not enforce:
+            print(
+                f"Advisory-only mode: PR #{current_pr_number} overlaps an older ready PR, "
+                "but no blocking action will be taken."
+            )
+            return 0
+
+        pr_node_id = str(current_pr.get("node_id", ""))
+        if not pr_node_id:
+            raise GitHubApiError(f"PR #{current_pr_number} is missing node_id")
+
+        converted, converted_msg = client.convert_pull_to_draft(pr_node_id)
+        disabled, disabled_msg = client.disable_auto_merge(pr_node_id)
+        comment = _build_duplicate_scope_comment(
+            stream=current_stream,
+            canonical_pr_number=duplicate_canonical,
+            duplicate_pr_numbers=duplicate_prs,
+            current_pr_number=current_pr_number,
+        )
+        client.add_issue_comment(current_pr_number, comment)
+        print(
+            f"Duplicate-scope enforcement applied to PR #{current_pr_number}: "
+            f"converted={converted} ({converted_msg}), "
+            f"auto_merge_disabled={disabled} ({disabled_msg})"
+        )
+        return 0
 
     if current_pr_number in admitted:
         print(
