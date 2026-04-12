@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.mission import GateType, GateVerdict
 from aragora.swarm import preflight as mod
 from aragora.swarm.worker_contract import checksum_contract_payload
@@ -164,3 +165,71 @@ def test_evaluate_preflight_dispatch_gate_blocks_missing_context_policy() -> Non
     assert gate["gate_type"] == GateType.DISPATCH_READY.value
     assert gate["verdict"] == GateVerdict.BLOCKED.value
     assert "context_policy_unresolved" in gate["failure_classes"]
+
+
+def _ok_run(cmd: list[str], **_: object) -> SimpleNamespace:
+    return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+
+def test_run_preflight_checks_success(monkeypatch, tmp_path: Path) -> None:
+    env = {
+        "ARAGORA_CLAUDE_PROFILE": "claude",
+        "GITHUB_TOKEN": "token",
+        "OPENAI_API_KEY": "key",
+        "ARAGORA_PROVIDER": "openai",
+        "PYTEST_AVAILABLE": "true",
+        "RUFF_AVAILABLE": "true",
+        "SSH_AUTH_SOCK": "/tmp/agent.sock",
+    }
+    envelope = CredentialEnvelope.from_environment(env)
+    monkeypatch.setattr(mod.subprocess, "run", _ok_run)
+
+    result = mod.run_preflight(envelope=envelope, repo_root=tmp_path)
+
+    assert result.passed is True
+    assert len(result.checks) == 6
+    assert result.envelope is envelope
+    assert result.duration_seconds >= 0.0
+
+
+def test_run_preflight_checks_detects_git_dirty(monkeypatch, tmp_path: Path) -> None:
+    env = {
+        "ARAGORA_CLAUDE_PROFILE": "claude",
+        "GITHUB_TOKEN": "token",
+        "OPENAI_API_KEY": "key",
+        "ARAGORA_PROVIDER": "openai",
+        "PYTEST_AVAILABLE": "true",
+        "RUFF_AVAILABLE": "true",
+        "SSH_AUTH_SOCK": "/tmp/agent.sock",
+    }
+    envelope = CredentialEnvelope.from_environment(env)
+
+    def fake_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        if cmd[:2] == ["git", "status"]:
+            return SimpleNamespace(returncode=0, stdout=" M file.py\n", stderr="")
+        return _ok_run(cmd)
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    result = mod.run_preflight(envelope=envelope, repo_root=tmp_path)
+    assert result.passed is False
+    assert result.checks[0]["name"] == "git_status_clean"
+    assert result.checks[0]["passed"] is False
+
+
+def test_preflight_result_serializes_envelope(monkeypatch, tmp_path: Path) -> None:
+    env = {
+        "ARAGORA_CLAUDE_PROFILE": "claude",
+        "GITHUB_TOKEN": "token",
+        "OPENAI_API_KEY": "key",
+        "ARAGORA_PROVIDER": "openai",
+        "PYTEST_AVAILABLE": "true",
+        "RUFF_AVAILABLE": "true",
+        "SSH_AUTH_SOCK": "/tmp/agent.sock",
+    }
+    envelope = CredentialEnvelope.from_environment(env)
+    monkeypatch.setattr(mod.subprocess, "run", _ok_run)
+
+    result = mod.run_preflight(envelope=envelope, repo_root=tmp_path)
+    payload = result.to_dict()
+    assert payload["envelope"]["provider"]["provider_name"] == "openai"

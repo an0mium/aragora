@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.mission import GateEvaluation, GateType, GateVerdict, MissionContextPolicy
 from aragora.swarm.worker_contract import checksum_contract_payload
@@ -31,6 +32,10 @@ class PreflightResult:
     cleanup_branch_removed: bool
     dispatch_gate: dict[str, Any] = field(default_factory=dict)
     worker: dict[str, Any] = field(default_factory=dict)
+    passed: bool = False
+    checks: list[dict[str, Any]] = field(default_factory=list)
+    duration_seconds: float = 0.0
+    envelope: CredentialEnvelope | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -39,6 +44,10 @@ class PreflightResult:
             "branch": self.branch,
             "worktree_path": self.worktree_path,
             "agent": self.agent,
+            "passed": self.passed,
+            "checks": list(self.checks),
+            "duration_seconds": self.duration_seconds,
+            "envelope": self.envelope.to_dict() if self.envelope else None,
             "published": self.published,
             "pull_request_created": self.pull_request_created,
             "pull_request_closed": self.pull_request_closed,
@@ -66,6 +75,153 @@ def _run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> Non
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
         raise RuntimeError(detail or f"Command failed: {' '.join(cmd)}")
+
+
+def _check_git_clean(repo_root: Path) -> dict[str, Any]:
+    result = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=str(repo_root),
+        env=git_safe_env(),
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        return {
+            "name": "git_status_clean",
+            "passed": False,
+            "detail": detail or "git status failed",
+        }
+    output = (result.stdout or "").strip()
+    return {
+        "name": "git_status_clean",
+        "passed": output == "",
+        "detail": "clean" if output == "" else "worktree has uncommitted changes",
+    }
+
+
+def _check_can_create_branch(repo_root: Path) -> dict[str, Any]:
+    branch = f"preflight/check-{int(time.time())}"
+    result = subprocess.run(
+        ["git", "branch", branch],
+        cwd=str(repo_root),
+        env=git_safe_env(),
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        return {
+            "name": "git_can_create_branch",
+            "passed": False,
+            "detail": detail or "branch create failed",
+        }
+    subprocess.run(
+        ["git", "branch", "-D", branch],
+        cwd=str(repo_root),
+        env=git_safe_env(),
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    return {"name": "git_can_create_branch", "passed": True, "detail": "ok"}
+
+
+def _check_can_commit(repo_root: Path) -> dict[str, Any]:
+    result = subprocess.run(
+        ["git", "commit", "--allow-empty", "--dry-run", "-m", "preflight check"],
+        cwd=str(repo_root),
+        env=git_safe_env(),
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        return {
+            "name": "git_can_commit",
+            "passed": False,
+            "detail": detail or "commit dry-run failed",
+        }
+    return {"name": "git_can_commit", "passed": True, "detail": "ok"}
+
+
+def _check_tool_available(name: str, cmd: list[str]) -> dict[str, Any]:
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        return {"name": name, "passed": False, "detail": detail or "command failed"}
+    return {"name": name, "passed": True, "detail": (result.stdout or "").strip() or "ok"}
+
+
+def _runner_command(envelope: CredentialEnvelope) -> list[str] | None:
+    command_path = str(envelope.runner.command_path or "").strip()
+    if command_path:
+        return [command_path, "--version"]
+    profile = str(envelope.runner.profile or "").lower()
+    if "codex" in profile:
+        return ["codex", "--version"]
+    if "claude" in profile:
+        return ["claude", "--version"]
+    return None
+
+
+def run_preflight_checks(
+    envelope: CredentialEnvelope,
+    *,
+    repo_root: Path,
+) -> PreflightResult:
+    start = time.monotonic()
+    checks: list[dict[str, Any]] = [
+        _check_git_clean(repo_root),
+        _check_can_create_branch(repo_root),
+        _check_can_commit(repo_root),
+        _check_tool_available("ruff_available", ["python3", "-m", "ruff", "--version"]),
+        _check_tool_available("pytest_available", ["python3", "-m", "pytest", "--version"]),
+    ]
+    runner_cmd = _runner_command(envelope)
+    if runner_cmd:
+        checks.append(_check_tool_available("runner_cli", runner_cmd))
+    else:
+        checks.append(
+            {
+                "name": "runner_cli",
+                "passed": False,
+                "detail": "runner command not configured",
+            }
+        )
+    passed = all(check["passed"] for check in checks)
+    duration = time.monotonic() - start
+    return PreflightResult(
+        passed=passed,
+        checks=checks,
+        duration_seconds=duration,
+        envelope=envelope,
+        repo_root=str(repo_root),
+        base_ref="",
+        branch="",
+        worktree_path=str(repo_root),
+        agent=envelope.runner.profile or "unknown",
+        published=False,
+        pull_request_created=False,
+        pull_request_closed=False,
+        cleanup_worktree_removed=False,
+        cleanup_branch_removed=False,
+        dispatch_gate={},
+        worker={},
+    )
 
 
 def _branch_name() -> str:
@@ -230,10 +386,15 @@ def _close_pr(repo_root: Path, branch: str) -> None:
 def run_preflight(
     *,
     repo_root: Path,
-    agent: str,
+    agent: str | None = None,
     base_ref: str = "main",
     skip_publication: bool = False,
+    envelope: CredentialEnvelope | None = None,
 ) -> PreflightResult:
+    if envelope is not None:
+        return run_preflight_checks(envelope, repo_root=repo_root)
+
+    start = time.monotonic()
     resolved_repo_root = repo_root.resolve()
     normalized_agent = str(agent or "").strip() or "claude"
     normalized_base_ref = str(base_ref or "main").strip() or "main"
@@ -295,7 +456,15 @@ def run_preflight(
             )
             cleanup_branch_removed = branch_remove.returncode == 0
 
+    passed = False
+    if dispatch_gate:
+        passed = str(dispatch_gate.get("verdict", "")).strip() == GateVerdict.PASS.value
+    duration = time.monotonic() - start
     return PreflightResult(
+        passed=passed,
+        checks=[],
+        duration_seconds=duration,
+        envelope=None,
         repo_root=str(resolved_repo_root),
         base_ref=normalized_base_ref,
         branch=branch,
