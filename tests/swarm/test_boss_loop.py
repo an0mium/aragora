@@ -2014,6 +2014,104 @@ class TestBossLoop:
         assert payload["publish_action"] == "opened_pr"
         assert payload["elapsed_seconds"] >= 0.0
 
+    def test_terminal_class_in_metrics_payload(self, tmp_path: Path):
+        """terminal_class field appears with a valid TerminalClass value."""
+        from aragora.swarm.terminal_truth import TerminalClass
+
+        valid_values = {tc.value for tc in TerminalClass}
+
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(99, "Terminal class wiring")]
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=1,
+                metrics_jsonl_path=str(tmp_path / "boss_metrics.jsonl"),
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        async def _completed_dispatch(issue, freshness):
+            return {
+                "status": "completed",
+                "outcome": "deliverable_created",
+                "deliverable": {"branch": "codex/test-branch"},
+                "publish_result": {"action": "opened_pr", "published": True},
+                "run": {
+                    "work_orders": [
+                        {
+                            "changed_paths": ["aragora/swarm/boss_loop.py"],
+                            "tests_run": ["pytest tests/swarm/ -q"],
+                            "verification_results": [{"passed": True}],
+                        }
+                    ]
+                },
+            }
+
+        loop._dispatch_issue = _completed_dispatch
+
+        result = asyncio.run(loop.run())
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+
+        payload = json.loads((tmp_path / "boss_metrics.jsonl").read_text(encoding="utf-8"))
+        # The 14 existing fields must still be present
+        assert "iteration" in payload
+        assert "issue_number" in payload
+        assert "worker_status" in payload
+        assert "worker_outcome" in payload
+        assert "elapsed_seconds" in payload
+        assert "files_changed" in payload
+        assert "tests_run" in payload
+        assert "tests_passed" in payload
+        assert "prompt_version" in payload
+        assert "prompt_chars" in payload
+        assert "enriched_context_chars" in payload
+        assert "is_decomposed_issue" in payload
+        assert "has_deliverable" in payload
+        assert "publish_action" in payload
+        # New terminal_class field
+        assert "terminal_class" in payload, "terminal_class key missing from metrics payload"
+        assert payload["terminal_class"] in valid_values, (
+            f"terminal_class value {payload['terminal_class']!r} is not a valid TerminalClass"
+        )
+
+    def test_terminal_class_fallback_on_classification_error(self, tmp_path: Path):
+        """terminal_class uses fallback value when classify_from_metrics raises."""
+        from aragora.swarm.terminal_truth import TerminalClass
+
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [_make_issue(100, "Terminal class fallback")]
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=1,
+                metrics_jsonl_path=str(tmp_path / "boss_metrics.jsonl"),
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+
+        async def _completed_dispatch(issue, freshness):
+            return {
+                "status": "completed",
+                "outcome": "deliverable_created",
+                "deliverable": {"branch": "codex/fallback-branch"},
+                "run": {"work_orders": []},
+            }
+
+        loop._dispatch_issue = _completed_dispatch
+
+        with patch(
+            "aragora.swarm.boss_loop.classify_from_metrics",
+            side_effect=RuntimeError("boom"),
+        ):
+            result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.MAX_ITERATIONS.value
+        payload = json.loads((tmp_path / "boss_metrics.jsonl").read_text(encoding="utf-8"))
+        assert payload["terminal_class"] == TerminalClass.RESCUE_NO_DELIVERABLE.value
+
     def test_missing_validation_contract_stops_with_needs_human(self):
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = [
