@@ -90,6 +90,50 @@ def test_publish_requires_all_candidates_pass(monkeypatch, capsys) -> None:
     assert calls.count == 0
 
 
+def test_skip_decomposition_bypasses_bridge(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        create_b0_cohort, "scan_all", lambda *args, **kwargs: [_candidate("Add unit tests for foo")]
+    )
+
+    class ExplodingBridge:
+        def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+            pass
+
+        def decompose_issue_sync(self, *args, **kwargs) -> list[BossIssueCandidate]:  # noqa: ANN002, ANN003
+            raise AssertionError("bridge should not run when --skip-decomposition is set")
+
+    monkeypatch.setattr(create_b0_cohort, "DecompositionBridge", ExplodingBridge)
+    _install_dummy_sanitizer(monkeypatch, SanitizationOutcome.ACCEPTED)
+    monkeypatch.setattr(create_b0_cohort, "assess_issue_body_sanitation", lambda *_: (True, ""))
+
+    exit_code = create_b0_cohort.main(["--dry-run", "--max-issues", "1", "--skip-decomposition"])
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "[B0-cohort]" in output
+
+
+def test_publish_applies_requested_label(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        create_b0_cohort, "scan_all", lambda *args, **kwargs: [_candidate("Add unit tests for foo")]
+    )
+    _install_dummy_bridge(monkeypatch, children=[])
+    _install_dummy_sanitizer(monkeypatch, SanitizationOutcome.ACCEPTED)
+    monkeypatch.setattr(create_b0_cohort, "assess_issue_body_sanitation", lambda *_: (True, ""))
+
+    calls = []
+
+    def _fake_create_issue(repo: str, title: str, body: str, *, label: str) -> bool:
+        calls.append((repo, title, body, label))
+        return True
+
+    monkeypatch.setattr(create_b0_cohort, "_create_issue_with_label", _fake_create_issue)
+    exit_code = create_b0_cohort.main(["--publish", "--max-issues", "1", "--label", "boss-ready"])
+    assert exit_code == 0
+    capsys.readouterr()
+    assert len(calls) == 1
+    assert calls[0][3] == "boss-ready"
+
+
 def test_requires_exact_count(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         create_b0_cohort, "scan_all", lambda *args, **kwargs: [_candidate("Add unit tests for foo")]

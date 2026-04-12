@@ -66,6 +66,28 @@ def test_b0_tagged_cohort_detects_title_and_metadata_tags() -> None:
     assert tagged_summary.average_iterations_per_issue == 1.5
 
 
+def test_b0_tagged_cohort_detects_explicit_cohort_tag_field() -> None:
+    rows = [
+        {
+            "issue_number": 777,
+            "cohort_tag": "B0-cohort",
+            "prompt_chars": 123,
+            "publish_action": "pr_created",
+            "worker_status": "completed",
+            "terminal_class": "deliverable_pr_created",
+        }
+    ]
+
+    assert is_b0_cohort_row(rows[0]) is True
+
+    report = measure_b0_progress(rows)
+    tagged_summary = report["b0_tagged"]
+
+    assert tagged_summary.rows == 1
+    assert tagged_summary.unique_issues_attempted == 1
+    assert tagged_summary.unique_issues_with_mergeable_pr_signal == 1
+
+
 def test_terminal_class_distribution_uses_existing_or_fallback_classification() -> None:
     rows = load_metrics_rows(FIXTURE_PATH)
 

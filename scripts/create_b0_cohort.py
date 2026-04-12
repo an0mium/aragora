@@ -25,6 +25,7 @@ from aragora.swarm.task_sanitizer import (  # noqa: E402
 DEFAULT_CATEGORY = "test_coverage"
 DEFAULT_MIN_SUCCESS_RATE = 0.3
 DEFAULT_MAX_CHILDREN = 5
+DEFAULT_LABEL = "boss-ready"
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,7 @@ def _select_cohort(
     max_issues: int,
     bridge: DecompositionBridge,
     sanitizer: TaskSanitizer,
+    skip_decomposition: bool = False,
 ) -> list[ParentReview]:
     reviews: list[ParentReview] = []
     total_selected = 0
@@ -115,11 +117,13 @@ def _select_cohort(
         if total_selected >= max_issues:
             break
         parent_body = _format_parent_body(candidate)
-        children = bridge.decompose_issue_sync(
-            candidate.title,
-            parent_body,
-            max_children=DEFAULT_MAX_CHILDREN,
-        )
+        children: list[BossIssueCandidate] = []
+        if not skip_decomposition:
+            children = bridge.decompose_issue_sync(
+                candidate.title,
+                parent_body,
+                max_children=DEFAULT_MAX_CHILDREN,
+            )
         final_children = children or [candidate]
         remaining = max_issues - total_selected
         final_children = final_children[:remaining]
@@ -145,9 +149,17 @@ def _all_candidates_pass(reviews: list[ParentReview]) -> bool:
 
 
 def _create_issue(repo: str, title: str, body: str) -> bool:
+    return _create_issue_with_label(repo, title, body, label=DEFAULT_LABEL)
+
+
+def _create_issue_with_label(repo: str, title: str, body: str, *, label: str) -> bool:
     try:
+        cmd = ["gh", "issue", "create", "--repo", repo, "--title", title, "--body", body]
+        normalized_label = str(label or "").strip()
+        if normalized_label:
+            cmd.extend(["--label", normalized_label])
         result = subprocess.run(
-            ["gh", "issue", "create", "--repo", repo, "--title", title, "--body", body],
+            cmd,
             capture_output=True,
             text=True,
             timeout=30,
@@ -211,6 +223,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=[DEFAULT_CATEGORY],
         help="Scanner categories to include (default: test_coverage)",
     )
+    parser.add_argument(
+        "--skip-decomposition",
+        action="store_true",
+        help="Use raw scanner candidates instead of decomposition-bridge children",
+    )
+    parser.add_argument(
+        "--label",
+        default=DEFAULT_LABEL,
+        help="GitHub label applied to created issues (default: boss-ready)",
+    )
     return parser
 
 
@@ -243,6 +265,7 @@ def main(argv: list[str] | None = None) -> int:
         max_issues=args.max_issues,
         bridge=bridge,
         sanitizer=sanitizer,
+        skip_decomposition=args.skip_decomposition,
     )
     selected_count = sum(len(review.children) for review in reviews)
     if selected_count < args.max_issues:
@@ -267,7 +290,12 @@ def main(argv: list[str] | None = None) -> int:
         failed = 0
         for review in reviews:
             for child in review.children:
-                ok = _create_issue(args.repo, child.prefixed_title, child.body)
+                ok = _create_issue_with_label(
+                    args.repo,
+                    child.prefixed_title,
+                    child.body,
+                    label=args.label,
+                )
                 if ok:
                     created += 1
                 else:

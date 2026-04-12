@@ -18,6 +18,7 @@ from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics  #
 
 DEFAULT_METRICS_PATH = REPO_ROOT / ".aragora" / "overnight" / "boss_metrics.jsonl"
 COHORT_TAG = "[b0-cohort]"
+COHORT_TAG_PLAIN = "b0-cohort"
 PR_SIGNAL_ACTIONS = frozenset({"pr_created", "existing_pr", "discovered_after_push"})
 PR_SIGNAL_OUTCOMES = frozenset({"pr_adopted"})
 COMPLETED_STATUS = "completed"
@@ -96,7 +97,8 @@ def _normalize_text(value: Any) -> str:
 
 def _contains_cohort_tag(value: Any) -> bool:
     if isinstance(value, str):
-        return COHORT_TAG in value.lower()
+        normalized = value.lower()
+        return COHORT_TAG in normalized or COHORT_TAG_PLAIN in normalized
     if isinstance(value, dict):
         return any(_contains_cohort_tag(item) for item in value.values())
     if isinstance(value, (list, tuple, set)):
@@ -105,6 +107,8 @@ def _contains_cohort_tag(value: Any) -> bool:
 
 
 def is_b0_cohort_row(row: dict[str, Any]) -> bool:
+    if _contains_cohort_tag(row.get("cohort_tag")):
+        return True
     for key in ("issue_title", "title"):
         if _contains_cohort_tag(row.get(key)):
             return True
