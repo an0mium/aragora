@@ -8,6 +8,12 @@ from __future__ import annotations
 
 from .types import Counter, Histogram
 
+_STATUS_SUCCESS = "success"
+_STATUS_ERROR = "error"
+_TOKEN_DIRECTION_INPUT = "input"
+_TOKEN_DIRECTION_OUTPUT = "output"
+_LATENCY_BUCKETS = (0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0)
+
 # =============================================================================
 # Agent Metrics
 # =============================================================================
@@ -22,7 +28,7 @@ AGENT_LATENCY = Histogram(
     name="aragora_agent_latency_seconds",
     help="Agent response latency",
     label_names=["agent"],
-    buckets=[0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
+    buckets=list(_LATENCY_BUCKETS),
 )
 
 AGENT_TOKENS = Counter(
@@ -41,10 +47,12 @@ def track_agent_call(
     agent: str, latency: float, tokens_in: int, tokens_out: int, success: bool
 ) -> None:
     """Track an agent API call."""
-    AGENT_REQUESTS.inc(agent=agent, status="success" if success else "error")
+    status = _STATUS_SUCCESS if success else _STATUS_ERROR
+
+    AGENT_REQUESTS.inc(agent=agent, status=status)
     AGENT_LATENCY.observe(latency, agent=agent)
-    AGENT_TOKENS.inc(tokens_in, agent=agent, direction="input")
-    AGENT_TOKENS.inc(tokens_out, agent=agent, direction="output")
+    AGENT_TOKENS.inc(tokens_in, agent=agent, direction=_TOKEN_DIRECTION_INPUT)
+    AGENT_TOKENS.inc(tokens_out, agent=agent, direction=_TOKEN_DIRECTION_OUTPUT)
 
 
 __all__ = [
