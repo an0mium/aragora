@@ -317,6 +317,7 @@ def _finalize_completed_work_order_result(
     worker_type_circuit_breaker_policy: dict[str, Any] | None = None,
 ) -> bool:
     merge_gate = self._merge_gate_state(item)
+    preserved_outcome = str(item.get("worker_outcome", "")).strip()
     item["merge_gate"] = merge_gate
     if merge_gate.get("verification_missing_reason"):
         item["verification_missing_reason"] = merge_gate["verification_missing_reason"]
@@ -342,7 +343,11 @@ def _finalize_completed_work_order_result(
             _append_repair_journal(self, item, result, reason="merge_gate_failed")
             item["review_status"] = "changes_requested"
             item["receipt_id"] = None
-            item["worker_outcome"] = WorkerOutcome.MERGE_GATE_FAILED.value
+            if preserved_outcome not in {
+                WorkerOutcome.CRASH_WITH_SALVAGE.value,
+                WorkerOutcome.TIMEOUT_WITH_SALVAGE.value,
+            }:
+                item["worker_outcome"] = WorkerOutcome.MERGE_GATE_FAILED.value
             self._release_terminal_lease(item)
             return False
 
