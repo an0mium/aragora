@@ -190,10 +190,11 @@ def _init_replication_metrics() -> None:
         _metrics_initialized = True
         logger.info("Replication monitoring metrics initialized")
 
-    except ImportError:
+    except ImportError as e:
         logger.warning(
-            "prometheus_client not installed, replication metrics disabled. "
-            "Install with: pip install prometheus-client"
+            "prometheus_client not installed, replication metrics disabled: %s. "
+            "Install with: pip install prometheus-client",
+            e,
         )
 
 
