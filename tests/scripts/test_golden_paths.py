@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
+import sys
 from dataclasses import fields
 from pathlib import Path
 from types import ModuleType
@@ -27,3 +29,19 @@ def test_protocol_overrides_only_include_supported_debate_protocol_fields() -> N
     assert set(overrides).issubset(supported_fields)
     assert overrides["use_structured_phases"] is True
     assert overrides["early_stopping"] is False
+
+
+def test_cli_help_runs_from_direct_script_path() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    script_path = repo_root / "scripts" / "golden_paths.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script_path), "--help"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "usage:" in result.stdout.lower()
