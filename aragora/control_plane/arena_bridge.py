@@ -724,7 +724,7 @@ class ArenaControlPlaneBridge:
                 try:
                     await sla_task
                 except asyncio.CancelledError:
-                    pass
+                    logger.debug("SLA monitor task cancelled for task %s", task.task_id)
 
         except asyncio.TimeoutError:
             task.metrics.completed_at = time.time()
