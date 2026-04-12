@@ -4,7 +4,7 @@ import hashlib
 import json
 import os
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from aragora.pipeline.execution_mode import ExecutionMode
@@ -49,6 +49,10 @@ class WorkerContract:
     evidence_expectations: list[str] | None = None
     mission_context_policy: dict[str, Any] | None = None
     contract_version: str = _CONTRACT_VERSION
+    _expected_checksum: str = field(default="", init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._expected_checksum = self.checksum()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -99,6 +103,46 @@ class WorkerContract:
             raise ValueError(f"Worker contract missing required fields: {', '.join(missing)}")
         if not dict(self.mission_context_policy or {}):
             raise ValueError("Worker contract missing required field: mission_context_policy")
+
+    def admission_check(self) -> bool:
+        """Check contract completeness and integrity for dispatch admission.
+
+        Unlike ``validate()`` which raises ``ValueError`` on missing fields,
+        this method returns a bool and additionally performs **checksum drift
+        detection** — comparing the current contract checksum against the
+        checksum captured at construction time.
+
+        Fail-closed: returns ``False`` on any error.  Pure: no I/O, no
+        network, no subprocess, no state mutation.
+        """
+        try:
+            # 1. Verify all required fields are non-empty and non-None.
+            required_fields = (
+                self.runner_type,
+                self.agent,
+                self.model,
+                self.profile,
+                self.execution_mode,
+                self.git_auth_mode,
+                self.gh_api_auth_mode,
+                self.budget,
+                self.env_checksum,
+                self.contract_version,
+            )
+            for value in required_fields:
+                if value is None or value == "":
+                    return False
+            if not dict(self.mission_context_policy or {}):
+                return False
+
+            # 2. Detect checksum drift.
+            current_checksum = checksum_contract_payload(self.to_dict())
+            if current_checksum != self._expected_checksum:
+                return False
+
+            return True
+        except Exception:  # noqa: BLE001 — fail-closed by design
+            return False
 
 
 def _env_checksum(env: Mapping[str, str] | None) -> str:
