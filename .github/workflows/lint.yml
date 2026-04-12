@@ -157,6 +157,9 @@ jobs:
       - name: Validate Prometheus rule syntax with promtool
         run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_prometheus_rules.py
 
+      - name: Enforce code quality ratchet
+        run: ${{ steps.lint_python.outputs.python_bin }} scripts/report_code_quality.py --check
+
       - name: Run ruff format check (all Python files)
         run: ${{ steps.lint_python.outputs.python_bin }} -m ruff format --check aragora/ tests/ scripts/
         shell: bash
