@@ -8,7 +8,8 @@ cohort by:
 - identifying B0 cohort issues from `cohort_tag` or `[B0-cohort]` titles
 - computing issue-level proxy success from metrics
 - resolving linked PRs for each issue via GitHub issue comments and PR metadata
-- reporting truth states per issue: no linked PR, open PR, mergeable PR, merged PR
+- reporting truth states per issue: no linked PR, open PR, mergeable PR,
+  closed-unmerged PR, merged PR
 
 Proxy metric:
 - an issue has a PR signal in metrics
@@ -325,6 +326,8 @@ def classify_issue_truth_state(linked_prs: list[LinkedPullRequest]) -> str:
         return "mergeable_pr"
     if "open_pr" in states:
         return "open_pr"
+    if "closed_unmerged_pr" in states:
+        return "closed_unmerged_pr"
     return "no_linked_pr"
 
 

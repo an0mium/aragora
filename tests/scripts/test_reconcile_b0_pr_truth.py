@@ -183,6 +183,42 @@ def test_reconcile_issue_truth_falls_back_to_cross_refs() -> None:
     assert record.no_rescue_truth_success is False
 
 
+def test_reconcile_issue_truth_preserves_closed_unmerged_pr() -> None:
+    aggregate = IssueMetricsAggregate(
+        issue_number=5104,
+        title="[B0-cohort] Closed PR attempt",
+        proxy_pr_signal=False,
+        had_rescue=False,
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            5104: {
+                "title": aggregate.title,
+                "comments": [{"body": "PR: https://github.com/synaptent/aragora/pull/5112"}],
+            }
+        },
+        prs={
+            5112: {
+                "number": 5112,
+                "title": "closed attempt",
+                "url": "https://github.com/synaptent/aragora/pull/5112",
+                "state": "CLOSED",
+                "mergeable": "CONFLICTING",
+                "mergeStateStatus": "DIRTY",
+                "mergedAt": None,
+                "isDraft": False,
+            }
+        },
+    )
+
+    record = reconcile_issue_truth("synaptent/aragora", aggregate, client)
+
+    assert record.truth_state == "closed_unmerged_pr"
+    assert record.truth_success is False
+    assert record.no_rescue_truth_success is False
+    assert [pr.truth_state for pr in record.linked_prs] == ["closed_unmerged_pr"]
+
+
 def test_summary_and_renderers_include_proxy_vs_truth_language() -> None:
     records = [
         IssueTruthRecord(
