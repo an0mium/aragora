@@ -11,13 +11,36 @@ from vague inputs, so workers succeed instead of crashing.
 
 from __future__ import annotations
 
+import ast
 import logging
 import os
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+_PATH_RE = re.compile(r"`(?P<path>aragora/[^\s`]+\.py)`")
+_TEST_PATH_PREFIX = Path("tests")
+_MAX_SIMPLE_LOC = 120
+_MAX_SIMPLE_PUBLIC_API = 8
+_MAX_SIMPLE_EXTERNAL_WEIGHT = 2
+_SKIP_SENTINELS = frozenset({"__init__.py", "__main__.py"})
+_CONCRETE_MOCK_GUIDANCE: dict[str, str] = {
+    "httpx": "Patch `httpx` clients or request helpers to return deterministic responses.",
+    "requests": "Monkeypatch `requests` calls so tests do not hit the network.",
+    "aiohttp": "Use async fakes for `aiohttp` sessions and responses.",
+    "anthropic": "Stub Anthropic client calls and assert the prompt contract only.",
+    "openai": "Stub OpenAI client calls and assert the request payload only.",
+    "boto3": "Stub `boto3` clients/resources so tests never reach AWS.",
+    "redis": "Replace Redis clients with an in-memory fake or monkeypatched methods.",
+    "sqlalchemy": "Mock SQLAlchemy sessions/engines instead of opening a real database.",
+    "asyncpg": "Patch asyncpg connection helpers with deterministic fakes.",
+    "psycopg": "Stub psycopg connections/cursors so tests stay local.",
+    "subprocess": "Patch `subprocess` invocations and assert command construction only.",
+}
+_KNOWN_LOCAL_IMPORT_PREFIXES = ("aragora", "tests")
+_STDLIB_MODULES = set(getattr(sys, "stdlib_module_names", set()))
 
 
 @dataclass
@@ -36,80 +59,217 @@ class UpgradedIssue:
     upgrade_method: str  # "llm" or "heuristic"
 
 
+@dataclass(slots=True)
+class _ModuleAnalysis:
+    docstring: str
+    public_functions: list[str]
+    public_classes: list[str]
+    public_methods: dict[str, list[str]]
+    imports: list[str]
+    external_imports: list[str]
+    mock_hints: list[str]
+    loc: int
+    complexity: str
+    has_async: bool
+    has_useful_public_api: bool
+    is_obvious_reexport_or_empty: bool
+    external_dependency_weight: int
+
+
 def _read_module(path: Path) -> str | None:
-    """Read a module file, return content or None."""
     try:
         return path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
 
 
-def _extract_functions(content: str) -> list[str]:
-    """Extract public function and method names."""
-    return [
-        m.group(1)
-        for m in re.finditer(r"(?:def|async def)\s+(\w+)\s*\(", content)
-        if not m.group(1).startswith("_")
-    ]
+def _primary_module_path(issue_body: str) -> str | None:
+    match = _PATH_RE.search(str(issue_body or ""))
+    if not match:
+        return None
+    return str(match.group("path")).strip()
 
 
-def _extract_classes(content: str) -> list[str]:
-    """Extract class names."""
-    return [m.group(1) for m in re.finditer(r"class\s+(\w+)\s*[:(]", content)]
+def _iter_code_lines(content: str) -> list[str]:
+    lines: list[str] = []
+    for raw_line in content.splitlines():
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        lines.append(stripped)
+    return lines
 
 
-def _extract_imports(content: str) -> list[str]:
-    """Extract import statements."""
-    imports: list[str] = []
-    for line in content.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("import ") or stripped.startswith("from "):
-            imports.append(stripped)
-    return imports
+def _normalized_import_root(node: ast.AST) -> str:
+    if isinstance(node, ast.Import):
+        if not node.names:
+            return ""
+        return str(node.names[0].name.split(".", 1)[0]).strip()
+    if isinstance(node, ast.ImportFrom):
+        if node.level and not node.module:
+            return ""
+        return str((node.module or "").split(".", 1)[0]).strip()
+    return ""
 
 
-def _needs_mocking(imports: list[str]) -> list[str]:
-    """Identify imports that likely need mocking in tests."""
-    mock_hints: list[str] = []
-    mock_patterns = [
-        "redis",
-        "postgres",
-        "sqlite",
-        "database",
-        "db",
-        "httpx",
-        "requests",
-        "aiohttp",
-        "subprocess",
-        "os.environ",
-        "anthropic",
-        "openai",
-        "boto3",
-        "s3",
-    ]
-    for imp in imports:
-        imp_lower = imp.lower()
-        for pattern in mock_patterns:
-            if pattern in imp_lower:
-                mock_hints.append(f"Mock `{imp.split()[-1]}` — external dependency")
-                break
-    return mock_hints
+def _is_external_import(root: str) -> bool:
+    if not root:
+        return False
+    if root in _STDLIB_MODULES:
+        return False
+    if any(
+        root == prefix or root.startswith(f"{prefix}.") for prefix in _KNOWN_LOCAL_IMPORT_PREFIXES
+    ):
+        return False
+    return True
+
+
+def _mock_hint_for_import(root: str) -> str | None:
+    return _CONCRETE_MOCK_GUIDANCE.get(root)
 
 
 def _estimate_complexity(
+    *,
     loc: int,
-    num_functions: int,
-    num_imports: int,
+    public_api_size: int,
+    external_dependency_weight: int,
     has_async: bool,
 ) -> str:
-    """Estimate testing complexity."""
-    if loc < 30 and num_functions <= 3:
+    if loc <= 40 and public_api_size <= 3 and external_dependency_weight == 0 and not has_async:
         return "trivial"
-    if loc < 100 and num_functions <= 7 and num_imports < 5:
+    if (
+        loc <= _MAX_SIMPLE_LOC
+        and public_api_size <= _MAX_SIMPLE_PUBLIC_API
+        and external_dependency_weight <= _MAX_SIMPLE_EXTERNAL_WEIGHT
+    ):
         return "simple"
-    if loc < 300 and num_functions <= 15:
+    if loc <= 260 and public_api_size <= 16 and external_dependency_weight <= 4:
         return "medium"
     return "complex"
+
+
+def _is_obvious_reexport_or_empty(module: ast.Module) -> bool:
+    body = list(module.body)
+    if (
+        body
+        and isinstance(body[0], ast.Expr)
+        and isinstance(body[0].value, ast.Constant)
+        and isinstance(body[0].value.value, str)
+    ):
+        body = body[1:]
+    if not body:
+        return True
+
+    allowed_assign_targets = {"__all__", "__version__"}
+    for node in body:
+        if isinstance(node, (ast.Import, ast.ImportFrom, ast.Pass)):
+            continue
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = []
+            if isinstance(node, ast.Assign):
+                targets = [target.id for target in node.targets if isinstance(target, ast.Name)]
+            elif isinstance(node.target, ast.Name):
+                targets = [node.target.id]
+            if targets and all(target in allowed_assign_targets for target in targets):
+                continue
+        return False
+    return True
+
+
+def _analyze_module(content: str) -> _ModuleAnalysis | None:
+    try:
+        module = ast.parse(content)
+    except SyntaxError:
+        return None
+
+    public_functions: list[str] = []
+    public_classes: list[str] = []
+    public_methods: dict[str, list[str]] = {}
+    imports: list[str] = []
+    external_imports: list[str] = []
+    mock_hints: list[str] = []
+    has_async = False
+
+    for node in module.body:
+        if isinstance(node, ast.FunctionDef) and not node.name.startswith("_"):
+            public_functions.append(node.name)
+        elif isinstance(node, ast.AsyncFunctionDef) and not node.name.startswith("_"):
+            public_functions.append(node.name)
+            has_async = True
+        elif isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
+            public_classes.append(node.name)
+            methods: list[str] = []
+            for child in node.body:
+                if isinstance(child, ast.AsyncFunctionDef):
+                    has_async = True
+                if isinstance(
+                    child, (ast.FunctionDef, ast.AsyncFunctionDef)
+                ) and not child.name.startswith("_"):
+                    methods.append(child.name)
+            public_methods[node.name] = methods
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            rendered = ast.unparse(node).strip()
+            imports.append(rendered)
+            root = _normalized_import_root(node)
+            if _is_external_import(root) and root not in external_imports:
+                external_imports.append(root)
+                hint = _mock_hint_for_import(root)
+                if hint:
+                    mock_hints.append(hint)
+
+    public_api_size = len(public_functions) + len(public_classes)
+    return _ModuleAnalysis(
+        docstring=(ast.get_docstring(module) or "").strip()[:200],
+        public_functions=public_functions,
+        public_classes=public_classes,
+        public_methods=public_methods,
+        imports=imports,
+        external_imports=external_imports,
+        mock_hints=mock_hints,
+        loc=len(_iter_code_lines(content)),
+        complexity=_estimate_complexity(
+            loc=len(_iter_code_lines(content)),
+            public_api_size=public_api_size,
+            external_dependency_weight=len(external_imports),
+            has_async=has_async,
+        ),
+        has_async=has_async,
+        has_useful_public_api=(public_api_size > 0),
+        is_obvious_reexport_or_empty=_is_obvious_reexport_or_empty(module),
+        external_dependency_weight=len(external_imports),
+    )
+
+
+def _generated_test_path(module_rel: str) -> str:
+    parts = Path(module_rel).parts
+    if parts and parts[0] == "aragora" and len(parts) >= 2:
+        return str(_TEST_PATH_PREFIX / Path(*parts[1:-1]) / f"test_{parts[-1]}")
+    return str(_TEST_PATH_PREFIX / f"test_{Path(module_rel).name}")
+
+
+def _render_public_api_section(analysis: _ModuleAnalysis) -> str:
+    lines: list[str] = []
+    if analysis.public_functions:
+        lines.append("Public functions:")
+        lines.extend(f"- `{name}()`" for name in analysis.public_functions[:12])
+    if analysis.public_classes:
+        if lines:
+            lines.append("")
+        lines.append("Public classes:")
+        for class_name in analysis.public_classes[:8]:
+            methods = analysis.public_methods.get(class_name, [])
+            if methods:
+                method_bits = ", ".join(f"`{method}()`" for method in methods[:5])
+                lines.append(f"- `{class_name}` with methods {method_bits}")
+            else:
+                lines.append(f"- `{class_name}`")
+    return "\n".join(lines).strip()
+
+
+def _render_mock_guidance(analysis: _ModuleAnalysis) -> str:
+    if not analysis.mock_hints:
+        return "- No external dependency mocking required."
+    return "\n".join(f"- {hint}" for hint in analysis.mock_hints[:5])
 
 
 def upgrade_issue_heuristic(
@@ -118,96 +278,69 @@ def upgrade_issue_heuristic(
     *,
     repo_root: Path,
 ) -> UpgradedIssue | None:
-    """Upgrade an issue using heuristic module analysis (no LLM needed)."""
-    # Extract the target module path from the issue
-    path_match = re.search(r"`(aragora/\S+\.py)`", body)
-    if not path_match:
+    """Upgrade an issue using deterministic heuristic module analysis.
+
+    This prototype is intentionally narrow: only trivial/simple modules with a
+    useful public API are upgraded.
+    """
+    module_rel = _primary_module_path(body)
+    if not module_rel:
         return None
 
-    module_rel = path_match.group(1)
+    if Path(module_rel).name in _SKIP_SENTINELS:
+        return None
     module_path = repo_root / module_rel
     content = _read_module(module_path)
     if content is None:
         return None
 
-    lines = content.splitlines()
-    loc = len(lines)
-    functions = _extract_functions(content)
-    classes = _extract_classes(content)
-    imports = _extract_imports(content)
-    has_async = "async def" in content
-    mock_hints = _needs_mocking(imports)
-    complexity = _estimate_complexity(loc, len(functions), len(imports), has_async)
+    analysis = _analyze_module(content)
+    if analysis is None:
+        return None
+    if analysis.is_obvious_reexport_or_empty or not analysis.has_useful_public_api:
+        return None
+    if analysis.complexity not in {"trivial", "simple"}:
+        return None
+    if analysis.external_dependency_weight > _MAX_SIMPLE_EXTERNAL_WEIGHT:
+        return None
+    if analysis.external_imports and len(analysis.mock_hints) < len(analysis.external_imports):
+        return None
 
-    # Extract docstring
-    docstring = ""
-    if '"""' in content:
-        ds_match = re.search(r'"""(.*?)"""', content, re.DOTALL)
-        if ds_match:
-            docstring = ds_match.group(1).strip()[:200]
+    test_rel = _generated_test_path(module_rel)
+    public_api_section = _render_public_api_section(analysis)
+    module_purpose = f"**Module purpose:** {analysis.docstring}\n\n" if analysis.docstring else ""
+    async_note = (
+        "\n### Async handling\n- Use `pytest.mark.asyncio` for async entrypoints or wrap them with `asyncio.run()` in focused unit tests.\n"
+        if analysis.has_async
+        else ""
+    )
+    upgraded_body = (
+        "## Task\n\n"
+        f"Add focused unit tests for `{module_rel}`.\n\n"
+        f"{module_purpose}"
+        "### Public API to cover\n"
+        f"{public_api_section}\n\n"
+        "### Mock guidance\n"
+        f"{_render_mock_guidance(analysis)}\n"
+        f"{async_note}"
+        "### File Scope\n"
+        f"- `{module_rel}`\n"
+        f"- `{test_rel}` (create)\n\n"
+        "### Validation\n"
+        "```bash\n"
+        f"pytest {test_rel} -q\n"
+        "```\n\n"
+        "### Acceptance Criteria\n"
+        "- Tests cover the listed public API directly.\n"
+        "- External dependencies stay mocked or faked.\n"
+        "- The test file runs with a single focused pytest command.\n"
+        "- Keep the lane scoped to this module and its mirrored test file.\n\n"
+        "### Constraints\n"
+        f"- Estimated complexity: {analysis.complexity}\n"
+        "- Do not broaden into decomposition or cross-module planning."
+    )
 
-    # Build the test file path
     parts = Path(module_rel).parts
-    if parts[0] == "aragora" and len(parts) >= 2:
-        test_rel = str(Path("tests") / Path(*parts[1:-1]) / f"test_{parts[-1]}")
-    else:
-        test_rel = f"tests/test_{parts[-1]}"
-
-    # Build upgraded body with concrete guidance
-    func_list = (
-        "\n".join(f"   - `{f}()`" for f in functions[:15])
-        if functions
-        else "   - (no public functions found)"
-    )
-    class_list = "\n".join(f"   - `{c}`" for c in classes) if classes else ""
-    mock_list = (
-        "\n".join(f"   - {m}" for m in mock_hints)
-        if mock_hints
-        else "   - No external dependencies to mock"
-    )
-
-    async_note = ""
-    if has_async:
-        async_note = "\n\n**Note:** This module uses `async def`. Use `pytest-asyncio` or wrap calls in `asyncio.run()` for testing."
-
-    upgraded_body = f"""## Task
-
-Write focused unit tests for `{module_rel}` ({loc} lines, {len(functions)} public functions).
-
-{f"**Module purpose:** {docstring}" if docstring else ""}
-
-### What to test
-
-Public functions:
-{func_list}
-{f"{chr(10)}Classes:{chr(10)}{class_list}" if class_list else ""}
-
-### Mocking requirements
-{mock_list}
-{async_note}
-
-### Complexity: {complexity}
-{f"This is a {complexity} module. " if complexity == "trivial" else ""}{f"Focus on the {len(functions)} public functions — keep tests simple and direct." if complexity in ("trivial", "simple") else f"This module has {len(functions)} functions and {len(imports)} imports. Prioritize the most important public API surface."}
-
-### File Scope
-- `{module_rel}`
-- `{test_rel}` (create)
-
-### Validation
-```bash
-pytest {test_rel} -v
-```
-
-### Acceptance Criteria
-- All tests pass
-- At least {min(len(functions) * 2, 12)} test functions
-- No external service calls (mock all dependencies)
-- Tests complete in under 10 seconds
-
-### Constraints
-- Single-file change preferred
-- Estimated complexity: {complexity}"""
-
     upgraded_title = f"Add unit tests for {'/'.join(parts[1:])}" if len(parts) > 1 else title
 
     return UpgradedIssue(
@@ -215,11 +348,11 @@ pytest {test_rel} -v
         original_body=body,
         upgraded_title=upgraded_title,
         upgraded_body=upgraded_body,
-        module_summary=docstring,
-        functions_found=functions,
-        loc=loc,
-        imports=[i.split()[-1] for i in imports[:10]],
-        complexity=complexity,
+        module_summary=analysis.docstring,
+        functions_found=list(analysis.public_functions),
+        loc=analysis.loc,
+        imports=list(analysis.external_imports[:10]),
+        complexity=analysis.complexity,
         upgrade_method="heuristic",
     )
 
