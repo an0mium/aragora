@@ -162,3 +162,138 @@ def test_main_passes_explicit_min_success_rate(monkeypatch, capsys) -> None:
     _ = capsys.readouterr()
     assert scan_calls
     assert scan_calls[0][2] == 0.5
+
+
+def test_maybe_decompose_candidates_noop_when_disabled(monkeypatch) -> None:
+    parent = _candidate("parent_module", file_scope=["aragora/parent_module.py"])
+
+    class UnexpectedBridge:
+        def __init__(self, repo_root):  # noqa: D401, ANN001
+            raise AssertionError("bridge should not be constructed when disabled")
+
+    monkeypatch.setattr(mod, "DecompositionBridge", UnexpectedBridge)
+
+    result = mod.maybe_decompose_candidates(
+        [parent],
+        enabled=False,
+        max_children_per_parent=5,
+        repo_root=mod.REPO_ROOT,
+    )
+
+    assert result == [parent]
+
+
+def test_maybe_decompose_candidates_replaces_parent_when_children_emitted(monkeypatch) -> None:
+    parent = _candidate("parent_module", file_scope=["aragora/parent_module.py"])
+    child_a = BossIssueCandidate(
+        category="test_coverage",
+        title="Child A",
+        description="Write focused tests for module A with bounded scope and validation.",
+        file_scope=["aragora/module_a.py"],
+        new_files=["tests/test_module_a.py"],
+        validation_command="python3 -m pytest -q tests/test_module_a.py",
+    )
+    child_b = BossIssueCandidate(
+        category="test_coverage",
+        title="Child B",
+        description="Write focused tests for module B with bounded scope and validation.",
+        file_scope=["aragora/module_b.py"],
+        new_files=["tests/test_module_b.py"],
+        validation_command="python3 -m pytest -q tests/test_module_b.py",
+    )
+
+    class FakeBridge:
+        def __init__(self, repo_root):  # noqa: D401, ANN001
+            self.repo_root = repo_root
+
+        def decompose_issue_sync(self, title, body, *, max_children):  # noqa: ANN001
+            assert title == parent.title
+            assert "## Task" in body
+            assert max_children == 3
+            return [child_a, child_b]
+
+    monkeypatch.setattr(mod, "DecompositionBridge", FakeBridge)
+
+    result = mod.maybe_decompose_candidates(
+        [parent],
+        enabled=True,
+        max_children_per_parent=3,
+        repo_root=mod.REPO_ROOT,
+    )
+
+    assert result == [child_a, child_b]
+
+
+def test_maybe_decompose_candidates_keeps_parent_when_child_set_is_not_meaningful(
+    monkeypatch,
+) -> None:
+    parent = _candidate("parent_module", file_scope=["aragora/parent_module.py"])
+    single_child = BossIssueCandidate(
+        category="test_coverage",
+        title="Only child",
+        description="Only child with bounded scope and validation command.",
+        file_scope=["aragora/module_a.py"],
+        validation_command="python3 -m ruff check aragora/module_a.py",
+    )
+
+    class FakeBridge:
+        def __init__(self, repo_root):  # noqa: D401, ANN001
+            self.repo_root = repo_root
+
+        def decompose_issue_sync(self, title, body, *, max_children):  # noqa: ANN001
+            return [single_child]
+
+    monkeypatch.setattr(mod, "DecompositionBridge", FakeBridge)
+
+    result = mod.maybe_decompose_candidates(
+        [parent],
+        enabled=True,
+        max_children_per_parent=5,
+        repo_root=mod.REPO_ROOT,
+    )
+
+    assert result == [parent]
+
+
+def test_main_passes_decomposition_flags(monkeypatch, capsys) -> None:
+    eligible = _candidate("eligible_module", file_scope=["aragora/eligible_module.py"])
+    scan_calls: list[tuple[object, object, object]] = []
+    decompose_calls: list[tuple[list[BossIssueCandidate], bool, int, object]] = []
+
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: (
+            scan_calls.append((repo_root, categories, min_success_rate)) or [eligible]
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "maybe_decompose_candidates",
+        lambda candidates, *, enabled, max_children_per_parent, repo_root: (
+            decompose_calls.append((list(candidates), enabled, max_children_per_parent, repo_root))
+            or list(candidates)
+        ),
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_boss_issues.py",
+            "--dry-run",
+            "--decompose-low-quality",
+            "--max-children-per-parent",
+            "4",
+        ],
+    )
+
+    mod.main()
+
+    _ = capsys.readouterr()
+    assert scan_calls
+    assert decompose_calls
+    assert decompose_calls[0][1] is True
+    assert decompose_calls[0][2] == 4

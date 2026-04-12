@@ -25,6 +25,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from aragora.swarm.decomposition_bridge import DecompositionBridge  # noqa: E402
 from aragora.swarm.issue_scanner import BossIssueCandidate, scan_all  # noqa: E402
 from aragora.swarm.issue_upgrader import upgrade_issue_heuristic  # noqa: E402
 
@@ -221,6 +222,44 @@ def validate_body(body: str) -> tuple[bool, str]:
         return True, ""
 
 
+def maybe_decompose_candidates(
+    candidates: list[BossIssueCandidate],
+    *,
+    enabled: bool,
+    max_children_per_parent: int,
+    repo_root: Path,
+) -> list[BossIssueCandidate]:
+    """Optionally replace low-quality parents with bounded child candidates.
+
+    The parent candidate is preserved unless decomposition produces a meaningful
+    child set. This keeps the feature safe to enable experimentally.
+    """
+    if not enabled or not candidates:
+        return list(candidates)
+
+    bridge = DecompositionBridge(repo_root)
+    expanded: list[BossIssueCandidate] = []
+    decomposed_count = 0
+    for candidate in candidates:
+        parent_body = format_boss_ready_body(candidate)
+        children = bridge.decompose_issue_sync(
+            candidate.title,
+            parent_body,
+            max_children=max_children_per_parent,
+        )
+        if len(children) >= 2:
+            expanded.extend(children)
+            decomposed_count += 1
+        else:
+            expanded.append(candidate)
+
+    if decomposed_count:
+        print(
+            f"  Decomposed {decomposed_count} parent issue(s) into {len(expanded)} bounded candidates"
+        )
+    return expanded
+
+
 def create_github_issue(repo: str, title: str, body: str, label: str) -> bool:
     """Create a GitHub issue and return success."""
     try:
@@ -262,6 +301,17 @@ def main() -> None:
         default=0.3,
         help="Drop candidate categories below this historical success rate",
     )
+    parser.add_argument(
+        "--decompose-low-quality",
+        action="store_true",
+        help="Use the decomposition bridge to replace vague parent issues with bounded child issues",
+    )
+    parser.add_argument(
+        "--max-children-per-parent",
+        type=int,
+        default=5,
+        help="Maximum child issues to emit for one decomposed parent",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Verbose output")
     args = parser.parse_args()
 
@@ -273,6 +323,12 @@ def main() -> None:
         repo_root,
         categories=args.categories,
         min_success_rate=args.min_success_rate,
+    )
+    candidates = maybe_decompose_candidates(
+        candidates,
+        enabled=args.decompose_low_quality,
+        max_children_per_parent=args.max_children_per_parent,
+        repo_root=repo_root,
     )
     print(
         f"  Found {len(candidates)} candidates across {len(set(c.category for c in candidates))} categories"
