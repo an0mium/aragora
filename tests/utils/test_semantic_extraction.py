@@ -20,6 +20,16 @@ class _DummyAgent:
         return self._response
 
 
+class _WebSearchAwareDummyAgent:
+    def __init__(self) -> None:
+        self.enable_web_search = True
+        self.web_search_enabled_during_generate: bool | None = None
+
+    async def generate(self, prompt: str) -> str:
+        self.web_search_enabled_during_generate = self.enable_web_search
+        return '{"result":"ok"}'
+
+
 @pytest.mark.asyncio
 async def test_extract_json_object_llm_first_falls_back_to_second_provider(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic")
@@ -84,3 +94,29 @@ async def test_extract_json_object_llm_first_reports_normalization_failure(monke
     assert result.source == "openai-api"
     assert result.raw_response == '{"action":"unsupported"}'
     assert result.error == "openai-api:normalization_failed"
+
+
+@pytest.mark.asyncio
+async def test_extract_json_object_llm_first_disables_web_search_when_requested(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic")
+
+    agent = _WebSearchAwareDummyAgent()
+    monkeypatch.setattr(
+        "aragora.agents.base.create_agent",
+        lambda model_type, **kwargs: agent,
+    )
+
+    result = await extract_json_object_llm_first(
+        "Parse https://github.com/synaptent/aragora/issues/4883",
+        providers=(
+            ExtractionProvider(
+                agent_type="anthropic-api",
+                env_vars=("ANTHROPIC_API_KEY",),
+                disable_web_search=True,
+            ),
+        ),
+        normalizer=lambda data: str(data.get("result", "")) or None,
+    )
+
+    assert result.value == "ok"
+    assert agent.web_search_enabled_during_generate is False

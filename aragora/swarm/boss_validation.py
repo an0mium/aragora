@@ -499,6 +499,7 @@ def _issue_parse_providers(model: str) -> tuple[ExtractionProvider, ...]:
             role="critic",
             name="boss-issue-parser",
             env_vars=("ANTHROPIC_API_KEY",),
+            disable_web_search=True,
         ),
         ExtractionProvider(
             agent_type="openrouter",

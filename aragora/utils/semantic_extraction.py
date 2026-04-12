@@ -26,6 +26,7 @@ class ExtractionProvider:
     role: str = "critic"
     name: str = "semantic-extractor"
     env_vars: tuple[str, ...] = ()
+    disable_web_search: bool = False
 
     def is_available(self) -> bool:
         return not self.env_vars or any(os.environ.get(env_var) for env_var in self.env_vars)
@@ -100,6 +101,8 @@ async def extract_json_object_llm_first(
             if timeout is not None:
                 kwargs["timeout"] = timeout
             agent = create_agent(provider.agent_type, **kwargs)
+            if provider.disable_web_search and hasattr(agent, "enable_web_search"):
+                setattr(agent, "enable_web_search", False)
             raw_response = await agent.generate(text)
         except Exception as exc:
             errors.append(_format_provider_error(provider, "generate_failed", type(exc).__name__))

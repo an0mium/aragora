@@ -227,6 +227,11 @@ class TestParseIssueWithLLM:
     def test_uses_shared_semantic_extraction_helper(self, monkeypatch):
         async def fake_extract(prompt, **kwargs):
             assert "Implement a comprehensive feature" in prompt
+            providers = kwargs["providers"]
+            guarded_providers = {
+                provider.agent_type for provider in providers if provider.disable_web_search
+            }
+            assert "anthropic-api" in guarded_providers
             return ExtractionResult(
                 value={
                     "task_summary": "Implement a comprehensive feature with enough detail here.",

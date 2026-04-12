@@ -101,6 +101,11 @@ async def test_run_fast_tier_once_uses_shared_semantic_extraction(monkeypatch):
 
     async def fake_extract(prompt, **kwargs):
         assert "Test subject" in prompt
+        providers = kwargs["providers"]
+        guarded_providers = {
+            provider.agent_type for provider in providers if provider.disable_web_search
+        }
+        assert {"gemini", "openai-api", "anthropic-api"} <= guarded_providers
         return ExtractionResult(
             value={
                 "action": "archive",

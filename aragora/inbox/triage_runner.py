@@ -67,6 +67,7 @@ _FAST_TRIAGE_PROVIDERS = (
         role="analyst",
         name="triage-fast",
         env_vars=("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+        disable_web_search=True,
     ),
     ExtractionProvider(
         agent_type="openai-api",
@@ -74,6 +75,7 @@ _FAST_TRIAGE_PROVIDERS = (
         role="analyst",
         name="triage-fast",
         env_vars=("OPENAI_API_KEY",),
+        disable_web_search=True,
     ),
     ExtractionProvider(
         agent_type="anthropic-api",
@@ -81,6 +83,7 @@ _FAST_TRIAGE_PROVIDERS = (
         role="analyst",
         name="triage-fast",
         env_vars=("ANTHROPIC_API_KEY",),
+        disable_web_search=True,
     ),
     ExtractionProvider(
         agent_type="openrouter",
