@@ -889,11 +889,13 @@ class BaseHandler:
                 return err
             # params = {"agent_a": "claude", "agent_b": "gpt4"}
         """
-        result = {}
+        result: dict[str, str] = {}
         for segment_index, param_name, pattern in param_specs:
             value, err = self.extract_path_param(path, segment_index, param_name, pattern)
             if err:
                 return None, err
+            if value is None:
+                return None, error_response(f"Missing {param_name} in path", 400)
             result[param_name] = value
         return result, None
 
