@@ -9,12 +9,16 @@ Outputs:
 from __future__ import annotations
 
 import argparse
+import sys
 from collections import defaultdict
 from pathlib import Path
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from aragora.cli.parser import build_parser
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 DOC_PATH = REPO_ROOT / "docs" / "reference" / "CLI_REFERENCE.md"
 DOCS_SITE_PATH = REPO_ROOT / "docs-site" / "docs" / "api" / "cli.md"
 
