@@ -14,8 +14,8 @@ VERSION_PATCH = 0
 VERSION_SUFFIX = ""  # e.g., "a1", "b2", "rc1", or "" for final
 
 # Construct version string
-VERSION_INFO = (VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH)
-__version__ = f"{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH}"
+VERSION_INFO: tuple[int, int, int] = (VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH)
+__version__ = ".".join(str(component) for component in VERSION_INFO)
 if VERSION_SUFFIX:
     __version__ += VERSION_SUFFIX
 
