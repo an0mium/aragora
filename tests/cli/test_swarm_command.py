@@ -44,6 +44,7 @@ def _swarm_args(**overrides: object) -> argparse.Namespace:
         "no_loop": False,
         "target_branch": "main",
         "skip_publication": False,
+        "contract": None,
         "concurrency_cap": 8,
         "managed_dir_pattern": ".worktrees/{agent}-auto",
         "json": False,
@@ -188,6 +189,8 @@ class TestSwarmParser:
                 "codex",
                 "--target-branch",
                 "origin/main",
+                "--contract",
+                "/tmp/worker-contract.json",
                 "--skip-publication",
                 "--json",
             ]
@@ -196,6 +199,7 @@ class TestSwarmParser:
         assert args.swarm_action_or_goal == "preflight"
         assert args.worker_model == "codex"
         assert args.target_branch == "origin/main"
+        assert args.contract == "/tmp/worker-contract.json"
         assert args.skip_publication is True
         assert args.json is True
 
@@ -545,6 +549,7 @@ class TestSwarmParser:
             swarm_action_or_goal="preflight",
             worker_model="codex",
             target_branch="origin/main",
+            contract="/tmp/worker-contract.json",
             skip_publication=True,
             json=True,
         )
@@ -573,6 +578,7 @@ class TestSwarmParser:
         assert kwargs["agent"] == "codex"
         assert kwargs["base_ref"] == "origin/main"
         assert kwargs["skip_publication"] is True
+        assert kwargs["contract_path"] == Path("/tmp/worker-contract.json")
         assert isinstance(kwargs["repo_root"], Path)
         out = capsys.readouterr().out
         assert '"mode": "swarm-preflight"' in out

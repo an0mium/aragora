@@ -2410,6 +2410,11 @@ def _add_swarm_parser(subparsers) -> None:
         help="For 'swarm preflight', skip push/PR steps and validate the worker locally only",
     )
     swarm_parser.add_argument(
+        "--contract",
+        default=None,
+        help="For 'swarm preflight', load a JSON worker contract for contract-aware validation",
+    )
+    swarm_parser.add_argument(
         "--concurrency-cap",
         type=int,
         default=8,

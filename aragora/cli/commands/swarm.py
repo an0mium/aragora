@@ -1197,11 +1197,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         from aragora.swarm.preflight import run_preflight
 
         repo_root = resolve_repo_root(Path.cwd())
+        contract_arg = getattr(args, "contract", None)
         result = run_preflight(
             repo_root=repo_root,
             agent=str(getattr(args, "worker_model", "claude") or "claude"),
             base_ref=str(target_branch or "main"),
             skip_publication=skip_publication,
+            contract_path=Path(str(contract_arg)).expanduser() if contract_arg else None,
         )
         payload = {"mode": "swarm-preflight", **result.to_dict()}
         if as_json:
