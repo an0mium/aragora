@@ -25,6 +25,7 @@ from aragora.swarm.task_sanitizer import (  # noqa: E402
 DEFAULT_CATEGORY = "test_coverage"
 DEFAULT_MIN_SUCCESS_RATE = 0.3
 DEFAULT_MAX_CHILDREN = 5
+DEFAULT_LABEL = "boss-ready"
 
 
 @dataclass(frozen=True)
@@ -102,6 +103,19 @@ def _evaluate_candidate(
     )
 
 
+def _candidate_is_ready_for_cohort(child: ChildReview) -> bool:
+    candidate = child.candidate
+    declared_scope = len(candidate.file_scope) + len(candidate.new_files)
+    return (
+        declared_scope > 0
+        and declared_scope <= DEFAULT_MAX_CHILDREN
+        and bool(str(candidate.validation_command or "").strip())
+        and str(candidate.estimated_complexity or "").strip().lower() in {"small", "medium"}
+        and _task_sanitizer_ok(child.task_sanitizer)
+        and child.body_sanitation_ok
+    )
+
+
 def _select_cohort(
     candidates: list[BossIssueCandidate],
     *,
@@ -114,6 +128,13 @@ def _select_cohort(
     for candidate in candidates:
         if total_selected >= max_issues:
             break
+
+        parent_review = _evaluate_candidate(candidate, candidate.title, sanitizer=sanitizer)
+        if _candidate_is_ready_for_cohort(parent_review):
+            reviews.append(ParentReview(parent_title=candidate.title, children=[parent_review]))
+            total_selected += 1
+            continue
+
         parent_body = _format_parent_body(candidate)
         children = bridge.decompose_issue_sync(
             candidate.title,
@@ -144,10 +165,22 @@ def _all_candidates_pass(reviews: list[ParentReview]) -> bool:
     return True
 
 
-def _create_issue(repo: str, title: str, body: str) -> bool:
+def _create_issue(repo: str, title: str, body: str, *, label: str) -> bool:
     try:
         result = subprocess.run(
-            ["gh", "issue", "create", "--repo", repo, "--title", title, "--body", body],
+            [
+                "gh",
+                "issue",
+                "create",
+                "--repo",
+                repo,
+                "--title",
+                title,
+                "--body",
+                body,
+                "--label",
+                label,
+            ],
             capture_output=True,
             text=True,
             timeout=30,
@@ -211,6 +244,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=[DEFAULT_CATEGORY],
         help="Scanner categories to include (default: test_coverage)",
     )
+    parser.add_argument(
+        "--label",
+        default=DEFAULT_LABEL,
+        help="Label applied to created cohort issues (default: boss-ready)",
+    )
     return parser
 
 
@@ -267,7 +305,7 @@ def main(argv: list[str] | None = None) -> int:
         failed = 0
         for review in reviews:
             for child in review.children:
-                ok = _create_issue(args.repo, child.prefixed_title, child.body)
+                ok = _create_issue(args.repo, child.prefixed_title, child.body, label=args.label)
                 if ok:
                     created += 1
                 else:

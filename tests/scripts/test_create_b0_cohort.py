@@ -39,15 +39,21 @@ def _install_dummy_sanitizer(monkeypatch, outcome: SanitizationOutcome) -> None:
     monkeypatch.setattr(create_b0_cohort, "TaskSanitizer", DummySanitizer)
 
 
-def _install_dummy_bridge(monkeypatch, children: list[BossIssueCandidate] | None = None) -> None:
+def _install_dummy_bridge(
+    monkeypatch, children: list[BossIssueCandidate] | None = None
+) -> SimpleNamespace:
+    calls = SimpleNamespace(count=0)
+
     class DummyBridge:
         def __init__(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
             self._children = list(children or [])
 
         def decompose_issue_sync(self, *args, **kwargs) -> list[BossIssueCandidate]:  # noqa: ANN002, ANN003
+            calls.count += 1
             return list(self._children)
 
     monkeypatch.setattr(create_b0_cohort, "DecompositionBridge", DummyBridge)
+    return calls
 
 
 def test_dry_run_outputs_required_fields(monkeypatch, capsys) -> None:
@@ -66,6 +72,29 @@ def test_dry_run_outputs_required_fields(monkeypatch, capsys) -> None:
     assert "Validation command: pytest tests/test_foo.py -v" in output
     assert "TaskSanitizer accepts: yes" in output
     assert "assess_issue_body_sanitation accepts: yes" in output
+
+
+def test_bounded_candidate_skips_bridge(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        create_b0_cohort, "scan_all", lambda *args, **kwargs: [_candidate("Add unit tests for foo")]
+    )
+    calls = _install_dummy_bridge(monkeypatch, children=[])
+    _install_dummy_sanitizer(monkeypatch, SanitizationOutcome.ACCEPTED)
+    monkeypatch.setattr(create_b0_cohort, "assess_issue_body_sanitation", lambda *_: (True, ""))
+
+    exit_code = create_b0_cohort.main(["--dry-run", "--max-issues", "1"])
+
+    assert exit_code == 0
+    assert calls.count == 0
+    assert "Dry run only; no issues created." in capsys.readouterr().out
+
+
+def test_rendered_body_contains_required_sections() -> None:
+    body = create_b0_cohort._render_issue_body(_candidate("Add unit tests for foo"))
+
+    assert "## Task" in body
+    assert "### File Scope" in body
+    assert "### Validation" in body
 
 
 def test_publish_requires_all_candidates_pass(monkeypatch, capsys) -> None:
@@ -88,6 +117,30 @@ def test_publish_requires_all_candidates_pass(monkeypatch, capsys) -> None:
     assert exit_code == 1
     assert "Publish aborted" in output
     assert calls.count == 0
+
+
+def test_publish_passes_boss_ready_label(monkeypatch) -> None:
+    monkeypatch.setattr(
+        create_b0_cohort, "scan_all", lambda *args, **kwargs: [_candidate("Add unit tests for foo")]
+    )
+    _install_dummy_bridge(monkeypatch, children=[])
+    _install_dummy_sanitizer(monkeypatch, SanitizationOutcome.ACCEPTED)
+    monkeypatch.setattr(create_b0_cohort, "assess_issue_body_sanitation", lambda *_: (True, ""))
+
+    seen = []
+
+    def _fake_create_issue(repo: str, title: str, body: str, *, label: str) -> bool:
+        seen.append((repo, title, label, body))
+        return True
+
+    monkeypatch.setattr(create_b0_cohort, "_create_issue", _fake_create_issue)
+    exit_code = create_b0_cohort.main(["--publish", "--max-issues", "1"])
+
+    assert exit_code == 0
+    assert len(seen) == 1
+    assert seen[0][2] == "boss-ready"
+    assert seen[0][1].startswith("[B0-cohort] ")
+    assert "### Validation" in seen[0][3]
 
 
 def test_requires_exact_count(monkeypatch, capsys) -> None:
