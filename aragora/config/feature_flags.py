@@ -437,7 +437,7 @@ class FeatureFlagRegistry:
                 }
                 return mappings.get(name)
         except ImportError:
-            pass
+            logger.debug("Tenancy module not available; skipping tenant flag lookup for %s", name)
         return None
 
     def _register_builtin_flags(self) -> None:
