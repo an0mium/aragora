@@ -41,6 +41,7 @@ from aragora.inbox.triage_diagnostics import (
     TriageRunDiagnostics,
     record_triage_diagnostic,
 )
+from aragora.utils.semantic_extraction import ExtractionProvider, extract_json_object_llm_first
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,36 @@ _DEGRADED_DIAGNOSTIC_SEVERITIES = {
     DiagnosticSeverity.DEGRADED.value,
 }
 _FAST_TIER_JSON_BLOCK_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
+_FAST_TRIAGE_PROVIDERS = (
+    ExtractionProvider(
+        agent_type="gemini",
+        model="gemini-2.0-flash",
+        role="analyst",
+        name="triage-fast",
+        env_vars=("GEMINI_API_KEY", "GOOGLE_API_KEY"),
+    ),
+    ExtractionProvider(
+        agent_type="openai-api",
+        model="gpt-4.1-mini",
+        role="analyst",
+        name="triage-fast",
+        env_vars=("OPENAI_API_KEY",),
+    ),
+    ExtractionProvider(
+        agent_type="anthropic-api",
+        model="claude-haiku-4-5-20251001",
+        role="analyst",
+        name="triage-fast",
+        env_vars=("ANTHROPIC_API_KEY",),
+    ),
+    ExtractionProvider(
+        agent_type="openrouter",
+        model="deepseek/deepseek-chat",
+        role="analyst",
+        name="triage-fast",
+        env_vars=("OPENROUTER_API_KEY",),
+    ),
+)
 
 _ACTION_PATTERNS = {
     AllowedAction.ARCHIVE: re.compile(r"\barchiv(?:e|ed|ing)\b", re.IGNORECASE),
@@ -221,32 +252,21 @@ def _build_fast_tier_prompt(*, sender: str, subject: str, body: str) -> str:
     )
 
 
-def _create_fast_triage_agent() -> Any | None:
-    from aragora.agents.base import create_agent
+def _normalize_fast_tier_payload(parsed: dict[str, Any]) -> dict[str, Any] | None:
+    action = str(parsed.get("action", "")).strip().lower()
+    if action not in {member.value for member in AllowedAction}:
+        return None
 
-    candidates = [
-        ("GEMINI_API_KEY", "gemini", "gemini-2.0-flash"),
-        ("GOOGLE_API_KEY", "gemini", "gemini-2.0-flash"),
-        ("OPENAI_API_KEY", "openai-api", "gpt-4.1-mini"),
-        ("ANTHROPIC_API_KEY", "anthropic-api", "claude-haiku-4-5-20251001"),
-        ("OPENROUTER_API_KEY", "openrouter", "deepseek/deepseek-chat"),
-    ]
+    try:
+        confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.0))))
+    except (TypeError, ValueError):
+        confidence = 0.0
 
-    seen_providers: set[str] = set()
-    for env_var, provider, model in candidates:
-        if not os.environ.get(env_var) or provider in seen_providers:
-            continue
-        seen_providers.add(provider)
-        try:
-            return create_agent(
-                provider,
-                name="triage-fast",
-                role="analyst",
-                model=model,
-            )
-        except (ImportError, RuntimeError, ValueError, OSError):
-            logger.debug("Fast triage agent unavailable: provider=%s", provider)
-    return None
+    return {
+        "action": action,
+        "confidence": confidence,
+        "rationale": str(parsed.get("rationale", "")).strip(),
+    }
 
 
 def _normalize_triage_profile(profile: str | None) -> str:
@@ -862,31 +882,31 @@ class InboxTriageRunner:
         subject = msg.get("subject", "(no subject)")
         sender = msg.get("from_address", msg.get("sender", "(unknown)"))
         body = msg.get("body_text", msg.get("body", msg.get("snippet", "")))
-        agent = _create_fast_triage_agent()
-        if agent is None:
-            logger.warning("No fast triage agent available; returning blocked fast-tier result")
-            return {
-                "final_answer": "",
-                "confidence": 0.0,
-                "debate_id": f"fast-no-agent-{uuid.uuid4().hex[:8]}",
-                "status": "insufficient_participation",
-            }
-
         prompt = _build_fast_tier_prompt(sender=sender, subject=subject, body=body)
-        try:
-            raw = await agent.generate(prompt)
-        except (RuntimeError, OSError, ValueError, TypeError) as exc:
-            logger.warning("Fast triage failed, returning blocked fast-tier result: %s", exc)
-            return {
-                "final_answer": "",
-                "confidence": 0.0,
-                "debate_id": f"fast-err-{uuid.uuid4().hex[:8]}",
-                "status": "failed",
-            }
-
-        parsed = _extract_fast_tier_json(str(raw))
-        if parsed is None:
-            logger.warning("Fast triage returned non-JSON output; returning blocked result")
+        extraction = await extract_json_object_llm_first(
+            prompt,
+            providers=_FAST_TRIAGE_PROVIDERS,
+            normalizer=_normalize_fast_tier_payload,
+            timeout=_FAST_TIER_TIMEOUT_SECONDS,
+            logger=logger,
+            context="fast triage",
+        )
+        if extraction.value is None:
+            if extraction.error == "no_available_providers":
+                logger.warning(
+                    "No fast triage provider available; returning blocked fast-tier result"
+                )
+                return {
+                    "final_answer": "",
+                    "confidence": 0.0,
+                    "debate_id": f"fast-no-agent-{uuid.uuid4().hex[:8]}",
+                    "status": "insufficient_participation",
+                }
+            logger.warning(
+                "Fast triage semantic extraction failed; source=%s error=%s",
+                extraction.source,
+                extraction.error,
+            )
             return {
                 "final_answer": "",
                 "confidence": 0.0,
@@ -894,23 +914,12 @@ class InboxTriageRunner:
                 "status": "failed",
             }
 
-        action = str(parsed.get("action", "")).strip().lower()
-        if action not in {member.value for member in AllowedAction}:
-            logger.warning("Fast triage returned unsupported action '%s'", action)
-            return {
-                "final_answer": "",
-                "confidence": 0.0,
-                "debate_id": f"fast-action-{uuid.uuid4().hex[:8]}",
-                "status": "failed",
-            }
-
-        try:
-            confidence = max(0.0, min(1.0, float(parsed.get("confidence", 0.0))))
-        except (TypeError, ValueError):
-            confidence = 0.0
-        rationale = str(parsed.get("rationale", "")).strip()
+        parsed = extraction.value
+        action = str(parsed["action"]).strip()
+        confidence = float(parsed["confidence"])
+        rationale = str(parsed["rationale"]).strip()
         final_answer = f"{action}: {rationale}" if rationale else action
-        provider = getattr(agent, "model_type", None) or getattr(agent, "name", "fast-triage")
+        provider = extraction.provider.agent_type if extraction.provider else extraction.source
         return {
             "final_answer": final_answer,
             "confidence": confidence,

@@ -12,6 +12,7 @@ import pytest
 from aragora.swarm.boss_validation import (
     assess_issue_body_sanitation,
     check_pre_dispatch_gate,
+    parse_issue_with_llm,
     extract_declared_new_file_paths,
     extract_issue_validation_contract,
     extract_pre_dispatch_validation_commands,
@@ -23,6 +24,7 @@ from aragora.swarm.boss_validation import (
     _ordered_unique_strings,
     _extract_task_block,
 )
+from aragora.utils.semantic_extraction import ExtractionResult
 
 
 # -- assess_issue_body_sanitation --
@@ -216,6 +218,60 @@ class TestRunPreDispatchValidationCommands:
         )
         assert result["satisfied"] is False
         assert result["results"][0]["status"] == "timeout"
+
+
+# -- parse_issue_with_llm --
+
+
+class TestParseIssueWithLLM:
+    def test_uses_shared_semantic_extraction_helper(self, monkeypatch):
+        async def fake_extract(prompt, **kwargs):
+            assert "Implement a comprehensive feature" in prompt
+            return ExtractionResult(
+                value={
+                    "task_summary": "Implement a comprehensive feature with enough detail here.",
+                    "is_well_formed": True,
+                },
+                source="anthropic-api",
+            )
+
+        monkeypatch.setattr(
+            "aragora.swarm.boss_validation.extract_json_object_llm_first",
+            fake_extract,
+        )
+
+        result = asyncio.run(
+            parse_issue_with_llm(
+                "## Task\nImplement a comprehensive feature with enough detail here."
+            )
+        )
+
+        assert result == {
+            "task_summary": "Implement a comprehensive feature with enough detail here.",
+            "is_well_formed": True,
+        }
+
+    def test_returns_none_when_shared_extraction_fails(self, monkeypatch):
+        async def fake_extract(_prompt, **kwargs):
+            return ExtractionResult(
+                value=None,
+                source="openrouter",
+                raw_response="not-json",
+                error="openrouter:invalid_json",
+            )
+
+        monkeypatch.setattr(
+            "aragora.swarm.boss_validation.extract_json_object_llm_first",
+            fake_extract,
+        )
+
+        result = asyncio.run(
+            parse_issue_with_llm(
+                "## Task\nImplement a comprehensive feature with enough detail here."
+            )
+        )
+
+        assert result is None
 
 
 # -- check_pre_dispatch_gate --
