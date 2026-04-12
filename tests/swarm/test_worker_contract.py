@@ -56,6 +56,15 @@ def test_build_worker_contract_includes_mission_lineage_and_context_policy(tmp_p
     contract.validate()
 
 
+def test_worker_contract_from_dict_round_trips_valid_contract() -> None:
+    contract = _make_valid_contract()
+
+    restored = WorkerContract.from_dict(contract.to_dict())
+
+    assert restored.to_dict() == contract.to_dict()
+    assert restored.admission_check() is True
+
+
 def _make_valid_contract() -> WorkerContract:
     """Create a valid WorkerContract with all required fields populated."""
     return WorkerContract(

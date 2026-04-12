@@ -80,6 +80,35 @@ class WorkerContract:
             "contract_version": self.contract_version,
         }
 
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> "WorkerContract":
+        return cls(
+            runner_type=str(data.get("runner_type", "") or ""),
+            agent=str(data.get("agent", "") or ""),
+            model=str(data.get("model", "") or ""),
+            profile=str(data.get("profile", "") or ""),
+            permissions=dict(data.get("permissions", {}) or {}),
+            execution_mode=str(data.get("execution_mode", "") or ""),
+            git_auth_mode=str(data.get("git_auth_mode", "") or ""),
+            gh_api_auth_mode=str(data.get("gh_api_auth_mode", "") or ""),
+            budget=dict(data.get("budget", {}) or {}),
+            env_checksum=str(data.get("env_checksum", "") or ""),
+            mission_id=str(data.get("mission_id", "") or ""),
+            stage_id=str(data.get("stage_id", "") or ""),
+            assertion_ids=[
+                str(item).strip()
+                for item in list(data.get("assertion_ids", []) or [])
+                if str(item).strip()
+            ],
+            evidence_expectations=[
+                str(item).strip()
+                for item in list(data.get("evidence_expectations", []) or [])
+                if str(item).strip()
+            ],
+            mission_context_policy=dict(data.get("mission_context_policy", {}) or {}),
+            contract_version=str(data.get("contract_version", _CONTRACT_VERSION) or ""),
+        )
+
     def checksum(self) -> str:
         return checksum_contract_payload(self.to_dict())
 

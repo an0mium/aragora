@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -233,3 +234,109 @@ def test_preflight_result_serializes_envelope(monkeypatch, tmp_path: Path) -> No
     result = mod.run_preflight(envelope=envelope, repo_root=tmp_path)
     payload = result.to_dict()
     assert payload["envelope"]["provider"]["provider_name"] == "openai"
+
+
+def test_run_preflight_uses_contract_file_and_enforces_expected_contract(
+    monkeypatch, tmp_path: Path
+) -> None:
+    branch = "preflight/20260412-contract"
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    commands: list[list[str]] = []
+    cleanup_commands: list[list[str]] = []
+    contract_payload = _worker(branch=branch).worker_contract
+    contract_path = tmp_path / "worker_contract.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "worker_contract": contract_payload,
+                "worker_contract_checksum": checksum_contract_payload(contract_payload),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    async def fake_run_worker(**kwargs: object) -> WorkerProcess:
+        assert kwargs["agent"] == "codex"
+        return _worker(branch=branch)
+
+    def fake_run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
+        commands.append(list(cmd))
+
+    def fake_subprocess_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        cleanup_commands.append(list(cmd))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod, "_branch_name", lambda: branch)
+    monkeypatch.setattr(mod, "_run_worker", fake_run_worker)
+    monkeypatch.setattr(mod, "_run", fake_run)
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+
+    result = mod.run_preflight(
+        repo_root=repo_root,
+        skip_publication=True,
+        contract_path=contract_path,
+    )
+
+    assert result.passed is True
+    assert result.agent == "codex"
+    assert result.worker["worker_contract"] == contract_payload
+    assert commands[0][:4] == ["git", "worktree", "add", "-b"]
+    assert cleanup_commands[0][:4] == ["git", "worktree", "remove", "--force"]
+
+
+def test_run_preflight_rejects_contract_file_checksum_mismatch(tmp_path: Path) -> None:
+    contract_payload = _worker(branch="preflight/20260412-contract-bad").worker_contract
+    contract_path = tmp_path / "worker_contract_bad.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "worker_contract": contract_payload,
+                "worker_contract_checksum": "bad-checksum",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="checksum"):
+        mod.run_preflight(
+            repo_root=tmp_path,
+            contract_path=contract_path,
+        )
+
+
+def test_run_preflight_rejects_emitted_contract_drift(monkeypatch, tmp_path: Path) -> None:
+    branch = "preflight/20260412-contract-drift"
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    cleanup_commands: list[list[str]] = []
+    contract_payload = _worker(branch=branch).worker_contract
+    contract_path = tmp_path / "worker_contract_drift.json"
+    contract_path.write_text(json.dumps(contract_payload), encoding="utf-8")
+
+    async def fake_run_worker(**_: object) -> WorkerProcess:
+        worker = _worker(branch=branch)
+        worker.worker_contract["model"] = "tampered-model"
+        worker.worker_contract_checksum = checksum_contract_payload(worker.worker_contract)
+        return worker
+
+    def fake_run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
+        return None
+
+    def fake_subprocess_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        cleanup_commands.append(list(cmd))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod, "_branch_name", lambda: branch)
+    monkeypatch.setattr(mod, "_run_worker", fake_run_worker)
+    monkeypatch.setattr(mod, "_run", fake_run)
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+
+    with pytest.raises(RuntimeError, match="drifted from the expected contract"):
+        mod.run_preflight(
+            repo_root=repo_root,
+            skip_publication=True,
+            contract_path=contract_path,
+        )
+
+    assert cleanup_commands[0][:4] == ["git", "worktree", "remove", "--force"]

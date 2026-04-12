@@ -14,7 +14,7 @@ from typing import Any
 from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.mission import GateEvaluation, GateType, GateVerdict, MissionContextPolicy
-from aragora.swarm.worker_contract import checksum_contract_payload
+from aragora.swarm.worker_contract import WorkerContract, checksum_contract_payload
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
 
 
@@ -233,22 +233,59 @@ def _worktree_path(repo_root: Path, branch: str) -> Path:
     return repo_root / ".worktrees" / f"preflight-{branch.replace('/', '-')}"
 
 
-def _work_order(agent: str) -> dict[str, object]:
-    filename = "scratch/preflight_worker_check.txt"
+def _preflight_filename(contract: WorkerContract | None = None) -> str:
+    if contract is not None:
+        policy = dict(contract.mission_context_policy or {})
+        required_sources = [
+            str(item).strip()
+            for item in list(policy.get("required_sources", []) or [])
+            if str(item).strip()
+        ]
+        if required_sources:
+            return required_sources[0]
+    return "scratch/preflight_worker_check.txt"
+
+
+def _work_order(agent: str, *, contract: WorkerContract | None = None) -> dict[str, object]:
+    filename = _preflight_filename(contract)
+    mission_id = "mission-rs-worker-contract-preflight"
+    stage_id = "stage-dispatch-ready-preflight"
+    assertion_ids = ["RS-PREFLIGHT-ASSERT-1"]
+    evidence_expectations = [
+        "worker_contract",
+        "worker_contract_checksum",
+        "receipt",
+    ]
+    if contract is not None:
+        mission_id = str(contract.mission_id or "").strip() or mission_id
+        stage_id = str(contract.stage_id or "").strip() or stage_id
+        assertion_ids = [
+            str(item).strip() for item in list(contract.assertion_ids or []) if str(item).strip()
+        ]
+        if not assertion_ids:
+            assertion_ids = ["RS-PREFLIGHT-ASSERT-1"]
+        evidence_expectations = [
+            str(item).strip()
+            for item in list(contract.evidence_expectations or [])
+            if str(item).strip()
+        ] or evidence_expectations
     return {
         "work_order_id": f"preflight-{int(time.time())}",
         "target_agent": agent,
-        "mission_id": "mission-rs-worker-contract-preflight",
-        "stage_id": "stage-dispatch-ready-preflight",
-        "assertion_ids": ["RS-PREFLIGHT-ASSERT-1"],
-        "evidence_expectations": [
-            "worker_contract",
-            "worker_contract_checksum",
-            "receipt",
-        ],
-        "title": "Preflight worker check",
+        "mission_id": mission_id,
+        "stage_id": stage_id,
+        "assertion_ids": assertion_ids,
+        "evidence_expectations": evidence_expectations,
+        "mission_context_policies": (
+            {"worker": dict(contract.mission_context_policy or {})}
+            if contract is not None
+            else None
+        ),
+        "title": "Contract-aware preflight worker check"
+        if contract is not None
+        else "Preflight worker check",
         "description": (
-            "Create a file named `scratch/preflight_worker_check.txt` with a single line "
+            f"Create a file named `{filename}` with a single line "
             "timestamp. Commit it with message `chore: preflight worker check`. "
             "Do not modify any other files."
         ),
@@ -264,13 +301,14 @@ async def _run_worker(
     worktree_path: Path,
     branch: str,
     agent: str,
+    contract: WorkerContract | None = None,
 ) -> WorkerProcess:
     config = LaunchConfig(
         allow_claude_dangerously_skip_permissions=True,
         allow_codex_full_auto=True,
     )
     launcher = WorkerLauncher(config=config)
-    work_order = _work_order(agent)
+    work_order = _work_order(agent, contract=contract)
     return await launcher.launch_and_wait(
         work_order,
         worktree_path=str(worktree_path),
@@ -344,6 +382,42 @@ def _validate_worker_contract(worker: WorkerProcess) -> dict[str, Any]:
     return gate
 
 
+def _load_contract_payload(contract_path: Path) -> tuple[WorkerContract, str]:
+    payload = json.loads(contract_path.read_text(encoding="utf-8"))
+    worker_contract_payload: Any = payload
+    expected_checksum = ""
+    if isinstance(payload, dict) and isinstance(payload.get("worker_contract"), dict):
+        worker_contract_payload = payload.get("worker_contract")
+        expected_checksum = str(payload.get("worker_contract_checksum", "") or "").strip()
+    if not isinstance(worker_contract_payload, dict):
+        raise RuntimeError("Worker contract file must contain a JSON object payload.")
+    contract = WorkerContract.from_dict(worker_contract_payload)
+    contract_checksum = contract.checksum()
+    if expected_checksum and expected_checksum != contract_checksum:
+        raise RuntimeError("Worker contract file checksum does not match the contract payload.")
+    if not contract.admission_check():
+        raise RuntimeError("Worker contract file failed dispatch admission check.")
+    return contract, expected_checksum or contract_checksum
+
+
+def _enforce_expected_contract(
+    worker: WorkerProcess,
+    *,
+    expected_contract: WorkerContract,
+    expected_checksum: str,
+) -> None:
+    actual_contract = WorkerContract.from_dict(worker.worker_contract or {})
+    actual_checksum = str(worker.worker_contract_checksum or "").strip()
+    if actual_contract.to_dict() != expected_contract.to_dict():
+        raise RuntimeError(
+            "Preflight worker emitted a contract that drifted from the expected contract."
+        )
+    if actual_checksum != expected_checksum:
+        raise RuntimeError(
+            "Preflight worker emitted a contract checksum that drifted from the expected contract."
+        )
+
+
 def _create_pr(repo_root: Path, branch: str, base_ref: str) -> None:
     _run(
         [
@@ -390,13 +464,21 @@ def run_preflight(
     base_ref: str = "main",
     skip_publication: bool = False,
     envelope: CredentialEnvelope | None = None,
+    contract_path: Path | None = None,
 ) -> PreflightResult:
     if envelope is not None:
         return run_preflight_checks(envelope, repo_root=repo_root)
 
     start = time.monotonic()
     resolved_repo_root = repo_root.resolve()
-    normalized_agent = str(agent or "").strip() or "claude"
+    expected_contract: WorkerContract | None = None
+    expected_contract_checksum = ""
+    if contract_path is not None:
+        expected_contract, expected_contract_checksum = _load_contract_payload(contract_path)
+    if expected_contract is not None and str(expected_contract.agent or "").strip():
+        normalized_agent = str(expected_contract.agent).strip()
+    else:
+        normalized_agent = str(agent or "").strip() or "claude"
     normalized_base_ref = str(base_ref or "main").strip() or "main"
     branch = _branch_name()
     worktree_path = _worktree_path(resolved_repo_root, branch)
@@ -424,9 +506,16 @@ def run_preflight(
                 worktree_path=worktree_path,
                 branch=branch,
                 agent=normalized_agent,
+                contract=expected_contract,
             )
         )
         dispatch_gate = _validate_worker_contract(worker)
+        if expected_contract is not None:
+            _enforce_expected_contract(
+                worker,
+                expected_contract=expected_contract,
+                expected_checksum=expected_contract_checksum,
+            )
         if not worker.commit_shas:
             raise RuntimeError("Preflight worker did not produce a commit.")
 
@@ -503,6 +592,11 @@ def main() -> int:
         help="Skip push/PR steps (debug only).",
     )
     parser.add_argument(
+        "--contract",
+        default=None,
+        help="Path to a JSON worker contract file for contract-aware preflight.",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Emit a structured result payload.",
@@ -514,6 +608,7 @@ def main() -> int:
         agent=str(args.agent),
         base_ref=str(args.base_ref),
         skip_publication=bool(args.skip_publication),
+        contract_path=Path(args.contract) if args.contract else None,
     )
     if args.json:
         _write_stdout_line(json.dumps(result.to_dict(), indent=2))

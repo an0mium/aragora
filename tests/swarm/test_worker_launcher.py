@@ -548,6 +548,37 @@ class TestLaunch:
                 await launcher.launch(wo, worktree_path="/tmp/wt")
 
     @pytest.mark.asyncio
+    async def test_launch_fails_closed_when_contract_fails_admission(self, tmp_path: Path):
+        launcher = WorkerLauncher()
+        worktree = tmp_path / "wt"
+        (worktree / "scripts").mkdir(parents=True)
+        (worktree / "scripts" / "codex_session.sh").write_text(
+            "#!/usr/bin/env bash\n", encoding="utf-8"
+        )
+        wo = {
+            "work_order_id": "wo-admission-fail",
+            "target_agent": "claude",
+            "title": "Admission failure",
+            "metadata": {"admin_approved": True},
+        }
+        fake_contract = MagicMock()
+        fake_contract.validate.return_value = None
+        fake_contract.admission_check.return_value = False
+
+        with (
+            patch("shutil.which", return_value="/usr/bin/claude"),
+            patch.object(WorkerLauncher, "_git_output", return_value=""),
+            patch(
+                "aragora.swarm.worker_launcher.build_worker_contract", return_value=fake_contract
+            ),
+            patch("asyncio.create_subprocess_exec") as mock_exec,
+        ):
+            with pytest.raises(RuntimeError, match="dispatch admission check"):
+                await launcher.launch(wo, worktree_path=str(worktree), branch="feat")
+
+        mock_exec.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_launch_merges_metadata_worker_env(self, tmp_path: Path):
         launcher = WorkerLauncher(LaunchConfig(detach=False))
         mock_proc = AsyncMock()
