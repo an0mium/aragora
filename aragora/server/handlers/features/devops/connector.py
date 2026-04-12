@@ -11,20 +11,31 @@ _connector_instances: dict[str, Any] = {}  # tenant_id -> PagerDutyConnector
 _active_contexts: dict[str, Any] = {}  # tenant_id -> context manager
 
 
+def _load_pagerduty_types():
+    from aragora.connectors.devops.pagerduty import (
+        PagerDutyConnector,
+        PagerDutyCredentials,
+    )
+
+    return PagerDutyConnector, PagerDutyCredentials
+
+
+def _get_pagerduty_env() -> tuple[str | None, str | None, str | None]:
+    import os
+
+    return (
+        os.getenv("PAGERDUTY_API_KEY"),
+        os.getenv("PAGERDUTY_EMAIL"),
+        os.getenv("PAGERDUTY_WEBHOOK_SECRET"),
+    )
+
+
 async def get_pagerduty_connector(tenant_id: str):
     """Get or create PagerDuty connector for tenant."""
     if tenant_id not in _connector_instances:
         try:
-            import os
-
-            from aragora.connectors.devops.pagerduty import (
-                PagerDutyConnector,
-                PagerDutyCredentials,
-            )
-
-            api_key = os.getenv("PAGERDUTY_API_KEY")
-            email = os.getenv("PAGERDUTY_EMAIL")
-            webhook_secret = os.getenv("PAGERDUTY_WEBHOOK_SECRET")
+            PagerDutyConnector, PagerDutyCredentials = _load_pagerduty_types()
+            api_key, email, webhook_secret = _get_pagerduty_env()
 
             if not api_key or not email:
                 return None
