@@ -314,6 +314,7 @@ class Crystallizer:
                     ValueError,
                     AttributeError,
                     RuntimeError,
+                    OSError,
                 ):  # pragma: no cover - defensive
                     summary = ""
 
