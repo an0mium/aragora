@@ -15,12 +15,45 @@ from unittest.mock import patch
 
 import pytest
 
+from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm.worker_contract import (
     WorkerContract,
     build_worker_contract,
     checksum_contract_payload,
 )
 from aragora.swarm.worker_process import LaunchConfig
+
+
+def test_build_worker_contract_includes_mission_lineage_and_context_policy(tmp_path) -> None:
+    worktree = tmp_path / "repo"
+    worktree.mkdir()
+    config = LaunchConfig(
+        allow_codex_full_auto=True,
+        execution_mode=ExecutionMode.AUTONOMOUS,
+    )
+
+    contract = build_worker_contract(
+        agent="codex",
+        config=config,
+        worktree_path=str(worktree),
+        env={},
+        work_order={
+            "mission_id": "mission-rs-credential-envelope",
+            "stage_id": "stage-contract-aware-preflight",
+            "assertion_ids": ["RS-04-ASSERT-1"],
+            "file_scope": ["aragora/swarm/preflight.py"],
+            "evidence_expectations": ["validation_command", "worker_contract", "receipt"],
+        },
+    )
+
+    payload = contract.to_dict()
+
+    assert payload["mission_id"] == "mission-rs-credential-envelope"
+    assert payload["stage_id"] == "stage-contract-aware-preflight"
+    assert payload["assertion_ids"] == ["RS-04-ASSERT-1"]
+    assert payload["mission_context_policy"]["role"] == "worker"
+    assert payload["mission_context_policy"]["transcript_allowance"] == "none"
+    contract.validate()
 
 
 def _make_valid_contract() -> WorkerContract:
@@ -42,6 +75,17 @@ def _make_valid_contract() -> WorkerContract:
             "max_retries": None,
         },
         env_checksum="abc123",
+        mission_id="mission-rs04-worker-contract",
+        stage_id="stage-admission-check",
+        assertion_ids=["RS-04-ASSERT-1"],
+        evidence_expectations=["worker_contract", "worker_contract_checksum"],
+        mission_context_policy={
+            "role": "worker",
+            "allowed_artifact_classes": ["worker_contract", "receipt"],
+            "max_source_count": 4,
+            "max_chars": 2000,
+            "transcript_allowance": "none",
+        },
     )
 
 
@@ -151,6 +195,16 @@ class TestAdmissionCheckMissingFieldsParametrized:
         """Empty dict budget is still structurally valid — admission checks for None/''."""
         contract = _make_valid_contract()
         contract.budget = ""  # type: ignore[assignment]
+        assert contract.admission_check() is False
+
+    def test_none_mission_context_policy_rejected(self) -> None:
+        contract = _make_valid_contract()
+        contract.mission_context_policy = None  # type: ignore[assignment]
+        assert contract.admission_check() is False
+
+    def test_empty_mission_context_policy_rejected(self) -> None:
+        contract = _make_valid_contract()
+        contract.mission_context_policy = {}
         assert contract.admission_check() is False
 
 
