@@ -56,6 +56,10 @@ class SecurityHandler(SecureHandler):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
 
+    def _get_user_store(self) -> Any:
+        """Return the user store for admin auth/MFA enforcement."""
+        return self.ctx.get("user_store")
+
     ROUTES = [
         # Versioned routes
         "/api/v1/admin/security/status",
@@ -114,8 +118,28 @@ class SecurityHandler(SecureHandler):
 
     @handle_errors("security creation")
     @require_permission("admin:security:write")
-    def handle_post(self, path: str, data: dict[str, Any], handler: Any) -> HandlerResult | None:
+    def handle_post(
+        self, path: str, query_params: dict[str, Any], handler: Any
+    ) -> HandlerResult | None:
         """Handle POST requests for security endpoints."""
+        content_length = 0
+        if hasattr(handler, "headers"):
+            try:
+                content_length = int(handler.headers.get("Content-Length", 0) or 0)
+            except (TypeError, ValueError):
+                content_length = 0
+
+        body = self.read_json_body(handler)
+        if body is None:
+            if content_length == 0 and query_params:
+                body = dict(query_params)
+            else:
+                return error_response("Invalid JSON body", 400)
+        elif content_length == 0 and not body and query_params:
+            body = dict(query_params)
+        elif not isinstance(body, dict):
+            return error_response("JSON body must deserialize to an object", 400)
+
         # Enforce MFA for admin users (SOC 2 CC5-01)
         if hasattr(handler, "auth_context"):
             user_store = self.ctx.get("user_store") if hasattr(self, "ctx") else None
@@ -144,9 +168,9 @@ class SecurityHandler(SecureHandler):
                 )
 
         if path in ("/api/v1/admin/security/keys", "/api/admin/security/keys"):
-            return self._create_key(data, handler)
+            return self._create_key(handler, body)
         if path in ("/api/v1/admin/security/rotate-key", "/api/admin/security/rotate-key"):
-            return self._rotate_key(data, handler)
+            return self._rotate_key(handler, body)
         return None
 
     @admin_secure_endpoint(
@@ -154,7 +178,7 @@ class SecurityHandler(SecureHandler):
         audit=True,
         audit_action="security_status_viewed",
     )
-    def _get_status(self, handler: Any) -> HandlerResult:
+    async def _get_status(self, request: Any, _auth_context: Any) -> HandlerResult:
         """
         Get encryption and key status.
 
@@ -213,7 +237,9 @@ class SecurityHandler(SecureHandler):
         audit=True,
         audit_action="key_created",
     )
-    def _create_key(self, data: dict[str, Any], handler: Any) -> HandlerResult:
+    async def _create_key(
+        self, request: Any, _auth_context: Any, data: dict[str, Any]
+    ) -> HandlerResult:
         """
         Create a new encryption key.
 
@@ -306,7 +332,9 @@ class SecurityHandler(SecureHandler):
         audit=True,
         audit_action="key_rotation",
     )
-    def _rotate_key(self, data: dict[str, Any], handler: Any) -> HandlerResult:
+    async def _rotate_key(
+        self, request: Any, _auth_context: Any, data: dict[str, Any]
+    ) -> HandlerResult:
         """
         Rotate encryption key.
 
@@ -374,7 +402,7 @@ class SecurityHandler(SecureHandler):
         permission="admin.security.health",
         audit=False,
     )
-    def _get_health(self, handler: Any) -> HandlerResult:
+    async def _get_health(self, request: Any, _auth_context: Any) -> HandlerResult:
         """
         Check encryption health.
 
@@ -499,7 +527,7 @@ class SecurityHandler(SecureHandler):
         audit=True,
         audit_action="keys_listed",
     )
-    def _list_keys(self, handler: Any) -> HandlerResult:
+    async def _list_keys(self, request: Any, _auth_context: Any) -> HandlerResult:
         """
         List all encryption keys.
 

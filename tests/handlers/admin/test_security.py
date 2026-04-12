@@ -24,11 +24,13 @@ Also covers:
 
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -51,6 +53,13 @@ def _body(result: HandlerResult) -> dict:
 def _status(result: HandlerResult) -> int:
     """Extract status code from a HandlerResult."""
     return result.status_code
+
+
+def _resolve(result: HandlerResult | Any) -> HandlerResult:
+    """Resolve decorated handler coroutines into HandlerResult objects."""
+    if asyncio.iscoroutine(result):
+        return asyncio.run(result)
+    return result
 
 
 def _make_http_handler(body: dict | None = None, ip: str = "127.0.0.1") -> MagicMock:
@@ -373,18 +382,33 @@ class TestHandlePostRouting:
     def test_rotate_key_versioned_route(self, handler, mock_http):
         """Versioned rotate-key path dispatches to _rotate_key."""
         mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
+        mock_http = _make_http_handler({"dry_run": True})
         with patch.object(handler, "_rotate_key", mock_fn):
-            data = {"dry_run": True}
-            handler.handle_post("/api/v1/admin/security/rotate-key", data, mock_http)
-            mock_fn.assert_called_once_with(data, mock_http)
+            handler.handle_post("/api/v1/admin/security/rotate-key", {}, mock_http)
+            mock_fn.assert_called_once_with(mock_http, {"dry_run": True})
 
     def test_rotate_key_legacy_route(self, handler, mock_http):
         """Legacy rotate-key path dispatches to _rotate_key."""
         mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
+        mock_http = _make_http_handler({"force": True})
         with patch.object(handler, "_rotate_key", mock_fn):
-            data = {"force": True}
-            handler.handle_post("/api/admin/security/rotate-key", data, mock_http)
-            mock_fn.assert_called_once_with(data, mock_http)
+            handler.handle_post("/api/admin/security/rotate-key", {}, mock_http)
+            mock_fn.assert_called_once_with(mock_http, {"force": True})
+
+    def test_keys_route_reads_request_body(self, handler):
+        """Key creation should parse its payload from the HTTP request body."""
+        mock_http = _make_http_handler({"name": "rotated-key"})
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=201, body=b"{}"))
+        with patch.object(handler, "_create_key", mock_fn):
+            handler.handle_post("/api/v1/admin/security/keys", {}, mock_http)
+            mock_fn.assert_called_once_with(mock_http, {"name": "rotated-key"})
+
+    def test_rotate_key_legacy_query_fallback_for_direct_callers(self, handler, mock_http):
+        """Callers that still pass data directly keep working when the HTTP body is empty."""
+        mock_fn = MagicMock(return_value=MagicMock(spec=HandlerResult, status_code=200, body=b"{}"))
+        with patch.object(handler, "_rotate_key", mock_fn):
+            handler.handle_post("/api/v1/admin/security/rotate-key", {"force": True}, mock_http)
+            mock_fn.assert_called_once_with(mock_http, {"force": True})
 
     def test_unmatched_post_path_returns_none(self, handler, mock_http):
         """Unmatched POST path returns None."""
@@ -416,6 +440,39 @@ class TestHandlePostRouting:
         ):
             result = handler.handle_post("/api/v1/admin/security/rotate-key", {}, mock_http)
             assert _status(result) == 503
+
+
+class TestDecoratedRouteExecution:
+    """Regression tests for real @admin_secure_endpoint execution paths."""
+
+    def test_health_route_executes_with_admin_secure_signature(self):
+        """The health route should resolve through the admin-secure wrapper."""
+        user_store = MagicMock()
+        user_store.get_user_by_id.return_value = SimpleNamespace(id="admin-1", role="admin")
+        handler = SecurityHandler(ctx={"user_store": user_store})
+        mock_http = _make_http_handler()
+
+        with (
+            patch.object(
+                SecurityHandler,
+                "get_auth_context",
+                new=AsyncMock(return_value=SimpleNamespace(user_id="admin-1", workspace_id="ws-1")),
+            ),
+            patch.object(SecurityHandler, "check_permission", return_value=True),
+            patch(
+                "aragora.server.handlers.admin.handler.enforce_admin_mfa_policy", return_value=None
+            ),
+            patch("aragora.server.handlers.admin.security.RBAC_AVAILABLE", False),
+            patch("aragora.server.handlers.admin.security.rbac_fail_closed", return_value=False),
+            patch("aragora.security.encryption.CRYPTO_AVAILABLE", False, create=True),
+        ):
+            result = _resolve(handler.handle("/api/v1/admin/security/health", {}, mock_http))
+
+        body = _body(result)
+        assert _status(result) == 200
+        assert body["status"] == "unhealthy"
+        assert body["checks"]["crypto_available"] is False
+        assert "Cryptography library not installed" in body["issues"]
 
 
 # ===========================================================================
