@@ -3169,36 +3169,37 @@ async def test_dispatch_issue_quarantines_broad_scope_before_dispatch() -> None:
             "- `aragora/swarm/e.py` (modify)\n"
             "- `aragora/swarm/f.py` (modify)\n"
         ),
+        labels=["boss-ready"],
     )
-    loop = BossLoop(config=_boss_config(max_iterations=1))
-    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
-    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
-        "runner_id": "codex-runner-1",
-        "runner_type": "codex",
-    }
+    loop = BossLoop(config=_boss_config(max_iterations=1, repo="synaptent/aragora"))
+    commands: list[list[str]] = []
+    comments: list[str] = []
 
-    with (
-        patch(
-            "aragora.swarm.prompt_refiner.refine_worker_prompt",
-            new=AsyncMock(
-                return_value={
-                    "refined_prompt": "",
-                    "files_to_change": [],
-                    "test_patterns": [],
-                    "constraints": [],
-                    "context_gathered": False,
-                }
-            ),
-        ),
-        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
-    ):
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        result.stderr = ""
+        commands.append(list(cmd))
+        if cmd[:3] == ["gh", "issue", "comment"]:
+            comments.append(cmd[cmd.index("--body") + 1])
+        return result
+
+    with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=_run):
         result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
     assert result["status"] == "needs_human"
     assert result["outcome"] == "sanitation_failed"
     assert result["sanitizer_outcome"] == "quarantined"
     assert "scope_too_broad" in result["checks_failed"]
-    mock_commander_cls.return_value.run_supervised_from_spec.assert_not_called()
+    assert "boss-ready" not in issue.labels
+    assert "boss-quarantined" in issue.labels
+    assert issue.state == "OPEN"
+    assert comments
+    assert "file scope spans 6 files; quarantine before dispatch" in comments[-1]
+    assert "scope_too_broad" in comments[-1]
+    assert any(cmd[:3] == ["gh", "issue", "edit"] for cmd in commands)
+    assert not any(cmd[:3] == ["gh", "issue", "close"] for cmd in commands)
 
 
 @pytest.mark.asyncio
@@ -3207,36 +3208,82 @@ async def test_dispatch_issue_drops_short_task_before_dispatch() -> None:
         2462,
         "Too short",
         body="Tiny task only.",
+        labels=["boss-ready"],
     )
-    loop = BossLoop(config=_boss_config(max_iterations=1))
-    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
-    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
-        "runner_id": "codex-runner-1",
-        "runner_type": "codex",
-    }
+    loop = BossLoop(config=_boss_config(max_iterations=1, repo="synaptent/aragora"))
+    commands: list[list[str]] = []
+    comments: list[str] = []
 
-    with (
-        patch(
-            "aragora.swarm.prompt_refiner.refine_worker_prompt",
-            new=AsyncMock(
-                return_value={
-                    "refined_prompt": "",
-                    "files_to_change": [],
-                    "test_patterns": [],
-                    "constraints": [],
-                    "context_gathered": False,
-                }
-            ),
-        ),
-        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
-    ):
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        result.stderr = ""
+        commands.append(list(cmd))
+        if cmd[:3] == ["gh", "issue", "comment"]:
+            comments.append(cmd[cmd.index("--body") + 1])
+        return result
+
+    with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=_run):
         result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
     assert result["status"] == "needs_human"
     assert result["outcome"] == "sanitation_failed"
     assert result["sanitizer_outcome"] == "dropped"
     assert "description_length" in result["checks_failed"]
-    mock_commander_cls.return_value.run_supervised_from_spec.assert_not_called()
+    assert "boss-ready" not in issue.labels
+    assert "boss-invalid" in issue.labels
+    assert issue.state == "CLOSED"
+    assert comments
+    assert "task description is too short to dispatch safely" in comments[-1]
+    assert "description_length" in comments[-1]
+    assert any(cmd[:3] == ["gh", "issue", "edit"] for cmd in commands)
+    assert any(cmd[:3] == ["gh", "issue", "close"] for cmd in commands)
+
+
+@pytest.mark.asyncio
+async def test_sanitizer_failed_issue_is_not_retried_in_same_run() -> None:
+    dropped = _make_issue(2601, "Too short", body="Tiny task only.", labels=["boss-ready"])
+    follow_up = _make_issue(2602, "Fix bounded queue state", labels=["boss-ready"])
+    feed = MagicMock()
+    feed.fetch.side_effect = [[dropped, follow_up], [dropped, follow_up]]
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=2,
+            auto_continue_on_needs_human=True,
+            use_value_ranking=False,
+        ),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: _fresh_result(fresh=True),
+    )
+    dispatched: list[int] = []
+
+    async def _dispatch(issue, freshness):
+        dispatched.append(issue.number)
+        if issue.number == 2601:
+            return {
+                "status": "needs_human",
+                "outcome": "sanitation_failed",
+                "sanitizer_outcome": "quarantined",
+                "checks_failed": ["scope_too_broad"],
+                "reasons": [
+                    "Issue #2601 was quarantined by task sanitizer: file scope spans 6 files; quarantine before dispatch"
+                ],
+                "next_actions": [
+                    "Narrow the write scope, validation targets, or task breakdown before redispatch."
+                ],
+            }
+        return {"status": "completed"}
+
+    loop._dispatch_issue = _dispatch
+
+    with patch.object(loop, "_auto_decompose_stuck_issue") as mock_decompose:
+        result = await loop.run()
+
+    assert dispatched == [2601, 2602]
+    assert loop._issue_attempt_counts[2601] == loop.config.max_retries_per_issue + 1
+    assert {item.get("number") for item in result.issues_attempted} == {2601, 2602}
+    mock_decompose.assert_not_called()
 
 
 @pytest.mark.asyncio

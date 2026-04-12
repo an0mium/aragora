@@ -74,18 +74,8 @@ UTC = timezone.utc
 _LANE_TELEMETRY = LaneTelemetryCollector()
 _GITHUB_ISSUE_URL_RE = re.compile(r"github\.com/(?P<repo>[^/]+/[^/]+)/issues/(?P<number>\d+)")
 _GITHUB_PR_URL_RE = re.compile(r"github\.com/[^/]+/[^/]+/pull/(?P<number>\d+)")
-
-# The 5 CI checks required for merge.  Draft PRs run only these;
-# ready PRs run the full 32-workflow suite.  The boss loop creates
-# PRs as drafts and auto-promotes them once these 5 pass.
 _REQUIRED_CHECK_NAMES: frozenset[str] = frozenset(
-    {
-        "lint",
-        "typecheck",
-        "sdk-parity",
-        "Generate & Validate",
-        "TypeScript SDK Type Check",
-    }
+    {"lint", "typecheck", "sdk-parity", "Generate & Validate", "TypeScript SDK Type Check"}
 )
 _ALREADY_DONE_MARKERS = (
     "already implemented",
@@ -234,7 +224,13 @@ class BossLoopConfig:
     issue_numbers: list[int] | None = None
     issue_limit: int = 25
     skip_labels: set[str] = field(
-        default_factory=lambda: {"wontfix", "duplicate", "invalid", "boss-stuck"}
+        default_factory=lambda: {
+            "wontfix",
+            "duplicate",
+            "invalid",
+            "boss-stuck",
+            "boss-quarantined",
+        }
     )
     require_labels: set[str] | None = None
     require_validation_contract: bool = True
@@ -2087,35 +2083,65 @@ class BossLoop:
         )
 
     @staticmethod
-    def _label_boss_stuck(issue_number: int | str, repo: str, comment: str) -> None:
-        """Label an issue as boss-stuck, remove boss-ready, and comment."""
+    def _comment_and_update_issue(
+        issue_number: int | str,
+        repo: str,
+        comment: str,
+        *,
+        add_labels: tuple[str, ...] = (),
+        remove_labels: tuple[str, ...] = (),
+        close: bool = False,
+    ) -> None:
         import subprocess
 
+        label_args = [
+            arg
+            for flag, labels in (("--add-label", add_labels), ("--remove-label", remove_labels))
+            for label in labels
+            for arg in (flag, label)
+        ]
         try:
-            subprocess.run(
+            for cmd in (
                 ["gh", "issue", "comment", str(issue_number), "--repo", repo, "--body", comment],
-                capture_output=True,
-                timeout=15,
-            )
-            # Add boss-stuck AND remove boss-ready — an issue should never be both
-            subprocess.run(
-                [
-                    "gh",
-                    "issue",
-                    "edit",
-                    str(issue_number),
-                    "--repo",
-                    repo,
-                    "--add-label",
-                    "boss-stuck",
-                    "--remove-label",
-                    "boss-ready",
-                ],
-                capture_output=True,
-                timeout=15,
-            )
+                ["gh", "issue", "edit", str(issue_number), "--repo", repo, *label_args]
+                if label_args
+                else None,
+                ["gh", "issue", "close", str(issue_number), "--repo", repo] if close else None,
+            ):
+                if cmd is not None:
+                    subprocess.run(cmd, capture_output=True, timeout=15)
         except Exception:
             pass
+
+    @classmethod
+    def _label_boss_stuck(cls, issue_number: int | str, repo: str, comment: str) -> None:
+        cls._comment_and_update_issue(
+            issue_number, repo, comment, add_labels=("boss-stuck",), remove_labels=("boss-ready",)
+        )
+
+    def _apply_sanitizer_issue_lifecycle(self, issue: GitHubIssue, *, sanitization: Any) -> None:
+        closed = sanitization.outcome is SanitizationOutcome.DROPPED
+        label = "boss-invalid" if closed else "boss-quarantined"
+        comment = (
+            f"Boss sanitizer {sanitization.outcome.value} issue #{issue.number}.\n\n"
+            f"- Reason: {sanitization.reason or 'unknown'}\n"
+            f"- Failed checks: {', '.join(str(item).strip() for item in sanitization.checks_failed if str(item).strip()) or 'none'}\n\n"
+            f"Boss removed `boss-ready`, added `{label}`, and "
+            f"{'closed the issue.' if closed else 'left the issue open for human review.'}"
+        )
+        issue.labels = [value for value in issue.labels if value not in {"boss-ready", label}] + [
+            label
+        ]
+        issue.state = "CLOSED" if closed else issue.state
+        if repo := self._repo_slug_for_issue(issue):
+            self._comment_and_update_issue(
+                issue.number,
+                repo,
+                comment,
+                add_labels=(label,),
+                remove_labels=("boss-ready",),
+                close=closed,
+            )
 
     @staticmethod
     def _reuse_existing_published_branch_deliverable(
@@ -4457,19 +4483,23 @@ class BossLoop:
                 worker_result
             )
             has_deliverable = bool(normalized_deliverable_type)
+            sanitizer_outcome = str(worker_result.get("sanitizer_outcome", "")).strip().lower()
             raw_deliverable = worker_result.get("deliverable")
             has_untyped_deliverable = isinstance(raw_deliverable, dict) and bool(raw_deliverable)
             pr_url = self._published_pr_url(worker_result)
             self._emit_lane_receipt(worker_result, issue_dict, elapsed_seconds)
-
-            # Deliverable = terminal: the worker produced a concrete artifact
-            # (commit, branch, or PR).  Do NOT retry the issue — it already
-            # has work product that either needs review or was published.
+            if sanitizer_outcome in {
+                SanitizationOutcome.DROPPED.value,
+                SanitizationOutcome.QUARANTINED.value,
+            }:
+                self._issue_attempt_counts[issue_number] = max(
+                    int(self._issue_attempt_counts.get(issue_number, 0) or 0),
+                    self.config.max_retries_per_issue + 1,
+                )
+                self._pending_handoff_prompts.pop(issue_number, None)
             if has_deliverable:
                 self._completed_issues.append(issue_dict)
                 self._consecutive_failures = 0
-                # Mark the issue as exhausted so it is never re-dispatched in
-                # this loop run.
                 self._issue_attempt_counts[issue_number] = max(
                     self._issue_attempt_counts.get(issue_number, 0),
                     self.config.max_retries_per_issue,
@@ -4801,6 +4831,7 @@ class BossLoop:
             SanitizationOutcome.DROPPED,
             SanitizationOutcome.QUARANTINED,
         }:
+            self._apply_sanitizer_issue_lifecycle(issue, sanitization=sanitization)
             if "impossible_validation" in sanitization.checks_failed:
                 outcome = "verification_target_missing"
                 missing_targets_text = sanitization.reason.partition(":")[2].strip()
