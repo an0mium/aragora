@@ -1,0 +1,524 @@
+#!/usr/bin/env python3
+"""Reconcile B0 cohort PR truth against live GitHub state.
+
+This script is intentionally narrow. It does not replace the existing B0
+measurement script. Instead it adds GitHub-truth reconciliation for the B0
+cohort by:
+- reading boss metrics JSONL
+- identifying B0 cohort issues from `cohort_tag` or `[B0-cohort]` titles
+- computing issue-level proxy success from metrics
+- resolving linked PRs for each issue via GitHub issue comments and PR metadata
+- reporting truth states per issue: no linked PR, open PR, mergeable PR, merged PR
+
+Proxy metric:
+- an issue has a PR signal in metrics
+
+Truth metrics:
+- open PR: at least one linked PR exists on GitHub and is open
+- mergeable PR: at least one linked PR is open and GitHub reports MERGEABLE
+- merged PR: at least one linked PR is merged
+- no-rescue truth success: the issue reached mergeable or merged truth without any
+  rescue_worker_crash rows in the metrics file
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from collections import Counter
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics  # noqa: E402
+
+DEFAULT_METRICS_PATH = REPO_ROOT / ".aragora" / "overnight" / "boss_metrics.jsonl"
+B0_TAG = "b0-cohort"
+PR_URL_RE = re.compile(r"https://github\.com/([^/]+/[^/]+)/pull/(\d+)")
+PR_SIGNAL_ACTIONS = frozenset({"pr_created", "existing_pr", "discovered_after_push"})
+PR_SIGNAL_OUTCOMES = frozenset({"pr_adopted"})
+MERGEABLE_STATES = frozenset({"MERGEABLE"})
+MERGED_STATES = frozenset({"MERGED"})
+OPEN_STATES = frozenset({"OPEN"})
+
+
+@dataclass(frozen=True)
+class LinkedPullRequest:
+    number: int
+    title: str
+    url: str
+    state: str
+    mergeable: str
+    merge_state_status: str
+    merged_at: str | None
+    is_draft: bool
+
+    @property
+    def truth_state(self) -> str:
+        if self.state in MERGED_STATES or self.merged_at:
+            return "merged_pr"
+        if self.state in OPEN_STATES and self.mergeable in MERGEABLE_STATES:
+            return "mergeable_pr"
+        if self.state in OPEN_STATES:
+            return "open_pr"
+        return "closed_unmerged_pr"
+
+
+@dataclass
+class IssueMetricsAggregate:
+    issue_number: int
+    title: str = ""
+    row_count: int = 0
+    proxy_pr_signal: bool = False
+    had_rescue: bool = False
+
+
+@dataclass(frozen=True)
+class IssueTruthRecord:
+    issue_number: int
+    issue_title: str
+    proxy_pr_signal: bool
+    had_rescue: bool
+    truth_state: str
+    truth_success: bool
+    no_rescue_truth_success: bool
+    linked_prs: list[LinkedPullRequest] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "issue_number": self.issue_number,
+            "issue_title": self.issue_title,
+            "proxy_pr_signal": self.proxy_pr_signal,
+            "had_rescue": self.had_rescue,
+            "truth_state": self.truth_state,
+            "truth_success": self.truth_success,
+            "no_rescue_truth_success": self.no_rescue_truth_success,
+            "linked_prs": [asdict(pr) | {"truth_state": pr.truth_state} for pr in self.linked_prs],
+        }
+
+
+@dataclass(frozen=True)
+class TruthSummary:
+    attempted_issue_count: int
+    proxy_success_issue_count: int
+    proxy_success_rate: float
+    linked_pr_issue_count: int
+    linked_pr_issue_rate: float
+    truth_success_issue_count: int
+    truth_success_rate: float
+    merged_issue_count: int
+    merged_issue_rate: float
+    no_rescue_truth_success_issue_count: int
+    no_rescue_truth_success_rate: float
+    truth_state_counts: dict[str, int]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "attempted_issue_count": self.attempted_issue_count,
+            "proxy_success_issue_count": self.proxy_success_issue_count,
+            "proxy_success_rate": round(self.proxy_success_rate, 4),
+            "linked_pr_issue_count": self.linked_pr_issue_count,
+            "linked_pr_issue_rate": round(self.linked_pr_issue_rate, 4),
+            "truth_success_issue_count": self.truth_success_issue_count,
+            "truth_success_rate": round(self.truth_success_rate, 4),
+            "merged_issue_count": self.merged_issue_count,
+            "merged_issue_rate": round(self.merged_issue_rate, 4),
+            "no_rescue_truth_success_issue_count": self.no_rescue_truth_success_issue_count,
+            "no_rescue_truth_success_rate": round(self.no_rescue_truth_success_rate, 4),
+            "truth_state_counts": self.truth_state_counts,
+        }
+
+
+class GitHubTruthClient:
+    """Minimal GitHub reader backed by the gh CLI."""
+
+    def _run_json(self, args: list[str]) -> dict[str, Any]:
+        proc = subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh command failed")
+        payload = json.loads(proc.stdout or "{}")
+        if not isinstance(payload, dict):
+            raise RuntimeError("gh command did not return a JSON object")
+        return payload
+
+    def get_issue(self, repo: str, number: int) -> dict[str, Any]:
+        return self._run_json(
+            [
+                "issue",
+                "view",
+                str(number),
+                "--repo",
+                repo,
+                "--json",
+                "number,title,url,comments",
+            ]
+        )
+
+    def get_pr(self, repo: str, number: int) -> dict[str, Any]:
+        return self._run_json(
+            [
+                "pr",
+                "view",
+                str(number),
+                "--repo",
+                repo,
+                "--json",
+                "number,title,url,state,mergeable,mergeStateStatus,mergedAt,isDraft",
+            ]
+        )
+
+    def get_cross_referenced_pr_numbers(self, repo: str, number: int) -> list[int]:
+        owner, name = repo.split("/", 1)
+        payload = self._run_json(
+            [
+                "api",
+                "graphql",
+                "-f",
+                "query=query($owner:String!, $name:String!, $number:Int!) { repository(owner:$owner, name:$name) { issue(number:$number) { timelineItems(itemTypes:[CROSS_REFERENCED_EVENT], first:100) { nodes { ... on CrossReferencedEvent { source { __typename ... on PullRequest { number } } } } } } } }",
+                "-F",
+                f"owner={owner}",
+                "-F",
+                f"name={name}",
+                "-F",
+                f"number={number}",
+            ]
+        )
+        nodes = (
+            payload.get("data", {})
+            .get("repository", {})
+            .get("issue", {})
+            .get("timelineItems", {})
+            .get("nodes", [])
+        )
+        pr_numbers: list[int] = []
+        for node in nodes:
+            source = node.get("source") if isinstance(node, dict) else None
+            if not isinstance(source, dict):
+                continue
+            if source.get("__typename") != "PullRequest":
+                continue
+            pr_number = source.get("number")
+            if isinstance(pr_number, int):
+                pr_numbers.append(pr_number)
+        return pr_numbers
+
+
+def load_metrics_rows(metrics_file: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    with metrics_file.open(encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                payload = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(payload, dict):
+                rows.append(payload)
+    return rows
+
+
+def _normalize_issue_number(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_text(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def _contains_b0_tag(value: Any) -> bool:
+    if isinstance(value, str):
+        return B0_TAG in value.lower()
+    if isinstance(value, dict):
+        return any(_contains_b0_tag(item) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_contains_b0_tag(item) for item in value)
+    return False
+
+
+def is_b0_issue_row(row: dict[str, Any]) -> bool:
+    cohort_tag = _normalize_text(row.get("cohort_tag"))
+    if cohort_tag == B0_TAG:
+        return True
+    for key in ("issue_title", "title", "metadata", "issue_metadata"):
+        if _contains_b0_tag(row.get(key)):
+            return True
+    return False
+
+
+def resolve_terminal_class(row: dict[str, Any]) -> TerminalClass:
+    existing = row.get("terminal_class")
+    if isinstance(existing, str) and existing.strip():
+        try:
+            return TerminalClass(existing.strip())
+        except ValueError:
+            pass
+    return classify_from_metrics(row)
+
+
+def has_proxy_pr_signal(row: dict[str, Any], terminal_class: TerminalClass) -> bool:
+    if terminal_class is TerminalClass.DELIVERABLE_PR_CREATED:
+        return True
+    publish_action = _normalize_text(row.get("publish_action"))
+    worker_outcome = _normalize_text(row.get("worker_outcome"))
+    return publish_action in PR_SIGNAL_ACTIONS or worker_outcome in PR_SIGNAL_OUTCOMES
+
+
+def aggregate_b0_issues(rows: list[dict[str, Any]]) -> list[IssueMetricsAggregate]:
+    issues: dict[int, IssueMetricsAggregate] = {}
+    for row in rows:
+        if not is_b0_issue_row(row):
+            continue
+        issue_number = _normalize_issue_number(row.get("issue_number"))
+        if issue_number is None:
+            continue
+        aggregate = issues.setdefault(
+            issue_number, IssueMetricsAggregate(issue_number=issue_number)
+        )
+        aggregate.row_count += 1
+        if not aggregate.title:
+            aggregate.title = str(row.get("issue_title") or row.get("title") or "").strip()
+        terminal_class = resolve_terminal_class(row)
+        if has_proxy_pr_signal(row, terminal_class):
+            aggregate.proxy_pr_signal = True
+        if terminal_class is TerminalClass.RESCUE_WORKER_CRASH:
+            aggregate.had_rescue = True
+    return [issues[number] for number in sorted(issues)]
+
+
+def extract_pr_numbers_from_issue(repo: str, issue_payload: dict[str, Any]) -> list[int]:
+    expected_repo = repo.lower()
+    found: set[int] = set()
+    for comment in issue_payload.get("comments", []):
+        if not isinstance(comment, dict):
+            continue
+        body = str(comment.get("body") or "")
+        for match in PR_URL_RE.finditer(body):
+            if match.group(1).lower() != expected_repo:
+                continue
+            found.add(int(match.group(2)))
+    return sorted(found)
+
+
+def classify_issue_truth_state(linked_prs: list[LinkedPullRequest]) -> str:
+    states = {pr.truth_state for pr in linked_prs}
+    if "merged_pr" in states:
+        return "merged_pr"
+    if "mergeable_pr" in states:
+        return "mergeable_pr"
+    if "open_pr" in states:
+        return "open_pr"
+    return "no_linked_pr"
+
+
+def reconcile_issue_truth(
+    repo: str,
+    aggregate: IssueMetricsAggregate,
+    client: GitHubTruthClient,
+) -> IssueTruthRecord:
+    issue_payload = client.get_issue(repo, aggregate.issue_number)
+    issue_title = aggregate.title or str(issue_payload.get("title") or "").strip()
+
+    pr_numbers = extract_pr_numbers_from_issue(repo, issue_payload)
+    if not pr_numbers:
+        pr_numbers = sorted(
+            set(client.get_cross_referenced_pr_numbers(repo, aggregate.issue_number))
+        )
+
+    linked_prs: list[LinkedPullRequest] = []
+    for pr_number in pr_numbers:
+        pr_payload = client.get_pr(repo, pr_number)
+        linked_prs.append(
+            LinkedPullRequest(
+                number=int(pr_payload.get("number", pr_number)),
+                title=str(pr_payload.get("title") or "").strip(),
+                url=str(pr_payload.get("url") or "").strip(),
+                state=str(pr_payload.get("state") or "").strip().upper(),
+                mergeable=str(pr_payload.get("mergeable") or "").strip().upper(),
+                merge_state_status=str(pr_payload.get("mergeStateStatus") or "").strip().upper(),
+                merged_at=pr_payload.get("mergedAt"),
+                is_draft=bool(pr_payload.get("isDraft", False)),
+            )
+        )
+
+    truth_state = classify_issue_truth_state(linked_prs)
+    truth_success = truth_state in {"mergeable_pr", "merged_pr"}
+    no_rescue_truth_success = truth_success and not aggregate.had_rescue
+    return IssueTruthRecord(
+        issue_number=aggregate.issue_number,
+        issue_title=issue_title,
+        proxy_pr_signal=aggregate.proxy_pr_signal,
+        had_rescue=aggregate.had_rescue,
+        truth_state=truth_state,
+        truth_success=truth_success,
+        no_rescue_truth_success=no_rescue_truth_success,
+        linked_prs=linked_prs,
+    )
+
+
+def summarize_truth(records: list[IssueTruthRecord]) -> TruthSummary:
+    attempted = len(records)
+    proxy_success = sum(1 for record in records if record.proxy_pr_signal)
+    linked_pr = sum(1 for record in records if record.truth_state != "no_linked_pr")
+    truth_success = sum(1 for record in records if record.truth_success)
+    merged = sum(1 for record in records if record.truth_state == "merged_pr")
+    no_rescue_truth_success = sum(1 for record in records if record.no_rescue_truth_success)
+    state_counts = Counter(record.truth_state for record in records)
+    return TruthSummary(
+        attempted_issue_count=attempted,
+        proxy_success_issue_count=proxy_success,
+        proxy_success_rate=(proxy_success / attempted if attempted else 0.0),
+        linked_pr_issue_count=linked_pr,
+        linked_pr_issue_rate=(linked_pr / attempted if attempted else 0.0),
+        truth_success_issue_count=truth_success,
+        truth_success_rate=(truth_success / attempted if attempted else 0.0),
+        merged_issue_count=merged,
+        merged_issue_rate=(merged / attempted if attempted else 0.0),
+        no_rescue_truth_success_issue_count=no_rescue_truth_success,
+        no_rescue_truth_success_rate=(no_rescue_truth_success / attempted if attempted else 0.0),
+        truth_state_counts=dict(sorted(state_counts.items())),
+    )
+
+
+def render_table(
+    repo: str, metrics_file: Path, records: list[IssueTruthRecord], summary: TruthSummary
+) -> str:
+    headers = ["Issue", "Proxy", "Truth", "No rescue", "Linked PRs", "Title"]
+    body_rows: list[list[str]] = []
+    for record in records:
+        pr_cell = (
+            ", ".join(
+                f"#{pr.number}:{pr.truth_state}:{pr.mergeable or '-'}" for pr in record.linked_prs
+            )
+            or "-"
+        )
+        body_rows.append(
+            [
+                str(record.issue_number),
+                "yes" if record.proxy_pr_signal else "no",
+                record.truth_state,
+                "yes" if record.no_rescue_truth_success else "no",
+                pr_cell,
+                record.issue_title,
+            ]
+        )
+
+    widths = [len(header) for header in headers]
+    for row in body_rows:
+        for idx, value in enumerate(row):
+            widths[idx] = max(widths[idx], len(value))
+
+    def fmt(row: list[str]) -> str:
+        return " | ".join(value.ljust(widths[idx]) for idx, value in enumerate(row))
+
+    lines = [
+        f"Repo: {repo}",
+        f"Metrics file: {metrics_file}",
+        "",
+        "Rates are issue-level. Proxy success is metrics-derived. Truth success is GitHub-derived (mergeable or merged PR).",
+        f"Attempted issues: {summary.attempted_issue_count}",
+        (
+            "Proxy success (proxy): "
+            f"{summary.proxy_success_issue_count}/{summary.attempted_issue_count} "
+            f"({summary.proxy_success_rate:.1%})"
+        ),
+        (
+            "Linked PR issues (truth): "
+            f"{summary.linked_pr_issue_count}/{summary.attempted_issue_count} "
+            f"({summary.linked_pr_issue_rate:.1%})"
+        ),
+        (
+            "Mergeable or merged issues (truth success): "
+            f"{summary.truth_success_issue_count}/{summary.attempted_issue_count} "
+            f"({summary.truth_success_rate:.1%})"
+        ),
+        (
+            "Merged issues (truth): "
+            f"{summary.merged_issue_count}/{summary.attempted_issue_count} "
+            f"({summary.merged_issue_rate:.1%})"
+        ),
+        (
+            "No-rescue truth success (truth + metrics): "
+            f"{summary.no_rescue_truth_success_issue_count}/{summary.attempted_issue_count} "
+            f"({summary.no_rescue_truth_success_rate:.1%})"
+        ),
+        f"Truth state counts: {summary.truth_state_counts}",
+        "",
+        fmt(headers),
+        "-+-".join("-" * width for width in widths),
+    ]
+    lines.extend(fmt(row) for row in body_rows)
+    return "\n".join(lines)
+
+
+def report_to_json(
+    repo: str,
+    metrics_file: Path,
+    records: list[IssueTruthRecord],
+    summary: TruthSummary,
+) -> str:
+    payload = {
+        "repo": repo,
+        "metrics_file": str(metrics_file),
+        "issue_level_only": True,
+        "proxy_metric_note": "PR signal is metrics-derived proxy, not GitHub truth.",
+        "truth_metric_note": "Truth success requires at least one linked PR with state mergeable_pr or merged_pr.",
+        "summary": summary.to_dict(),
+        "issues": [record.to_dict() for record in records],
+    }
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--metrics-file",
+        type=Path,
+        default=DEFAULT_METRICS_PATH,
+        help=f"Metrics JSONL file (default: {DEFAULT_METRICS_PATH})",
+    )
+    parser.add_argument("--repo", default="synaptent/aragora", help="GitHub repo owner/name")
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    metrics_file = args.metrics_file.resolve()
+    if not metrics_file.exists():
+        parser.error(f"metrics file not found: {metrics_file}")
+
+    rows = load_metrics_rows(metrics_file)
+    aggregates = aggregate_b0_issues(rows)
+    client = GitHubTruthClient()
+    records = [reconcile_issue_truth(args.repo, aggregate, client) for aggregate in aggregates]
+    summary = summarize_truth(records)
+
+    if args.json:
+        print(report_to_json(args.repo, metrics_file, records, summary))
+    else:
+        print(render_table(args.repo, metrics_file, records, summary))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
