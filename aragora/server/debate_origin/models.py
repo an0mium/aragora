@@ -36,7 +36,7 @@ class DebateOrigin:
             "channel_id": self.channel_id,
             "user_id": self.user_id,
             "created_at": self.created_at,
-            "metadata": self.metadata,
+            "metadata": dict(self.metadata),
             "thread_id": self.thread_id,
             "message_id": self.message_id,
             "session_id": self.session_id,
@@ -46,13 +46,15 @@ class DebateOrigin:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DebateOrigin:
+        created_at = data["created_at"] if "created_at" in data else time.time()
+        metadata = dict(data.get("metadata") or {})
         return cls(
             debate_id=data["debate_id"],
             platform=data["platform"],
             channel_id=data["channel_id"],
             user_id=data["user_id"],
-            created_at=data.get("created_at", time.time()),
-            metadata=data.get("metadata", {}),
+            created_at=created_at,
+            metadata=metadata,
             thread_id=data.get("thread_id"),
             message_id=data.get("message_id"),
             session_id=data.get("session_id"),
