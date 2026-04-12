@@ -552,8 +552,8 @@ class DevOpsAgent:
                             "date": releases[0].get("publishedAt"),
                         }
                     )
-            except json.JSONDecodeError:
-                logger.debug("Failed to parse release JSON for health check")
+            except json.JSONDecodeError as exc:
+                logger.debug("Failed to parse release JSON for health check: %s", exc)
 
         result.details = checks
         result.items_processed = len(checks)
