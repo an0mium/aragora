@@ -58,7 +58,7 @@ def _parse_json(value: str | None) -> dict[str, Any]:
         return {}
     try:
         data = json.loads(value)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         return {}
     return data if isinstance(data, dict) else {}
 
