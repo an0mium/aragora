@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import pytest
 
 from aragora.swarm.spec import SwarmSpec
+from aragora.utils.semantic_extraction import ExtractionResult
 
 
 class TestSwarmSpecCreation:
@@ -206,9 +207,97 @@ class TestSwarmSpecDispatchBounds:
             budget_limit_usd=5.0,
             requires_approval=False,
             user_expertise="developer",
+            use_llm=False,
         )
         assert spec.is_dispatch_bounded() is True
         assert "aragora/swarm/spec.py" in spec.file_scope_hints
+
+
+class TestSwarmSpecDirectGoalEnrichment:
+    @pytest.mark.asyncio
+    async def test_from_direct_goal_async_enriches_fields_from_llm(self, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic")
+
+        async def fake_extract(prompt, **kwargs):
+            assert "dispatch-bounded swarm spec" in prompt
+            normalized = kwargs["normalizer"](
+                {
+                    "refined_goal": "Tighten direct goal spec enrichment for skipped interrogation.",
+                    "acceptance_criteria": ["Focused swarm spec tests pass."],
+                    "constraints": ["Keep the heuristic fallback path intact."],
+                    "track_hints": ["qa", "core", "invalid"],
+                    "file_scope_hints": [
+                        "ast.parse(open('aragora/swarm/spec.py').read())",
+                        "tests/swarm/test_spec.py::test_from_direct_goal_async_enriches_fields_from_llm",
+                    ],
+                    "estimated_complexity": "high",
+                }
+            )
+            return ExtractionResult(
+                value=normalized,
+                source="anthropic-api",
+            )
+
+        monkeypatch.setattr("aragora.swarm.spec.extract_json_object_llm_first", fake_extract)
+
+        spec = await SwarmSpec.from_direct_goal_async(
+            "Improve direct goal spec enrichment",
+            budget_limit_usd=5.0,
+            requires_approval=False,
+            user_expertise="developer",
+        )
+
+        assert spec.refined_goal == "Tighten direct goal spec enrichment for skipped interrogation."
+        assert spec.acceptance_criteria == ["Focused swarm spec tests pass."]
+        assert spec.constraints == ["Keep the heuristic fallback path intact."]
+        assert spec.track_hints == ["qa", "core"]
+        assert spec.file_scope_hints == ["aragora/swarm/spec.py", "tests/swarm/test_spec.py"]
+        assert spec.estimated_complexity == "high"
+
+    @pytest.mark.asyncio
+    async def test_from_direct_goal_async_falls_back_to_heuristics(self, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic")
+
+        async def fake_extract(_prompt, **kwargs):
+            return ExtractionResult(
+                value=None,
+                source="anthropic-api",
+                error="anthropic-api:invalid_json",
+            )
+
+        monkeypatch.setattr("aragora.swarm.spec.extract_json_object_llm_first", fake_extract)
+
+        spec = await SwarmSpec.from_direct_goal_async(
+            "Only touch aragora/swarm/spec.py. Done means validators pass.",
+            budget_limit_usd=5.0,
+            requires_approval=False,
+            user_expertise="developer",
+        )
+
+        assert spec.refined_goal == "Only touch aragora/swarm/spec.py. Done means validators pass."
+        assert "aragora/swarm/spec.py" in spec.file_scope_hints
+        assert spec.acceptance_criteria == [
+            "Only touch aragora/swarm/spec.py. Done means validators pass."
+        ]
+
+    @pytest.mark.asyncio
+    async def test_from_direct_goal_sync_wrapper_skips_llm_inside_running_loop(self, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic")
+
+        async def fail_if_called(_prompt, **kwargs):
+            raise AssertionError("LLM helper should not run inside an active event loop")
+
+        monkeypatch.setattr("aragora.swarm.spec.extract_json_object_llm_first", fail_if_called)
+
+        spec = SwarmSpec.from_direct_goal(
+            "Only touch aragora/swarm/spec.py",
+            budget_limit_usd=5.0,
+            requires_approval=False,
+            user_expertise="developer",
+        )
+
+        assert spec.refined_goal == "Only touch aragora/swarm/spec.py"
+        assert spec.file_scope_hints == ["aragora/swarm/spec.py"]
 
 
 class TestSwarmSpecFileScopeExtraction:
