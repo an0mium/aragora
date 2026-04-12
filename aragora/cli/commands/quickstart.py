@@ -1989,8 +1989,8 @@ def cmd_quickstart(args: argparse.Namespace) -> None:
             state="CREATED",
         )
         logger.info("receipt_persisted id=%s", canonical_result.get("receipt_id", ""))
-    except Exception:  # noqa: BLE001 - best-effort, local file is primary
-        logger.debug("receipt_store_persist_skipped", exc_info=True)
+    except (ImportError, OSError, RuntimeError, ValueError, TypeError) as exc:
+        logger.debug("receipt_store_persist_skipped: %s", exc, exc_info=True)
 
     # Step 6b: Report KM ingestion status truthfully
     if result.get("mode") == "live":
