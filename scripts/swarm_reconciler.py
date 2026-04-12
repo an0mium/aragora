@@ -15,6 +15,11 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+# Allow direct `python scripts/swarm_reconciler.py ...` execution from a checkout.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from aragora.swarm import SwarmReconciler as CoreSwarmReconciler
 
 logger = logging.getLogger("aragora.swarm.reconciler")
