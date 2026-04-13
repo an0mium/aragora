@@ -49,7 +49,7 @@ enterprise = [
 ]
 connectors = [
     "aiokafka>=0.10,<1.0",
-    "aio-pika>=9.0,<10.0",
+    "aio-pika>=9.6.2,<10.0",
 ]
 experimental = [
     "playwright>=1.40,<2.0",
@@ -62,7 +62,7 @@ all = [
     "python3-saml>=1.15,<2.0",
     "supabase>=2.0,<3.0",
     "aiokafka>=0.10,<1.0",
-    "aio-pika>=9.0,<10.0",
+    "aio-pika>=9.6.2,<10.0",
     "playwright>=1.40,<2.0",
 ]
 
