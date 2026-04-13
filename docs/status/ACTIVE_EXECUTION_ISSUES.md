@@ -38,6 +38,16 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 
 Status note: B0 is above target at 86.7% no-rescue success on the tracked cohort as of 2026-04-13. The remaining gate is production guard proof, not inflating the benchmark story.
 
+## Current 30-Day Execution Set
+
+Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
+
+- Do now: `RS-07`, `BC-01`, `BC-03`, `BC-02`, `TW-01`, `TW-02`, `TW-03`, `CS-01..03`
+- Delay: `BC-07..09`, `RS-10..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
+- Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
+- Top 3 boss-ready next: `RS-07`, `BC-01`, `BC-03`
+- GitHub coverage for those top 3 remains epic-level only through [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806); no dedicated lane issues exist yet
+
 ## Epic 1 — Reliability Substrate
 
 **Outcome:** make bounded unattended execution trustworthy on real multi-host backlogs.
@@ -57,8 +67,8 @@ Status note: B0 is above target at 86.7% no-rescue success on the tracked cohort
 ### Milestone 1.3 — Contract-Aware Preflight `[30-90d]`
 
 - [ ] **RS-07** Build `aragora swarm preflight run --contract ...` _(Partial as of 2026-04-13: module preflight plus scratch/draft-PR validation exist, but the top-level operator surface is still incomplete)_
-- [ ] **RS-08** Validate scratch read/write/commit/push/draft-PR flow through the production code path
-- [ ] **RS-09** Replace shell-only host checks with receipt-backed preflight wrappers
+- [x] **RS-08** Validate scratch read/write/commit/push/draft-PR flow through the production code path _(Done 2026-04-13 via [#5261](https://github.com/synaptent/aragora/pull/5261))_
+- [x] **RS-09** Replace shell-only host checks with receipt-backed preflight wrappers _(Done 2026-04-13 via [#5261](https://github.com/synaptent/aragora/pull/5261))_
 
 ### Milestone 1.4 — Ledger & Self-Heal `[90d]`
 
@@ -80,7 +90,7 @@ Status note: B0 is above target at 86.7% no-rescue success on the tracked cohort
 
 - [x] **BC-04** Add sanitizer outcomes: accepted, rewritten, dropped, quarantined _(Done 2026-04-12)_
 - [x] **BC-05** Detect truncated, contradictory, or impossible tasks before dispatch _(Done 2026-04-13)_
-- [ ] **BC-06** Preserve original versus sanitized task text for audit
+- [x] **BC-06** Preserve original versus sanitized task text for audit _(Done 2026-04-13 via [#5113](https://github.com/synaptent/aragora/pull/5113), [#5190](https://github.com/synaptent/aragora/pull/5190), and [#5305](https://github.com/synaptent/aragora/pull/5305))_
 
 ### Milestone 2.3 — Truthful Lane / Integrator State `[90d]`
 
