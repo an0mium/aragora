@@ -34,6 +34,66 @@ _strict_bool = _supervisor._strict_bool
 CHAIN_WAVE_SUMMARY_METADATA_KEY = "chain_wave_summary"
 
 
+def _record_session_state(
+    work_order: dict[str, Any],
+    *,
+    status: str | None = None,
+    phase: str | None = None,
+    exit_code: int | None = None,
+    worker_outcome: str | None = None,
+    blocker_evidence: str | None = None,
+    changed_files: list[str] | None = None,
+    test_output: str | None = None,
+) -> None:
+    """Persist session state updates for a work order (BC-01).
+
+    Reads session_state from work_order metadata, updates it, and saves
+    to the durable SessionStateStore. Fails silently to avoid blocking
+    the dispatch path.
+    """
+    try:
+        from aragora.swarm.session_state import SessionState, SessionStateStore
+
+        metadata = work_order.get("metadata")
+        if not isinstance(metadata, dict):
+            return
+        session_data = metadata.get("session_state")
+        if not isinstance(session_data, dict):
+            # Create a new session if one doesn't exist
+            wo_id = str(work_order.get("work_order_id", "")).strip()
+            if not wo_id:
+                return
+            session = SessionState(
+                session_id=f"swarm-{wo_id[:12]}",
+                issue_number=work_order.get("issue_number"),
+                target_agent=str(work_order.get("target_agent", "")).strip() or None,
+                phase=phase or "dispatch",
+                status=status or "created",
+            )
+        else:
+            session = SessionState.from_dict(session_data)
+
+        if status:
+            session.status = status
+        if phase:
+            session.phase = phase
+        if blocker_evidence:
+            session.set_blocker(blocker_evidence)
+        if exit_code is not None or worker_outcome:
+            session.record_attempt(
+                exit_code=exit_code,
+                changed_files=changed_files or [],
+                test_output=(test_output or "")[-800:],
+                worker_outcome=worker_outcome,
+            )
+
+        store = SessionStateStore()
+        store.save(session)
+        metadata["session_state"] = session.to_dict()
+    except Exception:
+        logger.debug("Session state update skipped", exc_info=True)
+
+
 def _enrich_chain_wave_summary(
     metadata: dict[str, Any],
     work_orders: list[dict[str, Any]],
@@ -1335,6 +1395,17 @@ def _release_terminal_lease(self, item: dict[str, Any]) -> None:
     lease_id = str(item.get("lease_id", "")).strip()
     if not lease_id:
         return
+
+    # BC-01: Record terminal session state
+    wo_status = str(item.get("status", "")).strip().lower()
+    terminal_status = "completed" if wo_status in {"completed", "merged"} else "failed"
+    _record_session_state(
+        item,
+        status=terminal_status,
+        phase="terminal",
+        worker_outcome=str(item.get("worker_outcome", "")).strip() or None,
+    )
+
     try:
         self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
     except KeyError:
@@ -1523,6 +1594,14 @@ def _requeue_with_fallback(
             "last_failure_detail": detail[:1000],
             "reuse_existing_worktree": True,
         }
+    )
+
+    # BC-01: Record retry/fallback in session state before requeue
+    _record_session_state(
+        item,
+        status="retrying",
+        phase="fallback",
+        blocker_evidence=f"Fallback from {current_agent} to {fallback_agent}: {reason} — {detail[:200]}",
     )
 
     item.update(
