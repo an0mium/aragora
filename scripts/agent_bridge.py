@@ -23,11 +23,15 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
+from datetime import UTC
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import agent_bridge_sessions
 
+AGENT_BRIDGE_DIR = Path.home() / ".aragora" / "agent-bridge"
+SESSION_SNAPSHOT_FILE = AGENT_BRIDGE_DIR / "sessions.json"
 TMUX_SESSIONS_DIR = Path.home() / ".aragora" / "tmux-sessions"
 TMUX_SESSION = "aragora"
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -74,6 +78,15 @@ def discover() -> list[Session]:
             )
         )
     return sessions
+
+
+def _write_session_snapshot(sessions: list[Session]) -> None:
+    timestamp = datetime.now(UTC).isoformat()
+    snapshot = [{"timestamp": timestamp, **s.to_dict()} for s in sessions]
+    AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    tmp_path = SESSION_SNAPSHOT_FILE.with_suffix(".json.tmp")
+    tmp_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
+    tmp_path.replace(SESSION_SNAPSHOT_FILE)
 
 
 def _find_session(sessions: list[Session], target: str) -> Session | None:
@@ -204,6 +217,7 @@ def _read_tmux_log(name: str, lines: int) -> list[str]:
 
 def cmd_sessions(args: argparse.Namespace) -> int:
     sessions = discover()
+    _write_session_snapshot(sessions)
     if args.json:
         print(json.dumps([s.to_dict() for s in sessions], indent=2))
         return 0
@@ -308,6 +322,7 @@ def cmd_read_all(args: argparse.Namespace) -> int:
 def cmd_lanes(args: argparse.Namespace) -> int:
     sessions = discover()
     _enrich_prs(sessions)
+    _write_session_snapshot(sessions)
     if args.json:
         print(json.dumps([s.to_dict() for s in sessions], indent=2))
         return 0
