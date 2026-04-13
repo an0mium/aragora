@@ -3082,6 +3082,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 print(render_boss_text(payload))
             return
     if action == "status":
+        from aragora.cli.commands.swarm_status import load_operator_status, render_operator_status
         from aragora.swarm.session_coordinator import read_directives as coord_read
 
         repo_root = resolve_repo_root(Path.cwd())
@@ -3106,6 +3107,11 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         payload["coordination_view"] = coord_read(
             repo_root,
             findings_limit=max(1, int(getattr(args, "findings_limit", 10))),
+        )
+        payload["operator_status"] = load_operator_status(
+            repo_root,
+            limit=10,
+            boss_repo=_optional_text(getattr(args, "boss_repo", None)),
         )
         if as_json:
             print(json.dumps(payload, indent=2))
@@ -3139,6 +3145,8 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     _print_supervisor_run(run)
             print("---")
             _render_coordination_view(payload["coordination_view"])
+            print("---")
+            print(render_operator_status(payload["operator_status"]))
         return
 
     if action == "reconcile":
