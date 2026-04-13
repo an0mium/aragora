@@ -24,6 +24,18 @@ from aragora.ideacloud.ingestion.twitter_bookmarks import (
 logger = logging.getLogger(__name__)
 
 
+def _like_entry_to_node(
+    entry: dict[str, object], *, source_type: str = "twitter_like"
+) -> IdeaNode | None:
+    """Convert one like export entry into an IdeaNode when possible."""
+
+    like_data = entry.get("like", entry)
+    node = _bookmark_entry_to_node({"bookmark": like_data})
+    if node:
+        node.source_type = source_type
+    return node
+
+
 class TwitterLikesIngestor(BaseIdeaIngestor):
     """Ingest liked tweets from Twitter data export."""
 
@@ -47,11 +59,8 @@ class TwitterLikesIngestor(BaseIdeaIngestor):
 
         nodes: list[IdeaNode] = []
         for entry in data:
-            # Unwrap "like" wrapper if present
-            like_data = entry.get("like", entry)
-            node = _bookmark_entry_to_node({"bookmark": like_data})
+            node = _like_entry_to_node(entry, source_type=self.source_type)
             if node:
-                node.source_type = "twitter_like"
                 nodes.append(node)
 
         logger.info("Parsed %d likes from %s", len(nodes), path.name)
