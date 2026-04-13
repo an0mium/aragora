@@ -170,6 +170,7 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         # Health probes and dashboard monitoring (public liveness/readiness endpoints)
         "admin/dashboard_health",
         "admin/dashboard_metrics",
+        "admin/health/agent_health",
         "admin/health/cross_pollination",
         "admin/health/database",
         "admin/health/database_utils",
@@ -180,6 +181,7 @@ ALLOWED_WITHOUT_RBAC = frozenset(
         "admin/health/knowledge_mound",
         "admin/health/knowledge_mound_utils",
         "admin/health/kubernetes",
+        "admin/health/metrics_health",
         "admin/health/platform",
         "admin/health/probes",
         "admin/health/stores",
