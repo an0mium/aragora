@@ -216,11 +216,11 @@ def migrate_integration_store(dry_run: bool = False) -> MigrationResult:
     """Migrate integration store secrets."""
     try:
         from aragora.storage.integration_store import get_integration_store
+        from aragora.utils.async_utils import run_async
 
         store = get_integration_store()
-        migrator = EncryptionMigrator(dry_run=dry_run)
+        result = MigrationResult(store_name="integration_store")
 
-        # Sensitive fields in integration configs
         sensitive_fields = [
             "api_key",
             "api_secret",
@@ -232,19 +232,53 @@ def migrate_integration_store(dry_run: bool = False) -> MigrationResult:
             "token",
         ]
 
-        def list_all():
-            return list(store.list_all())
+        configs = list(run_async(store.list_all()))
+        result.total_records = len(configs)
 
-        def save(integration_id, record):
-            return store.save(record)
-
-        return migrator.migrate_store(
-            store_name="integration_store",
-            list_fn=list_all,
-            save_fn=save,
-            sensitive_fields=sensitive_fields,
-            id_field="integration_id",
+        logger.info(
+            "Starting migration for %s: %s records",
+            result.store_name,
+            result.total_records,
         )
+
+        for config in configs:
+            integration_type = str(getattr(config, "type", "") or "unknown")
+            user_id = str(getattr(config, "user_id", "") or "default")
+            record_id = f"{user_id}:{integration_type}"
+
+            try:
+                settings = getattr(config, "settings", {})
+                if not isinstance(settings, dict) or not needs_migration(
+                    settings, sensitive_fields
+                ):
+                    result.already_encrypted += 1
+                    continue
+
+                if dry_run:
+                    result.migrated_records += 1
+                    logger.debug("[DRY RUN] Would migrate record: %s", record_id)
+                    continue
+
+                run_async(store.save(config))
+                result.migrated_records += 1
+                logger.debug("Migrated record: %s", record_id)
+            except (KeyError, ValueError, TypeError, RuntimeError, OSError) as e:
+                result.failed_records += 1
+                result.errors.append(f"Error migrating record: {record_id}")
+                logger.warning("Failed to migrate record %s: %s", record_id, e)
+
+        result.completed_at = datetime.now(timezone.utc)
+        result.duration_seconds = (result.completed_at - result.started_at).total_seconds()
+
+        logger.info(
+            "Migration complete for %s: %s migrated, %s already encrypted, %s failed",
+            result.store_name,
+            result.migrated_records,
+            result.already_encrypted,
+            result.failed_records,
+        )
+
+        return result
     except ImportError as e:
         logger.warning("Integration store not available: %s", e)
         return MigrationResult(

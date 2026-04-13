@@ -339,6 +339,57 @@ class TestEncryptionMigrator:
 class TestStoreMigrations:
     """Tests for store-specific migration functions."""
 
+    def test_migrate_integration_store_dry_run_uses_async_backend(self):
+        """Dry-run should bridge the async integration store and count plaintext secrets."""
+        mock_store = MagicMock()
+        mock_store.list_all = AsyncMock(
+            return_value=[
+                MagicMock(
+                    type="slack",
+                    user_id="user-123",
+                    settings={"api_key": "secret-value"},
+                )
+            ]
+        )
+        mock_store.save = AsyncMock(return_value=None)
+
+        with patch(
+            "aragora.storage.integration_store.get_integration_store",
+            return_value=mock_store,
+        ):
+            result = migrate_integration_store(dry_run=True)
+
+        assert result.store_name == "integration_store"
+        assert result.total_records == 1
+        assert result.migrated_records == 1
+        assert result.failed_records == 0
+        mock_store.list_all.assert_awaited_once()
+        mock_store.save.assert_not_awaited()
+
+    def test_migrate_integration_store_saves_async_backend_records(self):
+        """Non-dry-run migration should await the async save path and treat None as success."""
+        config = MagicMock(
+            type="teams",
+            user_id="user-456",
+            settings={"refresh_token": "secret-token"},
+        )
+        mock_store = MagicMock()
+        mock_store.list_all = AsyncMock(return_value=[config])
+        mock_store.save = AsyncMock(return_value=None)
+
+        with patch(
+            "aragora.storage.integration_store.get_integration_store",
+            return_value=mock_store,
+        ):
+            result = migrate_integration_store(dry_run=False)
+
+        assert result.store_name == "integration_store"
+        assert result.total_records == 1
+        assert result.migrated_records == 1
+        assert result.failed_records == 0
+        mock_store.list_all.assert_awaited_once()
+        mock_store.save.assert_awaited_once_with(config)
+
     def test_migrate_integration_store_import_error(self):
         """Test graceful handling of import error."""
         with patch(
