@@ -23,9 +23,13 @@ class GastownConvoyAdapter:
         storage_path: str | Path | None = None,
     ) -> None:
         # ConvoyTracker already forwards to Nomic when storage is enabled.
-        self._tracker = tracker or ConvoyTracker(
-            storage_path=storage_path,
-            use_nomic_store=True,
+        self._tracker = (
+            tracker
+            if tracker is not None
+            else ConvoyTracker(
+                storage_path=storage_path,
+                use_nomic_store=True,
+            )
         )
 
     async def create_convoy(
