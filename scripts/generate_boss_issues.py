@@ -38,6 +38,10 @@ _GENERIC_PARENT_PHRASES: tuple[str, ...] = (
     "supporting tests",
     "think about it",
 )
+_OPEN_PR_PAGE_SIZE = 100
+_OPEN_PR_MAX_PAGES = 10
+_OPEN_PR_FILES_PAGE_SIZE = 100
+_OPEN_PR_FILES_MAX_PAGES = 10
 
 
 @dataclass(slots=True)
@@ -142,33 +146,61 @@ def fetch_existing_boss_issues(repo: str) -> list[dict]:
 def fetch_open_pr_files(repo: str) -> set[str]:
     """Fetch file paths changed in open PRs."""
     try:
-        result = subprocess.run(
-            [
-                "gh",
-                "pr",
-                "list",
-                "--repo",
-                repo,
-                "--state",
-                "open",
-                "--limit",
-                "50",
-                "--json",
-                "files",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.returncode == 0:
-            prs = json.loads(result.stdout or "[]")
-            files: set[str] = set()
+        files: set[str] = set()
+        for page in range(1, _OPEN_PR_MAX_PAGES + 1):
+            prs_result = subprocess.run(
+                [
+                    "gh",
+                    "api",
+                    f"repos/{repo}/pulls?state=open&per_page={_OPEN_PR_PAGE_SIZE}&page={page}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if prs_result.returncode != 0:
+                return set()
+            prs = json.loads(prs_result.stdout or "[]")
+            if not isinstance(prs, list):
+                return set()
+            if not prs:
+                return files
             for pr in prs:
-                for f in pr.get("files", []):
-                    path = f.get("path", "") if isinstance(f, dict) else str(f)
-                    if path:
-                        files.add(path)
-            return files
+                if not isinstance(pr, dict):
+                    continue
+                number = pr.get("number")
+                if not isinstance(number, int):
+                    continue
+                for files_page in range(1, _OPEN_PR_FILES_MAX_PAGES + 1):
+                    files_result = subprocess.run(
+                        [
+                            "gh",
+                            "api",
+                            (
+                                f"repos/{repo}/pulls/{number}/files"
+                                f"?per_page={_OPEN_PR_FILES_PAGE_SIZE}&page={files_page}"
+                            ),
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    if files_result.returncode != 0:
+                        return set()
+                    payload = json.loads(files_result.stdout or "[]")
+                    if not isinstance(payload, list):
+                        return set()
+                    if not payload:
+                        break
+                    for item in payload:
+                        path = item.get("filename", "") if isinstance(item, dict) else str(item)
+                        if path:
+                            files.add(path)
+                    if len(payload) < _OPEN_PR_FILES_PAGE_SIZE:
+                        break
+            if len(prs) < _OPEN_PR_PAGE_SIZE:
+                return files
+        return files
     except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
         pass
     return set()

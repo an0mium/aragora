@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from types import SimpleNamespace
 
@@ -409,3 +410,64 @@ def test_main_passes_decomposition_flags(monkeypatch, capsys) -> None:
     assert decompose_calls
     assert decompose_calls[0][1] is True
     assert decompose_calls[0][2] == 4
+
+
+def test_fetch_open_pr_files_paginates_open_prs_and_pr_files(monkeypatch) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(mod, "_OPEN_PR_PAGE_SIZE", 2)
+    monkeypatch.setattr(mod, "_OPEN_PR_FILES_PAGE_SIZE", 2)
+
+    def fake_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        endpoint = cmd[-1]
+        calls.append(endpoint)
+        if endpoint.endswith("/pulls?state=open&per_page=2&page=1"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps([{"number": 101}, {"number": 102}]),
+                stderr="",
+            )
+        if endpoint.endswith("/pulls/101/files?per_page=2&page=1"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(
+                    [{"filename": "aragora/first.py"}, {"filename": "aragora/second.py"}]
+                ),
+                stderr="",
+            )
+        if endpoint.endswith("/pulls/101/files?per_page=2&page=2"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps([{"filename": "aragora/third.py"}]),
+                stderr="",
+            )
+        if endpoint.endswith("/pulls/102/files?per_page=2&page=1"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps([{"filename": "aragora/fourth.py"}]),
+                stderr="",
+            )
+        if endpoint.endswith("/pulls?state=open&per_page=2&page=2"):
+            return SimpleNamespace(returncode=0, stdout=json.dumps([{"number": 103}]), stderr="")
+        if endpoint.endswith("/pulls/103/files?per_page=2&page=1"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps([{"filename": "aragora/fifth.py"}]),
+                stderr="",
+            )
+        if endpoint.endswith("/pulls?state=open&per_page=2&page=3"):
+            return SimpleNamespace(returncode=0, stdout="[]", stderr="")
+        raise AssertionError(f"unexpected gh api call: {endpoint}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    files = mod.fetch_open_pr_files("org/repo")
+
+    assert files == {
+        "aragora/first.py",
+        "aragora/second.py",
+        "aragora/third.py",
+        "aragora/fourth.py",
+        "aragora/fifth.py",
+    }
+    assert "repos/org/repo/pulls?state=open&per_page=2&page=2" in calls
+    assert "repos/org/repo/pulls/101/files?per_page=2&page=2" in calls
