@@ -899,13 +899,15 @@ def cmd_ensure(args: argparse.Namespace) -> int:
         if needs_replacement:
             if "reconcile_status" not in session:
                 session["reconcile_status"] = "rejected_drifted_reusable_session"
+            replacement_status = str(session["reconcile_status"])
             session = _create_managed_worktree(
                 repo_root,
                 managed_root,
                 agent=args.agent,
                 base=args.base,
-                session_id=None,
+                session_id=args.session_id,
             )
+            session["reconcile_status"] = replacement_status
             created = True
             entries = _get_worktree_entries(repo_root)
             active_paths = _active_path_set(entries)
