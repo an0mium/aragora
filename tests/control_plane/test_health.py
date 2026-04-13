@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from aragora.control_plane import health as health_module
 from aragora.control_plane.health import (
     HealthCheck,
     HealthMonitor,
@@ -66,6 +67,19 @@ class TestHealthCheck:
 
 class TestHealthMonitor:
     """Tests for HealthMonitor."""
+
+    class _CancelledOnAwaitTask:
+        def __init__(self):
+            self.cancel_called = False
+
+        def cancel(self) -> None:
+            self.cancel_called = True
+
+        def __await__(self):
+            async def _raise_cancelled():
+                raise asyncio.CancelledError
+
+            return _raise_cancelled().__await__()
 
     @pytest.fixture
     def monitor(self):
@@ -159,6 +173,22 @@ class TestHealthMonitor:
 
         await monitor.stop()
         assert not monitor._running
+
+    @pytest.mark.asyncio
+    async def test_stop_logs_cancelled_monitor_task(self, monitor, monkeypatch):
+        """Test stop logs when awaiting the monitor task raises CancelledError."""
+        mock_logger = MagicMock()
+        monkeypatch.setattr(health_module, "logger", mock_logger)
+        cancelled_task = self._CancelledOnAwaitTask()
+        monitor._running = True
+        monitor._monitor_task = cancelled_task
+
+        await monitor.stop()
+
+        assert cancelled_task.cancel_called
+        mock_logger.debug.assert_called_once_with(
+            "HealthMonitor monitor task cancelled during stop"
+        )
 
     def test_get_agent_health(self, monitor):
         """Test getting agent health status."""
