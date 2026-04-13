@@ -1,6 +1,6 @@
 # Active Execution Issues
 
-Last updated: 2026-04-12
+Last updated: 2026-04-13
 
 This document is the canonical epic, milestone, and execution-issue tree for the current roadmap tranche.
 
@@ -36,25 +36,27 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 | **B3 — Repair** | Productize retry, salvage, quarantine, and session reuse | `BC-01..03`, `RS-10..11` |
 | **B4 — Multi** | Extend proven loops across hosts with truthful state | `BC-07..12`, `UDW-01..03` |
 
+Status note: B0 is above target at 86.7% no-rescue success on the tracked cohort as of 2026-04-13. The remaining gate is production guard proof, not inflating the benchmark story.
+
 ## Epic 1 — Reliability Substrate
 
 **Outcome:** make bounded unattended execution trustworthy on real multi-host backlogs.
 
 ### Milestone 1.1 — Failure Taxonomy & Benchmark Corpus `[30d]`
 
-- [x] **RS-01** Define canonical terminal-truth classes for auth, publication, validation, runtime, and task-shape failures
-- [x] **RS-02** Harvest benchmark fixtures from real `needs_human` and publication-failure receipts
-- [x] **RS-03** Add a benchmark scoring lane and regression guardrails in CI
+- [x] **RS-01** Define canonical terminal-truth classes for auth, publication, validation, runtime, and task-shape failures _(Done 2026-04-10)_
+- [x] **RS-02** Harvest benchmark fixtures from real `needs_human` and publication-failure receipts _(Done 2026-04-10)_
+- [x] **RS-03** Add a benchmark scoring lane and regression guardrails in CI _(Done 2026-04-11)_
 
 ### Milestone 1.2 — Worker Contracts & Credential Envelopes `[30-90d]`
 
-- [x] **RS-04** Introduce persisted `WorkerContract` objects with checksum and admission rules
-- [x] **RS-05** Introduce `CredentialEnvelope` slices for runner, git, GitHub API, provider, and verification auth
-- [ ] **RS-06** Require launcher, supervisor, and tranche queue to dispatch only from complete contracts
+- [x] **RS-04** Introduce persisted `WorkerContract` objects with checksum and admission rules _(Done 2026-04-11)_
+- [x] **RS-05** Introduce `CredentialEnvelope` slices for runner, git, GitHub API, provider, and verification auth _(Done 2026-04-12)_
+- [x] **RS-06** Require launcher, supervisor, and tranche queue to dispatch only from complete contracts _(Done 2026-04-13)_
 
 ### Milestone 1.3 — Contract-Aware Preflight `[30-90d]`
 
-- [ ] **RS-07** Build `aragora swarm preflight run --contract ...`
+- [ ] **RS-07** Build `aragora swarm preflight run --contract ...` _(Partial as of 2026-04-13: module preflight plus scratch/draft-PR validation exist, but the top-level operator surface is still incomplete)_
 - [ ] **RS-08** Validate scratch read/write/commit/push/draft-PR flow through the production code path
 - [ ] **RS-09** Replace shell-only host checks with receipt-backed preflight wrappers
 
@@ -76,8 +78,8 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 
 ### Milestone 2.2 — Task Sanitizer & Admission Gate `[30-90d]`
 
-- [x] **BC-04** Add sanitizer outcomes: accepted, rewritten, dropped, quarantined
-- [x] **BC-05** Detect truncated, contradictory, or impossible tasks before dispatch
+- [x] **BC-04** Add sanitizer outcomes: accepted, rewritten, dropped, quarantined _(Done 2026-04-12)_
+- [x] **BC-05** Detect truncated, contradictory, or impossible tasks before dispatch _(Done 2026-04-13)_
 - [ ] **BC-06** Preserve original versus sanitized task text for audit
 
 ### Milestone 2.3 — Truthful Lane / Integrator State `[90d]`

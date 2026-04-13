@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-04-12
+Last updated: 2026-04-13
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
@@ -10,7 +10,7 @@ This is the single source of truth for short-horizon execution priorities.
 
 ## Current Gate
 
-The current gate is the transition from early `Teammate` behavior to reliable `Foreman` behavior across the current execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
+The current gate is to finish `RS-08/09` and `BC-01..03`, then prove the `B2` guard on the safest execution classes across the current execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
 
 What is already true:
 
@@ -19,15 +19,16 @@ What is already true:
 - bounded product wedges such as prompt-to-spec and inbox workflows exist
 - the approved reliability substrate spec identifies the missing layer clearly
 - terminal-truth taxonomy, benchmark fixtures, and the benchmark scoring lane are now on `main`
+- the 30-day B0 target is already exceeded on the tracked cohort at **86.7%** no-rescue success
 - `WorkerContract` and `CredentialEnvelope` primitives exist on the live swarm path
-- launcher-side contract admission and module-level contract-aware preflight are on `main`
+- launcher-side contract admission, dispatch gating, and module-level contract-aware preflight are on `main`
 - task sanitizer outcomes and success-rate filtering are shaping safer boss-loop intake
 
 What is still missing:
 
-- honest benchmarked proof of semi-autonomous success
-- contract-backed worker admission across launcher, supervisor, and tranche queue on the safest classes of work
-- top-level production-equivalent preflight on those classes
+- production-equivalent preflight through the operator surface on the safest classes
+- resumable session state, retry context, and precise blocker evidence on the live swarm loop
+- proof that the B2 guard holds under repeated bounded runs instead of one-off success stories
 - broader repair-loop coverage and persisted original-versus-sanitized task audit
 - lower-rescue unattended operation on bounded backlogs
 
@@ -42,13 +43,15 @@ The 30-day target is intentionally narrow:
 - **100%** of failures land in truthful canonical buckets
 - repeated rescue classes become explicit product work
 
+Current status: the tracked B0 cohort is running at **86.7%** no-rescue success as of 2026-04-13. The benchmark target is no longer the blocker; truthful guard completion is.
+
 If a task does not improve that metric, it is not first-tranche work.
 
 ## Reverse-Staged Rocket Bootstrap
 
 ### Booster 0 — Corpus
 
-Build the fixed benchmark corpus, enrich worker context, and record rescues honestly. This is the smallest booster and the only one that must clearly work in the first 30 days.
+Build the fixed benchmark corpus, enrich worker context, and record rescues honestly. This booster is already above target, so the remaining work is to keep it truthful while the guard layers catch up.
 
 ### Booster 1 — Assist
 
