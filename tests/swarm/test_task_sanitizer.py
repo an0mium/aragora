@@ -244,6 +244,16 @@ class TestContradictoryScope:
         body = "## Allowed Write Set\n- `tests/swarm/test_task_sanitizer.py` (create)\n"
         assert sanitizer._check_contradictory_scope(body) is None
 
+    def test_contradictory_scope_ignores_modify_with_add_in_description(
+        self, sanitizer: TaskSanitizer
+    ) -> None:
+        """Modify annotations should not false-positive when descriptive text contains 'add'."""
+        body = (
+            "## File Scope\n"
+            "- `aragora/swarm/task_sanitizer.py` (modify) — add a helper for scope dedup\n"
+        )
+        assert sanitizer._check_contradictory_scope(body) is None
+
 
 class TestRewriteMissingValidation:
     def test_rewrite_missing_validation_appends_section(self, sanitizer: TaskSanitizer) -> None:
