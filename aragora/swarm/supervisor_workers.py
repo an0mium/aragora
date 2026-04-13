@@ -6,13 +6,16 @@ import asyncio
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aragora.nomic.dev_coordination import FileScopeViolationError, LeaseConflictError, LeaseStatus
 from aragora.swarm import supervisor as _supervisor
 from aragora.swarm.lane_telemetry import LaneTelemetryRecord
 from aragora.swarm.terminal_truth import qualify_work_order_terminal_state
 from aragora.swarm.worker_launcher import WorkerLauncher, WorkerProcess
+
+if TYPE_CHECKING:
+    from aragora.swarm.supervisor import SupervisorRun, SwarmApprovalPolicy
 
 UTC = _supervisor.UTC
 logger = _supervisor.logger
@@ -880,9 +883,9 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
             logger.debug("Detached result collection failed for %s", woid, exc_info=True)
             result = None
         if result is not None:
-            recovered_result: WorkerProcess | None = None
+            initial_recovered_result: WorkerProcess | None = None
             try:
-                recovered_result = _recover_commit_backed_terminal_result(
+                initial_recovered_result = _recover_commit_backed_terminal_result(
                     self,
                     item,
                     candidate=result,
@@ -895,8 +898,8 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                     woid,
                     exc_info=True,
                 )
-            if recovered_result is not None:
-                finished.append(recovered_result)
+            if initial_recovered_result is not None:
+                finished.append(initial_recovered_result)
                 finished_ids.add(woid)
                 continue
 
@@ -979,9 +982,9 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                 except (OSError, RuntimeError, subprocess.SubprocessError, ValueError):
                     logger.debug("Detached result collection failed for %s", woid, exc_info=True)
 
-                recovered_result: WorkerProcess | None = None
+                exit_recovered_result: WorkerProcess | None = None
                 try:
-                    recovered_result = _recover_commit_backed_terminal_result(
+                    exit_recovered_result = _recover_commit_backed_terminal_result(
                         self,
                         item,
                         candidate=detached_result,
@@ -995,8 +998,8 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                         exc_info=True,
                     )
 
-                if recovered_result is not None:
-                    finished.append(recovered_result)
+                if exit_recovered_result is not None:
+                    finished.append(exit_recovered_result)
                     finished_ids.add(woid)
                     item["worker_outcome"] = WorkerOutcome.CRASH_WITH_SALVAGE.value
                     self._release_terminal_lease(item)
