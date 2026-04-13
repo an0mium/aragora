@@ -55,8 +55,10 @@ def swarm_status_summary(
 
     terminal_classes: Counter[str] = Counter()
     outcomes: Counter[str] = Counter()
+    failure_reasons: Counter[str] = Counter()
     issues_attempted: set[int] = set()
     issues_succeeded: set[int] = set()
+    recent_blockers: list[dict[str, Any]] = []
     latest_tick: dict[str, Any] = {}
 
     for row in rows:
@@ -74,6 +76,21 @@ def swarm_status_summary(
             if tc and tc.startswith("success"):
                 issues_succeeded.add(issue_num)
 
+        # Collect failure reasons and blocker evidence (BC-03)
+        failure_reason = str(row.get("failure_reason", "")).strip()
+        if failure_reason:
+            failure_reasons[failure_reason] += 1
+        if tc and not tc.startswith("success") and not tc.startswith("deliverable"):
+            recent_blockers.append(
+                {
+                    "issue_number": issue_num,
+                    "terminal_class": tc,
+                    "failure_reason": failure_reason or None,
+                    "blocker_kind": str(row.get("blocker_kind", "")).strip() or None,
+                    "issue_title": str(row.get("issue_title", "")).strip()[:80] or None,
+                }
+            )
+
         latest_tick = row
 
     success_count = sum(v for k, v in terminal_classes.items() if k.startswith("success"))
@@ -88,6 +105,8 @@ def swarm_status_summary(
         "success_rate": round(success_count / len(rows), 3) if rows else 0,
         "terminal_class_distribution": dict(terminal_classes.most_common(10)),
         "outcome_distribution": dict(outcomes.most_common(10)),
+        "failure_reason_distribution": dict(failure_reasons.most_common(10)),
+        "recent_blockers": recent_blockers[-10:],
         "latest_tick": {
             "timestamp": latest_tick.get("timestamp", ""),
             "issue_number": latest_tick.get("issue_number"),

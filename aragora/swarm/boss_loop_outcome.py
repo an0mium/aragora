@@ -62,9 +62,18 @@ def append_iteration_metrics(
                     prompt_chars += int(wo.get("prompt_chars", 0) or 0)
                     enriched_context_chars += int(wo.get("enriched_context_chars", 0) or 0)
 
+        # Extract failure/blocker evidence for operator visibility (BC-03)
+        failure_reason = str(worker_result.get("failure_reason", "")).strip() or None
+        blocker_kind = str(worker_result.get("blocker_kind", "")).strip() or None
+        needs_human_reasons = worker_result.get("reasons")
+        if isinstance(needs_human_reasons, list) and needs_human_reasons:
+            if not failure_reason:
+                failure_reason = str(needs_human_reasons[0]).strip()[:200]
+
         payload = {
             "iteration": int(iteration),
             "issue_number": issue_number,
+            "issue_title": issue_title[:120] if issue_title else None,
             "worker_status": str(worker_result.get("status", "")).strip() or "unknown",
             "worker_outcome": str(worker_result.get("outcome", "")).strip() or None,
             "elapsed_seconds": float(elapsed_seconds or 0.0),
@@ -81,6 +90,8 @@ def append_iteration_metrics(
             "cohort_tag": cohort_tag,
             "has_deliverable": bool(worker_result.get("deliverable")),
             "publish_action": publish_action,
+            "failure_reason": failure_reason,
+            "blocker_kind": blocker_kind,
             "category_success_rates": category_success_rates,
         }
 
