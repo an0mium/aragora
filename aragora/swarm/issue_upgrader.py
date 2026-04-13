@@ -417,11 +417,11 @@ def upgrade_issue_heuristic(
         return None
 
     if category == "test_coverage":
-        test_rel = (
-            str(new_files[0]).strip()
-            if list(new_files or []) and str(list(new_files or [])[0]).strip()
-            else _generated_test_path(module_rel)
+        first_new_file = next(
+            (str(path).strip() for path in (new_files or []) if str(path).strip()),
+            None,
         )
+        test_rel = first_new_file or _generated_test_path(module_rel)
         public_api_section = _render_public_api_section(analysis)
         module_purpose = (
             f"**Module purpose:** {analysis.docstring}\n\n" if analysis.docstring else ""
