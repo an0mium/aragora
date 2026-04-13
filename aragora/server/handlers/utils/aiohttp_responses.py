@@ -14,6 +14,8 @@ from typing import Any
 
 from aiohttp import web
 
+__all__ = ["web_error_response"]
+
 
 def web_error_response(
     message: str,
