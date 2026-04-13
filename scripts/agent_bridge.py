@@ -45,9 +45,11 @@ except ModuleNotFoundError:
 
 AGENT_BRIDGE_DIR = Path.home() / ".aragora" / "agent-bridge"
 SESSION_SNAPSHOT_FILE = AGENT_BRIDGE_DIR / "sessions.json"
+LANE_REGISTRY_FILE = AGENT_BRIDGE_DIR / "lanes.json"
 TMUX_SESSIONS_DIR = Path.home() / ".aragora" / "tmux-sessions"
 TMUX_SESSION = "aragora"
 REPO_ROOT = Path(__file__).resolve().parents[1]
+ACTIVE_LANE_STATUSES = {"active", "running", "pending", "queued", "claimed"}
 
 
 @dataclass
@@ -64,6 +66,42 @@ class Session:
 
     def to_dict(self) -> dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v}
+
+
+@dataclass
+class LaneRecord:
+    lane_id: str
+    owner_session: str
+    goal: str = ""
+    source: str = ""
+    status: str = "active"
+    next_action: str = ""
+    updated_at: str = ""
+    branch: str = ""
+    worktree: str = ""
+    pr_number: int | None = None
+    conflict_session: str = ""
+    conflict_reason: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return {k: v for k, v in asdict(self).items() if v not in ("", None)}
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "LaneRecord":
+        return cls(
+            lane_id=str(payload.get("lane_id", "")),
+            owner_session=str(payload.get("owner_session", "")),
+            goal=str(payload.get("goal", "")),
+            source=str(payload.get("source", "")),
+            status=str(payload.get("status", "active")),
+            next_action=str(payload.get("next_action", "")),
+            updated_at=str(payload.get("updated_at", "")),
+            branch=str(payload.get("branch", "")),
+            worktree=str(payload.get("worktree", "")),
+            pr_number=payload.get("pr_number"),
+            conflict_session=str(payload.get("conflict_session", "")),
+            conflict_reason=str(payload.get("conflict_reason", "")),
+        )
 
 
 def discover() -> list[Session]:
@@ -144,6 +182,104 @@ def _write_session_snapshot(sessions: list[Session]) -> None:
     tmp_path = SESSION_SNAPSHOT_FILE.with_suffix(".json.tmp")
     tmp_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
     tmp_path.replace(SESSION_SNAPSHOT_FILE)
+
+
+def _now_iso() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+def _load_lane_registry() -> list[LaneRecord]:
+    if not LANE_REGISTRY_FILE.exists():
+        return []
+    try:
+        payload = json.loads(LANE_REGISTRY_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [LaneRecord.from_dict(item) for item in payload if isinstance(item, dict)]
+
+
+def _write_lane_registry(records: list[LaneRecord]) -> None:
+    AGENT_BRIDGE_DIR.mkdir(parents=True, exist_ok=True)
+    tmp_path = LANE_REGISTRY_FILE.with_suffix(".json.tmp")
+    tmp_path.write_text(
+        json.dumps([record.to_dict() for record in records], indent=2) + "\n",
+        encoding="utf-8",
+    )
+    tmp_path.replace(LANE_REGISTRY_FILE)
+
+
+def _find_lane_record(records: list[LaneRecord], lane_id: str) -> LaneRecord | None:
+    for record in records:
+        if record.lane_id == lane_id:
+            return record
+    return None
+
+
+def _sync_lane_records(records: list[LaneRecord], sessions: list[Session]) -> list[LaneRecord]:
+    session_map = {session.name: session for session in sessions}
+    for record in records:
+        live = session_map.get(record.owner_session)
+        if live is not None:
+            record.branch = live.branch
+            record.worktree = live.worktree
+            record.pr_number = live.pr_number
+    return records
+
+
+def _lane_conflict(
+    records: list[LaneRecord],
+    lane_id: str,
+    owner_session: str,
+) -> LaneRecord | None:
+    record = _find_lane_record(records, lane_id)
+    if record is None:
+        return None
+    if record.owner_session == owner_session:
+        return None
+    if record.status not in ACTIVE_LANE_STATUSES:
+        return None
+    return record
+
+
+def _persist_lane_claim(
+    records: list[LaneRecord],
+    lane_id: str,
+    session: Session,
+    *,
+    goal: str,
+    source: str,
+    status: str,
+    next_action: str,
+    allow_conflict: bool,
+) -> None:
+    existing = _find_lane_record(records, lane_id)
+    conflict = _lane_conflict(records, lane_id, session.name)
+    if conflict is not None and allow_conflict:
+        conflict.status = "conflict"
+        conflict.conflict_session = session.name
+        conflict.conflict_reason = f"conflicting active owner claim from {session.name}"
+        conflict.next_action = next_action or "resolve ambiguous lane ownership"
+        conflict.updated_at = _now_iso()
+        _write_lane_registry(records)
+        return
+
+    record = existing or LaneRecord(lane_id=lane_id, owner_session=session.name)
+    record.owner_session = session.name
+    record.goal = goal or record.goal
+    record.source = source or record.source
+    record.status = status or record.status
+    record.next_action = next_action or record.next_action
+    record.updated_at = _now_iso()
+    record.branch = session.branch
+    record.worktree = session.worktree
+    record.pr_number = session.pr_number
+    record.conflict_session = ""
+    record.conflict_reason = ""
+    if existing is None:
+        records.append(record)
+    _write_lane_registry(records)
 
 
 def _find_session(sessions: list[Session], target: str) -> Session | None:
@@ -292,6 +428,7 @@ def cmd_sessions(args: argparse.Namespace) -> int:
 
 def cmd_send(args: argparse.Namespace) -> int:
     sessions = discover()
+    _enrich_prs(sessions)
     session = _find_session(sessions, args.name)
     if not session:
         print(f"No session matching '{args.name}'", file=sys.stderr)
@@ -304,7 +441,28 @@ def cmd_send(args: argparse.Namespace) -> int:
     if not target:
         print(f"No tmux target for '{session.name}'", file=sys.stderr)
         return 1
+    records = _sync_lane_records(_load_lane_registry(), sessions)
+    lane_id = str(getattr(args, "lane", "") or "").strip()
+    if lane_id:
+        conflict = _lane_conflict(records, lane_id, session.name)
+        if conflict is not None and not getattr(args, "allow_conflict", False):
+            print(
+                f"Lane '{lane_id}' already owned by active session '{conflict.owner_session}'",
+                file=sys.stderr,
+            )
+            return 1
     if _send_tmux(target, prompt):
+        if lane_id:
+            _persist_lane_claim(
+                records,
+                lane_id,
+                session,
+                goal=str(getattr(args, "goal", "") or "").strip(),
+                source=str(getattr(args, "source", "") or "").strip(),
+                status=str(getattr(args, "status", "") or "active").strip(),
+                next_action=str(getattr(args, "next_action", "") or "").strip(),
+                allow_conflict=bool(getattr(args, "allow_conflict", False)),
+            )
         print(f"Sent to '{session.name}' ({len(prompt)} chars)")
         return 0
     print(f"Send failed for '{session.name}'", file=sys.stderr)
@@ -380,6 +538,27 @@ def cmd_lanes(args: argparse.Namespace) -> int:
     sessions = discover()
     _enrich_prs(sessions)
     _write_session_snapshot(sessions)
+    records = _sync_lane_records(_load_lane_registry(), sessions)
+    if records:
+        _write_lane_registry(records)
+        if args.json:
+            print(json.dumps([record.to_dict() for record in records], indent=2))
+            return 0
+        print(f"{'LANE':<22} {'OWNER':<24} {'STATUS':<10} {'BRANCH':<26} {'PR':>5} NEXT ACTION")
+        print("-" * 120)
+        for record in records:
+            branch = record.branch[:24] if record.branch else "-"
+            pr = f"#{record.pr_number}" if record.pr_number else "-"
+            next_action = (
+                record.next_action[:40] + "..."
+                if len(record.next_action) > 40
+                else record.next_action
+            ) or "-"
+            print(
+                f"{record.lane_id:<22} {record.owner_session:<24} {record.status:<10} "
+                f"{branch:<26} {pr:>5} {next_action}"
+            )
+        return 0
     if args.json:
         print(json.dumps([s.to_dict() for s in sessions], indent=2))
         return 0
@@ -435,6 +614,16 @@ def main() -> int:
     send_p.add_argument("name")
     send_p.add_argument("prompt", nargs="*")
     send_p.add_argument("--file", help="Prompt file")
+    send_p.add_argument("--lane", help="Lane identifier to claim/update")
+    send_p.add_argument("--goal", default="", help="Lane goal summary")
+    send_p.add_argument("--source", default="", help="Source issue or PR reference")
+    send_p.add_argument("--status", default="active", help="Lane status")
+    send_p.add_argument("--next-action", default="", help="Next action for the lane")
+    send_p.add_argument(
+        "--allow-conflict",
+        action="store_true",
+        help="Mark an explicit conflict instead of rejecting a second active owner",
+    )
 
     approve_p = sub.add_parser("approve", help="Approve Codex permission")
     approve_p.add_argument("name")
