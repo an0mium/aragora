@@ -58,6 +58,15 @@ class StorageHealthHandler(SecureHandler):
         """Check if this handler can handle the given path."""
         return path in self.ROUTES
 
+    @staticmethod
+    def normalize_path(path: str) -> str:
+        """Normalize a versioned API path to its canonical form.
+
+        Strips the ``/v1`` segment so both ``/api/v1/health/…`` and
+        ``/api/health/…`` map to the same canonical key.
+        """
+        return path.replace("/api/v1/", "/api/")
+
     async def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> HandlerResult | None:
@@ -76,8 +85,7 @@ class StorageHealthHandler(SecureHandler):
             logger.warning("Storage health endpoint access denied: %s", e)
             return error_response("Permission denied", 403)
 
-        # Normalize path for routing (support both v1 and non-v1)
-        normalized = path.replace("/api/v1/", "/api/")
+        normalized = self.normalize_path(path)
 
         if normalized == "/api/health/stores":
             return self._database_stores_health()
