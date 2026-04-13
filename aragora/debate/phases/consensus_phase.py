@@ -900,6 +900,13 @@ class ConsensusPhase:
         result = ctx.result
         proposals = ctx.proposals
         task = ctx.env.task if ctx.env else ""
+        select_judge = self._select_judge
+        generate_with_agent = self._generate_with_agent
+
+        if select_judge is None or generate_with_agent is None:
+            logger.error("Judge deliberation requires select_judge and generate_with_agent")
+            await self._handle_fallback_consensus(ctx, reason="judge_callbacks_missing")
+            return
 
         deliberation_rounds = getattr(self.protocol, "judge_deliberation_rounds", 2)
 
@@ -911,11 +918,10 @@ class ConsensusPhase:
 
         # Get judge candidates (use 3 judges for deliberation)
         judge_candidates = []
-        if hasattr(self._select_judge, "__self__") and hasattr(
-            self._select_judge.__self__, "get_judge_candidates"
-        ):
+        select_judge_owner = getattr(select_judge, "__self__", None)
+        if select_judge_owner is not None and hasattr(select_judge_owner, "get_judge_candidates"):
             try:
-                judge_candidates = await self._select_judge.__self__.get_judge_candidates(
+                judge_candidates = await select_judge_owner.get_judge_candidates(
                     proposals, ctx.context_messages, max_candidates=3
                 )
             except (RuntimeError, AttributeError, ImportError) as e:  # noqa: BLE001 - phase isolation
@@ -956,7 +962,7 @@ class ConsensusPhase:
                 proposals=proposals,
                 task=task,
                 context=ctx.context_messages,
-                generate_fn=self._generate_with_agent,
+                generate_fn=generate_with_agent,
                 deliberation_rounds=deliberation_rounds,
             )
 
@@ -1008,6 +1014,12 @@ class ConsensusPhase:
         result = ctx.result
         proposals = ctx.proposals
         task = ctx.env.task if ctx.env else ""
+        generate_with_agent = self._generate_with_agent
+
+        if generate_with_agent is None:
+            logger.error("Judge synthesis requires generate_with_agent")
+            await self._handle_fallback_consensus(ctx, reason="synthesis_callbacks_missing")
+            return
 
         judge_prompt = (
             self._build_judge_prompt(proposals, task, result.critiques)
@@ -1021,7 +1033,7 @@ class ConsensusPhase:
             task_id = f"{judge.name}:judge_synthesis"
             with streaming_task_context(task_id):
                 synthesis = await asyncio.wait_for(
-                    self._generate_with_agent(judge, judge_prompt, ctx.context_messages),
+                    generate_with_agent(judge, judge_prompt, ctx.context_messages),
                     timeout=judge_timeout,
                 )
 
