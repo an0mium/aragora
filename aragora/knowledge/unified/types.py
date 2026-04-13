@@ -73,6 +73,8 @@ class ConfidenceLevel(str, Enum):
     @classmethod
     def from_float(cls, value: float) -> ConfidenceLevel:
         """Convert a float confidence score (0-1) to a ConfidenceLevel."""
+        if not isinstance(value, (int, float)):
+            raise TypeError(f"Expected numeric value, got {type(value).__name__}")
         if value >= 0.9:
             return cls.VERIFIED
         elif value >= 0.7:
@@ -82,6 +84,17 @@ class ConfidenceLevel(str, Enum):
         elif value >= 0.2:
             return cls.LOW
         return cls.UNVERIFIED
+
+    def to_float(self) -> float:
+        """Convert a ConfidenceLevel to a representative float score."""
+        _level_scores: dict[str, float] = {
+            "verified": 0.95,
+            "high": 0.8,
+            "medium": 0.55,
+            "low": 0.3,
+            "unverified": 0.1,
+        }
+        return _level_scores[self.value]
 
 
 @dataclass
@@ -198,6 +211,20 @@ class KnowledgeLink:
             "created_by": self.created_by,
             "metadata": self.metadata,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> KnowledgeLink:
+        """Create from dictionary."""
+        return cls(
+            id=data["id"],
+            source_id=data["source_id"],
+            target_id=data["target_id"],
+            relationship=RelationshipType(data["relationship"]),
+            confidence=float(data["confidence"]),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            created_by=data.get("created_by"),
+            metadata=data.get("metadata", {}),
+        )
 
 
 @dataclass
