@@ -1392,6 +1392,7 @@ class WorkerLauncher:
         auto_commit: bool = True,
         expected_tests: list[str] | None = None,
         allow_session_meta_pid_fallback: bool = True,
+        preserve_incomplete_artifacts: bool = True,
     ) -> WorkerProcess | None:
         """Collect results from a detached worker by checking PID and worktree state.
 
@@ -1400,18 +1401,21 @@ class WorkerLauncher:
         """
         session_meta = cls._read_session_meta(worktree_path)
         session_exit_code, session_completed_at = cls._terminal_session_result(session_meta)
-        observed_pid = cls._normalized_pid(pid)
+        requested_pid = cls._normalized_pid(pid)
+        observed_pid = requested_pid
         if allow_session_meta_pid_fallback:
             observed_pid = cls._session_owned_pid(worktree_path, observed_pid, session_meta)
         lock_pid = (
-            cls._pid_for_active_lock(worktree_path, observed_pid, session_meta)
+            cls._pid_for_active_lock(worktree_path, requested_pid, session_meta)
             if allow_session_meta_pid_fallback
-            else observed_pid
+            else requested_pid
         )
         missing_terminal_marker = session_exit_code is None
         cleanup_artifacts = True
         preserve_terminal_evidence = False
-        should_honor_active_lock = allow_session_meta_pid_fallback or observed_pid is not None
+        should_honor_active_lock = (missing_terminal_marker or lock_pid is None) and (
+            allow_session_meta_pid_fallback or lock_pid is not None
+        )
         if should_honor_active_lock and cls._active_session_lock_blocks_collection(
             worktree_path, lock_pid
         ):
@@ -1490,7 +1494,12 @@ class WorkerLauncher:
                     for item in worker.verification_results
                     if str(item.get("command", "")).strip()
                 ]
-            if missing_terminal_marker and not worker.commit_shas and not worker.changed_paths:
+            if (
+                preserve_incomplete_artifacts
+                and missing_terminal_marker
+                and not worker.commit_shas
+                and not worker.changed_paths
+            ):
                 preserve_terminal_evidence = True
         finally:
             if cleanup_artifacts and not preserve_terminal_evidence:
@@ -1498,7 +1507,11 @@ class WorkerLauncher:
                 # fully terminate before removing artifacts.  Without this wait
                 # the codex_session.sh trap can recreate .codex_session_meta.json
                 # and append to .codex_session.log after Python-side cleanup (#902).
-                _cleanup_pid = observed_pid
+                _cleanup_pid = cls._cleanup_wait_pid(
+                    worktree_path,
+                    requested_pid,
+                    session_meta,
+                )
                 if _cleanup_pid is not None:
                     await cls._wait_for_pid_exit(_cleanup_pid)
                 cls._cleanup_session_artifacts(worktree_path)
@@ -1550,13 +1563,32 @@ class WorkerLauncher:
 
     @classmethod
     def _authoritative_session_pid(
-        cls, pid: int | None, session_meta: dict[str, Any]
+        cls,
+        worktree_path: str,
+        pid: int | None,
+        session_meta: dict[str, Any],
     ) -> int | None:
-        """Prefer the harness-owned session PID over stale caller metadata."""
+        """Pick the best PID to wait on before deleting harness artifacts."""
+        requested_pid = cls._normalized_pid(pid)
         meta_pid = cls._normalized_pid(session_meta.get("pid"))
+        if meta_pid is None:
+            lock_pids = cls._session_lock_pids(worktree_path)
+            if lock_pids:
+                return lock_pids[0]
+        if requested_pid is not None:
+            return requested_pid
         if meta_pid is not None:
             return meta_pid
-        return pid
+        return None
+
+    @classmethod
+    def _cleanup_wait_pid(
+        cls,
+        worktree_path: str,
+        pid: int | None,
+        session_meta: dict[str, Any],
+    ) -> int | None:
+        return cls._authoritative_session_pid(worktree_path, pid, session_meta)
 
     @classmethod
     def _session_lock_pid_groups(cls, worktree_path: str) -> tuple[list[int], list[int]]:

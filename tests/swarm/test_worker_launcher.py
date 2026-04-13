@@ -2490,7 +2490,13 @@ class TestCollectDetachedResult:
                 },
             ),
             patch.object(WorkerLauncher, "_is_pid_running", return_value=True) as mock_running,
-            patch.object(WorkerLauncher, "_collect_diff") as mock_diff,
+            patch.object(WorkerLauncher, "_collect_diff", return_value="") as mock_diff,
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
         ):
             result = await WorkerLauncher.collect_detached_result(
                 work_order_id="wo-active-lock-terminal-running",
@@ -2500,9 +2506,12 @@ class TestCollectDetachedResult:
                 pid=None,
             )
 
-        assert result is None
-        mock_running.assert_called_once_with(24680)
-        mock_diff.assert_not_called()
+        assert result is not None
+        assert result.exit_code == 0
+        mock_running.assert_not_called()
+        mock_diff.assert_called_once()
+        mock_wait.assert_awaited_once_with(24680)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
 
     @pytest.mark.asyncio
     async def test_returns_none_if_active_lock_exists_with_terminal_marker_and_no_usable_pid(
@@ -2557,7 +2566,13 @@ class TestCollectDetachedResult:
             patch.object(
                 WorkerLauncher, "_is_pid_running", side_effect=_pid_running
             ) as mock_running,
-            patch.object(WorkerLauncher, "_collect_diff") as mock_diff,
+            patch.object(WorkerLauncher, "_collect_diff", return_value="") as mock_diff,
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value=""),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=[]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=[]),
+            patch.object(WorkerLauncher, "_wait_for_pid_exit", new_callable=AsyncMock) as mock_wait,
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts") as mock_cleanup,
         ):
             result = await WorkerLauncher.collect_detached_result(
                 work_order_id="wo-active-lock-stale-pid",
@@ -2567,9 +2582,12 @@ class TestCollectDetachedResult:
                 pid=11111,
             )
 
-        assert result is None
-        mock_running.assert_called_once_with(24680)
-        mock_diff.assert_not_called()
+        assert result is not None
+        assert result.exit_code == 0
+        mock_running.assert_not_called()
+        mock_diff.assert_called_once()
+        mock_wait.assert_awaited_once_with(11111)
+        mock_cleanup.assert_called_once_with(str(tmp_path))
 
     @pytest.mark.asyncio
     async def test_collects_when_session_meta_pid_is_dead_even_if_worker_pid_was_reused(
@@ -2616,8 +2634,8 @@ class TestCollectDetachedResult:
 
         assert result is not None
         assert result.exit_code == 0
-        mock_running.assert_called_once_with(24680)
-        mock_wait_pid.assert_awaited_once_with(24680)
+        mock_running.assert_not_called()
+        mock_wait_pid.assert_awaited_once_with(11111)
         mock_cleanup.assert_called_once_with(str(tmp_path))
 
     @pytest.mark.asyncio

@@ -974,6 +974,7 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                             for test in item.get("expected_tests", [])
                             if str(test).strip()
                         ],
+                        preserve_incomplete_artifacts=False,
                     )
                 except (OSError, RuntimeError, subprocess.SubprocessError, ValueError):
                     logger.debug("Detached result collection failed for %s", woid, exc_info=True)
@@ -1048,6 +1049,7 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                             if str(test).strip()
                         ],
                         allow_session_meta_pid_fallback=False,
+                        preserve_incomplete_artifacts=False,
                     )
                 except (OSError, RuntimeError, subprocess.SubprocessError, ValueError):
                     logger.debug("Timeout result collection failed for %s", woid, exc_info=True)
