@@ -1,0 +1,51 @@
+{
+  "corpus_id": "tw-01-bounded-execution-v1",
+  "revision": 1,
+  "recorded_on": "2026-04-13",
+  "success_contract": "mergeable_pr_or_merged_pr",
+  "run_cadence": "weekly_or_better",
+  "change_control": "Issue membership stays fixed until an explicit corpus revision edits this file.",
+  "membership_criteria": ["bounded", "single_pr_resolution", "no_external_dependency_chain"],
+  "issues": [
+    {
+      "issue_id": 1064,
+      "title": "Boss-loop execution: bump @supabase/supabase-js from 2.99.1 to 2.99.3 in /aragora/live",
+      "execution_class": "dependency_bump",
+      "scope_hint": ["aragora/live/package.json", "aragora/live/package-lock.json"],
+      "known_constraints": ["single package bump", "bounded to aragora/live", "validation contract required"],
+      "source_reference": "docs/examples/boss-lane-manifest-2026-03-19.yaml"
+    },
+    {
+      "issue_id": 873,
+      "title": "Bump @eslint/eslintrc from 3.2.0 to 3.3.0 in /aragora/live",
+      "execution_class": "version_upgrade",
+      "scope_hint": ["aragora/live", "@eslint/eslintrc"],
+      "known_constraints": ["semver-minor update", "single package only", "scope hints must stay inside aragora/live"],
+      "source_reference": "tests/nomic/test_decomposer_bounded_issues.py"
+    },
+    {
+      "issue_id": 1641,
+      "title": "Wire prompt refiner env",
+      "execution_class": "single_config_change",
+      "scope_hint": ["aragora/swarm/boss_loop.py", "tests/swarm/test_boss_loop.py"],
+      "known_constraints": ["env wiring only", "preserve issue header in worker goal", "targeted pytest acceptance"],
+      "source_reference": "tests/swarm/test_boss_loop.py"
+    },
+    {
+      "issue_id": 1733,
+      "title": "Tighten supervisor merge gate",
+      "execution_class": "single_file_fix",
+      "scope_hint": ["aragora/swarm/supervisor.py"],
+      "known_constraints": ["dispatch-relevant context only", "scope hints must stay narrow", "targeted pytest acceptance"],
+      "source_reference": "tests/swarm/test_boss_loop.py"
+    },
+    {
+      "issue_id": 2712,
+      "title": "Fail closed on string booleans in QualityPipelineConfig.from_dict",
+      "execution_class": "single_file_fix",
+      "scope_hint": ["aragora/debate/quality_pipeline.py", "tests/debate/test_quality_pipeline.py"],
+      "known_constraints": ["core fix centered on one source file", "paired regression test allowed", "fail-closed boolean parsing"],
+      "source_reference": "tests/swarm/test_supervisor.py"
+    }
+  ]
+}
