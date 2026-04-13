@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -634,6 +635,117 @@ class BossLoop:
             check=False,
             timeout=timeout,
         )
+
+    def _gh_cli_authenticated(self) -> bool:
+        try:
+            result = subprocess.run(
+                ["gh", "auth", "status", "--hostname", "github.com"],
+                cwd=Path.cwd(),
+                env=git_safe_env(self._env),
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=5.0,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+        return result.returncode == 0
+
+    def _dispatch_capability_env(
+        self,
+        *,
+        target_agent: str,
+        selected_runner: dict[str, Any] | None,
+    ) -> dict[str, str]:
+        env_snapshot = dict(self._env or os.environ)
+        runner_profile = str((selected_runner or {}).get("profile", "") or "").strip()
+
+        if runner_profile and "ARAGORA_RUNNER_PROFILE" not in env_snapshot:
+            env_snapshot["ARAGORA_RUNNER_PROFILE"] = runner_profile
+        if target_agent == "claude":
+            if runner_profile and "ARAGORA_CLAUDE_PROFILE" not in env_snapshot:
+                env_snapshot["ARAGORA_CLAUDE_PROFILE"] = runner_profile
+            env_snapshot.setdefault("ARAGORA_RUNNER_COMMAND", "claude")
+        elif target_agent == "codex":
+            if runner_profile and "ARAGORA_CODEX_PROFILE" not in env_snapshot:
+                env_snapshot["ARAGORA_CODEX_PROFILE"] = runner_profile
+            env_snapshot.setdefault("ARAGORA_RUNNER_COMMAND", "codex")
+
+        if "ARAGORA_RUNNER_AUTH_MODE" not in env_snapshot:
+            env_snapshot["ARAGORA_RUNNER_AUTH_MODE"] = "profile" if runner_profile else "command"
+        env_snapshot.setdefault(
+            "PYTEST_AVAILABLE",
+            "true" if shutil.which("pytest") else "false",
+        )
+        env_snapshot.setdefault(
+            "RUFF_AVAILABLE",
+            "true" if shutil.which("ruff") else "false",
+        )
+        return env_snapshot
+
+    def _dispatch_contract_gate(
+        self,
+        *,
+        issue: GitHubIssue,
+        spec: Any,
+        target_agent: str,
+        selected_runner: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        from aragora.swarm.credential_envelope import CredentialEnvelope
+        from aragora.swarm.worker_contract import build_worker_contract
+        from aragora.swarm.worker_process import LaunchConfig
+
+        env_snapshot = self._dispatch_capability_env(
+            target_agent=target_agent,
+            selected_runner=selected_runner,
+        )
+        envelope = CredentialEnvelope.from_environment(env_snapshot)
+        missing_slices = envelope.missing_slices()
+        if "github_api" in missing_slices and self._gh_cli_authenticated():
+            missing_slices = [item for item in missing_slices if item != "github_api"]
+        if missing_slices:
+            missing_text = ", ".join(missing_slices)
+            return {
+                "status": "needs_human",
+                "outcome": "blocked_auth_failure",
+                "credential_missing_slices": missing_slices,
+                "reasons": [
+                    f"Issue #{issue.number} cannot dispatch until credential slices are complete: {missing_text}"
+                ],
+                "next_actions": [
+                    f"Restore the missing credential slices: {missing_text}.",
+                    "Rerun dispatch after the runner, Git/GitHub, provider, and verification capabilities are restored.",
+                ],
+            }
+
+        launch_config = LaunchConfig(
+            base_branch=self.config.target_branch,
+            claude_profile=str((selected_runner or {}).get("profile", "") or "").strip() or None,
+            allow_claude_dangerously_skip_permissions=self.config.allow_claude_dangerously_skip_permissions,
+            allow_codex_full_auto=self.config.allow_codex_full_auto,
+            execution_mode=self.config.execution_mode,
+        )
+        contract = build_worker_contract(
+            agent=target_agent,
+            config=launch_config,
+            worktree_path=str(Path.cwd()),
+            env=env_snapshot,
+            work_order={
+                "file_scope": list(getattr(spec, "file_scope_hints", []) or []),
+                "expected_tests": list(getattr(spec, "acceptance_criteria", []) or []),
+            },
+        )
+        if not contract.admission_check():
+            return {
+                "status": "needs_human",
+                "outcome": "blocked_auth_failure",
+                "credential_missing_slices": [],
+                "reasons": [f"Issue #{issue.number} failed worker contract admission checks."],
+                "next_actions": [
+                    "Refresh the selected runner contract and verify the dispatch environment before retrying.",
+                ],
+            }
+        return None
 
     def _git_rev_parse(self, ref: str) -> str | None:
         try:
@@ -5099,6 +5211,22 @@ class BossLoop:
                 freshness,
                 requested_target_agent=requested_target_agent,
             )
+        target_agent = (
+            str((selected_runner or {}).get("runner_type", "") or "").strip().lower()
+            or str(requested_target_agent or "").strip().lower()
+            or str(self.config.default_target_agent or "").strip().lower()
+            or "claude"
+        )
+        contract_gate_failure = self._dispatch_contract_gate(
+            issue=issue,
+            spec=spec,
+            target_agent=target_agent,
+            selected_runner=selected_runner,
+        )
+        if contract_gate_failure is not None:
+            if claimed_runner_id:
+                self._release_runner_claim(claimed_runner_id)
+            return _with_sanitizer_metadata(contract_gate_failure)
         try:
             result = await dispatch_bounded_spec(
                 spec,

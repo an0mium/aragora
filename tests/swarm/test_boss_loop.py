@@ -3245,6 +3245,207 @@ async def test_dispatch_issue_drops_short_task_before_dispatch() -> None:
 
 
 @pytest.mark.asyncio
+async def test_dispatch_issue_blocks_when_credential_slices_are_incomplete() -> None:
+    issue = _make_issue(
+        2463,
+        "Add dispatch contract gate",
+        body=(
+            "## File Scope\n"
+            "- `aragora/swarm/boss_loop.py`\n\n"
+            "## Validation\n"
+            "```bash\n"
+            "ruff check aragora/swarm/boss_loop.py\n"
+            "```\n"
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="codex"))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+        "profile": "default",
+    }
+
+    dispatch_mock = AsyncMock(return_value={"status": "completed", "run_id": "run-2463"})
+    fake_envelope = SimpleNamespace(missing_slices=lambda: ["github_api", "verification"])
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(
+                return_value={
+                    "refined_prompt": "",
+                    "files_to_change": [],
+                    "test_patterns": [],
+                    "constraints": [],
+                    "context_gathered": False,
+                }
+            ),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.check_pre_dispatch_gate",
+            new=AsyncMock(
+                return_value={
+                    "method": "deterministic",
+                    "pass": True,
+                    "sanitation_ok": True,
+                    "unresolved_missing": [],
+                }
+            ),
+        ),
+        patch(
+            "aragora.swarm.credential_envelope.CredentialEnvelope.from_environment",
+            return_value=fake_envelope,
+        ),
+        patch("aragora.swarm.boss_loop.dispatch_bounded_spec", new=dispatch_mock),
+        patch("aragora.swarm.boss_loop.BossLoop._gh_cli_authenticated", return_value=False),
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "blocked_auth_failure"
+    assert result["credential_missing_slices"] == ["github_api", "verification"]
+    assert "credential slices are complete" in result["reasons"][0]
+    assert dispatch_mock.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_blocks_when_worker_contract_fails_admission() -> None:
+    issue = _make_issue(
+        2464,
+        "Add dispatch contract gate",
+        body=(
+            "## File Scope\n"
+            "- `aragora/swarm/boss_loop.py`\n\n"
+            "## Validation\n"
+            "```bash\n"
+            "ruff check aragora/swarm/boss_loop.py\n"
+            "```\n"
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="codex"))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+        "profile": "default",
+    }
+
+    dispatch_mock = AsyncMock(return_value={"status": "completed", "run_id": "run-2464"})
+    fake_envelope = SimpleNamespace(missing_slices=lambda: [])
+    fake_contract = SimpleNamespace(admission_check=lambda: False)
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(
+                return_value={
+                    "refined_prompt": "",
+                    "files_to_change": [],
+                    "test_patterns": [],
+                    "constraints": [],
+                    "context_gathered": False,
+                }
+            ),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.check_pre_dispatch_gate",
+            new=AsyncMock(
+                return_value={
+                    "method": "deterministic",
+                    "pass": True,
+                    "sanitation_ok": True,
+                    "unresolved_missing": [],
+                }
+            ),
+        ),
+        patch(
+            "aragora.swarm.credential_envelope.CredentialEnvelope.from_environment",
+            return_value=fake_envelope,
+        ),
+        patch(
+            "aragora.swarm.worker_contract.build_worker_contract",
+            return_value=fake_contract,
+        ),
+        patch("aragora.swarm.boss_loop.dispatch_bounded_spec", new=dispatch_mock),
+        patch("aragora.swarm.boss_loop.BossLoop._gh_cli_authenticated", return_value=True),
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "blocked_auth_failure"
+    assert "worker contract admission checks" in result["reasons"][0]
+    assert dispatch_mock.await_count == 0
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_accepts_gh_cli_auth_for_contract_gate() -> None:
+    issue = _make_issue(
+        2465,
+        "Add dispatch contract gate",
+        body=(
+            "## File Scope\n"
+            "- `aragora/swarm/boss_loop.py`\n\n"
+            "## Validation\n"
+            "```bash\n"
+            "ruff check aragora/swarm/boss_loop.py\n"
+            "```\n"
+        ),
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="codex"))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+        "profile": "default",
+    }
+
+    fake_envelope = SimpleNamespace(missing_slices=lambda: ["github_api"])
+    fake_contract = SimpleNamespace(admission_check=lambda: True)
+    dispatch_mock = AsyncMock(return_value={"status": "completed", "run_id": "run-2465"})
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(
+                return_value={
+                    "refined_prompt": "",
+                    "files_to_change": [],
+                    "test_patterns": [],
+                    "constraints": [],
+                    "context_gathered": False,
+                }
+            ),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.check_pre_dispatch_gate",
+            new=AsyncMock(
+                return_value={
+                    "method": "deterministic",
+                    "pass": True,
+                    "sanitation_ok": True,
+                    "unresolved_missing": [],
+                }
+            ),
+        ),
+        patch(
+            "aragora.swarm.credential_envelope.CredentialEnvelope.from_environment",
+            return_value=fake_envelope,
+        ),
+        patch(
+            "aragora.swarm.worker_contract.build_worker_contract",
+            return_value=fake_contract,
+        ),
+        patch("aragora.swarm.boss_loop.dispatch_bounded_spec", new=dispatch_mock),
+        patch("aragora.swarm.boss_loop.BossLoop._gh_cli_authenticated", return_value=True),
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    assert dispatch_mock.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_sanitizer_failed_issue_is_not_retried_in_same_run() -> None:
     dropped = _make_issue(2601, "Too short", body="Tiny task only.", labels=["boss-ready"])
     follow_up = _make_issue(2602, "Fix bounded queue state", labels=["boss-ready"])

@@ -41,6 +41,44 @@ _CONCRETE_MOCK_GUIDANCE: dict[str, str] = {
 }
 _KNOWN_LOCAL_IMPORT_PREFIXES = ("aragora", "tests")
 _STDLIB_MODULES = set(getattr(sys, "stdlib_module_names", set()))
+_FILE_IO_HINTS = (
+    "open(",
+    "read_text(",
+    "write_text(",
+    "mkdir(",
+    "unlink(",
+    "rename(",
+    "replace(",
+    "iterdir(",
+)
+_VALUE_ERROR_HINTS = (
+    "int(",
+    "float(",
+    "decimal(",
+    "fromisoformat(",
+    "strptime(",
+    "uuid(",
+)
+_KEY_ERROR_HINTS = (
+    "payload[",
+    "data[",
+    "mapping[",
+    "headers[",
+    "meta[",
+    "config[",
+)
+_CLEANUP_CONTEXT_HINTS = (
+    "close(",
+    "cleanup",
+    "shutdown",
+    "teardown",
+    "best effort",
+    "best-effort",
+    "release(",
+    "cancel(",
+    "unlink(",
+    "remove(",
+)
 
 
 @dataclass
@@ -74,6 +112,26 @@ class _ModuleAnalysis:
     has_useful_public_api: bool
     is_obvious_reexport_or_empty: bool
     external_dependency_weight: int
+
+
+@dataclass(slots=True)
+class _BroadExceptSite:
+    line_number: int
+    suggestions: list[str]
+    rationale: str
+
+
+@dataclass(slots=True)
+class _SilentExceptionSite:
+    line_number: int
+    guidance: str
+
+
+@dataclass(slots=True)
+class _MissingReturnAnnotation:
+    line_number: int
+    name: str
+    suggested_type: str
 
 
 def _read_module(path: Path) -> str | None:
@@ -272,31 +330,201 @@ def _render_mock_guidance(analysis: _ModuleAnalysis) -> str:
     return "\n".join(f"- {hint}" for hint in analysis.mock_hints[:5])
 
 
-def upgrade_issue_heuristic(
+def _module_upgrade_title(module_rel: str, *, prefix: str) -> str:
+    parts = Path(module_rel).parts
+    rendered = "/".join(parts[1:]) if len(parts) > 1 else module_rel
+    return f"{prefix} {rendered}"
+
+
+def _content_line(content: str, line_number: int) -> str:
+    lines = content.splitlines()
+    if 1 <= line_number <= len(lines):
+        return lines[line_number - 1]
+    return ""
+
+
+def _segment_for_node(content: str, node: ast.AST) -> str:
+    segment = ast.get_source_segment(content, node)
+    return str(segment or "").strip()
+
+
+def _infer_broad_exception_suggestions(try_source: str) -> tuple[list[str], str]:
+    normalized = try_source.lower()
+    suggestions: list[str] = []
+    rationale: list[str] = []
+
+    if any(token in normalized for token in _FILE_IO_HINTS):
+        suggestions.append("OSError")
+        rationale.append("file or path operations are present")
+    if "json.loads(" in normalized:
+        suggestions.append("json.JSONDecodeError")
+        rationale.append("JSON parsing is present")
+    if any(token in normalized for token in _VALUE_ERROR_HINTS):
+        suggestions.append("ValueError")
+        rationale.append("value parsing/conversion is present")
+    if any(token in normalized for token in _KEY_ERROR_HINTS):
+        suggestions.append("KeyError")
+        rationale.append("mapping lookups are present")
+
+    if suggestions:
+        return list(dict.fromkeys(suggestions)), "; ".join(rationale)
+    return [], "no deterministic narrow type was inferred from the try block"
+
+
+def _collect_broad_exception_sites(content: str) -> list[_BroadExceptSite]:
+    try:
+        module = ast.parse(content)
+    except SyntaxError:
+        return []
+
+    sites: list[_BroadExceptSite] = []
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Try):
+            continue
+        try_source = _segment_for_node(content, node)
+        for handler in node.handlers:
+            if not isinstance(handler.type, ast.Name) or handler.type.id != "Exception":
+                continue
+            line = _content_line(content, handler.lineno)
+            if "# noqa" in line:
+                continue
+            suggestions, rationale = _infer_broad_exception_suggestions(try_source)
+            sites.append(
+                _BroadExceptSite(
+                    line_number=handler.lineno,
+                    suggestions=suggestions,
+                    rationale=rationale,
+                )
+            )
+    return sites
+
+
+def _classify_silent_exception_guidance(handler_line: str, try_source: str) -> str:
+    normalized = f"{handler_line}\n{try_source}".lower()
+    if any(token in normalized for token in _CLEANUP_CONTEXT_HINTS):
+        return (
+            "If this is truly best-effort cleanup, keep the silence only with an explicit "
+            "`# noqa` justification. Otherwise surface a minimal debug log."
+        )
+    return (
+        "Replace the silent swallow with `logger.warning(...)` or `logger.debug(...)` so "
+        "failures become visible without changing control flow."
+    )
+
+
+def _collect_silent_exception_sites(content: str) -> list[_SilentExceptionSite]:
+    try:
+        module = ast.parse(content)
+    except SyntaxError:
+        return []
+
+    sites: list[_SilentExceptionSite] = []
+    for node in ast.walk(module):
+        if not isinstance(node, ast.Try):
+            continue
+        try_source = _segment_for_node(content, node)
+        for handler in node.handlers:
+            if len(handler.body) != 1 or not isinstance(handler.body[0], ast.Pass):
+                continue
+            line = _content_line(content, handler.lineno)
+            if "# noqa" in line or "# intentional" in line.lower():
+                continue
+            sites.append(
+                _SilentExceptionSite(
+                    line_number=handler.lineno,
+                    guidance=_classify_silent_exception_guidance(line, try_source),
+                )
+            )
+    return sites
+
+
+def _infer_return_annotation(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
+    returns = [child.value for child in ast.walk(node) if isinstance(child, ast.Return)]
+    if not returns or all(value is None for value in returns):
+        return "None"
+
+    inferred: list[str] = []
+    for value in returns:
+        if value is None:
+            inferred.append("None")
+        elif isinstance(value, ast.Constant):
+            if value.value is None:
+                inferred.append("None")
+            elif isinstance(value.value, bool):
+                inferred.append("bool")
+            elif isinstance(value.value, int):
+                inferred.append("int")
+            elif isinstance(value.value, float):
+                inferred.append("float")
+            elif isinstance(value.value, str):
+                inferred.append("str")
+            else:
+                inferred.append("Any")
+        elif isinstance(value, ast.Dict):
+            inferred.append("dict[str, Any]")
+        elif isinstance(value, ast.List | ast.ListComp):
+            inferred.append("list[Any]")
+        elif isinstance(value, ast.Tuple):
+            inferred.append("tuple[Any, ...]")
+        elif isinstance(value, ast.Set):
+            inferred.append("set[Any]")
+        else:
+            inferred.append("Any")
+
+    unique = list(dict.fromkeys(inferred))
+    if len(unique) == 1:
+        return unique[0]
+    if set(unique) <= {"None", "Any"}:
+        return "Any"
+    return "Any"
+
+
+def _collect_missing_return_annotations(content: str) -> list[_MissingReturnAnnotation]:
+    try:
+        module = ast.parse(content)
+    except SyntaxError:
+        return []
+
+    missing: list[_MissingReturnAnnotation] = []
+    for node in module.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith(
+            "_"
+        ):
+            if node.returns is None:
+                missing.append(
+                    _MissingReturnAnnotation(
+                        line_number=node.lineno,
+                        name=node.name,
+                        suggested_type=_infer_return_annotation(node),
+                    )
+                )
+        elif isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
+            for child in node.body:
+                if isinstance(
+                    child, (ast.FunctionDef, ast.AsyncFunctionDef)
+                ) and not child.name.startswith("_"):
+                    if child.returns is None:
+                        missing.append(
+                            _MissingReturnAnnotation(
+                                line_number=child.lineno,
+                                name=f"{node.name}.{child.name}",
+                                suggested_type=_infer_return_annotation(child),
+                            )
+                        )
+                    if len(missing) >= 10:
+                        break
+        if len(missing) >= 10:
+            break
+    return missing
+
+
+def _upgrade_test_coverage_issue(
+    *,
     title: str,
     body: str,
-    *,
-    repo_root: Path,
+    module_rel: str,
+    analysis: _ModuleAnalysis,
 ) -> UpgradedIssue | None:
-    """Upgrade an issue using deterministic heuristic module analysis.
-
-    This prototype is intentionally narrow: only trivial/simple modules with a
-    useful public API are upgraded.
-    """
-    module_rel = _primary_module_path(body)
-    if not module_rel:
-        return None
-
-    if Path(module_rel).name in _SKIP_SENTINELS:
-        return None
-    module_path = repo_root / module_rel
-    content = _read_module(module_path)
-    if content is None:
-        return None
-
-    analysis = _analyze_module(content)
-    if analysis is None:
-        return None
     if analysis.is_obvious_reexport_or_empty or not analysis.has_useful_public_api:
         return None
     if analysis.complexity not in {"trivial", "simple"}:
@@ -339,14 +567,10 @@ def upgrade_issue_heuristic(
         f"- Estimated complexity: {analysis.complexity}\n"
         "- Do not broaden into decomposition or cross-module planning."
     )
-
-    parts = Path(module_rel).parts
-    upgraded_title = f"Add unit tests for {'/'.join(parts[1:])}" if len(parts) > 1 else title
-
     return UpgradedIssue(
         original_title=title,
         original_body=body,
-        upgraded_title=upgraded_title,
+        upgraded_title=_module_upgrade_title(module_rel, prefix="Add unit tests for"),
         upgraded_body=upgraded_body,
         module_summary=analysis.docstring,
         functions_found=list(analysis.public_functions),
@@ -355,6 +579,223 @@ def upgrade_issue_heuristic(
         complexity=analysis.complexity,
         upgrade_method="heuristic",
     )
+
+
+def _upgrade_broad_exception_issue(
+    *,
+    title: str,
+    body: str,
+    module_rel: str,
+    content: str,
+    analysis: _ModuleAnalysis,
+) -> UpgradedIssue | None:
+    if analysis.complexity not in {"trivial", "simple"}:
+        return None
+    sites = _collect_broad_exception_sites(content)
+    if not sites:
+        return None
+
+    site_lines: list[str] = []
+    for site in sites[:8]:
+        if site.suggestions:
+            rendered = ", ".join(f"`{item}`" for item in site.suggestions)
+            site_lines.append(
+                f"- Line {site.line_number}: likely narrow to {rendered} ({site.rationale})."
+            )
+        else:
+            site_lines.append(
+                f"- Line {site.line_number}: no deterministic narrow type; keep `BLE001` only with an explicit boundary justification."
+            )
+
+    upgraded_body = (
+        "## Task\n\n"
+        f"Narrow the broad `except Exception` handlers in `{module_rel}`.\n\n"
+        "### Catch sites to inspect\n"
+        f"{chr(10).join(site_lines)}\n\n"
+        "### File Scope\n"
+        f"- `{module_rel}`\n\n"
+        "### Validation\n"
+        "```bash\n"
+        f"ruff check {module_rel}\n"
+        "```\n\n"
+        "### Acceptance Criteria\n"
+        "- Each broad catch is replaced with a specific exception type, or carries `# noqa: BLE001` with a boundary justification.\n"
+        "- Keep behavior unchanged beyond narrowing the catch.\n"
+        f"- `ruff check {module_rel}` passes.\n\n"
+        "### Constraints\n"
+        f"- Estimated complexity: {analysis.complexity}\n"
+        "- Keep the lane scoped to this module only."
+    )
+    return UpgradedIssue(
+        original_title=title,
+        original_body=body,
+        upgraded_title=_module_upgrade_title(module_rel, prefix="Narrow broad except handlers in"),
+        upgraded_body=upgraded_body,
+        module_summary=analysis.docstring,
+        functions_found=[f"line {site.line_number}" for site in sites[:10]],
+        loc=analysis.loc,
+        imports=list(analysis.external_imports[:10]),
+        complexity=analysis.complexity,
+        upgrade_method="heuristic",
+    )
+
+
+def _upgrade_silent_exception_issue(
+    *,
+    title: str,
+    body: str,
+    module_rel: str,
+    content: str,
+    analysis: _ModuleAnalysis,
+) -> UpgradedIssue | None:
+    sites = _collect_silent_exception_sites(content)
+    if not sites:
+        return None
+
+    site_lines = "\n".join(f"- Line {site.line_number}: {site.guidance}" for site in sites[:8])
+    upgraded_body = (
+        "## Task\n\n"
+        f"Replace silent exception swallowing in `{module_rel}` with visible, bounded handling.\n\n"
+        "### Catch sites to inspect\n"
+        f"{site_lines}\n\n"
+        "### File Scope\n"
+        f"- `{module_rel}`\n\n"
+        "### Validation\n"
+        "```bash\n"
+        f"ruff check {module_rel}\n"
+        "```\n\n"
+        "### Acceptance Criteria\n"
+        "- Each `except ...: pass` either logs at debug/warning level or carries an explicit intentional-silence justification.\n"
+        "- Do not broaden the behavior or change control flow.\n"
+        f"- `ruff check {module_rel}` passes.\n\n"
+        "### Constraints\n"
+        f"- Estimated complexity: {analysis.complexity}\n"
+        "- Keep the lane scoped to this module only."
+    )
+    return UpgradedIssue(
+        original_title=title,
+        original_body=body,
+        upgraded_title=_module_upgrade_title(
+            module_rel, prefix="Replace silent exception swallowing in"
+        ),
+        upgraded_body=upgraded_body,
+        module_summary=analysis.docstring,
+        functions_found=[f"line {site.line_number}" for site in sites[:10]],
+        loc=analysis.loc,
+        imports=list(analysis.external_imports[:10]),
+        complexity=analysis.complexity,
+        upgrade_method="heuristic",
+    )
+
+
+def _upgrade_type_annotation_issue(
+    *,
+    title: str,
+    body: str,
+    module_rel: str,
+    content: str,
+    analysis: _ModuleAnalysis,
+) -> UpgradedIssue | None:
+    missing = _collect_missing_return_annotations(content)
+    if not missing:
+        return None
+
+    suggestion_lines = "\n".join(
+        f"- Line {item.line_number}: `{item.name}` -> suggest `-> {item.suggested_type}`"
+        for item in missing[:10]
+    )
+    upgraded_body = (
+        "## Task\n\n"
+        f"Add explicit return type annotations for the missing public callables in `{module_rel}`.\n\n"
+        "### Suggested annotations\n"
+        f"{suggestion_lines}\n\n"
+        "### File Scope\n"
+        f"- `{module_rel}`\n\n"
+        "### Validation\n"
+        "```bash\n"
+        f"ruff check {module_rel}\n"
+        "```\n\n"
+        "### Acceptance Criteria\n"
+        "- Annotate the listed public callables first and keep the lane bounded.\n"
+        "- Use `None` when a callable does not return a value; use `Any` only when inference is genuinely ambiguous.\n"
+        f"- `ruff check {module_rel}` passes.\n\n"
+        "### Constraints\n"
+        f"- Estimated complexity: {analysis.complexity}\n"
+        "- Limit the change to this module."
+    )
+    return UpgradedIssue(
+        original_title=title,
+        original_body=body,
+        upgraded_title=_module_upgrade_title(module_rel, prefix="Add return type annotations for"),
+        upgraded_body=upgraded_body,
+        module_summary=analysis.docstring,
+        functions_found=[item.name for item in missing[:10]],
+        loc=analysis.loc,
+        imports=list(analysis.external_imports[:10]),
+        complexity=analysis.complexity,
+        upgrade_method="heuristic",
+    )
+
+
+def upgrade_issue_heuristic(
+    title: str,
+    body: str,
+    *,
+    repo_root: Path,
+    category: str = "test_coverage",
+) -> UpgradedIssue | None:
+    """Upgrade an issue using deterministic heuristic module analysis.
+
+    This prototype stays deterministic and bounded. It upgrades only the issue
+    categories that can be made more concrete from local module analysis.
+    """
+    module_rel = _primary_module_path(body)
+    if not module_rel:
+        return None
+
+    if Path(module_rel).name in _SKIP_SENTINELS:
+        return None
+    module_path = repo_root / module_rel
+    content = _read_module(module_path)
+    if content is None:
+        return None
+
+    analysis = _analyze_module(content)
+    if analysis is None:
+        return None
+
+    if category == "test_coverage":
+        return _upgrade_test_coverage_issue(
+            title=title,
+            body=body,
+            module_rel=module_rel,
+            analysis=analysis,
+        )
+    if category == "broad_exception":
+        return _upgrade_broad_exception_issue(
+            title=title,
+            body=body,
+            module_rel=module_rel,
+            content=content,
+            analysis=analysis,
+        )
+    if category == "silent_exception":
+        return _upgrade_silent_exception_issue(
+            title=title,
+            body=body,
+            module_rel=module_rel,
+            content=content,
+            analysis=analysis,
+        )
+    if category == "type_annotation":
+        return _upgrade_type_annotation_issue(
+            title=title,
+            body=body,
+            module_rel=module_rel,
+            content=content,
+            analysis=analysis,
+        )
+    return None
 
 
 async def upgrade_issue_llm(

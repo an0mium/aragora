@@ -27,6 +27,13 @@ def _upgrade(repo_root: Path, rel: str) -> UpgradedIssue | None:
     return upgrade_issue_heuristic(f"Add tests for {Path(rel).name}", body, repo_root=repo_root)
 
 
+def _upgrade_category(
+    repo_root: Path, rel: str, *, category: str, title: str
+) -> UpgradedIssue | None:
+    body = f"Focus on `{rel}` with a mirrored focused test file."
+    return upgrade_issue_heuristic(title, body, repo_root=repo_root, category=category)
+
+
 class TestUpgradeAdmission:
     def test_upgrades_trivial_public_function_module(self, repo_root: Path) -> None:
         _write_module(
@@ -336,3 +343,154 @@ class TestOutputShape:
 
         assert result is not None
         assert "PublicTool" in result.upgraded_body
+
+
+class TestBroadExceptionUpgrade:
+    def test_broad_exception_upgrade_lists_specific_exception_hints(self, repo_root: Path) -> None:
+        _write_module(
+            repo_root,
+            "aragora/swarm/broad_except_module.py",
+            '"""Broad exception example."""\n\n'
+            "import json\n\n"
+            "def load_count(path: str) -> int:\n"
+            "    try:\n"
+            "        payload = json.loads(Path(path).read_text())\n"
+            "        return int(payload['count'])\n"
+            "    except Exception:\n"
+            "        return 0\n",
+        )
+
+        result = _upgrade_category(
+            repo_root,
+            "aragora/swarm/broad_except_module.py",
+            category="broad_exception",
+            title="Narrow broad except Exception in broad_except_module.py",
+        )
+
+        assert result is not None
+        assert "OSError" in result.upgraded_body
+        assert "json.JSONDecodeError" in result.upgraded_body
+        assert "ValueError" in result.upgraded_body
+        assert "KeyError" in result.upgraded_body
+        assert "ruff check aragora/swarm/broad_except_module.py" in result.upgraded_body
+
+    def test_broad_exception_upgrade_skips_medium_modules(self, repo_root: Path) -> None:
+        body_lines = ['"""Too broad for deterministic narrowing."""', ""]
+        for idx in range(10):
+            body_lines.extend(
+                [
+                    f"def public_fn_{idx}(value: int) -> int:",
+                    "    try:",
+                    "        return int(str(value))",
+                    "    except Exception:",
+                    "        return 0",
+                    "",
+                ]
+            )
+        _write_module(repo_root, "aragora/swarm/medium_broad_except.py", "\n".join(body_lines))
+
+        assert (
+            _upgrade_category(
+                repo_root,
+                "aragora/swarm/medium_broad_except.py",
+                category="broad_exception",
+                title="Narrow broad except Exception in medium_broad_except.py",
+            )
+            is None
+        )
+
+
+class TestSilentExceptionUpgrade:
+    def test_silent_exception_upgrade_recommends_visibility_for_regular_paths(
+        self,
+        repo_root: Path,
+    ) -> None:
+        _write_module(
+            repo_root,
+            "aragora/swarm/silent_swallow.py",
+            '"""Swallowing example."""\n\n'
+            "def refresh(payload: dict[str, str]) -> None:\n"
+            "    try:\n"
+            "        payload['token']\n"
+            "    except KeyError:\n"
+            "        pass\n",
+        )
+
+        result = _upgrade_category(
+            repo_root,
+            "aragora/swarm/silent_swallow.py",
+            category="silent_exception",
+            title="Replace silent exception swallowing in silent_swallow.py",
+        )
+
+        assert result is not None
+        assert "logger.warning" in result.upgraded_body or "logger.debug" in result.upgraded_body
+        assert "Line 6" in result.upgraded_body
+
+    def test_silent_exception_upgrade_detects_cleanup_context(self, repo_root: Path) -> None:
+        _write_module(
+            repo_root,
+            "aragora/swarm/cleanup_swallow.py",
+            '"""Cleanup swallow example."""\n\n'
+            "def cleanup(handle) -> None:\n"
+            "    try:\n"
+            "        handle.close()\n"
+            "    except OSError:\n"
+            "        pass\n",
+        )
+
+        result = _upgrade_category(
+            repo_root,
+            "aragora/swarm/cleanup_swallow.py",
+            category="silent_exception",
+            title="Replace silent exception swallowing in cleanup_swallow.py",
+        )
+
+        assert result is not None
+        assert "# noqa" in result.upgraded_body
+        assert "best-effort cleanup" in result.upgraded_body
+
+
+class TestTypeAnnotationUpgrade:
+    def test_type_annotation_upgrade_lists_suggested_return_types(self, repo_root: Path) -> None:
+        _write_module(
+            repo_root,
+            "aragora/swarm/annotation_gaps.py",
+            '"""Missing annotations example."""\n\n'
+            "def as_text():\n"
+            "    return 'ok'\n\n"
+            "class Counter:\n"
+            "    def total(self):\n"
+            "        return 3\n\n"
+            "    def reset(self):\n"
+            "        return None\n",
+        )
+
+        result = _upgrade_category(
+            repo_root,
+            "aragora/swarm/annotation_gaps.py",
+            category="type_annotation",
+            title="Add return type annotations to annotation_gaps.py",
+        )
+
+        assert result is not None
+        assert "`as_text` -> suggest `-> str`" in result.upgraded_body
+        assert "`Counter.total` -> suggest `-> int`" in result.upgraded_body
+        assert "`Counter.reset` -> suggest `-> None`" in result.upgraded_body
+
+    def test_type_annotation_upgrade_uses_any_for_mixed_returns(self, repo_root: Path) -> None:
+        _write_module(
+            repo_root,
+            "aragora/swarm/mixed_annotations.py",
+            "def unstable(flag: bool):\n    if flag:\n        return 'ok'\n    return 3\n",
+        )
+
+        result = _upgrade_category(
+            repo_root,
+            "aragora/swarm/mixed_annotations.py",
+            category="type_annotation",
+            title="Add return type annotations to mixed_annotations.py",
+        )
+
+        assert result is not None
+        assert "`unstable` -> suggest `-> Any`" in result.upgraded_body

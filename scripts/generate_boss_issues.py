@@ -60,16 +60,21 @@ class DecompositionTelemetry:
 def format_boss_ready_body(candidate: BossIssueCandidate) -> str:
     """Format a candidate into the proven boss-ready issue body.
 
-    For test_coverage candidates, uses the issue upgrader to generate
-    concrete, module-aware issue bodies instead of generic templates.
+    For supported categories, uses the issue upgrader to generate concrete,
+    module-aware issue bodies instead of generic templates.
     """
-    # Try to upgrade test_coverage issues with module-specific guidance
-    if candidate.category == "test_coverage":
+    if candidate.category in {
+        "test_coverage",
+        "broad_exception",
+        "silent_exception",
+        "type_annotation",
+    }:
         upgraded = upgrade_issue_heuristic(
             candidate.title,
             f"## Task\n\n{candidate.description}\n\n### File Scope\n"
             + "\n".join(f"- `{f}`" for f in candidate.file_scope),
             repo_root=REPO_ROOT,
+            category=candidate.category,
         )
         if upgraded:
             body = upgraded.upgraded_body

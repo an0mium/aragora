@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from aragora.swarm.issue_upgrader import UpgradedIssue
 from aragora.swarm.issue_scanner import BossIssueCandidate
 from scripts import generate_boss_issues as mod
 
@@ -166,6 +167,109 @@ def test_main_passes_explicit_min_success_rate(monkeypatch, capsys) -> None:
     _ = capsys.readouterr()
     assert scan_calls
     assert scan_calls[0][2] == 0.5
+
+
+def test_format_boss_ready_body_uses_upgrader_for_broad_exception(monkeypatch) -> None:
+    candidate = BossIssueCandidate(
+        category="broad_exception",
+        title="Narrow broad except Exception in sample.py",
+        description="Replace broad handlers in `aragora/sample.py`.",
+        file_scope=["aragora/sample.py"],
+        validation_command="ruff check aragora/sample.py",
+    )
+    upgraded = UpgradedIssue(
+        original_title=candidate.title,
+        original_body=candidate.description,
+        upgraded_title=candidate.title,
+        upgraded_body="## Task\n\nUse a narrower catch.",
+        module_summary="summary",
+        functions_found=["line 10"],
+        loc=42,
+        imports=[],
+        complexity="simple",
+        upgrade_method="heuristic",
+    )
+    seen: list[str] = []
+
+    def fake_upgrade(title: str, body: str, *, repo_root, category: str = "test_coverage"):  # noqa: ANN001
+        seen.append(category)
+        return upgraded
+
+    monkeypatch.setattr(mod, "upgrade_issue_heuristic", fake_upgrade)
+
+    body = mod.format_boss_ready_body(candidate)
+
+    assert seen == ["broad_exception"]
+    assert body.startswith("## Task\n\nUse a narrower catch.")
+    assert f"<!-- fingerprint:{candidate.fingerprint} -->" in body
+
+
+def test_format_boss_ready_body_uses_upgrader_for_silent_exception(monkeypatch) -> None:
+    candidate = BossIssueCandidate(
+        category="silent_exception",
+        title="Replace silent exception swallowing in sample.py",
+        description="Replace `except ...: pass` in `aragora/sample.py`.",
+        file_scope=["aragora/sample.py"],
+        validation_command="ruff check aragora/sample.py",
+    )
+    upgraded = UpgradedIssue(
+        original_title=candidate.title,
+        original_body=candidate.description,
+        upgraded_title=candidate.title,
+        upgraded_body="## Task\n\nAdd visibility.",
+        module_summary="summary",
+        functions_found=["line 12"],
+        loc=42,
+        imports=[],
+        complexity="simple",
+        upgrade_method="heuristic",
+    )
+    seen: list[str] = []
+
+    def fake_upgrade(title: str, body: str, *, repo_root, category: str = "test_coverage"):  # noqa: ANN001
+        seen.append(category)
+        return upgraded
+
+    monkeypatch.setattr(mod, "upgrade_issue_heuristic", fake_upgrade)
+
+    body = mod.format_boss_ready_body(candidate)
+
+    assert seen == ["silent_exception"]
+    assert body.startswith("## Task\n\nAdd visibility.")
+
+
+def test_format_boss_ready_body_uses_upgrader_for_type_annotation(monkeypatch) -> None:
+    candidate = BossIssueCandidate(
+        category="type_annotation",
+        title="Add return type annotations to sample.py",
+        description="Add return annotations in `aragora/sample.py`.",
+        file_scope=["aragora/sample.py"],
+        validation_command="ruff check aragora/sample.py",
+    )
+    upgraded = UpgradedIssue(
+        original_title=candidate.title,
+        original_body=candidate.description,
+        upgraded_title=candidate.title,
+        upgraded_body="## Task\n\nAnnotate the missing methods.",
+        module_summary="summary",
+        functions_found=["Thing.run"],
+        loc=42,
+        imports=[],
+        complexity="simple",
+        upgrade_method="heuristic",
+    )
+    seen: list[str] = []
+
+    def fake_upgrade(title: str, body: str, *, repo_root, category: str = "test_coverage"):  # noqa: ANN001
+        seen.append(category)
+        return upgraded
+
+    monkeypatch.setattr(mod, "upgrade_issue_heuristic", fake_upgrade)
+
+    body = mod.format_boss_ready_body(candidate)
+
+    assert seen == ["type_annotation"]
+    assert body.startswith("## Task\n\nAnnotate the missing methods.")
 
 
 def test_maybe_decompose_candidates_noop_when_disabled(monkeypatch) -> None:
