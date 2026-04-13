@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from aragora.swarm.conductor import Conductor
+from aragora.swarm.conductor import Conductor, ConductorStep
 from aragora.swarm.terminal_truth import TerminalClass
 
 
@@ -256,6 +256,22 @@ def test_generate_retry_prompt_includes_required_sections(tmp_path: Path) -> Non
     assert "## Why it failed" in prompt
     assert "## What to try differently" in prompt
     assert "verification_failed" in prompt
+
+
+def test_conductor_step_from_dict_coerces_unknown_next_action() -> None:
+    step = ConductorStep.from_dict(
+        {
+            "issue_number": 114,
+            "session_id": "sess-114",
+            "worker_output": "needs a manual retry",
+            "terminal_class": TerminalClass.RESCUE_NO_DELIVERABLE.value,
+            "changed_files": ["aragora/swarm/conductor.py"],
+            "next_action": "retry_later",
+            "next_prompt": "Escalate to a human.",
+        }
+    )
+
+    assert step.next_action == "escalate"
 
 
 def test_generate_retry_prompt_references_prior_attempts_from_store(tmp_path: Path) -> None:

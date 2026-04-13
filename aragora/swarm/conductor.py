@@ -17,7 +17,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from aragora.swarm.ping_pong import build_handoff_prompt
 from aragora.swarm.terminal_truth import (
@@ -27,6 +27,9 @@ from aragora.swarm.terminal_truth import (
 )
 
 NextAction = Literal["retry_same", "retry_different_agent", "decompose", "escalate", "done"]
+_VALID_NEXT_ACTIONS = frozenset(
+    {"retry_same", "retry_different_agent", "decompose", "escalate", "done"}
+)
 
 _ALREADY_DONE_MARKERS = (
     "already implemented",
@@ -106,6 +109,13 @@ def _truncate(text: str, *, limit: int = 1600) -> str:
     return normalized[: limit - 3].rstrip() + "..."
 
 
+def _coerce_next_action(value: Any) -> NextAction:
+    action = _text(value)
+    if action in _VALID_NEXT_ACTIONS:
+        return cast(NextAction, action)
+    return "escalate"
+
+
 def _git_common_dir(repo_root: Path) -> Path | None:
     try:
         result = subprocess.run(
@@ -158,7 +168,7 @@ class ConductorStep:
             changed_files=[
                 _text(item) for item in list(data.get("changed_files", []) or []) if _text(item)
             ],
-            next_action=str(data.get("next_action", "escalate")),
+            next_action=_coerce_next_action(data.get("next_action")),
             next_prompt=_text(data.get("next_prompt")),
         )
 
