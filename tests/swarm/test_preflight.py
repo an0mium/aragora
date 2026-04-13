@@ -429,9 +429,73 @@ def test_run_remote_publish_validation_receipt_records_pr_artifacts(
     assert receipt.ttl_seconds == 3600
     assert receipt.artifacts["draft_pr_number"] == 5123
     assert receipt.artifacts["draft_pr_url"] == "https://github.com/synaptent/aragora/pull/5123"
+    assert receipt.artifacts["target_ref"] == "main"
     assert any(check["name"] == "gh_pr_capture" for check in receipt.checks)
     assert ["git", "push", "origin", "HEAD"] in commands
     assert any(cmd[:3] == ["gh", "pr", "close"] for cmd in commands)
+
+
+def test_run_remote_publish_validation_receipt_closes_draft_when_create_output_unparseable(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 12, 19, 52, 0, tzinfo=timezone.utc)
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(mod, "_receipt_token", lambda: "ca11ab1e")
+
+    def fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        commands.append(list(cmd))
+        if cmd[:3] == ["git", "worktree", "add"]:
+            Path(cmd[5]).mkdir(parents=True, exist_ok=True)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if cmd[:3] == ["gh", "pr", "create"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout="draft created successfully\n",
+                stderr="",
+            )
+        if cmd[:3] == ["gh", "pr", "list"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=(
+                    '[{"number": 6123, "url": '
+                    '"https://github.com/synaptent/aragora/pull/6123", '
+                    '"isDraft": true, "baseRefName": "release/2026-04-13"}]'
+                ),
+                stderr="",
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    receipt = mod.run_remote_publish_validation_receipt(
+        repo_root=repo_root,
+        envelope=envelope,
+        base_ref="release/2026-04-13",
+    )
+
+    assert receipt.passed is True
+    assert receipt.artifacts["draft_pr_number"] == 6123
+    assert receipt.artifacts["draft_pr_url"] == "https://github.com/synaptent/aragora/pull/6123"
+    assert receipt.artifacts["target_ref"] == "release/2026-04-13"
+    assert any(
+        check["name"] == "gh_pr_capture"
+        and check["passed"] is True
+        and check["detail"] == "https://github.com/synaptent/aragora/pull/6123"
+        for check in receipt.checks
+    )
+    assert any(
+        cmd[:5] == ["gh", "pr", "list", "--head", receipt.artifacts["branch"]] for cmd in commands
+    )
+    assert any(cmd[:4] == ["gh", "pr", "close", "6123"] for cmd in commands)
+    assert any(
+        cmd == ["git", "push", "origin", "--delete", receipt.artifacts["branch"]]
+        for cmd in commands
+    )
 
 
 def test_load_cached_preflight_receipt_reuses_fresh_successful_receipt(
@@ -467,6 +531,71 @@ def test_load_cached_preflight_receipt_reuses_fresh_successful_receipt(
     assert loaded.receipt_id == receipt.receipt_id
 
 
+def test_load_cached_preflight_receipt_does_not_reuse_remote_publish_receipt_for_different_base_ref(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 12, 20, 0, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+
+    main_cache_key = mod._preflight_cache_key(
+        repo_root,
+        envelope,
+        "remote_publish",
+        base_ref="main",
+    )
+    receipt = mod.PreflightReceipt(
+        schema_version=1,
+        receipt_id="preflight-remote_publish-20260412T200000Z-base1111",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root.resolve()),
+        check_type="remote_publish",
+        started_at="2026-04-12T20:00:00Z",
+        finished_at="2026-04-12T20:00:05Z",
+        passed=True,
+        checks=[{"name": "git_push", "passed": True, "detail": "ok"}],
+        cache_key=main_cache_key,
+        ttl_seconds=3600,
+        expires_at="2026-04-12T21:00:05Z",
+        artifacts={
+            "branch": "preflight/remote/test",
+            "worktree_path": "/tmp/worktree",
+            "target_ref": "main",
+        },
+    )
+    mod._save_preflight_receipt(repo_root, receipt)
+
+    loaded_same_base = mod._load_cached_preflight_receipt(
+        repo_root,
+        envelope,
+        "remote_publish",
+        base_ref="main",
+        now=now,
+    )
+    loaded_different_base = mod._load_cached_preflight_receipt(
+        repo_root,
+        envelope,
+        "remote_publish",
+        base_ref="release/2026-04-13",
+        now=now,
+    )
+
+    assert loaded_same_base is not None
+    assert loaded_same_base.receipt_id == receipt.receipt_id
+    assert (
+        mod._preflight_cache_key(
+            repo_root,
+            envelope,
+            "remote_publish",
+            base_ref="release/2026-04-13",
+        )
+        != main_cache_key
+    )
+    assert loaded_different_base is None
+
+
 def test_load_cached_preflight_receipt_misses_when_ttl_expired(monkeypatch, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
@@ -474,7 +603,7 @@ def test_load_cached_preflight_receipt_misses_when_ttl_expired(monkeypatch, tmp_
     now = datetime(2026, 4, 12, 20, 0, 0, tzinfo=timezone.utc)
     monkeypatch.setattr(mod, "_utc_now", lambda: now)
 
-    cache_key = mod._preflight_cache_key(repo_root, envelope, "remote_publish")
+    cache_key = mod._preflight_cache_key(repo_root, envelope, "remote_publish", base_ref="main")
     receipt = mod.PreflightReceipt(
         schema_version=1,
         receipt_id="preflight-remote_publish-20260412T190000Z-expired1",
@@ -488,7 +617,11 @@ def test_load_cached_preflight_receipt_misses_when_ttl_expired(monkeypatch, tmp_
         cache_key=cache_key,
         ttl_seconds=3600,
         expires_at="2026-04-12T19:30:00Z",
-        artifacts={"branch": "preflight/remote/test", "worktree_path": "/tmp/worktree"},
+        artifacts={
+            "branch": "preflight/remote/test",
+            "worktree_path": "/tmp/worktree",
+            "target_ref": "main",
+        },
     )
     mod._save_preflight_receipt(repo_root, receipt)
 

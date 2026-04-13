@@ -250,14 +250,20 @@ def _preflight_cache_key(
     repo_root: Path,
     envelope: CredentialEnvelope,
     check_type: str,
+    *,
+    base_ref: str = "",
 ) -> str:
     normalized = _validate_check_type(check_type)
+    target_ref = ""
+    if normalized == "remote_publish":
+        target_ref = str(base_ref or "main").strip() or "main"
     payload = json.dumps(
         {
             "schema_version": _PREFLIGHT_RECEIPT_SCHEMA_VERSION,
             "repo_root": str(repo_root.resolve()),
             "envelope_seal": envelope.preflight_cache_seal(),
             "check_type": normalized,
+            "target_ref": target_ref,
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -280,6 +286,7 @@ def _receipt_is_cacheable(
     repo_root: Path,
     envelope: CredentialEnvelope,
     check_type: str,
+    base_ref: str = "",
     now: datetime | None = None,
 ) -> bool:
     normalized = _validate_check_type(check_type)
@@ -293,9 +300,19 @@ def _receipt_is_cacheable(
         return False
     if receipt.envelope_seal != envelope.preflight_cache_seal():
         return False
-    expected_cache_key = _preflight_cache_key(repo_root, envelope, normalized)
+    expected_cache_key = _preflight_cache_key(
+        repo_root,
+        envelope,
+        normalized,
+        base_ref=base_ref,
+    )
     if receipt.cache_key != expected_cache_key:
         return False
+    if normalized == "remote_publish":
+        expected_target_ref = str(base_ref or "main").strip() or "main"
+        receipt_target_ref = str(receipt.artifacts.get("target_ref") or "").strip()
+        if receipt_target_ref != expected_target_ref:
+            return False
     if any(not bool(item.get("passed")) for item in receipt.checks):
         return False
     try:
@@ -310,10 +327,16 @@ def _load_cached_preflight_receipt(
     envelope: CredentialEnvelope,
     check_type: str,
     *,
+    base_ref: str = "",
     now: datetime | None = None,
 ) -> PreflightReceipt | None:
     normalized = _validate_check_type(check_type)
-    cache_key = _preflight_cache_key(repo_root, envelope, normalized)
+    cache_key = _preflight_cache_key(
+        repo_root,
+        envelope,
+        normalized,
+        base_ref=base_ref,
+    )
     path = _preflight_receipt_path(repo_root, check_type=normalized, cache_key=cache_key)
     if not path.exists():
         return None
@@ -327,6 +350,7 @@ def _load_cached_preflight_receipt(
         repo_root=repo_root,
         envelope=envelope,
         check_type=normalized,
+        base_ref=base_ref,
         now=now,
     ):
         return None
@@ -350,6 +374,7 @@ def _finalize_preflight_receipt(
     repo_root: Path,
     envelope: CredentialEnvelope,
     check_type: str,
+    base_ref: str = "",
     started_at: datetime,
     finished_at: datetime,
     checks: list[dict[str, Any]],
@@ -358,7 +383,15 @@ def _finalize_preflight_receipt(
     normalized = _validate_check_type(check_type)
     ttl_seconds = _PREFLIGHT_TTL_SECONDS[normalized]
     passed = all(bool(item.get("passed")) for item in checks)
-    cache_key = _preflight_cache_key(repo_root, envelope, normalized)
+    cache_key = _preflight_cache_key(
+        repo_root,
+        envelope,
+        normalized,
+        base_ref=base_ref,
+    )
+    final_artifacts = dict(artifacts)
+    if normalized == "remote_publish":
+        final_artifacts["target_ref"] = str(base_ref or "main").strip() or "main"
     return PreflightReceipt(
         schema_version=_PREFLIGHT_RECEIPT_SCHEMA_VERSION,
         receipt_id=_preflight_receipt_id(normalized, now=finished_at),
@@ -372,7 +405,7 @@ def _finalize_preflight_receipt(
         cache_key=cache_key,
         ttl_seconds=ttl_seconds,
         expires_at=_isoformat_utc(finished_at + timedelta(seconds=ttl_seconds)),
-        artifacts=dict(artifacts),
+        artifacts=final_artifacts,
     )
 
 
@@ -382,6 +415,57 @@ def _parse_pr_create_output(stdout: str, stderr: str) -> tuple[int | None, str]:
     if match is None:
         return None, ""
     return int(match.group("number")), match.group(0)
+
+
+def _find_open_pr_by_branch(
+    *,
+    cwd: Path,
+    branch: str,
+    base_ref: str,
+) -> tuple[int | None, str]:
+    result = subprocess.run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--head",
+            branch,
+            "--state",
+            "open",
+            "--json",
+            "number,url,isDraft,baseRefName",
+        ],
+        cwd=str(cwd),
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None, ""
+    try:
+        payload = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        return None, ""
+    if not isinstance(payload, list):
+        return None, ""
+
+    matches: list[tuple[int, str]] = []
+    normalized_base_ref = str(base_ref or "main").strip() or "main"
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        number = item.get("number")
+        url = str(item.get("url") or "").strip()
+        item_base_ref = str(item.get("baseRefName") or "").strip()
+        if not isinstance(number, int) or not url:
+            continue
+        if item_base_ref and item_base_ref != normalized_base_ref:
+            continue
+        matches.append((number, url))
+    if len(matches) == 1:
+        return matches[0]
+    return None, ""
 
 
 def _run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
@@ -625,6 +709,7 @@ def run_scratch_validation_receipt(
         repo_root=resolved_repo_root,
         envelope=envelope,
         check_type="scratch",
+        base_ref="",
         started_at=started_at,
         finished_at=finished_at,
         checks=checks,
@@ -642,11 +727,13 @@ def run_remote_publish_validation_receipt(
     force_refresh: bool = False,
 ) -> PreflightReceipt:
     resolved_repo_root = repo_root.resolve()
+    normalized_base_ref = str(base_ref or "main").strip() or "main"
     if not force_refresh:
         cached = _load_cached_preflight_receipt(
             resolved_repo_root,
             envelope,
             "remote_publish",
+            base_ref=normalized_base_ref,
         )
         if cached is not None:
             return cached
@@ -657,6 +744,7 @@ def run_remote_publish_validation_receipt(
     artifacts: dict[str, Any] = {
         "branch": branch,
         "worktree_path": str(worktree_path),
+        "target_ref": normalized_base_ref,
         "draft_pr_number": None,
         "draft_pr_url": "",
     }
@@ -718,7 +806,7 @@ def run_remote_publish_validation_receipt(
                                 "pr",
                                 "create",
                                 "--base",
-                                str(base_ref or "main"),
+                                normalized_base_ref,
                                 "--head",
                                 branch,
                                 "--title",
@@ -735,11 +823,20 @@ def run_remote_publish_validation_receipt(
                                 pr_result.stderr,
                             )
                             if pr_number is None or not pr_url:
+                                pr_number, pr_url = _find_open_pr_by_branch(
+                                    cwd=worktree_path if worktree_created else resolved_repo_root,
+                                    branch=branch,
+                                    base_ref=normalized_base_ref,
+                                )
+                            if pr_number is None or not pr_url:
                                 _append_check(
                                     checks,
                                     name="gh_pr_capture",
                                     passed=False,
-                                    detail="Draft PR create output did not include a parseable PR URL.",
+                                    detail=(
+                                        "Draft PR create output did not include a parseable PR URL "
+                                        "and fallback lookup by branch did not find an open PR."
+                                    ),
                                 )
                             else:
                                 draft_created = True
@@ -810,6 +907,7 @@ def run_remote_publish_validation_receipt(
         repo_root=resolved_repo_root,
         envelope=envelope,
         check_type="remote_publish",
+        base_ref=normalized_base_ref,
         started_at=started_at,
         finished_at=finished_at,
         checks=checks,
