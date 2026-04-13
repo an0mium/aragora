@@ -4,11 +4,25 @@ OpenClaw Credential Vault - Exception classes.
 
 from __future__ import annotations
 
+__all__ = [
+    "CredentialVaultError",
+    "CredentialNotFoundError",
+    "CredentialAccessDeniedError",
+    "CredentialExpiredError",
+    "CredentialRateLimitedError",
+    "TenantIsolationError",
+    "EncryptionError",
+]
+
 
 class CredentialVaultError(Exception):
     """Base exception for credential vault errors."""
 
-    pass
+    message: str
+
+    def __init__(self, message: str = ""):
+        super().__init__(message)
+        self.message = message
 
 
 class CredentialNotFoundError(CredentialVaultError):
@@ -19,6 +33,10 @@ class CredentialNotFoundError(CredentialVaultError):
 
 class CredentialAccessDeniedError(CredentialVaultError):
     """Access to credential denied."""
+
+    credential_id: str | None
+    user_id: str | None
+    reason: str
 
     def __init__(
         self,
@@ -41,6 +59,8 @@ class CredentialExpiredError(CredentialVaultError):
 
 class CredentialRateLimitedError(CredentialVaultError):
     """Too many credential access attempts."""
+
+    retry_after_seconds: int
 
     def __init__(self, message: str, retry_after_seconds: int = 60):
         super().__init__(message)
