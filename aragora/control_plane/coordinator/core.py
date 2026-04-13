@@ -53,6 +53,8 @@ if TYPE_CHECKING:
     from aragora.control_plane.watchdog import ThreeTierWatchdog, WatchdogIssue
     from aragora.control_plane.agent_factory import AgentFactory
 
+logger = get_logger(__name__)
+
 # Optional Arena Bridge
 ArenaControlPlaneBridge: Any = None
 DeliberationTask: Any = None
@@ -69,8 +71,9 @@ try:
     DELIBERATION_TASK_TYPE = _DELIBERATION_TASK_TYPE  # Use real value if available
 
     HAS_ARENA_BRIDGE = True
-except ImportError:
+except ImportError as e:
     HAS_ARENA_BRIDGE = False
+    logger.debug("Arena bridge integration unavailable: %s", e)
 
 # Optional Watchdog
 HAS_WATCHDOG = False
@@ -79,10 +82,8 @@ try:
     from aragora.control_plane.watchdog import IssueSeverity as IssueSeverityType
 
     HAS_WATCHDOG = True
-except ImportError:
-    pass
-
-logger = get_logger(__name__)
+except ImportError as e:
+    logger.debug("Watchdog severity import unavailable: %s", e)
 
 # Retry configuration for control plane operations
 _CP_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["control_plane"]
@@ -196,8 +197,8 @@ class ControlPlaneCoordinator:
                     workspace_id=self._config.km_workspace_id,
                 )
                 self._state_manager.set_km_adapter(adapter)
-            except ImportError:
-                pass
+            except ImportError as e:
+                logger.debug("Control plane KM adapter unavailable: %s", e)
 
         # Initialize scheduler bridge (with backward compatibility for scheduler param)
         self._scheduler_bridge = scheduler_bridge or SchedulerBridge(

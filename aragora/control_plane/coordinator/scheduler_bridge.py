@@ -32,14 +32,17 @@ if TYPE_CHECKING:
     from aragora.control_plane.coordinator.policy_enforcer import PolicyEnforcer
     from aragora.control_plane.policy import ControlPlanePolicyManager
 
+logger = get_logger(__name__)
+
 # Optional KM integration
 HAS_KM_ADAPTER = False
 try:
     from aragora.knowledge.mound.adapters import control_plane_adapter as _km_adapter
 
     HAS_KM_ADAPTER = True
-except ImportError:
+except ImportError as e:
     _km_adapter = None
+    logger.debug("Scheduler bridge KM adapter unavailable: %s", e)
 
 # Optional Policy
 HAS_POLICY = False
@@ -48,10 +51,8 @@ try:
     from aragora.control_plane.policy import EnforcementLevel as EnforcementLevelType
 
     HAS_POLICY = True
-except ImportError:
-    pass
-
-logger = get_logger(__name__)
+except ImportError as e:
+    logger.debug("Scheduler bridge policy import unavailable: %s", e)
 
 # Retry configuration for control plane operations
 _CP_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["control_plane"]

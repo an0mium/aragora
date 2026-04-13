@@ -40,6 +40,8 @@ if TYPE_CHECKING:
         ControlPlaneAdapter,
     )
 
+logger = get_logger(__name__)
+
 # Optional KM integration
 HAS_KM_ADAPTER = False
 # Pre-declare optional import with Any to avoid no-redef errors
@@ -48,8 +50,8 @@ try:
     from aragora.knowledge.mound.adapters.control_plane_adapter import TaskOutcome
 
     HAS_KM_ADAPTER = True
-except ImportError:
-    pass
+except ImportError as e:
+    logger.debug("State manager KM task outcome unavailable: %s", e)
 
 # Optional Watchdog support (Gastown three-tier monitoring)
 ThreeTierWatchdog: Any = None
@@ -67,8 +69,9 @@ try:
     )
 
     HAS_WATCHDOG = True
-except ImportError:
+except ImportError as e:
     HAS_WATCHDOG = False
+    logger.debug("State manager watchdog integration unavailable: %s", e)
 
 # Optional AgentFactory for auto-creating agents from registry
 AgentFactory: Any = None
@@ -80,8 +83,9 @@ try:
     )
 
     HAS_AGENT_FACTORY = True
-except ImportError:
+except ImportError as e:
     HAS_AGENT_FACTORY = False
+    logger.debug("State manager agent factory unavailable: %s", e)
 
 # Optional Redis HA support
 RedisHASettings: Any = None
@@ -90,10 +94,9 @@ try:
     from aragora.config.redis import RedisHASettings, get_redis_ha_config
 
     HAS_REDIS_HA = True
-except ImportError:
+except ImportError as e:
     HAS_REDIS_HA = False
-
-logger = get_logger(__name__)
+    logger.debug("State manager Redis HA support unavailable: %s", e)
 
 # Retry configuration for control plane operations
 _CP_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["control_plane"]

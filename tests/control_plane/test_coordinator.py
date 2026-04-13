@@ -9,6 +9,7 @@ Tests cover:
 """
 
 import asyncio
+import builtins
 import time
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -858,4 +859,39 @@ class TestPolicySyncOnStartup:
 
         mock_policy_manager.sync_from_compliance_store.assert_called_once_with(
             workspace_id="test-workspace",
+        )
+
+
+class TestOptionalImportFallbacks:
+    """Tests for optional import fallback visibility."""
+
+    def test_logs_debug_when_runtime_km_adapter_import_is_missing(
+        self, mock_registry, mock_scheduler, mock_health_monitor
+    ):
+        """Knowledge mound adapter import failures should be visible at debug level."""
+        from aragora.control_plane.coordinator import core as coordinator_core
+
+        real_import = builtins.__import__
+
+        def import_with_missing_km_adapter(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "aragora.knowledge.mound.adapters.control_plane_adapter":
+                raise ImportError("km adapter missing for test")
+            return real_import(name, globals, locals, fromlist, level)
+
+        with (
+            patch("builtins.__import__", side_effect=import_with_missing_km_adapter),
+            patch.object(coordinator_core.logger, "debug") as debug_log,
+        ):
+            coordinator_core.ControlPlaneCoordinator(
+                registry=mock_registry,
+                scheduler=mock_scheduler,
+                health_monitor=mock_health_monitor,
+                knowledge_mound=object(),
+            )
+
+        assert any(
+            call.args[0] == "Control plane KM adapter unavailable: %s"
+            and isinstance(call.args[1], ImportError)
+            and str(call.args[1]) == "km adapter missing for test"
+            for call in debug_log.call_args_list
         )
