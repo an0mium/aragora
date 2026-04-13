@@ -45,6 +45,13 @@ RATCHET = {
     "max_noqa": 2800,  # Total across aragora/
 }
 
+LAST_RECORDED_BASELINE = {
+    "date": "2026-04-12",
+    "global_suppressions": {
+        "except_exception": 770,
+    },
+}
+
 _SUPPRESSION_PATTERNS = {
     "except_exception": re.compile(r"except\s+Exception\b"),
     "type_ignore": re.compile(r"#\s*type:\s*ignore"),
@@ -199,16 +206,38 @@ def check_ratchet(global_suppressions: dict[str, int], subsystems: list[dict]) -
     return violations
 
 
+def build_comparison(global_suppressions: dict[str, int]) -> dict[str, object]:
+    baseline = dict(LAST_RECORDED_BASELINE)
+    compared: dict[str, dict[str, int]] = {}
+    for key, baseline_value in dict(baseline.get("global_suppressions", {})).items():
+        current_value = int(global_suppressions.get(key, 0) or 0)
+        compared[key] = {
+            "baseline": int(baseline_value),
+            "current": current_value,
+            "delta": current_value - int(baseline_value),
+        }
+    return {
+        "baseline_date": str(baseline.get("date", "")).strip() or None,
+        "global_suppressions": compared,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Report codebase quality metrics")
     parser.add_argument("--json", action="store_true", help="JSON output")
     parser.add_argument("--check", action="store_true", help="Exit 1 if ratchet violated")
+    parser.add_argument(
+        "--compare",
+        action="store_true",
+        help="Show deltas versus the last recorded suppression baseline",
+    )
     args = parser.parse_args()
 
     subsystems = [scan_subsystem(name, path) for name, path in SUBSYSTEMS.items()]
     global_suppressions = scan_all_aragora()
     boss_metrics = scan_boss_metrics()
     violations = check_ratchet(global_suppressions, subsystems)
+    comparison = build_comparison(global_suppressions) if args.compare else None
 
     report = {
         "subsystems": subsystems,
@@ -217,6 +246,8 @@ def main() -> None:
         "ratchet_thresholds": RATCHET,
         "ratchet_violations": violations,
     }
+    if comparison is not None:
+        report["baseline_comparison"] = comparison
 
     if args.json:
         print(json.dumps(report, indent=2))
@@ -244,6 +275,25 @@ def main() -> None:
             print(f"  Issues completed: {boss_metrics['issues_completed']}")
             print(f"  Per-issue success rate: {boss_metrics['per_issue_success_rate']:.1%}")
             print(f"  Meets B0 target (>=50%): {boss_metrics['meets_b0_target']}")
+
+        if comparison is not None:
+            print(
+                "\nBaseline Comparison:"
+                f"\n  baseline_date: {comparison.get('baseline_date') or 'unknown'}"
+            )
+            compared = comparison.get("global_suppressions", {})
+            if isinstance(compared, dict):
+                for name, values in sorted(compared.items()):
+                    if not isinstance(values, dict):
+                        continue
+                    print(
+                        "  {name:20s} baseline={baseline:4d} current={current:4d} delta={delta:+d}".format(
+                            name=name,
+                            baseline=int(values.get("baseline", 0) or 0),
+                            current=int(values.get("current", 0) or 0),
+                            delta=int(values.get("delta", 0) or 0),
+                        )
+                    )
 
         if violations:
             print(f"\nRatchet Violations ({len(violations)}):")
