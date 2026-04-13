@@ -507,10 +507,19 @@ class TaskSanitizer:
 
             lowered = raw_line.lower()
             line_actions: set[str] = set()
-            if any(keyword in lowered for keyword in _CREATE_KEYWORDS):
-                line_actions.add("create")
-            if any(keyword in lowered for keyword in _MODIFY_KEYWORDS):
+            has_modify = any(keyword in lowered for keyword in _MODIFY_KEYWORDS)
+            has_create = any(keyword in lowered for keyword in _CREATE_KEYWORDS)
+            if has_modify:
                 line_actions.add("modify")
+                # Only treat as *also* a create when the create keyword is
+                # not merely describing what the modification does.  Words
+                # like "add" frequently appear in modify annotations
+                # (e.g. "modify `foo.py` to add a helper") and should not
+                # be misread as a file-creation intent.
+                if has_create and not self._create_is_subordinate(lowered):
+                    line_actions.add("create")
+            elif has_create:
+                line_actions.add("create")
             if not line_actions:
                 continue
             for path in self._extract_paths_from_line(raw_line):
@@ -563,6 +572,27 @@ class TaskSanitizer:
             heading == prefix or heading.startswith(f"{prefix} ")
             for prefix in _SCOPE_SECTION_PREFIXES
         )
+
+    @staticmethod
+    def _create_is_subordinate(lowered_line: str) -> bool:
+        """Return True when a create keyword (add/create/…) is subordinate to a modify verb.
+
+        Patterns that indicate the create keyword describes *what* the
+        modification does rather than a separate file-creation intent:
+          - "modify `f.py` to add …"
+          - "update `f.py` — add …"
+          - "edit `f.py`: add …"
+          - "change `f.py` by adding …"
+        """
+        # If any modify keyword precedes every create keyword, the create
+        # keyword is subordinate (it describes the modification content).
+        modify_positions = [lowered_line.find(kw) for kw in _MODIFY_KEYWORDS if kw in lowered_line]
+        create_positions = [lowered_line.find(kw) for kw in _CREATE_KEYWORDS if kw in lowered_line]
+        if not modify_positions or not create_positions:
+            return False
+        earliest_modify = min(modify_positions)
+        earliest_create = min(create_positions)
+        return earliest_modify < earliest_create
 
     @staticmethod
     def _matches_validation_section(heading: str) -> bool:
