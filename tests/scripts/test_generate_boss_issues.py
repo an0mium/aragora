@@ -475,6 +475,36 @@ def test_fetch_open_pr_files_paginates_open_prs_and_pr_files(monkeypatch) -> Non
     assert "repos/org/repo/pulls/101/files?per_page=2&page=2" in calls
 
 
+def test_fetch_open_pr_files_raises_when_pr_file_lookup_fails_after_partial_results(
+    monkeypatch,
+) -> None:
+    def fake_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        endpoint = cmd[-1]
+        if endpoint.endswith("/pulls?state=open&per_page=100&page=1"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps([{"number": 101}, {"number": 102}]),
+                stderr="",
+            )
+        if endpoint.endswith("/pulls/101/files?per_page=100&page=1"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps([{"filename": "aragora/first.py"}]),
+                stderr="",
+            )
+        if endpoint.endswith("/pulls/102/files?per_page=100&page=1"):
+            return SimpleNamespace(returncode=1, stdout="", stderr="boom")
+        raise AssertionError(f"unexpected gh api call: {endpoint}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    with pytest.raises(
+        mod.OpenPRConflictDiscoveryError,
+        match=r"open PR file lookup for PR #102 \(page 1\) failed: boom",
+    ):
+        mod.fetch_open_pr_files("org/repo")
+
+
 def test_fetch_open_pr_files_raises_when_open_pr_pagination_cap_exhausted(monkeypatch) -> None:
     monkeypatch.setattr(mod, "_OPEN_PR_PAGE_SIZE", 1)
     monkeypatch.setattr(mod, "_OPEN_PR_MAX_PAGES", 2)

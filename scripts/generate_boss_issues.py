@@ -44,6 +44,10 @@ _OPEN_PR_FILES_PAGE_SIZE = 100
 _OPEN_PR_FILES_MAX_PAGES = 10
 
 
+class OpenPRConflictDiscoveryError(RuntimeError):
+    """Raised when open-PR conflict discovery cannot trust GitHub results."""
+
+
 @dataclass(slots=True)
 class DecompositionTelemetry:
     """Aggregate telemetry for one generator run."""
@@ -143,74 +147,89 @@ def fetch_existing_boss_issues(repo: str) -> list[dict]:
     return []
 
 
+def _fetch_gh_api_list(endpoint: str, *, context: str) -> list[object]:
+    """Fetch a GitHub API list payload or fail closed with context."""
+    try:
+        result = subprocess.run(
+            ["gh", "api", endpoint],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise OpenPRConflictDiscoveryError(
+            f"{context} timed out; refusing partial conflict data"
+        ) from exc
+    except OSError as exc:
+        raise OpenPRConflictDiscoveryError(
+            f"{context} failed to start: {exc}; refusing partial conflict data"
+        ) from exc
+
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip() or f"exit {result.returncode}"
+        raise OpenPRConflictDiscoveryError(
+            f"{context} failed: {detail}; refusing partial conflict data"
+        )
+
+    try:
+        payload = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError as exc:
+        raise OpenPRConflictDiscoveryError(
+            f"{context} returned invalid JSON; refusing partial conflict data"
+        ) from exc
+
+    if not isinstance(payload, list):
+        raise OpenPRConflictDiscoveryError(
+            f"{context} returned a non-list payload; refusing partial conflict data"
+        )
+
+    return payload
+
+
 def fetch_open_pr_files(repo: str) -> set[str]:
     """Fetch file paths changed in open PRs."""
-    try:
-        files: set[str] = set()
-        for page in range(1, _OPEN_PR_MAX_PAGES + 1):
-            prs_result = subprocess.run(
-                [
-                    "gh",
-                    "api",
-                    f"repos/{repo}/pulls?state=open&per_page={_OPEN_PR_PAGE_SIZE}&page={page}",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if prs_result.returncode != 0:
-                return set()
-            prs = json.loads(prs_result.stdout or "[]")
-            if not isinstance(prs, list):
-                return set()
-            if not prs:
-                return files
-            for pr in prs:
-                if not isinstance(pr, dict):
-                    continue
-                number = pr.get("number")
-                if not isinstance(number, int):
-                    continue
-                for files_page in range(1, _OPEN_PR_FILES_MAX_PAGES + 1):
-                    files_result = subprocess.run(
-                        [
-                            "gh",
-                            "api",
-                            (
-                                f"repos/{repo}/pulls/{number}/files"
-                                f"?per_page={_OPEN_PR_FILES_PAGE_SIZE}&page={files_page}"
-                            ),
-                        ],
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                    )
-                    if files_result.returncode != 0:
-                        return set()
-                    payload = json.loads(files_result.stdout or "[]")
-                    if not isinstance(payload, list):
-                        return set()
-                    if not payload:
-                        break
-                    for item in payload:
-                        path = item.get("filename", "") if isinstance(item, dict) else str(item)
-                        if path:
-                            files.add(path)
-                    if len(payload) < _OPEN_PR_FILES_PAGE_SIZE:
-                        break
-                else:
-                    raise RuntimeError(
-                        "open PR file pagination exceeded configured cap "
-                        f"({_OPEN_PR_FILES_MAX_PAGES} pages) for PR #{number}"
-                    )
-            if len(prs) < _OPEN_PR_PAGE_SIZE:
-                return files
-        raise RuntimeError(
-            f"open PR pagination exceeded configured cap ({_OPEN_PR_MAX_PAGES} pages) for {repo}"
+    files: set[str] = set()
+    for page in range(1, _OPEN_PR_MAX_PAGES + 1):
+        prs = _fetch_gh_api_list(
+            f"repos/{repo}/pulls?state=open&per_page={_OPEN_PR_PAGE_SIZE}&page={page}",
+            context=f"open PR list lookup (page {page}) for {repo}",
         )
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
-        pass
-    return set()
+        if not prs:
+            return files
+        for pr in prs:
+            if not isinstance(pr, dict):
+                continue
+            number = pr.get("number")
+            if not isinstance(number, int):
+                continue
+            for files_page in range(1, _OPEN_PR_FILES_MAX_PAGES + 1):
+                payload = _fetch_gh_api_list(
+                    (
+                        f"repos/{repo}/pulls/{number}/files"
+                        f"?per_page={_OPEN_PR_FILES_PAGE_SIZE}&page={files_page}"
+                    ),
+                    context=f"open PR file lookup for PR #{number} (page {files_page})",
+                )
+                if not payload:
+                    break
+                for item in payload:
+                    path = item.get("filename", "") if isinstance(item, dict) else str(item)
+                    if path:
+                        files.add(path)
+                if len(payload) < _OPEN_PR_FILES_PAGE_SIZE:
+                    break
+            else:
+                raise OpenPRConflictDiscoveryError(
+                    "open PR file pagination exceeded configured cap "
+                    f"({_OPEN_PR_FILES_MAX_PAGES} pages) for PR #{number}; "
+                    "refusing partial conflict data"
+                )
+        if len(prs) < _OPEN_PR_PAGE_SIZE:
+            return files
+    raise OpenPRConflictDiscoveryError(
+        f"open PR pagination exceeded configured cap ({_OPEN_PR_MAX_PAGES} pages) for {repo}; "
+        "refusing partial conflict data"
+    )
 
 
 def _normalize_tokens(text: str) -> set[str]:
