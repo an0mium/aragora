@@ -35,6 +35,7 @@ class CodebaseContextBuilder(NomicContextBuilder):
             os.environ.get("ARAGORA_CODEBASE_MAX_CONTEXT_BYTES")
             or os.environ.get("ARAGORA_NOMIC_MAX_CONTEXT_BYTES")
             or os.environ.get("NOMIC_MAX_CONTEXT_BYTES")
+            or os.environ.get("ARAGORA_RLM_MAX_CONTEXT_BYTES")
             or os.environ.get("ARAGORA_RLM_MAX_CONTENT_BYTES")
         )
         if max_context_bytes == 0 and env_max:
