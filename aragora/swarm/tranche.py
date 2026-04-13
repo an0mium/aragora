@@ -378,7 +378,7 @@ class TrancheManifest:
 
     def to_yaml(self) -> str:
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
 
             return yaml.safe_dump(self.to_dict(), sort_keys=False, allow_unicode=False)
         except ImportError:
@@ -387,7 +387,7 @@ class TrancheManifest:
     @classmethod
     def from_text(cls, text: str) -> TrancheManifest:
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
 
             payload = yaml.safe_load(text) or {}
         except ImportError:
@@ -774,9 +774,11 @@ class TrancheExecutor:
         review_model: str,
         skip_review: bool,
     ) -> TrancheLaneArtifact:
-        run_dict = result.get("run") if isinstance(result.get("run"), dict) else {}
-        deliverable = (
-            result.get("deliverable") if isinstance(result.get("deliverable"), dict) else {}
+        run_value = result.get("run")
+        run_dict: dict[str, Any] = dict(run_value) if isinstance(run_value, dict) else {}
+        deliverable_value = result.get("deliverable")
+        deliverable: dict[str, Any] = (
+            dict(deliverable_value) if isinstance(deliverable_value, dict) else {}
         )
         urls = list(dict.fromkeys(_lane_source_urls(lane) + _deliverable_urls(deliverable)))
         metadata = dict(prepared.metadata)
@@ -951,7 +953,7 @@ class TrancheInspector:
         scope_conflicts = self._declared_scope_conflicts(manifest)
         artifacts = self.artifact_store.list(manifest.manifest_id)
         lanes = self._resolve_lanes(manifest, references, gates, artifacts, scope_conflicts)
-        blockers = []
+        blockers: list[str] = []
         blockers.extend(
             item["reason"]
             for item in references.values()
