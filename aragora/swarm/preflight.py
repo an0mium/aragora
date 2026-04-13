@@ -753,6 +753,7 @@ def run_remote_publish_validation_receipt(
     pushed = False
     draft_created = False
     unresolved_remote_pr_state = False
+    draft_close_succeeded = False
     scratch_file = _scratch_validation_file(worktree_path)
 
     try:
@@ -871,7 +872,7 @@ def run_remote_publish_validation_receipt(
 
         if draft_created:
             close_target = str(artifacts.get("draft_pr_number") or branch)
-            _run_check(
+            close_result = _run_check(
                 checks,
                 name="gh_pr_close",
                 cmd=[
@@ -884,6 +885,7 @@ def run_remote_publish_validation_receipt(
                 ],
                 cwd=worktree_path if worktree_created else resolved_repo_root,
             )
+            draft_close_succeeded = close_result is not None and close_result.returncode == 0
         elif pushed and unresolved_remote_pr_state:
             _append_check(
                 checks,
@@ -902,13 +904,24 @@ def run_remote_publish_validation_receipt(
                 detail="skipped (draft PR not created)",
             )
 
-        if pushed and not unresolved_remote_pr_state:
+        if (
+            pushed
+            and not unresolved_remote_pr_state
+            and (not draft_created or draft_close_succeeded)
+        ):
             _run_check(
                 checks,
                 name="cleanup_remote_branch_delete",
                 cmd=["git", "push", "origin", "--delete", branch],
                 cwd=worktree_path if worktree_created else resolved_repo_root,
                 env=git_safe_env(),
+            )
+        elif pushed and draft_created and not draft_close_succeeded:
+            _append_check(
+                checks,
+                name="cleanup_remote_branch_delete",
+                passed=False,
+                detail="skipped because draft PR close failed; remote branch retained for manual cleanup",
             )
         elif pushed:
             _append_check(
