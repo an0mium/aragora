@@ -50,6 +50,7 @@ from aragora.swarm.boss_loop import (
     sanitize_issue_body_for_dispatch,
     select_eligible_issue,
 )
+from aragora.swarm.task_sanitizer import SanitizationOutcome
 
 UTC = timezone.utc
 
@@ -2248,26 +2249,42 @@ class TestBossLoop:
         payload = json.loads((tmp_path / "boss_metrics.jsonl").read_text(encoding="utf-8"))
         assert payload["terminal_class"] == TerminalClass.RESCUE_NO_DELIVERABLE.value
 
-    def test_missing_validation_contract_stops_with_needs_human(self):
-        feed = MagicMock(spec=GitHubIssueFeed)
-        feed.fetch.return_value = [
-            _make_issue(
-                7,
-                "Issue missing validation",
-                body="Tighten the boss loop selection logic in aragora/swarm/boss_loop.py",
-            )
-        ]
-
-        loop = BossLoop(
-            config=_boss_config(max_iterations=1),
-            issue_feed=feed,
-            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+    @pytest.mark.asyncio
+    async def test_missing_validation_contract_stops_with_needs_human(self):
+        issue = _make_issue(
+            7,
+            "Issue missing validation",
+            body="Tighten the boss loop selection logic in aragora/swarm/boss_loop.py",
         )
+        loop = BossLoop(config=_boss_config(max_iterations=1))
+        loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (
+            None,
+            None,
+        )
+        loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+            "runner_id": "codex-runner-1",
+            "runner_type": "codex",
+        }
 
-        result = asyncio.run(loop.run())
+        with (
+            patch(
+                "aragora.swarm.prompt_refiner.refine_worker_prompt",
+                new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+            ),
+            patch(
+                "aragora.swarm.boss_loop.TaskSanitizer.sanitize",
+                return_value=SimpleNamespace(
+                    outcome=SanitizationOutcome.ACCEPTED,
+                    sanitized_text=issue.body,
+                    checks_failed=[],
+                    reason="",
+                ),
+            ),
+        ):
+            result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
-        assert result.stop_reason == BossStopReason.NEEDS_HUMAN.value
-        assert "lacks an explicit validation contract" in result.needs_human_reasons[0]
+        assert result["status"] == "needs_human"
+        assert "lacks an explicit validation contract" in result["reasons"][0]
 
     def test_bold_markdown_validation_contract_allows_dispatch(self):
         feed = MagicMock(spec=GitHubIssueFeed)
@@ -3242,6 +3259,168 @@ async def test_dispatch_issue_drops_short_task_before_dispatch() -> None:
     assert "description_length" in comments[-1]
     assert any(cmd[:3] == ["gh", "issue", "edit"] for cmd in commands)
     assert any(cmd[:3] == ["gh", "issue", "close"] for cmd in commands)
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_sanitizer_failure_skips_contract_gate() -> None:
+    issue = _make_issue(
+        2463,
+        "Too short for contract gate",
+        body="Tiny task only.",
+        labels=["boss-ready"],
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1, repo="synaptent/aragora"))
+
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        result.stderr = ""
+        return result
+
+    with (
+        patch("aragora.swarm.boss_loop.subprocess.run", side_effect=_run),
+        patch.object(
+            loop,
+            "_dispatch_contract_preview_env",
+            side_effect=AssertionError("contract gate should not run after sanitation failure"),
+        ),
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "sanitation_failed"
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_contract_gate_allows_complete_cli_dispatch() -> None:
+    issue = _make_issue(2464, "Dispatch with complete CLI contract")
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="codex"))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch.object(
+            loop,
+            "_dispatch_contract_preview_env",
+            return_value=(
+                "codex",
+                {
+                    "ARAGORA_RUNNER_AUTH_MODE": "command",
+                    "CODEX_COMMAND": "/usr/local/bin/codex",
+                    "PYTEST_PATH": "/usr/local/bin/pytest",
+                    "RUFF_PATH": "/usr/local/bin/ruff",
+                },
+            ),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    dispatch_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_contract_gate_blocks_missing_publish_auth_slices() -> None:
+    issue = _make_issue(2465, "Dispatch requires publish auth")
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=1,
+            default_target_agent="codex",
+            auto_publish_deliverables=True,
+        )
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch.object(
+            loop,
+            "_dispatch_contract_preview_env",
+            return_value=(
+                "codex",
+                {
+                    "ARAGORA_RUNNER_AUTH_MODE": "command",
+                    "CODEX_COMMAND": "/usr/local/bin/codex",
+                    "PYTEST_PATH": "/usr/local/bin/pytest",
+                    "RUFF_PATH": "/usr/local/bin/ruff",
+                },
+            ),
+        ),
+        patch.object(loop, "_github_cli_authenticated", return_value=False),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "blocked_auth_failure"
+    assert result["dispatch_contract"]["missing_slices"] == ["git", "github_api"]
+    assert "missing git publish credentials" in result["reasons"][0]
+    assert "missing GitHub API authentication" in result["reasons"][1]
+    dispatch_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_contract_gate_blocks_missing_provider_for_api_agent() -> None:
+    issue = _make_issue(2466, "Dispatch requires provider auth")
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="openai-api"))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "openai-api-runner-1",
+        "runner_type": "openai-api",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch.object(
+            loop,
+            "_dispatch_contract_preview_env",
+            return_value=(
+                "openai-api",
+                {
+                    "ARAGORA_RUNNER_AUTH_MODE": "command",
+                    "ARAGORA_RUNNER_COMMAND": "/usr/local/bin/openai",
+                    "PYTEST_PATH": "/usr/local/bin/pytest",
+                    "RUFF_PATH": "/usr/local/bin/ruff",
+                },
+            ),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "blocked_auth_failure"
+    assert result["dispatch_contract"]["missing_slices"] == ["provider"]
+    assert "missing provider credentials" in result["reasons"][0]
+    dispatch_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
