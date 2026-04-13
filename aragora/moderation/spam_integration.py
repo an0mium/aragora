@@ -659,6 +659,21 @@ def set_spam_moderation(moderation: SpamModerationIntegration) -> None:
     _global_moderation = moderation
 
 
+async def reset_spam_moderation() -> None:
+    """Close and clear the global spam moderation instance."""
+    global _global_moderation
+
+    moderation = _global_moderation
+    _global_moderation = None
+    if moderation is None:
+        return
+
+    try:
+        await moderation.close()
+    except (RuntimeError, OSError) as e:
+        logger.warning("Error closing spam moderation during reset: %s", e)
+
+
 async def check_debate_content(
     proposal: str,
     context: str | None = None,
@@ -700,6 +715,7 @@ __all__ = [
     "ContentModerationError",
     "get_spam_moderation",
     "set_spam_moderation",
+    "reset_spam_moderation",
     "check_debate_content",
     "queue_for_review",
     "list_review_queue",

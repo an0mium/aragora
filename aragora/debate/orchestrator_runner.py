@@ -1850,6 +1850,14 @@ async def cleanup_debate_resources(
     if km_task is not None and os.environ.get("PYTEST_CURRENT_TEST"):
         await _drain_background_task(km_task, timeout_s=0.75)
 
+    tracker_coordinator = getattr(arena, "_trackers", None)
+    drain_tracker_tasks = getattr(tracker_coordinator, "drain_background_tasks", None)
+    if callable(drain_tracker_tasks):
+        try:
+            await drain_tracker_tasks(timeout_s=0.75)
+        except (RuntimeError, TypeError, ValueError):
+            pass
+
     # Clean up checkpoints after successful completion
     if state.debate_status == DebateStatus.COMPLETED.value and getattr(
         arena.protocol, "checkpoint_cleanup_on_success", True

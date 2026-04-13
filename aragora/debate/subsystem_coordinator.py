@@ -142,6 +142,9 @@ class SubsystemCoordinator:
     hook_handler_registry: Any | None = None  # HookHandlerRegistry for auto-wiring
     enable_hook_handlers: bool = True  # Auto-register default handlers if hook_manager provided
 
+    # Debate-scoped async work
+    _background_tasks: set[asyncio.Task[Any]] = field(default_factory=set, init=False, repr=False)
+
     # ==========================================================================
     # Phase 9: Cross-Pollination Bridges
     # These bridges connect subsystems for self-improving feedback loops
@@ -1162,19 +1165,47 @@ class SubsystemCoordinator:
         try:
             loop = asyncio.get_running_loop()
             task = loop.create_task(coro)
-            task.add_done_callback(
-                lambda t: logger.error(
-                    "Debate subsystem async task failed: %s",
-                    t.exception(),
-                )
-                if not t.cancelled() and t.exception()
-                else None
-            )
+            self._background_tasks.add(task)
+
+            def _on_done(t: asyncio.Task[Any]) -> None:
+                self._background_tasks.discard(t)
+                if t.cancelled():
+                    return
+                try:
+                    exc = t.exception()
+                except Exception as err:  # noqa: BLE001 - cleanup logging must stay best-effort
+                    logger.debug(
+                        "Debate subsystem async task completion inspection failed: %s", err
+                    )
+                    return
+                if exc is not None:
+                    logger.error("Debate subsystem async task failed: %s", exc)
+
+            task.add_done_callback(_on_done)
         except RuntimeError:
             try:
                 asyncio.run(coro)
             except (RuntimeError, ValueError, TypeError) as e:
                 logger.debug("Failed to run async task: %s", e)
+
+    async def drain_background_tasks(self, timeout_s: float = 0.75) -> None:
+        """Await or cancel coordinator-owned background tasks before teardown."""
+        if not self._background_tasks:
+            return
+
+        tasks = tuple(self._background_tasks)
+        try:
+            await asyncio.wait_for(
+                asyncio.gather(*tasks, return_exceptions=True),
+                timeout=timeout_s,
+            )
+        except asyncio.TimeoutError:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            self._background_tasks.difference_update(tasks)
 
     def _build_sdpo_trajectory(
         self,

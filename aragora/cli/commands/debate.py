@@ -309,8 +309,35 @@ def _cleanup_cli_subprocesses_for_timeout() -> dict[str, int]:
         return {"tracked": 0, "terminated": 0, "killed": 0, "remaining": 0}
 
 
+async def _drain_cmd_ask_background_tasks(timeout_seconds: float = 1.0) -> None:
+    """Let detached ask-loop tasks finish before shared resources are torn down."""
+    current = asyncio.current_task()
+    pending = [task for task in asyncio.all_tasks() if task is not current and not task.done()]
+    if not pending:
+        return
+
+    done, still_pending = await asyncio.wait(pending, timeout=timeout_seconds)
+    for task in done:
+        try:
+            task.result()
+        except Exception as exc:  # noqa: BLE001 - background cleanup must never hide CLI result
+            logger.debug("Ask background task finished with error during cleanup: %s", exc)
+
+    if not still_pending:
+        return
+
+    for task in still_pending:
+        task.cancel()
+    await asyncio.gather(*still_pending, return_exceptions=True)
+
+
 async def _shutdown_cmd_ask_resources() -> None:
     """Best-effort cleanup for CLI ask shared resources on the active loop."""
+    try:
+        await _drain_cmd_ask_background_tasks()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask background-task drain skipped: %s", exc)
+
     try:
         from aragora.server.startup.database import close_postgres_pool
 
@@ -346,10 +373,50 @@ async def _shutdown_cmd_ask_resources() -> None:
     except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
         logger.debug("Ask dispatcher shutdown skipped: %s", exc)
 
+    try:
+        from aragora.storage.receipt_store import close_receipt_store
+
+        close_receipt_store()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask receipt store shutdown skipped: %s", exc)
+
+    try:
+        from aragora.storage.webhook_config_store import reset_webhook_config_store
+
+        reset_webhook_config_store()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask webhook config store shutdown skipped: %s", exc)
+
+    try:
+        from aragora.storage.schema import DatabaseManager
+
+        DatabaseManager.clear_instances()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask schema manager shutdown skipped: %s", exc)
+
+    try:
+        from aragora.moderation.spam_integration import reset_spam_moderation
+
+        await reset_spam_moderation()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask spam moderation shutdown skipped: %s", exc)
+
     # Give async transport/connector close callbacks one loop turn before
     # asyncio.run() tears the loop down. This avoids intermittent unclosed
     # socket warnings in CLI proof-path tests.
     await asyncio.sleep(0)
+
+    try:
+        await _drain_cmd_ask_background_tasks(timeout_seconds=0.1)
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask final background-task drain skipped: %s", exc)
+
+    try:
+        from aragora.storage.schema import DatabaseManager
+
+        DatabaseManager.clear_instances()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask final schema manager shutdown skipped: %s", exc)
 
 
 async def _run_coro_with_cmd_ask_cleanup(coro: Any) -> Any:

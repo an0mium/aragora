@@ -7,6 +7,9 @@ import argparse
 import gc
 import inspect
 import json
+import sqlite3
+import traceback
+import weakref
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -35,6 +38,7 @@ def _stub_cmd_ask_global_side_effects(request):
         "test_cmd_ask_grounding_fail_closed_rejects_ungrounded_output",
         "test_cmd_ask_quality_fail_closed_accepts_output_contract_file",
         "test_cmd_ask_quality_retry_switches_models_after_timeout_and_low_quality",
+        "test_cmd_ask_demo_local_closes_sqlite_resources",
     }
 
     receipt_patch = patch.object(debate_cmd, "_persist_debate_receipt", return_value=None)
@@ -476,6 +480,77 @@ If settlement hook error rate exceeds 2% over a sustained 10 minute window, roll
     selected_result = mock_receipt.call_args.args[0]
     assert selected_result.metadata["model_comparison"]["selected_agents"] == "openai-api,gemini"
     assert len(selected_result.metadata["model_comparison"]["candidates"]) == 3
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
+@pytest.mark.filterwarnings("ignore:unclosed <socket.socket.*:ResourceWarning")
+def test_cmd_ask_demo_local_closes_sqlite_resources(monkeypatch):
+    """Real cmd_ask cleanup should close SQLite-backed singletons before loop teardown."""
+    from aragora.cli.commands import debate as debate_cmd
+    from aragora.cli.parser import build_parser
+    from aragora.moderation.spam_integration import reset_spam_moderation
+    from aragora.storage.receipt_store import close_receipt_store
+    from aragora.storage.schema import DatabaseManager
+    from aragora.storage.webhook_config_store import reset_webhook_config_store
+
+    close_receipt_store()
+    reset_webhook_config_store()
+    DatabaseManager.clear_instances()
+    asyncio.run(reset_spam_moderation())
+
+    records: list[weakref.ReferenceType[sqlite3.Connection]] = []
+    real_connect = sqlite3.connect
+
+    class TrackingConnection(sqlite3.Connection):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._closed = False
+            self._created_stack = "".join(traceback.format_stack(limit=20))
+            records.append(weakref.ref(self))
+
+        def close(self):
+            self._closed = True
+            return super().close()
+
+    def tracking_connect(*args, **kwargs):
+        kwargs.setdefault("factory", TrackingConnection)
+        return real_connect(*args, **kwargs)
+
+    parser = build_parser()
+    args = parser.parse_args(
+        [
+            "ask",
+            "Automation smoke: confirm ask demo local still works.",
+            "--demo",
+            "--local",
+            "--rounds",
+            "1",
+            "--no-upgrade-to-good",
+            "--quality-concretize-max-rounds",
+            "0",
+            "--quality-extra-assessment-rounds",
+            "0",
+        ]
+    )
+    args.db = ":memory:"
+
+    monkeypatch.setattr(sqlite3, "connect", tracking_connect)
+
+    try:
+        debate_cmd.cmd_ask(args)
+        gc.collect()
+        gc.collect()
+        leaked = [
+            conn._created_stack
+            for ref in records
+            if (conn := ref()) is not None and not getattr(conn, "_closed", True)
+        ]
+        assert leaked == []
+    finally:
+        close_receipt_store()
+        reset_webhook_config_store()
+        DatabaseManager.clear_instances()
+        asyncio.run(reset_spam_moderation())
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
