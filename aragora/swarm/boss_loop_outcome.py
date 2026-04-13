@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.outcome_learner import load_category_success_rates
 from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ logger = logging.getLogger(__name__)
 def append_iteration_metrics(
     *,
     metrics_jsonl_path: str | None,
+    outcome_learner_window: int,
     deferred_queue_depth: int,
     iteration: int,
     issue_number: int | None,
@@ -48,6 +50,7 @@ def append_iteration_metrics(
         publish_action = (
             str((worker_result.get("publish_result") or {}).get("action", "")).strip() or None
         )
+        category_success_rates = load_category_success_rates(window_size=outcome_learner_window)
         sanitizer_outcome = str(worker_result.get("sanitizer_outcome", "")).strip() or None
         checks_failed = (
             raw_checks if isinstance(raw_checks := worker_result.get("checks_failed"), list) else []
@@ -78,6 +81,7 @@ def append_iteration_metrics(
             "cohort_tag": cohort_tag,
             "has_deliverable": bool(worker_result.get("deliverable")),
             "publish_action": publish_action,
+            "category_success_rates": category_success_rates,
         }
 
         try:

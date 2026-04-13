@@ -284,6 +284,7 @@ class BossLoopConfig:
 
     status_report_interval: int = 5  # every N iterations
     metrics_jsonl_path: str | None = ".aragora/overnight/boss_metrics.jsonl"
+    outcome_learner_window: int = 500
 
 
 # ---------------------------------------------------------------------------
@@ -832,6 +833,7 @@ class BossLoop:
         files_changed, tests_run, tests_passed = self._extract_iteration_metrics(worker_result)
         append_iteration_metrics(
             metrics_jsonl_path=self.config.metrics_jsonl_path,
+            outcome_learner_window=self.config.outcome_learner_window,
             deferred_queue_depth=len(self._deferred_publish_queue),
             iteration=iteration,
             issue_number=issue_number,
