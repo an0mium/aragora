@@ -26,6 +26,9 @@ _MAX_SIMPLE_LOC = 120
 _MAX_SIMPLE_PUBLIC_API = 8
 _MAX_SIMPLE_EXTERNAL_WEIGHT = 2
 _SKIP_SENTINELS = frozenset({"__init__.py", "__main__.py"})
+_SUPPORTED_UPGRADE_CATEGORIES = frozenset(
+    {"test_coverage", "broad_exception", "silent_exception", "type_annotation"}
+)
 _CONCRETE_MOCK_GUIDANCE: dict[str, str] = {
     "httpx": "Patch `httpx` clients or request helpers to return deterministic responses.",
     "requests": "Monkeypatch `requests` calls so tests do not hit the network.",
@@ -272,17 +275,124 @@ def _render_mock_guidance(analysis: _ModuleAnalysis) -> str:
     return "\n".join(f"- {hint}" for hint in analysis.mock_hints[:5])
 
 
+def _render_acceptance_criteria(
+    category: str,
+    *,
+    module_rel: str,
+    validation_command: str,
+    acceptance_criteria: list[str] | None,
+) -> list[str]:
+    normalized = [
+        str(item).strip() for item in list(acceptance_criteria or []) if str(item).strip()
+    ]
+    if normalized:
+        return normalized
+    if category == "broad_exception":
+        return [
+            "Broad exception handlers are narrowed or justified explicitly.",
+            f"`{validation_command}` passes",
+            f"Keep the lane scoped to `{module_rel}`.",
+        ]
+    if category == "silent_exception":
+        return [
+            "Silent exception swallowing is removed or justified explicitly.",
+            f"`{validation_command}` passes",
+            f"Keep the lane scoped to `{module_rel}`.",
+        ]
+    if category == "type_annotation":
+        return [
+            "Public functions and methods have precise return type annotations.",
+            f"`{validation_command}` passes",
+            f"Keep the lane scoped to `{module_rel}`.",
+        ]
+    return [
+        "Tests cover the listed public API directly.",
+        "External dependencies stay mocked or faked.",
+        "The test file runs with a single focused pytest command.",
+        "Keep the lane scoped to this module and its mirrored test file.",
+    ]
+
+
+def _render_non_test_upgrade_body(
+    *,
+    category: str,
+    module_rel: str,
+    analysis: _ModuleAnalysis,
+    validation_command: str,
+    acceptance_criteria: list[str] | None,
+) -> str:
+    task_lines = {
+        "broad_exception": [
+            f"Narrow broad exception handling in `{module_rel}` without changing public behavior.",
+            "Replace `except Exception:` with specific exception types where the failure mode is known.",
+            "If a broad boundary must remain, keep it explicit with `# noqa: BLE001` and a short justification comment.",
+        ],
+        "silent_exception": [
+            f"Replace silent exception swallowing in `{module_rel}` while preserving current behavior.",
+            "Convert `except ...: pass` paths into explicit handling, visible logging, or documented intentional silence.",
+            "Do not broaden scope beyond the current module.",
+        ],
+        "type_annotation": [
+            f"Add precise return type annotations in `{module_rel}` without broadening scope.",
+            "Annotate public functions and methods first, using `None` for no-return paths.",
+            "Avoid unrelated refactors or signature changes outside return annotations.",
+        ],
+    }[category]
+    module_purpose = f"**Module purpose:** {analysis.docstring}\n\n" if analysis.docstring else ""
+    public_api_section = _render_public_api_section(analysis)
+    acceptance_lines = _render_acceptance_criteria(
+        category,
+        module_rel=module_rel,
+        validation_command=validation_command,
+        acceptance_criteria=acceptance_criteria,
+    )
+    async_note = (
+        "- Preserve async call boundaries and await behavior while making this change.\n"
+        if analysis.has_async
+        else ""
+    )
+    return (
+        "## Task\n\n"
+        + "\n".join(f"- {line}" for line in task_lines)
+        + "\n\n"
+        + module_purpose
+        + "### Public API / behavior to preserve\n"
+        + f"{public_api_section}\n\n"
+        + "### File Scope\n"
+        + f"- `{module_rel}`\n\n"
+        + "### Validation\n"
+        + "```bash\n"
+        + f"{validation_command}\n"
+        + "```\n\n"
+        + "### Acceptance Criteria\n"
+        + "\n".join(f"- {criterion}" for criterion in acceptance_lines)
+        + "\n\n"
+        + "### Constraints\n"
+        + f"- Estimated complexity: {analysis.complexity}\n"
+        + async_note
+        + "- Keep the change limited to the current module.\n"
+        + "- Do not broaden into decomposition or cross-module planning."
+    )
+
+
 def upgrade_issue_heuristic(
     title: str,
     body: str,
     *,
     repo_root: Path,
+    category: str = "test_coverage",
+    validation_command: str = "",
+    acceptance_criteria: list[str] | None = None,
+    new_files: list[str] | None = None,
 ) -> UpgradedIssue | None:
     """Upgrade an issue using deterministic heuristic module analysis.
 
     This prototype is intentionally narrow: only trivial/simple modules with a
     useful public API are upgraded.
     """
+    if category not in _SUPPORTED_UPGRADE_CATEGORIES:
+        return None
+
     module_rel = _primary_module_path(body)
     if not module_rel:
         return None
@@ -306,42 +416,63 @@ def upgrade_issue_heuristic(
     if analysis.external_imports and len(analysis.mock_hints) < len(analysis.external_imports):
         return None
 
-    test_rel = _generated_test_path(module_rel)
-    public_api_section = _render_public_api_section(analysis)
-    module_purpose = f"**Module purpose:** {analysis.docstring}\n\n" if analysis.docstring else ""
-    async_note = (
-        "\n### Async handling\n- Use `pytest.mark.asyncio` for async entrypoints or wrap them with `asyncio.run()` in focused unit tests.\n"
-        if analysis.has_async
-        else ""
-    )
-    upgraded_body = (
-        "## Task\n\n"
-        f"Add focused unit tests for `{module_rel}`.\n\n"
-        f"{module_purpose}"
-        "### Public API to cover\n"
-        f"{public_api_section}\n\n"
-        "### Mock guidance\n"
-        f"{_render_mock_guidance(analysis)}\n"
-        f"{async_note}"
-        "### File Scope\n"
-        f"- `{module_rel}`\n"
-        f"- `{test_rel}` (create)\n\n"
-        "### Validation\n"
-        "```bash\n"
-        f"pytest {test_rel} -q\n"
-        "```\n\n"
-        "### Acceptance Criteria\n"
-        "- Tests cover the listed public API directly.\n"
-        "- External dependencies stay mocked or faked.\n"
-        "- The test file runs with a single focused pytest command.\n"
-        "- Keep the lane scoped to this module and its mirrored test file.\n\n"
-        "### Constraints\n"
-        f"- Estimated complexity: {analysis.complexity}\n"
-        "- Do not broaden into decomposition or cross-module planning."
-    )
-
-    parts = Path(module_rel).parts
-    upgraded_title = f"Add unit tests for {'/'.join(parts[1:])}" if len(parts) > 1 else title
+    if category == "test_coverage":
+        test_rel = (
+            str(new_files[0]).strip()
+            if list(new_files or []) and str(list(new_files or [])[0]).strip()
+            else _generated_test_path(module_rel)
+        )
+        public_api_section = _render_public_api_section(analysis)
+        module_purpose = (
+            f"**Module purpose:** {analysis.docstring}\n\n" if analysis.docstring else ""
+        )
+        async_note = (
+            "\n### Async handling\n- Use `pytest.mark.asyncio` for async entrypoints or wrap them with `asyncio.run()` in focused unit tests.\n"
+            if analysis.has_async
+            else ""
+        )
+        validation_text = validation_command or f"pytest {test_rel} -q"
+        acceptance_lines = _render_acceptance_criteria(
+            category,
+            module_rel=module_rel,
+            validation_command=validation_text,
+            acceptance_criteria=acceptance_criteria,
+        )
+        upgraded_body = (
+            "## Task\n\n"
+            f"Add focused unit tests for `{module_rel}`.\n\n"
+            f"{module_purpose}"
+            "### Public API to cover\n"
+            f"{public_api_section}\n\n"
+            "### Mock guidance\n"
+            f"{_render_mock_guidance(analysis)}\n"
+            f"{async_note}"
+            "### File Scope\n"
+            f"- `{module_rel}`\n"
+            f"- `{test_rel}` (create)\n\n"
+            "### Validation\n"
+            "```bash\n"
+            f"{validation_text}\n"
+            "```\n\n"
+            "### Acceptance Criteria\n"
+            + "\n".join(f"- {criterion}" for criterion in acceptance_lines)
+            + "\n\n"
+            + "### Constraints\n"
+            + f"- Estimated complexity: {analysis.complexity}\n"
+            + "- Do not broaden into decomposition or cross-module planning."
+        )
+        parts = Path(module_rel).parts
+        upgraded_title = f"Add unit tests for {'/'.join(parts[1:])}" if len(parts) > 1 else title
+    else:
+        validation_text = validation_command or f"ruff check {module_rel}"
+        upgraded_body = _render_non_test_upgrade_body(
+            category=category,
+            module_rel=module_rel,
+            analysis=analysis,
+            validation_command=validation_text,
+            acceptance_criteria=acceptance_criteria,
+        )
+        upgraded_title = title
 
     return UpgradedIssue(
         original_title=title,

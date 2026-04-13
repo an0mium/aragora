@@ -42,6 +42,9 @@ _OPEN_PR_PAGE_SIZE = 100
 _OPEN_PR_MAX_PAGES = 10
 _OPEN_PR_FILES_PAGE_SIZE = 100
 _OPEN_PR_FILES_MAX_PAGES = 10
+_UPGRADEABLE_CATEGORIES = frozenset(
+    {"test_coverage", "broad_exception", "silent_exception", "type_annotation"}
+)
 
 
 @dataclass(slots=True)
@@ -60,16 +63,19 @@ class DecompositionTelemetry:
 def format_boss_ready_body(candidate: BossIssueCandidate) -> str:
     """Format a candidate into the proven boss-ready issue body.
 
-    For test_coverage candidates, uses the issue upgrader to generate
-    concrete, module-aware issue bodies instead of generic templates.
+    For supported categories, use the issue upgrader to generate concrete,
+    module-aware issue bodies instead of the generic template.
     """
-    # Try to upgrade test_coverage issues with module-specific guidance
-    if candidate.category == "test_coverage":
+    if candidate.category in _UPGRADEABLE_CATEGORIES:
         upgraded = upgrade_issue_heuristic(
             candidate.title,
             f"## Task\n\n{candidate.description}\n\n### File Scope\n"
             + "\n".join(f"- `{f}`" for f in candidate.file_scope),
             repo_root=REPO_ROOT,
+            category=candidate.category,
+            validation_command=candidate.validation_command,
+            acceptance_criteria=list(candidate.acceptance_criteria),
+            new_files=list(candidate.new_files),
         )
         if upgraded:
             body = upgraded.upgraded_body

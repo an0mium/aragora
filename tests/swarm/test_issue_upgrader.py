@@ -27,6 +27,25 @@ def _upgrade(repo_root: Path, rel: str) -> UpgradedIssue | None:
     return upgrade_issue_heuristic(f"Add tests for {Path(rel).name}", body, repo_root=repo_root)
 
 
+def _upgrade_category(
+    repo_root: Path,
+    rel: str,
+    *,
+    category: str,
+    validation_command: str | None = None,
+    acceptance_criteria: list[str] | None = None,
+) -> UpgradedIssue | None:
+    body = f"Focus on `{rel}` with bounded scope."
+    return upgrade_issue_heuristic(
+        f"Upgrade {Path(rel).name}",
+        body,
+        repo_root=repo_root,
+        category=category,
+        validation_command=validation_command or f"ruff check {rel}",
+        acceptance_criteria=acceptance_criteria or [f"`ruff check {rel}` passes"],
+    )
+
+
 class TestUpgradeAdmission:
     def test_upgrades_trivial_public_function_module(self, repo_root: Path) -> None:
         _write_module(
@@ -336,3 +355,73 @@ class TestOutputShape:
 
         assert result is not None
         assert "PublicTool" in result.upgraded_body
+
+    @pytest.mark.parametrize(
+        ("category", "expected_snippet"),
+        [
+            ("broad_exception", "Narrow broad exception handling"),
+            ("silent_exception", "Replace silent exception swallowing"),
+            ("type_annotation", "Add precise return type annotations"),
+        ],
+    )
+    def test_non_test_categories_get_module_aware_upgrade_body(
+        self,
+        repo_root: Path,
+        category: str,
+        expected_snippet: str,
+    ) -> None:
+        rel = "aragora/swarm/non_test_upgrade.py"
+        _write_module(
+            repo_root,
+            rel,
+            '"""Preserve user-visible behavior."""\n\n'
+            "def normalize_name(value: str) -> str:\n"
+            "    return value.strip().lower()\n",
+        )
+
+        result = _upgrade_category(
+            repo_root,
+            rel,
+            category=category,
+            acceptance_criteria=["Keep behavior stable", "ruff stays green"],
+        )
+
+        assert result is not None
+        assert expected_snippet in result.upgraded_body
+        assert "### Public API / behavior to preserve" in result.upgraded_body
+        assert "`normalize_name()`" in result.upgraded_body
+        assert f"ruff check {rel}" in result.upgraded_body
+        assert f"- `{rel}`" in result.upgraded_body
+        assert "tests/swarm/test_non_test_upgrade.py" not in result.upgraded_body
+
+    @pytest.mark.parametrize(
+        "category",
+        ["broad_exception", "silent_exception", "type_annotation"],
+    )
+    def test_non_test_categories_skip_medium_modules(self, repo_root: Path, category: str) -> None:
+        body_lines = ['"""Module with too much surface."""', ""]
+        for idx in range(10):
+            body_lines.extend(
+                [
+                    f"def public_fn_{idx}(value: int) -> int:",
+                    f"    return value + {idx}",
+                    "",
+                ]
+            )
+        rel = "aragora/swarm/medium_non_test.py"
+        _write_module(repo_root, rel, "\n".join(body_lines))
+
+        assert _upgrade_category(repo_root, rel, category=category) is None
+
+    def test_non_test_category_output_is_stable(self, repo_root: Path) -> None:
+        rel = "aragora/swarm/stable_type_annotations.py"
+        _write_module(
+            repo_root,
+            rel,
+            "def normalize() -> str:\n    return 'ok'\n",
+        )
+
+        first = _upgrade_category(repo_root, rel, category="type_annotation")
+        second = _upgrade_category(repo_root, rel, category="type_annotation")
+
+        assert first == second

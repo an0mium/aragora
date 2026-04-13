@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -19,6 +20,24 @@ def _candidate(name: str, *, file_scope: list[str]) -> BossIssueCandidate:
         new_files=[f"tests/test_{name}.py"],
         validation_command=f"pytest tests/test_{name}.py -v",
         acceptance_criteria=["All tests pass"],
+    )
+
+
+def _category_candidate(category: str, *, rel: str) -> BossIssueCandidate:
+    validation_command = (
+        f"pytest tests/test_{Path(rel).stem}.py -v"
+        if category == "test_coverage"
+        else f"ruff check {rel}"
+    )
+    new_files = [f"tests/test_{Path(rel).stem}.py"] if category == "test_coverage" else []
+    return BossIssueCandidate(
+        category=category,
+        title=f"Candidate for {category}",
+        description=f"Improve `{rel}` in a bounded way.",
+        file_scope=[rel],
+        new_files=new_files,
+        validation_command=validation_command,
+        acceptance_criteria=[f"`{validation_command}` passes"],
     )
 
 
@@ -166,6 +185,48 @@ def test_main_passes_explicit_min_success_rate(monkeypatch, capsys) -> None:
     _ = capsys.readouterr()
     assert scan_calls
     assert scan_calls[0][2] == 0.5
+
+
+@pytest.mark.parametrize(
+    "category",
+    ["test_coverage", "broad_exception", "silent_exception", "type_annotation"],
+)
+def test_format_boss_ready_body_uses_upgrader_for_supported_categories(
+    monkeypatch,
+    category: str,
+) -> None:
+    candidate = _category_candidate(category, rel="aragora/swarm/example_module.py")
+    calls: list[dict[str, object]] = []
+
+    def _upgrade(title, body, **kwargs):  # noqa: ANN001
+        calls.append({"title": title, "body": body, **kwargs})
+        return SimpleNamespace(upgraded_body="## Task\n\nUpgraded body")
+
+    monkeypatch.setattr(mod, "upgrade_issue_heuristic", _upgrade)
+
+    body = mod.format_boss_ready_body(candidate)
+
+    assert body.startswith("## Task\n\nUpgraded body")
+    assert f"<!-- fingerprint:{candidate.fingerprint} -->" in body
+    assert calls[0]["category"] == category
+    assert calls[0]["validation_command"] == candidate.validation_command
+    assert calls[0]["acceptance_criteria"] == candidate.acceptance_criteria
+    assert calls[0]["new_files"] == candidate.new_files
+
+
+def test_format_boss_ready_body_falls_back_when_non_test_upgrade_is_unavailable(
+    monkeypatch,
+) -> None:
+    candidate = _category_candidate("type_annotation", rel="aragora/swarm/example_module.py")
+    monkeypatch.setattr(mod, "upgrade_issue_heuristic", lambda *args, **kwargs: None)
+
+    body = mod.format_boss_ready_body(candidate)
+
+    assert candidate.description in body
+    assert "### File Scope" in body
+    assert "`aragora/swarm/example_module.py`" in body
+    assert candidate.validation_command in body
+    assert f"<!-- fingerprint:{candidate.fingerprint} -->" in body
 
 
 def test_maybe_decompose_candidates_noop_when_disabled(monkeypatch) -> None:
