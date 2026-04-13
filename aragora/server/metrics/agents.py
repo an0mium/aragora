@@ -44,15 +44,27 @@ AGENT_TOKENS = Counter(
 
 
 def track_agent_call(
-    agent: str, latency: float, tokens_in: int, tokens_out: int, success: bool
+    agent: str,
+    latency: float,
+    tokens_in: int,
+    tokens_out: int,
+    success: bool,
+    *,
+    request_counter: Counter = AGENT_REQUESTS,
+    latency_histogram: Histogram = AGENT_LATENCY,
+    token_counter: Counter = AGENT_TOKENS,
 ) -> None:
-    """Track an agent API call."""
+    """Track an agent API call.
+
+    Optional metric arguments allow focused unit tests to pass fakes without
+    mutating module-level collectors.
+    """
     status = _STATUS_SUCCESS if success else _STATUS_ERROR
 
-    AGENT_REQUESTS.inc(agent=agent, status=status)
-    AGENT_LATENCY.observe(latency, agent=agent)
-    AGENT_TOKENS.inc(tokens_in, agent=agent, direction=_TOKEN_DIRECTION_INPUT)
-    AGENT_TOKENS.inc(tokens_out, agent=agent, direction=_TOKEN_DIRECTION_OUTPUT)
+    request_counter.inc(agent=agent, status=status)
+    latency_histogram.observe(latency, agent=agent)
+    token_counter.inc(tokens_in, agent=agent, direction=_TOKEN_DIRECTION_INPUT)
+    token_counter.inc(tokens_out, agent=agent, direction=_TOKEN_DIRECTION_OUTPUT)
 
 
 __all__ = [
