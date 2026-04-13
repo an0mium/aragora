@@ -53,8 +53,9 @@ def escape_like_pattern(value: str) -> str:
     return value
 
 
-# Alias for backwards compatibility with existing imports
-_escape_like_pattern = escape_like_pattern
+def _escape_like_pattern(value: str) -> str:
+    """Backward-compatible wrapper around ``escape_like_pattern``."""
+    return escape_like_pattern(value)
 
 
 __all__ = ["escape_like_pattern", "_escape_like_pattern"]
