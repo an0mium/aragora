@@ -15,6 +15,27 @@ from typing import Any
 from aragora.nomic.context_builder import NomicContextBuilder
 
 
+_MAX_CONTEXT_BYTES_ENV_VARS = (
+    "ARAGORA_CODEBASE_MAX_CONTEXT_BYTES",
+    "ARAGORA_NOMIC_MAX_CONTEXT_BYTES",
+    "NOMIC_MAX_CONTEXT_BYTES",
+    "ARAGORA_RLM_MAX_CONTEXT_BYTES",
+    "ARAGORA_RLM_MAX_CONTENT_BYTES",
+)
+
+
+def _first_env_value(names: tuple[str, ...]) -> str | None:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    return None
+
+
+def _env_flag(name: str, default: str) -> bool:
+    return os.environ.get(name, default) == "1"
+
+
 class CodebaseContextBuilder(NomicContextBuilder):
     """
     Shared codebase context builder using TRUE RLM + REPL when available.
@@ -31,13 +52,7 @@ class CodebaseContextBuilder(NomicContextBuilder):
         knowledge_mound: Any | None = None,
         full_corpus: bool | None = None,
     ) -> None:
-        env_max = (
-            os.environ.get("ARAGORA_CODEBASE_MAX_CONTEXT_BYTES")
-            or os.environ.get("ARAGORA_NOMIC_MAX_CONTEXT_BYTES")
-            or os.environ.get("NOMIC_MAX_CONTEXT_BYTES")
-            or os.environ.get("ARAGORA_RLM_MAX_CONTEXT_BYTES")
-            or os.environ.get("ARAGORA_RLM_MAX_CONTENT_BYTES")
-        )
+        env_max = _first_env_value(_MAX_CONTEXT_BYTES_ENV_VARS)
         if max_context_bytes == 0 and env_max:
             try:
                 max_context_bytes = int(env_max)
@@ -45,11 +60,11 @@ class CodebaseContextBuilder(NomicContextBuilder):
                 max_context_bytes = 0
 
         if include_tests is None:
-            include_tests = os.environ.get("ARAGORA_CODEBASE_INCLUDE_TESTS", "1") == "1"
+            include_tests = _env_flag("ARAGORA_CODEBASE_INCLUDE_TESTS", "1")
 
         if full_corpus is None:
             # Default to off outside Nomic to avoid heavy LLM calls unless explicitly enabled.
-            full_corpus = os.environ.get("ARAGORA_CODEBASE_RLM_FULL_CORPUS", "0") == "1"
+            full_corpus = _env_flag("ARAGORA_CODEBASE_RLM_FULL_CORPUS", "0")
 
         super().__init__(
             aragora_path=root_path,
