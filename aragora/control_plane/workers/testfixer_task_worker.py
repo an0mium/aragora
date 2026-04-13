@@ -20,41 +20,54 @@ class TestFixerTaskWorker:
         self._worker_id = worker_id
         self._running = False
 
-    async def start(self) -> None:
+    @property
+    def _scheduler_bridge(self) -> Any:
+        return self._integration._coordinator._scheduler_bridge
+
+    def _create_handler(self) -> TestFixerControlPlane:
+        return TestFixerControlPlane(self._integration)
+
+    async def start(self, *, run_once: bool = False) -> None:
         self._running = True
         logger.info("TestFixer task worker started")
         while self._running:
-            task = await self._integration._coordinator._scheduler_bridge.claim_task(
+            task = await self._scheduler_bridge.claim_task(
                 agent_id=self._worker_id,
                 capabilities=["testfixer"],
                 block_ms=2000,
             )
             if not task:
                 await asyncio.sleep(0.5)
+                if run_once:
+                    self._running = False
                 continue
             if task.task_type != TESTFIXER_TASK_TYPE:
                 # Release non-testfixer tasks
-                await self._integration._coordinator._scheduler_bridge.fail_task(
+                await self._scheduler_bridge.fail_task(
                     task.id,
                     "Unsupported task type",
                     agent_id=self._worker_id,
                     requeue=True,
                 )
+                if run_once:
+                    self._running = False
                 continue
             await self._handle_task(task)
+            if run_once:
+                self._running = False
 
     async def stop(self) -> None:
         self._running = False
 
     async def _handle_task(self, task: Any) -> None:
-        handler = TestFixerControlPlane(self._integration)
+        handler = self._create_handler()
         try:
             result = await handler.execute(task.payload)
-            await self._integration._coordinator._scheduler_bridge.complete_task(
+            await self._scheduler_bridge.complete_task(
                 task.id, result=result, agent_id=self._worker_id
             )
         except (RuntimeError, ValueError, OSError, ConnectionError, TimeoutError) as exc:
             logger.error("TestFixer task %s failed: %s", task.id, exc)
-            await self._integration._coordinator._scheduler_bridge.fail_task(
+            await self._scheduler_bridge.fail_task(
                 task.id, error=str(exc), agent_id=self._worker_id
             )
