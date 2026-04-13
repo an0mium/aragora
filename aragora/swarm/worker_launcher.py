@@ -28,6 +28,7 @@ from aragora.security.capability_gate import (
     ensure_capability_approval_id,
 )
 from aragora.swarm.env_utils import git_safe_env
+from aragora.swarm.session_state import SessionState
 from aragora.swarm.worker_contract import build_worker_contract
 from aragora.swarm.worker_process import (
     DEFAULT_VERIFICATION_TIMEOUT_SECONDS,
@@ -1037,6 +1038,18 @@ class WorkerLauncher:
         return "\n".join(lines).strip()
 
     @staticmethod
+    def _format_session_resume_context(value: Any) -> str:
+        if isinstance(value, SessionState):
+            return value.resume_context()
+        if not isinstance(value, dict):
+            return ""
+        try:
+            state = SessionState.from_dict(value)
+        except ValueError:
+            return ""
+        return state.resume_context()
+
+    @staticmethod
     def _build_prompt(work_order: dict[str, Any]) -> str:
         """Build the task prompt from a work order dict.
 
@@ -1061,6 +1074,12 @@ class WorkerLauncher:
         repair_notes = WorkerLauncher._format_repair_journal(metadata.get("repair_journal"))
         if repair_notes:
             parts.append("## What was tried before (and why it failed)\n\n" + repair_notes)
+
+        resume_context = WorkerLauncher._format_session_resume_context(
+            metadata.get("session_state") or work_order.get("session_state")
+        )
+        if resume_context:
+            parts.append("## Resume context\n\n" + resume_context)
 
         # --- Section 3: Code context (the bulk of the prompt) ---
         enriched_context = work_order.get("_enriched_context", "")

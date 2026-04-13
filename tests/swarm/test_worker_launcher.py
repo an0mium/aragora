@@ -11,6 +11,7 @@ import pytest
 
 from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.swarm.env_utils import git_safe_env
+from aragora.swarm.session_state import SessionState
 from aragora.swarm.worker_launcher import (
     LaunchConfig,
     WorkerLauncher,
@@ -146,6 +147,29 @@ class TestBuildPrompt:
         assert "failing verification" in prompt
         assert "python -m pytest tests/foo.py -q" in prompt
         assert "worker_crash" in prompt
+
+    def test_session_resume_context_included(self):
+        state = SessionState(
+            session_id="resume-prompt",
+            phase="repair",
+            resume_hint="pick up after the failing verify step",
+        )
+        state.record_attempt(
+            1,
+            ["aragora/swarm/session_state.py"],
+            "AssertionError: expected blocker evidence",
+            "needs_human",
+        )
+        prompt = WorkerLauncher._build_prompt(
+            {
+                "title": "Resume retry",
+                "metadata": {"session_state": state.to_dict()},
+            }
+        )
+
+        assert "## Resume context" in prompt
+        assert "pick up after the failing verify step" in prompt
+        assert "AssertionError: expected blocker evidence" in prompt
 
     def test_codex_prompt_includes_lane_closure_guidance(self):
         prompt = WorkerLauncher._build_prompt(

@@ -19,6 +19,10 @@ def _optional_text(value: Any) -> str | None:
     return text or None
 
 
+def _coerce_phase(value: Any) -> str:
+    return str(value or "").strip() or "explore"
+
+
 def _coerce_datetime(value: Any) -> datetime:
     if isinstance(value, datetime):
         return (
@@ -50,11 +54,28 @@ def _sanitize_session_id(session_id: str) -> str:
     return cleaned
 
 
+def _coerce_dict_list(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    items: list[dict[str, Any]] = []
+    for item in value:
+        if isinstance(item, Mapping):
+            items.append(dict(item))
+    return items
+
+
+def _coerce_path_list(value: Any) -> list[str]:
+    if not isinstance(value, (list, tuple, set)):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
 @dataclass(slots=True)
 class SessionState:
     """Durable local session metadata for future retry/repair orchestration."""
 
     session_id: str
+    phase: str = "explore"
     status: str = "created"
     issue_number: int | None = None
     target_agent: str | None = None
@@ -64,12 +85,15 @@ class SessionState:
     pr_url: str | None = None
     resume_hint: str | None = None
     retry_count: int = 0
+    attempts: list[dict[str, Any]] = field(default_factory=list)
+    repair_journal: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=_utcnow)
     updated_at: datetime = field(default_factory=_utcnow)
 
     def __post_init__(self) -> None:
         self.session_id = _sanitize_session_id(self.session_id)
+        self.phase = _coerce_phase(self.phase)
         self.status = str(self.status or "created").strip() or "created"
         self.issue_number = _coerce_issue_number(self.issue_number)
         self.target_agent = _optional_text(self.target_agent)
@@ -79,6 +103,8 @@ class SessionState:
         self.pr_url = _optional_text(self.pr_url)
         self.resume_hint = _optional_text(self.resume_hint)
         self.retry_count = max(0, int(self.retry_count or 0))
+        self.attempts = _coerce_dict_list(self.attempts)
+        self.repair_journal = _coerce_dict_list(self.repair_journal)
         self.created_at = _coerce_datetime(self.created_at)
         self.updated_at = _coerce_datetime(self.updated_at)
         self.metadata = dict(self.metadata or {})
@@ -89,6 +115,7 @@ class SessionState:
     def to_dict(self) -> dict[str, Any]:
         return {
             "session_id": self.session_id,
+            "phase": self.phase,
             "status": self.status,
             "issue_number": self.issue_number,
             "target_agent": self.target_agent,
@@ -98,6 +125,8 @@ class SessionState:
             "pr_url": self.pr_url,
             "resume_hint": self.resume_hint,
             "retry_count": self.retry_count,
+            "attempts": [dict(item) for item in self.attempts],
+            "repair_journal": [dict(item) for item in self.repair_journal],
             "metadata": dict(self.metadata),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
@@ -108,6 +137,7 @@ class SessionState:
         data = dict(payload or {})
         return cls(
             session_id=str(data.get("session_id", "")).strip(),
+            phase=data.get("phase", "explore"),
             status=data.get("status", "created"),
             issue_number=data.get("issue_number"),
             target_agent=data.get("target_agent"),
@@ -117,10 +147,80 @@ class SessionState:
             pr_url=data.get("pr_url"),
             resume_hint=data.get("resume_hint"),
             retry_count=data.get("retry_count", 0),
+            attempts=_coerce_dict_list(data.get("attempts")),
+            repair_journal=_coerce_dict_list(data.get("repair_journal")),
             metadata=dict(data.get("metadata") or {}),
             created_at=_coerce_datetime(data.get("created_at")),
             updated_at=_coerce_datetime(data.get("updated_at")),
         )
+
+    def record_attempt(
+        self,
+        exit_code: int | None,
+        changed_files: list[str] | tuple[str, ...] | set[str] | None,
+        test_output: str | None,
+        worker_outcome: str | None,
+    ) -> dict[str, Any]:
+        attempt = {
+            "at": _utcnow().isoformat(),
+            "exit_code": int(exit_code) if exit_code is not None else None,
+            "changed_files": _coerce_path_list(changed_files),
+            "test_output": _optional_text(test_output),
+            "worker_outcome": _optional_text(worker_outcome),
+        }
+        self.attempts.append(attempt)
+        self.retry_count = max(self.retry_count, len(self.attempts))
+        self.touch()
+        return dict(attempt)
+
+    def last_attempt(self) -> dict[str, Any] | None:
+        if not self.attempts:
+            return None
+        return dict(self.attempts[-1])
+
+    def should_resume(self) -> bool:
+        last = self.last_attempt()
+        if last is not None:
+            if last.get("changed_files"):
+                return True
+            if _optional_text(last.get("test_output")):
+                return True
+            if _optional_text(last.get("worker_outcome")) not in {None, "completed"}:
+                return True
+        return bool(self.repair_journal) or self.phase not in {"explore", "plan"}
+
+    def resume_context(self) -> str:
+        if not self.should_resume():
+            return ""
+
+        lines = [f"Resume from phase: {self.phase}"]
+        if self.resume_hint:
+            lines.append(f"Resume hint: {self.resume_hint}")
+
+        if self.attempts:
+            lines.append("Prior attempts:")
+            for index, attempt in enumerate(
+                self.attempts[-3:], start=max(1, len(self.attempts) - 2)
+            ):
+                summary: list[str] = []
+                exit_code = attempt.get("exit_code")
+                if exit_code is not None:
+                    summary.append(f"exit={exit_code}")
+                worker_outcome = _optional_text(attempt.get("worker_outcome"))
+                if worker_outcome:
+                    summary.append(worker_outcome)
+                changed = _coerce_path_list(attempt.get("changed_files"))
+                if changed:
+                    summary.append(f"changed={', '.join(changed[:5])}")
+                lines.append(f"- Attempt {index}: {', '.join(summary) if summary else 'recorded'}")
+                test_output = _optional_text(attempt.get("test_output"))
+                if test_output:
+                    lines.append(f"  Test output: {test_output[-240:]}")
+
+        if self.repair_journal:
+            lines.append(f"Repair journal entries available: {len(self.repair_journal)}")
+
+        return "\n".join(lines).strip()
 
 
 class SessionStateStore:
