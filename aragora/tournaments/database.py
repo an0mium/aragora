@@ -24,10 +24,14 @@ class TournamentDatabase(SQLiteStore):
             conn.execute("INSERT INTO ...")
 
         # Convenience methods
-        row = db.fetch_one("SELECT * FROM tournaments WHERE id = ?", ("123",))
+        row = db.fetch_one(
+            "SELECT * FROM tournaments WHERE tournament_id = ?",
+            ("123",),
+        )
         rows = db.fetch_all("SELECT * FROM tournaments ORDER BY created_at DESC")
     """
 
+    DEFAULT_DB_PATH = "aragora_tournaments.db"
     SCHEMA_NAME = "tournaments"
     SCHEMA_VERSION = 1
 
@@ -57,6 +61,6 @@ class TournamentDatabase(SQLiteStore):
         );
     """
 
-    def __init__(self, db_path: str = "aragora_tournaments.db"):
+    def __init__(self, db_path: str = DEFAULT_DB_PATH):
         """Initialize tournament database."""
         super().__init__(resolve_db_path(db_path), timeout=DB_TIMEOUT_SECONDS)
