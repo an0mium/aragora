@@ -3280,9 +3280,8 @@ async def test_dispatch_issue_sanitizer_failure_skips_contract_gate() -> None:
 
     with (
         patch("aragora.swarm.boss_loop.subprocess.run", side_effect=_run),
-        patch.object(
-            loop,
-            "_dispatch_contract_preview_env",
+        patch(
+            "aragora.swarm.dispatch_contract_gate._preview_env",
             side_effect=AssertionError("contract gate should not run after sanitation failure"),
         ),
     ):
@@ -3307,9 +3306,8 @@ async def test_dispatch_issue_contract_gate_allows_complete_cli_dispatch() -> No
             "aragora.swarm.prompt_refiner.refine_worker_prompt",
             new=AsyncMock(side_effect=RuntimeError("skip refinement")),
         ),
-        patch.object(
-            loop,
-            "_dispatch_contract_preview_env",
+        patch(
+            "aragora.swarm.dispatch_contract_gate._preview_env",
             return_value=(
                 "codex",
                 {
@@ -3352,9 +3350,8 @@ async def test_dispatch_issue_contract_gate_blocks_missing_publish_auth_slices()
             "aragora.swarm.prompt_refiner.refine_worker_prompt",
             new=AsyncMock(side_effect=RuntimeError("skip refinement")),
         ),
-        patch.object(
-            loop,
-            "_dispatch_contract_preview_env",
+        patch(
+            "aragora.swarm.dispatch_contract_gate._preview_env",
             return_value=(
                 "codex",
                 {
@@ -3365,7 +3362,7 @@ async def test_dispatch_issue_contract_gate_blocks_missing_publish_auth_slices()
                 },
             ),
         ),
-        patch.object(loop, "_github_cli_authenticated", return_value=False),
+        patch("aragora.swarm.dispatch_contract_gate._github_cli_authenticated", return_value=False),
         patch(
             "aragora.swarm.boss_loop.dispatch_bounded_spec",
             new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
@@ -3396,9 +3393,8 @@ async def test_dispatch_issue_contract_gate_blocks_missing_provider_for_api_agen
             "aragora.swarm.prompt_refiner.refine_worker_prompt",
             new=AsyncMock(side_effect=RuntimeError("skip refinement")),
         ),
-        patch.object(
-            loop,
-            "_dispatch_contract_preview_env",
+        patch(
+            "aragora.swarm.dispatch_contract_gate._preview_env",
             return_value=(
                 "openai-api",
                 {
