@@ -121,21 +121,22 @@ tmux pipe-pane -t "${TMUX_SESSION}:${NAME}" -o "cat >> '${LOG_FILE}'"
 # Send the launch command
 tmux send-keys -t "${TMUX_SESSION}:${NAME}" "${LAUNCH_CMD}" Enter
 
-# Write metadata
-python3 -c "
-import json, datetime
+# Write metadata (avoid embedding prompt content in Python literal)
+python3 - "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" <<'PYEOF'
+import json, datetime, sys
+name, agent, log_file, repo_root, prompt_file, meta_file, has_prompt = sys.argv[1:8]
 meta = {
-    'name': '${NAME}',
-    'agent': '${AGENT}',
-    'started': datetime.datetime.now().isoformat(),
-    'log_file': '${LOG_FILE}',
-    'repo_root': '${REPO_ROOT}',
-    'prompt_file': '${PROMPT_FILE}' or None,
-    'has_prompt': bool('${PROMPT}'),
+    "name": name,
+    "agent": agent,
+    "started": datetime.datetime.now().isoformat(),
+    "log_file": log_file,
+    "repo_root": repo_root,
+    "prompt_file": prompt_file or None,
+    "has_prompt": bool(has_prompt),
 }
-with open('${META_FILE}', 'w') as f:
+with open(meta_file, "w") as f:
     json.dump(meta, f, indent=2)
-"
+PYEOF
 
 echo "Launched '${NAME}' (${AGENT}) in tmux session '${TMUX_SESSION}'"
 echo "  Log: ${LOG_FILE}"
