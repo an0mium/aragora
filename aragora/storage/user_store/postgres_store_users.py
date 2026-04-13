@@ -213,9 +213,10 @@ class UserOperationsMixin:
         """Update multiple users asynchronously."""
         count = 0
         for update in updates:
-            user_id = update.pop("user_id", None) or update.pop("id", None)
-            if user_id and update:
-                if await self.update_user_async(user_id, **update):
+            update_fields = dict(update)
+            user_id = update_fields.pop("user_id", None) or update_fields.pop("id", None)
+            if user_id and update_fields:
+                if await self.update_user_async(user_id, **update_fields):
                     count += 1
         return count
 
