@@ -359,6 +359,30 @@ class TestUtilityMethods:
         ids = {handler._generate_file_id() for _ in range(100)}
         assert len(ids) == 100
 
+    def test_validate_file_id_accepts_generated_and_legacy_safe_ids(self, handler):
+        for file_id in ("file_del", "file_berr", "nonexistent", handler._generate_file_id()):
+            valid, err = handler._validate_file_id(file_id)
+            assert valid is True
+            assert err == ""
+
+    def test_validate_file_id_rejects_malformed_or_traversal_ids(self, handler):
+        for file_id in ("", "../etc/passwd", "file bad", "file/segment", ".hidden"):
+            valid, err = handler._validate_file_id(file_id)
+            assert valid is False
+            assert err == "Invalid file ID"
+
+    def test_validate_bucket_id_accepts_default_generated_and_legacy_safe_ids(self, handler):
+        for bucket_id in ("default", "b123", "b_del", handler._generate_bucket_id()):
+            valid, err = handler._validate_bucket_id(bucket_id)
+            assert valid is True
+            assert err == ""
+
+    def test_validate_bucket_id_rejects_malformed_or_traversal_ids(self, handler):
+        for bucket_id in ("", "../etc/passwd", "bucket bad", "bucket/segment", ".hidden"):
+            valid, err = handler._validate_bucket_id(bucket_id)
+            assert valid is False
+            assert err == "Invalid bucket ID"
+
     def test_generate_bucket_id(self, handler):
         bid = handler._generate_bucket_id()
         assert bid.startswith("bucket_")

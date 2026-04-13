@@ -83,8 +83,14 @@ CLOUD_STORAGE_CB_COOLDOWN_SECONDS = 30
 # Safe filename pattern
 SAFE_FILENAME_PATTERN = re.compile(r"^[\w\-. ]+$")
 SAFE_BUCKET_PATTERN = re.compile(r"^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$")
-SAFE_FILE_ID_PATTERN = re.compile(r"^file_[0-9a-f]{16}$")
-SAFE_BUCKET_ID_PATTERN = re.compile(r"^(?:default|bucket_[0-9a-f]{12})$")
+# Accept current generated IDs (`file_<hex>`) and older safe slug IDs used in
+# tests and existing in-memory metadata. Route handlers still reject traversal
+# and malformed path segments because only simple URL-safe slugs are allowed.
+SAFE_FILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+# Bucket IDs are internal route keys, not bucket names. Accept the current
+# generated IDs and older safe slug IDs while still rejecting traversal and
+# malformed path segments.
+SAFE_BUCKET_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 
 
 class StorageProvider(str, Enum):
@@ -666,7 +672,7 @@ class CloudStorageHandler(BaseHandler):
                 parts = path.split("/")
                 # Path: /api/v2/storage/files/:file_id/presign -> ["", "api", "v2", "storage", "files", file_id, "presign"]
                 if len(parts) != 7:
-                    return error_response("Invalid file path", 400)
+                    return None
 
                 file_id = parts[5]
                 valid_file_id, file_id_error = self._validate_file_id(file_id)
@@ -677,7 +683,7 @@ class CloudStorageHandler(BaseHandler):
                 if parts[6] == "presign":
                     return await self._generate_presigned_url(file_id, body, handler)
 
-                return error_response("Invalid file path", 400)
+                return None
 
             return None
 
