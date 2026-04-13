@@ -12,6 +12,7 @@ It is intentionally standalone for now and is not wired into ``boss_loop.py``.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -141,6 +142,7 @@ def _git_common_dir(repo_root: Path) -> Path | None:
 class ConductorStep:
     issue_number: int
     session_id: str
+    result_identity: str
     worker_output: str
     terminal_class: TerminalClass
     changed_files: list[str]
@@ -151,6 +153,7 @@ class ConductorStep:
         return {
             "issue_number": self.issue_number,
             "session_id": self.session_id,
+            "result_identity": self.result_identity,
             "worker_output": self.worker_output,
             "terminal_class": self.terminal_class.value,
             "changed_files": list(self.changed_files),
@@ -163,6 +166,7 @@ class ConductorStep:
         return cls(
             issue_number=int(data.get("issue_number", 0) or 0),
             session_id=_text(data.get("session_id")) or "unknown-session",
+            result_identity=_text(data.get("result_identity")),
             worker_output=_text(data.get("worker_output")),
             terminal_class=TerminalClass(_text(data.get("terminal_class"))),
             changed_files=[
@@ -180,11 +184,16 @@ class SessionStateStore:
         self.repo_root = Path(repo_root).resolve()
         git_common = _git_common_dir(self.repo_root)
         self.storage_dir = (
-            git_common / "aragora_conductor"
+            git_common / "aragora_conductor" / self._worktree_namespace(self.repo_root)
             if git_common is not None
             else self.repo_root / ".aragora_conductor"
         )
         self.storage_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def _worktree_namespace(repo_root: Path) -> str:
+        digest = hashlib.sha256(str(repo_root).encode("utf-8")).hexdigest()[:12]
+        return f"worktree-{digest}"
 
     def _issue_path(self, issue_number: int) -> Path:
         return self.storage_dir / f"issue-{int(issue_number)}.json"
@@ -243,6 +252,16 @@ class Conductor:
         changed_files = self._extract_changed_files(worker_result)
         terminal_class = self._classify_terminal(worker_result, worker_output, changed_files)
         session_id = self._extract_session_id(issue_number, worker_result, history)
+        result_identity = self._result_identity(
+            worker_result=worker_result,
+            session_id=session_id,
+            worker_output=worker_output,
+            terminal_class=terminal_class,
+            changed_files=changed_files,
+        )
+        existing_step = self._existing_step(history, result_identity)
+        if existing_step is not None:
+            return existing_step
         failure_reason = self._failure_reason(worker_result, worker_output, terminal_class)
 
         if self._is_done(worker_result, worker_output, terminal_class):
@@ -288,6 +307,7 @@ class Conductor:
         step = ConductorStep(
             issue_number=issue_number,
             session_id=session_id,
+            result_identity=result_identity,
             worker_output=worker_output,
             terminal_class=terminal_class,
             changed_files=changed_files,
@@ -296,6 +316,15 @@ class Conductor:
         )
         self._session_store.append_step(step)
         return step
+
+    @staticmethod
+    def _existing_step(history: list[ConductorStep], result_identity: str) -> ConductorStep | None:
+        if not result_identity:
+            return None
+        for step in reversed(history):
+            if step.result_identity == result_identity:
+                return step
+        return None
 
     def generate_retry_prompt(
         self, issue_number: int, prior_output: str, failure_reason: str
@@ -354,6 +383,74 @@ class Conductor:
         if history:
             return history[-1].session_id
         return f"issue-{issue_number}"
+
+    @classmethod
+    def _result_identity(
+        cls,
+        *,
+        worker_result: dict[str, Any],
+        session_id: str,
+        worker_output: str,
+        terminal_class: TerminalClass,
+        changed_files: list[str],
+    ) -> str:
+        for key in ("receipt_id", "run_id"):
+            value = _text(worker_result.get(key))
+            if value:
+                return f"{key}:{value}"
+
+        normalized = {
+            "session_id": session_id,
+            "status": _text(worker_result.get("status")).lower(),
+            "outcome": _text(worker_result.get("outcome")).lower(),
+            "terminal_class": terminal_class.value,
+            "worker_output": worker_output,
+            "changed_files": list(changed_files),
+            "failure_reason": _text(worker_result.get("failure_reason")),
+            "blocked_reason": _text(worker_result.get("blocked_reason")),
+            "publish_action": _text(
+                worker_result.get("publish_action")
+                or ((worker_result.get("publish_result") or {}).get("action"))
+            ).lower(),
+            "deliverable": (
+                dict(worker_result.get("deliverable"))
+                if isinstance(worker_result.get("deliverable"), dict)
+                else None
+            ),
+            "reasons": [
+                _text(item) for item in list(worker_result.get("reasons", []) or []) if _text(item)
+            ],
+            "run": cls._result_identity_run(worker_result.get("run")),
+        }
+        payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+        return f"fingerprint:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
+
+    @staticmethod
+    def _result_identity_run(run_dict: Any) -> list[dict[str, Any]]:
+        if not isinstance(run_dict, dict):
+            return []
+        normalized: list[dict[str, Any]] = []
+        for work_order in list(run_dict.get("work_orders", []) or []):
+            if not isinstance(work_order, dict):
+                continue
+            normalized.append(
+                {
+                    "worker_outcome": _text(work_order.get("worker_outcome")).lower(),
+                    "stdout_tail": _text(work_order.get("stdout_tail")),
+                    "stderr_tail": _text(work_order.get("stderr_tail")),
+                    "transcript": _text(work_order.get("transcript")),
+                    "log_tail": _text(work_order.get("log_tail")),
+                    "failure_reason": _text(work_order.get("failure_reason")),
+                    "blocking_question": _text(work_order.get("blocking_question")),
+                    "dispatch_error": _text(work_order.get("dispatch_error")),
+                    "changed_paths": [
+                        _text(item)
+                        for item in list(work_order.get("changed_paths", []) or [])
+                        if _text(item)
+                    ],
+                }
+            )
+        return normalized
 
     @staticmethod
     def _extract_worker_output(worker_result: dict[str, Any]) -> str:

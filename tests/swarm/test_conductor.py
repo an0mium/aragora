@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import aragora.swarm.conductor as conductor_module
 from aragora.swarm.conductor import Conductor, ConductorStep
 from aragora.swarm.terminal_truth import TerminalClass
 
@@ -9,6 +10,8 @@ from aragora.swarm.terminal_truth import TerminalClass
 def _result(
     *,
     session_id: str | None = "sess-1",
+    run_id: str | None = None,
+    receipt_id: str | None = None,
     status: str = "needs_human",
     outcome: str = "",
     terminal_class: TerminalClass | str | None = None,
@@ -38,6 +41,10 @@ def _result(
     }
     if session_id is not None:
         result["session_id"] = session_id
+    if run_id is not None:
+        result["run_id"] = run_id
+    if receipt_id is not None:
+        result["receipt_id"] = receipt_id
     if terminal_class is not None:
         result["terminal_class"] = (
             terminal_class.value if isinstance(terminal_class, TerminalClass) else terminal_class
@@ -243,6 +250,55 @@ def test_no_deliverable_retries_different_agent_after_prior_history(tmp_path: Pa
     assert second.next_action == "retry_different_agent"
 
 
+def test_duplicate_receipt_replay_is_idempotent(tmp_path: Path) -> None:
+    conductor = Conductor(tmp_path)
+    worker_result = _result(
+        receipt_id="receipt-121",
+        terminal_class=TerminalClass.RESCUE_NO_DELIVERABLE,
+        worker_output="Tried one approach but produced no deliverable.",
+    )
+
+    first = conductor.evaluate_worker_output(121, worker_result)
+    second = conductor.evaluate_worker_output(121, dict(worker_result))
+
+    steps = conductor._session_store.load_steps(121)
+
+    assert first.next_action == "retry_same"
+    assert second.next_action == "retry_same"
+    assert first.result_identity == "receipt_id:receipt-121"
+    assert second.result_identity == first.result_identity
+    assert len(steps) == 1
+
+
+def test_distinct_receipts_in_same_session_create_new_attempts(tmp_path: Path) -> None:
+    conductor = Conductor(tmp_path)
+
+    first = conductor.evaluate_worker_output(
+        122,
+        _result(
+            session_id="session-shared",
+            receipt_id="receipt-122-a",
+            terminal_class=TerminalClass.RESCUE_NO_DELIVERABLE,
+            worker_output="First attempt produced no deliverable.",
+        ),
+    )
+    second = conductor.evaluate_worker_output(
+        122,
+        _result(
+            session_id="session-shared",
+            receipt_id="receipt-122-b",
+            terminal_class=TerminalClass.RESCUE_NO_DELIVERABLE,
+            worker_output="Second attempt still produced no deliverable.",
+        ),
+    )
+
+    steps = conductor._session_store.load_steps(122)
+
+    assert first.next_action == "retry_same"
+    assert second.next_action == "retry_different_agent"
+    assert len(steps) == 2
+
+
 def test_generate_retry_prompt_includes_required_sections(tmp_path: Path) -> None:
     conductor = Conductor(tmp_path)
 
@@ -306,6 +362,35 @@ def test_session_persistence_round_trips_across_instances(tmp_path: Path) -> Non
     assert len(steps) == 1
     assert steps[0].terminal_class == TerminalClass.RESCUE_TIMEOUT
     assert restored._session_store.latest_session_id(115) == "sess-1"
+
+
+def test_worktree_history_is_isolated_under_shared_git_common_dir(
+    tmp_path: Path, monkeypatch
+) -> None:
+    common_dir = tmp_path / "git-common"
+    common_dir.mkdir()
+    repo_a = tmp_path / "repo-a"
+    repo_b = tmp_path / "repo-b"
+    repo_a.mkdir()
+    repo_b.mkdir()
+
+    monkeypatch.setattr(conductor_module, "_git_common_dir", lambda _: common_dir)
+
+    conductor_a = Conductor(repo_a)
+    conductor_b = Conductor(repo_b)
+
+    conductor_a.evaluate_worker_output(
+        123,
+        _result(
+            receipt_id="receipt-123-a",
+            terminal_class=TerminalClass.RESCUE_TIMEOUT,
+            worker_output="worker timed out",
+        ),
+    )
+
+    assert conductor_a._session_store.storage_dir != conductor_b._session_store.storage_dir
+    assert len(conductor_a._session_store.load_steps(123)) == 1
+    assert conductor_b._session_store.load_steps(123) == []
 
 
 def test_explicit_terminal_class_string_is_respected(tmp_path: Path) -> None:
