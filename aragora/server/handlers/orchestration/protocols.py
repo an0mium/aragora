@@ -7,10 +7,11 @@ email, and Knowledge Mound connectors.
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 from collections.abc import Callable
 
 
+@runtime_checkable
 class ConfluenceConnectorProtocol(Protocol):
     """Protocol for Confluence connector with page content fetching."""
 
@@ -19,6 +20,7 @@ class ConfluenceConnectorProtocol(Protocol):
         ...
 
 
+@runtime_checkable
 class GitHubConnectorProtocol(Protocol):
     """Protocol for GitHub connector with PR/issue content fetching."""
 
@@ -31,6 +33,7 @@ class GitHubConnectorProtocol(Protocol):
         ...
 
 
+@runtime_checkable
 class JiraConnectorProtocol(Protocol):
     """Protocol for Jira connector with issue fetching."""
 
@@ -39,6 +42,7 @@ class JiraConnectorProtocol(Protocol):
         ...
 
 
+@runtime_checkable
 class EmailSenderProtocol(Protocol):
     """Protocol for email sending function."""
 
@@ -47,6 +51,7 @@ class EmailSenderProtocol(Protocol):
         ...
 
 
+@runtime_checkable
 class KnowledgeMoundProtocol(Protocol):
     """Protocol for Knowledge Mound search interface."""
 
@@ -56,4 +61,4 @@ class KnowledgeMoundProtocol(Protocol):
 
 
 # Type alias for recommend_agents function
-RecommendAgentsFunc = Callable[[str], "Any"]
+RecommendAgentsFunc = Callable[[str], Any]
