@@ -561,7 +561,7 @@ def run_scratch_validation_receipt(
     started_at = _utc_now()
     branch = _validation_branch_name("scratch", now=started_at)
     worktree_path = _validation_worktree_path(resolved_repo_root, branch)
-    artifacts = {
+    artifacts: dict[str, Any] = {
         "branch": branch,
         "worktree_path": str(worktree_path),
         "draft_pr_number": None,
@@ -654,7 +654,7 @@ def run_remote_publish_validation_receipt(
     started_at = _utc_now()
     branch = _validation_branch_name("remote_publish", now=started_at)
     worktree_path = _validation_worktree_path(resolved_repo_root, branch)
-    artifacts = {
+    artifacts: dict[str, Any] = {
         "branch": branch,
         "worktree_path": str(worktree_path),
         "draft_pr_number": None,
