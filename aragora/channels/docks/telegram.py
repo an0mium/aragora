@@ -178,6 +178,11 @@ class TelegramDock(ChannelDock):
                             platform=self.PLATFORM,
                             channel_id=channel_id,
                         )
+                    return SendResult.fail(
+                        error=data_resp.get("description", "Unknown Telegram error"),
+                        platform=self.PLATFORM,
+                        channel_id=channel_id,
+                    )
 
                 return SendResult.fail(
                     error=f"HTTP {response.status_code}",
