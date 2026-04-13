@@ -17,10 +17,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import os
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 from aragora.gauntlet.receipt_models import _normalize_receipt_boolean
@@ -376,8 +378,112 @@ _AGENT_CONFIGS = [
 ]
 
 
+def _build_builtin_demo_result(topic: str) -> Any:
+    """Return a synthetic debate result when aragora-debate is unavailable."""
+    agent_names = [name for name, _ in _AGENT_CONFIGS]
+    final_answer = (
+        "Proceed with a phased rollout, explicit success metrics, and a defined "
+        "rollback trigger before scaling the change."
+    )
+    proposals = {
+        "Analyst": "Start with a narrow pilot so you learn before taking on system-wide risk.",
+        "Critic": "Avoid a broad rollout until you can quantify operational cost and rollback criteria.",
+        "Synthesizer": "Combine a limited pilot with measurable guardrails and a written review checkpoint.",
+        "Devil's Advocate": "Assume the first plan is wrong and add a hard stop if evidence turns against it.",
+    }
+    critiques = [
+        SimpleNamespace(
+            agent="Critic",
+            target_agent="Analyst",
+            issues=[
+                "The proposal needs an explicit rollback trigger.",
+                "Success metrics should be measurable before rollout.",
+            ],
+            content=(
+                "- The proposal needs an explicit rollback trigger.\n"
+                "- Success metrics should be measurable before rollout."
+            ),
+        ),
+        SimpleNamespace(
+            agent="Devil's Advocate",
+            target_agent="Synthesizer",
+            issues=[
+                "The plan still needs a concrete failure threshold.",
+                "A staged rollout should name the first validation gate.",
+            ],
+            content=(
+                "- The plan still needs a concrete failure threshold.\n"
+                "- A staged rollout should name the first validation gate."
+            ),
+        ),
+    ]
+    votes = [
+        SimpleNamespace(agent="Analyst", choice="Synthesizer", confidence=0.76),
+        SimpleNamespace(agent="Critic", choice="Synthesizer", confidence=0.72),
+        SimpleNamespace(agent="Synthesizer", choice="Synthesizer", confidence=0.81),
+        SimpleNamespace(agent="Devil's Advocate", choice="Synthesizer", confidence=0.68),
+    ]
+    messages = [
+        *[
+            SimpleNamespace(round=1, role="proposer", agent=name, content=proposal)
+            for name, proposal in proposals.items()
+        ],
+        *[
+            SimpleNamespace(round=1, role="critic", agent=critique.agent, content=critique.content)
+            for critique in critiques
+        ],
+        *[
+            SimpleNamespace(round=2, role="voter", agent=vote.agent, content=vote.choice)
+            for vote in votes
+        ],
+    ]
+    digest = hashlib.sha256(f"{topic}\n{final_answer}".encode("utf-8")).hexdigest()
+    consensus = SimpleNamespace(
+        reached=True,
+        method=SimpleNamespace(value="majority"),
+        confidence=0.74,
+        supporting_agents=agent_names,
+        dissenting_agents=[],
+    )
+    receipt = SimpleNamespace(
+        receipt_id=f"DR-MOCK-{digest[:8].upper()}",
+        signature=digest,
+        signature_algorithm="SHA-256-content-hash",
+        consensus=consensus,
+    )
+    return SimpleNamespace(
+        task=topic,
+        final_answer=final_answer,
+        confidence=0.74,
+        consensus=consensus,
+        consensus_reached=True,
+        verdict=SimpleNamespace(value="consensus"),
+        rounds_used=2,
+        participants=agent_names,
+        proposals=proposals,
+        critiques=critiques,
+        votes=votes,
+        messages=messages,
+        dissenting_views=[],
+        receipt=receipt,
+    )
+
+
 async def _run_demo_debate(topic: str) -> tuple[DebateResult, float]:
     """Run a demo debate and return (result, elapsed_seconds)."""
+    if not HAS_ARAGORA_DEBATE or StyledMockAgent is None or Arena is None or DebateConfig is None:
+        agent_names = [name for name, _ in _AGENT_CONFIGS]
+        _print_banner(topic, agent_names)
+        print()
+        print("  Note: Built-in mock fallback (aragora-debate package unavailable)")
+        print()
+        result = _build_builtin_demo_result(topic)
+        elapsed = 0.0
+        _print_result(result, elapsed)
+        receipt_file = _save_demo_receipt(result, elapsed, "aragora-demo-receipt.json")
+        _print_receipt_summary(result, elapsed, receipt_file)
+        return cast(Any, result), elapsed
+
     agents = [
         StyledMockAgent(name, style=style)  # type: ignore[arg-type]
         for name, style in _AGENT_CONFIGS
@@ -637,35 +743,10 @@ def _run_mock_demo(args: argparse.Namespace) -> None:
         topic = getattr(args, "topic", None) or DEMO_TASKS.get(
             getattr(args, "name", None) or _DEFAULT_DEMO, {}
         ).get("topic", "Should we adopt microservices?")
-        mock_agents = ["Analyst", "Critic", "Synthesizer"]
-        _print_banner(topic, mock_agents)
-        print()
-        print("  Running in offline mode (no aragora-debate package).")
-        print("  Set OPENROUTER_API_KEY for real AI debates.")
-        print()
-        print("  [Mock] Analyst: Considers multiple perspectives...")
-        print("  [Mock] Critic: Identifies potential issues...")
-        print("  [Mock] Synthesizer: Finds common ground...")
-        print()
-        print("=" * 64)
-        print("  DECISION SUMMARY")
-        print("=" * 64)
-        print()
-        print("  Verdict:    Consensus Reached (mock)")
-        print("  Confidence: 75%")
-        print("  Rounds:     2")
-        print("  Duration:   0.00s")
-        print()
-        print("  WINNING POSITION:")
-        print("  " + "-" * 40)
-        print("    Mock agents converged on a stable offline demonstration result.")
-        print()
-        print("  DECISION RECEIPT:")
-        print("  " + "-" * 40)
-        print("    ID:        DR-MOCK-DEMO")
-        print("    Integrity: offline-demo")
-        print("    Mode:      Offline")
-        print()
+        result, elapsed = asyncio.run(_run_demo_debate(topic))
+        receipt_path = getattr(args, "receipt", None)
+        if receipt_path:
+            _save_demo_receipt(result, elapsed, receipt_path)
         return
 
     # Use existing aragora-debate based logic
