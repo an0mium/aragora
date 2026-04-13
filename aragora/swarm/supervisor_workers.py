@@ -31,6 +31,79 @@ WORKER_TYPE_CIRCUIT_BREAKER_POLICY_KEY = _supervisor.WORKER_TYPE_CIRCUIT_BREAKER
 WorkerOutcome = _supervisor.WorkerOutcome
 _strict_bool = _supervisor._strict_bool
 
+CHAIN_WAVE_SUMMARY_METADATA_KEY = "chain_wave_summary"
+
+
+def _enrich_chain_wave_summary(
+    metadata: dict[str, Any],
+    work_orders: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Attach a ChainExecutor wave summary when work_chain metadata exists."""
+    work_chain_raw = metadata.get("work_chain")
+    if not work_chain_raw or not isinstance(work_chain_raw, dict):
+        return metadata
+
+    try:
+        from aragora.swarm.chain_executor import ChainExecutor, StepOutcome
+        from aragora.swarm.work_chain import ChainStep, StepStatus, WorkChain
+
+        raw_steps = work_chain_raw.get("steps")
+        if not raw_steps or not isinstance(raw_steps, list):
+            return metadata
+
+        steps = [
+            ChainStep(
+                step_id=str(s.get("step_id", "")).strip(),
+                work_order_id=str(s.get("work_order_id", "")).strip(),
+                title=str(s.get("title", "")).strip(),
+                depends_on=list(s.get("depends_on") or []),
+                file_scope=list(s.get("file_scope") or []),
+            )
+            for s in raw_steps
+            if isinstance(s, dict) and str(s.get("step_id", "")).strip()
+        ]
+        if not steps:
+            return metadata
+
+        chain = WorkChain(
+            chain_id=str(work_chain_raw.get("chain_id", "")).strip(),
+            title=str(work_chain_raw.get("title", "")).strip(),
+            steps=steps,
+        )
+        executor = ChainExecutor(chain)
+
+        wo_status_map = {
+            str(item.get("work_order_id", "")).strip(): str(item.get("status", "")).strip()
+            for item in work_orders
+            if isinstance(item, dict)
+        }
+        _success = {"merged", "completed", "salvage"}
+        _failure = {"failed", "timed_out", "scope_violation"}
+        _terminal = _success | _failure | {"discarded"}
+        for step in chain.steps:
+            wo_status = wo_status_map.get(step.work_order_id, "")
+            if wo_status not in _terminal:
+                continue
+            if wo_status in _success:
+                step_status = StepStatus.COMPLETED
+            elif wo_status in _failure:
+                step_status = StepStatus.FAILED
+            else:
+                step_status = StepStatus.SKIPPED
+            executor.record_outcome(
+                StepOutcome(
+                    step_id=step.step_id,
+                    status=step_status,
+                )
+            )
+
+        metadata = dict(metadata)
+        metadata[CHAIN_WAVE_SUMMARY_METADATA_KEY] = executor.summary()
+    except Exception:
+        logger.debug("chain wave summary enrichment failed", exc_info=True)
+
+    return metadata
+
 
 def refresh_run(self, run_id: str) -> SupervisorRun:
     record = self.store.get_supervisor_run(run_id)
@@ -151,17 +224,22 @@ def refresh_run(self, run_id: str) -> SupervisorRun:
                     )
                     continue
 
+    derived_status = self._derive_status(work_orders)
+    final_metadata = self._campaign_metadata(
+        self._worker_type_circuit_breaker_metadata(
+            metadata,
+            worker_type_circuit_breakers,
+        ),
+        work_orders,
+    )
+    if derived_status == "completed":
+        final_metadata = _enrich_chain_wave_summary(final_metadata, work_orders)
+
     refreshed = self.store.update_supervisor_run(
         run_id,
-        status=self._derive_status(work_orders),
+        status=derived_status,
         work_orders=work_orders,
-        metadata=self._campaign_metadata(
-            self._worker_type_circuit_breaker_metadata(
-                metadata,
-                worker_type_circuit_breakers,
-            ),
-            work_orders,
-        ),
+        metadata=final_metadata,
     )
     return SupervisorRun.from_record(refreshed)
 
