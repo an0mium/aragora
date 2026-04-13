@@ -29,6 +29,10 @@ def verify_slack_signature(
     Returns:
         True if signature is valid, False otherwise
     """
+    if not signature or not signing_secret:
+        logger.warning("Missing Slack signature verification inputs")
+        return False
+
     # Check timestamp to prevent replay attacks
     current_time = int(time.time())
     try:
@@ -42,7 +46,13 @@ def verify_slack_signature(
         return False
 
     # Compute expected signature
-    sig_basestring = f"v0:{timestamp}:{body.decode('utf-8')}"
+    try:
+        body_text = body.decode("utf-8")
+    except (AttributeError, UnicodeDecodeError):
+        logger.warning("Invalid Slack request body encoding")
+        return False
+
+    sig_basestring = f"v0:{timestamp}:{body_text}"
     my_signature = (
         "v0="
         + hmac.new(
