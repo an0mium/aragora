@@ -18,7 +18,10 @@ _DOCS_SAFE_FILENAMES = frozenset(
 
 
 def normalize_docs_path(path: Any) -> str:
-    return str(path or "").strip().removeprefix("./").rstrip("/")
+    normalized = str(path or "").strip().replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized.removeprefix("./")
+    return normalized.rstrip("/")
 
 
 def canonical_docs_container_scope(path: Any) -> str | None:
