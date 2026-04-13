@@ -85,7 +85,7 @@ def build_fts_match_query(
 
     if prefix_match:
         words = sanitized.split()
-        return " ".join(f"{word}*" for word in words)
+        return " ".join(f"{word.rstrip('*')}*" for word in words if word)
 
     return sanitized
 
