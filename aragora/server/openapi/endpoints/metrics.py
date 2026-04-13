@@ -31,17 +31,37 @@ METRICS_ENDPOINTS = {
                 "200": _ok_response(
                     "Metrics health",
                     {
-                        "status": {"type": "string", "enum": ["healthy", "degraded", "unhealthy"]},
-                        "collectors": {
+                        "status": {
+                            "type": "string",
+                            "enum": ["healthy", "degraded", "disabled", "unhealthy"],
+                        },
+                        "metrics_enabled": {"type": "boolean"},
+                        "components": {
                             "type": "object",
                             "additionalProperties": {
                                 "type": "object",
                                 "properties": {
                                     "status": {"type": "string"},
-                                    "last_collection": {"type": "string", "format": "date-time"},
+                                    "value": {"type": ["boolean", "number", "string", "null"]},
+                                    "count": {"type": "integer"},
+                                    "error": {"type": "string"},
+                                    "port": {"type": ["integer", "null"]},
+                                    "prefix": {"type": ["string", "null"]},
                                 },
                             },
                         },
+                        "checks": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                    "status": {"type": "string"},
+                                    "error": {"type": "string"},
+                                },
+                            },
+                        },
+                        "issues": {"type": ["array", "null"], "items": {"type": "string"}},
+                        "timestamp": {"type": "string", "format": "date-time"},
                     },
                 )
             },

@@ -295,65 +295,14 @@ class MetricsHandler(BaseHandler):
             return error_response(safe_error_message(e, "get metrics"), 500)
 
     def _get_health(self) -> HandlerResult:
-        """Get detailed health check status."""
+        """Get metrics subsystem health status."""
         try:
-            checks: dict[str, dict[str, Any]] = {}
-            status = "healthy"
+            from aragora.server.handlers.admin.health.metrics_health import (
+                metrics_health as metrics_subsystem_health,
+            )
 
-            # Check storage
-            storage = self.get_storage()
-            if storage:
-                try:
-                    storage.list_debates(limit=1)
-                    checks["storage"] = {"status": "healthy"}
-                except (sqlite3.Error, OSError) as e:
-                    logger.warning("Storage health check failed with database error: %s", e)
-                    checks["storage"] = {"status": "unhealthy", "error": "Health check failed"}
-                    status = "degraded"
-                except (RuntimeError, AttributeError, ValueError) as e:
-                    logger.exception("Unexpected error in storage health check: %s", e)
-                    checks["storage"] = {"status": "unhealthy", "error": "Internal error"}
-                    status = "degraded"
-            else:
-                checks["storage"] = {"status": "unavailable"}
-
-            # Check ELO system
-            elo = self.get_elo_system()
-            if elo:
-                try:
-                    elo.get_leaderboard(limit=1)
-                    checks["elo_system"] = {"status": "healthy"}
-                except (sqlite3.Error, OSError) as e:
-                    logger.warning("ELO system health check failed with database error: %s", e)
-                    checks["elo_system"] = {"status": "unhealthy", "error": "Health check failed"}
-                    status = "degraded"
-                except (RuntimeError, AttributeError, ValueError) as e:
-                    logger.exception("Unexpected error in ELO system health check: %s", e)
-                    checks["elo_system"] = {"status": "unhealthy", "error": "Internal error"}
-                    status = "degraded"
-            else:
-                checks["elo_system"] = {"status": "unavailable"}
-
-            # Check nomic directory
-            nomic_dir = self.get_nomic_dir()
-            if nomic_dir and nomic_dir.exists():
-                checks["nomic_dir"] = {
-                    "status": "healthy",
-                    "path": str(nomic_dir),
-                }
-            else:
-                checks["nomic_dir"] = {"status": "unavailable"}
-
-            health: dict[str, Any] = {
-                "status": status,
-                "checks": checks,
-            }
-
-            # Overall status code
-            status_code = 200 if health["status"] == "healthy" else 503
-
-            return json_response(health, status=status_code)
-        except (RuntimeError, OSError, sqlite3.Error) as e:
+            return metrics_subsystem_health(self)
+        except (ImportError, RuntimeError, OSError, sqlite3.Error, TypeError, ValueError) as e:
             logger.error("Health check failed: %s", e, exc_info=True)
             return error_response(safe_error_message(e, "health check"), 500)
 

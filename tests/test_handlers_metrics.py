@@ -204,63 +204,18 @@ class TestMetricsEndpoint:
 class TestHealthEndpoint:
     """Test /api/metrics/health endpoint."""
 
-    def test_returns_healthy_when_all_ok(self, handler):
-        """Returns healthy status when all components work."""
-        handler.ctx["storage"].list_debates.return_value = []
-        handler.ctx["elo_system"].get_leaderboard.return_value = []
-
+    def test_returns_metrics_health_shape(self, handler):
+        """Returns the metrics-subsystem health contract."""
         result = handler.handle("/api/metrics/health", {}, None)
         data = json.loads(result.body)
 
         assert result.status_code == 200
-        assert data["status"] == "healthy"
-        assert data["checks"]["storage"]["status"] == "healthy"
-        assert data["checks"]["elo_system"]["status"] == "healthy"
-
-    def test_returns_degraded_when_storage_fails(self, handler):
-        """Returns degraded status when storage check fails."""
-        handler.ctx["storage"].list_debates.side_effect = sqlite3.Error("DB error")
-        handler.ctx["elo_system"].get_leaderboard.return_value = []
-
-        result = handler.handle("/api/metrics/health", {}, None)
-        data = json.loads(result.body)
-
-        assert result.status_code == 503
-        assert data["status"] == "degraded"
-        assert data["checks"]["storage"]["status"] == "unhealthy"
-
-    def test_returns_degraded_when_elo_fails(self, handler):
-        """Returns degraded status when ELO check fails."""
-        handler.ctx["storage"].list_debates.return_value = []
-        handler.ctx["elo_system"].get_leaderboard.side_effect = sqlite3.Error("ELO error")
-
-        result = handler.handle("/api/metrics/health", {}, None)
-        data = json.loads(result.body)
-
-        assert result.status_code == 503
-        assert data["status"] == "degraded"
-        assert data["checks"]["elo_system"]["status"] == "unhealthy"
-
-    def test_handles_unavailable_components(self, handler_no_components):
-        """Handles missing storage/elo gracefully."""
-        result = handler_no_components.handle("/api/metrics/health", {}, None)
-        data = json.loads(result.body)
-
-        assert result.status_code == 200
-        assert data["checks"]["storage"]["status"] == "unavailable"
-        assert data["checks"]["elo_system"]["status"] == "unavailable"
-        assert data["checks"]["nomic_dir"]["status"] == "unavailable"
-
-    def test_checks_nomic_dir(self, handler, tmp_path):
-        """Reports nomic_dir status correctly."""
-        handler.ctx["storage"].list_debates.return_value = []
-        handler.ctx["elo_system"].get_leaderboard.return_value = []
-
-        result = handler.handle("/api/metrics/health", {}, None)
-        data = json.loads(result.body)
-
-        assert data["checks"]["nomic_dir"]["status"] == "healthy"
-        assert data["checks"]["nomic_dir"]["path"] == str(tmp_path)
+        assert data["status"] in {"healthy", "degraded", "disabled"}
+        assert "metrics_enabled" in data
+        assert "components" in data
+        assert "checks" in data
+        assert "enabled" in data["components"]
+        assert data["checks"]["enabled"]["status"] in {"healthy", "unavailable", "unhealthy"}
 
 
 class TestCacheEndpoint:

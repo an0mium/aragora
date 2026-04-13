@@ -417,66 +417,47 @@ class TestHealthEndpoint:
         assert result is not None
         assert result.status_code == 200
         body = result[0]
-        assert body["status"] == "healthy"
+        assert body["status"] in {"healthy", "degraded", "disabled"}
+        assert "metrics_enabled" in body
+        assert "components" in body
         assert "checks" in body
 
-    def test_storage_check_present(self, handler_with_full_ctx, mock_http_handler):
+    def test_enabled_check_present(self, handler_with_full_ctx, mock_http_handler):
         result = handler_with_full_ctx.handle("/api/metrics/health", {}, mock_http_handler)
         body = result[0]
-        assert "storage" in body["checks"]
-        assert body["checks"]["storage"]["status"] == "healthy"
+        assert "enabled" in body["checks"]
+        assert body["checks"]["enabled"]["status"] in {"healthy", "unavailable", "unhealthy"}
 
-    def test_elo_system_check_present(self, handler_with_full_ctx, mock_http_handler):
+    def test_prometheus_check_present(self, handler_with_full_ctx, mock_http_handler):
         result = handler_with_full_ctx.handle("/api/metrics/health", {}, mock_http_handler)
         body = result[0]
-        assert "elo_system" in body["checks"]
-        assert body["checks"]["elo_system"]["status"] == "healthy"
+        assert "prometheus_available" in body["checks"]
+        assert body["checks"]["prometheus_available"]["status"] in {
+            "healthy",
+            "unavailable",
+            "unhealthy",
+        }
 
-    def test_nomic_dir_check_present(self, handler_with_full_ctx, mock_http_handler):
+    def test_collectors_check_present(self, handler_with_full_ctx, mock_http_handler):
         result = handler_with_full_ctx.handle("/api/metrics/health", {}, mock_http_handler)
         body = result[0]
-        assert "nomic_dir" in body["checks"]
-        assert body["checks"]["nomic_dir"]["status"] == "healthy"
+        assert "collectors" in body["checks"]
+        assert body["checks"]["collectors"]["status"] in {"healthy", "unavailable", "unhealthy"}
 
-    def test_unavailable_subsystems(self, handler, mock_http_handler):
-        """When no subsystems are configured, they show as unavailable."""
+    def test_compatibility_checks_alias_present(self, handler, mock_http_handler):
+        """The endpoint keeps the legacy checks alias for dashboard consumers."""
         result = handler.handle("/api/metrics/health", {}, mock_http_handler)
         assert result is not None
         body = result[0]
         assert "checks" in body
-        assert body["checks"]["storage"]["status"] == "unavailable"
-        assert body["checks"]["elo_system"]["status"] == "unavailable"
-        assert body["checks"]["nomic_dir"]["status"] == "unavailable"
-
-    def test_degraded_on_storage_error(self, mock_http_handler, tmp_path):
-        """When storage health check fails, status is degraded with 503."""
-        import sqlite3
-
-        mock_storage = MagicMock()
-        mock_storage.list_debates.side_effect = sqlite3.Error("db locked")
-        h = MetricsHandler(ctx={"storage": mock_storage})
-        result = h.handle("/api/metrics/health", {}, mock_http_handler)
-        assert result is not None
-        assert result.status_code == 503
-        body = result[0]
-        assert body["status"] == "degraded"
-        assert body["checks"]["storage"]["status"] == "unhealthy"
-
-    def test_degraded_on_elo_error(self, mock_http_handler):
-        """When ELO health check fails, status is degraded."""
-        import sqlite3
-
-        mock_elo = MagicMock()
-        mock_elo.get_leaderboard.side_effect = sqlite3.Error("corrupt")
-        h = MetricsHandler(ctx={"elo_system": mock_elo})
-        result = h.handle("/api/metrics/health", {}, mock_http_handler)
-        body = result[0]
-        assert body["status"] == "degraded"
-        assert body["checks"]["elo_system"]["status"] == "unhealthy"
+        assert "enabled" in body["checks"]
 
     def test_health_internal_error_returns_500(self, handler, mock_http_handler):
         """If the entire health check method fails, return 500."""
-        with patch.object(handler, "get_storage", side_effect=RuntimeError("boom")):
+        with patch(
+            "aragora.server.handlers.admin.health.metrics_health.metrics_health",
+            side_effect=RuntimeError("boom"),
+        ):
             result = handler.handle("/api/metrics/health", {}, mock_http_handler)
             assert result is not None
             assert result.status_code == 500

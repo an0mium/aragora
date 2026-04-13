@@ -2,7 +2,8 @@
 Metrics subsystem health check.
 
 Provides:
-- /api/v1/health/metrics - Observability metrics subsystem health
+- /api/metrics/health - Observability metrics subsystem health
+- /api/v1/metrics/health - Observability metrics subsystem health
 """
 
 from __future__ import annotations
@@ -14,6 +15,22 @@ from typing import Any
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
+
+_CHECK_STATUS_MAP = {
+    "ok": "healthy",
+    "error": "unhealthy",
+    "unavailable": "unavailable",
+}
+
+
+def _component_check(component: dict[str, Any]) -> dict[str, Any]:
+    """Adapt component details to the legacy dashboard check shape."""
+    check: dict[str, Any] = {
+        "status": _CHECK_STATUS_MAP.get(str(component.get("status", "")), "unavailable")
+    }
+    if "error" in component:
+        check["error"] = component["error"]
+    return check
 
 
 def metrics_health(handler: Any) -> HandlerResult:
@@ -110,13 +127,19 @@ def metrics_health(handler: Any) -> HandlerResult:
     else:
         status = "healthy"
 
+    checks = {
+        component_name: _component_check(component_data)
+        for component_name, component_data in components.items()
+    }
+
     return json_response(
         {
             "status": status,
             "metrics_enabled": metrics_enabled,
             "components": components,
+            "checks": checks,
             "issues": issues if issues else None,
-            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         },
         status=200,
     )

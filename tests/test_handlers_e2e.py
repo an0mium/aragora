@@ -1297,25 +1297,27 @@ class TestMetricsHandlerE2E:
         data = json.loads(result.body)
 
         assert "status" in data
-        assert data["status"] in ("healthy", "degraded", "unhealthy")
+        assert data["status"] in ("healthy", "degraded", "disabled", "unhealthy")
+        assert "metrics_enabled" in data
+        assert "components" in data
         assert "checks" in data
         assert isinstance(data["checks"], dict)
 
-    def test_health_checks_storage(self, metrics_handler):
-        """Test health check includes storage status."""
+    def test_health_checks_enabled(self, metrics_handler):
+        """Test health check includes metrics enabled status."""
         result = metrics_handler.handle("/api/metrics/health", {}, None)
         data = json.loads(result.body)
 
-        assert "storage" in data["checks"]
-        assert "status" in data["checks"]["storage"]
+        assert "enabled" in data["checks"]
+        assert "status" in data["checks"]["enabled"]
 
-    def test_health_checks_elo(self, metrics_handler):
-        """Test health check includes ELO system status."""
+    def test_health_checks_prometheus(self, metrics_handler):
+        """Test health check includes Prometheus availability status."""
         result = metrics_handler.handle("/api/metrics/health", {}, None)
         data = json.loads(result.body)
 
-        assert "elo_system" in data["checks"]
-        assert "status" in data["checks"]["elo_system"]
+        assert "prometheus_available" in data["checks"]
+        assert "status" in data["checks"]["prometheus_available"]
 
     def test_cache_stats_structure(self, metrics_handler):
         """Test /api/metrics/cache returns correct structure."""

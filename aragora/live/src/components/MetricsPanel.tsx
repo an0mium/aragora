@@ -23,7 +23,7 @@ interface MetricsData {
 }
 
 interface HealthData {
-  status: 'healthy' | 'degraded' | 'unhealthy';
+  status: 'healthy' | 'degraded' | 'disabled' | 'unhealthy';
   checks: Record<string, { status: string; error?: string; path?: string }>;
 }
 

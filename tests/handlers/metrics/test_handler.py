@@ -499,106 +499,55 @@ class TestGetMetrics:
 class TestGetHealth:
     """Test GET /api/metrics/health."""
 
-    def test_healthy_when_all_checks_pass(self, mock_http):
-        storage = MagicMock()
-        storage.list_debates.return_value = []
-        elo = MagicMock()
-        elo.get_leaderboard.return_value = []
-        nomic_dir = MagicMock(spec=Path)
-        nomic_dir.exists.return_value = True
-        nomic_dir.__str__ = lambda self: "/tmp/nomic"
-
-        h = MetricsHandler(ctx={"storage": storage, "elo_system": elo, "nomic_dir": nomic_dir})
+    def test_returns_metrics_subsystem_shape(self, mock_http):
+        h = MetricsHandler(ctx={})
         result = h.handle("/api/metrics/health", {}, mock_http)
         body = _body(result)
         assert _status(result) == 200
-        assert body["status"] == "healthy"
-        assert body["checks"]["storage"]["status"] == "healthy"
-        assert body["checks"]["elo_system"]["status"] == "healthy"
-        assert body["checks"]["nomic_dir"]["status"] == "healthy"
+        assert body["status"] in {"healthy", "degraded", "disabled"}
+        assert "metrics_enabled" in body
+        assert "components" in body
+        assert "checks" in body
+        assert "enabled" in body["components"]
+        assert "enabled" in body["checks"]
 
-    def test_storage_unavailable(self, mock_http):
+    def test_disabled_when_metrics_are_disabled(self, mock_http):
         h = MetricsHandler(ctx={})
-        result = h.handle("/api/metrics/health", {}, mock_http)
+        with patch(
+            "aragora.observability.metrics.base.get_metrics_enabled",
+            return_value=False,
+        ):
+            result = h.handle("/api/metrics/health", {}, mock_http)
         body = _body(result)
-        assert body["checks"]["storage"]["status"] == "unavailable"
+        assert _status(result) == 200
+        assert body["status"] == "disabled"
+        assert body["checks"]["enabled"]["status"] == "healthy"
 
-    def test_storage_unhealthy_sqlite_error(self, mock_http):
-        storage = MagicMock()
-        storage.list_debates.side_effect = sqlite3.Error("db error")
-        h = MetricsHandler(ctx={"storage": storage})
-        result = h.handle("/api/metrics/health", {}, mock_http)
+    def test_degraded_when_metrics_enabled_not_initialized(self, mock_http):
+        h = MetricsHandler(ctx={})
+        with (
+            patch(
+                "aragora.observability.metrics.base.get_metrics_enabled",
+                return_value=True,
+            ),
+            patch(
+                "aragora.observability.metrics.core.is_initialized",
+                return_value=False,
+            ),
+        ):
+            result = h.handle("/api/metrics/health", {}, mock_http)
         body = _body(result)
-        assert body["checks"]["storage"]["status"] == "unhealthy"
+        assert _status(result) == 200
         assert body["status"] == "degraded"
-
-    def test_storage_unhealthy_runtime_error(self, mock_http):
-        storage = MagicMock()
-        storage.list_debates.side_effect = RuntimeError("unexpected")
-        h = MetricsHandler(ctx={"storage": storage})
-        result = h.handle("/api/metrics/health", {}, mock_http)
-        body = _body(result)
-        assert body["checks"]["storage"]["status"] == "unhealthy"
-        assert body["checks"]["storage"]["error"] == "Internal error"
-
-    def test_elo_unavailable(self, mock_http):
-        h = MetricsHandler(ctx={})
-        result = h.handle("/api/metrics/health", {}, mock_http)
-        body = _body(result)
-        assert body["checks"]["elo_system"]["status"] == "unavailable"
-
-    def test_elo_unhealthy_sqlite_error(self, mock_http):
-        elo = MagicMock()
-        elo.get_leaderboard.side_effect = sqlite3.Error("elo error")
-        h = MetricsHandler(ctx={"elo_system": elo})
-        result = h.handle("/api/metrics/health", {}, mock_http)
-        body = _body(result)
-        assert body["checks"]["elo_system"]["status"] == "unhealthy"
-        assert body["status"] == "degraded"
-
-    def test_elo_unhealthy_runtime_error(self, mock_http):
-        elo = MagicMock()
-        elo.get_leaderboard.side_effect = ValueError("bad elo")
-        h = MetricsHandler(ctx={"elo_system": elo})
-        result = h.handle("/api/metrics/health", {}, mock_http)
-        body = _body(result)
-        assert body["checks"]["elo_system"]["status"] == "unhealthy"
-        assert body["checks"]["elo_system"]["error"] == "Internal error"
-
-    def test_nomic_dir_unavailable(self, mock_http):
-        h = MetricsHandler(ctx={})
-        result = h.handle("/api/metrics/health", {}, mock_http)
-        body = _body(result)
-        assert body["checks"]["nomic_dir"]["status"] == "unavailable"
-
-    def test_nomic_dir_exists(self, mock_http):
-        nomic_dir = MagicMock(spec=Path)
-        nomic_dir.exists.return_value = True
-        nomic_dir.__str__ = lambda self: "/tmp/nomic"
-        h = MetricsHandler(ctx={"nomic_dir": nomic_dir})
-        result = h.handle("/api/metrics/health", {}, mock_http)
-        body = _body(result)
-        assert body["checks"]["nomic_dir"]["status"] == "healthy"
-
-    def test_nomic_dir_does_not_exist(self, mock_http):
-        nomic_dir = MagicMock(spec=Path)
-        nomic_dir.exists.return_value = False
-        h = MetricsHandler(ctx={"nomic_dir": nomic_dir})
-        result = h.handle("/api/metrics/health", {}, mock_http)
-        body = _body(result)
-        assert body["checks"]["nomic_dir"]["status"] == "unavailable"
-
-    def test_degraded_returns_503(self, mock_http):
-        storage = MagicMock()
-        storage.list_debates.side_effect = sqlite3.Error("err")
-        h = MetricsHandler(ctx={"storage": storage})
-        result = h.handle("/api/metrics/health", {}, mock_http)
-        assert _status(result) == 503
-        assert _body(result)["status"] == "degraded"
+        assert body["checks"]["initialized"]["status"] == "healthy"
+        assert "metrics enabled but not initialized" in (body.get("issues") or [])
 
     def test_exception_returns_500(self, mock_http):
         h = MetricsHandler(ctx={})
-        with patch.object(h, "get_storage", side_effect=RuntimeError("fatal")):
+        with patch(
+            "aragora.server.handlers.admin.health.metrics_health.metrics_health",
+            side_effect=RuntimeError("fatal"),
+        ):
             result = h.handle("/api/metrics/health", {}, mock_http)
             assert _status(result) == 500
 
