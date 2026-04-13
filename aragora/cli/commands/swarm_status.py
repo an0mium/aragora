@@ -20,18 +20,32 @@ def _optional_text(value: object) -> str | None:
 def _optional_int(value: object) -> int | None:
     if value is None or value == "":
         return None
-    try:
+    if isinstance(value, bool):
         return int(value)
-    except (TypeError, ValueError):
+    if isinstance(value, int):
+        return value
+    text = _optional_text(value)
+    if text is None:
+        return None
+    try:
+        return int(text)
+    except ValueError:
         return None
 
 
 def _optional_float(value: object) -> float | None:
     if value is None or value == "":
         return None
-    try:
+    if isinstance(value, bool):
         return float(value)
-    except (TypeError, ValueError):
+    if isinstance(value, int | float):
+        return float(value)
+    text = _optional_text(value)
+    if text is None:
+        return None
+    try:
+        return float(text)
+    except ValueError:
         return None
 
 

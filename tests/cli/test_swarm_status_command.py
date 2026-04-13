@@ -6,7 +6,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from aragora.cli.commands.swarm import cmd_swarm
-from aragora.cli.commands.swarm_status import load_operator_status, render_operator_status
+from aragora.cli.commands.swarm_status import (
+    _optional_float,
+    _optional_int,
+    load_operator_status,
+    render_operator_status,
+)
 
 
 def _write_metrics(metrics_path: Path, rows: list[dict[str, object]]) -> None:
@@ -81,6 +86,16 @@ def test_load_operator_status_summarizes_metrics(tmp_path: Path) -> None:
     assert payload["summary"]["queue_depth"] == 7
     assert payload["per_issue_success"][0]["issue_number"] == 101
     assert payload["per_issue_success"][0]["success_rate"] == 0.5
+
+
+def test_numeric_coercion_helpers_accept_common_object_inputs() -> None:
+    assert _optional_int(7) == 7
+    assert _optional_int("9") == 9
+    assert _optional_int(object()) is None
+
+    assert _optional_float(7) == 7.0
+    assert _optional_float("9.5") == 9.5
+    assert _optional_float(object()) is None
 
 
 def test_load_operator_status_reports_unknown_queue_depth_when_probe_unavailable(
