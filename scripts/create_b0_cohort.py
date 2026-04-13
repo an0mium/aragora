@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
@@ -26,6 +29,9 @@ DEFAULT_CATEGORY = "test_coverage"
 DEFAULT_MIN_SUCCESS_RATE = 0.3
 DEFAULT_MAX_CHILDREN = 5
 DEFAULT_LABEL = "boss-ready"
+_FINGERPRINT_RE = re.compile(r"<!--\s*fingerprint:([0-9a-fA-F]+)\s*-->")
+_FILE_SCOPE_HEADER = "### File Scope"
+_SECTION_HEADER_RE = re.compile(r"^###\s+")
 
 
 @dataclass(frozen=True)
@@ -43,6 +49,13 @@ class ChildReview:
 class ParentReview:
     parent_title: str
     children: list[ChildReview]
+
+
+@dataclass(frozen=True)
+class OpenCohortIssue:
+    number: int
+    title: str
+    body: str
 
 
 def _prefix_title(title: str) -> str:
@@ -82,6 +95,143 @@ def _task_sanitizer_ok(result: SanitizationResult) -> bool:
     return result.outcome not in {SanitizationOutcome.DROPPED, SanitizationOutcome.QUARANTINED}
 
 
+def _normalize_title_key(title: str) -> str:
+    normalized = re.sub(r"^\[B0-cohort\]\s*", "", str(title or "").strip(), flags=re.IGNORECASE)
+    normalized = re.sub(r"\s+", " ", normalized)
+    return normalized.casefold()
+
+
+def _extract_fingerprint(body: str) -> str | None:
+    match = _FINGERPRINT_RE.search(str(body or ""))
+    if not match:
+        return None
+    return match.group(1).lower()
+
+
+def _extract_file_scope_paths(body: str) -> tuple[str, ...]:
+    lines = str(body or "").splitlines()
+    in_scope = False
+    paths: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not in_scope:
+            if stripped == _FILE_SCOPE_HEADER:
+                in_scope = True
+            continue
+        if _SECTION_HEADER_RE.match(stripped):
+            break
+        if not stripped.startswith("- "):
+            continue
+        matches = re.findall(r"`([^`]+)`", stripped)
+        for match in matches:
+            if match:
+                paths.append(match)
+    if not paths:
+        for match in re.findall(r"`([^`]+)`", str(body or "")):
+            if "/" in match or match.endswith(".py"):
+                paths.append(match)
+    return tuple(sorted(set(paths)))
+
+
+def _candidate_dedup_aliases(child: ChildReview) -> tuple[tuple[str, str], ...]:
+    aliases: list[tuple[str, str]] = []
+    fingerprint = str(child.candidate.fingerprint or "").strip().lower()
+    if fingerprint:
+        aliases.append(("fingerprint", fingerprint))
+    scope_paths = tuple(sorted(set(child.candidate.file_scope + child.candidate.new_files)))
+    if scope_paths:
+        aliases.append(("file_scope", "|".join(scope_paths)))
+        aliases.extend(("path", path) for path in scope_paths)
+    title_key = _normalize_title_key(child.prefixed_title)
+    if title_key:
+        aliases.append(("title", title_key))
+    return tuple(aliases)
+
+
+def _issue_dedup_aliases(issue: OpenCohortIssue) -> tuple[tuple[str, str], ...]:
+    aliases: list[tuple[str, str]] = []
+    fingerprint = _extract_fingerprint(issue.body)
+    if fingerprint:
+        aliases.append(("fingerprint", fingerprint))
+    scope_paths = _extract_file_scope_paths(issue.body)
+    if scope_paths:
+        aliases.append(("file_scope", "|".join(scope_paths)))
+        aliases.extend(("path", path) for path in scope_paths)
+    title_key = _normalize_title_key(issue.title)
+    if title_key:
+        aliases.append(("title", title_key))
+    return tuple(aliases)
+
+
+def _fetch_open_b0_cohort_issues(repo: str) -> list[OpenCohortIssue]:
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--limit",
+                "200",
+                "--json",
+                "number,title,body",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if result.returncode != 0:
+        return []
+    try:
+        payload = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(payload, list):
+        return []
+    issues: list[OpenCohortIssue] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        if not title.startswith("[B0-cohort]"):
+            continue
+        number = item.get("number")
+        if not isinstance(number, int):
+            continue
+        issues.append(
+            OpenCohortIssue(
+                number=number,
+                title=title,
+                body=str(item.get("body") or ""),
+            )
+        )
+    return issues
+
+
+def _open_issue_aliases(issues: list[OpenCohortIssue]) -> set[tuple[str, str]]:
+    aliases: set[tuple[str, str]] = set()
+    for issue in issues:
+        aliases.update(_issue_dedup_aliases(issue))
+    return aliases
+
+
+def count_open_b0_duplicate_issues(repo: str) -> int:
+    issues = _fetch_open_b0_cohort_issues(repo)
+    seen: set[tuple[str, str]] = set()
+    duplicate_count = 0
+    for issue in issues:
+        aliases = _issue_dedup_aliases(issue)
+        if aliases and any(alias in seen for alias in aliases):
+            duplicate_count += 1
+        seen.update(aliases)
+    return duplicate_count
+
+
 def _evaluate_candidate(
     candidate: BossIssueCandidate,
     parent_title: str,
@@ -109,10 +259,12 @@ def _select_cohort(
     max_issues: int,
     bridge: DecompositionBridge,
     sanitizer: TaskSanitizer,
+    existing_aliases: set[tuple[str, str]] | None = None,
     skip_decomposition: bool = False,
 ) -> list[ParentReview]:
     reviews: list[ParentReview] = []
     total_selected = 0
+    seen_aliases: set[tuple[str, str]] = set(existing_aliases or set())
     for candidate in candidates:
         if total_selected >= max_issues:
             break
@@ -133,8 +285,17 @@ def _select_cohort(
             _evaluate_candidate(child, candidate.title, sanitizer=sanitizer)
             for child in final_children
         ]
-        reviews.append(ParentReview(parent_title=candidate.title, children=child_reviews))
-        total_selected += len(child_reviews)
+        unique_children: list[ChildReview] = []
+        for child_review in child_reviews:
+            aliases = _candidate_dedup_aliases(child_review)
+            if aliases and any(alias in seen_aliases for alias in aliases):
+                continue
+            unique_children.append(child_review)
+            seen_aliases.update(aliases)
+        if not unique_children:
+            continue
+        reviews.append(ParentReview(parent_title=candidate.title, children=unique_children))
+        total_selected += len(unique_children)
     return reviews
 
 
@@ -260,11 +421,13 @@ def main(argv: list[str] | None = None) -> int:
 
     bridge = DecompositionBridge(repo_root)
     sanitizer = TaskSanitizer(repo_root=repo_root)
+    open_b0_issues = _fetch_open_b0_cohort_issues(args.repo)
     reviews = _select_cohort(
         candidates,
         max_issues=args.max_issues,
         bridge=bridge,
         sanitizer=sanitizer,
+        existing_aliases=_open_issue_aliases(open_b0_issues),
         skip_decomposition=args.skip_decomposition,
     )
     selected_count = sum(len(review.children) for review in reviews)
