@@ -18,6 +18,8 @@ import sys
 import time
 from typing import Any
 
+from aragora.agents.errors import AgentCircuitOpenError
+
 logger = logging.getLogger(__name__)
 
 
@@ -113,6 +115,60 @@ async def _run_spec_pipeline(
     }
 
 
+def _build_spec_fallback(prompt: str, *, reason: str) -> dict[str, Any]:
+    """Create a truthful starter spec when the live spec agent is unavailable."""
+    normalized_prompt = str(prompt or "").strip() or "Prompt-to-spec fallback"
+    title = normalized_prompt.rstrip(" ?!.") or "Prompt-to-spec fallback"
+    if len(title) > 72:
+        title = title[:69].rstrip() + "..."
+
+    return {
+        "specification": {
+            "title": title,
+            "problem_statement": normalized_prompt,
+            "proposed_solution": (
+                "Start from a bounded manual spec so the next command can validate the "
+                "decision, collect missing constraints, and continue without pretending "
+                "the live prompt-to-spec pipeline succeeded."
+            ),
+            "success_criteria": [
+                {
+                    "description": "Capture the exact decision or change in one sentence.",
+                },
+                {
+                    "description": "Name at least one measurable verification step or success signal.",
+                },
+                {
+                    "description": "List the main constraint, risk, or rollback trigger before execution.",
+                },
+            ],
+            "risks": [
+                {
+                    "description": (
+                        "The dedicated spec agent is temporarily unavailable in this environment."
+                    ),
+                    "likelihood": "medium",
+                    "impact": "medium",
+                    "mitigation": (
+                        "Retry `aragora spec` after the circuit recovers, or continue with this "
+                        "manual starter spec and tighten it before execution."
+                    ),
+                }
+            ],
+            "estimated_effort": "small",
+            "confidence": 0.2,
+        },
+        "intent": None,
+        "research": None,
+        "questions": [],
+        "stages_completed": ["fallback_spec"],
+        "auto_approved": False,
+        "timing": None,
+        "pipeline": "spec_fallback",
+        "fallback_reason": reason,
+    }
+
+
 def _print_timing_summary(timing: dict[str, Any]) -> None:
     """Render a concise latency profile for human-readable output."""
     total_ms = float(timing.get("total_duration_ms", 0.0) or 0.0)
@@ -155,6 +211,8 @@ def _print_spec_result(result: dict[str, Any], output_format: str = "text") -> N
     intent = result.get("intent")
     research = result.get("research")
     timing = result.get("timing") or {}
+    pipeline = str(result.get("pipeline", "") or "").strip()
+    fallback_reason = str(result.get("fallback_reason", "") or "").strip()
 
     print("\n" + "=" * 60)
     print("  SPECIFICATION")
@@ -233,6 +291,11 @@ def _print_spec_result(result: dict[str, Any], output_format: str = "text") -> N
             for item in top_operations[:3]:
                 print(f"    - {item['operation']}: {item['duration_ms']:.1f}ms")
 
+    if pipeline:
+        print(f"\n  Pipeline:   {pipeline}")
+    if fallback_reason:
+        print(f"  Note:       Fallback spec ({fallback_reason})")
+
     print("\n" + "=" * 60)
 
 
@@ -279,6 +342,11 @@ def cmd_spec(args: argparse.Namespace) -> None:
                 use_orchestrator=use_orchestrator,
             )
         )
+    except AgentCircuitOpenError as e:
+        agent_name = (getattr(e, "agent_name", None) or "spec-agent").strip() or "spec-agent"
+        reason = f"{agent_name} circuit breaker open"
+        logger.warning("spec_command_circuit_open", extra={"agent_name": agent_name})
+        result = _build_spec_fallback(prompt, reason=reason)
     except (RuntimeError, ValueError, TypeError, ImportError) as e:
         print(f"\n[!] Spec pipeline failed: {e}")
         sys.exit(1)

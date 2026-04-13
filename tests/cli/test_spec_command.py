@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from aragora.agents.errors import AgentCircuitOpenError
 from aragora.cli.commands.spec import _run_spec_pipeline, cmd_spec
 from aragora.cli.parser import build_parser
 
@@ -278,6 +279,51 @@ class TestCmdSpec:
             use_orchestrator=False,
         )
         assert json.loads(output_path.read_text()) == result
+
+    def test_cmd_spec_uses_truthful_fallback_when_spec_agent_circuit_is_open(
+        self, tmp_path, capsys
+    ):
+        output_path = tmp_path / "spec-fallback.json"
+        args = argparse.Namespace(
+            prompt="Make onboarding better",
+            depth="quick",
+            profile="founder",
+            skip_research=False,
+            skip_interrogation=False,
+            format="text",
+            dry_run=False,
+            output=str(output_path),
+        )
+
+        with patch(
+            "aragora.cli.commands.spec._run_spec_pipeline",
+            new_callable=AsyncMock,
+            side_effect=AgentCircuitOpenError(
+                "Circuit breaker open for spec-agent",
+                agent_name="spec-agent",
+            ),
+        ) as run_spec:
+            cmd_spec(args)
+
+        out = capsys.readouterr().out
+        saved = json.loads(output_path.read_text())
+
+        assert "ARAGORA SPEC" in out
+        assert "Pipeline:   spec_fallback" in out
+        assert "Fallback spec (spec-agent circuit breaker open)" in out
+        assert saved["pipeline"] == "spec_fallback"
+        assert saved["fallback_reason"] == "spec-agent circuit breaker open"
+        assert saved["stages_completed"] == ["fallback_spec"]
+        assert saved["specification"]["problem_statement"] == "Make onboarding better"
+        run_spec.assert_awaited_once_with(
+            "Make onboarding better",
+            depth="quick",
+            skip_research=False,
+            skip_interrogation=False,
+            profile="founder",
+            output_format="text",
+            use_orchestrator=False,
+        )
 
     def test_cmd_spec_requires_prompt(self):
         args = argparse.Namespace(
