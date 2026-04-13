@@ -20,6 +20,20 @@ logger = logging.getLogger(__name__)
 _global_continuum_memory: ContinuumMemory | None = None
 
 
+def _create_continuum_memory(
+    db_path: str | None = None,
+    event_emitter: EventEmitterProtocol | None = None,
+) -> ContinuumMemory:
+    """Create a ContinuumMemory instance behind a patchable hook."""
+    # Import here to avoid circular imports
+    from .core import ContinuumMemory
+
+    return ContinuumMemory(
+        db_path=db_path,
+        event_emitter=event_emitter,
+    )
+
+
 def get_continuum_memory(
     db_path: str | None = None,
     event_emitter: EventEmitterProtocol | None = None,
@@ -39,10 +53,7 @@ def get_continuum_memory(
     global _global_continuum_memory
 
     if _global_continuum_memory is None:
-        # Import here to avoid circular imports
-        from .core import ContinuumMemory
-
-        _global_continuum_memory = ContinuumMemory(
+        _global_continuum_memory = _create_continuum_memory(
             db_path=db_path,
             event_emitter=event_emitter,
         )
@@ -55,8 +66,9 @@ def reset_continuum_memory() -> None:
     """Reset the global ContinuumMemory instance (for testing)."""
     global _global_continuum_memory
     if _global_continuum_memory:
-        if hasattr(_global_continuum_memory, "close"):
-            getattr(_global_continuum_memory, "close")()
+        close = getattr(_global_continuum_memory, "close", None)
+        if callable(close):
+            close()
     _global_continuum_memory = None
 
 
