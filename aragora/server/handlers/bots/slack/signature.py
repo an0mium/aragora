@@ -11,49 +11,23 @@ import time
 
 logger = logging.getLogger(__name__)
 
+TIMESTAMP_TOLERANCE_SECONDS = 60 * 5
 
-def verify_slack_signature(
-    body: bytes,
-    timestamp: str,
-    signature: str,
-    signing_secret: str,
-) -> bool:
-    """Verify Slack request signature.
+
+def compute_slack_signature(body: bytes, timestamp: str, signing_secret: str) -> str:
+    """Compute the expected HMAC-SHA256 signature for a Slack request.
 
     Args:
         body: Raw request body bytes
-        timestamp: X-Slack-Request-Timestamp header value
-        signature: X-Slack-Signature header value
-        signing_secret: Slack signing secret from app configuration
+        timestamp: Unix timestamp string
+        signing_secret: Slack signing secret
 
     Returns:
-        True if signature is valid, False otherwise
+        The computed ``v0=...`` signature string.
     """
-    if not signature or not signing_secret:
-        logger.warning("Missing Slack signature verification inputs")
-        return False
-
-    # Check timestamp to prevent replay attacks
-    current_time = int(time.time())
-    try:
-        request_time = int(timestamp)
-    except (ValueError, TypeError):
-        logger.warning("Invalid Slack signature timestamp format")
-        return False
-
-    if abs(current_time - request_time) > 60 * 5:
-        logger.warning("Slack signature timestamp too old")
-        return False
-
-    # Compute expected signature
-    try:
-        body_text = body.decode("utf-8")
-    except (AttributeError, UnicodeDecodeError):
-        logger.warning("Invalid Slack request body encoding")
-        return False
-
+    body_text = body.decode("utf-8")
     sig_basestring = f"v0:{timestamp}:{body_text}"
-    my_signature = (
+    return (
         "v0="
         + hmac.new(
             signing_secret.encode(),
@@ -62,9 +36,53 @@ def verify_slack_signature(
         ).hexdigest()
     )
 
-    return hmac.compare_digest(my_signature, signature)
+
+def verify_slack_signature(
+    body: bytes,
+    timestamp: str,
+    signature: str,
+    signing_secret: str,
+    *,
+    now: float | None = None,
+) -> bool:
+    """Verify Slack request signature.
+
+    Args:
+        body: Raw request body bytes
+        timestamp: X-Slack-Request-Timestamp header value
+        signature: X-Slack-Signature header value
+        signing_secret: Slack signing secret from app configuration
+        now: Optional current unix timestamp (defaults to ``time.time()``).
+
+    Returns:
+        True if signature is valid, False otherwise
+    """
+    if not signature or not signing_secret:
+        logger.warning("Missing Slack signature verification inputs")
+        return False
+
+    current_time = int(now if now is not None else time.time())
+    try:
+        request_time = int(timestamp)
+    except (ValueError, TypeError):
+        logger.warning("Invalid Slack signature timestamp format")
+        return False
+
+    if abs(current_time - request_time) > TIMESTAMP_TOLERANCE_SECONDS:
+        logger.warning("Slack signature timestamp too old")
+        return False
+
+    try:
+        expected = compute_slack_signature(body, timestamp, signing_secret)
+    except (AttributeError, UnicodeDecodeError):
+        logger.warning("Invalid Slack request body encoding")
+        return False
+
+    return hmac.compare_digest(expected, signature)
 
 
 __all__ = [
+    "TIMESTAMP_TOLERANCE_SECONDS",
+    "compute_slack_signature",
     "verify_slack_signature",
 ]
