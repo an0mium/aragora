@@ -9,12 +9,14 @@ Tests cover:
 """
 
 import asyncio
+import importlib
 import time
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import aragora.control_plane.coordinator.core as coordinator_core
 from aragora.control_plane.coordinator import (
     ControlPlaneConfig,
     ControlPlaneCoordinator,
@@ -641,6 +643,67 @@ class TestConnectionLifecycle:
 
         # Connect methods should only be called once
         assert mock_registry.connect.call_count == 1
+
+
+# ============================================================================
+# Optional Dependency Visibility Tests
+# ============================================================================
+
+
+class TestOptionalDependencyVisibility:
+    """Tests for optional dependency import fallbacks."""
+
+    def test_logs_when_watchdog_import_is_unavailable(self):
+        """Test watchdog import failures are visible during module import."""
+        real_import = __import__
+        mock_logger = MagicMock()
+
+        def missing_watchdog_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "aragora.control_plane.watchdog":
+                raise ImportError("watchdog missing")
+            return real_import(name, globals, locals, fromlist, level)
+
+        try:
+            with (
+                patch("aragora.observability.get_logger", return_value=mock_logger),
+                patch("builtins.__import__", side_effect=missing_watchdog_import),
+            ):
+                importlib.reload(coordinator_core)
+
+            assert coordinator_core.HAS_WATCHDOG is False
+            mock_logger.debug.assert_any_call(
+                "Control-plane watchdog unavailable; coordinator watchdog hooks disabled"
+            )
+        finally:
+            importlib.reload(coordinator_core)
+
+    def test_logs_when_knowledge_mound_adapter_is_unavailable(self):
+        """Test KM adapter import failures are visible during coordinator setup."""
+        real_import = __import__
+        mock_logger = MagicMock()
+        mock_state_manager = MagicMock()
+        mock_state_manager.watchdog = None
+
+        def missing_km_adapter_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name == "aragora.knowledge.mound.adapters.control_plane_adapter":
+                raise ImportError("adapter missing")
+            return real_import(name, globals, locals, fromlist, level)
+
+        with (
+            patch.object(coordinator_core, "logger", mock_logger),
+            patch("builtins.__import__", side_effect=missing_km_adapter_import),
+        ):
+            coordinator_core.ControlPlaneCoordinator(
+                state_manager=mock_state_manager,
+                policy_enforcer=MagicMock(),
+                scheduler_bridge=MagicMock(),
+                knowledge_mound=object(),
+            )
+
+        mock_state_manager.set_km_adapter.assert_not_called()
+        mock_logger.debug.assert_called_once_with(
+            "Control-plane KM adapter unavailable; skipping knowledge mound integration"
+        )
 
 
 # ============================================================================

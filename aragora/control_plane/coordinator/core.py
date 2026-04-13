@@ -42,6 +42,8 @@ from aragora.control_plane.coordinator.state_manager import (
 from aragora.control_plane.coordinator.policy_enforcer import PolicyEnforcer
 from aragora.control_plane.coordinator.scheduler_bridge import SchedulerBridge
 
+logger = get_logger(__name__)
+
 if TYPE_CHECKING:
     import asyncio
 
@@ -80,9 +82,7 @@ try:
 
     HAS_WATCHDOG = True
 except ImportError:
-    pass
-
-logger = get_logger(__name__)
+    logger.debug("Control-plane watchdog unavailable; coordinator watchdog hooks disabled")
 
 # Retry configuration for control plane operations
 _CP_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["control_plane"]
@@ -197,7 +197,9 @@ class ControlPlaneCoordinator:
                 )
                 self._state_manager.set_km_adapter(adapter)
             except ImportError:
-                pass
+                logger.debug(
+                    "Control-plane KM adapter unavailable; skipping knowledge mound integration"
+                )
 
         # Initialize scheduler bridge (with backward compatibility for scheduler param)
         self._scheduler_bridge = scheduler_bridge or SchedulerBridge(
