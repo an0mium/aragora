@@ -747,6 +747,7 @@ def run_remote_publish_validation_receipt(
         "target_ref": normalized_base_ref,
         "draft_pr_number": None,
         "draft_pr_url": "",
+        "manual_reconciliation_required": False,
     }
     checks: list[dict[str, Any]] = []
     worktree_created = False
@@ -829,13 +830,16 @@ def run_remote_publish_validation_receipt(
                                     base_ref=normalized_base_ref,
                                 )
                             if pr_number is None or not pr_url:
+                                artifacts["manual_reconciliation_required"] = True
                                 _append_check(
                                     checks,
                                     name="gh_pr_capture",
                                     passed=False,
                                     detail=(
-                                        "Draft PR create output did not include a parseable PR URL "
-                                        "and fallback lookup by branch did not find an open PR."
+                                        "Draft PR create command succeeded, but output did not "
+                                        "include a parseable PR URL and fallback lookup by branch "
+                                        "did not find an open PR. Remote branch preserved for "
+                                        "manual reconciliation."
                                     ),
                                 )
                             else:
@@ -849,6 +853,7 @@ def run_remote_publish_validation_receipt(
                                     detail=pr_url,
                                 )
     finally:
+        manual_reconciliation_required = bool(artifacts.get("manual_reconciliation_required"))
         if draft_created:
             close_target = str(artifacts.get("draft_pr_number") or branch)
             _run_check(
@@ -865,21 +870,43 @@ def run_remote_publish_validation_receipt(
                 cwd=worktree_path if worktree_created else resolved_repo_root,
             )
         elif pushed:
-            _append_check(
-                checks,
-                name="gh_pr_close",
-                passed=True,
-                detail="skipped (draft PR not created)",
-            )
+            if manual_reconciliation_required:
+                _append_check(
+                    checks,
+                    name="gh_pr_close",
+                    passed=False,
+                    detail=(
+                        "Skipped because draft PR creation may have succeeded but could not be "
+                        "reconciled. Manual cleanup required."
+                    ),
+                )
+            else:
+                _append_check(
+                    checks,
+                    name="gh_pr_close",
+                    passed=True,
+                    detail="skipped (draft PR not created)",
+                )
 
         if pushed:
-            _run_check(
-                checks,
-                name="cleanup_remote_branch_delete",
-                cmd=["git", "push", "origin", "--delete", branch],
-                cwd=worktree_path if worktree_created else resolved_repo_root,
-                env=git_safe_env(),
-            )
+            if manual_reconciliation_required:
+                _append_check(
+                    checks,
+                    name="cleanup_remote_branch_delete",
+                    passed=False,
+                    detail=(
+                        "Skipped to preserve the remote branch because draft PR creation may "
+                        "have succeeded but could not be reconciled. Manual cleanup required."
+                    ),
+                )
+            else:
+                _run_check(
+                    checks,
+                    name="cleanup_remote_branch_delete",
+                    cmd=["git", "push", "origin", "--delete", branch],
+                    cwd=worktree_path if worktree_created else resolved_repo_root,
+                    env=git_safe_env(),
+                )
         else:
             _append_check(
                 checks,
