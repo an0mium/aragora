@@ -13,9 +13,14 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from datetime import date
-from types import SimpleNamespace
-from pathlib import Path
 import json
+from pathlib import Path
+import sys
+from types import SimpleNamespace
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 from aragora.core_types import DebateResult
 from aragora.debate.execution_safety import (
