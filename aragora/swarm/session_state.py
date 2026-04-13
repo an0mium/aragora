@@ -81,6 +81,108 @@ def _coerce_path_list(value: Any) -> list[str]:
     return [str(item).strip() for item in value if str(item).strip()]
 
 
+def _coerce_exit_code(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    text = _optional_text(value)
+    if text is None:
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
+def _text_list(value: Any, *, limit: int = 25) -> list[str]:
+    if not isinstance(value, (list, tuple, set)):
+        return []
+    items: list[str] = []
+    seen: set[str] = set()
+    for raw in value:
+        text = str(raw or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        items.append(text)
+        if len(items) >= limit:
+            break
+    return items
+
+
+def _coerce_failing_verification(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    command = _optional_text(value.get("command"))
+    exit_code = _coerce_exit_code(value.get("exit_code"))
+    stderr_tail = _optional_text(value.get("stderr_tail"))
+    stdout_tail = _optional_text(value.get("stdout_tail"))
+    result: dict[str, Any] = {}
+    if command is not None:
+        result["command"] = command
+    if exit_code is not None:
+        result["exit_code"] = exit_code
+    if stderr_tail is not None:
+        result["stderr_tail"] = stderr_tail
+    if stdout_tail is not None:
+        result["stdout_tail"] = stdout_tail
+    return result or None
+
+
+def _coerce_attempt_entry(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    entry: dict[str, Any] = {}
+    at = _optional_text(value.get("at"))
+    if at is not None:
+        entry["at"] = at
+    status = _optional_text(value.get("status"))
+    if status is not None:
+        entry["status"] = status
+    worker_outcome = _optional_text(value.get("worker_outcome"))
+    if worker_outcome is not None:
+        entry["worker_outcome"] = worker_outcome
+    failure_reason = _optional_text(value.get("failure_reason"))
+    if failure_reason is not None:
+        entry["failure_reason"] = failure_reason
+    exit_code = _coerce_exit_code(value.get("exit_code"))
+    if exit_code is not None:
+        entry["exit_code"] = exit_code
+    changed_paths = _text_list(value.get("changed_paths"))
+    if not changed_paths:
+        changed_paths = _coerce_path_list(value.get("changed_files"))
+    if changed_paths:
+        entry["changed_paths"] = list(changed_paths)
+        entry["changed_files"] = list(changed_paths)
+    test_output = _optional_text(value.get("test_output"))
+    if test_output is not None:
+        entry["test_output"] = test_output
+    stderr_tail = _optional_text(value.get("stderr_tail"))
+    if stderr_tail is not None:
+        entry["stderr_tail"] = stderr_tail
+    stdout_tail = _optional_text(value.get("stdout_tail"))
+    if stdout_tail is not None:
+        entry["stdout_tail"] = stdout_tail
+    branch_name = _optional_text(value.get("branch_name"))
+    if branch_name is not None:
+        entry["branch_name"] = branch_name
+    pr_url = _optional_text(value.get("pr_url"))
+    if pr_url is not None:
+        entry["pr_url"] = pr_url
+    failing_verification = _coerce_failing_verification(value.get("failing_verification"))
+    if failing_verification is not None:
+        entry["failing_verification"] = failing_verification
+    return entry or None
+
+
+def _attempt_changed_paths(attempt: Mapping[str, Any]) -> list[str]:
+    paths = _text_list(attempt.get("changed_paths"))
+    if paths:
+        return paths
+    return _coerce_path_list(attempt.get("changed_files"))
+
+
 @dataclass(slots=True)
 class SessionState:
     """Durable local session metadata for future retry/repair orchestration."""
@@ -116,7 +218,11 @@ class SessionState:
         self.resume_hint = _optional_text(self.resume_hint)
         self.blocker_evidence = _optional_text(self.blocker_evidence)
         self.retry_count = max(0, int(self.retry_count or 0))
-        self.attempts = _coerce_dict_list(self.attempts)
+        self.attempts = [
+            entry
+            for entry in (_coerce_attempt_entry(item) for item in self.attempts)
+            if entry is not None
+        ]
         self.repair_journal = _coerce_dict_list(self.repair_journal)
         self.created_at = _coerce_datetime(self.created_at)
         self.updated_at = _coerce_datetime(self.updated_at)
@@ -162,7 +268,7 @@ class SessionState:
             resume_hint=data.get("resume_hint"),
             blocker_evidence=data.get("blocker_evidence"),
             retry_count=data.get("retry_count", 0),
-            attempts=_coerce_dict_list(data.get("attempts")),
+            attempts=list(data.get("attempts") or []),
             repair_journal=_coerce_dict_list(data.get("repair_journal")),
             metadata=dict(data.get("metadata") or {}),
             created_at=_coerce_datetime(data.get("created_at")),
@@ -171,20 +277,107 @@ class SessionState:
 
     def record_attempt(
         self,
-        exit_code: int | None,
-        changed_files: list[str] | tuple[str, ...] | set[str] | None,
-        test_output: str | None,
-        worker_outcome: str | None,
+        exit_code: int | None = None,
+        changed_files: list[str] | tuple[str, ...] | set[str] | None = None,
+        test_output: str | None = None,
+        worker_outcome: str | None = None,
+        *,
+        status: str | None = None,
+        outcome: str | None = None,
+        target_agent: str | None = None,
+        runner_type: str | None = None,
+        worktree_path: str | None = None,
+        branch_name: str | None = None,
+        pr_url: str | None = None,
+        resume_hint: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        advanced_mode = any(
+            value is not None
+            for value in (
+                status,
+                outcome,
+                target_agent,
+                runner_type,
+                worktree_path,
+                branch_name,
+                pr_url,
+                resume_hint,
+                metadata,
+            )
+        )
+        changed_paths = _text_list(changed_files or ())
+
+        if advanced_mode:
+            self.status = str(status or self.status or "created").strip() or "created"
+            self.target_agent = _optional_text(target_agent) or self.target_agent
+            self.runner_type = _optional_text(runner_type) or self.runner_type
+            self.worktree_path = _optional_text(worktree_path) or self.worktree_path
+            self.branch_name = _optional_text(branch_name) or self.branch_name
+            self.pr_url = _optional_text(pr_url) or self.pr_url
+            resolved_resume_hint = _optional_text(resume_hint)
+            if resolved_resume_hint is not None:
+                self.resume_hint = resolved_resume_hint
+
+            payload = dict(metadata or {})
+            failure_reason = _optional_text(payload.get("failure_reason")) or resolved_resume_hint
+            attempt: dict[str, Any] = {
+                "at": _utcnow().isoformat(),
+                "status": self.status,
+            }
+            outcome_text = _optional_text(outcome) or _optional_text(worker_outcome)
+            if outcome_text is not None:
+                attempt["worker_outcome"] = outcome_text
+            normalized_exit_code = _coerce_exit_code(exit_code)
+            if normalized_exit_code is not None:
+                attempt["exit_code"] = normalized_exit_code
+            if changed_paths:
+                attempt["changed_paths"] = list(changed_paths)
+                attempt["changed_files"] = list(changed_paths)
+            output_text = _optional_text(test_output)
+            if output_text is not None:
+                attempt["test_output"] = output_text
+            if failure_reason is not None:
+                attempt["failure_reason"] = failure_reason
+
+            resolved_branch = _optional_text(payload.get("branch_name")) or _optional_text(
+                branch_name
+            )
+            if resolved_branch is not None:
+                attempt["branch_name"] = resolved_branch
+            resolved_pr_url = _optional_text(payload.get("pr_url")) or _optional_text(pr_url)
+            if resolved_pr_url is not None:
+                attempt["pr_url"] = resolved_pr_url
+            for key in ("stderr_tail", "stdout_tail"):
+                text = _optional_text(payload.get(key))
+                if text is not None:
+                    attempt[key] = text
+            failing_verification = _coerce_failing_verification(payload.get("failing_verification"))
+            if failing_verification is not None:
+                attempt["failing_verification"] = failing_verification
+
+            self.attempts.append(attempt)
+            self.retry_count = max(self.retry_count + 1, len(self.attempts))
+            payload.pop("failure_reason", None)
+            payload.pop("stderr_tail", None)
+            payload.pop("stdout_tail", None)
+            payload.pop("branch_name", None)
+            payload.pop("pr_url", None)
+            payload.pop("failing_verification", None)
+            self.metadata.update(payload)
+            self.touch()
+            return dict(attempt)
+
         attempt = {
             "at": _utcnow().isoformat(),
-            "exit_code": int(exit_code) if exit_code is not None else None,
-            "changed_files": _coerce_path_list(changed_files),
+            "exit_code": _coerce_exit_code(exit_code),
+            "changed_files": list(changed_paths),
+            "changed_paths": list(changed_paths),
             "test_output": _optional_text(test_output),
             "worker_outcome": _optional_text(worker_outcome),
         }
         self.attempts.append(attempt)
-        self.retry_count = max(self.retry_count, len(self.attempts))
+        self.retry_count = max(self.retry_count + 1, len(self.attempts))
         self.touch()
         return dict(attempt)
 
@@ -196,15 +389,19 @@ class SessionState:
     def should_resume(self) -> bool:
         last = self.last_attempt()
         if last is not None:
-            if last.get("changed_files"):
+            if _attempt_changed_paths(last):
                 return True
             if _optional_text(last.get("test_output")):
+                return True
+            if _optional_text(last.get("failure_reason")):
+                return True
+            if _coerce_failing_verification(last.get("failing_verification")) is not None:
                 return True
             if _optional_text(last.get("worker_outcome")) not in {None, "completed"}:
                 return True
         return bool(self.repair_journal) or self.phase not in {"explore", "plan"}
 
-    def resume_context(self) -> str:
+    def resume_context(self, *, max_attempts: int = 3) -> str:
         if not self.should_resume():
             return ""
 
@@ -212,22 +409,44 @@ class SessionState:
         if self.resume_hint:
             lines.append(f"Resume hint: {self.resume_hint}")
 
-        if self.attempts:
+        recent_attempts = self.attempts[-max(1, int(max_attempts or 1)) :]
+        if recent_attempts:
             lines.append("Prior attempts:")
-            for index, attempt in enumerate(
-                self.attempts[-3:], start=max(1, len(self.attempts) - 2)
-            ):
+            start_index = len(self.attempts) - len(recent_attempts) + 1
+            for index, attempt in enumerate(recent_attempts, start=start_index):
                 summary: list[str] = []
-                exit_code = attempt.get("exit_code")
+                exit_code = _coerce_exit_code(attempt.get("exit_code"))
                 if exit_code is not None:
                     summary.append(f"exit={exit_code}")
                 worker_outcome = _optional_text(attempt.get("worker_outcome"))
                 if worker_outcome:
                     summary.append(worker_outcome)
-                changed = _coerce_path_list(attempt.get("changed_files"))
-                if changed:
-                    summary.append(f"changed={', '.join(changed[:5])}")
+                failure_reason = _optional_text(attempt.get("failure_reason"))
+                if failure_reason:
+                    summary.append(failure_reason)
+                changed_paths = _attempt_changed_paths(attempt)
+                if changed_paths:
+                    summary.append(f"changed={', '.join(changed_paths[:5])}")
                 lines.append(f"- Attempt {index}: {', '.join(summary) if summary else 'recorded'}")
+
+                failing_verification = _coerce_failing_verification(
+                    attempt.get("failing_verification")
+                )
+                if failing_verification is not None:
+                    command = _optional_text(failing_verification.get("command"))
+                    if command:
+                        exit_suffix = ""
+                        verification_exit = _coerce_exit_code(failing_verification.get("exit_code"))
+                        if verification_exit is not None:
+                            exit_suffix = f" (exit {verification_exit})"
+                        lines.append(f"  Failing verification: {command}{exit_suffix}")
+                    stderr_tail = _optional_text(failing_verification.get("stderr_tail"))
+                    if stderr_tail:
+                        lines.append(f"  Stderr: {stderr_tail[-240:]}")
+                    stdout_tail = _optional_text(failing_verification.get("stdout_tail"))
+                    if stdout_tail:
+                        lines.append(f"  Stdout: {stdout_tail[-240:]}")
+
                 test_output = _optional_text(attempt.get("test_output"))
                 if test_output:
                     lines.append(f"  Test output: {test_output[-240:]}")
@@ -236,6 +455,29 @@ class SessionState:
             lines.append(f"Repair journal entries available: {len(self.repair_journal)}")
 
         return "\n".join(lines).strip()
+
+    def resume_payload(self, *, max_attempts: int = 3) -> dict[str, Any]:
+        recent_attempts = [dict(item) for item in self.attempts[-max(1, int(max_attempts or 1)) :]]
+        repair_journal = recent_attempts or [
+            dict(item) for item in self.repair_journal[-max(1, int(max_attempts or 1)) :]
+        ]
+        context = {
+            "session_id": self.session_id,
+            "issue_number": self.issue_number,
+            "phase": self.phase,
+            "status": self.status,
+            "retry_count": self.retry_count,
+            "resume_hint": self.resume_hint,
+            "target_agent": self.target_agent,
+            "runner_type": self.runner_type,
+            "worktree_path": self.worktree_path,
+            "branch_name": self.branch_name,
+            "pr_url": self.pr_url,
+            "repair_journal": repair_journal,
+        }
+        if recent_attempts:
+            context["last_attempt"] = dict(recent_attempts[-1])
+        return {key: value for key, value in context.items() if value not in (None, [], {})}
 
     def set_blocker(self, evidence: str) -> None:
         self.blocker_evidence = _optional_text(evidence)
@@ -302,6 +544,56 @@ class SessionStateStore:
         )
         return items
 
+    def latest_for_issue(self, issue_number: int) -> SessionState | None:
+        sessions = self.list_sessions(issue_number=issue_number)
+        return sessions[0] if sessions else None
+
+    def record_attempt(
+        self,
+        *,
+        issue_number: int,
+        status: str,
+        outcome: str | None = None,
+        exit_code: int | None = None,
+        changed_files: list[str] | None = None,
+        target_agent: str | None = None,
+        runner_type: str | None = None,
+        worktree_path: str | None = None,
+        branch_name: str | None = None,
+        pr_url: str | None = None,
+        resume_hint: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        session_id: str | None = None,
+    ) -> SessionState:
+        issue_value = _coerce_issue_number(issue_number)
+        if issue_value is None:
+            raise ValueError("issue_number must be a positive integer")
+        state = (
+            self.load(session_id) if session_id is not None else None
+        ) or self.latest_for_issue(issue_value)
+        if state is None:
+            state = SessionState(
+                session_id=session_id or f"issue-{issue_value}",
+                issue_number=issue_value,
+                status="created",
+            )
+        state.issue_number = issue_value
+        state.record_attempt(
+            status=status,
+            outcome=outcome,
+            exit_code=exit_code,
+            changed_files=changed_files,
+            target_agent=target_agent,
+            runner_type=runner_type,
+            worktree_path=worktree_path,
+            branch_name=branch_name,
+            pr_url=pr_url,
+            resume_hint=resume_hint,
+            metadata=metadata,
+        )
+        self.save(state)
+        return state
+
     def cleanup_old(
         self,
         *,
@@ -331,8 +623,18 @@ def _attempt_evidence(state: SessionState) -> list[tuple[dict[str, Any], str]]:
     for attempt in reversed(state.attempts):
         text_parts = [
             str(attempt.get("worker_outcome") or "").strip(),
+            str(attempt.get("failure_reason") or "").strip(),
             str(attempt.get("test_output") or "").strip(),
         ]
+        failing_verification = _coerce_failing_verification(attempt.get("failing_verification"))
+        if failing_verification is not None:
+            text_parts.extend(
+                [
+                    str(failing_verification.get("command") or "").strip(),
+                    str(failing_verification.get("stderr_tail") or "").strip(),
+                    str(failing_verification.get("stdout_tail") or "").strip(),
+                ]
+            )
         combined = "\n".join(part for part in text_parts if part).strip()
         evidence.append((attempt, combined))
     if state.blocker_evidence:
@@ -355,7 +657,7 @@ def classify_session_blocker(state: SessionState) -> dict[str, str]:
     evidence_rows = _attempt_evidence(state)
     for attempt, text in evidence_rows:
         normalized = text.strip()
-        exit_code = attempt.get("exit_code")
+        exit_code = _coerce_exit_code(attempt.get("exit_code"))
         if exit_code in {-1, 124, 137} or _TIMEOUT_RE.search(normalized):
             blocker_type = "timeout"
         elif _IMPORT_ERROR_RE.search(normalized):
@@ -380,3 +682,47 @@ def classify_session_blocker(state: SessionState) -> dict[str, str]:
         "evidence": fallback,
         "suggested_action": _suggested_action("test_failure"),
     }
+
+
+def summarize_session_blocker(state: SessionState | None) -> str | None:
+    if state is None or state.issue_number is None:
+        return None
+    if not state.attempts:
+        return f"Issue #{state.issue_number} exhausted retries, but no persisted attempt journal is available."
+
+    last_attempt = state.attempts[-1]
+    failing_verification = _coerce_failing_verification(last_attempt.get("failing_verification"))
+    failure_reason = _optional_text(last_attempt.get("failure_reason")) or state.resume_hint
+    changed_paths = _attempt_changed_paths(last_attempt)
+    exit_code = _coerce_exit_code(last_attempt.get("exit_code"))
+    pr_url = _optional_text(last_attempt.get("pr_url")) or state.pr_url
+    worker_outcome = _optional_text(last_attempt.get("worker_outcome")) or state.status
+
+    if failing_verification is not None:
+        command = _optional_text(failing_verification.get("command")) or "verification command"
+        verification_exit = _coerce_exit_code(failing_verification.get("exit_code"))
+        suffix = f" (exit {verification_exit})" if verification_exit is not None else ""
+        return (
+            f"Issue #{state.issue_number} exhausted retries; last blocker was failing verification "
+            f"`{command}`{suffix}."
+        )
+    if pr_url is not None:
+        return (
+            f"Issue #{state.issue_number} exhausted retries; last attempt produced reviewable output "
+            f"at {pr_url} but still needs human follow-up."
+        )
+    if changed_paths and exit_code not in (None, 0):
+        return (
+            f"Issue #{state.issue_number} exhausted retries; last attempt changed "
+            f"{len(changed_paths)} file(s) but exited {exit_code}: "
+            f"{failure_reason or worker_outcome or 'worker failed'}."
+        )
+    if not changed_paths:
+        return (
+            f"Issue #{state.issue_number} exhausted retries; last attempt made no committed file changes"
+            + (f": {failure_reason}." if failure_reason else ".")
+        )
+    return (
+        f"Issue #{state.issue_number} exhausted retries; last recorded outcome was "
+        f"{worker_outcome or 'unknown'}" + (f": {failure_reason}." if failure_reason else ".")
+    )

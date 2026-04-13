@@ -50,6 +50,7 @@ from aragora.swarm.boss_loop import (
     sanitize_issue_body_for_dispatch,
     select_eligible_issue,
 )
+from aragora.swarm.session_state import SessionStateStore
 from aragora.swarm.task_sanitizer import SanitizationOutcome
 
 UTC = timezone.utc
@@ -3655,6 +3656,218 @@ async def test_dispatch_issue_preserves_issue_header_with_refined_prompt() -> No
     spec = mock_commander_cls.return_value.run_supervised_from_spec.await_args.args[0]
     assert spec.raw_goal.startswith("[Issue #1641] Wire prompt refiner env")
     assert "Use the refined goal only." in spec.raw_goal
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_injects_session_resume_context_into_work_order_metadata(
+    tmp_path: Path,
+) -> None:
+    issue = _make_issue(
+        1734,
+        "Reuse prior repair context",
+        body=(
+            "Summary:\n"
+            "- Retry the bounded boss-loop fix with the prior failure context.\n\n"
+            "Acceptance Criteria:\n"
+            "- pytest -q tests/swarm/test_boss_loop.py\n\n"
+            "Scope hints:\n"
+            "- aragora/swarm/boss_loop.py\n"
+        ),
+    )
+    store = SessionStateStore(state_dir=tmp_path)
+    store.record_attempt(
+        issue_number=1734,
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["aragora/swarm/boss_loop.py"],
+        target_agent="codex",
+        runner_type="codex",
+        resume_hint="pytest -q tests/swarm/test_boss_loop.py failed",
+        metadata={
+            "failure_reason": "pytest -q tests/swarm/test_boss_loop.py failed",
+            "failing_verification": {
+                "command": "pytest -q tests/swarm/test_boss_loop.py",
+                "exit_code": 1,
+            },
+        },
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1), session_state_store=store)
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    fake_run = MagicMock()
+    fake_run.to_dict.return_value = {
+        "status": "completed",
+        "run_id": "run-1734",
+        "work_orders": [
+            {
+                "status": "completed",
+                "branch": "codex/reuse-prior-context",
+                "commit_shas": ["abc123"],
+            }
+        ],
+    }
+    micro_orders = [
+        {
+            "work_order_id": "work-1",
+            "title": "Retry the bounded boss-loop fix",
+            "description": "Use the prior verification failure as repair context.",
+            "file_scope": ["aragora/swarm/boss_loop.py"],
+            "expected_tests": ["pytest -q tests/swarm/test_boss_loop.py"],
+        }
+    ]
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(
+                return_value={
+                    "refined_prompt": "",
+                    "files_to_change": [],
+                    "test_patterns": [],
+                    "constraints": [],
+                    "context_gathered": False,
+                }
+            ),
+        ),
+        patch(
+            "aragora.swarm.micro_decomposer.build_micro_work_orders",
+            return_value=micro_orders,
+        ),
+        patch("aragora.swarm.commander.SwarmCommander") as mock_commander_cls,
+    ):
+        mock_commander_cls.return_value.run_supervised_from_spec = AsyncMock(return_value=fake_run)
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    spec = mock_commander_cls.return_value.run_supervised_from_spec.await_args.args[0]
+    metadata = spec.work_orders[0]["metadata"]
+
+    assert result["status"] == "completed"
+    assert metadata["resume_context"]["issue_number"] == 1734
+    assert metadata["resume_context"]["retry_count"] == 1
+    assert metadata["repair_journal"][0]["failing_verification"]["command"] == (
+        "pytest -q tests/swarm/test_boss_loop.py"
+    )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_records_session_state_after_dispatch(tmp_path: Path) -> None:
+    issue = _make_issue(
+        1735,
+        "Persist retry attempt",
+        body=(
+            "Summary:\n"
+            "- Persist the retry attempt after dispatch.\n\n"
+            "Acceptance Criteria:\n"
+            "- pytest -q tests/swarm/test_boss_loop.py\n\n"
+            "Scope hints:\n"
+            "- aragora/swarm/boss_loop.py\n"
+        ),
+    )
+    store = SessionStateStore(state_dir=tmp_path)
+    loop = BossLoop(config=_boss_config(max_iterations=1), session_state_store=store)
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (
+        {"runner_id": "codex-runner-1", "runner_type": "codex"},
+        "codex-runner-1",
+    )
+    loop._release_runner_claim = lambda runner_id: None
+
+    fake_result = {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "reasons": ["Verification failed during pytest run."],
+        "run_id": "run-1735",
+        "receipt_id": "receipt-1735",
+        "run": {
+            "work_orders": [
+                {
+                    "status": "failed",
+                    "target_agent": "codex",
+                    "worktree_path": "/tmp/aragora-1735",
+                    "branch": "codex/issue-1735",
+                    "exit_code": 1,
+                    "changed_paths": ["aragora/swarm/boss_loop.py"],
+                    "verification_results": [
+                        {
+                            "command": "pytest -q tests/swarm/test_boss_loop.py",
+                            "exit_code": 1,
+                            "passed": False,
+                            "stderr_tail": "assert False",
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value=fake_result),
+        ),
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    state = store.latest_for_issue(issue.number)
+
+    assert result["status"] == "needs_human"
+    assert state is not None
+    assert state.retry_count == 1
+    assert state.target_agent == "codex"
+    assert state.branch_name == "codex/issue-1735"
+    assert state.attempts[-1]["exit_code"] == 1
+    assert state.attempts[-1]["changed_paths"] == ["aragora/swarm/boss_loop.py"]
+
+
+def test_maxed_issue_needs_human_includes_session_blocker_summary(tmp_path: Path) -> None:
+    issue = _make_issue(1736, "Exhausted repair loop")
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = [issue]
+    store = SessionStateStore(state_dir=tmp_path)
+    store.record_attempt(
+        issue_number=1736,
+        status="needs_human",
+        outcome="blocked",
+        exit_code=1,
+        changed_files=["aragora/swarm/boss_loop.py"],
+        resume_hint="Verification failed during pytest run.",
+        metadata={
+            "failure_reason": "Verification failed during pytest run.",
+            "failing_verification": {
+                "command": "pytest -q tests/swarm/test_boss_loop.py",
+                "exit_code": 1,
+            },
+        },
+    )
+
+    loop = BossLoop(
+        config=_boss_config(max_iterations=1, max_retries_per_issue=1),
+        issue_feed=feed,
+        freshness_checker=lambda **kw: (_ for _ in ()).throw(
+            AssertionError("freshness should not be checked for maxed issues")
+        ),
+        session_state_store=store,
+    )
+    loop._issue_attempt_counts[1736] = 1
+
+    result = asyncio.run(loop.run())
+
+    assert result.stop_reason == BossStopReason.NO_SUITABLE_ISSUE.value
+    assert any(
+        "Issue #1736 exhausted retries; last blocker was failing verification" in reason
+        for reason in result.needs_human_reasons
+    )
+    assert any(
+        "pytest -q tests/swarm/test_boss_loop.py" in reason for reason in result.needs_human_reasons
+    )
 
 
 @pytest.mark.asyncio
