@@ -24,7 +24,16 @@ def compute_slack_signature(body: bytes, timestamp: str, signing_secret: str) ->
 
     Returns:
         The computed ``v0=...`` signature string.
+
+    Raises:
+        ValueError: If any required parameter is empty or has an invalid type.
     """
+    if not isinstance(body, bytes):
+        raise TypeError("body must be bytes")
+    if not timestamp:
+        raise ValueError("timestamp must not be empty")
+    if not signing_secret:
+        raise ValueError("signing_secret must not be empty")
     body_text = body.decode("utf-8")
     sig_basestring = f"v0:{timestamp}:{body_text}"
     return (
@@ -59,6 +68,10 @@ def verify_slack_signature(
     """
     if not signature or not signing_secret:
         logger.warning("Missing Slack signature verification inputs")
+        return False
+
+    if now is not None and now < 0:
+        logger.warning("Negative timestamp provided for Slack signature verification")
         return False
 
     current_time = int(now if now is not None else time.time())
