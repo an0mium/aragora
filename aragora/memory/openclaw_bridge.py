@@ -13,6 +13,21 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+VALID_STATUSES = frozenset({"pass", "fail", "revoke"})
+
+IMPORTANCE_MAP: dict[str, float] = {
+    "pass": 0.4,
+    "fail": 0.7,
+    "revoke": 0.9,
+}
+
+DEFAULT_IMPORTANCE = 0.5
+
+
+def importance_for_status(status: str) -> float:
+    return IMPORTANCE_MAP.get(status, DEFAULT_IMPORTANCE)
+
+
 @dataclass
 class ValidationEvent:
     agent_id: str
@@ -20,26 +35,36 @@ class ValidationEvent:
     details: str = ""
     confidence: float = 0.8
 
+    def __post_init__(self) -> None:
+        if not self.agent_id:
+            raise ValueError("agent_id must be non-empty")
+        if not 0.0 <= self.confidence <= 1.0:
+            raise ValueError(f"confidence must be between 0 and 1, got {self.confidence}")
+
 
 class OpenClawContinuumBridge:
     def __init__(self, continuum_memory: Any):
         self._continuum = continuum_memory
         self._event_count = 0
 
-    def record_validation(self, event: ValidationEvent) -> str | None:
-        """Record validation event in Continuum at medium tier."""
-        content = f"OpenClaw validation [{event.status}] agent={event.agent_id}: {event.details}"
-        importance = {
-            "pass": 0.4,
-            "fail": 0.7,
-            "revoke": 0.9,
-        }.get(event.status, 0.5)
-        metadata = {
+    @staticmethod
+    def build_content(event: ValidationEvent) -> str:
+        return f"OpenClaw validation [{event.status}] agent={event.agent_id}: {event.details}"
+
+    @staticmethod
+    def build_metadata(event: ValidationEvent) -> dict[str, str]:
+        return {
             "agent_id": event.agent_id,
             "status": event.status,
             "source": "openclaw_bridge",
             "tier_hint": "medium",
         }
+
+    def record_validation(self, event: ValidationEvent) -> str | None:
+        """Record validation event in Continuum at medium tier."""
+        content = self.build_content(event)
+        importance = importance_for_status(event.status)
+        metadata = self.build_metadata(event)
 
         try:
             if hasattr(self._continuum, "store_pattern"):
