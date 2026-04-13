@@ -46,6 +46,8 @@ LEGACY_CONTROL_PLANE_DEV_DEPS=(
   "ruff>=0.1,<1.0"
   "bandit>=1.7,<2.0"
   "mypy>=1.8,<2.0"
+  "types-jsonschema"
+  "types-PyYAML"
   "mutmut>=3.0,<4.0"
   "pre-commit>=3.6,<5.0"
   "datamodel-code-generator==0.54.0"

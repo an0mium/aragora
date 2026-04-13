@@ -374,7 +374,7 @@ jobs:
       - name: Install mypy and type stubs
         run: |
           "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user -e .
-          "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user mypy types-requests types-redis types-python-dateutil types-setuptools
+          "${{ steps.typecheck_python.outputs.python_bin }}" -m pip install --user mypy types-requests types-redis types-python-dateutil types-setuptools types-jsonschema types-PyYAML
 
       - name: Resolve phase-1 typecheck plan
         id: typecheck_plan
@@ -493,7 +493,7 @@ jobs:
       - name: Install mypy and dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install mypy types-requests types-redis types-python-dateutil types-setuptools
+          python -m pip install mypy types-requests types-redis types-python-dateutil types-setuptools types-jsonschema types-PyYAML
           python -m pip install -e .
 
       - name: Typecheck core modules (REQUIRED)
