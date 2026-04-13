@@ -621,9 +621,113 @@ def _render_text(snapshot: SupervisorSnapshot) -> str:
     return "\n".join(lines)
 
 
+_SAFE_AUTO_ACTIONS = frozenset(
+    {
+        "approve_prompt",
+        "wait_for_ci",
+        "ready_for_review",
+    }
+)
+
+_FOLLOWUP_ACTIONS = frozenset(
+    {
+        "send_followup",
+    }
+)
+
+_MAX_RECOVERY_ATTEMPTS = 3
+_recovery_counts: dict[str, int] = {}
+
+
+def _execute_decision(decision: LaneDecision, *, dry_run: bool = False) -> str:
+    """Execute a single lane decision through the agent bridge.
+
+    Returns a short summary of what was done.
+    """
+    session_name = decision.owner_session
+    action = decision.next_action
+
+    # Track recovery attempts per session
+    if action not in ("wait_for_ci", "ready_for_review", "blocked"):
+        count = _recovery_counts.get(session_name, 0) + 1
+        _recovery_counts[session_name] = count
+        if count > _MAX_RECOVERY_ATTEMPTS:
+            _record_rescue_event(
+                decision, "escalate", f"exceeded {_MAX_RECOVERY_ATTEMPTS} recovery attempts"
+            )
+            return f"ESCALATE {session_name}: exceeded max recovery attempts"
+
+    if action == "approve_prompt":
+        if dry_run:
+            return f"DRY-RUN: would approve prompt in {session_name}"
+        target = agent_bridge._resolve_tmux_target(
+            agent_bridge.Session(
+                name=session_name, agent="unknown", tmux_target=f"aragora:{session_name}"
+            )
+        )
+        if target and agent_bridge._send_tmux(target, "y"):
+            _record_rescue_event(decision, "approve_prompt", decision.reason)
+            return f"APPROVED prompt in {session_name}"
+        return f"FAILED to approve in {session_name}"
+
+    if action == "send_followup":
+        prompt = _build_followup_prompt(decision)
+        if dry_run:
+            return f"DRY-RUN: would send followup to {session_name}: {prompt[:80]}..."
+        target = agent_bridge._resolve_tmux_target(
+            agent_bridge.Session(
+                name=session_name, agent="unknown", tmux_target=f"aragora:{session_name}"
+            )
+        )
+        if target and agent_bridge._send_tmux(target, prompt):
+            _record_rescue_event(decision, "send_followup", decision.reason)
+            return f"SENT followup to {session_name}"
+        return f"FAILED to send followup to {session_name}"
+
+    if action == "wait_for_ci":
+        return f"WAITING: {session_name} — {decision.reason}"
+
+    if action == "ready_for_review":
+        return f"READY: {session_name} PR ready for review"
+
+    if action in ("blocked", "restart_from_main"):
+        _record_rescue_event(decision, action, decision.reason)
+        return f"BLOCKED: {session_name} — {decision.reason}"
+
+    return f"NO-OP: {session_name} action={action}"
+
+
+def _build_followup_prompt(decision: LaneDecision) -> str:
+    """Build a targeted followup prompt from the decision context."""
+    parts = [f"Status check: {decision.reason}"]
+    if decision.pr_checks_bucket and decision.pr_checks_bucket not in ("unknown", "green"):
+        parts.append(f"PR checks: {decision.pr_checks_bucket}")
+    if decision.evidence:
+        parts.append(f"Evidence: {'; '.join(decision.evidence[:3])}")
+    parts.append("Report your current status and next action.")
+    return " ".join(parts)
+
+
+def _record_rescue_event(decision: LaneDecision, action: str, reason: str) -> None:
+    """Record the supervisor action as a RescueEvent."""
+    try:
+        from aragora.swarm.rescue_events import record_rescue
+
+        record_rescue(
+            event_type=action,
+            reason=reason[:200],
+            actor="supervisor",
+            issue_number=None,
+            session_id=decision.owner_session,
+            pr_number=decision.pr_number,
+        )
+    except Exception:
+        pass  # Don't let rescue recording block supervision
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Passive supervision loop for agent bridge lanes.",
+        description="Agent bridge supervisor with optional active execution.",
     )
     parser.add_argument(
         "--once",
@@ -637,6 +741,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Poll continuously every N seconds.",
     )
     parser.add_argument("--json", action="store_true", help="Render machine-readable JSON.")
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Execute safe bounded actions (approve prompts, send followups). Without this flag, only reports.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="With --execute, plan actions but don't actually send them.",
+    )
     return parser
 
 
@@ -647,10 +761,39 @@ def main(argv: list[str] | None = None) -> int:
 
     while True:
         snapshot = collect_supervisor_snapshot()
-        if args.json:
-            print(json.dumps(snapshot.to_dict(), indent=2))
+
+        if args.execute:
+            actions_taken: list[str] = []
+            for decision in snapshot.decisions:
+                if decision.next_action in _SAFE_AUTO_ACTIONS | _FOLLOWUP_ACTIONS:
+                    result = _execute_decision(decision, dry_run=args.dry_run)
+                    actions_taken.append(result)
+                elif decision.next_action in ("blocked", "restart_from_main"):
+                    result = _execute_decision(decision, dry_run=args.dry_run)
+                    actions_taken.append(result)
+
+            if args.json:
+                print(
+                    json.dumps(
+                        {
+                            **snapshot.to_dict(),
+                            "actions_taken": actions_taken,
+                        },
+                        indent=2,
+                    )
+                )
+            else:
+                print(_render_text(snapshot))
+                if actions_taken:
+                    print("\n--- Actions ---")
+                    for action in actions_taken:
+                        print(f"  {action}")
         else:
-            print(_render_text(snapshot))
+            if args.json:
+                print(json.dumps(snapshot.to_dict(), indent=2))
+            else:
+                print(_render_text(snapshot))
+
         if run_once:
             return 0
         time.sleep(max(args.interval or 0.0, 0.0))
