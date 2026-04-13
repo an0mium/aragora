@@ -752,6 +752,7 @@ def run_remote_publish_validation_receipt(
     worktree_created = False
     pushed = False
     draft_created = False
+    unresolved_remote_pr_state = False
     scratch_file = _scratch_validation_file(worktree_path)
 
     try:
@@ -849,6 +850,25 @@ def run_remote_publish_validation_receipt(
                                     detail=pr_url,
                                 )
     finally:
+        if pushed and not draft_created:
+            pr_number, pr_url = _find_open_pr_by_branch(
+                cwd=worktree_path if worktree_created else resolved_repo_root,
+                branch=branch,
+                base_ref=normalized_base_ref,
+            )
+            if pr_number is not None and pr_url:
+                draft_created = True
+                artifacts["draft_pr_number"] = pr_number
+                artifacts["draft_pr_url"] = pr_url
+                _append_check(
+                    checks,
+                    name="gh_pr_capture_recovery",
+                    passed=True,
+                    detail=pr_url,
+                )
+            else:
+                unresolved_remote_pr_state = True
+
         if draft_created:
             close_target = str(artifacts.get("draft_pr_number") or branch)
             _run_check(
@@ -864,6 +884,16 @@ def run_remote_publish_validation_receipt(
                 ],
                 cwd=worktree_path if worktree_created else resolved_repo_root,
             )
+        elif pushed and unresolved_remote_pr_state:
+            _append_check(
+                checks,
+                name="gh_pr_close",
+                passed=False,
+                detail=(
+                    "unable to confirm whether a draft PR exists after gh pr create; "
+                    "remote branch retained for manual cleanup"
+                ),
+            )
         elif pushed:
             _append_check(
                 checks,
@@ -872,13 +902,20 @@ def run_remote_publish_validation_receipt(
                 detail="skipped (draft PR not created)",
             )
 
-        if pushed:
+        if pushed and not unresolved_remote_pr_state:
             _run_check(
                 checks,
                 name="cleanup_remote_branch_delete",
                 cmd=["git", "push", "origin", "--delete", branch],
                 cwd=worktree_path if worktree_created else resolved_repo_root,
                 env=git_safe_env(),
+            )
+        elif pushed:
+            _append_check(
+                checks,
+                name="cleanup_remote_branch_delete",
+                passed=False,
+                detail=("skipped because draft PR state could not be confirmed after gh pr create"),
             )
         else:
             _append_check(

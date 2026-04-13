@@ -4,6 +4,8 @@ import json
 import sys
 from types import SimpleNamespace
 
+import pytest
+
 from aragora.swarm.issue_scanner import BossIssueCandidate
 from scripts import generate_boss_issues as mod
 
@@ -471,3 +473,73 @@ def test_fetch_open_pr_files_paginates_open_prs_and_pr_files(monkeypatch) -> Non
     }
     assert "repos/org/repo/pulls?state=open&per_page=2&page=2" in calls
     assert "repos/org/repo/pulls/101/files?per_page=2&page=2" in calls
+
+
+def test_fetch_open_pr_files_raises_when_open_pr_pagination_cap_exhausted(monkeypatch) -> None:
+    monkeypatch.setattr(mod, "_OPEN_PR_PAGE_SIZE", 1)
+    monkeypatch.setattr(mod, "_OPEN_PR_MAX_PAGES", 2)
+
+    def fake_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        endpoint = cmd[-1]
+        if endpoint.endswith("/pulls?state=open&per_page=1&page=1"):
+            return SimpleNamespace(returncode=0, stdout=json.dumps([{"number": 101}]), stderr="")
+        if endpoint.endswith("/pulls/101/files?per_page=100&page=1"):
+            return SimpleNamespace(returncode=0, stdout="[]", stderr="")
+        if endpoint.endswith("/pulls?state=open&per_page=1&page=2"):
+            return SimpleNamespace(returncode=0, stdout=json.dumps([{"number": 102}]), stderr="")
+        if endpoint.endswith("/pulls/102/files?per_page=100&page=1"):
+            return SimpleNamespace(returncode=0, stdout="[]", stderr="")
+        raise AssertionError(f"unexpected gh api call: {endpoint}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="open PR pagination exceeded configured cap"):
+        mod.fetch_open_pr_files("org/repo")
+
+
+def test_fetch_open_pr_files_raises_when_pr_files_pagination_cap_exhausted(monkeypatch) -> None:
+    monkeypatch.setattr(mod, "_OPEN_PR_PAGE_SIZE", 1)
+    monkeypatch.setattr(mod, "_OPEN_PR_FILES_PAGE_SIZE", 1)
+    monkeypatch.setattr(mod, "_OPEN_PR_FILES_MAX_PAGES", 2)
+
+    def fake_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        endpoint = cmd[-1]
+        if endpoint.endswith("/pulls?state=open&per_page=1&page=1"):
+            return SimpleNamespace(returncode=0, stdout=json.dumps([{"number": 101}]), stderr="")
+        if endpoint.endswith("/pulls/101/files?per_page=1&page=1"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps([{"filename": "aragora/first.py"}]),
+                stderr="",
+            )
+        if endpoint.endswith("/pulls/101/files?per_page=1&page=2"):
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps([{"filename": "aragora/second.py"}]),
+                stderr="",
+            )
+        raise AssertionError(f"unexpected gh api call: {endpoint}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError, match="open PR file pagination exceeded configured cap"):
+        mod.fetch_open_pr_files("org/repo")
+
+
+def test_main_returns_error_when_open_pr_pagination_exhausted(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: [],
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+
+    def raise_pagination_error(repo: str) -> set[str]:
+        raise RuntimeError("open PR pagination exceeded configured cap (10 pages) for org/repo")
+
+    monkeypatch.setattr(mod, "fetch_open_pr_files", raise_pagination_error)
+    monkeypatch.setattr(sys, "argv", ["generate_boss_issues.py", "--repo", "org/repo"])
+
+    assert mod.main() == 1
+    out = capsys.readouterr().out
+    assert "Error: open PR pagination exceeded configured cap (10 pages) for org/repo" in out

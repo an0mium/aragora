@@ -198,9 +198,16 @@ def fetch_open_pr_files(repo: str) -> set[str]:
                             files.add(path)
                     if len(payload) < _OPEN_PR_FILES_PAGE_SIZE:
                         break
+                else:
+                    raise RuntimeError(
+                        "open PR file pagination exceeded configured cap "
+                        f"({_OPEN_PR_FILES_MAX_PAGES} pages) for PR #{number}"
+                    )
             if len(prs) < _OPEN_PR_PAGE_SIZE:
                 return files
-        return files
+        raise RuntimeError(
+            f"open PR pagination exceeded configured cap ({_OPEN_PR_MAX_PAGES} pages) for {repo}"
+        )
     except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
         pass
     return set()
@@ -458,7 +465,11 @@ def main() -> None:
 
     # 3. Check PR conflicts (always fetch, even in dry-run)
     print("Fetching open PR files...")
-    pr_files = fetch_open_pr_files(args.repo)
+    try:
+        pr_files = fetch_open_pr_files(args.repo)
+    except RuntimeError as exc:
+        print(f"Error: {exc}")
+        return 1
     print(f"  {len(pr_files)} files in open PRs")
 
     # 4. Filter
