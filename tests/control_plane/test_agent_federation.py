@@ -164,6 +164,26 @@ class TestFederatedAgentPoolLifecycle:
 
         assert pool._connected is False
 
+    @pytest.mark.asyncio
+    async def test_close_logs_cancelled_background_tasks(self, pool):
+        """Test closing logs cancelled discovery and health tasks."""
+
+        async def wait_forever():
+            await asyncio.Event().wait()
+
+        pool._connected = True
+        pool._discovery_task = asyncio.create_task(wait_forever())
+        pool._health_task = asyncio.create_task(wait_forever())
+
+        with patch("aragora.control_plane.agent_federation.logger") as mock_logger:
+            await pool.close()
+
+        assert pool._connected is False
+        mock_logger.debug.assert_any_call(
+            "[FederatedAgentPool] Discovery task cancelled during close"
+        )
+        mock_logger.debug.assert_any_call("[FederatedAgentPool] Health task cancelled during close")
+
 
 class TestFederatedAgentPoolFindAgents:
     """Tests for finding agents."""

@@ -211,14 +211,14 @@ class FederatedAgentPool:
             try:
                 await self._discovery_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[FederatedAgentPool] Discovery task cancelled during close")
 
         if self._health_task:
             self._health_task.cancel()
             try:
                 await self._health_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[FederatedAgentPool] Health task cancelled during close")
 
         self._connected = False
         logger.info("[FederatedAgentPool] Closed")
