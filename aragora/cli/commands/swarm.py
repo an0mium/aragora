@@ -26,7 +26,11 @@ import shlex
 import subprocess
 import sys
 import tempfile
+from typing import Any, Coroutine, TypeVar
 from uuid import uuid4
+
+JsonDict = dict[str, Any]
+T = TypeVar("T")
 
 
 def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | None]:
@@ -76,7 +80,10 @@ def _parse_csv_set(value: object) -> set[str] | None:
 def _format_elapsed_seconds(value: object) -> str:
     if value is None:
         return "-"
-    seconds = max(0.0, float(value))
+    try:
+        seconds = max(0.0, float(str(value)))
+    except (TypeError, ValueError):
+        return "-"
     if seconds < 60:
         return f"{seconds:.1f}s"
     if seconds < 3600:
@@ -150,7 +157,7 @@ def _render_initiative(item: object) -> None:
         )
 
 
-def _render_initiative_status(payload: dict[str, object]) -> None:
+def _render_initiative_status(payload: JsonDict) -> None:
     print(
         "initiative_id={initiative_id} completed={completed}/{total} milestones={done}/{count}".format(
             initiative_id=payload.get("initiative_id", ""),
@@ -216,7 +223,7 @@ def _coordination_assigned_by(args: argparse.Namespace) -> str:
     return f"boss-{os.getpid()}"
 
 
-def _render_coordination_view(view: dict[str, object]) -> None:
+def _render_coordination_view(view: JsonDict) -> None:
     summary = view.get("summary", {}) if isinstance(view.get("summary"), dict) else {}
     print(
         "coordination directives={directives} sessions={sessions} claims={claims} findings={findings}".format(
@@ -384,11 +391,8 @@ def _classify_issue_validation_status(
         None,
     )
     command = str(first_failure.get("command") if isinstance(first_failure, dict) else "")
-    returncode = (
-        int(first_failure.get("returncode"))
-        if isinstance(first_failure, dict) and isinstance(first_failure.get("returncode"), int)
-        else None
-    )
+    returncode_value = first_failure.get("returncode") if isinstance(first_failure, dict) else None
+    returncode = int(returncode_value) if isinstance(returncode_value, int) else None
     stdout_text = str(first_failure.get("stdout") if isinstance(first_failure, dict) else "" or "")
     stderr_text = str(first_failure.get("stderr") if isinstance(first_failure, dict) else "" or "")
     combined_output = f"{stdout_text}\n{stderr_text}".lower()
@@ -524,11 +528,11 @@ def _open_audit_checkout(repo_root: Path, *, git_ref: str | None):
 
 def _build_runner_report_payload(
     *,
-    registrations: list[dict[str, object]],
-    routing: dict[str, object],
-    discovered: list[dict[str, object]] | None = None,
-) -> dict[str, object]:
-    rows: list[dict[str, object]] = []
+    registrations: list[JsonDict],
+    routing: JsonDict,
+    discovered: list[JsonDict] | None = None,
+) -> JsonDict:
+    rows: list[JsonDict] = []
     by_type: dict[str, dict[str, int]] = {}
     by_cost: dict[str, int] = {}
     fresh_count = 0
@@ -622,7 +626,7 @@ def _build_runner_report_payload(
     }
 
 
-def _render_runner_report(payload: dict[str, object]) -> None:
+def _render_runner_report(payload: JsonDict) -> None:
     summary = payload.get("summary", {}) if isinstance(payload.get("summary"), dict) else {}
     print(
         "Runner Report registered={registered} fresh={fresh} discovered={discovered} selected={selected}".format(
@@ -689,8 +693,8 @@ def _render_runner_report(payload: dict[str, object]) -> None:
 def _build_multi_runner_payload(
     *,
     subaction: str,
-    runners: list[dict[str, object]],
-) -> dict[str, object]:
+    runners: list[JsonDict],
+) -> JsonDict:
     return {
         "mode": "runner",
         "action": subaction,
@@ -713,11 +717,11 @@ def _build_multi_runner_payload(
 def _build_runner_probe_payload(
     *,
     subaction: str,
-    runners: list[dict[str, object]],
-    discovered: list[dict[str, object]],
-    routing_before: dict[str, object] | None = None,
-    routing_after: dict[str, object] | None = None,
-) -> dict[str, object]:
+    runners: list[JsonDict],
+    discovered: list[JsonDict],
+    routing_before: JsonDict | None = None,
+    routing_after: JsonDict | None = None,
+) -> JsonDict:
     attempted = len(runners)
     passed = len(
         [item for item in runners if str(item.get("probe_status", "")).strip() == "passed"]
@@ -725,7 +729,7 @@ def _build_runner_probe_payload(
     failed = len(
         [item for item in runners if str(item.get("probe_status", "")).strip() == "failed"]
     )
-    payload: dict[str, object] = {
+    payload: JsonDict = {
         "mode": "runner",
         "action": subaction,
         "summary": {
@@ -750,7 +754,7 @@ def _build_runner_probe_payload(
     return payload
 
 
-def _render_tranche_queue_status(payload: dict[str, object]) -> None:
+def _render_tranche_queue_status(payload: JsonDict) -> None:
     elapsed = _format_elapsed_seconds(payload.get("elapsed_seconds"))
     print(
         "queue_id={queue_id} status={status} current_item_id={current_item_id} elapsed={elapsed}".format(
@@ -794,7 +798,7 @@ def _render_tranche_queue_status(payload: dict[str, object]) -> None:
         )
         if blocker:
             print(f"current_item_blocker={blocker}")
-    rows: list[dict[str, object]] = []
+    rows: list[JsonDict] = []
     for item in [entry for entry in payload.get("items", []) if isinstance(entry, dict)]:
         worker_branches = [
             str(branch).strip() for branch in item.get("worker_branches", []) if str(branch).strip()
@@ -827,7 +831,7 @@ def _render_tranche_queue_status(payload: dict[str, object]) -> None:
     )
 
 
-def _print_supervisor_run(run: dict[str, object]) -> None:
+def _print_supervisor_run(run: JsonDict) -> None:
     work_orders = (
         list(run.get("work_orders", [])) if isinstance(run.get("work_orders"), list) else []
     )
@@ -844,7 +848,7 @@ def _print_supervisor_run(run: dict[str, object]) -> None:
     print(f"work_orders={len(work_orders)} [{counts_text}]")
 
 
-def _render_tranche_queue_harvest_table(payload: dict[str, object]) -> None:
+def _render_tranche_queue_harvest_table(payload: JsonDict) -> None:
     summary = payload.get("summary", {}) if isinstance(payload.get("summary"), dict) else {}
     rows = [
         ("total items", int(summary.get("total_items", 0) or 0)),
@@ -873,7 +877,7 @@ def _render_tranche_queue_harvest_table(payload: dict[str, object]) -> None:
         print(f"{label:<{metric_width}}  {value:>{count_width}}")
 
 
-def _run_supervised_or_report(awaitable: object) -> object | None:
+def _run_supervised_or_report(awaitable: Coroutine[Any, Any, T]) -> T | None:
     try:
         return asyncio.run(awaitable)
     except ValueError as exc:
@@ -889,13 +893,13 @@ def _probe_limit_arg(args: argparse.Namespace, *, default: int = 1) -> int:
         return default
 
 
-def _load_structured_object(source: str) -> dict[str, object]:
+def _load_structured_object(source: str) -> JsonDict:
     if source == "-":
         raw = sys.stdin.read()
     else:
         raw = Path(source).read_text(encoding="utf-8")
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
 
         payload = yaml.safe_load(raw) or {}
     except ImportError:
@@ -906,12 +910,12 @@ def _load_structured_object(source: str) -> dict[str, object]:
 
 
 def _build_boss_payload(
-    run: dict[str, object],
+    run: JsonDict,
     *,
     repo_root: Path,
     target_branch: str,
-    routing: dict[str, object] | None = None,
-) -> dict[str, object]:
+    routing: JsonDict | None = None,
+) -> JsonDict:
     from aragora.swarm.reporter import build_boss_payload, build_integrator_view
     from aragora.worktree.fleet import FleetCoordinationStore, build_fleet_rows
 
@@ -1025,13 +1029,13 @@ def _load_integrator_view(repo_root: Path, *, base_branch: str) -> dict[str, obj
 
 
 def _find_integrator_lane(
-    view: dict[str, object],
+    view: JsonDict,
     *,
     lane_id: str = "",
     receipt_id: str = "",
     lease_id: str = "",
     branch: str = "",
-) -> dict[str, object] | None:
+) -> JsonDict | None:
     lanes = [item for item in view.get("lanes", []) if isinstance(item, dict)]
     lane_id = str(lane_id or "").strip()
     receipt_id = str(receipt_id or "").strip()
@@ -1067,7 +1071,7 @@ def _find_integrator_lane(
     return None
 
 
-def _render_integrator_table(view: dict[str, object]) -> None:
+def _render_integrator_table(view: JsonDict) -> None:
     summary = view.get("summary", {}) if isinstance(view.get("summary"), dict) else {}
     print(f"Swarm Integrator View ({summary.get('total_lanes', 0)} lanes)")
     print(
@@ -1197,11 +1201,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         from aragora.swarm.preflight import run_preflight
 
         repo_root = resolve_repo_root(Path.cwd())
+        contract_arg = getattr(args, "contract", None)
         result = run_preflight(
             repo_root=repo_root,
             agent=str(getattr(args, "worker_model", "claude") or "claude"),
             base_ref=str(target_branch or "main"),
             skip_publication=skip_publication,
+            contract_path=Path(str(contract_arg)).expanduser() if contract_arg else None,
         )
         payload = {"mode": "swarm-preflight", **result.to_dict()}
         if as_json:
@@ -1586,7 +1592,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             ).strip()
             or "codex"
         )
-        inspections: list[object] = []
+        inspections: list[Any] = []
         probe_limit = _probe_limit_arg(args, default=1 if subaction == "maintain" else 2)
         if subaction == "register":
             inspections = discover_runner_inspections(
@@ -1810,17 +1816,17 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             if subaction == "report":
                 _render_runner_report(payload)
             elif subaction in {"probe", "maintain"}:
-                summary = (
+                probe_summary = (
                     payload.get("summary", {}) if isinstance(payload.get("summary"), dict) else {}
                 )
                 print(
                     "Runner {action} discovered={discovered} attempted={attempted} "
                     "passed={passed} failed={failed}".format(
                         action=subaction,
-                        discovered=summary.get("discovered", 0),
-                        attempted=summary.get("attempted", 0),
-                        passed=summary.get("passed", 0),
-                        failed=summary.get("failed", 0),
+                        discovered=probe_summary.get("discovered", 0),
+                        attempted=probe_summary.get("attempted", 0),
+                        passed=probe_summary.get("passed", 0),
+                        failed=probe_summary.get("failed", 0),
                     )
                 )
                 print()
@@ -1830,15 +1836,15 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     print(render_runner_registration_text(item))
                     print()
             elif "runners" in payload:
-                summary = (
+                runner_summary = (
                     payload.get("summary", {}) if isinstance(payload.get("summary"), dict) else {}
                 )
                 print(
                     "Runner {action} count={count} available={available} registered={registered}".format(
                         action=subaction,
-                        count=summary.get("count", 0),
-                        available=summary.get("available", 0),
-                        registered=summary.get("registered", 0),
+                        count=runner_summary.get("count", 0),
+                        available=runner_summary.get("available", 0),
+                        registered=runner_summary.get("registered", 0),
                     )
                 )
                 print()
@@ -1854,13 +1860,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     if action == "audit-issues":
         from aragora.swarm.boss_loop import GitHubIssueFeed
 
-        cli_labels: list[str] = list(getattr(args, "labels", None) or [])
+        audit_labels: list[str] = list(getattr(args, "labels", None) or [])
         audit_ref = _optional_text(getattr(args, "audit_ref", None))
         legacy_label = getattr(args, "boss_label_filter", None)
-        if legacy_label and legacy_label not in cli_labels:
-            cli_labels.insert(0, legacy_label)
-        label_filter = cli_labels[0] if cli_labels else None
-        required_labels = set(cli_labels)
+        if legacy_label and legacy_label not in audit_labels:
+            audit_labels.insert(0, legacy_label)
+        label_filter = audit_labels[0] if audit_labels else None
+        required_labels = set(audit_labels)
         issue_list = [
             int(item.strip())
             for item in str(getattr(args, "boss_issue_list", "") or "").split(",")
@@ -1889,18 +1895,18 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             audits = [
                 _audit_issue_validation_contract(issue, repo_root=audit_root) for issue in issues
             ]
-        summary: dict[str, int] = {}
+        audit_summary: dict[str, int] = {}
         for item in audits:
             status = str(item.get("status", "unknown") or "unknown")
-            summary[status] = summary.get(status, 0) + 1
+            audit_summary[status] = audit_summary.get(status, 0) + 1
         payload = {
             "mode": "swarm-issue-audit",
             "action": "audit-issues",
             "repo": getattr(args, "boss_repo", None),
             "audit_ref": audit_ref,
-            "labels": cli_labels,
+            "labels": audit_labels,
             "issue_count": len(audits),
-            "summary": summary,
+            "summary": audit_summary,
             "issues": audits,
         }
         if as_json:
@@ -1909,13 +1915,13 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             print(
                 f"audited={len(audits)} "
                 + (f"ref={audit_ref} " if audit_ref else "")
-                + " ".join(f"{key}={value}" for key, value in sorted(summary.items()))
+                + " ".join(f"{key}={value}" for key, value in sorted(audit_summary.items()))
             )
             rows = [
                 {
                     "number": item["number"],
                     "status": item["status"],
-                    "title": item["title"][:64],
+                    "title": str(item.get("title", ""))[:64],
                     "next_action": str(item["next_action"])[:80],
                 }
                 for item in audits
@@ -1939,9 +1945,11 @@ def cmd_swarm(args: argparse.Namespace) -> None:
         readiness_filter = str(getattr(args, "readiness", None) or "").strip()
         if readiness_filter:
             filtered_view = dict(view)
+            lanes_value = view.get("lanes", [])
+            lanes = lanes_value if isinstance(lanes_value, list) else []
             filtered_view["lanes"] = [
                 item
-                for item in view.get("lanes", [])
+                for item in lanes
                 if isinstance(item, dict)
                 and str(item.get("merge_readiness", "")).strip() == readiness_filter
             ]
@@ -2651,15 +2659,15 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                 raise ValueError(f"prompt bundle not found: {prompt_path}")
             manifest_arg = str(getattr(args, "manifest", "") or "").strip()
             output_arg = str(getattr(args, "output", "") or "").strip()
-            output_path: Path | None = None
+            tranche_output_path: Path | None = None
             if output_arg:
-                output_path = Path(output_arg).resolve()
+                tranche_output_path = Path(output_arg).resolve()
             elif manifest_arg and manifest_arg != ".aragora/campaign_manifest.yaml":
-                output_path = Path(manifest_arg).resolve()
+                tranche_output_path = Path(manifest_arg).resolve()
             planner = TranchePlanner(repo_root=repo_root)
             manifest, saved_path = planner.plan_from_prompt_bundle(
                 prompt_path,
-                output_path=output_path,
+                output_path=tranche_output_path,
             )
             payload = {
                 "mode": "tranche-plan",
@@ -2970,7 +2978,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     run_state = load_tranche_run_state(manifest_path)
             except (OSError, ValueError):
                 run_state = None
-            results: list[dict[str, object]] = []
+            tranche_results: list[JsonDict] = []
             for artifact in selected_artifacts:
                 result = asyncio.run(
                     integrate_lane(
@@ -2992,23 +3000,23 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                         autonomy_mode=str(getattr(args, "autonomy", "adaptive") or "adaptive"),
                     )
                 )
-                results.append(result)
+                tranche_results.append(result)
 
-            if run_state is not None:
-                run_state.save(state_path)
+                if run_state is not None:
+                    run_state.save(state_path)
 
-            payload = {
-                "mode": "tranche-integrate",
-                "action": subaction,
-                "manifest_id": manifest.manifest_id,
-                "manifest_path": str(manifest_path),
-                "approve": approve,
-                "results": results,
-            }
-            if as_json:
-                print(json.dumps(payload, indent=2))
-            else:
-                print(json.dumps(payload, indent=2))
+                payload = {
+                    "mode": "tranche-integrate",
+                    "action": subaction,
+                    "manifest_id": manifest.manifest_id,
+                    "manifest_path": str(manifest_path),
+                    "approve": approve,
+                    "results": tranche_results,
+                }
+                if as_json:
+                    print(json.dumps(payload, indent=2))
+                else:
+                    print(json.dumps(payload, indent=2))
             return
 
         executor = TrancheExecutor(repo_root=repo_root)

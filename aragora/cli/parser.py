@@ -78,7 +78,8 @@ class _GroupedCommandsParser(argparse.ArgumentParser):
                 formatter.add_arguments([action])
 
         if subparser_action is not None:
-            core, advanced = [], []
+            core: list[tuple[str, str]] = []
+            advanced: list[tuple[str, str]] = []
             for choice, _parser in (subparser_action.choices or {}).items():
                 help_text = ""
                 for sub_action in subparser_action._choices_actions:
@@ -2264,13 +2265,6 @@ def _add_signing_parser(subparsers) -> None:
     add_signing_parser(subparsers)
 
 
-def _add_inbox_wedge_parser(subparsers) -> None:
-    """Add the 'inbox-wedge' subcommand for trust wedge receipts and review."""
-    from aragora.cli.commands.inbox_wedge import add_inbox_wedge_parser
-
-    add_inbox_wedge_parser(subparsers)
-
-
 def _add_triage_parser(subparsers) -> None:
     """Add the 'triage' subcommand for inbox trust wedge."""
     from aragora.cli.commands.triage import add_triage_parser
@@ -2408,6 +2402,11 @@ def _add_swarm_parser(subparsers) -> None:
         "--skip-publication",
         action="store_true",
         help="For 'swarm preflight', skip push/PR steps and validate the worker locally only",
+    )
+    swarm_parser.add_argument(
+        "--contract",
+        default=None,
+        help="For 'swarm preflight', load a JSON worker contract for contract-aware validation",
     )
     swarm_parser.add_argument(
         "--concurrency-cap",
