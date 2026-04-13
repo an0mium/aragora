@@ -30,6 +30,7 @@ What is still missing:
 
 - receipt-backed contract preflight on the operator admission path — the module-level preflight exists but nothing yet returns a signed receipt that the supervisor can use as an admission gate for safe classes ([#5327](https://github.com/synaptent/aragora/issues/5327))
 - resumable session state, retry context, and precise blocker evidence on the live swarm loop
+- a checked-in frozen benchmark corpus and recurring no-rescue scorecard that meets the TW-01/TW-02 spec ([#5329](https://github.com/synaptent/aragora/issues/5329))
 - proof that the B2 guard holds under repeated bounded runs instead of one-off success stories
 - broader repair-loop coverage on top of the existing audit trail
 - lower-rescue unattended operation on bounded backlogs
@@ -54,6 +55,44 @@ Primary truth metric:
 - PR-signal counts and iteration counts are proxies only
 
 If a task does not improve that metric, it is not first-tranche work.
+
+## TW-01/TW-02: Benchmark Corpus and No-Rescue Scorecard ([#5329](https://github.com/synaptent/aragora/issues/5329))
+
+`TW-01` (fixed benchmark corpus) and `TW-02` (no-rescue scorecard) are the measurement backbone for the execution wedge. Without them, progress claims are anecdotal.
+
+### Benchmark corpus requirements (TW-01)
+
+- The corpus is a fixed, versioned list of bounded issues checked into the repo (e.g. `benchmarks/corpus.json`).
+- Issues in the corpus are not swapped ad hoc between runs; additions and removals are tracked as explicit corpus revisions.
+- Each corpus entry includes: issue identifier, expected execution class, and any known constraints.
+- The corpus runs against current `main` on a recurring basis (at minimum weekly) using the existing benchmark scoring lane.
+- Corpus membership criteria: issues must be bounded (clear scope, single-PR resolution, no external dependency chain).
+
+### No-rescue scorecard requirements (TW-02)
+
+The recurring scorecard records the following per corpus run:
+
+| Metric | Definition | Primary or proxy |
+|--------|-----------|-----------------|
+| Truth success rate | `mergeable_pr OR merged_pr` per issue | **primary** |
+| No-rescue success rate | Truth successes with zero human intervention | **primary** |
+| Verification pass rate | Fraction of runs where `verify` stage passes without repair | secondary |
+| Failure-class distribution | Count of failures per canonical terminal-truth class | secondary |
+| Merged-only rate | Fraction where the PR is actually merged (not just mergeable) | secondary |
+| Rescue count | Number of runs requiring human intervention, broken out by rescue type | secondary |
+
+Scorecard output rules:
+
+- Each run produces a timestamped scorecard artifact that is diffable against prior runs for week-over-week comparison.
+- Human rescue is distinguished from autonomous completion at the issue level — a rescued issue is never counted as no-rescue success.
+- Proxy metrics (PR count, iteration count, token spend) are reported separately and never mixed with truth metrics.
+- The scorecard links back to the corpus revision it was run against.
+
+### Current state
+
+- Terminal-truth taxonomy, benchmark fixtures, and the benchmark scoring lane are on `main`.
+- The tracked B0 cohort is at **86.7%** no-rescue success as of 2026-04-13.
+- What is missing: a checked-in frozen corpus definition and a recurring scorecard output that meets the format above.
 
 ## 30-Day Canonical Backlog
 
