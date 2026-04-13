@@ -752,6 +752,7 @@ def run_remote_publish_validation_receipt(
     worktree_created = False
     pushed = False
     draft_created = False
+    draft_capture_ambiguous = False
     scratch_file = _scratch_validation_file(worktree_path)
 
     try:
@@ -829,6 +830,7 @@ def run_remote_publish_validation_receipt(
                                     base_ref=normalized_base_ref,
                                 )
                             if pr_number is None or not pr_url:
+                                draft_capture_ambiguous = True
                                 _append_check(
                                     checks,
                                     name="gh_pr_capture",
@@ -869,17 +871,29 @@ def run_remote_publish_validation_receipt(
                 checks,
                 name="gh_pr_close",
                 passed=True,
-                detail="skipped (draft PR not created)",
+                detail=(
+                    "skipped (draft PR existence ambiguous)"
+                    if draft_capture_ambiguous
+                    else "skipped (draft PR not created)"
+                ),
             )
 
         if pushed:
-            _run_check(
-                checks,
-                name="cleanup_remote_branch_delete",
-                cmd=["git", "push", "origin", "--delete", branch],
-                cwd=worktree_path if worktree_created else resolved_repo_root,
-                env=git_safe_env(),
-            )
+            if draft_capture_ambiguous:
+                _append_check(
+                    checks,
+                    name="cleanup_remote_branch_delete",
+                    passed=True,
+                    detail="skipped (draft PR existence ambiguous; remote branch preserved)",
+                )
+            else:
+                _run_check(
+                    checks,
+                    name="cleanup_remote_branch_delete",
+                    cmd=["git", "push", "origin", "--delete", branch],
+                    cwd=worktree_path if worktree_created else resolved_repo_root,
+                    env=git_safe_env(),
+                )
         else:
             _append_check(
                 checks,

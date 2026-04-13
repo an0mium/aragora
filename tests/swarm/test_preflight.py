@@ -498,6 +498,70 @@ def test_run_remote_publish_validation_receipt_closes_draft_when_create_output_u
     )
 
 
+def test_run_remote_publish_validation_receipt_preserves_remote_branch_when_pr_capture_is_ambiguous(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 13, 1, 5, 0, tzinfo=timezone.utc)
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(mod, "_receipt_token", lambda: "deadbeef")
+
+    def fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        commands.append(list(cmd))
+        if cmd[:3] == ["git", "worktree", "add"]:
+            Path(cmd[5]).mkdir(parents=True, exist_ok=True)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if cmd[:3] == ["gh", "pr", "create"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout="draft created successfully\n",
+                stderr="",
+            )
+        if cmd[:3] == ["gh", "pr", "list"]:
+            return SimpleNamespace(returncode=0, stdout="[]", stderr="")
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    receipt = mod.run_remote_publish_validation_receipt(
+        repo_root=repo_root,
+        envelope=envelope,
+    )
+
+    assert receipt.passed is False
+    assert receipt.artifacts["draft_pr_number"] is None
+    assert receipt.artifacts["draft_pr_url"] == ""
+    assert any(
+        check["name"] == "gh_pr_capture"
+        and check["passed"] is False
+        and "fallback lookup by branch did not find an open PR" in check["detail"]
+        for check in receipt.checks
+    )
+    assert any(
+        check["name"] == "gh_pr_close"
+        and check["passed"] is True
+        and check["detail"] == "skipped (draft PR existence ambiguous)"
+        for check in receipt.checks
+    )
+    assert any(
+        check["name"] == "cleanup_remote_branch_delete"
+        and check["passed"] is True
+        and check["detail"] == "skipped (draft PR existence ambiguous; remote branch preserved)"
+        for check in receipt.checks
+    )
+    assert any(cmd[:3] == ["gh", "pr", "create"] for cmd in commands)
+    assert any(cmd[:3] == ["gh", "pr", "list"] for cmd in commands)
+    assert not any(cmd[:3] == ["gh", "pr", "close"] for cmd in commands)
+    assert not any(
+        cmd == ["git", "push", "origin", "--delete", receipt.artifacts["branch"]]
+        for cmd in commands
+    )
+
+
 def test_load_cached_preflight_receipt_reuses_fresh_successful_receipt(
     monkeypatch, tmp_path: Path
 ) -> None:
