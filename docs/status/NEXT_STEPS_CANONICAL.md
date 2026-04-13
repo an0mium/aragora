@@ -28,7 +28,7 @@ What is already true:
 
 What is still missing:
 
-- production-equivalent preflight through the operator surface on the safest classes
+- receipt-backed contract preflight on the operator admission path — the module-level preflight exists but nothing yet returns a signed receipt that the supervisor can use as an admission gate for safe classes ([#5327](https://github.com/synaptent/aragora/issues/5327))
 - resumable session state, retry context, and precise blocker evidence on the live swarm loop
 - proof that the B2 guard holds under repeated bounded runs instead of one-off success stories
 - broader repair-loop coverage on top of the existing audit trail
@@ -61,7 +61,7 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 | Order | Code | Why it matters to the wedge | Acceptance criteria | Proof metric | Layer | GitHub coverage |
 |---|---|---|---|---|---|---|
-| 1 | `RS-07` | The remaining guard gap is the top-level operator preflight surface, not the module substrate. | `aragora swarm preflight run --contract ...` (or the canonical operator equivalent) uses the same receipt-backed production preflight path and fails closed on the safe classes. | At least one guarded admission path is live through the operator surface with receipt-backed success and failure. | substrate | Covered by [#804](https://github.com/synaptent/aragora/issues/804) and [#805](https://github.com/synaptent/aragora/issues/805); no dedicated lane issue exists yet. |
+| 1 | `RS-07` | Preflight only deserves trust when it returns a receipt the supervisor can verify, not just a shell exit code. The gap is the admission path: contract in, receipt out, fail-closed on any mismatch. | `aragora swarm preflight run --contract ...` accepts a `WorkerContract`, runs production-equivalent git/auth/env checks, and returns a signed `PreflightReceipt` with pass/fail plus canonical terminal class on failure. Supervisor rejects admission when the receipt is absent or failed. | At least one guarded admission path is live through the operator surface with receipt-backed success and failure. Failures map to canonical terminal truth classes. | substrate | [#5327](https://github.com/synaptent/aragora/issues/5327); covered by [#804](https://github.com/synaptent/aragora/issues/804) and [#805](https://github.com/synaptent/aragora/issues/805). |
 | 2 | `BC-01` | Session persistence is the prerequisite for truthful repair, retry, and operator control. | Session state survives `explore -> plan -> edit -> verify -> repair -> publish` and survives process restart. | Benchmark retry lanes show resumed state instead of cold restarts. | control plane | Covered by [#805](https://github.com/synaptent/aragora/issues/805); no dedicated lane issue exists yet. |
 | 3 | `BC-03` | Founder time is wasted when a failed run does not say exactly what broke and what to try next. | Failed runs emit precise blocker evidence, canonical blocker class, and repair transcript or next-step evidence. | `100%` of failed bounded runs include receipt-backed blocker evidence mapped to canonical terminal truth. | control plane | Covered by [#805](https://github.com/synaptent/aragora/issues/805); no dedicated lane issue exists yet. |
 | 4 | `BC-02` | Retry without state reuse just repeats prompt cost and rescue labor. | Retry resumes from prior state, contract, and repair evidence instead of re-prompting from scratch. | Retried runs emit resume-from-stage evidence and show lower repeated-rescue incidence on the same class. | control plane | Covered by [#805](https://github.com/synaptent/aragora/issues/805); no dedicated lane issue exists yet. |
@@ -102,7 +102,7 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 ## Top 3 Boss-Ready Next
 
-1. `RS-07` because it closes the last missing guard on the live operator path.
+1. `RS-07` ([#5327](https://github.com/synaptent/aragora/issues/5327)) because it closes the last missing guard on the live operator path — contract in, receipt out, fail-closed admission.
 2. `BC-01` because retries and repair loops cannot become truthful until session state survives restarts.
 3. `BC-03` because founder leverage depends on precise blocker evidence before more retry logic is added.
 
