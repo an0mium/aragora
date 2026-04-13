@@ -34,18 +34,19 @@ class OpenClawContinuumBridge:
             "fail": 0.7,
             "revoke": 0.9,
         }.get(event.status, 0.5)
+        metadata = {
+            "agent_id": event.agent_id,
+            "status": event.status,
+            "source": "openclaw_bridge",
+            "tier_hint": "medium",
+        }
 
         try:
             if hasattr(self._continuum, "store_pattern"):
                 entry_id = self._continuum.store_pattern(
                     content=content,
                     importance=importance,
-                    metadata={
-                        "agent_id": event.agent_id,
-                        "status": event.status,
-                        "source": "openclaw_bridge",
-                        "tier_hint": "medium",
-                    },
+                    metadata=metadata,
                 )
                 self._event_count += 1
                 return entry_id
@@ -54,7 +55,7 @@ class OpenClawContinuumBridge:
                     id=f"oclaw_{event.agent_id}_{self._event_count}",
                     content=content,
                     importance=importance,
-                    metadata={"agent_id": event.agent_id, "source": "openclaw_bridge"},
+                    metadata=metadata,
                 )
                 self._event_count += 1
                 return entry.id
