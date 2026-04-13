@@ -198,6 +198,26 @@ class TestAutoScaler:
 
         assert scaler.policy.min_agents == 10
 
+    @pytest.mark.asyncio
+    async def test_stop_logs_cancelled_background_task(self):
+        """Test stop logs cancellation of the background scaling task."""
+        scaler = AutoScaler()
+
+        async def wait_forever():
+            await asyncio.Future()
+
+        scaler._running = True
+        scaler._task = asyncio.create_task(wait_forever())
+
+        with patch("aragora.control_plane.auto_scaling.logger") as mock_logger:
+            await scaler.stop()
+
+        assert scaler._task is None
+        mock_logger.debug.assert_called_once_with(
+            "Auto-scaler background task cancelled during stop"
+        )
+        mock_logger.info.assert_called_once_with("Auto-scaler stopped")
+
 
 class TestAutoScalerScaleUpDecisions:
     """Test scale-up decision logic."""
