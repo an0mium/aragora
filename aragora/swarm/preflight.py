@@ -18,6 +18,7 @@ from typing import Any
 from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.mission import GateEvaluation, GateType, GateVerdict, MissionContextPolicy
+from aragora.swarm.terminal_truth import TerminalClass, classify_preflight_failure
 from aragora.swarm.worker_contract import WorkerContract, checksum_contract_payload
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
 
@@ -47,6 +48,14 @@ class PreflightResult:
     checks: list[dict[str, Any]] = field(default_factory=list)
     duration_seconds: float = 0.0
     envelope: CredentialEnvelope | None = None
+
+    @property
+    def failure_terminal_class(self) -> TerminalClass | None:
+        return classify_preflight_failure(
+            passed=self.passed,
+            checks=list(self.checks),
+            dispatch_gate=dict(self.dispatch_gate),
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -84,6 +93,14 @@ class PreflightReceipt:
     ttl_seconds: int = 0
     expires_at: str = ""
     artifacts: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def failure_terminal_class(self) -> TerminalClass | None:
+        return classify_preflight_failure(
+            passed=self.passed,
+            checks=list(self.checks),
+            dispatch_gate=None,
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -637,6 +654,7 @@ def run_scratch_validation_receipt(
     force_refresh: bool = False,
 ) -> PreflightReceipt:
     resolved_repo_root = repo_root.resolve()
+    normalized_base_ref = "main"
     if not force_refresh:
         cached = _load_cached_preflight_receipt(resolved_repo_root, envelope, "scratch")
         if cached is not None:
@@ -648,6 +666,7 @@ def run_scratch_validation_receipt(
     artifacts: dict[str, Any] = {
         "branch": branch,
         "worktree_path": str(worktree_path),
+        "target_ref": normalized_base_ref,
         "draft_pr_number": None,
         "draft_pr_url": "",
     }
@@ -660,7 +679,15 @@ def run_scratch_validation_receipt(
         worktree_result = _run_check(
             checks,
             name="git_worktree_add",
-            cmd=["git", "worktree", "add", "-b", branch, str(worktree_path), "HEAD"],
+            cmd=[
+                "git",
+                "worktree",
+                "add",
+                "-b",
+                branch,
+                str(worktree_path),
+                normalized_base_ref,
+            ],
             cwd=resolved_repo_root,
             env=git_safe_env(),
         )

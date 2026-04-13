@@ -10,6 +10,7 @@ import pytest
 from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.mission import GateType, GateVerdict
 from aragora.swarm import preflight as mod
+from aragora.swarm.terminal_truth import TerminalClass
 from aragora.swarm.worker_contract import checksum_contract_payload
 from aragora.swarm.worker_process import WorkerProcess
 
@@ -380,6 +381,7 @@ def test_run_scratch_validation_receipt_persists_success(monkeypatch, tmp_path: 
     assert receipt.check_type == "scratch"
     assert receipt.passed is True
     assert receipt.ttl_seconds == 86400
+    assert receipt.artifacts["target_ref"] == "main"
     assert receipt.artifacts["draft_pr_number"] is None
     assert receipt.artifacts["draft_pr_url"] == ""
     assert any(check["name"] == "git_commit" for check in receipt.checks)
@@ -389,7 +391,116 @@ def test_run_scratch_validation_receipt_persists_success(monkeypatch, tmp_path: 
     assert receipt_path.exists()
     payload = json.loads(receipt_path.read_text(encoding="utf-8"))
     assert payload["receipt_id"] == receipt.receipt_id
-    assert commands[0][:3] == ["git", "worktree", "add"]
+    assert commands[0] == [
+        "git",
+        "worktree",
+        "add",
+        "-b",
+        receipt.artifacts["branch"],
+        str(
+            repo_root / ".worktrees" / f"preflight-{receipt.artifacts['branch'].replace('/', '-')}"
+        ),
+        "main",
+    ]
+
+
+def test_preflight_result_failure_terminal_class_maps_runner_auth_failure() -> None:
+    result = mod.PreflightResult(
+        repo_root="/tmp/repo",
+        base_ref="main",
+        branch="",
+        worktree_path="/tmp/repo",
+        agent="codex",
+        published=False,
+        pull_request_created=False,
+        pull_request_closed=False,
+        cleanup_worktree_removed=False,
+        cleanup_branch_removed=False,
+        passed=False,
+        checks=[
+            {
+                "name": "runner_cli",
+                "passed": False,
+                "detail": "authentication required for codex runner",
+            }
+        ],
+    )
+
+    assert result.failure_terminal_class == TerminalClass.BLOCKED_AUTH_FAILURE
+
+
+def test_preflight_result_failure_terminal_class_maps_no_runner() -> None:
+    result = mod.PreflightResult(
+        repo_root="/tmp/repo",
+        base_ref="main",
+        branch="",
+        worktree_path="/tmp/repo",
+        agent="codex",
+        published=False,
+        pull_request_created=False,
+        pull_request_closed=False,
+        cleanup_worktree_removed=False,
+        cleanup_branch_removed=False,
+        passed=False,
+        checks=[
+            {
+                "name": "runner_cli",
+                "passed": False,
+                "detail": "runner command not configured",
+            }
+        ],
+    )
+
+    assert result.failure_terminal_class == TerminalClass.BLOCKED_NO_RUNNER
+
+
+def test_preflight_result_failure_terminal_class_maps_scope_conflict() -> None:
+    result = mod.PreflightResult(
+        repo_root="/tmp/repo",
+        base_ref="main",
+        branch="",
+        worktree_path="/tmp/repo",
+        agent="codex",
+        published=False,
+        pull_request_created=False,
+        pull_request_closed=False,
+        cleanup_worktree_removed=False,
+        cleanup_branch_removed=False,
+        passed=False,
+        checks=[
+            {
+                "name": "git_worktree_add",
+                "passed": False,
+                "detail": "fatal: worktree path already exists and scope conflict was detected",
+            }
+        ],
+    )
+
+    assert result.failure_terminal_class == TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED
+
+
+def test_preflight_result_failure_terminal_class_maps_dispatch_gate_block() -> None:
+    result = mod.PreflightResult(
+        repo_root="/tmp/repo",
+        base_ref="main",
+        branch="",
+        worktree_path="/tmp/repo",
+        agent="codex",
+        published=False,
+        pull_request_created=False,
+        pull_request_closed=False,
+        cleanup_worktree_removed=False,
+        cleanup_branch_removed=False,
+        passed=False,
+        checks=[],
+        dispatch_gate={
+            "verdict": GateVerdict.BLOCKED.value,
+            "failure_classes": ["context_policy_unresolved"],
+            "notes": "Dispatch gate failed because the worker is not dispatch bounded.",
+        },
+    )
+
+    assert result.failure_terminal_class == TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED
 
 
 def test_run_remote_publish_validation_receipt_records_pr_artifacts(

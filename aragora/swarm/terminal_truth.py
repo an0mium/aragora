@@ -74,6 +74,35 @@ class TerminalClass(str, Enum):
         }
 
 
+_PREFLIGHT_AUTH_HINTS: tuple[str, ...] = (
+    "auth",
+    "authentication",
+    "not logged",
+    "permission denied",
+    "forbidden",
+    "http 401",
+    "http 403",
+    "requires authentication",
+)
+
+_PREFLIGHT_SCOPE_HINTS: tuple[str, ...] = (
+    "already exists",
+    "would be overwritten",
+    "checkout conflict",
+    "scope conflict",
+    "scope_violation",
+    "worktree has uncommitted changes",
+)
+
+_PREFLIGHT_NO_RUNNER_HINTS: tuple[str, ...] = (
+    "runner command not configured",
+    "command failed",
+    "not found",
+    "no such file",
+    "executable file not found",
+)
+
+
 def classify_from_metrics(row: dict[str, Any]) -> TerminalClass:
     """Classify a boss_metrics.jsonl row into the canonical taxonomy."""
     status = str(row.get("worker_status", "")).strip().lower()
@@ -117,6 +146,60 @@ def classify_from_metrics(row: dict[str, Any]) -> TerminalClass:
         return TerminalClass.BLOCKED_SANITATION_FAILED
 
     return TerminalClass.RESCUE_NO_DELIVERABLE
+
+
+def classify_preflight_failure(
+    *,
+    passed: bool,
+    checks: list[dict[str, Any]] | None = None,
+    dispatch_gate: dict[str, Any] | None = None,
+) -> TerminalClass | None:
+    """Map failed preflight outcomes into canonical blocked terminal truth."""
+    if passed:
+        return None
+
+    failed_checks = [
+        dict(item)
+        for item in list(checks or [])
+        if isinstance(item, dict) and not bool(item.get("passed", False))
+    ]
+    gate = dict(dispatch_gate or {})
+    gate_failure_classes = {
+        _text(item).lower() for item in _text_list(gate.get("failure_classes")) if _text(item)
+    }
+    gate_notes = _text(gate.get("notes")).lower()
+
+    if gate_failure_classes.intersection({"contract_missing", "context_policy_unresolved"}):
+        return TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED
+
+    def _failed_check_text(check: dict[str, Any]) -> str:
+        return " ".join(
+            part
+            for part in [
+                _text(check.get("name")).lower(),
+                _text(check.get("detail")).lower(),
+            ]
+            if part
+        )
+
+    failed_texts = [_failed_check_text(check) for check in failed_checks]
+    if any(any(hint in text for hint in _PREFLIGHT_AUTH_HINTS) for text in failed_texts):
+        return TerminalClass.BLOCKED_AUTH_FAILURE
+
+    if any(
+        _text(check.get("name")).lower() == "runner_cli"
+        and any(hint in _text(check.get("detail")).lower() for hint in _PREFLIGHT_NO_RUNNER_HINTS)
+        for check in failed_checks
+    ):
+        return TerminalClass.BLOCKED_NO_RUNNER
+
+    if any(any(hint in text for hint in _PREFLIGHT_SCOPE_HINTS) for text in failed_texts):
+        return TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED
+
+    if "dispatch" in gate_notes or "bounded" in gate_notes or gate_failure_classes:
+        return TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED
+
+    return TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED
 
 
 def score_benchmark(rows: list[dict[str, Any]]) -> dict[str, Any]:
