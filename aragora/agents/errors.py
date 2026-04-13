@@ -10,10 +10,17 @@ For new code, prefer importing directly from the package:
     from aragora.agents.errors.decorators import with_error_handling
 """
 
-# Explicit re-exports from the errors package for backward compatibility
-# (Avoid wildcard imports for better IDE analysis and explicit dependencies)
-from aragora.agents.errors import (  # noqa: F401
-    _SENSITIVE_PATTERNS,
+# Explicit re-exports from the concrete submodules for backward compatibility.
+# Importing from aragora.agents.errors here would recurse back into this shim.
+from aragora.agents.types import T
+from aragora.utils.error_sanitizer import (
+    SENSITIVE_PATTERNS as _SENSITIVE_PATTERNS,
+)
+from aragora.utils.error_sanitizer import (
+    sanitize_error,
+)
+
+from aragora.agents.errors.classifier import (  # noqa: F401
     ALL_FALLBACK_PATTERNS,
     AUTH_ERROR_PATTERNS,
     CLI_ERROR_PATTERNS,
@@ -22,20 +29,6 @@ from aragora.agents.errors import (  # noqa: F401
     NETWORK_ERROR_PATTERNS,
     RATE_LIMIT_PATTERNS,
     VALIDATION_ERROR_PATTERNS,
-    AgentAPIError,
-    AgentCircuitOpenError,
-    AgentConnectionError,
-    AgentError,
-    AgentErrorHandler,
-    AgentRateLimitError,
-    AgentResponseError,
-    AgentStreamError,
-    AgentTimeoutError,
-    CLIAgentError,
-    CLINotFoundError,
-    CLIParseError,
-    CLISubprocessError,
-    CLITimeoutError,
     ClassifiedError,
     ErrorAction,
     ErrorCategory,
@@ -43,8 +36,9 @@ from aragora.agents.errors import (  # noqa: F401
     ErrorContext,
     ErrorSeverity,
     RecoveryAction,
-    T,
-    _build_error_action,
+    classify_cli_error,
+)
+from aragora.agents.errors.decorators import (  # noqa: F401
     _calculate_retry_delay_with_jitter,
     _handle_agent_error,
     _handle_connection_error,
@@ -54,13 +48,30 @@ from aragora.agents.errors import (  # noqa: F401
     _handle_timeout_error,
     _handle_unexpected_error,
     calculate_retry_delay_with_jitter,
-    classify_cli_error,
     handle_agent_errors,
-    handle_agent_operation,
     handle_stream_errors,
-    make_fallback_message,
-    sanitize_error,
     with_error_handling,
+)
+from aragora.agents.errors.exceptions import (  # noqa: F401
+    AgentAPIError,
+    AgentCircuitOpenError,
+    AgentConnectionError,
+    AgentError,
+    AgentRateLimitError,
+    AgentResponseError,
+    AgentStreamError,
+    AgentTimeoutError,
+    CLIAgentError,
+    CLINotFoundError,
+    CLIParseError,
+    CLISubprocessError,
+    CLITimeoutError,
+)
+from aragora.agents.errors.handlers import (  # noqa: F401
+    AgentErrorHandler,
+    _build_error_action,
+    handle_agent_operation,
+    make_fallback_message,
 )
 
 __all__ = [
