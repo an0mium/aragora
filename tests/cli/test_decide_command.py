@@ -125,6 +125,21 @@ def test_cmd_decide_uses_structured_spec_path_without_mutating_context(tmp_path)
     assert kwargs["spec_file"] == str(spec_path)
 
 
+def test_cmd_decide_demo_falls_back_without_aragora_debate(capsys) -> None:
+    """Demo mode should degrade to the built-in fallback instead of crashing."""
+    from aragora.cli.commands import decide as decide_cmd
+
+    args = _make_args(demo=True, dry_run=True)
+
+    with patch.object(decide_cmd, "_import_decide_demo_runtime", return_value=None):
+        decide_cmd.cmd_decide(args)
+
+    out = capsys.readouterr().out
+    assert "ARAGORA DECIDE (Demo Mode)" in out
+    assert "Built-in mock fallback" in out
+    assert "Dry run mode - no receipt saved" in out
+
+
 @pytest.mark.asyncio
 async def test_run_decide_seeds_backbone_run_for_spec_dry_run(tmp_path) -> None:
     """Spec-driven dry runs should still seed a backbone run."""

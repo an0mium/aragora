@@ -57,6 +57,97 @@ def _seed_cli_backbone_run(
     return run_id
 
 
+def _import_decide_demo_runtime() -> tuple[Any, Any, Any] | None:
+    """Load optional demo debate dependencies when available."""
+    try:
+        from aragora_debate.arena import Arena
+        from aragora_debate.styled_mock import StyledMockAgent
+        from aragora_debate.types import DebateConfig
+    except ImportError as exc:
+        logger.debug("decide_demo_builtin_fallback error=%s", exc)
+        return None
+
+    return Arena, StyledMockAgent, DebateConfig
+
+
+def _run_decide_demo_builtin_fallback(
+    task: str,
+    *,
+    rounds: int,
+    dry_run: bool,
+) -> None:
+    """Render a lightweight offline demo when aragora_debate is unavailable."""
+    from aragora.cli.receipt_formatter import receipt_to_html
+
+    receipt_data = {
+        "receipt_id": "DR-MOCK-DECIDE",
+        "question": task,
+        "verdict": "mock_consensus",
+        "confidence": 0.72,
+        "agents": ["Analyst", "Critic", "Synthesizer"],
+        "rounds": rounds,
+        "summary": (
+            "Proceed with a narrow plan, explicit success metrics, and a rollback trigger "
+            "before execution."
+        ),
+        "dissent": [
+            "Operational risks are still estimated because the full aragora-debate package is unavailable."
+        ],
+        "consensus_proof": {
+            "reached": True,
+            "method": "builtin_mock",
+            "confidence": 0.72,
+            "supporting_agents": ["Analyst", "Critic", "Synthesizer"],
+            "dissenting_agents": [],
+        },
+        "elapsed_seconds": 0.0,
+        "mode": "demo (builtin fallback)",
+    }
+
+    print("  Note: Built-in mock fallback (aragora-debate package unavailable)")
+    print()
+    print("=" * 60)
+    print("DECISION SUMMARY")
+    print("=" * 60)
+    print(f"Task: {task}")
+    print("Verdict: mock_consensus")
+    print("Confidence: 72%")
+    print("Agents: Analyst, Critic, Synthesizer")
+    print(f"Rounds: {rounds}")
+    print("Duration: 0.00s")
+    print("Receipt ID: DR-MOCK-DECIDE")
+    print()
+    print("WINNING POSITION:")
+    print("-" * 40)
+    print(receipt_data["summary"])
+
+    if not dry_run:
+        receipts_dir = Path.cwd() / ".aragora" / "receipts"
+        receipts_dir.mkdir(parents=True, exist_ok=True)
+        receipt_file = receipts_dir / "decide-demo-receipt.json"
+        receipt_file.write_text(json.dumps(receipt_data, indent=2, default=str))
+
+        html_file = receipts_dir / "decide-demo-receipt.html"
+        html_file.write_text(receipt_to_html(receipt_data))
+
+        print()
+        print(f"Receipt (JSON): {receipt_file}")
+        print(f"Receipt (HTML): {html_file}")
+        print()
+        print("View receipt: aragora receipt view " + str(html_file))
+
+    print()
+    print("DEMO NOTE:")
+    print("-" * 40)
+    print("  This used the built-in mock fallback because the optional")
+    print("  aragora-debate package is not installed in this environment.")
+    if dry_run:
+        print("  (Dry run mode - no receipt saved)")
+    print()
+    print(f'  aragora decide "{task}" --agents anthropic-api,openai-api')
+    print()
+
+
 async def run_decide(
     task: str,
     agents_str: str,
@@ -330,9 +421,13 @@ def _run_decide_demo(args: argparse.Namespace) -> None:
     if verbose:
         print("[decide-demo] Running debate with mock agents...")
 
-    from aragora_debate.arena import Arena
-    from aragora_debate.styled_mock import StyledMockAgent
-    from aragora_debate.types import DebateConfig
+    rounds = min(getattr(args, "rounds", 2), 3)
+    dry_run = getattr(args, "dry_run", False)
+    runtime = _import_decide_demo_runtime()
+    if runtime is None:
+        _run_decide_demo_builtin_fallback(task, rounds=rounds, dry_run=dry_run)
+        return
+    Arena, StyledMockAgent, DebateConfig = runtime
 
     agents = [
         StyledMockAgent("Analyst", style="supportive"),
@@ -341,7 +436,6 @@ def _run_decide_demo(args: argparse.Namespace) -> None:
         StyledMockAgent("Devil's Advocate", style="contrarian"),
     ]
 
-    rounds = min(getattr(args, "rounds", 2), 3)
     config = DebateConfig(rounds=rounds, early_stopping=False)
     arena = Arena(question=task, agents=cast(Any, agents), config=config)
 
@@ -389,7 +483,6 @@ def _run_decide_demo(args: argparse.Namespace) -> None:
         print(f"  Confidence: {cp.get('confidence', 0):.0%}")
 
     # Step 3: Save receipt
-    dry_run = getattr(args, "dry_run", False)
     if not dry_run:
         from pathlib import Path
 
