@@ -280,10 +280,53 @@ class TestCmdSpec:
         )
         assert json.loads(output_path.read_text()) == result
 
+    def test_cmd_spec_writes_text_output_when_requested(self, tmp_path, capsys):
+        output_path = tmp_path / "spec.txt"
+        result = {
+            "intent": {"intent_type": "feature", "scope_estimate": "medium"},
+            "specification": {
+                "problem_statement": "Need faster onboarding.",
+                "proposed_solution": "Create a guided setup checklist.",
+                "success_criteria": [{"description": "Reduce median setup time."}],
+                "risks": [{"description": "Could overwhelm new users."}],
+                "estimated_effort": "medium",
+                "confidence": 0.75,
+            },
+            "research": {"evidence_links": ["km://onboarding"]},
+            "pipeline": "orchestrator",
+        }
+        args = argparse.Namespace(
+            prompt="Make onboarding better",
+            depth="quick",
+            profile="founder",
+            skip_research=False,
+            skip_interrogation=False,
+            format="text",
+            dry_run=False,
+            output=str(output_path),
+        )
+
+        with patch(
+            "aragora.cli.commands.spec._run_spec_pipeline",
+            new_callable=AsyncMock,
+            return_value=result,
+        ):
+            cmd_spec(args)
+
+        out = capsys.readouterr().out
+        saved = output_path.read_text()
+
+        assert "ARAGORA SPEC" in out
+        assert "SPECIFICATION" in saved
+        assert "Need faster onboarding." in saved
+        assert "Create a guided setup checklist." in saved
+        assert "Pipeline:   orchestrator" in saved
+        assert saved.lstrip().startswith("=")
+
     def test_cmd_spec_uses_truthful_fallback_when_spec_agent_circuit_is_open(
         self, tmp_path, capsys
     ):
-        output_path = tmp_path / "spec-fallback.json"
+        output_path = tmp_path / "spec-fallback.txt"
         args = argparse.Namespace(
             prompt="Make onboarding better",
             depth="quick",
@@ -306,15 +349,15 @@ class TestCmdSpec:
             cmd_spec(args)
 
         out = capsys.readouterr().out
-        saved = json.loads(output_path.read_text())
+        saved = output_path.read_text()
 
         assert "ARAGORA SPEC" in out
         assert "Pipeline:   spec_fallback" in out
         assert "Fallback spec (spec-agent circuit breaker open)" in out
-        assert saved["pipeline"] == "spec_fallback"
-        assert saved["fallback_reason"] == "spec-agent circuit breaker open"
-        assert saved["stages_completed"] == ["fallback_spec"]
-        assert saved["specification"]["problem_statement"] == "Make onboarding better"
+        assert "SPECIFICATION" in saved
+        assert "Pipeline:   spec_fallback" in saved
+        assert "Fallback spec (spec-agent circuit breaker open)" in saved
+        assert "Make onboarding better" in saved
         run_spec.assert_awaited_once_with(
             "Make onboarding better",
             depth="quick",

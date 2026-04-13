@@ -16,6 +16,7 @@ import json
 import logging
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 from aragora.agents.errors import AgentCircuitOpenError
@@ -203,9 +204,13 @@ def _print_timing_summary(timing: dict[str, Any]) -> None:
 
 def _print_spec_result(result: dict[str, Any], output_format: str = "text") -> None:
     """Display the spec result in the requested format."""
+    print(_render_spec_result(result, output_format))
+
+
+def _render_spec_result(result: dict[str, Any], output_format: str = "text") -> str:
+    """Render the spec result in the requested format."""
     if output_format == "json":
-        print(json.dumps(result, indent=2, default=str))
-        return
+        return json.dumps(result, indent=2, default=str)
 
     spec = result.get("specification")
     intent = result.get("intent")
@@ -214,89 +219,101 @@ def _print_spec_result(result: dict[str, Any], output_format: str = "text") -> N
     pipeline = str(result.get("pipeline", "") or "").strip()
     fallback_reason = str(result.get("fallback_reason", "") or "").strip()
 
-    print("\n" + "=" * 60)
-    print("  SPECIFICATION")
-    print("=" * 60)
+    lines = ["", "=" * 60, "  SPECIFICATION", "=" * 60]
 
     if intent:
         intent_type = getattr(intent, "intent_type", None) or intent.get("intent_type", "unknown")
         scope = getattr(intent, "scope_estimate", None) or intent.get("scope_estimate", "unknown")
-        print(f"\n  Intent Type:  {intent_type}")
-        print(f"  Scope:        {scope}")
+        lines.extend(
+            [
+                "",
+                f"  Intent Type:  {intent_type}",
+                f"  Scope:        {scope}",
+            ]
+        )
 
         domains = getattr(intent, "domains", None) or intent.get("domains", [])
         if domains:
-            print(f"  Domains:      {', '.join(str(d) for d in domains)}")
+            lines.append(f"  Domains:      {', '.join(str(d) for d in domains)}")
 
         ambiguities = getattr(intent, "ambiguities", None) or intent.get("ambiguities", [])
         if ambiguities:
-            print(f"  Ambiguities:  {len(ambiguities)} detected")
+            lines.append(f"  Ambiguities:  {len(ambiguities)} detected")
 
     if spec:
         problem = getattr(spec, "problem_statement", None) or spec.get("problem_statement", "")
         if problem:
-            print(f"\n  Problem:\n  {problem[:500]}")
+            lines.extend(["", "  Problem:", f"  {problem[:500]}"])
 
         solution = getattr(spec, "proposed_solution", None) or spec.get("proposed_solution", "")
         if solution:
-            print(f"\n  Solution:\n  {solution[:800]}")
+            lines.extend(["", "  Solution:", f"  {solution[:800]}"])
 
         criteria = getattr(spec, "success_criteria", None) or spec.get("success_criteria", [])
         if criteria:
-            print(f"\n  Success Criteria ({len(criteria)}):")
+            lines.extend(["", f"  Success Criteria ({len(criteria)}):"])
             for i, c in enumerate(criteria[:5], 1):
                 desc = getattr(c, "description", None) or (
                     c.get("description") if isinstance(c, dict) else str(c)
                 )
-                print(f"    {i}. {desc}")
+                lines.append(f"    {i}. {desc}")
 
         risks = getattr(spec, "risks", None) or spec.get("risks", [])
         if risks:
-            print(f"\n  Risks ({len(risks)}):")
+            lines.extend(["", f"  Risks ({len(risks)}):"])
             for r in risks[:3]:
                 desc = getattr(r, "description", None) or (
                     r.get("description") if isinstance(r, dict) else str(r)
                 )
-                print(f"    - {desc}")
+                lines.append(f"    - {desc}")
 
         effort = getattr(spec, "estimated_effort", None) or spec.get("estimated_effort", "")
         if effort:
-            print(f"\n  Estimated Effort: {effort}")
+            lines.extend(["", f"  Estimated Effort: {effort}"])
 
         confidence = getattr(spec, "confidence", None) or spec.get("confidence")
         if confidence is not None:
-            print(f"  Confidence:       {confidence:.0%}")
+            lines.append(f"  Confidence:       {confidence:.0%}")
 
     if research:
         evidence = getattr(research, "evidence_links", None) or research.get("evidence_links", [])
         if evidence:
-            print(f"\n  Evidence: {len(evidence)} source(s) found")
+            lines.extend(["", f"  Evidence: {len(evidence)} source(s) found"])
 
     if timing:
         total_duration_ms = timing.get("total_duration_ms")
         if total_duration_ms is not None:
-            print(f"\n  Latency Total: {total_duration_ms:.1f}ms")
+            lines.extend(["", f"  Latency Total: {total_duration_ms:.1f}ms"])
 
         slowest_stage = timing.get("slowest_stage") or {}
         slowest_stage_name = slowest_stage.get("stage")
         if slowest_stage_name:
-            print(
+            lines.append(
                 "  Slowest Stage: "
                 f"{slowest_stage_name} ({slowest_stage.get('duration_ms', 0.0):.1f}ms)"
             )
 
         top_operations = timing.get("top_operations", [])
         if top_operations:
-            print("  Slowest Operations:")
+            lines.append("  Slowest Operations:")
             for item in top_operations[:3]:
-                print(f"    - {item['operation']}: {item['duration_ms']:.1f}ms")
+                lines.append(f"    - {item['operation']}: {item['duration_ms']:.1f}ms")
 
     if pipeline:
-        print(f"\n  Pipeline:   {pipeline}")
+        lines.extend(["", f"  Pipeline:   {pipeline}"])
     if fallback_reason:
-        print(f"  Note:       Fallback spec ({fallback_reason})")
+        lines.append(f"  Note:       Fallback spec ({fallback_reason})")
 
-    print("\n" + "=" * 60)
+    lines.extend(["", "=" * 60])
+    return "\n".join(lines)
+
+
+def _save_spec_result(result: dict[str, Any], output_path: str, output_format: str) -> Path:
+    """Persist the rendered spec result to the requested output path."""
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_render_spec_result(result, output_format) + "\n")
+    return path
 
 
 def cmd_spec(args: argparse.Namespace) -> None:
@@ -359,13 +376,7 @@ def cmd_spec(args: argparse.Namespace) -> None:
     # Save spec artifact
     output_path = getattr(args, "output", None)
     if output_path:
-        import json as json_mod
-        from pathlib import Path
-
-        path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
-            json_mod.dump(result, f, indent=2, default=str)
+        path = _save_spec_result(result, output_path, output_format)
         print(f"\nSpec saved to: {path}")
 
     print("\nNext steps:")
