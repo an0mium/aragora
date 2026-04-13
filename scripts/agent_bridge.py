@@ -28,7 +28,20 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import agent_bridge_sessions
+try:
+    # When run as `python3 scripts/agent_bridge.py`, Python adds scripts/ to
+    # sys.path automatically, so this direct import works.  For package-style
+    # imports (e.g. `import scripts.agent_bridge`) or stale worktrees where
+    # agent_bridge_sessions.py may not exist, fall back gracefully.
+    import agent_bridge_sessions  # type: ignore[import-not-found]
+except ModuleNotFoundError:
+    _scripts_dir = str(Path(__file__).resolve().parent)
+    if _scripts_dir not in sys.path:
+        sys.path.insert(0, _scripts_dir)
+    try:
+        import agent_bridge_sessions  # type: ignore[import-not-found]
+    except ModuleNotFoundError:
+        agent_bridge_sessions = None  # type: ignore[assignment]
 
 AGENT_BRIDGE_DIR = Path.home() / ".aragora" / "agent-bridge"
 SESSION_SNAPSHOT_FILE = AGENT_BRIDGE_DIR / "sessions.json"
@@ -54,27 +67,71 @@ class Session:
 
 
 def discover() -> list[Session]:
-    """Discover all sessions via agent_bridge_sessions."""
-    records = agent_bridge_sessions.collect_sessions(
-        repo_root=REPO_ROOT,
-        tmux_dir=TMUX_SESSIONS_DIR,
-        claude_projects_root=Path.home() / ".claude" / "projects",
-    )
+    """Discover all sessions via agent_bridge_sessions.
+
+    Falls back to minimal tmux-only discovery if agent_bridge_sessions
+    is unavailable (stale worktree, package-style import, etc.).
+    """
+    if agent_bridge_sessions is not None:
+        records = agent_bridge_sessions.collect_sessions(
+            repo_root=REPO_ROOT,
+            tmux_dir=TMUX_SESSIONS_DIR,
+            claude_projects_root=Path.home() / ".claude" / "projects",
+        )
+        sessions: list[Session] = []
+        for r in records:
+            tmux_target = ""
+            if r.status == "alive" and r.source == "tmux":
+                tmux_target = f"{TMUX_SESSION}:{r.name}"
+            sessions.append(
+                Session(
+                    name=r.name,
+                    agent=r.agent,
+                    status=r.status,
+                    tmux_target=tmux_target,
+                    branch=r.branch or "",
+                    worktree=r.cwd or "",
+                    session_id=r.session_id,
+                    summary=r.summary or "",
+                )
+            )
+        return sessions
+
+    # Fallback: minimal tmux-only discovery
+    return _discover_tmux_fallback()
+
+
+def _discover_tmux_fallback() -> list[Session]:
+    """Minimal fallback when agent_bridge_sessions is not available."""
     sessions: list[Session] = []
-    for r in records:
-        tmux_target = ""
-        if r.status == "alive" and r.source == "tmux":
-            tmux_target = f"{TMUX_SESSION}:{r.name}"
+    if not TMUX_SESSIONS_DIR.exists():
+        return sessions
+    alive: set[str] = set()
+    try:
+        result = subprocess.run(
+            ["tmux", "list-windows", "-t", TMUX_SESSION, "-F", "#{window_name}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if result.returncode == 0:
+            alive = set(result.stdout.strip().splitlines())
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+    for meta_file in TMUX_SESSIONS_DIR.glob("*.meta.json"):
+        try:
+            meta = json.loads(meta_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        name = meta.get("name", meta_file.stem)
+        is_alive = name in alive
         sessions.append(
             Session(
-                name=r.name,
-                agent=r.agent,
-                status=r.status,
-                tmux_target=tmux_target,
-                branch=r.branch or "",
-                worktree=r.cwd or "",
-                session_id=r.session_id,
-                summary=r.summary or "",
+                name=name,
+                agent=meta.get("agent", "unknown"),
+                status="alive" if is_alive else "dead",
+                tmux_target=f"{TMUX_SESSION}:{name}" if is_alive else "",
             )
         )
     return sessions
