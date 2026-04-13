@@ -46,8 +46,15 @@ class DebateOrigin:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DebateOrigin:
-        created_at = data["created_at"] if "created_at" in data else time.time()
+        created_at = data.get("created_at")
+        if created_at is None:
+            created_at = time.time()
+
         metadata = dict(data.get("metadata") or {})
+        result_sent = data.get("result_sent")
+        if result_sent is None:
+            result_sent = False
+
         return cls(
             debate_id=data["debate_id"],
             platform=data["platform"],
@@ -58,6 +65,6 @@ class DebateOrigin:
             thread_id=data.get("thread_id"),
             message_id=data.get("message_id"),
             session_id=data.get("session_id"),
-            result_sent=data.get("result_sent", False),
+            result_sent=result_sent,
             result_sent_at=data.get("result_sent_at"),
         )
