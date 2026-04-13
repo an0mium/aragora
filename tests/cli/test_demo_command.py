@@ -337,3 +337,18 @@ class TestOfflineMockFallback:
         assert "DECISION SUMMARY" in captured.out
         assert "WINNING POSITION" in captured.out
         assert "DECISION RECEIPT" in captured.out
+
+
+class TestServerDemoHelper:
+    def test_run_server_demo_uses_serve_demo_flag(self, capsys):
+        from aragora.cli import demo as demo_module
+
+        with patch("subprocess.run") as mock_run:
+            demo_module._run_server_demo()
+
+        mock_run.assert_called_once_with(
+            [demo_module.sys.executable, "-m", "aragora.cli.main", "serve", "--demo"],
+            check=False,
+        )
+        captured = capsys.readouterr()
+        assert "ARAGORA SERVER DEMO" in captured.out
