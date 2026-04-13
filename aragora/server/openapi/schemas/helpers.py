@@ -39,7 +39,13 @@ def array_response(description: str, schema_ref: str) -> dict[str, Any]:
 
 
 def error_response(status: str, description: str) -> dict[str, Any]:
-    """Create an error response definition."""
+    """Create an error response definition.
+
+    ``status`` is accepted for symmetry with response maps keyed by HTTP code.
+    The status code itself lives in the surrounding OpenAPI response mapping,
+    so the payload schema stays the same for each error response.
+    """
+    _ = status
     return {
         "description": description,
         "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}},
