@@ -29,13 +29,13 @@ class CohortSummary:
     name: str
     rows: int
     unique_issues_attempted: int
-    unique_issues_with_mergeable_pr_signal: int
+    unique_issues_with_proxy_pr_signal: int
     unique_issues_with_completed_iteration: int
     deferred_publish_issue_count: int
     deferred_publish_event_count: int
     deferred_publish_issue_rate: float
     average_iterations_per_issue: float
-    success_rate: float
+    proxy_pr_signal_issue_rate: float
     completed_issue_rate: float
     terminal_class_distribution: dict[str, int]
 
@@ -44,13 +44,13 @@ class CohortSummary:
             "name": self.name,
             "rows": self.rows,
             "unique_issues_attempted": self.unique_issues_attempted,
-            "unique_issues_with_mergeable_pr_signal": self.unique_issues_with_mergeable_pr_signal,
+            "unique_issues_with_proxy_pr_signal": self.unique_issues_with_proxy_pr_signal,
             "unique_issues_with_completed_iteration": self.unique_issues_with_completed_iteration,
             "deferred_publish_issue_count": self.deferred_publish_issue_count,
             "deferred_publish_event_count": self.deferred_publish_event_count,
             "deferred_publish_issue_rate": round(self.deferred_publish_issue_rate, 4),
             "average_iterations_per_issue": round(self.average_iterations_per_issue, 4),
-            "success_rate": round(self.success_rate, 4),
+            "proxy_pr_signal_issue_rate": round(self.proxy_pr_signal_issue_rate, 4),
             "completed_issue_rate": round(self.completed_issue_rate, 4),
             "terminal_class_distribution": self.terminal_class_distribution,
         }
@@ -59,7 +59,7 @@ class CohortSummary:
 @dataclass
 class IssueAggregate:
     iterations: int = 0
-    has_mergeable_pr_signal: bool = False
+    has_proxy_pr_signal: bool = False
     has_completed_iteration: bool = False
     has_deferred_publish: bool = False
 
@@ -139,7 +139,7 @@ def resolve_terminal_class(row: dict[str, Any]) -> TerminalClass:
     return classify_from_metrics(row)
 
 
-def has_mergeable_pr_signal(row: dict[str, Any], terminal_class: TerminalClass) -> bool:
+def has_proxy_pr_signal(row: dict[str, Any], terminal_class: TerminalClass) -> bool:
     if terminal_class is TerminalClass.DELIVERABLE_PR_CREATED:
         return True
     publish_action = _normalize_text(row.get("publish_action"))
@@ -170,15 +170,15 @@ def summarize_cohort(name: str, rows: list[dict[str, Any]]) -> CohortSummary:
 
         aggregate = issues.setdefault(issue_key, IssueAggregate())
         aggregate.iterations += 1
-        if has_mergeable_pr_signal(row, terminal_class):
-            aggregate.has_mergeable_pr_signal = True
+        if has_proxy_pr_signal(row, terminal_class):
+            aggregate.has_proxy_pr_signal = True
         if has_completed_iteration(row):
             aggregate.has_completed_iteration = True
         if is_deferred_publish(row, terminal_class):
             aggregate.has_deferred_publish = True
 
     issue_count = len(issues)
-    success_count = sum(1 for issue in issues.values() if issue.has_mergeable_pr_signal)
+    proxy_signal_count = sum(1 for issue in issues.values() if issue.has_proxy_pr_signal)
     completed_count = sum(1 for issue in issues.values() if issue.has_completed_iteration)
     deferred_issue_count = sum(1 for issue in issues.values() if issue.has_deferred_publish)
     deferred_event_count = sum(
@@ -190,13 +190,13 @@ def summarize_cohort(name: str, rows: list[dict[str, Any]]) -> CohortSummary:
         name=name,
         rows=len(rows),
         unique_issues_attempted=issue_count,
-        unique_issues_with_mergeable_pr_signal=success_count,
+        unique_issues_with_proxy_pr_signal=proxy_signal_count,
         unique_issues_with_completed_iteration=completed_count,
         deferred_publish_issue_count=deferred_issue_count,
         deferred_publish_event_count=deferred_event_count,
         deferred_publish_issue_rate=(deferred_issue_count / issue_count if issue_count else 0.0),
         average_iterations_per_issue=(total_iterations / issue_count if issue_count else 0.0),
-        success_rate=(success_count / issue_count if issue_count else 0.0),
+        proxy_pr_signal_issue_rate=(proxy_signal_count / issue_count if issue_count else 0.0),
         completed_issue_rate=(completed_count / issue_count if issue_count else 0.0),
         terminal_class_distribution=dict(sorted(terminal_counts.items())),
     )
@@ -217,8 +217,8 @@ def render_table(report: dict[str, CohortSummary]) -> str:
         "Cohort",
         "Rows",
         "Issues",
-        "PR signal",
-        "Success",
+        "PR signal (proxy)",
+        "Proxy rate",
         "Completed",
         "Deferred",
         "Avg iters",
@@ -230,8 +230,8 @@ def render_table(report: dict[str, CohortSummary]) -> str:
                 name,
                 str(summary.rows),
                 str(summary.unique_issues_attempted),
-                str(summary.unique_issues_with_mergeable_pr_signal),
-                f"{summary.success_rate:.1%}",
+                str(summary.unique_issues_with_proxy_pr_signal),
+                f"{summary.proxy_pr_signal_issue_rate:.1%}",
                 str(summary.unique_issues_with_completed_iteration),
                 f"{summary.deferred_publish_issue_count} ({summary.deferred_publish_issue_rate:.1%})",
                 f"{summary.average_iterations_per_issue:.2f}",
@@ -263,6 +263,9 @@ def render_table(report: dict[str, CohortSummary]) -> str:
 def report_to_json(metrics_file: Path, report: dict[str, CohortSummary]) -> str:
     payload = {
         "metrics_file": str(metrics_file),
+        "proxy_metric_note": (
+            "PR signal is a proxy from metrics, not GitHub truth or merged-PR truth."
+        ),
         "cohorts": {name: summary.to_dict() for name, summary in report.items()},
     }
     return json.dumps(payload, indent=2, sort_keys=True)

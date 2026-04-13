@@ -3,7 +3,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts.reconcile_b0_pr_truth import (
+    CROSS_REFS_MAX_PAGES,
+    CROSS_REFS_PER_PAGE,
+    ISSUE_COMMENTS_MAX_PAGES,
+    ISSUE_COMMENTS_PER_PAGE,
+    GitHubTruthClient,
     IssueMetricsAggregate,
     IssueTruthRecord,
     LinkedPullRequest,
@@ -14,6 +21,7 @@ from scripts.reconcile_b0_pr_truth import (
     reconcile_issue_truth,
     render_table,
     report_to_json,
+    resolve_metrics_path,
     summarize_truth,
 )
 
@@ -38,6 +46,33 @@ class FakeGitHubTruthClient:
 
     def get_cross_referenced_pr_numbers(self, repo: str, number: int) -> list[int]:
         return list(self.cross_refs.get(number, []))
+
+
+class PaginatedGitHubTruthClient(GitHubTruthClient):
+    def __init__(
+        self,
+        *,
+        comment_pages: list[list[dict]] | None = None,
+        cross_ref_pages: list[dict] | None = None,
+    ) -> None:
+        self.comment_pages = comment_pages or []
+        self.cross_ref_pages = cross_ref_pages or []
+        self.comment_calls = 0
+        self.cross_ref_calls = 0
+
+    def _run_json_object(self, args: list[str]) -> dict:
+        if args[:2] == ["api", "graphql"]:
+            payload = self.cross_ref_pages[self.cross_ref_calls]
+            self.cross_ref_calls += 1
+            return payload
+        raise AssertionError(f"unexpected object args: {args}")
+
+    def _run_json_list(self, args: list[str]) -> list[dict]:
+        if args and args[0] == "api" and "/comments?" in args[1]:
+            payload = self.comment_pages[self.comment_calls]
+            self.comment_calls += 1
+            return payload
+        raise AssertionError(f"unexpected list args: {args}")
 
 
 def _write_metrics(tmp_path: Path, rows: list[dict]) -> Path:
@@ -183,6 +218,97 @@ def test_reconcile_issue_truth_falls_back_to_cross_refs() -> None:
     assert record.no_rescue_truth_success is False
 
 
+def test_issue_comment_pagination_collects_multiple_pages() -> None:
+    client = PaginatedGitHubTruthClient(
+        comment_pages=[
+            [{"body": "page1"}] * ISSUE_COMMENTS_PER_PAGE,
+            [{"body": "page2"}],
+        ]
+    )
+
+    comments = client.get_issue_comments("synaptent/aragora", 5102)
+
+    assert len(comments) == ISSUE_COMMENTS_PER_PAGE + 1
+    assert client.comment_calls == 2
+
+
+def test_issue_comment_pagination_raises_when_bound_exceeded() -> None:
+    client = PaginatedGitHubTruthClient(
+        comment_pages=[
+            [{"body": f"page-{idx}"}] * ISSUE_COMMENTS_PER_PAGE
+            for idx in range(ISSUE_COMMENTS_MAX_PAGES)
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="issue comment pagination exceeded bound"):
+        client.get_issue_comments("synaptent/aragora", 5102)
+
+
+def test_cross_reference_pagination_collects_multiple_pages() -> None:
+    client = PaginatedGitHubTruthClient(
+        cross_ref_pages=[
+            {
+                "data": {
+                    "repository": {
+                        "issue": {
+                            "timelineItems": {
+                                "nodes": [
+                                    {"source": {"__typename": "PullRequest", "number": 5107}}
+                                ],
+                                "pageInfo": {"hasNextPage": True, "endCursor": "cursor-1"},
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "data": {
+                    "repository": {
+                        "issue": {
+                            "timelineItems": {
+                                "nodes": [
+                                    {"source": {"__typename": "PullRequest", "number": 5108}}
+                                ],
+                                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                            }
+                        }
+                    }
+                }
+            },
+        ]
+    )
+
+    pr_numbers = client.get_cross_referenced_pr_numbers("synaptent/aragora", 5102)
+
+    assert pr_numbers == [5107, 5108]
+    assert client.cross_ref_calls == 2
+
+
+def test_cross_reference_pagination_raises_when_bound_exceeded() -> None:
+    client = PaginatedGitHubTruthClient(
+        cross_ref_pages=[
+            {
+                "data": {
+                    "repository": {
+                        "issue": {
+                            "timelineItems": {
+                                "nodes": [
+                                    {"source": {"__typename": "PullRequest", "number": 6000 + idx}}
+                                ],
+                                "pageInfo": {"hasNextPage": True, "endCursor": f"cursor-{idx}"},
+                            }
+                        }
+                    }
+                }
+            }
+            for idx in range(CROSS_REFS_MAX_PAGES)
+        ]
+    )
+
+    with pytest.raises(RuntimeError, match="cross-reference pagination exceeded bound"):
+        client.get_cross_referenced_pr_numbers("synaptent/aragora", 5102)
+
+
 def test_reconcile_issue_truth_preserves_closed_unmerged_pr() -> None:
     aggregate = IssueMetricsAggregate(
         issue_number=5104,
@@ -279,6 +405,23 @@ def test_summary_and_renderers_include_proxy_vs_truth_language() -> None:
     assert "#5105:open_pr:UNKNOWN" in table
     assert payload["summary"]["truth_success_issue_count"] == 1
     assert payload["issues"][0]["truth_state"] == "open_pr"
+
+
+def test_resolve_metrics_path_falls_back_to_git_common_root(tmp_path: Path, monkeypatch) -> None:
+    shared_root = tmp_path / "shared-root"
+    metrics_file = shared_root / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    metrics_file.parent.mkdir(parents=True)
+    metrics_file.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr("scripts.reconcile_b0_pr_truth.REPO_ROOT", tmp_path / "worktree-root")
+    monkeypatch.setattr(
+        "scripts.reconcile_b0_pr_truth._git_common_repo_root",
+        lambda: shared_root,
+    )
+
+    resolved = resolve_metrics_path(Path(".aragora/overnight/boss_metrics.jsonl"))
+
+    assert resolved == metrics_file.resolve()
 
 
 def test_main_json_output_with_mocked_github_client(tmp_path: Path, monkeypatch, capsys) -> None:

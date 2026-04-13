@@ -47,6 +47,45 @@ PR_SIGNAL_OUTCOMES = frozenset({"pr_adopted"})
 MERGEABLE_STATES = frozenset({"MERGEABLE"})
 MERGED_STATES = frozenset({"MERGED"})
 OPEN_STATES = frozenset({"OPEN"})
+ISSUE_COMMENTS_PER_PAGE = 100
+ISSUE_COMMENTS_MAX_PAGES = 5
+CROSS_REFS_PER_PAGE = 100
+CROSS_REFS_MAX_PAGES = 5
+
+
+def _git_common_repo_root() -> Path | None:
+    proc = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=REPO_ROOT,
+    )
+    if proc.returncode != 0:
+        return None
+    common_dir = Path(proc.stdout.strip())
+    if common_dir.name != ".git":
+        return None
+    return common_dir.parent.resolve()
+
+
+def resolve_metrics_path(candidate: Path) -> Path:
+    if candidate.exists():
+        return candidate.resolve()
+    if candidate.is_absolute():
+        return candidate
+
+    repo_relative = (REPO_ROOT / candidate).resolve()
+    if repo_relative.exists():
+        return repo_relative
+
+    common_root = _git_common_repo_root()
+    if common_root is not None:
+        common_relative = (common_root / candidate).resolve()
+        if common_relative.exists():
+            return common_relative
+
+    return candidate.resolve()
 
 
 @dataclass(frozen=True)
@@ -139,7 +178,7 @@ class TruthSummary:
 class GitHubTruthClient:
     """Minimal GitHub reader backed by the gh CLI."""
 
-    def _run_json(self, args: list[str]) -> dict[str, Any]:
+    def _run_json_object(self, args: list[str]) -> dict[str, Any]:
         proc = subprocess.run(
             ["gh", *args],
             capture_output=True,
@@ -153,8 +192,22 @@ class GitHubTruthClient:
             raise RuntimeError("gh command did not return a JSON object")
         return payload
 
+    def _run_json_list(self, args: list[str]) -> list[dict[str, Any]]:
+        proc = subprocess.run(
+            ["gh", *args],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh command failed")
+        payload = json.loads(proc.stdout or "[]")
+        if not isinstance(payload, list):
+            raise RuntimeError("gh command did not return a JSON array")
+        return [item for item in payload if isinstance(item, dict)]
+
     def get_issue(self, repo: str, number: int) -> dict[str, Any]:
-        return self._run_json(
+        payload = self._run_json_object(
             [
                 "issue",
                 "view",
@@ -162,12 +215,14 @@ class GitHubTruthClient:
                 "--repo",
                 repo,
                 "--json",
-                "number,title,url,comments",
+                "number,title,url",
             ]
         )
+        payload["comments"] = self.get_issue_comments(repo, number)
+        return payload
 
     def get_pr(self, repo: str, number: int) -> dict[str, Any]:
-        return self._run_json(
+        return self._run_json_object(
             [
                 "pr",
                 "view",
@@ -179,14 +234,40 @@ class GitHubTruthClient:
             ]
         )
 
+    def get_issue_comments(self, repo: str, number: int) -> list[dict[str, Any]]:
+        comments: list[dict[str, Any]] = []
+        for page in range(1, ISSUE_COMMENTS_MAX_PAGES + 1):
+            payload = self._run_json_list(
+                [
+                    "api",
+                    f"repos/{repo}/issues/{number}/comments?per_page={ISSUE_COMMENTS_PER_PAGE}&page={page}",
+                ]
+            )
+            comments.extend(payload)
+            if len(payload) < ISSUE_COMMENTS_PER_PAGE:
+                return comments
+        raise RuntimeError(
+            f"issue comment pagination exceeded bound for {repo}#{number} "
+            f"after {ISSUE_COMMENTS_MAX_PAGES} pages"
+        )
+
     def get_cross_referenced_pr_numbers(self, repo: str, number: int) -> list[int]:
         owner, name = repo.split("/", 1)
-        payload = self._run_json(
-            [
+        pr_numbers: list[int] = []
+        cursor: str | None = None
+
+        for _page in range(CROSS_REFS_MAX_PAGES):
+            args = [
                 "api",
                 "graphql",
                 "-f",
-                "query=query($owner:String!, $name:String!, $number:Int!) { repository(owner:$owner, name:$name) { issue(number:$number) { timelineItems(itemTypes:[CROSS_REFERENCED_EVENT], first:100) { nodes { ... on CrossReferencedEvent { source { __typename ... on PullRequest { number } } } } } } } }",
+                (
+                    "query=query($owner:String!, $name:String!, $number:Int!, $after:String) "
+                    "{ repository(owner:$owner, name:$name) { issue(number:$number) { "
+                    f"timelineItems(itemTypes:[CROSS_REFERENCED_EVENT], first:{CROSS_REFS_PER_PAGE}, after:$after) "
+                    "{ nodes { ... on CrossReferencedEvent { source { __typename ... on PullRequest { number } } } } "
+                    "pageInfo { hasNextPage endCursor } } } } }"
+                ),
                 "-F",
                 f"owner={owner}",
                 "-F",
@@ -194,25 +275,40 @@ class GitHubTruthClient:
                 "-F",
                 f"number={number}",
             ]
+            if cursor is not None:
+                args.extend(["-F", f"after={cursor}"])
+            payload = self._run_json_object(args)
+            timeline = (
+                payload.get("data", {})
+                .get("repository", {})
+                .get("issue", {})
+                .get("timelineItems", {})
+            )
+            nodes = timeline.get("nodes", [])
+            for node in nodes:
+                source = node.get("source") if isinstance(node, dict) else None
+                if not isinstance(source, dict):
+                    continue
+                if source.get("__typename") != "PullRequest":
+                    continue
+                pr_number = source.get("number")
+                if isinstance(pr_number, int):
+                    pr_numbers.append(pr_number)
+
+            page_info = timeline.get("pageInfo", {})
+            has_next = bool(page_info.get("hasNextPage"))
+            if not has_next:
+                return pr_numbers
+            cursor = str(page_info.get("endCursor") or "").strip() or None
+            if cursor is None:
+                raise RuntimeError(
+                    f"cross-reference pagination missing endCursor for {repo}#{number}"
+                )
+
+        raise RuntimeError(
+            f"cross-reference pagination exceeded bound for {repo}#{number} "
+            f"after {CROSS_REFS_MAX_PAGES} pages"
         )
-        nodes = (
-            payload.get("data", {})
-            .get("repository", {})
-            .get("issue", {})
-            .get("timelineItems", {})
-            .get("nodes", [])
-        )
-        pr_numbers: list[int] = []
-        for node in nodes:
-            source = node.get("source") if isinstance(node, dict) else None
-            if not isinstance(source, dict):
-                continue
-            if source.get("__typename") != "PullRequest":
-                continue
-            pr_number = source.get("number")
-            if isinstance(pr_number, int):
-                pr_numbers.append(pr_number)
-        return pr_numbers
 
 
 def load_metrics_rows(metrics_file: Path) -> list[dict[str, Any]]:
@@ -506,7 +602,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    metrics_file = args.metrics_file.resolve()
+    metrics_file = resolve_metrics_path(args.metrics_file)
     if not metrics_file.exists():
         parser.error(f"metrics file not found: {metrics_file}")
 

@@ -27,18 +27,18 @@ def test_measure_b0_progress_cohorts_and_unique_issue_aggregation() -> None:
     all_summary = report["all"]
     assert all_summary.rows == 6
     assert all_summary.unique_issues_attempted == 5
-    assert all_summary.unique_issues_with_mergeable_pr_signal == 1
+    assert all_summary.unique_issues_with_proxy_pr_signal == 1
     assert all_summary.unique_issues_with_completed_iteration == 3
     assert all_summary.deferred_publish_issue_count == 1
     assert all_summary.deferred_publish_event_count == 1
     assert all_summary.deferred_publish_issue_rate == 0.2
     assert all_summary.average_iterations_per_issue == 1.2
-    assert all_summary.success_rate == 0.2
+    assert all_summary.proxy_pr_signal_issue_rate == 0.2
 
     v2_summary = report["v2"]
     assert v2_summary.rows == 5
     assert v2_summary.unique_issues_attempted == 4
-    assert v2_summary.unique_issues_with_mergeable_pr_signal == 1
+    assert v2_summary.unique_issues_with_proxy_pr_signal == 1
     assert v2_summary.unique_issues_with_completed_iteration == 2
     assert v2_summary.deferred_publish_issue_count == 1
     assert v2_summary.average_iterations_per_issue == 1.25
@@ -46,7 +46,7 @@ def test_measure_b0_progress_cohorts_and_unique_issue_aggregation() -> None:
     decomposed_summary = report["decomposed"]
     assert decomposed_summary.rows == 2
     assert decomposed_summary.unique_issues_attempted == 1
-    assert decomposed_summary.unique_issues_with_mergeable_pr_signal == 1
+    assert decomposed_summary.unique_issues_with_proxy_pr_signal == 1
     assert decomposed_summary.unique_issues_with_completed_iteration == 1
     assert decomposed_summary.average_iterations_per_issue == 2.0
 
@@ -61,7 +61,7 @@ def test_b0_tagged_cohort_detects_title_and_metadata_tags() -> None:
     assert tagged_numbers == [101, 101, 102]
     assert tagged_summary.rows == 3
     assert tagged_summary.unique_issues_attempted == 2
-    assert tagged_summary.unique_issues_with_mergeable_pr_signal == 1
+    assert tagged_summary.unique_issues_with_proxy_pr_signal == 1
     assert tagged_summary.deferred_publish_issue_count == 1
     assert tagged_summary.average_iterations_per_issue == 1.5
 
@@ -85,7 +85,7 @@ def test_b0_tagged_cohort_detects_explicit_cohort_tag_field() -> None:
 
     assert tagged_summary.rows == 1
     assert tagged_summary.unique_issues_attempted == 1
-    assert tagged_summary.unique_issues_with_mergeable_pr_signal == 1
+    assert tagged_summary.unique_issues_with_proxy_pr_signal == 1
 
 
 def test_terminal_class_distribution_uses_existing_or_fallback_classification() -> None:
@@ -109,8 +109,10 @@ def test_json_output_contains_machine_readable_report() -> None:
     payload = json.loads(report_to_json(FIXTURE_PATH, report))
 
     assert payload["metrics_file"].endswith("mixed_metrics.jsonl")
+    assert "proxy_metric_note" in payload
     assert payload["cohorts"]["all"]["unique_issues_attempted"] == 5
-    assert payload["cohorts"]["b0_tagged"]["unique_issues_with_mergeable_pr_signal"] == 1
+    assert payload["cohorts"]["b0_tagged"]["unique_issues_with_proxy_pr_signal"] == 1
+    assert payload["cohorts"]["all"]["proxy_pr_signal_issue_rate"] == 0.2
 
 
 def test_table_output_contains_comparison_rows_and_terminal_classes() -> None:
@@ -122,6 +124,8 @@ def test_table_output_contains_comparison_rows_and_terminal_classes() -> None:
     assert "Cohort" in table
     assert "all" in table
     assert "b0_tagged" in table
+    assert "PR signal (proxy)" in table
+    assert "Proxy rate" in table
     assert "Terminal class distribution:" in table
     assert "deliverable_pr_created" in table
     assert "rescue_publish_deferred" in table
