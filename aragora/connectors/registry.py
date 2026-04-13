@@ -204,18 +204,27 @@ def discover_connectors(connectors_root: Path) -> list[ConnectorRecord]:
     )
 
 
-def build_registry(connectors_root: Path) -> ConnectorRegistry:
-    connectors = discover_connectors(connectors_root)
+def _summarize_connectors(
+    connectors: Iterable[ConnectorRecord],
+) -> tuple[int, dict[str, int], dict[str, int]]:
     by_kind: dict[str, int] = {}
     by_category: dict[str, int] = {}
+    total = 0
     for connector in connectors:
+        total += 1
         by_kind[connector.kind] = by_kind.get(connector.kind, 0) + 1
         by_category[connector.category] = by_category.get(connector.category, 0) + 1
+    return total, dict(sorted(by_kind.items())), dict(sorted(by_category.items()))
+
+
+def build_registry(connectors_root: Path) -> ConnectorRegistry:
+    connectors = discover_connectors(connectors_root)
+    total, by_kind, by_category = _summarize_connectors(connectors)
     return ConnectorRegistry(
         generated_at=datetime.now(timezone.utc).isoformat(),
-        total=len(connectors),
-        by_kind=dict(sorted(by_kind.items())),
-        by_category=dict(sorted(by_category.items())),
+        total=total,
+        by_kind=by_kind,
+        by_category=by_category,
         connectors=connectors,
     )
 
@@ -223,10 +232,11 @@ def build_registry(connectors_root: Path) -> ConnectorRegistry:
 def load_registry(path: Path) -> ConnectorRegistry:
     payload = json.loads(path.read_text(encoding="utf-8"))
     connectors = [ConnectorRecord(**entry) for entry in payload.get("connectors", [])]
+    total, by_kind, by_category = _summarize_connectors(connectors)
     return ConnectorRegistry(
         generated_at=payload.get("generated_at", ""),
-        total=payload.get("total", len(connectors)),
-        by_kind=payload.get("by_kind", {}),
-        by_category=payload.get("by_category", {}),
+        total=payload.get("total", total),
+        by_kind=payload.get("by_kind") or by_kind,
+        by_category=payload.get("by_category") or by_category,
         connectors=connectors,
     )
