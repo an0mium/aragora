@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import pytest
 
@@ -5329,11 +5329,87 @@ async def test_dispatch_backbone_failure_does_not_block():
             "aragora.swarm.boss_loop.dispatch_bounded_spec",
             new=AsyncMock(return_value=fake_result),
         ),
+        patch("aragora.swarm.boss_loop.logger") as mock_logger,
     ):
         # Should NOT raise despite backbone failures
         result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
     assert result["status"] == "completed"
+    mock_logger.debug.assert_called_once_with(
+        "Boss backbone ledger create failed for issue #%d: %s",
+        issue.number,
+        "backbone unavailable",
+    )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_backbone_update_failures_log_and_do_not_block():
+    issue = _make_issue(100, "Backbone update failure resilience")
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="codex"))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "agent_type": "codex",
+    }
+
+    updated_calls: list[dict[str, Any]] = []
+
+    class FlakyRuntime:
+        def create_run(self, ledger):
+            return None
+
+        def update_run(self, run_id, **kw):
+            updated_calls.append({"run_id": run_id, **kw})
+            raise RuntimeError("backbone update unavailable")
+
+    fake_result = {
+        "status": "needs_human",
+        "run_id": "run-100",
+        "receipt_id": "receipt-100",
+    }
+    postprocessed_result = {
+        **fake_result,
+        "status": "completed",
+        "outcome": "pr_adopted",
+    }
+
+    with (
+        patch(
+            "aragora.pipeline.backbone_runtime.BackboneRuntime",
+            FlakyRuntime,
+        ),
+        patch(
+            "aragora.pipeline.backbone_contracts.RunLedger",
+            side_effect=lambda **kw: SimpleNamespace(**kw),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value=fake_result),
+        ),
+        patch.object(loop, "_postprocess_issue_result", return_value=postprocessed_result),
+        patch.object(
+            loop,
+            "_apply_postprocess_metadata",
+            return_value={"publish_result": {"action": "pr_created"}},
+        ),
+        patch("aragora.swarm.boss_loop.logger") as mock_logger,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    assert len(updated_calls) == 2
+    assert mock_logger.debug.call_args_list == [
+        call(
+            "Boss backbone ledger dispatch update failed for issue #%d: %s",
+            issue.number,
+            "backbone update unavailable",
+        ),
+        call(
+            "Boss backbone ledger postprocess update failed for issue #%d: %s",
+            issue.number,
+            "backbone update unavailable",
+        ),
+    ]
 
 
 # ---------------------------------------------------------------------------
