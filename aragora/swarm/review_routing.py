@@ -150,7 +150,7 @@ async def generate_review_response(
                 )
             )
             continue
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - reviewer backends are external; fall through to next candidate
             logger.warning("review candidate %s failed: %s", candidate.label, exc)
             attempts.append(
                 _failure_attempt(
@@ -314,7 +314,11 @@ def _candidate_failure_detail(exc: Exception) -> tuple[str, str]:
         if any(marker in raw for marker in _BILLING_MARKERS):
             return ("billing_exhausted", "Reviewer credits are exhausted.")
         return ("cli_failure", "Reviewer CLI command failed.")
-    return (exc.__class__.__name__, exc.__class__.__name__)
+    kind = exc.__class__.__name__
+    detail = str(exc).strip()
+    if detail and detail != kind:
+        return (kind, f"{kind}: {detail}")
+    return (kind, kind)
 
 
 def _failure_attempt(candidate: str, *, stage: str, exc: Exception) -> dict[str, Any]:
