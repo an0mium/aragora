@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from unittest.mock import patch
 
 from aragora.coordination.registry import SessionRegistry
 from aragora.swarm.session_coordinator import (
@@ -99,6 +100,26 @@ class TestSessionCoordinator:
         assert view["summary"]["claim_count"] == 1
         assert view["summary"]["finding_count"] == 1
         assert view["directives"][0]["target"] == "codex-a"
+
+    def test_explicit_repo_root_bypasses_root_resolution(self, tmp_path):
+        wrong_root = tmp_path / "wrong-root"
+        wrong_root.mkdir()
+
+        with patch("aragora.swarm.session_coordinator.resolve_repo_root", return_value=wrong_root):
+            set_assignment("codex-a", "Own parity lane", repo_root=tmp_path)
+            report_finding(
+                "Bandit B310 in auth/oidc.py",
+                "codex-b",
+                kind="blocker",
+                pr=2679,
+                repo_root=tmp_path,
+            )
+            view = read_directives(repo_root=tmp_path, findings_limit=5)
+
+        assert view["repo_root"] == str(tmp_path.resolve())
+        assert view["summary"]["directive_count"] == 1
+        assert view["summary"]["finding_count"] == 1
+        assert not (wrong_root / ".aragora_coordination").exists()
 
     def test_read_directives_clears_dead_session_assignments(self, tmp_path):
         session = SessionRegistry(repo_path=tmp_path).register(

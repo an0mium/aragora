@@ -27,7 +27,9 @@ from aragora.worktree.fleet import resolve_repo_root
 
 
 def _coord_repo_root(repo_root: Path | None = None) -> Path:
-    return resolve_repo_root((repo_root or Path.cwd()).resolve())
+    if repo_root is not None:
+        return Path(repo_root).resolve()
+    return resolve_repo_root(Path.cwd().resolve())
 
 
 def set_assignment(
