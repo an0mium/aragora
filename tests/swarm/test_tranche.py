@@ -808,7 +808,9 @@ async def test_artifact_from_run_result_persists_receipt_and_lease_ids(tmp_path:
 
 
 @pytest.mark.asyncio
-async def test_artifact_from_run_result_omits_raw_issue_text_when_sanitized(tmp_path: Path) -> None:
+async def test_artifact_from_run_result_preserves_original_issue_text_when_sanitized(
+    tmp_path: Path,
+) -> None:
     repo = _init_repo(tmp_path)
     manifest = TrancheManifest.from_dict(
         {
@@ -872,12 +874,12 @@ async def test_artifact_from_run_result_omits_raw_issue_text_when_sanitized(tmp_
     )
 
     assert artifact.metadata["issue_text"] == {
+        "original_body": "raw body",
         "sanitized_body": "rewritten body",
         "changed": True,
         "sanitizer_outcome": "rewritten",
         "checks_failed": ["missing_validation"],
     }
-    assert "original_body" not in artifact.metadata["issue_text"]
 
 
 @pytest.mark.asyncio

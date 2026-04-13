@@ -65,6 +65,8 @@ def _issue_text_metadata(result: dict[str, Any]) -> dict[str, Any]:
     payload: dict[str, Any] = {}
     if kept_body is not None:
         payload["sanitized_body"] = kept_body
+    if changed and original_body is not None:
+        payload["original_body"] = original_body
     payload["changed"] = changed
     if sanitizer_outcome is not None:
         payload["sanitizer_outcome"] = sanitizer_outcome
