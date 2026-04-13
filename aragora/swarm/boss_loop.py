@@ -37,6 +37,7 @@ from aragora.swarm.terminal_truth import (
     qualify_run_terminal_state,
 )
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
+from aragora.swarm.outcome_learner import OutcomeLearner
 
 # Backwards-compatible re-exports from extracted modules
 from aragora.swarm.boss_feed import (  # noqa: F401
@@ -283,6 +284,8 @@ class BossLoopConfig:
     fast_fail_threshold_seconds: float = 30.0
 
     status_report_interval: int = 5  # every N iterations
+    outcome_learner_window: int = 500
+
     metrics_jsonl_path: str | None = ".aragora/overnight/boss_metrics.jsonl"
 
 
@@ -619,6 +622,8 @@ class BossLoop:
         self._recent_elapsed: list[float] = []
         # Deferred publish retry queue: (issue, worker_result) pairs
         self._deferred_publish_queue: list[tuple[Any, dict[str, Any]]] = []
+        # Outcome learner for rolling success-rate snapshots
+        self._outcome_learner = OutcomeLearner(window_size=self.config.outcome_learner_window)
 
     def _git_cmd(self, args: list[str], *, timeout: float = 30.0) -> subprocess.CompletedProcess:
         return subprocess.run(
@@ -890,6 +895,14 @@ class BossLoop:
                 "has_deliverable": bool(worker_result.get("deliverable")),
                 "publish_action": publish_action,
             }
+
+            try:
+                learner_snapshot = self._outcome_learner.snapshot()
+                payload["category_success_rates"] = learner_snapshot.routing_hints.get(
+                    "category_success_rates", {}
+                )
+            except Exception:
+                payload["category_success_rates"] = {}
 
             try:
                 terminal_class = classify_from_metrics(payload)
