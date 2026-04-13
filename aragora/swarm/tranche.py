@@ -55,16 +55,17 @@ def _issue_text_metadata(result: dict[str, Any]) -> dict[str, Any]:
     sanitized_body = _optional_text(result.get("sanitized_issue_body"))
     sanitizer_outcome = _optional_text(result.get("sanitizer_outcome"))
     checks_failed = _string_list(result.get("checks_failed"), field_name="checks_failed")
-    if not any((original_body, sanitized_body, sanitizer_outcome, checks_failed)):
+    kept_body = sanitized_body or original_body
+    if not any((kept_body, sanitizer_outcome, checks_failed)):
         return {}
 
+    changed = bool(
+        original_body is not None and sanitized_body is not None and original_body != sanitized_body
+    )
     payload: dict[str, Any] = {}
-    if original_body is not None:
-        payload["original_body"] = original_body
-    if sanitized_body is not None:
-        payload["sanitized_body"] = sanitized_body
-    if original_body is not None and sanitized_body is not None:
-        payload["changed"] = original_body != sanitized_body
+    if kept_body is not None:
+        payload["sanitized_body"] = kept_body
+    payload["changed"] = changed
     if sanitizer_outcome is not None:
         payload["sanitizer_outcome"] = sanitizer_outcome
     if checks_failed:

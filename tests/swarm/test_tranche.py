@@ -808,7 +808,7 @@ async def test_artifact_from_run_result_persists_receipt_and_lease_ids(tmp_path:
 
 
 @pytest.mark.asyncio
-async def test_artifact_from_run_result_persists_issue_text_audit_metadata(tmp_path: Path) -> None:
+async def test_artifact_from_run_result_omits_raw_issue_text_when_sanitized(tmp_path: Path) -> None:
     repo = _init_repo(tmp_path)
     manifest = TrancheManifest.from_dict(
         {
@@ -872,11 +872,83 @@ async def test_artifact_from_run_result_persists_issue_text_audit_metadata(tmp_p
     )
 
     assert artifact.metadata["issue_text"] == {
-        "original_body": "raw body",
         "sanitized_body": "rewritten body",
         "changed": True,
         "sanitizer_outcome": "rewritten",
         "checks_failed": ["missing_validation"],
+    }
+    assert "original_body" not in artifact.metadata["issue_text"]
+
+
+@pytest.mark.asyncio
+async def test_artifact_from_run_result_keeps_single_copy_when_text_is_unchanged(
+    tmp_path: Path,
+) -> None:
+    repo = _init_repo(tmp_path)
+    manifest = TrancheManifest.from_dict(
+        {
+            "manifest_id": "pmf-tranche",
+            "repo": {"name": "synaptent/aragora", "root": str(repo), "base_ref": "origin/main"},
+            "references": {
+                "source_refs": {
+                    "issue_1046": {
+                        "kind": "issue",
+                        "url": "https://github.com/synaptent/aragora/issues/1046",
+                        "state": "open",
+                    }
+                }
+            },
+            "gates": {},
+            "lanes": [
+                {
+                    "lane_id": "pmf_impl",
+                    "owner_role": "critical_path_engineer",
+                    "title": "Implement PMF path",
+                    "prompt": "Make the end-to-end PMF flow work.",
+                    "target_agent": "codex",
+                    "review_model": "claude",
+                    "source_refs": ["https://github.com/synaptent/aragora/issues/1046"],
+                    "allowed_write_scope": ["aragora/api/**"],
+                    "dependencies": ["issue_1046"],
+                    "verification_commands": ["pytest tests/api/test_pmf.py -q"],
+                    "stop_conditions": ["needs_human returned"],
+                    "expected_receipts_artifacts": ["PR URL"],
+                }
+            ],
+            "terminal_outcomes": {"success": {"definition": "done"}},
+        }
+    )
+    executor = TrancheExecutor(repo_root=repo, artifact_store=TrancheArtifactStore(repo))
+    prepared = TrancheLaneArtifact(
+        lane_id="pmf_impl",
+        source_ref="issue_1046",
+        status="prepared",
+        worktree_path="/tmp/controller-worktree",
+        metadata={"branch": "codex/pmf-impl", "target_agent": "codex"},
+    )
+
+    artifact = await executor._artifact_from_run_result(
+        manifest,
+        manifest.lane("pmf_impl"),
+        prepared=prepared,
+        result={
+            "status": "needs_human",
+            "outcome": "sanitation_checked",
+            "run_id": "run-123",
+            "sanitizer_outcome": "accepted",
+            "original_issue_body": "same body",
+            "sanitized_issue_body": "same body",
+            "reasons": ["needs update"],
+            "next_actions": ["fix it"],
+        },
+        review_model="claude",
+        skip_review=True,
+    )
+
+    assert artifact.metadata["issue_text"] == {
+        "sanitized_body": "same body",
+        "changed": False,
+        "sanitizer_outcome": "accepted",
     }
 
 
