@@ -28,7 +28,7 @@ class ArchitectMode(Mode):
     system_prompt_additions: str = ""
 
     def get_system_prompt(self) -> str:
-        return """## Architect Mode
+        prompt = """## Architect Mode
 
 You are operating in ARCHITECT mode. Your role is to analyze, understand, and design.
 
@@ -56,3 +56,7 @@ You are operating in ARCHITECT mode. Your role is to analyze, understand, and de
 - Quantify impact where possible (files changed, complexity)
 - Flag risks and technical debt implications
 """
+        if self.system_prompt_additions:
+            prompt = f"{prompt.rstrip()}\n\n{self.system_prompt_additions.strip()}\n"
+
+        return prompt
