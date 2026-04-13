@@ -7,6 +7,8 @@ Used by both agents and server components.
 
 import re
 
+TRUNCATION_SUFFIX = "... [truncated]"
+
 # Patterns for redacting sensitive data in error messages
 SENSITIVE_PATTERNS = [
     # API keys
@@ -39,7 +41,7 @@ def sanitize_error(error_text: str, max_length: int = 500) -> str:
 
     Args:
         error_text: Raw error message that may contain secrets
-        max_length: Maximum length before truncation
+        max_length: Maximum length of the returned sanitized text
 
     Returns:
         Sanitized error text safe for logging/display
@@ -52,7 +54,11 @@ def sanitize_error(error_text: str, max_length: int = 500) -> str:
 
     # Truncate long messages
     if len(sanitized) > max_length:
-        sanitized = sanitized[:max_length] + "... [truncated]"
+        if max_length <= 0:
+            return ""
+        if max_length <= len(TRUNCATION_SUFFIX):
+            return TRUNCATION_SUFFIX[:max_length]
+        sanitized = sanitized[: max_length - len(TRUNCATION_SUFFIX)] + TRUNCATION_SUFFIX
 
     return sanitized
 
