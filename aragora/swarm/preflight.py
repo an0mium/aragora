@@ -747,11 +747,13 @@ def run_remote_publish_validation_receipt(
         "target_ref": normalized_base_ref,
         "draft_pr_number": None,
         "draft_pr_url": "",
+        "draft_pr_cleanup_state": "not_created",
     }
     checks: list[dict[str, Any]] = []
     worktree_created = False
     pushed = False
     draft_created = False
+    draft_pr_ambiguous = False
     scratch_file = _scratch_validation_file(worktree_path)
 
     try:
@@ -829,6 +831,8 @@ def run_remote_publish_validation_receipt(
                                     base_ref=normalized_base_ref,
                                 )
                             if pr_number is None or not pr_url:
+                                draft_pr_ambiguous = True
+                                artifacts["draft_pr_cleanup_state"] = "ambiguous"
                                 _append_check(
                                     checks,
                                     name="gh_pr_capture",
@@ -840,6 +844,7 @@ def run_remote_publish_validation_receipt(
                                 )
                             else:
                                 draft_created = True
+                                artifacts["draft_pr_cleanup_state"] = "identified"
                                 artifacts["draft_pr_number"] = pr_number
                                 artifacts["draft_pr_url"] = pr_url
                                 _append_check(
@@ -864,6 +869,17 @@ def run_remote_publish_validation_receipt(
                 ],
                 cwd=worktree_path if worktree_created else resolved_repo_root,
             )
+            artifacts["draft_pr_cleanup_state"] = "closed"
+        elif pushed and draft_pr_ambiguous:
+            _append_check(
+                checks,
+                name="gh_pr_close",
+                passed=False,
+                detail=(
+                    "gh pr create succeeded, but draft PR identity remained ambiguous after "
+                    "output parsing and fallback lookup; draft PR may still be open."
+                ),
+            )
         elif pushed:
             _append_check(
                 checks,
@@ -872,7 +888,17 @@ def run_remote_publish_validation_receipt(
                 detail="skipped (draft PR not created)",
             )
 
-        if pushed:
+        if pushed and draft_pr_ambiguous:
+            _append_check(
+                checks,
+                name="cleanup_remote_branch_delete",
+                passed=False,
+                detail=(
+                    "Skipped remote branch deletion because gh pr create succeeded but draft PR "
+                    "identity is ambiguous; remote branch retained for manual review."
+                ),
+            )
+        elif pushed:
             _run_check(
                 checks,
                 name="cleanup_remote_branch_delete",
