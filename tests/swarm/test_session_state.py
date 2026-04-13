@@ -4,7 +4,11 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from aragora.swarm.session_state import SessionState, SessionStateStore
+from aragora.swarm.session_state import (
+    SessionState,
+    SessionStateStore,
+    classify_session_blocker,
+)
 
 
 def _dt(text: str) -> datetime:
@@ -202,3 +206,73 @@ def test_resume_context_summarizes_prior_attempts() -> None:
     assert "continue from the failing pytest lane" in text
     assert "Attempt 1" in text
     assert "AssertionError: blocker evidence missing" in text
+
+
+def test_blocker_evidence_roundtrips_through_serialization() -> None:
+    state = SessionState(
+        session_id="blocker-roundtrip", blocker_evidence="pytest timed out on lane"
+    )
+
+    restored = SessionState.from_dict(state.to_dict())
+
+    assert restored.blocker_evidence == "pytest timed out on lane"
+
+
+def test_set_blocker_and_clear_blocker() -> None:
+    state = SessionState(session_id="set-blocker")
+
+    state.set_blocker("ModuleNotFoundError: missing helper")
+    assert state.blocker_evidence == "ModuleNotFoundError: missing helper"
+
+    state.clear_blocker()
+    assert state.blocker_evidence is None
+
+
+def test_classify_session_blocker_import_error() -> None:
+    state = SessionState(session_id="import-blocker")
+    state.record_attempt(1, [], "ModuleNotFoundError: No module named 'aragora.foo'", "failed")
+
+    result = classify_session_blocker(state)
+
+    assert result["blocker_type"] == "import_error"
+    assert "ModuleNotFoundError" in result["evidence"]
+
+
+def test_classify_session_blocker_dependency_missing() -> None:
+    state = SessionState(session_id="dependency-blocker")
+    state.record_attempt(127, [], "ruff: command not found", "failed")
+
+    result = classify_session_blocker(state)
+
+    assert result["blocker_type"] == "dependency_missing"
+    assert "command not found" in result["evidence"]
+
+
+def test_classify_session_blocker_timeout_from_exit_code() -> None:
+    state = SessionState(session_id="timeout-blocker")
+    state.record_attempt(-1, [], "Timed out after 600s", "failed")
+
+    result = classify_session_blocker(state)
+
+    assert result["blocker_type"] == "timeout"
+    assert "Timed out" in result["evidence"]
+
+
+def test_classify_session_blocker_scope_too_broad() -> None:
+    state = SessionState(session_id="scope-blocker")
+    state.set_blocker("Issue was quarantined by task sanitizer: file scope spans 6 files.")
+
+    result = classify_session_blocker(state)
+
+    assert result["blocker_type"] == "scope_too_broad"
+    assert "file scope spans 6 files" in result["evidence"]
+
+
+def test_classify_session_blocker_defaults_to_test_failure() -> None:
+    state = SessionState(session_id="test-blocker")
+    state.record_attempt(1, [], "AssertionError: expected blocker evidence", "failed")
+
+    result = classify_session_blocker(state)
+
+    assert result["blocker_type"] == "test_failure"
+    assert "AssertionError" in result["evidence"]

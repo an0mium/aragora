@@ -8,6 +8,17 @@ from pathlib import Path
 from typing import Any, Mapping
 
 _SESSION_ID_PATTERN = re.compile(r"[^A-Za-z0-9._-]+")
+_IMPORT_ERROR_RE = re.compile(r"\b(module(notfounderror)?|importerror|cannot import name)\b", re.I)
+_DEPENDENCY_MISSING_RE = re.compile(
+    r"(command not found|executable file not found|not installed|missing dependency|no such file or directory)",
+    re.I,
+)
+_TIMEOUT_RE = re.compile(r"\b(time[ -]?out|timed out)\b", re.I)
+_SCOPE_TOO_BROAD_RE = re.compile(
+    r"(scope too broad|too broad|outside file scope|file scope spans|task sanitizer|quarantined)",
+    re.I,
+)
+_TEST_FAILURE_RE = re.compile(r"(assertionerror|\bfailed\b|\btraceback\b|\bpytest\b)", re.I)
 
 
 def _utcnow() -> datetime:
@@ -84,6 +95,7 @@ class SessionState:
     branch_name: str | None = None
     pr_url: str | None = None
     resume_hint: str | None = None
+    blocker_evidence: str | None = None
     retry_count: int = 0
     attempts: list[dict[str, Any]] = field(default_factory=list)
     repair_journal: list[dict[str, Any]] = field(default_factory=list)
@@ -102,6 +114,7 @@ class SessionState:
         self.branch_name = _optional_text(self.branch_name)
         self.pr_url = _optional_text(self.pr_url)
         self.resume_hint = _optional_text(self.resume_hint)
+        self.blocker_evidence = _optional_text(self.blocker_evidence)
         self.retry_count = max(0, int(self.retry_count or 0))
         self.attempts = _coerce_dict_list(self.attempts)
         self.repair_journal = _coerce_dict_list(self.repair_journal)
@@ -124,6 +137,7 @@ class SessionState:
             "branch_name": self.branch_name,
             "pr_url": self.pr_url,
             "resume_hint": self.resume_hint,
+            "blocker_evidence": self.blocker_evidence,
             "retry_count": self.retry_count,
             "attempts": [dict(item) for item in self.attempts],
             "repair_journal": [dict(item) for item in self.repair_journal],
@@ -146,6 +160,7 @@ class SessionState:
             branch_name=data.get("branch_name"),
             pr_url=data.get("pr_url"),
             resume_hint=data.get("resume_hint"),
+            blocker_evidence=data.get("blocker_evidence"),
             retry_count=data.get("retry_count", 0),
             attempts=_coerce_dict_list(data.get("attempts")),
             repair_journal=_coerce_dict_list(data.get("repair_journal")),
@@ -221,6 +236,14 @@ class SessionState:
             lines.append(f"Repair journal entries available: {len(self.repair_journal)}")
 
         return "\n".join(lines).strip()
+
+    def set_blocker(self, evidence: str) -> None:
+        self.blocker_evidence = _optional_text(evidence)
+        self.touch()
+
+    def clear_blocker(self) -> None:
+        self.blocker_evidence = None
+        self.touch()
 
 
 class SessionStateStore:
@@ -301,3 +324,59 @@ class SessionStateStore:
                 path.unlink()
                 removed.append(path)
         return removed
+
+
+def _attempt_evidence(state: SessionState) -> list[tuple[dict[str, Any], str]]:
+    evidence: list[tuple[dict[str, Any], str]] = []
+    for attempt in reversed(state.attempts):
+        text_parts = [
+            str(attempt.get("worker_outcome") or "").strip(),
+            str(attempt.get("test_output") or "").strip(),
+        ]
+        combined = "\n".join(part for part in text_parts if part).strip()
+        evidence.append((attempt, combined))
+    if state.blocker_evidence:
+        evidence.append(({}, state.blocker_evidence))
+    return evidence
+
+
+def _suggested_action(blocker_type: str) -> str:
+    actions = {
+        "test_failure": "Run the failing validation locally, fix the assertion or regression, and retry.",
+        "import_error": "Repair the import/module path, then rerun the targeted validation command.",
+        "timeout": "Narrow the validation scope or add progress checkpoints before retrying.",
+        "scope_too_broad": "Split the task into a smaller bounded write scope before another retry.",
+        "dependency_missing": "Install or provision the missing dependency or command before retrying.",
+    }
+    return actions[blocker_type]
+
+
+def classify_session_blocker(state: SessionState) -> dict[str, str]:
+    evidence_rows = _attempt_evidence(state)
+    for attempt, text in evidence_rows:
+        normalized = text.strip()
+        exit_code = attempt.get("exit_code")
+        if exit_code in {-1, 124, 137} or _TIMEOUT_RE.search(normalized):
+            blocker_type = "timeout"
+        elif _IMPORT_ERROR_RE.search(normalized):
+            blocker_type = "import_error"
+        elif _DEPENDENCY_MISSING_RE.search(normalized):
+            blocker_type = "dependency_missing"
+        elif _SCOPE_TOO_BROAD_RE.search(normalized):
+            blocker_type = "scope_too_broad"
+        elif _TEST_FAILURE_RE.search(normalized):
+            blocker_type = "test_failure"
+        else:
+            continue
+        return {
+            "blocker_type": blocker_type,
+            "evidence": normalized or "session contains blocker evidence",
+            "suggested_action": _suggested_action(blocker_type),
+        }
+
+    fallback = state.blocker_evidence or "Latest retry failed without structured blocker evidence."
+    return {
+        "blocker_type": "test_failure",
+        "evidence": fallback,
+        "suggested_action": _suggested_action("test_failure"),
+    }
