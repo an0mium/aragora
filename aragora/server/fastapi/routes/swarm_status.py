@@ -97,6 +97,64 @@ def swarm_status_summary(
     }
 
 
+def preflight_check(
+    *,
+    agent: str = "codex",
+    base_ref: str = "main",
+    skip_publication: bool = True,
+) -> dict[str, Any]:
+    """Run preflight checks and return receipt-backed result."""
+    try:
+        from aragora.swarm.credential_envelope import CredentialEnvelope
+        from aragora.swarm.preflight import run_preflight
+    except ImportError:
+        return {"error": "preflight module not available"}
+
+    import os
+
+    envelope = CredentialEnvelope.from_environment(os.environ)
+    result = run_preflight(
+        repo_root=Path.cwd(),
+        agent=agent,
+        base_ref=base_ref,
+        skip_publication=skip_publication,
+        envelope=envelope,
+    )
+    return result.to_dict()
+
+
+def list_preflight_receipts() -> list[dict[str, Any]]:
+    """List cached preflight receipts."""
+    try:
+        from aragora.swarm.preflight import PreflightReceipt
+    except ImportError:
+        return []
+
+    receipt_dir = Path.cwd() / ".aragora" / "receipts" / "preflight"
+    if not receipt_dir.exists():
+        return []
+
+    receipts: list[dict[str, Any]] = []
+    for receipt_file in sorted(receipt_dir.glob("*.json"), reverse=True):
+        try:
+            data = json.loads(receipt_file.read_text(encoding="utf-8"))
+            receipt = PreflightReceipt.from_dict(data)
+            receipts.append(
+                {
+                    "receipt_id": receipt.receipt_id,
+                    "check_type": receipt.check_type,
+                    "passed": receipt.passed,
+                    "started_at": receipt.started_at,
+                    "finished_at": receipt.finished_at,
+                    "expires_at": receipt.expires_at,
+                    "cache_key": receipt.cache_key,
+                }
+            )
+        except (json.JSONDecodeError, OSError, KeyError, TypeError):
+            continue
+    return receipts[:20]
+
+
 def register_routes(app: Any) -> None:
     """Register swarm status routes on a FastAPI app."""
     try:
@@ -111,5 +169,22 @@ def register_routes(app: Any) -> None:
     @router.get("/status")
     async def get_swarm_status() -> JSONResponse:
         return JSONResponse(content=swarm_status_summary())
+
+    @router.post("/preflight")
+    async def run_swarm_preflight(
+        agent: str = "codex",
+        base_ref: str = "main",
+        skip_publication: bool = True,
+    ) -> JSONResponse:
+        result = preflight_check(
+            agent=agent,
+            base_ref=base_ref,
+            skip_publication=skip_publication,
+        )
+        return JSONResponse(content=result)
+
+    @router.get("/preflight/receipts")
+    async def get_preflight_receipts() -> JSONResponse:
+        return JSONResponse(content=list_preflight_receipts())
 
     app.include_router(router)
