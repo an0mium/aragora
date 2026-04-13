@@ -2358,7 +2358,48 @@ class SwarmSupervisor:
             payload[CAMPAIGN_BLOCKERS_METADATA_KEY] = blockers[:10]
         else:
             payload.pop(CAMPAIGN_BLOCKERS_METADATA_KEY, None)
+
+        # Attach chain execution summary when a work chain is present
+        if outcome and "work_chain" in payload:
+            try:
+                chain_summary = self._build_chain_summary(payload, work_orders)
+                if chain_summary:
+                    payload["chain_summary"] = chain_summary
+            except (KeyError, TypeError, ValueError):
+                logger.debug("chain summary generation skipped", exc_info=True)
+
         return payload
+
+    @staticmethod
+    def _build_chain_summary(
+        metadata: dict[str, Any],
+        work_orders: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        """Build a chain execution summary from work_chain metadata."""
+        chain_data = metadata.get("work_chain")
+        if not isinstance(chain_data, dict):
+            return None
+        total = len(chain_data.get("steps", []))
+        if total == 0:
+            return None
+        completed = sum(
+            1 for wo in work_orders if str(wo.get("status", "")).strip() in {"completed", "merged"}
+        )
+        failed = sum(
+            1
+            for wo in work_orders
+            if str(wo.get("status", "")).strip()
+            in {"failed", "discarded", "scope_violation", "timed_out"}
+        )
+        skipped = sum(1 for wo in work_orders if str(wo.get("status", "")).strip() == "skipped")
+        return {
+            "total_steps": total,
+            "completed": completed,
+            "failed": failed,
+            "skipped": skipped,
+            "remaining": max(0, total - completed - failed - skipped),
+            "waves": len(chain_data.get("waves", [])),
+        }
 
     @classmethod
     def _campaign_outcome_for_work_orders(
