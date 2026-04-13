@@ -412,7 +412,13 @@ def infer_orchestration_pattern(meta: dict[str, Any]) -> str:
     return "generic"
 
 
-def build_fleet_rows(repo_root: Path, *, base_branch: str, tail: int) -> list[dict[str, Any]]:
+def build_fleet_rows(
+    repo_root: Path,
+    *,
+    base_branch: str,
+    tail: int,
+    include_git_metrics: bool = True,
+) -> list[dict[str, Any]]:
     """Build fleet status rows for all git worktrees."""
     rows: list[dict[str, Any]] = []
     for wt in _list_git_worktrees(repo_root):
@@ -436,7 +442,12 @@ def build_fleet_rows(repo_root: Path, *, base_branch: str, tail: int) -> list[di
                 meta = {}
 
         pid_raw = str(lock.get("pid") or meta.get("pid") or "").strip() or None
-        ahead, behind = _ahead_behind(worktree_path, base_branch)
+        if include_git_metrics:
+            dirty_files = _count_dirty(worktree_path)
+            ahead, behind = _ahead_behind(worktree_path, base_branch)
+        else:
+            dirty_files = None
+            ahead, behind = None, None
         session_id = str(meta.get("session_id") or worktree_path.name)
         rows.append(
             {
@@ -450,7 +461,7 @@ def build_fleet_rows(repo_root: Path, *, base_branch: str, tail: int) -> list[di
                 "pid_alive": _pid_alive(pid_raw),
                 "agent": str(meta.get("agent") or lock.get("agent") or ""),
                 "mode": str(meta.get("mode") or lock.get("mode") or ""),
-                "dirty_files": _count_dirty(worktree_path),
+                "dirty_files": dirty_files,
                 "ahead": ahead,
                 "behind": behind,
                 "meta_path": str(meta_path) if meta_path.exists() else None,

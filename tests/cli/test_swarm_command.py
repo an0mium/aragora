@@ -2559,6 +2559,12 @@ class TestSwarmCommand:
             }
             cmd_swarm(args)
 
+        mock_build_rows.assert_called_once_with(
+            Path("/tmp/repo"),
+            base_branch="main",
+            tail=0,
+            include_git_metrics=False,
+        )
         out = capsys.readouterr().out
         assert "runs=1 queued=0 leased=0 completed=1" in out
         assert "integrator ready=0 review=0 blocked=1" in out

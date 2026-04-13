@@ -357,6 +357,37 @@ def test_count_dirty_handles_worktree_disappearing_before_git_status(
     assert fleet._ahead_behind(worktree_path, "main") == (None, None)
 
 
+def test_build_fleet_rows_can_skip_git_metrics(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = _make_repo(tmp_path)
+    worktree_path = tmp_path / "session-lightweight"
+    _run(
+        repo,
+        "git",
+        "worktree",
+        "add",
+        "-b",
+        "codex/session-lightweight",
+        str(worktree_path),
+        "HEAD",
+    )
+
+    def _explode(*args, **kwargs):
+        raise AssertionError("git-derived worktree probes should be skipped")
+
+    monkeypatch.setattr(fleet, "_count_dirty", _explode)
+    monkeypatch.setattr(fleet, "_ahead_behind", _explode)
+
+    rows = fleet.build_fleet_rows(repo, base_branch="main", tail=0, include_git_metrics=False)
+
+    row = next(item for item in rows if item["path"] == str(worktree_path))
+    assert row["dirty_files"] is None
+    assert row["ahead"] is None
+    assert row["behind"] is None
+
+
 def test_reap_stale_claims_keeps_sessions_with_active_leases(tmp_path: Path) -> None:
     repo = _make_repo(tmp_path)
     store = DevCoordinationStore(repo_root=repo)

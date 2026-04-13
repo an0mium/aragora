@@ -920,7 +920,12 @@ def _build_boss_payload(
     except (ImportError, RuntimeError, OSError, ValueError):
         DevCoordinationStore = None  # type: ignore[assignment]
 
-    worktrees = build_fleet_rows(repo_root, base_branch=target_branch, tail=0)
+    worktrees = build_fleet_rows(
+        repo_root,
+        base_branch=target_branch,
+        tail=0,
+        include_git_metrics=False,
+    )
     store = FleetCoordinationStore(repo_root)
     claims = store.list_claims()
     merge_queue = store.list_merge_queue()
@@ -1003,7 +1008,12 @@ def _load_integrator_view(repo_root: Path, *, base_branch: str) -> dict[str, obj
     except (ImportError, RuntimeError, OSError, ValueError):
         DevCoordinationStore = None  # type: ignore[assignment]
 
-    worktrees = build_fleet_rows(repo_root, base_branch=base_branch, tail=0)
+    worktrees = build_fleet_rows(
+        repo_root,
+        base_branch=base_branch,
+        tail=0,
+        include_git_metrics=False,
+    )
     store = FleetCoordinationStore(repo_root)
     claims = store.list_claims()
     merge_queue = store.list_merge_queue()
@@ -3084,7 +3094,12 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             refresh_scaling=refresh_scaling,
         )
         base_branch = str(getattr(args, "target_branch", "main") or "main")
-        worktrees = build_fleet_rows(repo_root, base_branch=base_branch, tail=0)
+        worktrees = build_fleet_rows(
+            repo_root,
+            base_branch=base_branch,
+            tail=0,
+            include_git_metrics=False,
+        )
         store = FleetCoordinationStore(repo_root)
         claims = store.list_claims()
         merge_queue = store.list_merge_queue()

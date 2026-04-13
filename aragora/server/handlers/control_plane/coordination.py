@@ -558,7 +558,12 @@ class CoordinationHandlerMixin:
         repo_root: Path,
         base_branch: str = "main",
     ) -> dict[str, Any]:
-        worktrees = build_fleet_rows(repo_root, base_branch=base_branch, tail=0)
+        worktrees = build_fleet_rows(
+            repo_root,
+            base_branch=base_branch,
+            tail=0,
+            include_git_metrics=False,
+        )
         store = self._fleet_store(repo_root)
         claims = store.list_claims()
         queue = store.list_merge_queue()
@@ -759,7 +764,12 @@ class CoordinationHandlerMixin:
             refresh_scaling=bool(query_params.get("refresh", False)),
         )
         base_branch = str(query_params.get("base", "main"))
-        rows = build_fleet_rows(repo_root, base_branch=base_branch, tail=0)
+        rows = build_fleet_rows(
+            repo_root,
+            base_branch=base_branch,
+            tail=0,
+            include_git_metrics=False,
+        )
         store = self._fleet_store(repo_root)
         claims = store.list_claims()
         queue = store.list_merge_queue()
