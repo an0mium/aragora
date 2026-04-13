@@ -10,6 +10,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.rbac.models import AuthorizationContext
+
 # Pre-stub Slack modules to prevent import chain failures
 _SLACK_ATTRS = [
     "SlackHandler",
@@ -73,6 +75,26 @@ class TestMetricsHealthBasic:
         result = metrics_health(MagicMock())
         data = _parse_body(result)
         assert data["status"] in {"healthy", "degraded", "disabled"}
+
+    def test_denies_direct_calls_without_system_health_permission(self):
+        handler = MagicMock()
+        handler._auth_context = AuthorizationContext(
+            user_id="user-123",
+            org_id="org-123",
+            roles=set(),
+            permissions=set(),
+        )
+        denied = MagicMock(allowed=False, reason="missing system.health.read")
+
+        with patch(
+            "aragora.server.handlers.admin.health.metrics_health.get_permission_checker"
+        ) as mock_checker:
+            mock_checker.return_value.check_permission.return_value = denied
+            result = metrics_health(handler)
+
+        data = _parse_body(result)
+        assert result.status_code == 403
+        assert data["error"] == "Permission denied"
 
 
 class TestMetricsHealthEnabled:

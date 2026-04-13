@@ -22,6 +22,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from aragora.rbac.models import AuthorizationContext
 from aragora.server.handlers.admin.health.agent_health import (
     _classify_agent_status,
     agent_availability_status,
@@ -196,6 +197,23 @@ class TestAgentHealthSummary:
         assert body["status"] == "unknown"
         assert body["summary"]["total_agents"] == 0
         assert "watchdog module not available" in body["errors"]
+
+    def test_denies_direct_calls_without_system_health_permission(self):
+        handler = _make_handler()
+        handler._auth_context = AuthorizationContext(
+            user_id="user-123",
+            org_id="org-123",
+            roles=set(),
+            permissions=set(),
+        )
+        denied = MagicMock(allowed=False, reason="missing system.health.read")
+
+        with patch(f"{_MOD}.get_permission_checker") as mock_checker:
+            mock_checker.return_value.check_permission.return_value = denied
+            result = agent_health_summary(handler)
+
+        assert _status(result) == 403
+        assert _body(result)["error"] == "Permission denied"
 
     def test_watchdog_returns_agents(self):
         healthy_agent = FakeAgentHealth(
@@ -438,6 +456,23 @@ class TestAgentHealthDetail:
         assert _status(result) == 404
         body = _body(result)
         assert "Agent not found" in body["error"]
+
+    def test_denies_direct_detail_calls_without_system_health_permission(self):
+        handler = _make_handler()
+        handler._auth_context = AuthorizationContext(
+            user_id="user-123",
+            org_id="org-123",
+            roles=set(),
+            permissions=set(),
+        )
+        denied = MagicMock(allowed=False, reason="missing system.health.read")
+
+        with patch(f"{_MOD}.get_permission_checker") as mock_checker:
+            mock_checker.return_value.check_permission.return_value = denied
+            result = agent_health_detail(handler, "claude-opus")
+
+        assert _status(result) == 403
+        assert _body(result)["error"] == "Permission denied"
 
     def test_watchdog_import_error(self):
         with patch(f"{_MOD}._get_watchdog", side_effect=ImportError):

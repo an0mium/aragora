@@ -13,9 +13,42 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.rbac.checker import get_permission_checker
+from aragora.rbac.models import AuthorizationContext
+
 from ...base import HandlerResult, json_response
 
 logger = logging.getLogger(__name__)
+HEALTH_PERMISSION = "system.health.read"
+
+
+def _require_health_permission(handler: Any) -> HandlerResult | None:
+    """Honor an attached auth_context when these helpers are called directly.
+
+    The main health handler enforces `system.health.read` before routing into
+    this module. This secondary guard covers direct helper entrypoints that are
+    invoked with an AuthorizationContext-bearing handler object.
+    """
+    auth_context = getattr(handler, "_auth_context", None)
+    if not isinstance(auth_context, AuthorizationContext):
+        return None
+
+    decision = get_permission_checker().check_permission(auth_context, HEALTH_PERMISSION)
+    if decision.allowed:
+        return None
+
+    logger.warning(
+        "Permission denied for agent health helper: %s user=%s",
+        HEALTH_PERMISSION,
+        auth_context.user_id,
+    )
+    return json_response(
+        {
+            "error": "Permission denied",
+            "timestamp": datetime.now(timezone.utc).isoformat() + "Z",
+        },
+        status=403,
+    )
 
 
 def _get_watchdog() -> Any | None:
@@ -38,6 +71,9 @@ def agent_health_summary(handler: Any) -> HandlerResult:
     Returns:
         JSON response with agent health summary
     """
+    if permission_error := _require_health_permission(handler):
+        return permission_error
+
     agents: list[dict[str, Any]] = []
     errors: list[str] = []
     watchdog_available = False
@@ -136,6 +172,9 @@ def agent_health_detail(handler: Any, agent_id: str) -> HandlerResult:
     Returns:
         JSON response with detailed agent health or 404 if not found
     """
+    if permission_error := _require_health_permission(handler):
+        return permission_error
+
     try:
         watchdog = _get_watchdog()
         if watchdog:
@@ -210,6 +249,9 @@ def agent_availability_status(handler: Any) -> HandlerResult:
     Returns:
         JSON response with availability data
     """
+    if permission_error := _require_health_permission(handler):
+        return permission_error
+
     available: list[dict[str, Any]] = []
     unavailable: list[dict[str, Any]] = []
     errors: list[str] = []
