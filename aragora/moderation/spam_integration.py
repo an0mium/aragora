@@ -659,6 +659,15 @@ def set_spam_moderation(moderation: SpamModerationIntegration) -> None:
     _global_moderation = moderation
 
 
+async def close_spam_moderation() -> None:
+    """Close and clear the global spam moderation singleton."""
+    global _global_moderation
+    moderation = _global_moderation
+    _global_moderation = None
+    if moderation is not None:
+        await moderation.close()
+
+
 async def check_debate_content(
     proposal: str,
     context: str | None = None,
@@ -699,6 +708,7 @@ __all__ = [
     "SpamModerationIntegration",
     "ContentModerationError",
     "get_spam_moderation",
+    "close_spam_moderation",
     "set_spam_moderation",
     "check_debate_content",
     "queue_for_review",

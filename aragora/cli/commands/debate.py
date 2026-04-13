@@ -312,6 +312,13 @@ def _cleanup_cli_subprocesses_for_timeout() -> dict[str, int]:
 async def _shutdown_cmd_ask_resources() -> None:
     """Best-effort cleanup for CLI ask shared resources on the active loop."""
     try:
+        from aragora.moderation.spam_integration import close_spam_moderation
+
+        await close_spam_moderation()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask spam moderation shutdown skipped: %s", exc)
+
+    try:
         from aragora.server.startup.database import close_postgres_pool
 
         await close_postgres_pool()
@@ -338,6 +345,27 @@ async def _shutdown_cmd_ask_resources() -> None:
         await close_all_pools()
     except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
         logger.debug("Ask connection-factory shutdown skipped: %s", exc)
+
+    try:
+        from aragora.storage.receipt_store import close_receipt_store
+
+        close_receipt_store()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask receipt store shutdown skipped: %s", exc)
+
+    try:
+        from aragora.storage.webhook_config_store import reset_webhook_config_store
+
+        reset_webhook_config_store()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask webhook config store shutdown skipped: %s", exc)
+
+    try:
+        from aragora.storage.schema import DatabaseManager
+
+        DatabaseManager.clear_instances()
+    except Exception as exc:  # noqa: BLE001 - shutdown must never hide CLI result
+        logger.debug("Ask SQLite manager shutdown skipped: %s", exc)
 
     try:
         from aragora.events.dispatcher import shutdown_dispatcher
@@ -1062,11 +1090,15 @@ async def run_debate(
     """Run a decision stress-test (debate engine)."""
     from aragora.utils.env import is_offline_mode
 
+    if protocol_overrides is None:
+        protocol_overrides = {}
+
     offline = offline or is_offline_mode()
     if offline:
         # Offline mode should be network-free and quiet.
         enable_audience = False
         learn = False
+        protocol_overrides["enable_calibration"] = False
 
     # Get mode system prompt if specified
     mode_system_prompt = ""
@@ -1219,7 +1251,7 @@ async def run_debate(
     protocol = DebateProtocol(
         rounds=rounds,
         consensus=consensus_type,
-        **(protocol_overrides or {}),
+        **protocol_overrides,
     )
 
     # Create memory store
@@ -1232,66 +1264,70 @@ async def run_debate(
         if event_emitter:
             print("[audience] Connected to streaming server - audience participation enabled")
 
-    # Run debate
-    auto_explain = kwargs.pop("auto_explain", False)
-    # Pop kwargs that are set on Arena post-init, not accepted by __init__
-    enable_cartographer = kwargs.pop("enable_cartographer", None)
-    enable_introspection = kwargs.pop("enable_introspection", None)
-    arena_kwargs: dict[str, Any] = dict(kwargs)
-    if offline:
-        arena_kwargs.update(
-            {
-                # Disable subsystems that can initialize adapters / embeddings or
-                # attempt network calls in local demo/offline runs.
-                "knowledge_mound": None,
-                "auto_create_knowledge_mound": False,
-                "enable_knowledge_retrieval": False,
-                "enable_knowledge_ingestion": False,
-                "enable_cross_debate_memory": False,
-                # Avoid RLM-based compression and related model calls.
-                "use_rlm_limiter": False,
-                # Disable ML / quality-gate components that may rely on API agents.
-                "enable_ml_delegation": False,
-                "enable_quality_gates": False,
-                "enable_consensus_estimation": False,
-                # Post-debate coordinator can trigger canvas/LLM judge workflows.
-                "disable_post_debate_pipeline": True,
-            }
+    try:
+        # Run debate
+        auto_explain = kwargs.pop("auto_explain", False)
+        # Pop kwargs that are set on Arena post-init, not accepted by __init__
+        enable_cartographer = kwargs.pop("enable_cartographer", None)
+        enable_introspection = kwargs.pop("enable_introspection", None)
+        arena_kwargs: dict[str, Any] = dict(kwargs)
+        if offline:
+            arena_kwargs.update(
+                {
+                    # Disable subsystems that can initialize adapters / embeddings or
+                    # attempt network calls in local demo/offline runs.
+                    "knowledge_mound": None,
+                    "auto_create_knowledge_mound": False,
+                    "enable_knowledge_retrieval": False,
+                    "enable_knowledge_ingestion": False,
+                    "enable_cross_debate_memory": False,
+                    # Avoid RLM-based compression and related model calls.
+                    "use_rlm_limiter": False,
+                    # Disable ML / quality-gate components that may rely on API agents.
+                    "enable_ml_delegation": False,
+                    "enable_quality_gates": False,
+                    "enable_consensus_estimation": False,
+                    # Post-debate coordinator can trigger canvas/LLM judge workflows.
+                    "disable_post_debate_pipeline": True,
+                }
+            )
+        _coalesce_grouped_arena_configs(arena_kwargs)
+        # Strip kwargs that Arena doesn't accept (passed through from CLI/preset parsing)
+        import inspect
+
+        _arena_params = set(inspect.signature(Arena.__init__).parameters.keys()) - {"self"}
+        arena_kwargs = {k: v for k, v in arena_kwargs.items() if k in _arena_params}
+
+        arena = Arena(
+            env,
+            agents,
+            protocol,
+            memory=memory,
+            event_emitter=event_emitter,
+            **arena_kwargs,
         )
-    _coalesce_grouped_arena_configs(arena_kwargs)
-    # Strip kwargs that Arena doesn't accept (passed through from CLI/preset parsing)
-    import inspect
 
-    _arena_params = set(inspect.signature(Arena.__init__).parameters.keys()) - {"self"}
-    arena_kwargs = {k: v for k, v in arena_kwargs.items() if k in _arena_params}
+        # Apply post-init configuration flags
+        if enable_cartographer is not None:
+            setattr(arena, "enable_cartographer", enable_cartographer)  # type: ignore[attr-defined]
+        if enable_introspection is not None:
+            setattr(arena, "enable_introspection", enable_introspection)
 
-    arena = Arena(
-        env,
-        agents,
-        protocol,
-        memory=memory,
-        event_emitter=event_emitter,
-        **arena_kwargs,
-    )
+        # Enable auto-explanation if requested
+        if auto_explain and hasattr(arena, "extensions") and arena.extensions is not None:
+            arena.extensions.auto_explain = True
 
-    # Apply post-init configuration flags
-    if enable_cartographer is not None:
-        setattr(arena, "enable_cartographer", enable_cartographer)  # type: ignore[attr-defined]
-    if enable_introspection is not None:
-        setattr(arena, "enable_introspection", enable_introspection)
+        result = await arena.run()
+        _attach_agent_models_to_result(result, agents)
 
-    # Enable auto-explanation if requested
-    if auto_explain and hasattr(arena, "extensions") and arena.extensions is not None:
-        arena.extensions.auto_explain = True
+        # Store result
+        if memory:
+            memory.store_debate(result)
 
-    result = await arena.run()
-    _attach_agent_models_to_result(result, agents)
-
-    # Store result
-    if memory:
-        memory.store_debate(result)
-
-    return result
+        return result
+    finally:
+        if memory is not None:
+            memory.close()
 
 
 def cmd_ask(args: argparse.Namespace) -> None:

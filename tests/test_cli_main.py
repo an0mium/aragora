@@ -546,6 +546,8 @@ class TestRunDebate:
         """Should use CritiqueStore when learn=True."""
         from aragora.cli.main import run_debate
 
+        store = MagicMock()
+
         with patch("aragora.cli.commands.debate.create_agent") as mock_create:
             mock_create.return_value = MagicMock()
 
@@ -553,7 +555,9 @@ class TestRunDebate:
                 mock_result = MagicMock()
                 mock_arena.return_value.run = AsyncMock(return_value=mock_result)
 
-                with patch("aragora.cli.commands.debate.CritiqueStore") as mock_store:
+                with patch(
+                    "aragora.cli.commands.debate.CritiqueStore", return_value=store
+                ) as mock_store:
                     await run_debate(
                         task="Test",
                         agents_str="codex",
@@ -563,6 +567,55 @@ class TestRunDebate:
                     )
 
                     mock_store.assert_called_once_with("test.db")
+                    store.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_debate_closes_critique_store_on_failure(self):
+        """Should close CritiqueStore even when Arena.run() fails."""
+        from aragora.cli.main import run_debate
+
+        store = MagicMock()
+
+        with patch("aragora.cli.commands.debate.create_agent") as mock_create:
+            mock_create.return_value = MagicMock()
+
+            with patch("aragora.cli.commands.debate.Arena") as mock_arena:
+                mock_arena.return_value.run = AsyncMock(side_effect=RuntimeError("boom"))
+
+                with patch("aragora.cli.commands.debate.CritiqueStore", return_value=store):
+                    with pytest.raises(RuntimeError, match="boom"):
+                        await run_debate(
+                            task="Test",
+                            agents_str="codex",
+                            rounds=1,
+                            learn=True,
+                            db_path="test.db",
+                        )
+
+                    store.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_debate_disables_calibration_offline(self):
+        """Should fail closed on calibration-backed learning in offline mode."""
+        from aragora.cli.main import run_debate
+
+        with patch("aragora.cli.commands.debate.create_agent") as mock_create:
+            mock_create.return_value = MagicMock()
+
+            with patch("aragora.cli.commands.debate.Arena") as mock_arena:
+                mock_result = MagicMock()
+                mock_arena.return_value.run = AsyncMock(return_value=mock_result)
+
+                await run_debate(
+                    task="Test",
+                    agents_str="codex,claude",
+                    rounds=2,
+                    learn=False,
+                    offline=True,
+                )
+
+                protocol = mock_arena.call_args.args[2]
+                assert protocol.enable_calibration is False
 
 
 # =============================================================================
