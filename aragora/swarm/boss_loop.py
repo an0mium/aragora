@@ -286,6 +286,12 @@ class BossLoopConfig:
     metrics_jsonl_path: str | None = ".aragora/overnight/boss_metrics.jsonl"
     outcome_learner_window: int = 500
 
+    # Strategic queue refill: when fewer than auto_refill_threshold eligible
+    # issues remain, log candidate counts from the strategic issue bridge.
+    # This is informational only — does NOT auto-create GitHub issues.
+    auto_refill_threshold: int = 5
+    auto_refill_max: int = 10
+
 
 # ---------------------------------------------------------------------------
 # Boss Loop
@@ -3574,6 +3580,33 @@ class BossLoop:
                 elapsed_seconds=time.monotonic() - iter_start,
                 error="issue_feed_error",
             )
+
+        # Step 1b: Log strategic refill candidates when queue is low
+        if len(issues) < self.config.auto_refill_threshold:
+            try:
+                from aragora.swarm.strategic_issue_bridge import (
+                    StrategicIssueBridge,
+                    StrategicIssueBridgeConfig,
+                )
+
+                bridge = StrategicIssueBridge(
+                    repo_root=Path.cwd(),
+                    config=StrategicIssueBridgeConfig(
+                        max_issues=self.config.auto_refill_max,
+                        heuristic_only=True,
+                        enable_scanner=True,
+                        enable_llm=False,
+                    ),
+                )
+                candidates = bridge.generate_candidates()
+                if candidates:
+                    logger.info(
+                        "Queue low (%d issues). Strategic bridge found %d candidates.",
+                        len(issues),
+                        len(candidates),
+                    )
+            except Exception:
+                logger.debug("Strategic refill check skipped", exc_info=True)
 
         # Step 2: Select eligible issue
         # Skip issues that have exceeded retry limits and auto-label them
