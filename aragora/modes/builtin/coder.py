@@ -59,6 +59,7 @@ You are operating in CODER mode. Your role is to implement solutions efficiently
 - Creating unnecessary abstractions
 - Ignoring existing error handling patterns
 """
-        if self.system_prompt_additions:
-            return f"{prompt.rstrip()}\n\n{self.system_prompt_additions.strip()}\n"
+        additions = self.system_prompt_additions.strip()
+        if additions:
+            return f"{prompt.rstrip()}\n\n{additions}\n"
         return prompt
