@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
@@ -296,6 +297,90 @@ class Conductor:
         )
         self._session_store.append_step(step)
         return step
+
+    def dispatch_step_to_tmux(
+        self,
+        step: ConductorStep,
+        *,
+        session_name: str,
+        wait_seconds: int = 0,
+        harvest_lines: int = 200,
+    ) -> dict[str, Any]:
+        """Send a generated follow-up prompt to a tmux-managed agent session.
+
+        This stays intentionally thin: it reuses the already-landed shell
+        transport scripts instead of reimplementing pane control here.
+        """
+        prompt_text = _text(step.next_prompt)
+        if not prompt_text:
+            return {
+                "sent": False,
+                "reason": "no_prompt",
+                "session_name": session_name,
+                "next_action": step.next_action,
+            }
+
+        send_script = self.repo_root / "scripts" / "tmux_send_prompt.sh"
+        harvest_script = self.repo_root / "scripts" / "tmux_harvest.sh"
+        if not send_script.exists():
+            raise FileNotFoundError(f"tmux send script not found: {send_script}")
+
+        prompt_path = self._write_dispatch_prompt_file(step, prompt_text)
+        try:
+            send_cmd = [
+                str(send_script),
+                "--name",
+                session_name,
+                "--prompt-file",
+                str(prompt_path),
+            ]
+            if wait_seconds > 0:
+                send_cmd.extend(["--wait", str(wait_seconds)])
+            send_result = subprocess.run(
+                send_cmd,
+                cwd=self.repo_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        finally:
+            prompt_path.unlink(missing_ok=True)
+
+        if send_result.returncode != 0:
+            detail = _text(send_result.stderr) or _text(send_result.stdout) or "tmux send failed"
+            raise RuntimeError(detail)
+
+        harvest_output = ""
+        harvest_error = ""
+        if harvest_lines > 0 and harvest_script.exists():
+            harvest_result = subprocess.run(
+                [
+                    str(harvest_script),
+                    "--name",
+                    session_name,
+                    "--lines",
+                    str(harvest_lines),
+                ],
+                cwd=self.repo_root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if harvest_result.returncode == 0:
+                harvest_output = _text(harvest_result.stdout)
+            else:
+                harvest_error = _text(harvest_result.stderr) or _text(harvest_result.stdout)
+
+        return {
+            "sent": True,
+            "session_name": session_name,
+            "next_action": step.next_action,
+            "prompt_chars": len(prompt_text),
+            "wait_seconds": max(wait_seconds, 0),
+            "harvest_lines": max(harvest_lines, 0),
+            "harvest_output": harvest_output,
+            "harvest_error": harvest_error,
+        }
 
     def generate_retry_prompt(
         self, issue_number: int, prior_output: str, failure_reason: str
@@ -720,6 +805,19 @@ class Conductor:
             )
         guidance.append("Do not repeat the same command sequence unless you learned something new.")
         return _ordered_unique(guidance)
+
+    def _write_dispatch_prompt_file(self, step: ConductorStep, prompt_text: str) -> Path:
+        temp = tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            prefix=f"conductor-issue-{step.issue_number}-",
+            suffix=".md",
+            dir=self._session_store.storage_dir,
+            delete=False,
+        )
+        with temp:
+            temp.write(prompt_text)
+        return Path(temp.name)
 
 
 __all__ = ["Conductor", "ConductorStep", "SessionStateStore"]

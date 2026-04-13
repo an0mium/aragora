@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from aragora.swarm.conductor import Conductor, ConductorStep
 from aragora.swarm.terminal_truth import TerminalClass
@@ -53,6 +54,13 @@ def _result(
     if deliverable is not None:
         result["deliverable"] = dict(deliverable)
     return result
+
+
+def _install_tmux_scripts(repo_root: Path) -> None:
+    scripts_dir = repo_root / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "tmux_send_prompt.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    (scripts_dir / "tmux_harvest.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
 
 
 def test_done_on_deliverable_created(tmp_path: Path) -> None:
@@ -377,3 +385,109 @@ def test_publish_deferred_escalates(tmp_path: Path) -> None:
     )
 
     assert step.next_action == "escalate"
+
+
+def test_dispatch_step_to_tmux_sends_prompt_and_harvests_output(
+    monkeypatch, tmp_path: Path
+) -> None:
+    _install_tmux_scripts(tmp_path)
+    conductor = Conductor(tmp_path)
+    step = conductor.evaluate_worker_output(
+        121,
+        _result(
+            terminal_class=TerminalClass.RESCUE_VERIFICATION_FAILED,
+            worker_output="pytest tests/swarm/test_conductor.py -q\nAssertionError: boom",
+        ),
+    )
+    seen_prompt_path: Path | None = None
+
+    def fake_run(cmd: list[str], **kwargs) -> SimpleNamespace:  # noqa: ANN003
+        nonlocal seen_prompt_path
+        if cmd[0].endswith("tmux_send_prompt.sh"):
+            prompt_index = cmd.index("--prompt-file") + 1
+            seen_prompt_path = Path(cmd[prompt_index])
+            assert seen_prompt_path.exists()
+            assert seen_prompt_path.read_text(encoding="utf-8") == step.next_prompt
+            return SimpleNamespace(returncode=0, stdout="Prompt sent", stderr="")
+        if cmd[0].endswith("tmux_harvest.sh"):
+            return SimpleNamespace(returncode=0, stdout="--- session ---\nagent output", stderr="")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr("aragora.swarm.conductor.subprocess.run", fake_run)
+
+    result = conductor.dispatch_step_to_tmux(
+        step,
+        session_name="codex-conductor",
+        wait_seconds=5,
+        harvest_lines=80,
+    )
+
+    assert result["sent"] is True
+    assert result["session_name"] == "codex-conductor"
+    assert result["next_action"] == "retry_different_agent"
+    assert result["prompt_chars"] == len(step.next_prompt)
+    assert result["wait_seconds"] == 5
+    assert result["harvest_lines"] == 80
+    assert result["harvest_output"] == "--- session ---\nagent output"
+    assert seen_prompt_path is not None
+    assert not seen_prompt_path.exists()
+
+
+def test_dispatch_step_to_tmux_skips_done_steps(monkeypatch, tmp_path: Path) -> None:
+    conductor = Conductor(tmp_path)
+    step = conductor.evaluate_worker_output(
+        122,
+        _result(
+            status="completed",
+            outcome="deliverable_created",
+            changed_files=["aragora/swarm/conductor.py"],
+        ),
+    )
+
+    def fail_run(cmd: list[str], **kwargs) -> SimpleNamespace:  # noqa: ANN003
+        raise AssertionError(f"subprocess should not be invoked: {cmd}")
+
+    monkeypatch.setattr("aragora.swarm.conductor.subprocess.run", fail_run)
+
+    result = conductor.dispatch_step_to_tmux(step, session_name="codex-conductor")
+
+    assert result == {
+        "sent": False,
+        "reason": "no_prompt",
+        "session_name": "codex-conductor",
+        "next_action": "done",
+    }
+
+
+def test_dispatch_step_to_tmux_raises_and_cleans_prompt_file(monkeypatch, tmp_path: Path) -> None:
+    _install_tmux_scripts(tmp_path)
+    conductor = Conductor(tmp_path)
+    step = conductor.evaluate_worker_output(
+        123,
+        _result(
+            terminal_class=TerminalClass.RESCUE_TIMEOUT,
+            worker_output="Worker timed out before finishing.",
+        ),
+    )
+    seen_prompt_path: Path | None = None
+
+    def fake_run(cmd: list[str], **kwargs) -> SimpleNamespace:  # noqa: ANN003
+        nonlocal seen_prompt_path
+        if cmd[0].endswith("tmux_send_prompt.sh"):
+            prompt_index = cmd.index("--prompt-file") + 1
+            seen_prompt_path = Path(cmd[prompt_index])
+            assert seen_prompt_path.exists()
+            return SimpleNamespace(returncode=1, stdout="", stderr="Window not found")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr("aragora.swarm.conductor.subprocess.run", fake_run)
+
+    try:
+        conductor.dispatch_step_to_tmux(step, session_name="missing-session")
+    except RuntimeError as exc:
+        assert str(exc) == "Window not found"
+    else:
+        raise AssertionError("Expected dispatch_step_to_tmux to raise on send failure")
+
+    assert seen_prompt_path is not None
+    assert not seen_prompt_path.exists()
