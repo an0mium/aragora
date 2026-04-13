@@ -874,40 +874,43 @@ def cmd_ensure(args: argparse.Namespace) -> int:
         entries = _get_worktree_entries(repo_root)
         active_paths = _active_path_set(entries)
     else:
-        session["last_seen_at"] = _utc_now().isoformat()
-        if args.reconcile:
-            session_path = Path(session["path"])
-            metadata = _annotate_session(
+        session_path = Path(session["path"])
+        status = _worktree_status(repo_root, session_path, args.base)
+        needs_replacement = bool(status["dirty"]) or int(status["ahead"]) > 0
+
+        if args.reconcile and not needs_replacement and int(status["behind"]) > 0:
+            ok, reconcile_status = _integrate_worktree(
                 repo_root,
-                session,
-                active_paths=active_paths,
-                ttl=ttl,
-                base_branch=args.base,
+                session_path,
+                args.base,
+                args.strategy,
             )
-            if metadata["lifecycle_state"] == "active":
-                ok, status = True, "skipped_active_session"
-            elif metadata["lifecycle_state"] == "grace":
-                ok, status = True, "skipped_grace"
-            else:
-                ok, status = _integrate_worktree(
-                    repo_root,
-                    session_path,
-                    args.base,
-                    args.strategy,
-                )
-            session["reconcile_status"] = status
+            session["reconcile_status"] = reconcile_status
             if not ok:
-                # Fallback: auto-create replacement worktree if integration fails.
-                session = _create_managed_worktree(
-                    repo_root,
-                    managed_root,
-                    agent=args.agent,
-                    base=args.base,
-                    session_id=None,
+                needs_replacement = True
+            else:
+                status = _worktree_status(repo_root, session_path, args.base)
+                needs_replacement = (
+                    bool(status["dirty"]) or int(status["ahead"]) > 0 or int(status["behind"]) > 0
                 )
-                created = True
-                entries = _get_worktree_entries(repo_root)
-                active_paths = _active_path_set(entries)
+                if needs_replacement:
+                    session["reconcile_status"] = "rejected_not_clean_after_reconcile"
+
+        if needs_replacement:
+            if "reconcile_status" not in session:
+                session["reconcile_status"] = "rejected_drifted_reusable_session"
+            session = _create_managed_worktree(
+                repo_root,
+                managed_root,
+                agent=args.agent,
+                base=args.base,
+                session_id=None,
+            )
+            created = True
+            entries = _get_worktree_entries(repo_root)
+            active_paths = _active_path_set(entries)
+        else:
+            session["last_seen_at"] = _utc_now().isoformat()
 
     _annotate_session(
         repo_root,
