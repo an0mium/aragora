@@ -266,6 +266,7 @@ class BossLoopConfig:
     # Autonomous post-processing: publish verified branch deliverables and
     # optionally close already-resolved no-op issues.
     auto_publish_deliverables: bool = False
+    debate_gate: DebateGateConfig = field(default_factory=DebateGateConfig)
     use_debate_publish_gate: bool = False
     debate_publish_gate_fail_closed: bool = False
     debate_publish_gate_agent: str | None = None
@@ -2175,11 +2176,13 @@ class BossLoop:
         branch: str,
         commit_shas: list[str],
     ) -> dict[str, Any] | None:
-        if not self.config.use_debate_publish_gate:
-            return None
-        gate = DebateGate(
-            repo_root=Path.cwd().resolve(),
-            config=DebateGateConfig(
+        gate_config = self.config.debate_gate
+        if gate_config.enabled:
+            resolved_gate_config = gate_config
+        else:
+            if not self.config.use_debate_publish_gate:
+                return None
+            resolved_gate_config = DebateGateConfig(
                 enabled=True,
                 fail_closed=bool(self.config.debate_publish_gate_fail_closed),
                 agent_type=(
@@ -2188,7 +2191,13 @@ class BossLoop:
                     or "codex"
                 ),
                 timeout_seconds=float(self.config.debate_publish_gate_timeout_seconds or 90.0),
-            ),
+            )
+
+        if not resolved_gate_config.enabled:
+            return None
+        gate = DebateGate(
+            repo_root=Path.cwd().resolve(),
+            config=resolved_gate_config,
         )
         result = gate.evaluate(
             DebateGateRequest(
