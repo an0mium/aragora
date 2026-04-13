@@ -44,6 +44,10 @@ _OPEN_PR_FILES_PAGE_SIZE = 100
 _OPEN_PR_FILES_MAX_PAGES = 10
 
 
+class OpenPRPaginationExhaustedError(RuntimeError):
+    """Conflict detection cannot trust partial GitHub pagination results."""
+
+
 @dataclass(slots=True)
 class DecompositionTelemetry:
     """Aggregate telemetry for one generator run."""
@@ -198,9 +202,18 @@ def fetch_open_pr_files(repo: str) -> set[str]:
                             files.add(path)
                     if len(payload) < _OPEN_PR_FILES_PAGE_SIZE:
                         break
+                else:
+                    raise OpenPRPaginationExhaustedError(
+                        "Open PR file pagination exceeded "
+                        f"{_OPEN_PR_FILES_MAX_PAGES} pages for PR #{number} in {repo}; "
+                        "refusing partial conflict data."
+                    )
             if len(prs) < _OPEN_PR_PAGE_SIZE:
                 return files
-        return files
+        raise OpenPRPaginationExhaustedError(
+            "Open PR pagination exceeded "
+            f"{_OPEN_PR_MAX_PAGES} pages for {repo}; refusing partial conflict data."
+        )
     except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
         pass
     return set()
@@ -458,7 +471,10 @@ def main() -> None:
 
     # 3. Check PR conflicts (always fetch, even in dry-run)
     print("Fetching open PR files...")
-    pr_files = fetch_open_pr_files(args.repo)
+    try:
+        pr_files = fetch_open_pr_files(args.repo)
+    except OpenPRPaginationExhaustedError as exc:
+        raise SystemExit(str(exc)) from exc
     print(f"  {len(pr_files)} files in open PRs")
 
     # 4. Filter
