@@ -78,6 +78,7 @@ class PreflightReceipt:
     started_at: str
     finished_at: str
     passed: bool
+    base_ref: str = ""
     checks: list[dict[str, Any]] = field(default_factory=list)
     schema_version: int = _PREFLIGHT_RECEIPT_SCHEMA_VERSION
     cache_key: str = ""
@@ -92,6 +93,7 @@ class PreflightReceipt:
             "envelope_seal": self.envelope_seal,
             "repo_root": self.repo_root,
             "check_type": self.check_type,
+            "base_ref": self.base_ref,
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "passed": self.passed,
@@ -110,6 +112,7 @@ class PreflightReceipt:
             envelope_seal=str(data.get("envelope_seal", "") or ""),
             repo_root=str(data.get("repo_root", "") or ""),
             check_type=str(data.get("check_type", "") or ""),
+            base_ref=str(data.get("base_ref", "") or ""),
             started_at=str(data.get("started_at", "") or ""),
             finished_at=str(data.get("finished_at", "") or ""),
             passed=bool(data.get("passed", False)),
@@ -142,6 +145,13 @@ def _validate_check_type(check_type: str) -> str:
     if normalized not in _PREFLIGHT_TTL_SECONDS:
         raise ValueError(f"Unsupported preflight check type: {normalized or '<empty>'}")
     return normalized
+
+
+def _normalize_base_ref(check_type: str, base_ref: str | None = None) -> str:
+    normalized_check_type = _validate_check_type(check_type)
+    if normalized_check_type != "remote_publish":
+        return ""
+    return str(base_ref or "main").strip() or "main"
 
 
 def _receipt_token() -> str:
@@ -250,6 +260,8 @@ def _preflight_cache_key(
     repo_root: Path,
     envelope: CredentialEnvelope,
     check_type: str,
+    *,
+    base_ref: str | None = None,
 ) -> str:
     normalized = _validate_check_type(check_type)
     payload = json.dumps(
@@ -258,6 +270,7 @@ def _preflight_cache_key(
             "repo_root": str(repo_root.resolve()),
             "envelope_seal": envelope.preflight_cache_seal(),
             "check_type": normalized,
+            "base_ref": _normalize_base_ref(normalized, base_ref),
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -280,9 +293,11 @@ def _receipt_is_cacheable(
     repo_root: Path,
     envelope: CredentialEnvelope,
     check_type: str,
+    base_ref: str | None = None,
     now: datetime | None = None,
 ) -> bool:
     normalized = _validate_check_type(check_type)
+    normalized_base_ref = _normalize_base_ref(normalized, base_ref)
     if receipt.schema_version != _PREFLIGHT_RECEIPT_SCHEMA_VERSION:
         return False
     if not receipt.passed:
@@ -291,9 +306,16 @@ def _receipt_is_cacheable(
         return False
     if receipt.check_type != normalized:
         return False
+    if str(receipt.base_ref or "") != normalized_base_ref:
+        return False
     if receipt.envelope_seal != envelope.preflight_cache_seal():
         return False
-    expected_cache_key = _preflight_cache_key(repo_root, envelope, normalized)
+    expected_cache_key = _preflight_cache_key(
+        repo_root,
+        envelope,
+        normalized,
+        base_ref=normalized_base_ref,
+    )
     if receipt.cache_key != expected_cache_key:
         return False
     if any(not bool(item.get("passed")) for item in receipt.checks):
@@ -310,10 +332,12 @@ def _load_cached_preflight_receipt(
     envelope: CredentialEnvelope,
     check_type: str,
     *,
+    base_ref: str | None = None,
     now: datetime | None = None,
 ) -> PreflightReceipt | None:
     normalized = _validate_check_type(check_type)
-    cache_key = _preflight_cache_key(repo_root, envelope, normalized)
+    normalized_base_ref = _normalize_base_ref(normalized, base_ref)
+    cache_key = _preflight_cache_key(repo_root, envelope, normalized, base_ref=normalized_base_ref)
     path = _preflight_receipt_path(repo_root, check_type=normalized, cache_key=cache_key)
     if not path.exists():
         return None
@@ -327,6 +351,7 @@ def _load_cached_preflight_receipt(
         repo_root=repo_root,
         envelope=envelope,
         check_type=normalized,
+        base_ref=normalized_base_ref,
         now=now,
     ):
         return None
@@ -350,21 +375,29 @@ def _finalize_preflight_receipt(
     repo_root: Path,
     envelope: CredentialEnvelope,
     check_type: str,
+    base_ref: str | None,
     started_at: datetime,
     finished_at: datetime,
     checks: list[dict[str, Any]],
     artifacts: dict[str, Any],
 ) -> PreflightReceipt:
     normalized = _validate_check_type(check_type)
+    normalized_base_ref = _normalize_base_ref(normalized, base_ref)
     ttl_seconds = _PREFLIGHT_TTL_SECONDS[normalized]
     passed = all(bool(item.get("passed")) for item in checks)
-    cache_key = _preflight_cache_key(repo_root, envelope, normalized)
+    cache_key = _preflight_cache_key(
+        repo_root,
+        envelope,
+        normalized,
+        base_ref=normalized_base_ref,
+    )
     return PreflightReceipt(
         schema_version=_PREFLIGHT_RECEIPT_SCHEMA_VERSION,
         receipt_id=_preflight_receipt_id(normalized, now=finished_at),
         envelope_seal=envelope.preflight_cache_seal(),
         repo_root=str(repo_root.resolve()),
         check_type=normalized,
+        base_ref=normalized_base_ref,
         started_at=_isoformat_utc(started_at),
         finished_at=_isoformat_utc(finished_at),
         passed=passed,
@@ -382,6 +415,48 @@ def _parse_pr_create_output(stdout: str, stderr: str) -> tuple[int | None, str]:
     if match is None:
         return None, ""
     return int(match.group("number")), match.group(0)
+
+
+def _lookup_open_pr_by_head(cwd: Path, branch: str) -> tuple[int | None, str]:
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--head",
+                branch,
+                "--state",
+                "open",
+                "--json",
+                "number,url",
+                "--limit",
+                "10",
+            ],
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None, ""
+    if result.returncode != 0:
+        return None, ""
+    try:
+        payload = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        return None, ""
+    if not isinstance(payload, list):
+        return None, ""
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        number = item.get("number")
+        url = str(item.get("url") or "").strip()
+        if isinstance(number, int) and url:
+            return number, url
+    return None, ""
 
 
 def _run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
@@ -625,6 +700,7 @@ def run_scratch_validation_receipt(
         repo_root=resolved_repo_root,
         envelope=envelope,
         check_type="scratch",
+        base_ref=None,
         started_at=started_at,
         finished_at=finished_at,
         checks=checks,
@@ -642,11 +718,13 @@ def run_remote_publish_validation_receipt(
     force_refresh: bool = False,
 ) -> PreflightReceipt:
     resolved_repo_root = repo_root.resolve()
+    normalized_base_ref = _normalize_base_ref("remote_publish", base_ref)
     if not force_refresh:
         cached = _load_cached_preflight_receipt(
             resolved_repo_root,
             envelope,
             "remote_publish",
+            base_ref=normalized_base_ref,
         )
         if cached is not None:
             return cached
@@ -718,7 +796,7 @@ def run_remote_publish_validation_receipt(
                                 "pr",
                                 "create",
                                 "--base",
-                                str(base_ref or "main"),
+                                normalized_base_ref,
                                 "--head",
                                 branch,
                                 "--title",
@@ -735,13 +813,8 @@ def run_remote_publish_validation_receipt(
                                 pr_result.stderr,
                             )
                             if pr_number is None or not pr_url:
-                                _append_check(
-                                    checks,
-                                    name="gh_pr_capture",
-                                    passed=False,
-                                    detail="Draft PR create output did not include a parseable PR URL.",
-                                )
-                            else:
+                                pr_number, pr_url = _lookup_open_pr_by_head(worktree_path, branch)
+                            if pr_number is not None and pr_url:
                                 draft_created = True
                                 artifacts["draft_pr_number"] = pr_number
                                 artifacts["draft_pr_url"] = pr_url
@@ -751,7 +824,29 @@ def run_remote_publish_validation_receipt(
                                     passed=True,
                                     detail=pr_url,
                                 )
+                            else:
+                                _append_check(
+                                    checks,
+                                    name="gh_pr_capture",
+                                    passed=False,
+                                    detail="Draft PR create output did not include a parseable PR URL.",
+                                )
     finally:
+        if pushed and not draft_created:
+            pr_number, pr_url = _lookup_open_pr_by_head(
+                worktree_path if worktree_created else resolved_repo_root,
+                branch,
+            )
+            if pr_number is not None and pr_url:
+                draft_created = True
+                artifacts["draft_pr_number"] = pr_number
+                artifacts["draft_pr_url"] = pr_url
+                _append_check(
+                    checks,
+                    name="gh_pr_capture_recovery",
+                    passed=True,
+                    detail=pr_url,
+                )
         if draft_created:
             close_target = str(artifacts.get("draft_pr_number") or branch)
             _run_check(
@@ -810,6 +905,7 @@ def run_remote_publish_validation_receipt(
         repo_root=resolved_repo_root,
         envelope=envelope,
         check_type="remote_publish",
+        base_ref=normalized_base_ref,
         started_at=started_at,
         finished_at=finished_at,
         checks=checks,

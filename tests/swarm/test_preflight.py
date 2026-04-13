@@ -434,6 +434,49 @@ def test_run_remote_publish_validation_receipt_records_pr_artifacts(
     assert any(cmd[:3] == ["gh", "pr", "close"] for cmd in commands)
 
 
+def test_run_remote_publish_validation_receipt_recovers_pr_when_create_output_is_unparseable(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 13, 1, 5, 0, tzinfo=timezone.utc)
+    commands: list[list[str]] = []
+
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(mod, "_receipt_token", lambda: "ef56aa12")
+
+    def fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
+        commands.append(list(cmd))
+        if cmd[:3] == ["git", "worktree", "add"]:
+            Path(cmd[5]).mkdir(parents=True, exist_ok=True)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if cmd[:3] == ["gh", "pr", "create"]:
+            return SimpleNamespace(returncode=0, stdout="created draft\n", stderr="")
+        if cmd[:3] == ["gh", "pr", "list"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(
+                    [{"number": 5124, "url": "https://github.com/synaptent/aragora/pull/5124"}]
+                ),
+                stderr="",
+            )
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    receipt = mod.run_remote_publish_validation_receipt(
+        repo_root=repo_root,
+        envelope=envelope,
+        force_refresh=True,
+    )
+
+    assert receipt.passed is True
+    assert receipt.artifacts["draft_pr_number"] == 5124
+    assert any(check["name"] == "gh_pr_capture" and check["passed"] for check in receipt.checks)
+    assert any(cmd[:3] == ["gh", "pr", "close"] for cmd in commands)
+
+
 def test_load_cached_preflight_receipt_reuses_fresh_successful_receipt(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -453,6 +496,7 @@ def test_load_cached_preflight_receipt_reuses_fresh_successful_receipt(
         started_at="2026-04-12T20:00:00Z",
         finished_at="2026-04-12T20:00:05Z",
         passed=True,
+        base_ref="",
         checks=[{"name": "git_commit", "passed": True, "detail": "ok"}],
         cache_key=cache_key,
         ttl_seconds=86400,
@@ -474,7 +518,7 @@ def test_load_cached_preflight_receipt_misses_when_ttl_expired(monkeypatch, tmp_
     now = datetime(2026, 4, 12, 20, 0, 0, tzinfo=timezone.utc)
     monkeypatch.setattr(mod, "_utc_now", lambda: now)
 
-    cache_key = mod._preflight_cache_key(repo_root, envelope, "remote_publish")
+    cache_key = mod._preflight_cache_key(repo_root, envelope, "remote_publish", base_ref="main")
     receipt = mod.PreflightReceipt(
         schema_version=1,
         receipt_id="preflight-remote_publish-20260412T190000Z-expired1",
@@ -484,6 +528,7 @@ def test_load_cached_preflight_receipt_misses_when_ttl_expired(monkeypatch, tmp_
         started_at="2026-04-12T19:00:00Z",
         finished_at="2026-04-12T19:00:10Z",
         passed=True,
+        base_ref="main",
         checks=[{"name": "git_push", "passed": True, "detail": "ok"}],
         cache_key=cache_key,
         ttl_seconds=3600,
@@ -497,6 +542,42 @@ def test_load_cached_preflight_receipt_misses_when_ttl_expired(monkeypatch, tmp_
         envelope,
         "remote_publish",
         now=now,
+    )
+
+    assert loaded is None
+
+
+def test_load_cached_preflight_receipt_misses_when_remote_publish_base_ref_changes(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+
+    cache_key = mod._preflight_cache_key(repo_root, envelope, "remote_publish", base_ref="main")
+    receipt = mod.PreflightReceipt(
+        schema_version=1,
+        receipt_id="preflight-remote_publish-20260412T200000Z-base1",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root.resolve()),
+        check_type="remote_publish",
+        started_at="2026-04-12T20:00:00Z",
+        finished_at="2026-04-12T20:00:05Z",
+        passed=True,
+        base_ref="main",
+        checks=[{"name": "git_push", "passed": True, "detail": "ok"}],
+        cache_key=cache_key,
+        ttl_seconds=3600,
+        expires_at="2026-04-12T21:00:05Z",
+        artifacts={"branch": "preflight/remote/test", "worktree_path": "/tmp/worktree"},
+    )
+    mod._save_preflight_receipt(repo_root, receipt)
+
+    loaded = mod._load_cached_preflight_receipt(
+        repo_root,
+        envelope,
+        "remote_publish",
+        base_ref="release/2026-04-13",
     )
 
     assert loaded is None
@@ -529,6 +610,7 @@ def test_load_cached_preflight_receipt_misses_when_envelope_changes(
         started_at="2026-04-12T20:00:00Z",
         finished_at="2026-04-12T20:00:05Z",
         passed=True,
+        base_ref="",
         checks=[{"name": "git_commit", "passed": True, "detail": "ok"}],
         cache_key=cache_key,
         ttl_seconds=86400,
@@ -557,6 +639,7 @@ def test_failed_receipts_are_not_reused(tmp_path: Path) -> None:
         started_at="2026-04-12T20:00:00Z",
         finished_at="2026-04-12T20:00:05Z",
         passed=False,
+        base_ref="",
         checks=[{"name": "git_commit", "passed": False, "detail": "failed"}],
         cache_key=cache_key,
         ttl_seconds=86400,

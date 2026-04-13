@@ -872,12 +872,12 @@ async def test_artifact_from_run_result_persists_issue_text_audit_metadata(tmp_p
     )
 
     assert artifact.metadata["issue_text"] == {
-        "original_body": "raw body",
         "sanitized_body": "rewritten body",
         "changed": True,
         "sanitizer_outcome": "rewritten",
         "checks_failed": ["missing_validation"],
     }
+    assert "original_body" not in artifact.metadata["issue_text"]
 
 
 def test_lane_spec_from_manifest_emits_explicit_single_work_order() -> None:
