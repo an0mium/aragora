@@ -39,6 +39,21 @@ def test_find_mutating_workflow_violations_requires_testfixer_prefix() -> None:
     assert "testfixer/*" in violations[0].message
 
 
+def test_find_mutating_workflow_violations_requires_safe_benchmark_truth_publication() -> None:
+    workflows = {
+        "benchmark-truth-publication.yml": (
+            "on:\n  pull_request:\n  workflow_dispatch:\n"
+            "jobs:\n  x:\n    steps:\n      - run: git push origin HEAD:feature\n"
+        ),
+    }
+    violations = find_mutating_workflow_violations(workflows)
+    assert violations
+    assert any(
+        "must not be triggered by pull_request/pull_request_target" in v.message for v in violations
+    )
+    assert any("must push only to main via HEAD:main" in v.message for v in violations)
+
+
 def test_repo_branch_mutation_policy_passes_for_current_tree() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     violations = check_repo(repo_root)
