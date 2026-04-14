@@ -996,9 +996,9 @@ def _probe_next_action(
 def _inspection_payload(inspection: RunnerInspection) -> dict[str, Any]:
     to_dict = getattr(inspection, "to_dict", None)
     if callable(to_dict):
-        payload = to_dict()
-        if isinstance(payload, dict):
-            return dict(payload)
+        inspection_payload = to_dict()
+        if isinstance(inspection_payload, dict):
+            return dict(inspection_payload)
     payload: dict[str, Any] = {}
     for key in (
         "runner_id",
