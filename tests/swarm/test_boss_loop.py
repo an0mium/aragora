@@ -52,6 +52,7 @@ from aragora.swarm.boss_loop import (
 )
 from aragora.swarm.roadmap_priority import RoadmapPriorityPolicy
 from aragora.swarm.task_sanitizer import SanitizationOutcome
+from aragora.swarm.terminal_truth import qualify_work_order_terminal_state
 
 UTC = timezone.utc
 
@@ -2285,7 +2286,62 @@ class TestBossLoop:
             result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
         assert result["status"] == "needs_human"
+        assert result["outcome"] == "blocked"
         assert "lacks an explicit validation contract" in result["reasons"][0]
+        assert result["dispatch_gate"]["failure_classes"] == ["contract_missing"]
+        assert result["receipt_metadata"]["dispatch_gate"]["failure_classes"] == [
+            "contract_missing"
+        ]
+        qualification = qualify_work_order_terminal_state(result)
+        assert qualification.failure_classes == ["contract_missing", "needs_human"]
+
+    @pytest.mark.asyncio
+    async def test_dispatch_bounded_gate_emits_contract_missing_evidence(self) -> None:
+        issue = _make_issue(2467, "Issue missing bounded dispatch contract")
+        loop = BossLoop(config=_boss_config(max_iterations=1))
+        loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (
+            None,
+            None,
+        )
+        loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+            "runner_id": "codex-runner-1",
+            "runner_type": "codex",
+        }
+
+        with (
+            patch(
+                "aragora.swarm.prompt_refiner.refine_worker_prompt",
+                new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+            ),
+            patch(
+                "aragora.swarm.boss_loop.TaskSanitizer.sanitize",
+                return_value=SimpleNamespace(
+                    outcome=SanitizationOutcome.ACCEPTED,
+                    sanitized_text=issue.body,
+                    checks_failed=[],
+                    reason="",
+                ),
+            ),
+            patch("aragora.swarm.spec.SwarmSpec.is_dispatch_bounded", return_value=False),
+            patch(
+                "aragora.swarm.spec.SwarmSpec.dispatch_gate_reason",
+                return_value="under-specified dispatch contract",
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate._preview_env",
+                side_effect=AssertionError(
+                    "contract gate should not run after bounded gate failure"
+                ),
+            ),
+        ):
+            result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+        assert result["status"] == "needs_human"
+        assert result["outcome"] == "blocked"
+        assert "under-specified dispatch contract" in result["reasons"][0]
+        assert result["dispatch_gate"]["failure_classes"] == ["contract_missing"]
+        qualification = qualify_work_order_terminal_state(result)
+        assert qualification.failure_classes == ["contract_missing", "needs_human"]
 
     def test_bold_markdown_validation_contract_allows_dispatch(self):
         feed = MagicMock(spec=GitHubIssueFeed)

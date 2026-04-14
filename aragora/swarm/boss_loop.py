@@ -30,6 +30,7 @@ from aragora.swarm.dispatch_contract_gate import dispatch_contract_gate
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.roadmap_priority import load_roadmap_priority_policy
 from aragora.swarm.task_sanitizer import SanitizationOutcome, TaskSanitizer
+from aragora.swarm.mission import GateType, GateVerdict
 from aragora.swarm.terminal_truth import (
     extract_run_deliverable,
     extract_run_worker_outcome,
@@ -86,6 +87,32 @@ _BOSS_PUBLISH_COMMENT_MARKER = "<!-- aragora-boss-loop-publish -->"
 
 def _strict_bool(value: Any) -> bool | None:
     return value if isinstance(value, bool) else None
+
+
+def _blocked_pre_dispatch_result(
+    *,
+    reasons: list[str],
+    next_actions: list[str],
+    failure_classes: list[str],
+    notes: str,
+    required_evidence: list[str],
+) -> dict[str, Any]:
+    dispatch_gate = {
+        "gate_type": GateType.DISPATCH_READY.value,
+        "verdict": GateVerdict.BLOCKED.value,
+        "failure_classes": list(failure_classes),
+        "repair_eligible": True,
+        "required_evidence": list(required_evidence),
+        "notes": notes,
+    }
+    return {
+        "status": "needs_human",
+        "outcome": "blocked",
+        "reasons": list(reasons),
+        "next_actions": list(next_actions),
+        "dispatch_gate": dispatch_gate,
+        "receipt_metadata": {"dispatch_gate": dict(dispatch_gate)},
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -4835,16 +4862,18 @@ class BossLoop:
             getattr(spec, "acceptance_criteria", None)
         ):
             return _with_sanitizer_metadata(
-                {
-                    "status": "needs_human",
-                    "reasons": [
+                _blocked_pre_dispatch_result(
+                    reasons=[
                         f"Issue #{issue.number} lacks an explicit validation contract or acceptance criteria."
                     ],
-                    "next_actions": [
+                    next_actions=[
                         "Add an Acceptance Criteria, Validation, Definition of Done, or Test Plan section to the issue body.",
                         "Include at least one concrete verification step such as a pytest command or observable success criterion.",
                     ],
-                }
+                    failure_classes=["contract_missing"],
+                    notes="Issue body missing explicit validation contract or acceptance criteria.",
+                    required_evidence=["acceptance_criteria", "validation_command"],
+                )
             )
 
         self._attach_issue_handoff_metadata(spec, issue)
@@ -4912,15 +4941,18 @@ class BossLoop:
 
         if not spec.is_dispatch_bounded():
             return _with_sanitizer_metadata(
-                {
-                    "status": "needs_human",
-                    "reasons": [
+                _blocked_pre_dispatch_result(
+                    reasons=[
                         f"Issue #{issue.number} is not safely dispatchable: {spec.dispatch_gate_reason()}"
                     ],
-                    "next_actions": [
+                    next_actions=[
                         "Add file-scope hints, constraints, acceptance criteria, or explicit work orders before dispatch.",
                     ],
-                }
+                    failure_classes=["contract_missing"],
+                    notes=str(spec.dispatch_gate_reason() or "").strip()
+                    or "Issue is not safely dispatchable.",
+                    required_evidence=["file_scope", "acceptance_criteria", "work_order"],
+                )
             )
 
         if not self.config.dispatch_enabled:
