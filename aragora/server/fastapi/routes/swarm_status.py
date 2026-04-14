@@ -139,25 +139,50 @@ def preflight_check(
     agent: str = "codex",
     base_ref: str = "main",
     skip_publication: bool = True,
+    contract_path: str,
 ) -> dict[str, Any]:
     """Run preflight checks and return receipt-backed result."""
     try:
         from aragora.swarm.credential_envelope import CredentialEnvelope
-        from aragora.swarm.preflight import run_preflight
+        from aragora.swarm.preflight import (
+            evaluate_preflight_receipt_gate,
+            run_contract_preflight_receipt,
+        )
     except ImportError:
         return {"error": "preflight module not available"}
 
     import os
 
+    repo_root = Path.cwd()
     envelope = CredentialEnvelope.from_environment(os.environ)
-    result = run_preflight(
-        repo_root=Path.cwd(),
+    receipt = run_contract_preflight_receipt(
+        repo_root=repo_root,
         agent=agent,
         base_ref=base_ref,
         skip_publication=skip_publication,
         envelope=envelope,
+        contract_path=Path(contract_path).expanduser(),
     )
-    return result.to_dict()
+    expected_contract_checksum = str(
+        receipt.artifacts.get("expected_contract_checksum", "") or ""
+    ).strip()
+    admission_gate = evaluate_preflight_receipt_gate(
+        receipt,
+        repo_root=repo_root,
+        envelope=envelope,
+        check_type="scratch" if skip_publication else "remote_publish",
+        base_ref=base_ref,
+        expected_contract_checksum=expected_contract_checksum,
+    )
+    failure_terminal_class = receipt.failure_terminal_class
+    return {
+        "mode": "swarm-preflight",
+        "receipt": receipt.to_dict(),
+        "admission_gate": admission_gate.to_dict(),
+        "failure_terminal_class": (
+            failure_terminal_class.value if failure_terminal_class is not None else None
+        ),
+    }
 
 
 def list_preflight_receipts() -> list[dict[str, Any]]:
@@ -209,6 +234,7 @@ def register_routes(app: Any) -> None:
 
     @router.post("/preflight")
     async def run_swarm_preflight(
+        contract_path: str,
         agent: str = "codex",
         base_ref: str = "main",
         skip_publication: bool = True,
@@ -217,6 +243,7 @@ def register_routes(app: Any) -> None:
             agent=agent,
             base_ref=base_ref,
             skip_publication=skip_publication,
+            contract_path=contract_path,
         )
         return JSONResponse(content=result)
 
