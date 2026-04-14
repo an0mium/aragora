@@ -604,7 +604,7 @@ class MongoDBConnector(EnterpriseConnector):
             try:
                 await self._change_stream_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[%s] Change stream task cancelled", self.name)
             self._change_stream_task = None
 
         # Stop CDC manager
