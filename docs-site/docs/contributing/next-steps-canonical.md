@@ -5,7 +5,7 @@ description: Next Steps (Canonical)
 
 # Next Steps (Canonical)
 
-Last updated: 2026-04-13
+Last updated: 2026-04-14
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](./canonical-goals) defines what Aragora is and why.
@@ -15,7 +15,7 @@ This is the single source of truth for short-horizon execution priorities.
 
 ## Current Gate
 
-The current gate is to finish `RS-07`, close the remaining truthful repair gaps in `BC-01/03`, and keep `TW-01/TW-02` publishing recurring truth artifacts before expanding the `B2` guard across the safest execution classes in [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
+The current gate is to keep `TW-01/TW-02` recurring and boring on current `main`, finish `TW-03` rescue productization, and keep `CS-01..03` narrower than measured proof before expanding the `B2` guard across the safest execution classes in [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
 
 What is already true:
 
@@ -27,17 +27,21 @@ What is already true:
 - the 30-day B0 target is already exceeded on the tracked cohort at **86.7%** no-rescue success
 - `WorkerContract` and `CredentialEnvelope` primitives exist on the live swarm path
 - launcher-side contract admission, dispatch gating, and module-level contract-aware preflight are on `main`
+- receipt-backed preflight is now the default operator and live dispatch admission truth on `main` via [#5514](https://github.com/synaptent/aragora/pull/5514)
 - scratch and remote-publish preflight validation now run through the production preflight path and emit canonical terminal truth on `main`
 - task sanitizer outcomes and success-rate filtering are shaping safer boss-loop intake
 - original versus sanitized task text is already preserved for audit on `main`
+- session state now persists across the live supervisor lease/dispatch lifecycle on `main` via [#5503](https://github.com/synaptent/aragora/pull/5503)
 - retry dispatch now carries prior session resume context on `main` via [#5384](https://github.com/synaptent/aragora/pull/5384)
+- failed and `needs_human` lanes now persist normalized `blocker_evidence` on `main` via [#5512](https://github.com/synaptent/aragora/pull/5512)
 - the rescue loop can now record interventions, plan bounded recovery, and execute safe followups on `main` via [#5379](https://github.com/synaptent/aragora/pull/5379), [#5380](https://github.com/synaptent/aragora/pull/5380), and [#5383](https://github.com/synaptent/aragora/pull/5383)
+- recurring benchmark scorecards are now bound to the frozen corpus revision on `main` via [#5582](https://github.com/synaptent/aragora/pull/5582) and [#5583](https://github.com/synaptent/aragora/pull/5583)
+- repo-tracked recurring truth publication now lands in `docs/status/generated/benchmark_truth_artifacts/` and `docs/status/generated/benchmark_scorecards/`, with the stable status summary at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`
+- repeated rescue-class reports now include fixture-or-issue productization status on `main` via [#5535](https://github.com/synaptent/aragora/pull/5535)
 
 What is still missing:
 
-- the last `RS-07` step is to make receipt-backed contract preflight the default operator admission truth everywhere, not just a substrate primitive — contract in, persisted receipt out, fail-closed on any mismatch ([#5327](https://github.com/synaptent/aragora/issues/5327))
-- broader repair truth on the live swarm loop still depends on full `BC-01` persistence and precise `BC-03` blocker evidence
-- recurring scheduled use of the frozen corpus and diffable truth artifact still needs to become routine status output ([#5329](https://github.com/synaptent/aragora/issues/5329))
+- repeated rescue classes still need the broader live-loop conversion from repeated patterns into benchmark fixtures or bounded issues beyond the landed productization report ([#5330](https://github.com/synaptent/aragora/issues/5330))
 - proof that the B2 guard holds under repeated bounded runs instead of one-off success stories
 - broader repair-loop coverage on top of the existing audit trail
 - lower-rescue unattended operation on bounded backlogs
@@ -58,7 +62,7 @@ The 30-day target is intentionally narrow:
 - **100%** of failures land in truthful canonical buckets
 - repeated rescue classes become explicit product work
 
-Current status: the tracked B0 cohort is running at **86.7%** no-rescue success as of 2026-04-13. The benchmark target is no longer the blocker; truthful guard completion is.
+Current status: the tracked B0 cohort is running at **86.7%** no-rescue success as of 2026-04-13. The benchmark target is no longer the blocker; recurring truth publication and rescue productization are.
 
 Primary truth metric:
 
@@ -106,7 +110,7 @@ Scorecard output rules:
 - The tracked B0 cohort is at **86.7%** no-rescue success as of 2026-04-13.
 - The frozen corpus manifest now lives at `docs/benchmarks/corpus.json`.
 - The diffable truth artifact path is `scripts/build_benchmark_truth_artifact.py`, with GitHub-truth reconciliation provided by `scripts/reconcile_b0_pr_truth.py`.
-- What remains is recurring scheduled use of that artifact path, not inventing a second benchmark definition.
+- The stable recurring status surface is `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`, backed by the latest JSON pointers under `docs/status/generated/benchmark_truth_artifacts/` and `docs/status/generated/benchmark_scorecards/`.
 
 ## 30-Day Canonical Backlog
 
@@ -114,25 +118,13 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 | Order | Code | Why it matters to the wedge | Acceptance criteria | Proof metric | Layer | GitHub coverage |
 |---|---|---|---|---|---|---|
-| 1 | `RS-07` | Preflight only deserves trust when it returns a receipt the supervisor can verify, not just a shell exit code. The gap is the admission path: contract in, receipt out, fail-closed on any mismatch. | `aragora swarm preflight run --contract ...` accepts a `WorkerContract`, runs production-equivalent git/auth/env checks, and returns a signed `PreflightReceipt` with pass/fail plus canonical terminal class on failure. Supervisor rejects admission when the receipt is absent or failed. | At least one guarded admission path is live through the operator surface with receipt-backed success and failure. Failures map to canonical terminal truth classes. | substrate | [#5327](https://github.com/synaptent/aragora/issues/5327); covered by [#804](https://github.com/synaptent/aragora/issues/804) and [#805](https://github.com/synaptent/aragora/issues/805). |
-| 2 | `BC-01` | Session persistence is the prerequisite for truthful repair, retry, and operator control. | Session state survives `explore -> plan -> edit -> verify -> repair -> publish` and survives process restart. | Benchmark retry lanes show resumed state instead of cold restarts. | control plane | Covered by [#805](https://github.com/synaptent/aragora/issues/805); no dedicated lane issue exists yet. |
-| 3 | `BC-03` | Founder time is wasted when a failed run does not say exactly what broke and what to try next. | Failed runs emit precise blocker evidence, canonical blocker class, and repair transcript or next-step evidence. | `100%` of failed bounded runs include receipt-backed blocker evidence mapped to canonical terminal truth. | control plane | Covered by [#805](https://github.com/synaptent/aragora/issues/805); no dedicated lane issue exists yet. |
-| 4 | `BC-02` | Retry without state reuse just repeats prompt cost and rescue labor. | Retry resumes from prior state, contract, and repair evidence instead of re-prompting from scratch. | Retried runs emit resume-from-stage evidence and show lower repeated-rescue incidence on the same class. | control plane | Covered by [#805](https://github.com/synaptent/aragora/issues/805); no dedicated lane issue exists yet. |
-| 5 | `TW-01` | The wedge only becomes real if the benchmark corpus keeps proving `prompt -> spec -> code -> verify -> PR` loops on bounded work. | A fixed benchmark corpus runs repeatedly on current `main` without ad hoc issue swapping. | Repeated benchmark runs report issue-level truth outcomes on the same bounded corpus. | trust | Covered by [#806](https://github.com/synaptent/aragora/issues/806); no dedicated lane issue exists yet. |
-| 6 | `TW-02` | The project needs issue-level truth, not PR-count or iteration-count vanity metrics. | Weekly truth reporting uses `mergeable_pr OR merged_pr`, distinguishes proxy from truth, and stays linked from status docs. | Fresh `origin/main` truth reports publish issue-level truth success and no-rescue truth success. | trust | Covered by [#804](https://github.com/synaptent/aragora/issues/804) and [#806](https://github.com/synaptent/aragora/issues/806); no dedicated lane issue exists yet. |
-| 7 | `TW-03` | Human rescues only create leverage when they become fixtures or product work. | Every repeated rescue class becomes a benchmark fixture or bounded substrate issue within one weekly cycle. | Repeated rescue classes trend down, and every repeated class has a linked fixture or bounded issue. | trust | Covered by [#804](https://github.com/synaptent/aragora/issues/804) and [#806](https://github.com/synaptent/aragora/issues/806); no dedicated lane issue exists yet. |
-| 8 | `CS-01..03` | The wedge fails commercially if external claims outrun measured proof. | Roadmap, status, and positioning docs keep the wedge-first story and gate claims on measured proof. | External-facing docs stay narrower than current truth metrics and current gate status. | trust | Covered by [#804](https://github.com/synaptent/aragora/issues/804), [#806](https://github.com/synaptent/aragora/issues/806), and the current docs; no dedicated lane issue exists yet. |
+| 1 | `TW-03` | Human rescues only create leverage when they become fixtures or product work. | Every repeated rescue class becomes a benchmark fixture or bounded substrate issue within one weekly cycle. | Repeated rescue classes trend down, and every repeated class has a linked fixture or bounded issue. | trust | [#5330](https://github.com/synaptent/aragora/issues/5330) |
+| 2 | `CS-01..03` | The wedge fails commercially if external claims outrun measured proof. | Roadmap, status, and positioning docs keep the wedge-first story and gate claims on measured proof. | External-facing docs stay narrower than current truth metrics and current gate status. | trust | Covered by [#804](https://github.com/synaptent/aragora/issues/804), [#806](https://github.com/synaptent/aragora/issues/806), and the current docs; no dedicated lane issue exists yet. |
 
 ## Do Now / Delay / Avoid
 
 ### Do now
 
-- `RS-07`
-- `BC-01`
-- `BC-03`
-- `BC-02`
-- `TW-01`
-- `TW-02`
 - `TW-03`
 - `CS-01..03`
 
@@ -153,13 +145,12 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 - heavy DAG workbench work that is not backed by live runtime truth
 - generalized memory fabric work that is not directly improving the execution wedge
 
-## Top 3 Boss-Ready Next
+## Live Boss-Ready Queue
 
-1. `RS-07` ([#5327](https://github.com/synaptent/aragora/issues/5327)) because it closes the last missing guard on the live operator path and turns preflight into the admission truth the operator can actually trust.
-2. `BC-01` because retries and repair loops cannot become truthful until session state survives restarts.
-3. `BC-03` because founder leverage depends on precise blocker evidence before more retry logic is added.
+- `TW-03` ([#5330](https://github.com/synaptent/aragora/issues/5330)) because repeated rescues only create leverage when the live loop turns them into fixtures or bounded issues.
+- There is no second dedicated boss-ready issue in this tranche right now; keep `CS-01..03` enforced through the docs/status surfaces until a concrete bounded issue exists.
 
-There is no dedicated open GitHub issue yet for those three codes. Existing issue coverage is still at the epic level through [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806). Do not invent duplicate roadmap issues in this tranche unless the canonical docs stop being enough to drive bounded execution.
+The live queue for this tranche should now be driven by `TW-03`. `TW-01` ([#5539](https://github.com/synaptent/aragora/issues/5539)) completed on 2026-04-14, `TW-02` is now published through the repo-tracked recurring truth surface at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`, and [#5516](https://github.com/synaptent/aragora/issues/5516) completed under `TW-03` via [#5535](https://github.com/synaptent/aragora/pull/5535). `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; do not recycle them as active blockers unless new evidence shows a concrete regression.
 
 ## Reverse-Staged Rocket Bootstrap
 

@@ -5,7 +5,7 @@ description: Active Execution Issues
 
 # Active Execution Issues
 
-Last updated: 2026-04-13
+Last updated: 2026-04-14
 
 This document is the canonical epic, milestone, and execution-issue tree for the current roadmap tranche.
 
@@ -41,18 +41,18 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 | **B3 — Repair** | Productize retry, salvage, quarantine, and session reuse | `BC-01..03`, `RS-10..11` |
 | **B4 — Multi** | Extend proven loops across hosts with truthful state | `BC-07..12`, `UDW-01..03` |
 
-Status note: B0 is above target at 86.7% no-rescue success on the tracked cohort as of 2026-04-13. The remaining gate is production guard proof, not inflating the benchmark story.
+Status note: B0 is above target at 86.7% no-rescue success on the tracked cohort as of 2026-04-13. The remaining near-term gate is routine truth publication and rescue productization, not reopening already-landed guard work.
 
 ## Current 30-Day Execution Set
 
 Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 
-- Do now: `RS-07`, `BC-01`, `BC-03`, `BC-02`, `TW-01`, `TW-02`, `TW-03`, `CS-01..03`
+- Do now: `TW-03`, `CS-01..03`
 - Delay: `BC-07..09`, `RS-10..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
 - Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
-- Top 3 boss-ready next: `RS-07`, `BC-01`, `BC-03`
-- GitHub coverage for those top 3 remains epic-level only through [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806); no dedicated lane issues exist yet
+- Live boss-ready queue: `TW-03` ([#5330](https://github.com/synaptent/aragora/issues/5330)); `TW-01` ([#5539](https://github.com/synaptent/aragora/issues/5539)) completed on 2026-04-14, `TW-02` now publishes through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`, and [#5516](https://github.com/synaptent/aragora/issues/5516) landed under `TW-03` via [#5535](https://github.com/synaptent/aragora/pull/5535)
+- `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; the live queue should not recycle them as active blockers unless a concrete regression appears
 
 ## Epic 1 — Reliability Substrate
 
@@ -72,7 +72,7 @@ Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 
 ### Milestone 1.3 — Contract-Aware Preflight `[30-90d]`
 
-- [ ] **RS-07** Build `aragora swarm preflight run --contract ...` _(In progress as of 2026-04-13: the operator surface now has a contract-backed receipt path with persisted `PreflightReceipt` output and fail-closed admission verdicts; remaining follow-through is to make that receipt the default admission truth everywhere that consumes preflight.)_
+- [x] **RS-07** Build `aragora swarm preflight run --contract ...` _(Done 2026-04-14 via [#5514](https://github.com/synaptent/aragora/pull/5514))_
 - [x] **RS-08** Validate scratch read/write/commit/push/draft-PR flow through the production code path _(Done 2026-04-13 via [#5261](https://github.com/synaptent/aragora/pull/5261))_
 - [x] **RS-09** Replace shell-only host checks with receipt-backed preflight wrappers _(Done 2026-04-13 via [#5261](https://github.com/synaptent/aragora/pull/5261))_
 
@@ -88,9 +88,9 @@ Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 
 ### Milestone 2.1 — Interactive Sessions & Repair Journal `[90d]`
 
-- [ ] **BC-01** Persist session state across `explore -> plan -> edit -> verify -> repair -> publish`
+- [x] **BC-01** Persist session state across `explore -> plan -> edit -> verify -> repair -> publish` _(Done 2026-04-14 via [#5503](https://github.com/synaptent/aragora/pull/5503))_
 - [x] **BC-02** Resume retries from prior session state instead of fresh prompts _(Done 2026-04-13 via [#5384](https://github.com/synaptent/aragora/pull/5384))_
-- [ ] **BC-03** Emit precise blocker evidence and repair transcripts for failed runs
+- [x] **BC-03** Emit precise blocker evidence and repair transcripts for failed runs _(Done 2026-04-14 via [#5512](https://github.com/synaptent/aragora/pull/5512))_
 
 ### Milestone 2.2 — Task Sanitizer & Admission Gate `[30-90d]`
 
@@ -116,9 +116,9 @@ Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 
 ### Milestone 3.1 — Autonomous Software Execution Benchmark `[30d]`
 
-- [ ] **TW-01** Prove `prompt -> spec -> code -> verify -> PR` loops on a fixed benchmark corpus of bounded repos/issues _(Partial as of 2026-04-13: the frozen corpus manifest is checked in at `docs/benchmarks/corpus.json`; the remaining gap is recurring execution against that fixed revision.)_
-- [ ] **TW-02** Measure rescue rate, verification pass rate, wall-clock throughput, and no-rescue completion rate _(Partial as of 2026-04-13: diffable truth-artifact generation exists, including truth/no-rescue/failure-class/rescue-type reporting; the remaining gap is recurring publication and status linkage.)_
-- [ ] **TW-03** Convert human rescues into benchmark fixtures and product requirements
+- [x] **TW-01** Prove `prompt -> spec -> code -> verify -> PR` loops on a fixed benchmark corpus of bounded repos/issues _(Done 2026-04-14 via [#5582](https://github.com/synaptent/aragora/pull/5582) and [#5583](https://github.com/synaptent/aragora/pull/5583))_
+- [x] **TW-02** Measure rescue rate, verification pass rate, wall-clock throughput, and no-rescue completion rate _(Done 2026-04-14: recurring publication now writes repo-tracked outputs under `docs/status/generated/benchmark_truth_artifacts/` and `docs/status/generated/benchmark_scorecards/`, with the stable status summary at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`.)_
+- [ ] **TW-03** Convert human rescues into benchmark fixtures and product requirements _(Partial as of 2026-04-14: rescue-class productization reporting landed via [#5535](https://github.com/synaptent/aragora/pull/5535); the remaining gap is turning repeated classes into durable fixture-or-issue closure on the live loop, tracked by [#5330](https://github.com/synaptent/aragora/issues/5330).)_
 
 ### Milestone 3.2 — Inbox / Operator Action Loops `[30-90d]`
 
