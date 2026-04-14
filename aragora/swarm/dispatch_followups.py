@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
 from aragora.swarm.issue_scanner import infer_issue_category_from_title
 from aragora.swarm.issue_upgrader import upgrade_issue_heuristic
 from aragora.swarm.spec import SwarmSpec
+
+_MARKDOWN_BULLET_RE = re.compile(r"^[-*]\s+(?:\[[ xX]\]\s+)?(?P<text>.+)$")
 
 
 def _ordered_unique(values: list[str]) -> list[str]:
@@ -20,6 +23,25 @@ def _ordered_unique(values: list[str]) -> list[str]:
         seen.add(text)
         ordered.append(text)
     return ordered
+
+
+def _extract_acceptance_criteria(markdown: str) -> list[str]:
+    criteria: list[str] = []
+    in_acceptance_section = False
+    for raw_line in str(markdown or "").splitlines():
+        stripped = raw_line.strip()
+        if stripped.startswith("#"):
+            heading = stripped.lstrip("#").strip().rstrip(":").lower()
+            in_acceptance_section = heading == "acceptance criteria"
+            continue
+        if not in_acceptance_section or not stripped:
+            continue
+        bullet_match = _MARKDOWN_BULLET_RE.match(stripped)
+        if bullet_match:
+            criteria.append(bullet_match.group("text"))
+            continue
+        criteria.append(stripped)
+    return _ordered_unique(criteria)
 
 
 def maybe_upgrade_dispatch_spec(
@@ -57,6 +79,9 @@ def maybe_upgrade_dispatch_spec(
     inferred_scope = SwarmSpec.infer_file_scope_hints(upgraded.upgraded_body)
     spec.raw_goal = upgraded_spec.raw_goal
     spec.refined_goal = upgraded_spec.refined_goal or spec.refined_goal
+    spec.acceptance_criteria = _ordered_unique(
+        [*spec.acceptance_criteria, *_extract_acceptance_criteria(upgraded.upgraded_body)]
+    )
     spec.constraints = _ordered_unique([*spec.constraints, *upgraded_spec.constraints])
     spec.track_hints = _ordered_unique([*spec.track_hints, *upgraded_spec.track_hints])
     spec.file_scope_hints = _ordered_unique(

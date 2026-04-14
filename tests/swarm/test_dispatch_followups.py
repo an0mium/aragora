@@ -58,6 +58,59 @@ def test_maybe_upgrade_dispatch_spec_uses_issue_category_for_unbounded_spec() ->
         category="broad_exception",
         acceptance_criteria=[],
     )
+    assert result.acceptance_criteria == []
+
+
+def test_maybe_upgrade_dispatch_spec_preserves_upgraded_acceptance_criteria() -> None:
+    issue = SimpleNamespace(number=19, title="Narrow broad except in helper")
+    spec = SwarmSpec(
+        raw_goal="Fix the helper.",
+        refined_goal="Fix the helper.",
+        requires_approval=True,
+        user_expertise="developer",
+    )
+    upgraded = UpgradedIssue(
+        original_title=issue.title,
+        original_body="body",
+        upgraded_title=issue.title,
+        upgraded_body=(
+            "## Task\n\n"
+            "Narrow the broad exception handler in `aragora/swarm/helper.py`.\n\n"
+            "### File Scope\n"
+            "- `aragora/swarm/helper.py`\n\n"
+            "### Validation\n"
+            "```bash\n"
+            "ruff check aragora/swarm/helper.py\n"
+            "```\n\n"
+            "### Acceptance Criteria\n"
+            "- `ruff check aragora/swarm/helper.py` passes\n"
+            "- Keep the lane scoped to `aragora/swarm/helper.py`.\n"
+        ),
+        module_summary="Helper summary",
+        functions_found=["render_helper"],
+        loc=12,
+        imports=[],
+        complexity="simple",
+        upgrade_method="heuristic",
+    )
+
+    with patch(
+        "aragora.swarm.dispatch_followups.upgrade_issue_heuristic",
+        return_value=upgraded,
+    ):
+        result = maybe_upgrade_dispatch_spec(
+            issue=issue,
+            spec=spec,
+            sanitized_issue_body="body",
+            repo_root=Path("/repo"),
+        )
+
+    assert result is spec
+    assert result.acceptance_criteria == [
+        "`ruff check aragora/swarm/helper.py` passes",
+        "Keep the lane scoped to `aragora/swarm/helper.py`.",
+    ]
+    assert "aragora/swarm/helper.py" in result.file_scope_hints
 
 
 def test_maybe_upgrade_dispatch_spec_leaves_bounded_spec_unchanged() -> None:
