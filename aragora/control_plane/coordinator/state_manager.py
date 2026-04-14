@@ -40,6 +40,8 @@ if TYPE_CHECKING:
         ControlPlaneAdapter,
     )
 
+logger = get_logger(__name__)
+
 # Optional KM integration
 HAS_KM_ADAPTER = False
 # Pre-declare optional import with Any to avoid no-redef errors
@@ -49,7 +51,7 @@ try:
 
     HAS_KM_ADAPTER = True
 except ImportError:
-    pass
+    logger.debug("KM adapter not available, TaskOutcome import skipped")
 
 # Optional Watchdog support (Gastown three-tier monitoring)
 ThreeTierWatchdog: Any = None
@@ -92,8 +94,6 @@ try:
     HAS_REDIS_HA = True
 except ImportError:
     HAS_REDIS_HA = False
-
-logger = get_logger(__name__)
 
 # Retry configuration for control plane operations
 _CP_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["control_plane"]
