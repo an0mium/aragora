@@ -62,6 +62,7 @@ def swarm_status_summary(
     terminal_classes: Counter[str] = Counter()
     outcomes: Counter[str] = Counter()
     failure_reasons: Counter[str] = Counter()
+    rescue_classes: Counter[str] = Counter()
     issues_attempted: set[int] = set()
     issues_succeeded: set[int] = set()
     recent_blockers: list[dict[str, Any]] = []
@@ -81,6 +82,10 @@ def swarm_status_summary(
             issues_attempted.add(issue_num)
             if tc and _is_success_terminal_class(tc):
                 issues_succeeded.add(issue_num)
+
+        rescue_class = str(row.get("rescue_class", "")).strip()
+        if rescue_class:
+            rescue_classes[rescue_class] += 1
 
         # Collect failure reasons and blocker evidence (BC-03)
         failure_reason = str(row.get("failure_reason", "")).strip()
@@ -118,6 +123,7 @@ def swarm_status_summary(
         "terminal_class_distribution": dict(terminal_classes.most_common(10)),
         "outcome_distribution": dict(outcomes.most_common(10)),
         "failure_reason_distribution": dict(failure_reasons.most_common(10)),
+        "rescue_class_summary": dict(rescue_classes.most_common(10)),
         "recent_blockers": recent_blockers[-10:],
         "latest_tick": {
             "timestamp": latest_tick.get("timestamp", ""),
