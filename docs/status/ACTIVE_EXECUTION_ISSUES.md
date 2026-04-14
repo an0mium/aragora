@@ -46,7 +46,7 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 - Delay: `BC-07..09`, `RS-10..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
 - Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
-- Live boss-ready queue: no dedicated open trust-loop issue right now; `TW-01`, `TW-02`, and `TW-03` now publish through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`, and the recurring surfaces should restock the queue only when they expose a fresh bounded regression or repeated rescue class
+- Live boss-ready queue: the current bounded `CS-01..03` claim-discipline issue is [#5541](https://github.com/synaptent/aragora/issues/5541); `TW-01`, `TW-02`, and `TW-03` now publish through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`, and the recurring surfaces should restock the queue only when they expose a fresh bounded regression or repeated rescue class
 - `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; the live queue should not recycle them as active blockers unless a concrete regression appears
 
 ## Epic 1 — Reliability Substrate

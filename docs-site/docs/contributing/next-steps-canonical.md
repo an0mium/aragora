@@ -120,7 +120,7 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 | Order | Code | Why it matters to the wedge | Acceptance criteria | Proof metric | Layer | GitHub coverage |
 |---|---|---|---|---|---|---|
-| 1 | `CS-01..03` | The wedge fails commercially if external claims outrun measured proof. | Roadmap, status, and positioning docs keep the wedge-first story and gate claims on measured proof. | External-facing docs stay narrower than current truth metrics and current gate status. | trust | Covered by [#804](https://github.com/synaptent/aragora/issues/804), [#806](https://github.com/synaptent/aragora/issues/806), and the current docs; no dedicated lane issue exists yet. |
+| 1 | `CS-01..03` | The wedge fails commercially if external claims outrun measured proof. | Roadmap, status, and positioning docs keep the wedge-first story and gate claims on measured proof. | External-facing docs stay narrower than current truth metrics and current gate status. | trust | Current bounded lane: [#5541](https://github.com/synaptent/aragora/issues/5541). |
 
 ## Do Now / Delay / Avoid
 
@@ -147,8 +147,8 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 ## Live Boss-Ready Queue
 
-- There is no dedicated open boss-ready trust-loop issue right now.
-- Keep `CS-01..03` enforced through the docs/status surfaces until a concrete bounded issue exists.
+- The live `boss-ready` queue should contain only the current bounded `CS-01..03` claim-discipline issue: [#5541](https://github.com/synaptent/aragora/issues/5541).
+- Keep the rest of `CS-01..03` enforced through the docs/status surfaces unless another concrete bounded issue is needed.
 - Let the recurring `TW-01/TW-02/TW-03` publication surfaces restock the queue only when they expose a fresh repeated rescue class or a concrete regression.
 
 `TW-01` ([#5539](https://github.com/synaptent/aragora/issues/5539)), `TW-02` ([#5540](https://github.com/synaptent/aragora/issues/5540)), and `TW-03` ([#5330](https://github.com/synaptent/aragora/issues/5330)) now publish through repo-tracked recurring status surfaces at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`. `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; do not recycle them as active blockers unless new evidence shows a concrete regression.
