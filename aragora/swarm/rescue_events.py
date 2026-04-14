@@ -20,6 +20,14 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+__all__ = [
+    "DEFAULT_RESCUE_LEDGER_PATH",
+    "RescueEvent",
+    "RescueEventLedger",
+    "RescueEventType",
+    "record_rescue",
+]
+
 logger = logging.getLogger(__name__)
 UTC = timezone.utc
 
