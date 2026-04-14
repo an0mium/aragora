@@ -98,6 +98,14 @@ def _failure_distributions(
     return dict(sorted(failure_counts.items())), dict(sorted(rescue_counts.items()))
 
 
+def _missing_corpus_issue_numbers(aggregates: list[IssueMetricsAggregate]) -> list[int]:
+    return [
+        aggregate.issue_number
+        for aggregate in aggregates
+        if aggregate.issue_number > 0 and aggregate.row_count <= 0
+    ]
+
+
 def build_benchmark_truth_artifact(
     *,
     repo: str,
@@ -119,6 +127,8 @@ def build_benchmark_truth_artifact(
     )
     merged_issue_count = sum(1 for record in records if record.truth_state == "merged_pr")
     proxy_pr_signal_issue_count = sum(1 for aggregate in aggregates if aggregate.proxy_pr_signal)
+    missing_issue_numbers = _missing_corpus_issue_numbers(aggregates)
+    run_complete = not missing_issue_numbers
     failure_class_distribution, rescue_counts_by_type = _failure_distributions(
         rows,
         corpus_issue_numbers={aggregate.issue_number for aggregate in aggregates},
@@ -134,6 +144,14 @@ def build_benchmark_truth_artifact(
             "recorded_on": str(corpus.get("recorded_on") or "").strip(),
             "success_contract": str(corpus.get("success_contract") or "").strip(),
             "issue_count": corpus_issue_count,
+        },
+        "run_status": "complete" if run_complete else "incomplete",
+        "coverage": {
+            "attempted_issue_count": attempted_issue_count,
+            "missing_issue_count": len(missing_issue_numbers),
+            "missing_issue_numbers": missing_issue_numbers,
+            "is_complete": run_complete,
+            "status": "complete" if run_complete else "incomplete",
         },
         "primary_metrics": {
             "truth_success_rate": round(truth_success_issue_count / corpus_issue_count, 4)
@@ -189,6 +207,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output", type=Path, default=None, help="Optional artifact output path")
     parser.add_argument("--json", action="store_true", help="Emit JSON to stdout")
+    parser.add_argument(
+        "--fail-incomplete",
+        action="store_true",
+        help="Exit non-zero when the artifact does not cover every corpus issue",
+    )
     return parser
 
 
@@ -210,6 +233,16 @@ def main(argv: list[str] | None = None) -> int:
         print(str(output_path))
     if args.json or args.output is None:
         print(json.dumps(artifact, indent=2, sort_keys=True))
+    if args.fail_incomplete and artifact.get("run_status") != "complete":
+        missing_issue_numbers = list(
+            (artifact.get("coverage") or {}).get("missing_issue_numbers") or []
+        )
+        missing_suffix = ", ".join(str(item) for item in missing_issue_numbers) or "unknown"
+        print(
+            f"incomplete corpus coverage: missing issue numbers {missing_suffix}",
+            file=sys.stderr,
+        )
+        return 2
     return 0
 
 
