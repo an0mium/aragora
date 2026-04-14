@@ -17,7 +17,6 @@ from datetime import timezone
 from typing import Any
 
 from aragora.swarm.work_chain import (
-    ChainStatus,
     ExecutionWave,
     StepStatus,
     WorkChain,
@@ -25,6 +24,7 @@ from aragora.swarm.work_chain import (
 
 logger = logging.getLogger(__name__)
 UTC = timezone.utc
+_TERMINAL_STEP_STATUSES = frozenset({StepStatus.COMPLETED, StepStatus.FAILED, StepStatus.SKIPPED})
 
 
 @dataclass(slots=True)
@@ -155,21 +155,18 @@ class ChainExecutor:
         Skips steps whose predecessors have failed.
         """
         self._propagate_failures()
-
-        ready = self._chain.ready_steps()
-        if not ready:
+        if self._active_wave_index() is not None:
             return None
 
-        # Determine wave index from the chain's wave structure
-        ready_ids = {step.step_id for step in ready}
-        wave_index = 0
-        for wave in self._chain.waves:
-            if any(sid in ready_ids for sid in wave.step_ids):
-                wave_index = wave.wave_index
-                break
+        wave = self._next_dispatchable_wave()
+        if wave is None:
+            return None
 
         dispatches: list[StepDispatch] = []
-        for step in ready:
+        for step_id in wave.step_ids:
+            step = self._chain.step_by_id(step_id)
+            if step is None or step.status != StepStatus.PENDING:
+                continue
             predecessor_outputs: dict[str, StepOutcome] = {}
             for dep_id in step.depends_on:
                 if dep_id in self._outcomes:
@@ -180,13 +177,15 @@ class ChainExecutor:
                     step_id=step.step_id,
                     work_order_id=step.work_order_id,
                     title=step.title,
-                    wave_index=wave_index,
+                    wave_index=wave.wave_index,
                     predecessor_outputs=predecessor_outputs,
                 )
             )
             self._chain.mark_step(step.step_id, StepStatus.RUNNING)
 
-        return WaveDispatchPlan(wave_index=wave_index, dispatches=dispatches)
+        if not dispatches:
+            return None
+        return WaveDispatchPlan(wave_index=wave.wave_index, dispatches=dispatches)
 
     def record_outcome(self, outcome: StepOutcome) -> None:
         """Record the result of a step execution."""
@@ -242,7 +241,31 @@ class ChainExecutor:
         return dispatches
 
     def is_complete(self) -> bool:
-        return self._chain.status in (ChainStatus.COMPLETED, ChainStatus.FAILED)
+        return all(step.status in _TERMINAL_STEP_STATUSES for step in self._chain.steps)
+
+    def _active_wave_index(self) -> int | None:
+        for wave in self._chain.waves:
+            if any(
+                (step := self._chain.step_by_id(step_id)) is not None
+                and step.status == StepStatus.RUNNING
+                for step_id in wave.step_ids
+            ):
+                return wave.wave_index
+        return None
+
+    def _next_dispatchable_wave(self) -> ExecutionWave | None:
+        for wave in self._chain.waves:
+            statuses = [
+                step.status
+                for step_id in wave.step_ids
+                if (step := self._chain.step_by_id(step_id)) is not None
+            ]
+            if not statuses:
+                continue
+            if all(status in _TERMINAL_STEP_STATUSES for status in statuses):
+                continue
+            return wave
+        return None
 
     def summary(self) -> dict[str, Any]:
         """Return a summary of the chain execution."""

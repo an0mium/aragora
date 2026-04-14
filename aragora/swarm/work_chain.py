@@ -22,6 +22,7 @@ from enum import Enum
 from typing import Any
 
 UTC = timezone.utc
+_DEPENDENCY_ALIAS_KEYS = ("work_order_id", "pipeline_task_id", "task_key")
 
 
 class ChainStatus(str, Enum):
@@ -43,6 +44,9 @@ class StepStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     SKIPPED = "skipped"
+
+
+_TERMINAL_STEP_STATUSES = frozenset({StepStatus.COMPLETED, StepStatus.FAILED, StepStatus.SKIPPED})
 
 
 @dataclass
@@ -167,11 +171,7 @@ class WorkChain:
 
     def ready_steps(self) -> list[ChainStep]:
         """Return steps whose dependencies are all completed."""
-        completed = {
-            step.step_id
-            for step in self.steps
-            if step.status in (StepStatus.COMPLETED, StepStatus.SKIPPED)
-        }
+        completed = {step.step_id for step in self.steps if step.status == StepStatus.COMPLETED}
         return [
             step
             for step in self.steps
@@ -188,14 +188,25 @@ class WorkChain:
 
     def _update_chain_status(self) -> None:
         statuses = {step.status for step in self.steps}
-        if all(s in (StepStatus.COMPLETED, StepStatus.SKIPPED) for s in statuses):
-            self.status = ChainStatus.COMPLETED
-        elif StepStatus.FAILED in statuses:
-            self.status = ChainStatus.FAILED
-        elif StepStatus.RUNNING in statuses or StepStatus.READY in statuses:
+        if statuses and all(status in _TERMINAL_STEP_STATUSES for status in statuses):
+            self.status = (
+                ChainStatus.FAILED if StepStatus.FAILED in statuses else ChainStatus.COMPLETED
+            )
+            return
+        if statuses and any(
+            status
+            in {
+                StepStatus.RUNNING,
+                StepStatus.READY,
+                StepStatus.COMPLETED,
+                StepStatus.FAILED,
+                StepStatus.SKIPPED,
+            }
+            for status in statuses
+        ):
             self.status = ChainStatus.RUNNING
-        else:
-            self.status = ChainStatus.PENDING
+            return
+        self.status = ChainStatus.PENDING
 
     def fingerprint(self) -> str:
         """Stable hash over chain structure for dedup."""
@@ -287,6 +298,7 @@ def build_chain_from_work_orders(
     """
     steps: list[ChainStep] = []
     wo_to_step: dict[str, str] = {}
+    alias_to_step: dict[str, str] = {}
 
     for wo in work_orders:
         wo_id = str(wo.get("work_order_id", "")).strip()
@@ -294,17 +306,33 @@ def build_chain_from_work_orders(
             continue
         step_id = wo_id
         wo_to_step[wo_id] = step_id
+        for key in _DEPENDENCY_ALIAS_KEYS:
+            alias = str(wo.get(key, "")).strip()
+            if not alias:
+                continue
+            existing = alias_to_step.get(alias)
+            if existing is not None and existing != step_id:
+                raise ValueError(f"Dependency alias '{alias}' maps to multiple work orders")
+            alias_to_step[alias] = step_id
 
     for wo in work_orders:
         wo_id = str(wo.get("work_order_id", "")).strip()
         if wo_id not in wo_to_step:
             continue
         raw_deps = wo.get("dependency_ids", [])
-        depends_on = [
-            wo_to_step[dep]
-            for dep in (raw_deps if isinstance(raw_deps, list) else [])
-            if str(dep or "").strip() in wo_to_step
-        ]
+        if not isinstance(raw_deps, list):
+            raw_deps = []
+        depends_on: list[str] = []
+        for raw_dep in raw_deps:
+            dependency_id = str(raw_dep or "").strip()
+            if not dependency_id:
+                continue
+            resolved = alias_to_step.get(dependency_id)
+            if resolved is None:
+                raise ValueError(
+                    f"Unknown dependency id '{dependency_id}' for work order '{wo_id}'"
+                )
+            depends_on.append(resolved)
         steps.append(
             ChainStep(
                 step_id=wo_to_step[wo_id],

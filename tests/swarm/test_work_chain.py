@@ -170,6 +170,17 @@ class TestReadySteps:
         assert len(ready) == 1
         assert ready[0].step_id == "b"
 
+    def test_skipped_predecessor_does_not_make_successor_ready(self) -> None:
+        steps = [
+            ChainStep(step_id="a", work_order_id="wo-a", title="A"),
+            ChainStep(step_id="b", work_order_id="wo-b", title="B", depends_on=["a"]),
+        ]
+        chain = WorkChain(chain_id="test", title="Sequence", steps=steps)
+
+        chain.mark_step("a", StepStatus.SKIPPED)
+
+        assert chain.ready_steps() == []
+
 
 class TestChainStatus:
     def test_all_completed_makes_chain_completed(self) -> None:
@@ -182,13 +193,15 @@ class TestChainStatus:
         chain.mark_step("b", StepStatus.COMPLETED)
         assert chain.status == ChainStatus.COMPLETED
 
-    def test_any_failed_makes_chain_failed(self) -> None:
+    def test_any_failed_makes_chain_failed_once_all_steps_are_terminal(self) -> None:
         steps = [
             ChainStep(step_id="a", work_order_id="wo-a", title="A"),
             ChainStep(step_id="b", work_order_id="wo-b", title="B"),
         ]
         chain = WorkChain(chain_id="test", title="Test", steps=steps)
         chain.mark_step("a", StepStatus.FAILED)
+        assert chain.status == ChainStatus.RUNNING
+        chain.mark_step("b", StepStatus.COMPLETED)
         assert chain.status == ChainStatus.FAILED
 
     def test_skipped_counts_as_done(self) -> None:
@@ -262,6 +275,28 @@ class TestBuildFromWorkOrders:
         assert chain.topological_order[0] == "wo-1"
         assert chain.topological_order[1] == "wo-2"
 
+    def test_resolves_dependency_ids_via_pipeline_task_id(self) -> None:
+        work_orders = [
+            {
+                "work_order_id": "wo-1",
+                "pipeline_task_id": "task-1",
+                "title": "Create module",
+            },
+            {
+                "work_order_id": "wo-2",
+                "pipeline_task_id": "task-2",
+                "title": "Add tests",
+                "dependency_ids": ["task-1"],
+            },
+        ]
+
+        chain = build_chain_from_work_orders("Test chain", work_orders)
+
+        assert len(chain.steps) == 2
+        assert chain.step_by_id("wo-2") is not None
+        assert chain.step_by_id("wo-2").depends_on == ["wo-1"]
+        assert chain.topological_order == ["wo-1", "wo-2"]
+
     def test_skips_empty_work_order_ids(self) -> None:
         work_orders = [
             {"work_order_id": "", "title": "Empty"},
@@ -270,7 +305,7 @@ class TestBuildFromWorkOrders:
         chain = build_chain_from_work_orders("Test", work_orders)
         assert len(chain.steps) == 1
 
-    def test_ignores_dangling_dependency_ids(self) -> None:
+    def test_raises_on_dangling_dependency_ids(self) -> None:
         work_orders = [
             {
                 "work_order_id": "wo-1",
@@ -278,9 +313,8 @@ class TestBuildFromWorkOrders:
                 "dependency_ids": ["nonexistent"],
             },
         ]
-        chain = build_chain_from_work_orders("Test", work_orders)
-        assert len(chain.steps) == 1
-        assert chain.steps[0].depends_on == []
+        with pytest.raises(ValueError, match="Unknown dependency id"):
+            build_chain_from_work_orders("Test", work_orders)
 
 
 class TestComplexDAGPatterns:
