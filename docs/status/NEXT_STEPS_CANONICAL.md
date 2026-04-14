@@ -113,13 +113,15 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 | Order | Code | Why it matters to the wedge | Acceptance criteria | Proof metric | Layer | GitHub coverage |
 |---|---|---|---|---|---|---|
-| 1 | `TW-03` | Human rescues only create leverage when they become fixtures or product work. | Every repeated rescue class becomes a benchmark fixture or bounded substrate issue within one weekly cycle. | Repeated rescue classes trend down, and every repeated class has a linked fixture or bounded issue. | trust | [#5330](https://github.com/synaptent/aragora/issues/5330) |
-| 2 | `CS-01..03` | The wedge fails commercially if external claims outrun measured proof. | Roadmap, status, and positioning docs keep the wedge-first story and gate claims on measured proof. | External-facing docs stay narrower than current truth metrics and current gate status. | trust | Covered by [#804](https://github.com/synaptent/aragora/issues/804), [#806](https://github.com/synaptent/aragora/issues/806), and the current docs; no dedicated lane issue exists yet. |
+| 1 | `TW-02` | The project still needs routine issue-level truth publication linked cleanly from status surfaces, not one-off benchmark artifacts. | Weekly truth reporting uses `mergeable_pr OR merged_pr`, distinguishes proxy from truth, and stays linked from status docs. | Fresh `origin/main` truth reports publish issue-level truth success and no-rescue truth success. | trust | [#5540](https://github.com/synaptent/aragora/issues/5540), [#5601](https://github.com/synaptent/aragora/pull/5601) |
+| 2 | `TW-03` | Human rescues only create leverage when they become fixtures or product work. | Every repeated rescue class becomes a benchmark fixture or bounded substrate issue within one weekly cycle. | Repeated rescue classes trend down, and every repeated class has a linked fixture or bounded issue. | trust | [#5330](https://github.com/synaptent/aragora/issues/5330), [#5602](https://github.com/synaptent/aragora/pull/5602) |
+| 3 | `CS-01..03` | The wedge fails commercially if external claims outrun measured proof. | Roadmap, status, and positioning docs keep the wedge-first story and gate claims on measured proof. | External-facing docs stay narrower than current truth metrics and current gate status. | trust | Covered by [#804](https://github.com/synaptent/aragora/issues/804), [#806](https://github.com/synaptent/aragora/issues/806), and the current docs; no dedicated lane issue exists yet. |
 
 ## Do Now / Delay / Avoid
 
 ### Do now
 
+- `TW-02`
 - `TW-03`
 - `CS-01..03`
 
@@ -142,10 +144,11 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 ## Live Boss-Ready Queue
 
-- `TW-03` ([#5330](https://github.com/synaptent/aragora/issues/5330)) because repeated rescues only create leverage when the live loop turns them into fixtures or bounded issues.
-- There is no second dedicated boss-ready issue in this tranche right now; keep `CS-01..03` enforced through the docs/status surfaces until a concrete bounded issue exists.
+- The live `boss-ready` queue should stay empty while active trust-loop PRs already own the current bounded scopes.
+- `TW-02` remains the top open trust item, but its current bounded implementation is already in flight on [#5601](https://github.com/synaptent/aragora/pull/5601).
+- `TW-03` remains the second open trust item, but its current bounded implementation is already in flight on [#5602](https://github.com/synaptent/aragora/pull/5602).
 
-The live queue for this tranche should now be driven by `TW-03`. `TW-01` ([#5539](https://github.com/synaptent/aragora/issues/5539)) completed on 2026-04-14, `TW-02` is now published through the repo-tracked recurring truth surface at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`, and [#5516](https://github.com/synaptent/aragora/issues/5516) completed under `TW-03` via [#5535](https://github.com/synaptent/aragora/pull/5535). `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; do not recycle them as active blockers unless new evidence shows a concrete regression.
+The live merge lane for this tranche is now carried by those trust-loop PRs. `TW-01` ([#5539](https://github.com/synaptent/aragora/issues/5539)) completed on 2026-04-14, and [#5516](https://github.com/synaptent/aragora/issues/5516) completed under `TW-03` via [#5535](https://github.com/synaptent/aragora/pull/5535). `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; do not recycle them as active blockers unless new evidence shows a concrete regression.
 
 ## Reverse-Staged Rocket Bootstrap
 
