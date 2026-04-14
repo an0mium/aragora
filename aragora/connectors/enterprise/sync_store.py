@@ -122,7 +122,7 @@ try:
     METRICS_AVAILABLE = True
 except (ImportError, AttributeError):
     # Metrics functions are optional and may not be exported in all configurations
-    pass
+    logger.debug("encryption metrics unavailable, running without instrumentation")
 
 
 # Credential fields that should be encrypted
