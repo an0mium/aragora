@@ -14,6 +14,7 @@ Usage:
   python3 scripts/measure_b0_scorecard.py
   python3 scripts/measure_b0_scorecard.py --metrics .aragora/overnight/boss_metrics.jsonl
   python3 scripts/measure_b0_scorecard.py --json
+  python3 scripts/measure_b0_scorecard.py --ci --threshold 0.5
   python3 scripts/measure_b0_scorecard.py --window 100
 """
 
@@ -153,7 +154,26 @@ def print_scorecard(scorecard: dict[str, Any]) -> None:
     print("=" * 60)
 
 
-def main() -> int:
+def render_ci_summary(scorecard: dict[str, Any], *, threshold: float) -> str:
+    success_rate = float(scorecard.get("no_rescue_success_rate", 0.0) or 0.0)
+    status = (
+        "pass" if success_rate >= threshold and scorecard.get("status") != "no_data" else "fail"
+    )
+    return " ".join(
+        [
+            f"status={status}",
+            f"scorecard_status={scorecard.get('status', 'unknown')}",
+            f"success_rate={success_rate:.3f}",
+            f"threshold={threshold:.3f}",
+            f"total_ticks={int(scorecard.get('total_ticks', 0) or 0)}",
+            f"unique_issues_attempted={int(scorecard.get('unique_issues_attempted', 0) or 0)}",
+            f"unique_issues_succeeded={int(scorecard.get('unique_issues_succeeded', 0) or 0)}",
+            f"unique_issues_failed={int(scorecard.get('unique_issues_failed', 0) or 0)}",
+        ]
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="B0 Benchmark Scorecard")
     parser.add_argument(
         "--metrics",
@@ -162,14 +182,34 @@ def main() -> int:
         help="Path to boss_metrics.jsonl",
     )
     parser.add_argument("--window", type=int, default=None, help="Last N ticks only")
-    parser.add_argument("--json", action="store_true", help="JSON output")
-    args = parser.parse_args()
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument("--json", action="store_true", help="JSON output")
+    output_group.add_argument(
+        "--ci",
+        action="store_true",
+        help="CI output: one-line summary and threshold-based exit status",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.5,
+        help="Minimum no-rescue success rate required in --ci mode (default: 0.5)",
+    )
+    args = parser.parse_args(argv)
 
     rows = load_metrics(args.metrics, args.window)
     scorecard = compute_scorecard(rows)
 
     if args.json:
         print(json.dumps(scorecard, indent=2))
+    elif args.ci:
+        print(render_ci_summary(scorecard, threshold=args.threshold))
+        return (
+            0
+            if scorecard.get("status") != "no_data"
+            and scorecard.get("no_rescue_success_rate", 0.0) >= args.threshold
+            else 1
+        )
     else:
         print_scorecard(scorecard)
 
