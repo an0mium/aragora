@@ -667,7 +667,7 @@ class IdeaToExecutionPipeline:
             description = getattr(goal, "description", str(goal))
             rationale = getattr(goal, "rationale", "")
             track = getattr(goal, "track", None)
-            track_str = track.value if hasattr(track, "value") else str(track or "core")
+            track_str = track.value if hasattr(track, "value") else str(track or "core")  # type: ignore[union-attr]
 
             parts = [f"[{impact}]"]
             if track_str:

@@ -57,7 +57,7 @@ class PipelineKMBridge:
         results: dict[str, list[dict[str, Any]]] = {}
         for goal in goal_graph.goals:
             try:
-                matches = self._km.search(
+                matches = self._km.search(  # type: ignore[union-attr]
                     query=goal.title,
                     limit=3,
                     min_similarity=0.5,
@@ -88,7 +88,7 @@ class PipelineKMBridge:
         results: dict[str, list[dict[str, Any]]] = {}
         for node_id, node in actions_canvas.nodes.items():
             try:
-                matches = self._km.search(
+                matches = self._km.search(  # type: ignore[union-attr]
                     query=node.label,
                     limit=3,
                     min_similarity=0.5,
@@ -611,7 +611,7 @@ class PipelineKMBridge:
         try:
             objective = result_dict.get("objective", "pipeline result")
             cycle_id = result_dict.get("cycle_id", "unknown")
-            self._km.add(
+            self._km.add(  # type: ignore[union-attr]
                 content=(f"Pipeline cycle {cycle_id}: {objective}"),
                 metadata={
                     "item_type": "pipeline_result",

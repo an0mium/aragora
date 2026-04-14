@@ -140,7 +140,7 @@ async def capture_context_snapshot(
     enforce_tenant = False
 
     try:
-        from aragora.memory.access import (
+        from aragora.memory.access import (  # type: ignore[no-redef]
             build_access_envelope,
             emit_denial_telemetry,
             filter_entries,
