@@ -24,7 +24,11 @@ from typing import Any
 
 from aragora.nomic.dev_coordination import DevCoordinationStore
 from aragora.pipeline.execution_mode import ExecutionMode
-from aragora.swarm.boss_loop_outcome import append_iteration_metrics
+from aragora.swarm.boss_loop_outcome import (
+    append_iteration_metrics,
+    freshness_is_fresh as _freshness_is_fresh,
+    freshness_to_dict as _freshness_to_dict,
+)
 from aragora.swarm.debate_gate import DebateGate, DebateGateConfig, DebateGateRequest
 from aragora.swarm.dispatch_contract_gate import dispatch_contract_gate
 from aragora.swarm.env_utils import git_safe_env
@@ -366,27 +370,6 @@ def _qualify_worker_result_terminal_state(worker_result: dict[str, Any]) -> tupl
             )
     qualification = qualify_work_order_terminal_state(adapted)
     return qualification.terminal_outcome, qualification.deliverable_type or ""
-
-
-def _freshness_to_dict(freshness: Any) -> dict[str, Any]:
-    """Best-effort conversion for custom freshness checker payloads."""
-    if isinstance(freshness, RunnerFreshnessResult):
-        return freshness.to_dict()
-    to_dict = getattr(freshness, "to_dict", None)
-    if callable(to_dict):
-        payload = to_dict()
-        if isinstance(payload, dict):
-            return dict(payload)
-    if isinstance(freshness, dict):
-        return dict(freshness)
-    return {}
-
-
-def _freshness_is_fresh(freshness: Any, freshness_dict: dict[str, Any]) -> bool:
-    """Require a real boolean freshness signal before dispatching work."""
-    if hasattr(freshness, "fresh"):
-        return getattr(freshness, "fresh") is True
-    return freshness_dict.get("fresh") is True
 
 
 async def dispatch_bounded_spec(

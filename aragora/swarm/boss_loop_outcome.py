@@ -14,6 +14,25 @@ from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics
 logger = logging.getLogger(__name__)
 
 
+def freshness_to_dict(freshness: Any) -> dict[str, Any]:
+    """Best-effort conversion for custom freshness checker payloads."""
+    to_dict = getattr(freshness, "to_dict", None)
+    if callable(to_dict):
+        payload = to_dict()
+        if isinstance(payload, dict):
+            return dict(payload)
+    if isinstance(freshness, dict):
+        return dict(freshness)
+    return {}
+
+
+def freshness_is_fresh(freshness: Any, freshness_dict: dict[str, Any]) -> bool:
+    """Require a real boolean freshness signal before dispatching work."""
+    if hasattr(freshness, "fresh"):
+        return getattr(freshness, "fresh") is True
+    return freshness_dict.get("fresh") is True
+
+
 def _serialize_blocker_evidence(value: Any) -> str | None:
     """Normalize blocker evidence into stable text for JSONL metrics rows."""
     if value is None:
