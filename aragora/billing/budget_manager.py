@@ -692,8 +692,10 @@ class BudgetManager:
                         },
                     )
                 )
-            except (ImportError, AttributeError, TypeError):
+            except ImportError:
                 pass
+            except (AttributeError, TypeError) as exc:
+                logger.debug("budget_anomaly_webhook_failed: %s", exc)
 
         return True
 

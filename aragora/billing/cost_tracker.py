@@ -619,8 +619,10 @@ class CostTracker:
                         },
                     )
                 )
-            except (ImportError, AttributeError, TypeError):
+            except ImportError:
                 pass
+            except (AttributeError, TypeError) as exc:
+                logger.debug("budget_alert_webhook_failed: %s", exc)
 
         logger.warning("budget_alert %s", alert.message)
 

@@ -20,6 +20,7 @@ import asyncio
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
+import logging
 import os
 from pathlib import Path
 import shlex
@@ -28,6 +29,8 @@ import sys
 import tempfile
 from typing import Any, Coroutine, TypeVar
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 JsonDict = dict[str, Any]
 T = TypeVar("T")
@@ -939,8 +942,8 @@ def _build_boss_payload(
             coordination = DevCoordinationStore(repo_root=repo_root).status_summary(
                 include_integrator_artifacts=True
             )
-        except (RuntimeError, OSError, ValueError):
-            pass
+        except (RuntimeError, OSError, ValueError) as exc:
+            logger.debug("coordination_status_fetch_failed: %s: %s", type(exc).__name__, exc)
     integrator_view = build_integrator_view(
         runs=[run],
         worktrees=worktrees,
@@ -2083,8 +2086,10 @@ def cmd_swarm(args: argparse.Namespace) -> None:
                     from aragora.swarm.pr_registry import PullRequestRegistry
 
                     PullRequestRegistry().close(branch, outcome="archived")
-                except (ImportError, RuntimeError, OSError, ValueError):
+                except ImportError:
                     pass
+                except (RuntimeError, OSError, ValueError) as exc:
+                    logger.debug("pr_registry_close_failed branch=%s: %s", branch, exc)
             payload = {
                 "lane_id": lane.get("lane_id"),
                 "receipt_id": resolved_receipt_id,

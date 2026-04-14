@@ -10,7 +10,10 @@ credential initialization. Keep package import cheap and resolve exports lazily.
 from __future__ import annotations
 
 import importlib
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 _OPTIONAL_MODULE_EXPORTS = {
     "aragora.agents.api_agents": {
@@ -185,6 +188,8 @@ def get_agents_by_names(names: list[str]) -> list:
         try:
             if AgentRegistry.is_registered(name):
                 agents.append(create_agent(name))
-        except (ImportError, RuntimeError, ValueError):
+        except ImportError:
             pass
+        except (RuntimeError, ValueError) as exc:
+            logger.debug("agent_create_failed name=%s: %s", name, exc)
     return agents
