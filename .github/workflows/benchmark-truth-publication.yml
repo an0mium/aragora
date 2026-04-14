@@ -55,7 +55,8 @@ jobs:
           python3 scripts/measure_b0_scorecard.py \
             --publish \
             --publish-dir docs/status/generated/benchmark_scorecards \
-            --truth-publish-dir docs/status/generated/benchmark_truth_artifacts
+            --truth-publish-dir docs/status/generated/benchmark_truth_artifacts \
+            --fail-incomplete
 
           python3 scripts/render_benchmark_truth_status.py \
             --output docs/status/B0_BENCHMARK_TRUTH_STATUS.md

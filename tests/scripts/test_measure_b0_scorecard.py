@@ -476,3 +476,45 @@ def test_main_ci_fail_incomplete_fails_for_missing_corpus_issue(tmp_path: Path, 
     captured = capsys.readouterr()
     assert exit_code == 1
     assert "coverage_status=incomplete" in captured.out
+
+
+def test_main_publish_fail_incomplete_does_not_write_scorecard_or_truth_artifact(
+    tmp_path: Path, capsys
+) -> None:
+    metrics_path = _write_metrics(
+        tmp_path / "boss_metrics.jsonl",
+        [{"issue_number": 1001, "terminal_class": "deliverable_pr_created"}],
+    )
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 1,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [
+                {"issue_id": 1001, "title": "Issue A"},
+                {"issue_id": 1002, "title": "Issue B"},
+            ],
+        },
+    )
+
+    exit_code = mod.main(
+        [
+            "--metrics",
+            str(metrics_path),
+            "--corpus",
+            str(corpus_path),
+            "--publish-dir",
+            str(tmp_path / "published"),
+            "--truth-publish-dir",
+            str(tmp_path / "truth-published"),
+            "--fail-incomplete",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "incomplete corpus coverage" in captured.err
+    assert not (tmp_path / "published").exists()
+    assert not (tmp_path / "truth-published").exists()

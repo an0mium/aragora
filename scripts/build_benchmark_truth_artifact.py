@@ -358,6 +358,19 @@ def main(argv: list[str] | None = None) -> int:
         publish_dir = args.publish_dir.resolve()
     elif args.publish:
         publish_dir = DEFAULT_PUBLISH_DIR
+    if args.json or (args.output is None and publish_dir is None):
+        print(json.dumps(artifact, indent=2, sort_keys=True))
+    is_complete = artifact.get("run_status") == "complete"
+    if args.fail_incomplete and not is_complete:
+        missing_issue_numbers = list(
+            (artifact.get("coverage") or {}).get("missing_issue_numbers") or []
+        )
+        missing_suffix = ", ".join(str(item) for item in missing_issue_numbers) or "unknown"
+        print(
+            f"incomplete corpus coverage: missing issue numbers {missing_suffix}",
+            file=sys.stderr,
+        )
+        return 2
     if args.output is not None:
         output_path = write_artifact(args.output.resolve(), artifact)
         print(str(output_path))
@@ -371,18 +384,6 @@ def main(argv: list[str] | None = None) -> int:
             print(str(published_path), file=sys.stderr)
         else:
             print(str(published_path))
-    if args.json or (args.output is None and publish_dir is None):
-        print(json.dumps(artifact, indent=2, sort_keys=True))
-    if args.fail_incomplete and artifact.get("run_status") != "complete":
-        missing_issue_numbers = list(
-            (artifact.get("coverage") or {}).get("missing_issue_numbers") or []
-        )
-        missing_suffix = ", ".join(str(item) for item in missing_issue_numbers) or "unknown"
-        print(
-            f"incomplete corpus coverage: missing issue numbers {missing_suffix}",
-            file=sys.stderr,
-        )
-        return 2
     return 0
 
 

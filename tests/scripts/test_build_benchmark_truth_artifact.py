@@ -271,6 +271,71 @@ def test_main_fail_incomplete_returns_nonzero_and_emits_artifact(
     assert "incomplete corpus coverage" in captured.err
 
 
+def test_main_fail_incomplete_does_not_publish_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text("", encoding="utf-8")
+    corpus_path = tmp_path / "corpus.json"
+    corpus_path.write_text(
+        json.dumps(
+            {
+                "corpus_id": "tw-01-bounded-execution-v1",
+                "revision": 1,
+                "recorded_on": "2026-04-14",
+                "success_contract": "mergeable_pr_or_merged_pr",
+                "issues": [
+                    {"issue_id": 1064, "title": "Issue A"},
+                    {"issue_id": 873, "title": "Issue B"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    fake_client = FakeGitHubTruthClient(
+        issues={
+            1064: {"title": "Issue A", "comments": []},
+            873: {"title": "Issue B", "comments": []},
+        },
+        prs={
+            1064: {
+                "number": 6002,
+                "title": "mergeable fix",
+                "url": "https://github.com/synaptent/aragora/pull/6002",
+                "state": "OPEN",
+                "mergeable": "MERGEABLE",
+                "mergeStateStatus": "CLEAN",
+                "mergedAt": None,
+                "isDraft": False,
+            }
+        },
+    )
+
+    monkeypatch.setattr(mod, "GitHubTruthClient", lambda: fake_client)
+
+    publish_dir = tmp_path / "published"
+    exit_code = mod.main(
+        [
+            "--repo",
+            "synaptent/aragora",
+            "--metrics-file",
+            str(metrics_path),
+            "--corpus",
+            str(corpus_path),
+            "--publish-dir",
+            str(publish_dir),
+            "--fail-incomplete",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "incomplete corpus coverage" in captured.err
+    assert not publish_dir.exists()
+
+
 def test_write_artifact_emits_diffable_json(tmp_path: Path) -> None:
     payload = {
         "generated_at": "2026-04-13T20:00:00Z",

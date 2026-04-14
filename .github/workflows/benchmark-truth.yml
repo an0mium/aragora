@@ -70,6 +70,7 @@ jobs:
             --repo synaptent/aragora \
             --metrics-file "$METRICS_FILE" \
             --corpus docs/benchmarks/corpus.json \
+            --fail-incomplete \
             --json > truth-artifact.json
           echo "## Truth Artifact Summary" >> "$GITHUB_STEP_SUMMARY"
           python3 -c "

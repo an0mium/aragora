@@ -625,9 +625,11 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
 
+    incomplete_corpus = (scorecard.get("coverage") or {}).get("is_complete") is False
+
     published_scorecard: dict[str, Any] | None = None
     published_path: Path | None = None
-    if publish_dir is not None:
+    if publish_dir is not None and not (args.fail_incomplete and incomplete_corpus):
         if truth_artifact_path is None:
             if corpus_path is None:
                 raise SystemExit("publish mode requires --truth-artifact PATH or --corpus PATH")
@@ -682,7 +684,7 @@ def main(argv: list[str] | None = None) -> int:
     elif published_path is None:
         print_scorecard(scorecard)
 
-    if args.fail_incomplete and (scorecard.get("coverage") or {}).get("is_complete") is False:
+    if args.fail_incomplete and incomplete_corpus:
         missing_issue_numbers = list(
             (scorecard.get("coverage") or {}).get("missing_issue_numbers") or []
         )
