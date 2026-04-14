@@ -47,6 +47,14 @@ jobs:
           command -v gh >/dev/null
           test -f .aragora/overnight/boss_metrics.jsonl
 
+      - name: Refresh recurring benchmark corpus metrics
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/run_benchmark_corpus_recurrence.py \
+            --repo synaptent/aragora
+
       - name: Publish tracked trust-loop surfaces
         env:
           GH_TOKEN: ${{ github.token }}
