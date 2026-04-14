@@ -21,13 +21,17 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
+DEFAULT_PUBLISH_DIR = REPO_ROOT / ".aragora" / "benchmark_scorecards"
 
 # Terminal classes that count as autonomous success (no human rescue)
 SUCCESS_CLASSES = frozenset(
@@ -51,6 +55,179 @@ FAILURE_CLASSES = frozenset(
         "blocked_no_runner",
     }
 )
+
+
+def _coerce_utc_datetime(value: str | None = None) -> dt.datetime:
+    if value:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        parsed = dt.datetime.now(dt.UTC)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.UTC)
+    return parsed.astimezone(dt.UTC).replace(microsecond=0)
+
+
+def normalize_generated_at(value: str | None = None) -> str:
+    return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
+
+
+def _repo_stable_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
+    return slug.strip("-") or "benchmark-corpus"
+
+
+def _load_json(path: Path) -> dict[str, Any]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"JSON payload at {path} must be an object")
+    return payload
+
+
+def _metric_value(payload: dict[str, Any], *path: str) -> float | None:
+    current: Any = payload
+    for key in path:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    if isinstance(current, (int, float)):
+        return float(current)
+    return None
+
+
+def _comparison_delta(
+    current: float | None, previous: float | None, *, digits: int = 4
+) -> float | None:
+    if current is None or previous is None:
+        return None
+    return round(current - previous, digits)
+
+
+def resolve_published_scorecard_path(
+    *,
+    publish_dir: Path,
+    published_scorecard: dict[str, Any],
+) -> Path:
+    corpus = dict(published_scorecard.get("corpus") or {})
+    timestamp = _coerce_utc_datetime(str(published_scorecard.get("generated_at") or None)).strftime(
+        "%Y%m%dT%H%M%SZ"
+    )
+    corpus_id = _slugify(str(corpus.get("corpus_id") or "benchmark-corpus"))
+    revision = int(corpus.get("revision", 0) or 0)
+    return publish_dir / corpus_id / f"rev-{revision}" / f"scorecard-{timestamp}.json"
+
+
+def resolve_available_published_scorecard_path(
+    *,
+    publish_dir: Path,
+    published_scorecard: dict[str, Any],
+) -> Path:
+    base_path = resolve_published_scorecard_path(
+        publish_dir=publish_dir,
+        published_scorecard=published_scorecard,
+    )
+    if not base_path.exists():
+        return base_path
+    for index in range(2, 1000):
+        candidate = base_path.with_name(f"{base_path.stem}-{index}{base_path.suffix}")
+        if not candidate.exists():
+            return candidate
+    raise RuntimeError(f"unable to reserve unique scorecard path under {base_path.parent}")
+
+
+def _previous_published_scorecard_path(
+    *,
+    publish_dir: Path,
+    corpus_id: str,
+    revision: int,
+) -> Path | None:
+    target_dir = publish_dir / _slugify(corpus_id) / f"rev-{revision}"
+    candidates = sorted(target_dir.glob("scorecard-*.json"))
+    return candidates[-1] if candidates else None
+
+
+def build_published_scorecard(
+    *,
+    scorecard: dict[str, Any],
+    metrics_path: Path,
+    truth_artifact_path: Path,
+    publish_dir: Path,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    truth_artifact = _load_json(truth_artifact_path)
+    corpus = dict(truth_artifact.get("corpus") or {})
+    if not corpus:
+        raise ValueError(f"Truth artifact at {truth_artifact_path} is missing corpus metadata")
+
+    published = {
+        "generated_at": normalize_generated_at(generated_at),
+        "metrics_file": _repo_stable_path(metrics_path),
+        "truth_artifact_path": _repo_stable_path(truth_artifact_path),
+        "truth_artifact_generated_at": str(truth_artifact.get("generated_at") or "").strip()
+        or None,
+        "corpus": {
+            "path": str(corpus.get("path") or "").strip() or None,
+            "corpus_id": str(corpus.get("corpus_id") or "").strip(),
+            "revision": int(corpus.get("revision", 0) or 0),
+            "recorded_on": str(corpus.get("recorded_on") or "").strip() or None,
+            "success_contract": str(corpus.get("success_contract") or "").strip() or None,
+            "issue_count": int(corpus.get("issue_count", 0) or 0),
+        },
+        "truth_metrics": dict(truth_artifact.get("primary_metrics") or {}),
+        "coverage": dict(truth_artifact.get("coverage") or {}),
+        "failure_class_distribution": dict(truth_artifact.get("failure_class_distribution") or {}),
+        "rescue_counts_by_type": dict(truth_artifact.get("rescue_counts_by_type") or {}),
+        "proxy_metrics": dict(scorecard),
+    }
+
+    previous_path = _previous_published_scorecard_path(
+        publish_dir=publish_dir,
+        corpus_id=published["corpus"]["corpus_id"],
+        revision=int(published["corpus"]["revision"] or 0),
+    )
+    if previous_path is not None:
+        previous = _load_json(previous_path)
+        published["previous_artifact"] = {
+            "path": _repo_stable_path(previous_path),
+            "generated_at": str(previous.get("generated_at") or "").strip() or None,
+        }
+        published["deltas"] = {
+            "truth_success_rate": _comparison_delta(
+                _metric_value(published, "truth_metrics", "truth_success_rate"),
+                _metric_value(previous, "truth_metrics", "truth_success_rate"),
+            ),
+            "no_rescue_truth_success_rate": _comparison_delta(
+                _metric_value(published, "truth_metrics", "no_rescue_truth_success_rate"),
+                _metric_value(previous, "truth_metrics", "no_rescue_truth_success_rate"),
+            ),
+            "merged_only_rate": _comparison_delta(
+                _metric_value(published, "truth_metrics", "merged_only_rate"),
+                _metric_value(previous, "truth_metrics", "merged_only_rate"),
+            ),
+            "proxy_no_rescue_success_rate": _comparison_delta(
+                _metric_value(published, "proxy_metrics", "no_rescue_success_rate"),
+                _metric_value(previous, "proxy_metrics", "no_rescue_success_rate"),
+            ),
+            "unique_issues_attempted": _comparison_delta(
+                _metric_value(published, "proxy_metrics", "unique_issues_attempted"),
+                _metric_value(previous, "proxy_metrics", "unique_issues_attempted"),
+                digits=0,
+            ),
+        }
+    return published
+
+
+def write_artifact(path: Path, payload: dict[str, Any]) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
 
 
 def load_metrics(path: Path, window: int | None = None) -> list[dict[str, Any]]:
@@ -182,6 +359,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Path to boss_metrics.jsonl",
     )
     parser.add_argument("--window", type=int, default=None, help="Last N ticks only")
+    parser.add_argument(
+        "--truth-artifact",
+        type=Path,
+        default=None,
+        help="Optional benchmark truth artifact JSON used for published recurring scorecards",
+    )
     output_group = parser.add_mutually_exclusive_group()
     output_group.add_argument("--json", action="store_true", help="JSON output")
     output_group.add_argument(
@@ -195,13 +378,54 @@ def main(argv: list[str] | None = None) -> int:
         default=0.5,
         help="Minimum no-rescue success rate required in --ci mode (default: 0.5)",
     )
+    parser.add_argument(
+        "--publish",
+        action="store_true",
+        help="Write a timestamped scorecard artifact under the repo-stable publish path",
+    )
+    parser.add_argument(
+        "--publish-dir",
+        type=Path,
+        default=None,
+        help=f"Optional publish root override (default: {DEFAULT_PUBLISH_DIR})",
+    )
     args = parser.parse_args(argv)
 
     rows = load_metrics(args.metrics, args.window)
     scorecard = compute_scorecard(rows)
+    publish_dir: Path | None = None
+    if args.publish_dir is not None:
+        publish_dir = args.publish_dir.resolve()
+    elif args.publish:
+        publish_dir = DEFAULT_PUBLISH_DIR
+    truth_artifact_path = args.truth_artifact.resolve() if args.truth_artifact else None
+    published_scorecard: dict[str, Any] | None = None
+    published_path: Path | None = None
+    if publish_dir is not None:
+        if truth_artifact_path is None:
+            raise SystemExit("truth artifact required for publish mode: --truth-artifact PATH")
+        if not truth_artifact_path.exists():
+            raise SystemExit(f"truth artifact not found: {truth_artifact_path}")
+        published_scorecard = build_published_scorecard(
+            scorecard=scorecard,
+            metrics_path=args.metrics.resolve(),
+            truth_artifact_path=truth_artifact_path,
+            publish_dir=publish_dir,
+        )
+        published_path = write_artifact(
+            resolve_available_published_scorecard_path(
+                publish_dir=publish_dir,
+                published_scorecard=published_scorecard,
+            ),
+            published_scorecard,
+        )
+        if args.json or args.ci:
+            print(str(published_path), file=sys.stderr)
+        else:
+            print(str(published_path))
 
     if args.json:
-        print(json.dumps(scorecard, indent=2))
+        print(json.dumps(published_scorecard or scorecard, indent=2, sort_keys=True))
     elif args.ci:
         print(render_ci_summary(scorecard, threshold=args.threshold))
         return (
@@ -210,7 +434,7 @@ def main(argv: list[str] | None = None) -> int:
             and scorecard.get("no_rescue_success_rate", 0.0) >= args.threshold
             else 1
         )
-    else:
+    elif published_path is None:
         print_scorecard(scorecard)
 
     return 0
