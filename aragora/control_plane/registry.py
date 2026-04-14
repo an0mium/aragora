@@ -297,7 +297,7 @@ class AgentRegistry:
             try:
                 await self._cleanup_task
             except asyncio.CancelledError:
-                pass
+                pass  # noqa: PERF203 -- expected: we just cancelled the task ourselves
 
         if self._redis:
             await self._redis.close()

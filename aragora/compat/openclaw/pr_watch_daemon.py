@@ -285,7 +285,7 @@ class PRWatchDaemon:
             try:
                 await self._task
             except asyncio.CancelledError:
-                pass
+                pass  # noqa: S110 — task was explicitly cancelled above; silence is correct here
         logger.info("PR watch daemon stopped")
 
     def get_status(self) -> dict[str, Any]:
@@ -309,7 +309,7 @@ class PRWatchDaemon:
                 await asyncio.wait_for(self._stop_event.wait(), timeout=delay)
                 return
             except asyncio.TimeoutError:
-                pass
+                logger.debug("Startup delay of %ds elapsed, beginning poll loop", delay)
 
         while not self._stop_event.is_set():
             try:
@@ -326,7 +326,10 @@ class PRWatchDaemon:
                 )
                 break
             except asyncio.TimeoutError:
-                pass
+                logger.debug(
+                    "Poll interval of %ds elapsed, starting next poll",
+                    self._config.poll_interval_seconds,
+                )
 
     # -- polling --
 
@@ -508,7 +511,7 @@ async def run_daemon(config: WatcherConfig) -> None:
         try:
             await daemon._task
         except asyncio.CancelledError:
-            pass
+            logger.debug("Daemon task cancelled during shutdown")
 
 
 # ---------------------------------------------------------------------------

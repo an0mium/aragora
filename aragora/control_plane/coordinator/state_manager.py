@@ -35,6 +35,8 @@ from aragora.resilience.retry import (
     with_retry,
 )
 
+logger = get_logger(__name__)
+
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.control_plane_adapter import (
         ControlPlaneAdapter,
@@ -75,8 +77,8 @@ if not TYPE_CHECKING:
 
         TaskOutcome = _TaskOutcome
         HAS_KM_ADAPTER = True
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("KM adapter not available, KM integration disabled: %s", e)
 
 # Optional Watchdog support (Gastown three-tier monitoring)
 HAS_WATCHDOG = False
@@ -96,8 +98,8 @@ if not TYPE_CHECKING:
         WatchdogIssue = _WatchdogIssue
         get_watchdog = _get_watchdog
         HAS_WATCHDOG = True
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("Watchdog not available, watchdog monitoring disabled: %s", e)
 
 # Optional AgentFactory for auto-creating agents from registry
 HAS_AGENT_FACTORY = False
@@ -111,8 +113,8 @@ if not TYPE_CHECKING:
         AgentFactory = _AgentFactory
         get_agent_factory = _get_agent_factory
         HAS_AGENT_FACTORY = True
-    except ImportError:
-        pass
+    except ImportError as e:
+        logger.debug("AgentFactory not available, auto-agent creation disabled: %s", e)
 
 # Optional Redis HA support
 HAS_REDIS_HA = False
@@ -126,10 +128,8 @@ if not TYPE_CHECKING:
         RedisHASettings = _RedisHASettings
         get_redis_ha_config = _get_redis_ha_config
         HAS_REDIS_HA = True
-    except ImportError:
-        pass
-
-logger = get_logger(__name__)
+    except ImportError as e:
+        logger.debug("Redis HA config not available, using standalone Redis: %s", e)
 
 # Retry configuration for control plane operations
 _CP_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["control_plane"]

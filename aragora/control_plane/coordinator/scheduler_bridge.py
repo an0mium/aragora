@@ -35,6 +35,8 @@ if TYPE_CHECKING:
 else:
     EnforcementLevelType = Any
 
+logger = get_logger(__name__)
+
 # Optional KM integration
 HAS_KM_ADAPTER = False
 try:
@@ -43,6 +45,7 @@ try:
     HAS_KM_ADAPTER = True
 except ImportError:
     _km_adapter = None
+    logger.debug("KM control_plane_adapter not available; KM task outcome storage disabled")
 
 # Optional Policy
 HAS_POLICY = False
@@ -53,9 +56,7 @@ if not TYPE_CHECKING:
         EnforcementLevelType = _EnforcementLevelType
         HAS_POLICY = True
     except ImportError:
-        pass
-
-logger = get_logger(__name__)
+        logger.debug("aragora.control_plane.policy not available; SLA policy enforcement disabled")
 
 # Retry configuration for control plane operations
 _CP_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["control_plane"]

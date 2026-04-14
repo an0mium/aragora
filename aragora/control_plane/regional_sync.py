@@ -295,14 +295,14 @@ class RegionalEventBus:
             try:
                 await self._listener_task
             except asyncio.CancelledError:
-                pass
+                pass  # noqa: ASYNC100 - expected: CancelledError is the normal outcome after explicit .cancel()
 
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
             try:
                 await self._heartbeat_task
             except asyncio.CancelledError:
-                pass
+                pass  # noqa: ASYNC100 - expected: CancelledError is the normal outcome after explicit .cancel()
 
         # Close pubsub
         if self._pubsub:
