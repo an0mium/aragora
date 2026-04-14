@@ -42,6 +42,7 @@ _GENERIC_PARENT_PHRASES: tuple[str, ...] = (
     "supporting tests",
     "think about it",
 )
+_OPEN_ISSUE_LIMIT = 500
 _OPEN_PR_PAGE_SIZE = 100
 _OPEN_PR_MAX_PAGES = 10
 _OPEN_PR_FILES_PAGE_SIZE = 100
@@ -124,7 +125,7 @@ def format_boss_ready_body(candidate: BossIssueCandidate) -> str:
 
 
 def fetch_existing_boss_issues(repo: str) -> list[dict]:
-    """Fetch open boss-ready issues from GitHub."""
+    """Fetch open generated issues from GitHub, regardless of current labels."""
     try:
         result = subprocess.run(
             [
@@ -133,12 +134,10 @@ def fetch_existing_boss_issues(repo: str) -> list[dict]:
                 "list",
                 "--repo",
                 repo,
-                "--label",
-                "boss-ready",
                 "--state",
                 "open",
                 "--limit",
-                "200",
+                str(_OPEN_ISSUE_LIMIT),
                 "--json",
                 "number,title,body",
             ],
@@ -147,7 +146,13 @@ def fetch_existing_boss_issues(repo: str) -> list[dict]:
             timeout=30,
         )
         if result.returncode == 0:
-            return json.loads(result.stdout or "[]")
+            payload = json.loads(result.stdout or "[]")
+            if isinstance(payload, list):
+                return [
+                    issue
+                    for issue in payload
+                    if isinstance(issue, dict) and "<!-- fingerprint:" in (issue.get("body") or "")
+                ]
     except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
         pass
     return []

@@ -280,6 +280,70 @@ def test_main_non_boss_ready_label_allows_unknown_priority(monkeypatch, capsys) 
     assert created[0][3] == "lane:test"
 
 
+def test_fetch_existing_boss_issues_includes_fingerprinted_open_issues_without_label_filter(
+    monkeypatch,
+) -> None:
+    seen_cmds: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        seen_cmds.append(cmd)
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 5529,
+                        "title": "Duplicate fingerprint issue",
+                        "body": "Task body\n\n<!-- fingerprint:abc123 -->",
+                    },
+                    {
+                        "number": 5574,
+                        "title": "Open issue without fingerprint",
+                        "body": "Task body without dedupe marker",
+                    },
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    issues = mod.fetch_existing_boss_issues("org/repo")
+
+    assert issues == [
+        {
+            "number": 5529,
+            "title": "Duplicate fingerprint issue",
+            "body": "Task body\n\n<!-- fingerprint:abc123 -->",
+        }
+    ]
+    assert seen_cmds == [
+        [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            "org/repo",
+            "--state",
+            "open",
+            "--limit",
+            str(mod._OPEN_ISSUE_LIMIT),
+            "--json",
+            "number,title,body",
+        ]
+    ]
+
+
+def test_fetch_existing_boss_issues_returns_empty_on_invalid_payload(monkeypatch) -> None:
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda cmd, **_: SimpleNamespace(returncode=0, stdout=json.dumps({"items": []}), stderr=""),
+    )
+
+    assert mod.fetch_existing_boss_issues("org/repo") == []
+
+
 @pytest.mark.parametrize(
     "category",
     ["test_coverage", "broad_exception", "silent_exception", "type_annotation"],
