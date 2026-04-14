@@ -17,6 +17,8 @@ import argparse
 import asyncio
 import json
 import os
+import socket
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -27,6 +29,7 @@ import pytest
 
 from aragora.swarm.boss_loop import (
     _should_replace_with_focused_tests,
+    _ISSUE_CLAIM_TTL_SECONDS,
     build_issue_eligibility_report,
     BossIterationStatus,
     BossLoop,
@@ -440,6 +443,111 @@ class TestBatchIssueSelection:
 
         assert seen["numbers"] == [2]
         assert [issue.number for issue in selected] == [2]
+
+    @pytest.mark.asyncio
+    async def test_run_iteration_filters_active_foreign_issue_claim(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        claim_dir = tmp_path / ".aragora" / "issue_claims"
+        claim_dir.mkdir(parents=True)
+        (claim_dir / "1.lock").write_text(
+            json.dumps(
+                {
+                    "issue_number": 1,
+                    "run_id": "boss-other",
+                    "pid": os.getpid(),
+                    "host": socket.gethostname(),
+                    "claimed_at": datetime.now(UTC).isoformat(),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        issue_one = _make_issue(1, "Claimed elsewhere")
+        issue_two = _make_issue(2, "Dispatch me instead")
+        feed = MagicMock()
+        feed.fetch.return_value = [issue_one, issue_two]
+        loop = BossLoop(
+            _boss_config(max_iterations=1),
+            issue_feed=feed,
+            freshness_checker=lambda **_: _fresh_result(fresh=True),
+        )
+        loop._existing_open_pr_skip_status = lambda **_: None
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        status = await loop._run_iteration(1)
+
+        assert status.worker_status == "completed"
+        assert status.selected_issue["number"] == 2
+        loop._dispatch_issue.assert_awaited_once_with(issue_two, ANY)
+
+    @pytest.mark.asyncio
+    async def test_run_iteration_skips_issue_when_claim_taken_before_dispatch(self):
+        issue = _make_issue(1, "Race on issue claim")
+        feed = MagicMock()
+        feed.fetch.return_value = [issue]
+        loop = BossLoop(
+            _boss_config(max_iterations=1),
+            issue_feed=feed,
+            freshness_checker=lambda **_: _fresh_result(fresh=True),
+        )
+        loop._existing_open_pr_skip_status = lambda **_: None
+        loop._claim_issue_dispatch = lambda issue_number: (
+            False,
+            f"Issue #{issue_number} is already claimed by boss-other.",
+        )
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        status = await loop._run_iteration(1)
+
+        assert status.worker_status == "skipped"
+        assert status.worker_outcome == "issue_claimed"
+        assert status.selected_issue["number"] == 1
+        loop._dispatch_issue.assert_not_awaited()
+
+    def test_claim_issue_dispatch_reaps_expired_claim(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        claim_dir = tmp_path / ".aragora" / "issue_claims"
+        claim_dir.mkdir(parents=True)
+        claim_path = claim_dir / "42.lock"
+        claim_path.write_text(
+            json.dumps(
+                {
+                    "issue_number": 42,
+                    "run_id": "boss-old",
+                    "pid": 999999,
+                    "host": socket.gethostname(),
+                }
+            ),
+            encoding="utf-8",
+        )
+        expired = time.time() - (_ISSUE_CLAIM_TTL_SECONDS + 5)
+        os.utime(claim_path, (expired, expired))
+
+        loop = BossLoop(_boss_config(max_iterations=1))
+
+        claimed, reason = loop._claim_issue_dispatch(42)
+
+        assert claimed is True
+        assert reason is None
+        payload = json.loads(claim_path.read_text(encoding="utf-8"))
+        assert payload["run_id"] == loop.run_id
+        assert payload["pid"] == os.getpid()
+
+    @pytest.mark.asyncio
+    async def test_dispatch_issue_under_claim_releases_issue_lock(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        loop = BossLoop(_boss_config(max_iterations=1))
+        issue = _make_issue(77, "Release claim after dispatch")
+        claimed, reason = loop._claim_issue_dispatch(issue.number)
+        assert claimed is True
+        assert reason is None
+
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        result = await loop._dispatch_issue_under_claim(issue, _fresh_result(fresh=True))
+
+        assert result["status"] == "completed"
+        assert not loop._issue_claim_path(issue.number).exists()
 
     def test_skips_issues_with_skip_labels(self):
         issues = [
