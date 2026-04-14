@@ -507,8 +507,17 @@ class TaskSanitizer:
 
             lowered = raw_line.lower()
             line_actions: set[str] = set()
-            has_modify = any(keyword in lowered for keyword in _MODIFY_KEYWORDS)
-            has_create = any(keyword in lowered for keyword in _CREATE_KEYWORDS)
+            # Exclude HTTP method context: "POST/PUT/PATCH/DELETE" should not
+            # trigger "patch" as a modify keyword or "delete" as anything.
+            cleaned_for_keyword_check = re.sub(
+                r"\b(get|post|put|patch|delete|head|options)\s*/\s*"
+                r"(get|post|put|patch|delete|head|options)\b",
+                "",
+                lowered,
+                flags=re.IGNORECASE,
+            )
+            has_modify = any(keyword in cleaned_for_keyword_check for keyword in _MODIFY_KEYWORDS)
+            has_create = any(keyword in cleaned_for_keyword_check for keyword in _CREATE_KEYWORDS)
             if has_modify:
                 line_actions.add("modify")
                 # Only treat as *also* a create when the create keyword is
