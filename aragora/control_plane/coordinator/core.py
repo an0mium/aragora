@@ -45,42 +45,58 @@ from aragora.control_plane.coordinator.scheduler_bridge import SchedulerBridge
 if TYPE_CHECKING:
     import asyncio
 
+    from aragora.control_plane.arena_bridge import ArenaControlPlaneBridge
+    from aragora.control_plane.deliberation import (
+        DeliberationOutcome,
+        DeliberationTask,
+    )
     from aragora.control_plane.policy import ControlPlanePolicyManager
     from aragora.control_plane.registry import AgentRegistry
     from aragora.control_plane.scheduler import TaskScheduler
     from aragora.control_plane.health import HealthMonitor
     from aragora.knowledge.mound.adapters.control_plane_adapter import ControlPlaneAdapter
+    from aragora.control_plane.watchdog import IssueSeverity as IssueSeverityType
     from aragora.control_plane.watchdog import ThreeTierWatchdog, WatchdogIssue
     from aragora.control_plane.agent_factory import AgentFactory
+else:
+    ArenaControlPlaneBridge = Any
+    DeliberationTask = Any
+    DeliberationOutcome = Any
+    IssueSeverityType = Any
 
 # Optional Arena Bridge
-ArenaControlPlaneBridge: Any = None
-DeliberationTask: Any = None
-DeliberationOutcome: Any = None
 DELIBERATION_TASK_TYPE = "deliberation"
-try:
-    from aragora.control_plane.arena_bridge import ArenaControlPlaneBridge
-    from aragora.control_plane.deliberation import (
-        DELIBERATION_TASK_TYPE as _DELIBERATION_TASK_TYPE,
-        DeliberationOutcome,
-        DeliberationTask,
-    )
+HAS_ARENA_BRIDGE = False
+if not TYPE_CHECKING:
+    try:
+        from aragora.control_plane.arena_bridge import (
+            ArenaControlPlaneBridge as _ArenaControlPlaneBridge,
+        )
+        from aragora.control_plane.deliberation import (
+            DELIBERATION_TASK_TYPE as _DELIBERATION_TASK_TYPE,
+            DeliberationOutcome as _DeliberationOutcome,
+            DeliberationTask as _DeliberationTask,
+        )
 
-    DELIBERATION_TASK_TYPE = _DELIBERATION_TASK_TYPE  # Use real value if available
+        ArenaControlPlaneBridge = _ArenaControlPlaneBridge
+        DeliberationOutcome = _DeliberationOutcome
+        DeliberationTask = _DeliberationTask
+        DELIBERATION_TASK_TYPE = _DELIBERATION_TASK_TYPE  # Use real value if available
 
-    HAS_ARENA_BRIDGE = True
-except ImportError:
-    HAS_ARENA_BRIDGE = False
+        HAS_ARENA_BRIDGE = True
+    except ImportError:
+        pass
 
 # Optional Watchdog
 HAS_WATCHDOG = False
-IssueSeverityType: Any = None
-try:
-    from aragora.control_plane.watchdog import IssueSeverity as IssueSeverityType
+if not TYPE_CHECKING:
+    try:
+        from aragora.control_plane.watchdog import IssueSeverity as _IssueSeverityType
 
-    HAS_WATCHDOG = True
-except ImportError:
-    pass
+        IssueSeverityType = _IssueSeverityType
+        HAS_WATCHDOG = True
+    except ImportError:
+        pass
 
 logger = get_logger(__name__)
 

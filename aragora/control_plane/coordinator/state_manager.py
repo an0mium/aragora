@@ -38,60 +38,96 @@ from aragora.resilience.retry import (
 if TYPE_CHECKING:
     from aragora.knowledge.mound.adapters.control_plane_adapter import (
         ControlPlaneAdapter,
+        TaskOutcome,
     )
-
-# Optional KM integration
-HAS_KM_ADAPTER = False
-# Pre-declare optional import with Any to avoid no-redef errors
-TaskOutcome: Any = None
-try:
-    from aragora.knowledge.mound.adapters.control_plane_adapter import TaskOutcome
-
-    HAS_KM_ADAPTER = True
-except ImportError:
-    pass
-
-# Optional Watchdog support (Gastown three-tier monitoring)
-ThreeTierWatchdog: Any = None
-WatchdogConfig: Any = None
-WatchdogTier: Any = None
-WatchdogIssue: Any = None
-get_watchdog: Any = None
-try:
     from aragora.control_plane.watchdog import (
         ThreeTierWatchdog,
         WatchdogConfig,
-        WatchdogTier,
         WatchdogIssue,
+        WatchdogTier,
         get_watchdog,
     )
-
-    HAS_WATCHDOG = True
-except ImportError:
-    HAS_WATCHDOG = False
-
-# Optional AgentFactory for auto-creating agents from registry
-AgentFactory: Any = None
-get_agent_factory: Any = None
-try:
     from aragora.control_plane.agent_factory import (
         AgentFactory,
         get_agent_factory,
     )
+    from aragora.config.redis import RedisHASettings, get_redis_ha_config
+else:
+    ControlPlaneAdapter = Any
+    TaskOutcome = Any
+    ThreeTierWatchdog = Any
+    WatchdogConfig = Any
+    WatchdogTier = Any
+    WatchdogIssue = Any
+    get_watchdog = lambda: None
+    AgentFactory = Any
+    get_agent_factory = lambda: None
+    RedisHASettings = Any
+    get_redis_ha_config = lambda: None
 
-    HAS_AGENT_FACTORY = True
-except ImportError:
-    HAS_AGENT_FACTORY = False
+# Optional KM integration
+HAS_KM_ADAPTER = False
+if not TYPE_CHECKING:
+    try:
+        from aragora.knowledge.mound.adapters.control_plane_adapter import (
+            TaskOutcome as _TaskOutcome,
+        )
+
+        TaskOutcome = _TaskOutcome
+        HAS_KM_ADAPTER = True
+    except ImportError:
+        pass
+
+# Optional Watchdog support (Gastown three-tier monitoring)
+HAS_WATCHDOG = False
+if not TYPE_CHECKING:
+    try:
+        from aragora.control_plane.watchdog import (
+            ThreeTierWatchdog as _ThreeTierWatchdog,
+            WatchdogConfig as _WatchdogConfig,
+            WatchdogTier as _WatchdogTier,
+            WatchdogIssue as _WatchdogIssue,
+            get_watchdog as _get_watchdog,
+        )
+
+        ThreeTierWatchdog = _ThreeTierWatchdog
+        WatchdogConfig = _WatchdogConfig
+        WatchdogTier = _WatchdogTier
+        WatchdogIssue = _WatchdogIssue
+        get_watchdog = _get_watchdog
+        HAS_WATCHDOG = True
+    except ImportError:
+        pass
+
+# Optional AgentFactory for auto-creating agents from registry
+HAS_AGENT_FACTORY = False
+if not TYPE_CHECKING:
+    try:
+        from aragora.control_plane.agent_factory import (
+            AgentFactory as _AgentFactory,
+            get_agent_factory as _get_agent_factory,
+        )
+
+        AgentFactory = _AgentFactory
+        get_agent_factory = _get_agent_factory
+        HAS_AGENT_FACTORY = True
+    except ImportError:
+        pass
 
 # Optional Redis HA support
-RedisHASettings: Any = None
-get_redis_ha_config: Any = None
-try:
-    from aragora.config.redis import RedisHASettings, get_redis_ha_config
+HAS_REDIS_HA = False
+if not TYPE_CHECKING:
+    try:
+        from aragora.config.redis import (
+            RedisHASettings as _RedisHASettings,
+            get_redis_ha_config as _get_redis_ha_config,
+        )
 
-    HAS_REDIS_HA = True
-except ImportError:
-    HAS_REDIS_HA = False
+        RedisHASettings = _RedisHASettings
+        get_redis_ha_config = _get_redis_ha_config
+        HAS_REDIS_HA = True
+    except ImportError:
+        pass
 
 logger = get_logger(__name__)
 
@@ -576,11 +612,18 @@ class StateManager:
         # Deduplicate
         agent_map = {a.agent_id: a for a in available_agents}
         agent_ids = list(agent_map.keys())
+        km_adapter = self._km_adapter
+        if km_adapter is None:
+            return await self._registry.select_agent(
+                capabilities=capabilities,
+                strategy="least_loaded",
+                exclude=exclude,
+            )
 
         # Get KM recommendations
         try:
             cap_strings = [str(c) for c in capabilities]
-            recommendations = await self._km_adapter.get_agent_recommendations_for_task(
+            recommendations = await km_adapter.get_agent_recommendations_for_task(
                 task_type=task_type,
                 available_agents=agent_ids,
                 required_capabilities=cap_strings,

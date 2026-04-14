@@ -30,7 +30,10 @@ from aragora.resilience.retry import (
 if TYPE_CHECKING:
     from aragora.control_plane.coordinator.state_manager import StateManager, ControlPlaneConfig
     from aragora.control_plane.coordinator.policy_enforcer import PolicyEnforcer
+    from aragora.control_plane.policy import EnforcementLevel as EnforcementLevelType
     from aragora.control_plane.policy import ControlPlanePolicyManager
+else:
+    EnforcementLevelType = Any
 
 # Optional KM integration
 HAS_KM_ADAPTER = False
@@ -43,13 +46,14 @@ except ImportError:
 
 # Optional Policy
 HAS_POLICY = False
-EnforcementLevelType: Any = None
-try:
-    from aragora.control_plane.policy import EnforcementLevel as EnforcementLevelType
+if not TYPE_CHECKING:
+    try:
+        from aragora.control_plane.policy import EnforcementLevel as _EnforcementLevelType
 
-    HAS_POLICY = True
-except ImportError:
-    pass
+        EnforcementLevelType = _EnforcementLevelType
+        HAS_POLICY = True
+    except ImportError:
+        pass
 
 logger = get_logger(__name__)
 
