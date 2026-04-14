@@ -9,7 +9,13 @@ from unittest.mock import patch
 
 import pytest
 
-from aragora.swarm.reporter import SwarmReport, SwarmReporter, build_integrator_view
+from aragora.swarm.reporter import (
+    SwarmReport,
+    SwarmReporter,
+    build_boss_payload,
+    build_integrator_view,
+    render_boss_text,
+)
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
 from aragora.swarm.spec import SwarmSpec
 
@@ -2327,3 +2333,133 @@ class TestIntegratorView:
         assert lane["merge_readiness"] == "superseded"
         assert lane["lane_health"] == "superseded"
         assert payload["summary"]["scope_violation_lanes"] == 0
+
+
+class TestBossPayload:
+    def test_build_boss_payload_surfaces_blocker_evidence_for_needs_human_lanes(self) -> None:
+        payload = build_boss_payload(
+            run={
+                "run_id": "run-1",
+                "status": "needs_human",
+                "goal": "Repair failing lane",
+                "target_branch": "main",
+                "work_orders": [
+                    {
+                        "work_order_id": "wo-1",
+                        "title": "Repair failing lane",
+                        "status": "needs_human",
+                        "target_agent": "codex",
+                        "branch": "codex/test-lane",
+                        "worktree_path": "/tmp/test-lane",
+                        "review_status": "changes_requested",
+                        "failure_reason": "merge_gate_failed",
+                        "needs_human_reasons": ["verification plan missing"],
+                        "metadata": {
+                            "blocker_evidence": "pytest timed out in tests/swarm/test_reporter.py",
+                            "repair_journal": [
+                                {
+                                    "failure_reason": "merge_gate_failed",
+                                    "exit_code": 1,
+                                    "failing_verification": {
+                                        "command": "pytest tests/swarm/test_reporter.py -q",
+                                        "exit_code": 1,
+                                        "stderr_tail": "AssertionError: missing blocker evidence",
+                                    },
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+            integrator_view={
+                "lanes": [
+                    {
+                        "work_order_id": "wo-1",
+                        "title": "Repair failing lane",
+                        "status": "needs_human",
+                        "owner_agent": "codex",
+                        "branch": "codex/test-lane",
+                        "worktree_path": "/tmp/test-lane",
+                        "blockers": ["merge_gate_failed"],
+                        "failure_classes": ["merge_gate_failed"],
+                        "next_action": "Fix verification failure before rerunning the lane.",
+                    }
+                ],
+                "next_actions": ["Fix verification failure before rerunning the lane."],
+            },
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["failure_classes"] == ["merge_gate_failed"]
+        assert lane["blocker_evidence"] == "pytest timed out in tests/swarm/test_reporter.py"
+        assert lane["repair_summary"] == {
+            "failure_reason": "merge_gate_failed",
+            "exit_code": 1,
+            "verification_command": "pytest tests/swarm/test_reporter.py -q",
+            "verification_exit_code": 1,
+            "evidence": "AssertionError: missing blocker evidence",
+        }
+
+        needs_human = payload["needs_human"][0]
+        assert needs_human["reasons"] == ["merge_gate_failed", "verification plan missing"]
+        assert needs_human["failure_classes"] == ["merge_gate_failed"]
+        assert needs_human["blocker_evidence"] == "pytest timed out in tests/swarm/test_reporter.py"
+        assert needs_human["next_action"] == "Fix verification failure before rerunning the lane."
+
+    def test_render_boss_text_includes_needs_human_blocker_evidence(self) -> None:
+        payload = build_boss_payload(
+            run={
+                "run_id": "run-2",
+                "status": "needs_human",
+                "goal": "Repair failing lane",
+                "target_branch": "main",
+                "work_orders": [
+                    {
+                        "work_order_id": "wo-2",
+                        "title": "Repair failing lane",
+                        "status": "needs_human",
+                        "failure_reason": "merge_gate_failed",
+                        "metadata": {
+                            "blocker_evidence": "pytest timed out in tests/swarm/test_reporter.py",
+                            "repair_journal": [
+                                {
+                                    "failure_reason": "merge_gate_failed",
+                                    "exit_code": 1,
+                                    "failing_verification": {
+                                        "command": "pytest tests/swarm/test_reporter.py -q",
+                                        "exit_code": 1,
+                                        "stderr_tail": "AssertionError: missing blocker evidence",
+                                    },
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+            integrator_view={
+                "lanes": [
+                    {
+                        "work_order_id": "wo-2",
+                        "title": "Repair failing lane",
+                        "status": "needs_human",
+                        "blockers": ["merge_gate_failed"],
+                        "failure_classes": ["merge_gate_failed"],
+                        "next_action": "Fix verification failure before rerunning the lane.",
+                    }
+                ]
+            },
+        )
+
+        text = render_boss_text(payload)
+
+        assert "needs_human: Repair failing lane -> merge_gate_failed" in text
+        assert "needs_human_classes: Repair failing lane -> merge_gate_failed" in text
+        assert (
+            "needs_human_evidence: Repair failing lane -> "
+            "pytest timed out in tests/swarm/test_reporter.py"
+        ) in text
+        assert "needs_human_repair: Repair failing lane -> reason=merge_gate_failed" in text
+        assert (
+            "needs_human_next: Repair failing lane -> "
+            "Fix verification failure before rerunning the lane."
+        ) in text
