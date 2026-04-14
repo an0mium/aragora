@@ -82,6 +82,23 @@ def test_main_json_mode_keeps_json_output(tmp_path: Path, capsys) -> None:
     assert payload["unique_issues_attempted"] == 1
 
 
+def test_compute_scorecard_uses_latest_terminal_state_per_issue() -> None:
+    scorecard = mod.compute_scorecard(
+        [
+            {"issue_number": 1001, "terminal_class": "blocked_no_runner"},
+            {"issue_number": 1001, "terminal_class": "deliverable_pr_created"},
+            {"issue_number": 1002, "terminal_class": "deliverable_pr_created"},
+            {"issue_number": 1002, "terminal_class": "rescue_worker_crash"},
+        ]
+    )
+
+    assert scorecard["unique_issues_attempted"] == 2
+    assert scorecard["unique_issues_succeeded"] == 1
+    assert scorecard["unique_issues_failed"] == 1
+    assert scorecard["no_rescue_success_rate"] == 0.5
+    assert scorecard["tick_success_rate"] == 0.5
+
+
 def test_build_published_scorecard_links_truth_artifact_and_previous_delta(
     tmp_path: Path,
 ) -> None:

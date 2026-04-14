@@ -409,8 +409,7 @@ def compute_scorecard(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     terminal_classes: Counter[str] = Counter()
     issues_attempted: set[int] = set()
-    issues_succeeded: set[int] = set()
-    issues_failed: set[int] = set()
+    latest_terminal_class_by_issue: dict[int, str] = {}
     elapsed_times: list[float] = []
 
     for row in rows:
@@ -421,15 +420,23 @@ def compute_scorecard(rows: list[dict[str, Any]]) -> dict[str, Any]:
         issue_num = row.get("issue_number")
         if isinstance(issue_num, int) and issue_num > 0:
             issues_attempted.add(issue_num)
-            if tc in SUCCESS_CLASSES:
-                issues_succeeded.add(issue_num)
-            elif tc in FAILURE_CLASSES:
-                issues_failed.add(issue_num)
+            if tc:
+                latest_terminal_class_by_issue[issue_num] = tc
 
         elapsed = row.get("elapsed_seconds")
         if isinstance(elapsed, (int, float)) and elapsed > 0:
             elapsed_times.append(float(elapsed))
 
+    issues_succeeded = {
+        issue_num
+        for issue_num, terminal_class in latest_terminal_class_by_issue.items()
+        if terminal_class in SUCCESS_CLASSES
+    }
+    issues_failed = {
+        issue_num
+        for issue_num, terminal_class in latest_terminal_class_by_issue.items()
+        if terminal_class in FAILURE_CLASSES
+    }
     total_ticks = len(rows)
     success_ticks = sum(terminal_classes[tc] for tc in SUCCESS_CLASSES)
     failure_ticks = sum(terminal_classes[tc] for tc in FAILURE_CLASSES)
