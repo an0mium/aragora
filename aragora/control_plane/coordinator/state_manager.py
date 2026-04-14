@@ -60,7 +60,7 @@ WatchdogTier: Any = None
 WatchdogIssue: Any = None
 get_watchdog: Any = None
 try:
-    from aragora.control_plane.watchdog import (
+    from aragora.control_plane.watchdog import ( # type: ignore[no-redef]
         ThreeTierWatchdog,
         WatchdogConfig,
         WatchdogTier,
