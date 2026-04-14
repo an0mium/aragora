@@ -13,7 +13,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.env_utils import git_safe_env
@@ -439,6 +439,7 @@ def _find_open_pr_by_branch(
     cwd: Path,
     branch: str,
     base_ref: str,
+    env: Mapping[str, str] | None = None,
 ) -> tuple[int | None, str]:
     result = subprocess.run(
         [
@@ -453,6 +454,7 @@ def _find_open_pr_by_branch(
             "number,url,isDraft,baseRefName",
         ],
         cwd=str(cwd),
+        env=dict(env) if env is not None else None,
         capture_output=True,
         text=True,
         timeout=60,
@@ -652,9 +654,11 @@ def run_scratch_validation_receipt(
     repo_root: Path,
     envelope: CredentialEnvelope,
     force_refresh: bool = False,
+    env: Mapping[str, str] | None = None,
 ) -> PreflightReceipt:
     resolved_repo_root = repo_root.resolve()
     normalized_base_ref = "main"
+    git_env = git_safe_env(env)
     if not force_refresh:
         cached = _load_cached_preflight_receipt(resolved_repo_root, envelope, "scratch")
         if cached is not None:
@@ -689,7 +693,7 @@ def run_scratch_validation_receipt(
                 normalized_base_ref,
             ],
             cwd=resolved_repo_root,
-            env=git_safe_env(),
+            env=git_env,
         )
         if worktree_result is not None and worktree_result.returncode == 0:
             worktree_created = True
@@ -706,7 +710,7 @@ def run_scratch_validation_receipt(
                 name="git_add",
                 cmd=["git", "add", str(scratch_file.relative_to(worktree_path))],
                 cwd=worktree_path,
-                env=git_safe_env(),
+                env=git_env,
             )
             if add_result is not None and add_result.returncode == 0:
                 _run_check(
@@ -714,7 +718,7 @@ def run_scratch_validation_receipt(
                     name="git_commit",
                     cmd=["git", "commit", "-m", "chore: preflight scratch validation"],
                     cwd=worktree_path,
-                    env=git_safe_env(),
+                    env=git_env,
                 )
     finally:
         if worktree_created:
@@ -723,12 +727,14 @@ def run_scratch_validation_receipt(
                 name="cleanup_worktree_remove",
                 cmd=["git", "worktree", "remove", "--force", str(worktree_path)],
                 cwd=resolved_repo_root,
+                env=git_env,
             )
             _run_check(
                 checks,
                 name="cleanup_branch_delete",
                 cmd=["git", "branch", "-D", branch],
                 cwd=resolved_repo_root,
+                env=git_env,
             )
 
     finished_at = _utc_now()
@@ -752,9 +758,12 @@ def run_remote_publish_validation_receipt(
     envelope: CredentialEnvelope,
     base_ref: str = "main",
     force_refresh: bool = False,
+    env: Mapping[str, str] | None = None,
 ) -> PreflightReceipt:
     resolved_repo_root = repo_root.resolve()
     normalized_base_ref = str(base_ref or "main").strip() or "main"
+    git_env = git_safe_env(env)
+    command_env = dict(env) if env is not None else None
     if not force_refresh:
         cached = _load_cached_preflight_receipt(
             resolved_repo_root,
@@ -790,7 +799,7 @@ def run_remote_publish_validation_receipt(
             name="git_worktree_add",
             cmd=["git", "worktree", "add", "-b", branch, str(worktree_path), "HEAD"],
             cwd=resolved_repo_root,
-            env=git_safe_env(),
+            env=git_env,
         )
         if worktree_result is not None and worktree_result.returncode == 0:
             worktree_created = True
@@ -807,7 +816,7 @@ def run_remote_publish_validation_receipt(
                 name="git_add",
                 cmd=["git", "add", str(scratch_file.relative_to(worktree_path))],
                 cwd=worktree_path,
-                env=git_safe_env(),
+                env=git_env,
             )
             if add_result is not None and add_result.returncode == 0:
                 commit_result = _run_check(
@@ -815,7 +824,7 @@ def run_remote_publish_validation_receipt(
                     name="git_commit",
                     cmd=["git", "commit", "-m", "chore: preflight remote publish validation"],
                     cwd=worktree_path,
-                    env=git_safe_env(),
+                    env=git_env,
                 )
                 if commit_result is not None and commit_result.returncode == 0:
                     push_result = _run_check(
@@ -823,7 +832,7 @@ def run_remote_publish_validation_receipt(
                         name="git_push",
                         cmd=["git", "push", "origin", "HEAD"],
                         cwd=worktree_path,
-                        env=git_safe_env(),
+                        env=git_env,
                     )
                     pushed = push_result is not None and push_result.returncode == 0
                     if pushed:
@@ -845,6 +854,7 @@ def run_remote_publish_validation_receipt(
                                 "--draft",
                             ],
                             cwd=worktree_path,
+                            env=command_env,
                         )
                         if pr_result is not None and pr_result.returncode == 0:
                             pr_number, pr_url = _parse_pr_create_output(
@@ -856,6 +866,7 @@ def run_remote_publish_validation_receipt(
                                     cwd=worktree_path if worktree_created else resolved_repo_root,
                                     branch=branch,
                                     base_ref=normalized_base_ref,
+                                    env=command_env,
                                 )
                             if pr_number is None or not pr_url:
                                 _append_check(
@@ -883,6 +894,7 @@ def run_remote_publish_validation_receipt(
                 cwd=worktree_path if worktree_created else resolved_repo_root,
                 branch=branch,
                 base_ref=normalized_base_ref,
+                env=command_env,
             )
             if pr_number is not None and pr_url:
                 draft_created = True
@@ -911,6 +923,7 @@ def run_remote_publish_validation_receipt(
                     "Preflight complete - closing.",
                 ],
                 cwd=worktree_path if worktree_created else resolved_repo_root,
+                env=command_env,
             )
             draft_close_succeeded = close_result is not None and close_result.returncode == 0
         elif pushed and unresolved_remote_pr_state:
@@ -941,7 +954,7 @@ def run_remote_publish_validation_receipt(
                 name="cleanup_remote_branch_delete",
                 cmd=["git", "push", "origin", "--delete", branch],
                 cwd=worktree_path if worktree_created else resolved_repo_root,
-                env=git_safe_env(),
+                env=git_env,
             )
         elif pushed and draft_created and not draft_close_succeeded:
             _append_check(
@@ -971,12 +984,14 @@ def run_remote_publish_validation_receipt(
                 name="cleanup_worktree_remove",
                 cmd=["git", "worktree", "remove", "--force", str(worktree_path)],
                 cwd=resolved_repo_root,
+                env=git_env,
             )
             _run_check(
                 checks,
                 name="cleanup_branch_delete",
                 cmd=["git", "branch", "-D", branch],
                 cwd=resolved_repo_root,
+                env=git_env,
             )
 
     finished_at = _utc_now()

@@ -799,12 +799,19 @@ def test_run_remote_publish_validation_receipt_records_pr_artifacts(
     envelope = _envelope()
     now = datetime(2026, 4, 12, 19, 50, 0, tzinfo=timezone.utc)
     commands: list[list[str]] = []
+    command_envs: list[tuple[list[str], dict[str, str]]] = []
+    dispatch_env = {
+        "GITHUB_TOKEN": "dispatch-token",
+        "SSH_AUTH_SOCK": "/tmp/custom-agent.sock",
+        "CUSTOM_FLAG": "1",
+    }
 
     monkeypatch.setattr(mod, "_utc_now", lambda: now)
     monkeypatch.setattr(mod, "_receipt_token", lambda: "ef56aa11")
 
     def fake_run(cmd: list[str], **kwargs: object) -> SimpleNamespace:
         commands.append(list(cmd))
+        command_envs.append((list(cmd), dict(kwargs.get("env") or {})))
         if cmd[:3] == ["git", "worktree", "add"]:
             Path(cmd[5]).mkdir(parents=True, exist_ok=True)
             return SimpleNamespace(returncode=0, stdout="", stderr="")
@@ -821,6 +828,7 @@ def test_run_remote_publish_validation_receipt_records_pr_artifacts(
     receipt = mod.run_remote_publish_validation_receipt(
         repo_root=repo_root,
         envelope=envelope,
+        env=dispatch_env,
     )
 
     assert receipt.check_type == "remote_publish"
@@ -832,6 +840,15 @@ def test_run_remote_publish_validation_receipt_records_pr_artifacts(
     assert any(check["name"] == "gh_pr_capture" for check in receipt.checks)
     assert ["git", "push", "origin", "HEAD"] in commands
     assert any(cmd[:3] == ["gh", "pr", "close"] for cmd in commands)
+    git_envs = [env for cmd, env in command_envs if cmd and cmd[0] == "git"]
+    gh_envs = [env for cmd, env in command_envs if cmd[:2] == ["gh", "pr"]]
+    assert git_envs
+    assert gh_envs
+    assert all(env.get("SSH_AUTH_SOCK") == "/tmp/custom-agent.sock" for env in git_envs)
+    assert all(env.get("CUSTOM_FLAG") == "1" for env in git_envs)
+    assert all("GITHUB_TOKEN" not in env for env in git_envs)
+    assert all(env.get("GITHUB_TOKEN") == "dispatch-token" for env in gh_envs)
+    assert all(env.get("CUSTOM_FLAG") == "1" for env in gh_envs)
 
 
 def test_run_remote_publish_validation_receipt_closes_draft_when_create_output_unparseable(
