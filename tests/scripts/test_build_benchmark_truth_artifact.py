@@ -348,6 +348,24 @@ def test_resolve_published_artifact_path_uses_corpus_revision_and_timestamp() ->
     )
 
 
+def test_resolve_latest_artifact_paths_use_corpus_and_revision_roots() -> None:
+    paths = mod.resolve_latest_artifact_paths(
+        publish_dir=Path("/tmp/published"),
+        artifact={
+            "generated_at": "2026-04-14T02:03:04Z",
+            "corpus": {
+                "corpus_id": "TW-01 Bounded Execution v1",
+                "revision": 7,
+            },
+        },
+    )
+
+    assert paths == {
+        "corpus_latest": Path("/tmp/published/tw-01-bounded-execution-v1/latest.json"),
+        "revision_latest": Path("/tmp/published/tw-01-bounded-execution-v1/rev-7/latest.json"),
+    }
+
+
 def test_main_publish_dir_writes_timestamped_artifact_and_prints_path(
     tmp_path: Path,
     monkeypatch,
@@ -404,6 +422,22 @@ def test_main_publish_dir_writes_timestamped_artifact_and_prints_path(
     )
     parsed = json.loads(written_path.read_text(encoding="utf-8"))
     assert parsed["generated_at"] == "2026-04-14T05:06:07Z"
+    assert (
+        json.loads(
+            (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
+                encoding="utf-8"
+            )
+        )["generated_at"]
+        == "2026-04-14T05:06:07Z"
+    )
+    assert (
+        json.loads(
+            (
+                tmp_path / "published" / "tw-01-bounded-execution-v1" / "rev-8" / "latest.json"
+            ).read_text(encoding="utf-8")
+        )["generated_at"]
+        == "2026-04-14T05:06:07Z"
+    )
     assert captured.err == ""
 
 
@@ -456,6 +490,14 @@ def test_main_publish_dir_with_json_keeps_stdout_json_and_reports_path_on_stderr
     payload = json.loads(captured.out)
     assert exit_code == 0
     assert payload["generated_at"] == "2026-04-14T08:09:10Z"
+    assert (
+        json.loads(
+            (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
+                encoding="utf-8"
+            )
+        )["generated_at"]
+        == "2026-04-14T08:09:10Z"
+    )
     assert captured.err.strip() == str(
         tmp_path
         / "published"

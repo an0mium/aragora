@@ -156,6 +156,16 @@ def _slugify(value: str) -> str:
     return slug.strip("-") or "benchmark-corpus"
 
 
+def _corpus_publish_dir(*, publish_dir: Path, corpus: dict[str, Any]) -> Path:
+    corpus_id = _slugify(str(corpus.get("corpus_id") or "benchmark-corpus"))
+    return publish_dir / corpus_id
+
+
+def _revision_publish_dir(*, publish_dir: Path, corpus: dict[str, Any]) -> Path:
+    revision = int(corpus.get("revision", 0) or 0)
+    return _corpus_publish_dir(publish_dir=publish_dir, corpus=corpus) / f"rev-{revision}"
+
+
 def resolve_published_artifact_path(
     *,
     publish_dir: Path,
@@ -168,10 +178,24 @@ def resolve_published_artifact_path(
     timestamp = _coerce_utc_datetime(
         generated_at if isinstance(generated_at, str) else None
     ).strftime("%Y%m%dT%H%M%SZ")
-    corpus_id = _slugify(str(corpus.get("corpus_id") or "benchmark-corpus"))
-    revision = int(corpus.get("revision", 0) or 0)
     filename = f"truth-{timestamp}.json"
-    return publish_dir / corpus_id / f"rev-{revision}" / filename
+    return _revision_publish_dir(publish_dir=publish_dir, corpus=corpus) / filename
+
+
+def resolve_latest_artifact_paths(
+    *,
+    publish_dir: Path,
+    artifact: dict[str, Any],
+) -> dict[str, Path]:
+    corpus = artifact.get("corpus")
+    if not isinstance(corpus, dict):
+        corpus = {}
+    return {
+        "corpus_latest": _corpus_publish_dir(publish_dir=publish_dir, corpus=corpus)
+        / "latest.json",
+        "revision_latest": _revision_publish_dir(publish_dir=publish_dir, corpus=corpus)
+        / "latest.json",
+    }
 
 
 def build_benchmark_truth_artifact(
@@ -263,6 +287,23 @@ def write_artifact(path: Path, artifact: dict[str, Any]) -> Path:
     return path
 
 
+def publish_artifact_bundle(
+    *,
+    publish_dir: Path,
+    artifact: dict[str, Any],
+) -> dict[str, Path]:
+    timestamped_path = write_artifact(
+        resolve_published_artifact_path(publish_dir=publish_dir, artifact=artifact),
+        artifact,
+    )
+    latest_paths = resolve_latest_artifact_paths(publish_dir=publish_dir, artifact=artifact)
+    return {
+        "timestamped": timestamped_path,
+        "corpus_latest": write_artifact(latest_paths["corpus_latest"], artifact),
+        "revision_latest": write_artifact(latest_paths["revision_latest"], artifact),
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default="synaptent/aragora", help="GitHub repo owner/name")
@@ -288,7 +329,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--publish",
         action="store_true",
-        help="Write a timestamped artifact under the repo-stable publish path",
+        help="Write a timestamped artifact plus stable latest.json pointers under the repo-stable publish path",
     )
     parser.add_argument(
         "--publish-dir",
@@ -321,13 +362,11 @@ def main(argv: list[str] | None = None) -> int:
         output_path = write_artifact(args.output.resolve(), artifact)
         print(str(output_path))
     if publish_dir is not None:
-        published_path = write_artifact(
-            resolve_published_artifact_path(
-                publish_dir=publish_dir,
-                artifact=artifact,
-            ),
-            artifact,
+        published_paths = publish_artifact_bundle(
+            publish_dir=publish_dir,
+            artifact=artifact,
         )
+        published_path = published_paths["timestamped"]
         if args.json:
             print(str(published_path), file=sys.stderr)
         else:

@@ -34,8 +34,7 @@ from build_benchmark_truth_artifact import (
     DEFAULT_PUBLISH_DIR as DEFAULT_TRUTH_ARTIFACT_PUBLISH_DIR,
     build_benchmark_truth_artifact,
     load_corpus as load_benchmark_corpus,
-    resolve_published_artifact_path as resolve_truth_artifact_path,
-    write_artifact as write_truth_artifact,
+    publish_artifact_bundle as publish_truth_artifact_bundle,
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -91,6 +90,16 @@ def _repo_stable_path(path: Path) -> str:
 def _slugify(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
     return slug.strip("-") or "benchmark-corpus"
+
+
+def _corpus_publish_dir(*, publish_dir: Path, corpus: dict[str, Any]) -> Path:
+    corpus_id = _slugify(str(corpus.get("corpus_id") or "benchmark-corpus"))
+    return publish_dir / corpus_id
+
+
+def _revision_publish_dir(*, publish_dir: Path, corpus: dict[str, Any]) -> Path:
+    revision = int(corpus.get("revision", 0) or 0)
+    return _corpus_publish_dir(publish_dir=publish_dir, corpus=corpus) / f"rev-{revision}"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -182,14 +191,11 @@ def auto_publish_truth_artifact(
         metrics_file=metrics_path,
         corpus_path=corpus_path,
     )
-    published_path = write_truth_artifact(
-        resolve_truth_artifact_path(
-            publish_dir=truth_publish_dir,
-            artifact=artifact,
-        ),
-        artifact,
+    published_path = publish_truth_artifact_bundle(
+        publish_dir=truth_publish_dir,
+        artifact=artifact,
     )
-    return published_path, artifact
+    return published_path["timestamped"], artifact
 
 
 def _metric_value(payload: dict[str, Any], *path: str) -> float | None:
@@ -220,9 +226,24 @@ def resolve_published_scorecard_path(
     timestamp = _coerce_utc_datetime(str(published_scorecard.get("generated_at") or None)).strftime(
         "%Y%m%dT%H%M%SZ"
     )
-    corpus_id = _slugify(str(corpus.get("corpus_id") or "benchmark-corpus"))
-    revision = int(corpus.get("revision", 0) or 0)
-    return publish_dir / corpus_id / f"rev-{revision}" / f"scorecard-{timestamp}.json"
+    return (
+        _revision_publish_dir(publish_dir=publish_dir, corpus=corpus)
+        / f"scorecard-{timestamp}.json"
+    )
+
+
+def resolve_latest_scorecard_paths(
+    *,
+    publish_dir: Path,
+    published_scorecard: dict[str, Any],
+) -> dict[str, Path]:
+    corpus = dict(published_scorecard.get("corpus") or {})
+    return {
+        "corpus_latest": _corpus_publish_dir(publish_dir=publish_dir, corpus=corpus)
+        / "latest.json",
+        "revision_latest": _revision_publish_dir(publish_dir=publish_dir, corpus=corpus)
+        / "latest.json",
+    }
 
 
 def resolve_available_published_scorecard_path(
@@ -338,6 +359,29 @@ def write_artifact(path: Path, payload: dict[str, Any]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
+
+
+def publish_scorecard_bundle(
+    *,
+    publish_dir: Path,
+    published_scorecard: dict[str, Any],
+) -> dict[str, Path]:
+    timestamped_path = write_artifact(
+        resolve_available_published_scorecard_path(
+            publish_dir=publish_dir,
+            published_scorecard=published_scorecard,
+        ),
+        published_scorecard,
+    )
+    latest_paths = resolve_latest_scorecard_paths(
+        publish_dir=publish_dir,
+        published_scorecard=published_scorecard,
+    )
+    return {
+        "timestamped": timestamped_path,
+        "corpus_latest": write_artifact(latest_paths["corpus_latest"], published_scorecard),
+        "revision_latest": write_artifact(latest_paths["revision_latest"], published_scorecard),
+    }
 
 
 def load_metrics(path: Path, window: int | None = None) -> list[dict[str, Any]]:
@@ -504,7 +548,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--publish",
         action="store_true",
-        help="Write a timestamped scorecard artifact under the repo-stable publish path",
+        help="Write a timestamped scorecard artifact plus stable latest.json pointers under the repo-stable publish path",
     )
     parser.add_argument(
         "--publish-dir",
@@ -613,13 +657,11 @@ def main(argv: list[str] | None = None) -> int:
             truth_artifact_path=truth_artifact_path,
             publish_dir=publish_dir,
         )
-        published_path = write_artifact(
-            resolve_available_published_scorecard_path(
-                publish_dir=publish_dir,
-                published_scorecard=published_scorecard,
-            ),
-            published_scorecard,
+        published_paths = publish_scorecard_bundle(
+            publish_dir=publish_dir,
+            published_scorecard=published_scorecard,
         )
+        published_path = published_paths["timestamped"]
         if args.json or args.ci:
             print(str(published_path), file=sys.stderr)
         else:

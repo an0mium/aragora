@@ -181,6 +181,21 @@ def test_resolve_available_published_scorecard_path_avoids_same_second_collision
     assert reserved_path.name == "scorecard-20260414T151617Z-2.json"
 
 
+def test_resolve_latest_scorecard_paths_use_corpus_and_revision_roots() -> None:
+    paths = mod.resolve_latest_scorecard_paths(
+        publish_dir=Path("/tmp/published"),
+        published_scorecard={
+            "generated_at": "2026-04-14T15:16:17Z",
+            "corpus": {"corpus_id": "tw-01-bounded-execution-v1", "revision": 3},
+        },
+    )
+
+    assert paths == {
+        "corpus_latest": Path("/tmp/published/tw-01-bounded-execution-v1/latest.json"),
+        "revision_latest": Path("/tmp/published/tw-01-bounded-execution-v1/rev-3/latest.json"),
+    }
+
+
 def test_main_publish_dir_writes_timestamped_artifact_and_prints_path(
     tmp_path: Path, capsys
 ) -> None:
@@ -228,6 +243,19 @@ def test_main_publish_dir_writes_timestamped_artifact_and_prints_path(
     payload = json.loads(written_path.read_text(encoding="utf-8"))
     assert payload["truth_artifact_path"] == str(truth_artifact_path)
     assert payload["proxy_metrics"]["no_rescue_success_rate"] == 1.0
+    assert (
+        json.loads(
+            (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
+                encoding="utf-8"
+            )
+        )["proxy_metrics"]["no_rescue_success_rate"]
+        == 1.0
+    )
+    assert json.loads(
+        (tmp_path / "published" / "tw-01-bounded-execution-v1" / "rev-4" / "latest.json").read_text(
+            encoding="utf-8"
+        )
+    )["truth_artifact_path"] == str(truth_artifact_path)
     assert captured.err == ""
 
 
@@ -278,6 +306,14 @@ def test_main_publish_dir_with_json_keeps_stdout_json_and_reports_path_on_stderr
     assert exit_code == 0
     assert payload["corpus"]["revision"] == 5
     assert payload["proxy_metrics"]["unique_issues_attempted"] == 1
+    assert (
+        json.loads(
+            (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
+                encoding="utf-8"
+            )
+        )["corpus"]["revision"]
+        == 5
+    )
     assert reported_path.parent == tmp_path / "published" / "tw-01-bounded-execution-v1" / "rev-5"
 
 
@@ -360,6 +396,12 @@ def test_main_publish_mode_uses_default_corpus_to_build_truth_artifact(
         }
         truth_artifact_path.parent.mkdir(parents=True, exist_ok=True)
         truth_artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        (tmp_path / "truth-artifacts" / "tw-01-bounded-execution-v1").mkdir(
+            parents=True, exist_ok=True
+        )
+        (tmp_path / "truth-artifacts" / "tw-01-bounded-execution-v1" / "latest.json").write_text(
+            json.dumps(payload, indent=2), encoding="utf-8"
+        )
         return truth_artifact_path, payload
 
     monkeypatch.setattr(mod, "DEFAULT_CORPUS_PATH", corpus_path)
@@ -383,6 +425,19 @@ def test_main_publish_mode_uses_default_corpus_to_build_truth_artifact(
     assert payload["corpus"]["revision"] == 3
     assert payload["proxy_metrics"]["unique_issues_attempted"] == 1
     assert payload["truth_artifact_path"] == str(truth_artifact_path)
+    assert json.loads(
+        (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
+            encoding="utf-8"
+        )
+    )["truth_artifact_path"] == str(truth_artifact_path)
+    assert (
+        json.loads(
+            (tmp_path / "truth-artifacts" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
+                encoding="utf-8"
+            )
+        )["generated_at"]
+        == "2026-04-14T15:00:00Z"
+    )
     assert reported_path.parent == tmp_path / "published" / "tw-01-bounded-execution-v1" / "rev-3"
 
 
