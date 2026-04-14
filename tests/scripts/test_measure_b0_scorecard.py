@@ -191,6 +191,7 @@ def test_resolve_latest_scorecard_paths_use_corpus_and_revision_roots() -> None:
     )
 
     assert paths == {
+        "latest": Path("/tmp/published/latest.json"),
         "corpus_latest": Path("/tmp/published/tw-01-bounded-execution-v1/latest.json"),
         "revision_latest": Path("/tmp/published/tw-01-bounded-execution-v1/rev-3/latest.json"),
     }
@@ -314,10 +315,7 @@ def test_main_publish_dir_with_json_keeps_stdout_json_and_reports_path_on_stderr
     assert exit_code == 0
     assert payload["corpus"]["revision"] == 5
     assert payload["proxy_metrics"]["unique_issues_attempted"] == 1
-    assert (
-        json.loads(latest_path.read_text(encoding="utf-8"))["corpus"]["revision"]
-        == 5
-    )
+    assert json.loads(latest_path.read_text(encoding="utf-8"))["corpus"]["revision"] == 5
     assert (
         json.loads(
             (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
@@ -440,18 +438,18 @@ def test_main_publish_mode_uses_default_corpus_to_build_truth_artifact(
     assert payload["corpus"]["revision"] == 3
     assert payload["proxy_metrics"]["unique_issues_attempted"] == 1
     assert payload["truth_artifact_path"] == str(truth_artifact_path)
-    assert json.loads(
-        (tmp_path / "published" / "latest.json").read_text(encoding="utf-8")
-    )["truth_artifact_path"] == str(truth_artifact_path)
+    assert json.loads((tmp_path / "published" / "latest.json").read_text(encoding="utf-8"))[
+        "truth_artifact_path"
+    ] == str(truth_artifact_path)
     assert json.loads(
         (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
             encoding="utf-8"
         )
     )["truth_artifact_path"] == str(truth_artifact_path)
     assert (
-        json.loads(
-            (tmp_path / "truth-artifacts" / "latest.json").read_text(encoding="utf-8")
-        )["generated_at"]
+        json.loads((tmp_path / "truth-artifacts" / "latest.json").read_text(encoding="utf-8"))[
+            "generated_at"
+        ]
         == "2026-04-14T15:00:00Z"
     )
     assert (

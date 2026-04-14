@@ -361,6 +361,7 @@ def test_resolve_latest_artifact_paths_use_corpus_and_revision_roots() -> None:
     )
 
     assert paths == {
+        "latest": Path("/tmp/published/latest.json"),
         "corpus_latest": Path("/tmp/published/tw-01-bounded-execution-v1/latest.json"),
         "revision_latest": Path("/tmp/published/tw-01-bounded-execution-v1/rev-7/latest.json"),
     }
