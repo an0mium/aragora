@@ -22,6 +22,7 @@ _path_in_scope = _supervisor._path_in_scope
 
 _REPAIR_JOURNAL_MAX_ENTRIES = 3
 _REPAIR_JOURNAL_TAIL_CHARS = 800
+_BLOCKER_EVIDENCE_MAX_CHARS = 240
 _BEST_EFFORT_STORE_EXCEPTIONS = (
     AttributeError,
     KeyError,
@@ -48,6 +49,13 @@ def _tail_text(text: str, *, max_chars: int = _REPAIR_JOURNAL_TAIL_CHARS) -> str
     return text[-max_chars:]
 
 
+def _compact_blocker_evidence(text: Any, *, max_chars: int = _BLOCKER_EVIDENCE_MAX_CHARS) -> str:
+    compact = " ".join(str(text or "").split())
+    if len(compact) <= max_chars:
+        return compact
+    return compact[: max_chars - 3].rstrip() + "..."
+
+
 def _summarize_verification_failure(verification_results: list[dict[str, Any]]) -> dict[str, Any]:
     for entry in verification_results:
         if not isinstance(entry, dict):
@@ -61,6 +69,86 @@ def _summarize_verification_failure(verification_results: list[dict[str, Any]]) 
                 "stderr_tail": _tail_text(str(entry.get("stderr", ""))),
             }
     return {}
+
+
+def _verification_blocker_evidence(summary: dict[str, Any]) -> str:
+    if not summary:
+        return ""
+    evidence = _compact_blocker_evidence(
+        str(summary.get("stderr_tail") or summary.get("stdout_tail") or "")
+    )
+    if not evidence:
+        return ""
+    command = str(summary.get("command", "")).strip()
+    exit_code = summary.get("exit_code")
+    if command and exit_code not in (None, ""):
+        return _compact_blocker_evidence(f"{command} (exit {exit_code}): {evidence}")
+    if command:
+        return _compact_blocker_evidence(f"{command}: {evidence}")
+    return evidence
+
+
+def _derive_blocker_evidence(
+    item: dict[str, Any],
+    *,
+    result: WorkerProcess | None = None,
+    merge_gate: dict[str, Any] | None = None,
+    reason: str | None = None,
+) -> str:
+    metadata = dict(item.get("metadata") or {})
+    existing = _compact_blocker_evidence(
+        item.get("blocker_evidence") or metadata.get("blocker_evidence")
+    )
+    if existing:
+        return existing
+
+    failing = _summarize_verification_failure(item.get("verification_results", []) or [])
+    verification_evidence = _verification_blocker_evidence(failing)
+    if verification_evidence:
+        return verification_evidence
+
+    if isinstance(merge_gate, dict):
+        blocked_reasons = [
+            _compact_blocker_evidence(reason_text)
+            for reason_text in merge_gate.get("blocked_reasons", [])
+            if _compact_blocker_evidence(reason_text)
+        ]
+        if blocked_reasons:
+            return blocked_reasons[0]
+
+    for candidate in (
+        item.get("stderr_tail"),
+        result.stderr if result is not None else "",
+        item.get("stdout_tail"),
+        result.stdout if result is not None else "",
+        item.get("dispatch_error"),
+        item.get("resource_error"),
+        reason,
+        item.get("failure_reason"),
+    ):
+        compact = _compact_blocker_evidence(candidate)
+        if compact:
+            return compact
+
+    return "needs_human"
+
+
+def _persist_blocker_evidence(item: dict[str, Any], evidence: str | None) -> None:
+    compact = _compact_blocker_evidence(evidence)
+    if not compact:
+        return
+    metadata = dict(item.get("metadata") or {})
+    metadata["blocker_evidence"] = compact
+    item["metadata"] = metadata
+    item["blocker_evidence"] = compact
+
+
+def _clear_blocker_evidence(item: dict[str, Any]) -> None:
+    item.pop("blocker_evidence", None)
+    metadata = dict(item.get("metadata") or {})
+    if "blocker_evidence" in metadata:
+        metadata.pop("blocker_evidence", None)
+        item["metadata"] = metadata
 
 
 def _append_repair_journal(
@@ -78,6 +166,7 @@ def _append_repair_journal(
 
     verification_results = item.get("verification_results", []) or []
     failing = _summarize_verification_failure(verification_results)
+    blocker_evidence = _derive_blocker_evidence(item, result=result, reason=reason)
     entry = {
         "at": datetime.now(UTC).isoformat(),
         "agent": str(item.get("target_agent", result.agent)).strip() or result.agent,
@@ -88,12 +177,14 @@ def _append_repair_journal(
         "commit_shas": list(result.commit_shas or [])[:5],
         "tests_run": list(item.get("tests_run", []) or [])[:3],
         "failing_verification": failing or None,
+        "blocker_evidence": blocker_evidence or None,
         "stdout_tail": _tail_text(result.stdout or ""),
         "stderr_tail": _tail_text(result.stderr or ""),
     }
     entries.append(entry)
     metadata["repair_journal"] = entries[-_REPAIR_JOURNAL_MAX_ENTRIES:]
     item["metadata"] = metadata
+    _persist_blocker_evidence(item, blocker_evidence)
     try:
         self.store.record_worker_repair_journal(
             task_id=str(item.get("work_order_id", "")).strip(),
@@ -331,6 +422,7 @@ def _finalize_completed_work_order_result(
             for key in ("resource_error", "conflicts", "scope_violation"):
                 item.pop(key, None)
             item.pop("blockers", None)
+            _persist_blocker_evidence(item, _derive_blocker_evidence(item, merge_gate=merge_gate))
             self._mark_needs_human(
                 item,
                 self._merge_gate_failure_reason(merge_gate),
@@ -434,6 +526,7 @@ def _finalize_completed_work_order_result(
     self._register_pr_if_present(item, result)
     item["status"] = "completed"
     item["review_status"] = "pending_heterogeneous_review"
+    _clear_blocker_evidence(item)
     for key in (
         "dispatch_error",
         "resource_error",
@@ -657,6 +750,7 @@ def _apply_worker_result(
         # receipt for the current salvaged deliverable.
         item["status"] = "completed"
         item["review_status"] = "pending_heterogeneous_review"
+        _clear_blocker_evidence(item)
         for key in (
             "dispatch_error",
             "resource_error",

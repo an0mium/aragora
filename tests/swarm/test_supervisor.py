@@ -4559,6 +4559,14 @@ async def test_collect_results_blocks_merge_gate_without_verification_plan(
     assert wo["failure_reason"] == "missing_verification_plan"
     assert "verification command" in wo["blocking_question"]
     assert "missing verification plan" in wo["dispatch_error"]
+    assert (
+        wo["blocker_evidence"]
+        == "merge gate blocked: missing verification plan or verification command"
+    )
+    assert (
+        wo["metadata"]["blocker_evidence"]
+        == "merge gate blocked: missing verification plan or verification command"
+    )
 
 
 @pytest.mark.asyncio
@@ -7442,6 +7450,11 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
     assert "stalled lane" in work_order["blocking_question"]
     assert work_order["worker_outcome"] == "timeout_no_progress"
     assert work_order["blockers"] == [work_order["dispatch_error"]]
+    assert work_order["blocker_evidence"] in {"stalled warning", work_order["dispatch_error"]}
+    assert work_order["metadata"]["blocker_evidence"] in {
+        "stalled warning",
+        work_order["dispatch_error"],
+    }
     for key in (
         "receipt_id",
         "confidence",

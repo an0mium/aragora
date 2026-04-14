@@ -2466,6 +2466,49 @@ Result: timed out after 30s
         assert needs_human["blocker_evidence"] == "pytest timed out in tests/swarm/test_reporter.py"
         assert needs_human["next_action"] == "Fix verification failure before rerunning the lane."
 
+    def test_build_boss_payload_prefers_persisted_top_level_blocker_evidence(self) -> None:
+        payload = build_boss_payload(
+            run={
+                "run_id": "run-1b",
+                "status": "needs_human",
+                "goal": "Repair failing lane",
+                "target_branch": "main",
+                "work_orders": [
+                    {
+                        "work_order_id": "wo-1b",
+                        "title": "Repair failing lane",
+                        "status": "needs_human",
+                        "failure_reason": "worker_no_progress_timeout",
+                        "blocker_evidence": "stalled warning",
+                        "metadata": {
+                            "repair_journal": [
+                                {
+                                    "failure_reason": "worker_no_progress_timeout",
+                                    "exit_code": -1,
+                                    "stderr_tail": "older stderr tail",
+                                }
+                            ]
+                        },
+                    }
+                ],
+            },
+            integrator_view={
+                "lanes": [
+                    {
+                        "work_order_id": "wo-1b",
+                        "title": "Repair failing lane",
+                        "status": "needs_human",
+                        "blockers": ["worker_no_progress_timeout"],
+                        "failure_classes": ["worker_no_progress_timeout"],
+                    }
+                ]
+            },
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["blocker_evidence"] == "stalled warning"
+        assert payload["needs_human"][0]["blocker_evidence"] == "stalled warning"
+
     def test_render_boss_text_includes_needs_human_blocker_evidence(self) -> None:
         payload = build_boss_payload(
             run={
