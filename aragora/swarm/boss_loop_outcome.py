@@ -14,6 +14,22 @@ from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics
 logger = logging.getLogger(__name__)
 
 
+def _serialize_blocker_evidence(value: Any) -> str | None:
+    """Normalize blocker evidence into stable text for JSONL metrics rows."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        compact = " ".join(value.split())
+        return compact or None
+    if isinstance(value, (dict, list)):
+        try:
+            return json.dumps(value, sort_keys=True)
+        except TypeError:
+            pass
+    compact = " ".join(str(value).split())
+    return compact or None
+
+
 def extract_iteration_metrics(worker_result: dict[str, Any]) -> tuple[int, int, int]:
     """Summarize changed files and test verification from a worker run.
 
@@ -116,6 +132,18 @@ def append_iteration_metrics(
         # Extract failure/blocker evidence for operator visibility (BC-03)
         failure_reason: str | None = str(worker_result.get("failure_reason", "")).strip() or None
         blocker_kind: str | None = str(worker_result.get("blocker_kind", "")).strip() or None
+        blocker_evidence: str | None = None
+        for candidate in (
+            worker_result.get("blocker_evidence"),
+            receipt_metadata.get("blocker_evidence")
+            if isinstance(receipt_metadata, dict)
+            else None,
+            worker_result.get("dispatch_gate"),
+            receipt_metadata.get("dispatch_gate") if isinstance(receipt_metadata, dict) else None,
+        ):
+            blocker_evidence = _serialize_blocker_evidence(candidate)
+            if blocker_evidence:
+                break
         needs_human_reasons: Any = worker_result.get("reasons")
         if isinstance(needs_human_reasons, list) and needs_human_reasons:
             if not failure_reason:
@@ -143,6 +171,7 @@ def append_iteration_metrics(
             "publish_action": publish_action,
             "failure_reason": failure_reason,
             "blocker_kind": blocker_kind,
+            "blocker_evidence": blocker_evidence,
             "category_success_rates": category_success_rates,
         }
 

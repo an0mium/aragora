@@ -82,6 +82,7 @@ describe('SwarmStatusPage', () => {
             terminal_class: 'blocked_auth_failure',
             failure_reason: 'missing_contract_slice',
             blocker_kind: 'auth',
+            blocker_evidence: 'validation_contract missing for dispatch_ready gate',
             issue_title: 'Persist missing credential envelope',
           },
         ],
@@ -103,6 +104,9 @@ describe('SwarmStatusPage', () => {
     expect(screen.getByText('80.0%')).toBeInTheDocument();
     expect(screen.getByText('75.0%')).toBeInTheDocument();
     expect(screen.getByText('Persist missing credential envelope')).toBeInTheDocument();
+    expect(
+      screen.getByText('validation_contract missing for dispatch_ready gate')
+    ).toBeInTheDocument();
     expect(screen.getAllByText('missing_contract_slice')).toHaveLength(2);
     expect(screen.getAllByText('blocked_auth_failure')).toHaveLength(3);
     expect(screen.getByText('rescue_timeout')).toBeInTheDocument();

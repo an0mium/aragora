@@ -14,6 +14,7 @@ interface SwarmBlocker {
   terminal_class: string;
   failure_reason: string | null;
   blocker_kind: string | null;
+  blocker_evidence: string | null;
   issue_title: string | null;
 }
 
@@ -153,6 +154,11 @@ function BlockerRow({ blocker }: { blocker: SwarmBlocker }) {
       <div className="mt-2 text-xs font-theme-data text-text-muted">
         {blocker.failure_reason ?? 'No explicit failure reason recorded.'}
       </div>
+      {blocker.blocker_evidence ? (
+        <div className="mt-2 rounded border border-amber-500/20 bg-amber-500/5 px-2 py-2 text-xs font-theme-data text-amber-100">
+          {blocker.blocker_evidence}
+        </div>
+      ) : null}
     </div>
   );
 }
