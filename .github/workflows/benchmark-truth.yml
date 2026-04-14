@@ -1,0 +1,100 @@
+name: Benchmark Truth Artifact
+# Publishes a recurring corpus-linked truth artifact for TW-02.
+# Runs daily and on demand. Does not block PRs.
+
+on:
+  schedule:
+    - cron: '30 3 * * *'  # Daily at 3:30 AM UTC
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish artifact to repo-stable path'
+        required: false
+        default: 'true'
+
+concurrency:
+  group: benchmark-truth-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  truth-artifact:
+    name: Build Truth Artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]" --quiet 2>/dev/null || pip install -e . --quiet
+
+      - name: Check corpus exists
+        run: |
+          if [ ! -f docs/benchmarks/corpus.json ]; then
+            echo "::warning::Corpus file not found at docs/benchmarks/corpus.json"
+            exit 0
+          fi
+
+      - name: Check metrics file
+        id: metrics
+        run: |
+          METRICS_PATH=".aragora/overnight/boss_metrics.jsonl"
+          if [ ! -f "$METRICS_PATH" ]; then
+            echo "::warning::Metrics file not found at $METRICS_PATH — using default path"
+            METRICS_PATH=".aragora/boss_metrics.jsonl"
+          fi
+          if [ ! -f "$METRICS_PATH" ]; then
+            echo "::warning::No metrics file found. Skipping artifact generation."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=$METRICS_PATH" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build truth artifact
+        if: steps.metrics.outputs.skip != 'true'
+        env:
+          METRICS_FILE: ${{ steps.metrics.outputs.path }}
+        run: |
+          python scripts/build_benchmark_truth_artifact.py \
+            --repo synaptent/aragora \
+            --metrics-file "$METRICS_FILE" \
+            --corpus docs/benchmarks/corpus.json \
+            --json > truth-artifact.json
+          echo "## Truth Artifact Summary" >> "$GITHUB_STEP_SUMMARY"
+          python3 -c "
+          import json, sys
+          a = json.load(open('truth-artifact.json'))
+          pm = a.get('primary_metrics', {})
+          cov = a.get('coverage', {})
+          corpus = a.get('corpus', {})
+          print(f'**Corpus:** {corpus.get(\"corpus_id\", \"?\")} rev {corpus.get(\"revision\", \"?\")}')
+          print(f'**Issues:** {corpus.get(\"issue_count\", 0)} in corpus, {cov.get(\"attempted_issue_count\", 0)} attempted')
+          print(f'**Truth success rate:** {pm.get(\"truth_success_rate\", 0):.1%}')
+          print(f'**No-rescue truth success rate:** {pm.get(\"no_rescue_truth_success_rate\", 0):.1%}')
+          print(f'**Merged-only rate:** {pm.get(\"merged_only_rate\", 0):.1%}')
+          fc = a.get('failure_class_distribution', {})
+          if fc:
+              print()
+              print('**Failure distribution:**')
+              for cls, count in sorted(fc.items(), key=lambda x: -x[1]):
+                  print(f'- {cls}: {count}')
+          " >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifact
+        if: steps.metrics.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-truth-artifact
+          path: truth-artifact.json
+          retention-days: 90
