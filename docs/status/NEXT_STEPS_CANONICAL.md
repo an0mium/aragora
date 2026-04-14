@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-04-13
+Last updated: 2026-04-14
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
@@ -27,14 +27,20 @@ What is already true:
 - original versus sanitized task text is already preserved for audit on `main`
 - retry dispatch now carries prior session resume context on `main` via [#5384](https://github.com/synaptent/aragora/pull/5384)
 - the rescue loop can now record interventions, plan bounded recovery, and execute safe followups on `main` via [#5379](https://github.com/synaptent/aragora/pull/5379), [#5380](https://github.com/synaptent/aragora/pull/5380), and [#5383](https://github.com/synaptent/aragora/pull/5383)
+- RescuePlanner LLM is now wired into the sanitizer quarantine path as a second opinion on `main` via [#5499](https://github.com/synaptent/aragora/pull/5499)
+- Conductor failure classification and issue upgrader are wired into the dispatch path via `dispatch_followups.py` on `main` ([#5510](https://github.com/synaptent/aragora/pull/5510))
+- operator swarm status page is live at `/swarm-status` with terminal class distribution, success rates, and blocker evidence ([#5511](https://github.com/synaptent/aragora/pull/5511))
+- benchmark truth artifacts are published automatically with timestamped corpus manifests on `main` ([#5506](https://github.com/synaptent/aragora/pull/5506))
+- cross-process issue claim lock prevents duplicate dispatch from parallel boss loops on `main` ([#5402](https://github.com/synaptent/aragora/pull/5402))
+- B0 benchmark has tracked 162 ticks across 112 unique issues with 56.2% no-rescue success rate (lower than peak 86.7% because harder issues are now being attempted)
 
 What is still missing:
 
 - the last `RS-07` step is to make receipt-backed contract preflight the default operator admission truth everywhere, not just a substrate primitive — contract in, persisted receipt out, fail-closed on any mismatch ([#5327](https://github.com/synaptent/aragora/issues/5327))
-- broader repair truth on the live swarm loop still depends on full `BC-01` persistence and precise `BC-03` blocker evidence
-- recurring scheduled use of the frozen corpus and diffable truth artifact still needs to become routine status output ([#5329](https://github.com/synaptent/aragora/issues/5329))
+- `rescue_no_deliverable` is now the largest failure class (30 of 80 recent ticks, 37.5%) — workers start but fail to produce mergeable PRs; this needs Conductor retry logic to be acted on, not just classified
+- recurring scheduled use of the frozen corpus needs to become automatic (partially addressed by [#5506](https://github.com/synaptent/aragora/pull/5506) and [#5515](https://github.com/synaptent/aragora/pull/5515))
+- TW-03 rescue class harvest loop needs to convert repeated rescue patterns into boss-ready substrate tickets ([#5330](https://github.com/synaptent/aragora/issues/5330))
 - proof that the B2 guard holds under repeated bounded runs instead of one-off success stories
-- broader repair-loop coverage on top of the existing audit trail
 - lower-rescue unattended operation on bounded backlogs
 
 The work now is not “add more speculative autonomy.” It is “make bounded unattended execution boring.”
