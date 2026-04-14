@@ -107,7 +107,7 @@ class IntegratedControlPlane:
             try:
                 await self._sync_task
             except asyncio.CancelledError:
-                pass
+                pass  # Expected during graceful shutdown
         logger.info("IntegratedControlPlane stopped")
 
     async def _sync_loop(self) -> None:
