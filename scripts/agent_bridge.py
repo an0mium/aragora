@@ -14,6 +14,7 @@ Usage:
   python3 scripts/agent_bridge.py lanes [--json]
   python3 scripts/agent_bridge.py tmux-map
   python3 scripts/agent_bridge.py health [--json]
+  python3 scripts/agent_bridge.py operator-snapshot [--json]
 """
 
 from __future__ import annotations
@@ -667,6 +668,110 @@ def cmd_health(args: argparse.Namespace) -> int:
     return 1
 
 
+def cmd_operator_snapshot(args: argparse.Namespace) -> int:
+    """Output a unified operator snapshot combining sessions, lanes, and health."""
+    sessions = discover()
+    _enrich_prs(sessions)
+    _write_session_snapshot(sessions)
+    records = _sync_lane_records(_load_lane_registry(), sessions)
+
+    # Build health issues (reuse logic from cmd_health)
+    issues: list[dict[str, str]] = []
+    for s in sessions:
+        if s.worktree and not Path(s.worktree).is_dir():
+            issues.append(
+                {
+                    "type": "stale_worktree",
+                    "session": s.name,
+                    "detail": f"worktree path missing: {s.worktree}",
+                }
+            )
+        if s.status == "dead" and s.worktree and Path(s.worktree).is_dir():
+            issues.append(
+                {
+                    "type": "stale_worktree",
+                    "session": s.name,
+                    "detail": f"dead session with lingering worktree: {s.worktree}",
+                }
+            )
+    lane_owners: dict[str, list[str]] = {}
+    for r in records:
+        if r.status in ACTIVE_LANE_STATUSES:
+            lane_owners.setdefault(r.lane_id, []).append(r.owner_session)
+    for lane_id, owners in lane_owners.items():
+        if len(owners) > 1:
+            issues.append(
+                {
+                    "type": "ambiguous_lane",
+                    "session": ", ".join(owners),
+                    "detail": f"lane '{lane_id}' claimed by multiple active sessions",
+                }
+            )
+    for r in records:
+        if r.status == "conflict":
+            issues.append(
+                {
+                    "type": "lane_conflict",
+                    "session": r.owner_session,
+                    "detail": f"lane '{r.lane_id}' in conflict with {r.conflict_session}: {r.conflict_reason}",
+                }
+            )
+
+    snapshot: dict[str, Any] = {
+        "timestamp": _now_iso(),
+        "sessions": [s.to_dict() for s in sessions],
+        "lanes": [r.to_dict() for r in records],
+        "health": {"ok": len(issues) == 0, "issues": issues},
+        "summary": {
+            "total_sessions": len(sessions),
+            "alive_sessions": sum(1 for s in sessions if s.status == "alive"),
+            "dead_sessions": sum(1 for s in sessions if s.status == "dead"),
+            "active_lanes": sum(1 for r in records if r.status in ACTIVE_LANE_STATUSES),
+            "conflict_lanes": sum(1 for r in records if r.status == "conflict"),
+            "health_issues": len(issues),
+        },
+    }
+
+    if args.json:
+        print(json.dumps(snapshot, indent=2))
+        return 0
+
+    summary = snapshot["summary"]
+    print(f"Operator Snapshot @ {snapshot['timestamp']}")
+    print("=" * 80)
+    print(
+        f"Sessions: {summary['alive_sessions']} alive / {summary['dead_sessions']} dead / {summary['total_sessions']} total"
+    )
+    print(f"Lanes:    {summary['active_lanes']} active / {summary['conflict_lanes']} conflict")
+    health_status = "OK" if snapshot["health"]["ok"] else f"{summary['health_issues']} issue(s)"
+    print(f"Health:   {health_status}")
+
+    if sessions:
+        print(f"\n{'NAME':<24} {'AGENT':<8} {'STATUS':<8} {'BRANCH':<28} SUMMARY")
+        print("-" * 110)
+        for s in sessions:
+            branch = s.branch[:26] if s.branch else "-"
+            summary_text = (s.summary[:40] + "..." if len(s.summary) > 40 else s.summary) or "-"
+            print(f"{s.name:<24} {s.agent:<8} {s.status:<8} {branch:<28} {summary_text}")
+
+    if records:
+        print(f"\n{'LANE':<22} {'OWNER':<24} {'STATUS':<10} NEXT ACTION")
+        print("-" * 90)
+        for r in records:
+            next_action = (
+                r.next_action[:40] + "..." if len(r.next_action) > 40 else r.next_action
+            ) or "-"
+            print(f"{r.lane_id:<22} {r.owner_session:<24} {r.status:<10} {next_action}")
+
+    if issues:
+        print(f"\n{'TYPE':<22} {'SESSION':<26} DETAIL")
+        print("-" * 100)
+        for issue in issues:
+            print(f"{issue['type']:<22} {issue['session']:<26} {issue['detail']}")
+
+    return 0
+
+
 def cmd_tmux_map(args: argparse.Namespace) -> int:
     try:
         result = subprocess.run(
@@ -733,6 +838,9 @@ def main() -> int:
     sub.add_parser("lanes", help="Sessions + PR state")
     sub.add_parser("tmux-map", help="Show tmux panes")
     sub.add_parser("health", help="Check for stale worktrees and lane conflicts")
+    sub.add_parser(
+        "operator-snapshot", help="Unified operator snapshot (sessions + lanes + health)"
+    )
 
     args = parser.parse_args()
     if not args.command:
@@ -748,6 +856,7 @@ def main() -> int:
         "lanes": cmd_lanes,
         "tmux-map": cmd_tmux_map,
         "health": cmd_health,
+        "operator-snapshot": cmd_operator_snapshot,
     }
     return cmds[args.command](args)
 
