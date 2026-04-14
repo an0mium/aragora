@@ -14,6 +14,53 @@ from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics
 logger = logging.getLogger(__name__)
 
 
+def extract_iteration_metrics(worker_result: dict[str, Any]) -> tuple[int, int, int]:
+    """Summarize changed files and test verification from a worker run.
+
+    Returns (files_changed, tests_run, tests_passed).
+    """
+    run_dict = worker_result.get("run")
+    if not isinstance(run_dict, dict):
+        return 0, 0, 0
+
+    changed_files: list[str] = []
+    tests_run: list[str] = []
+    tests_passed = 0
+    saw_verification_results = False
+
+    for work_order in run_dict.get("work_orders", []):
+        if not isinstance(work_order, dict):
+            continue
+        changed_files.extend(
+            str(path).strip() for path in work_order.get("changed_paths", []) if str(path).strip()
+        )
+        tests_run.extend(
+            str(command).strip()
+            for command in work_order.get("tests_run", [])
+            if str(command).strip()
+        )
+        verification_results = work_order.get("verification_results", [])
+        if not isinstance(verification_results, list):
+            continue
+        for verification in verification_results:
+            if not isinstance(verification, dict):
+                continue
+            saw_verification_results = True
+            if verification.get("passed") is True:
+                tests_passed += 1
+
+    unique_changed_files = list(dict.fromkeys(changed_files))
+    unique_tests_run = list(dict.fromkeys(tests_run))
+    if (
+        not saw_verification_results
+        and unique_tests_run
+        and str(worker_result.get("status", "")).strip().lower() == "completed"
+    ):
+        tests_passed = len(unique_tests_run)
+
+    return len(unique_changed_files), len(unique_tests_run), tests_passed
+
+
 def append_iteration_metrics(
     *,
     metrics_jsonl_path: str | None,

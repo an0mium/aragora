@@ -11,7 +11,6 @@ import json
 import logging
 import os
 import re
-import socket
 import subprocess
 import sys
 import tempfile
@@ -84,7 +83,6 @@ _ALREADY_DONE_MARKERS = (
     "there's nothing to commit",
 )
 _BOSS_PUBLISH_COMMENT_MARKER = "<!-- aragora-boss-loop-publish -->"
-_ISSUE_CLAIM_TTL_SECONDS = 30 * 60
 
 
 def _strict_bool(value: Any) -> bool | None:
@@ -810,219 +808,29 @@ class BossLoop:
 
         return blocked
 
-    @staticmethod
-    def _issue_claims_dir() -> Path:
-        return Path.cwd() / ".aragora" / "issue_claims"
-
-    def _issue_claim_path(self, issue_number: int) -> Path:
-        return self._issue_claims_dir() / f"{int(issue_number)}.lock"
-
-    @staticmethod
-    def _read_issue_claim_payload(path: Path) -> dict[str, Any] | None:
-        try:
-            raw = path.read_text(encoding="utf-8").strip()
-        except OSError:
-            return None
-        if not raw:
-            return None
-        try:
-            payload = json.loads(raw)
-        except (TypeError, ValueError):
-            return None
-        return payload if isinstance(payload, dict) else None
-
-    @staticmethod
-    def _issue_claim_owner_pid(payload: dict[str, Any] | None) -> int | None:
-        if not isinstance(payload, dict):
-            return None
-        try:
-            pid = int(payload.get("pid", 0) or 0)
-        except (TypeError, ValueError):
-            return None
-        return pid if pid > 0 else None
-
-    def _issue_claim_owned_by_self(self, payload: dict[str, Any] | None) -> bool:
-        return (
-            isinstance(payload, dict)
-            and str(payload.get("run_id", "")).strip() == self.run_id
-            and self._issue_claim_owner_pid(payload) == os.getpid()
-        )
-
-    def _reap_stale_issue_claim(
-        self,
-        issue_number: int,
-        path: Path,
-        payload: dict[str, Any] | None,
-    ) -> bool:
-        try:
-            stat = path.stat()
-        except FileNotFoundError:
-            return True
-        except OSError:
-            return False
-
-        stale_reason: str | None = None
-        age_seconds = max(0.0, time.time() - stat.st_mtime)
-        if age_seconds > _ISSUE_CLAIM_TTL_SECONDS:
-            stale_reason = "expired"
-        else:
-            owner_pid = self._issue_claim_owner_pid(payload)
-            owner_host = str((payload or {}).get("host", "")).strip()
-            if owner_pid is not None and (not owner_host or owner_host == socket.gethostname()):
-                try:
-                    os.kill(owner_pid, 0)
-                except ProcessLookupError:
-                    stale_reason = "owner_dead"
-                except PermissionError:
-                    stale_reason = None
-
-        if stale_reason is None:
-            return False
-
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            return True
-        except OSError:
-            logger.debug("Failed to remove stale boss issue claim %s", path, exc_info=True)
-            return False
-
-        logger.info("boss_loop_reaped_issue_claim issue=#%s reason=%s", issue_number, stale_reason)
-        return True
-
-    def _issue_has_active_foreign_claim(self, issue_number: int) -> bool:
-        path = self._issue_claim_path(issue_number)
-        if not path.exists():
-            return False
-        payload = self._read_issue_claim_payload(path)
-        if self._issue_claim_owned_by_self(payload):
-            return False
-        if self._reap_stale_issue_claim(issue_number, path, payload):
-            return False
-        return True
-
     def _filter_issues_with_active_claims(
         self,
         issues: list[GitHubIssue],
     ) -> list[GitHubIssue]:
-        filtered: list[GitHubIssue] = []
-        for issue in issues:
-            if self._issue_has_active_foreign_claim(issue.number):
-                logger.info("boss_loop_skip_claimed_issue issue=#%s", issue.number)
-                continue
-            filtered.append(issue)
-        return filtered
+        from aragora.swarm.boss_loop_claims import filter_claimed_issues
+
+        return filter_claimed_issues(issues, self.run_id)
 
     def _claim_issue_dispatch(self, issue_number: int) -> tuple[bool, str | None]:
-        path = self._issue_claim_path(issue_number)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "issue_number": int(issue_number),
-            "run_id": self.run_id,
-            "pid": os.getpid(),
-            "host": socket.gethostname(),
-            "claimed_at": datetime.now(UTC).isoformat(),
-        }
-        serialized = json.dumps(payload, sort_keys=True)
+        from aragora.swarm.boss_loop_claims import claim_issue
 
-        while True:
-            try:
-                fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
-            except FileExistsError:
-                existing = self._read_issue_claim_payload(path)
-                if self._issue_claim_owned_by_self(existing):
-                    return True, None
-                if self._reap_stale_issue_claim(issue_number, path, existing):
-                    continue
-                owner_parts: list[str] = []
-                if isinstance(existing, dict):
-                    existing_run_id = str(existing.get("run_id", "")).strip()
-                    if existing_run_id:
-                        owner_parts.append(existing_run_id)
-                    existing_pid = self._issue_claim_owner_pid(existing)
-                    if existing_pid is not None:
-                        owner_parts.append(f"pid {existing_pid}")
-                    existing_host = str(existing.get("host", "")).strip()
-                    if existing_host:
-                        owner_parts.append(existing_host)
-                owner_text = ", ".join(owner_parts) if owner_parts else "another boss loop"
-                return False, f"Issue #{issue_number} is already claimed by {owner_text}."
-            except OSError as exc:
-                return False, f"Failed to claim issue #{issue_number}: {exc}"
-
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                    handle.write(serialized)
-                    handle.write("\n")
-            except OSError as exc:
-                try:
-                    path.unlink()
-                except OSError:
-                    logger.debug(
-                        "Failed to clean up partial boss issue claim %s", path, exc_info=True
-                    )
-                return False, f"Failed to persist issue claim for #{issue_number}: {exc}"
-            return True, None
+        return claim_issue(issue_number, self.run_id)
 
     def _release_issue_dispatch_claim(self, issue_number: int) -> None:
-        path = self._issue_claim_path(issue_number)
-        payload = self._read_issue_claim_payload(path)
-        if payload is not None and not self._issue_claim_owned_by_self(payload):
-            return
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            return
-        except OSError:
-            logger.debug("Failed to release boss issue claim %s", path, exc_info=True)
+        from aragora.swarm.boss_loop_claims import release_claim
 
-    def _extract_iteration_metrics(self, worker_result: dict[str, Any]) -> tuple[int, int, int]:
-        """Summarize changed files and test verification from a worker run."""
-        run_dict = worker_result.get("run")
-        if not isinstance(run_dict, dict):
-            return 0, 0, 0
+        release_claim(issue_number, self.run_id)
 
-        changed_files: list[str] = []
-        tests_run: list[str] = []
-        tests_passed = 0
-        saw_verification_results = False
+    @staticmethod
+    def _extract_iteration_metrics(worker_result: dict[str, Any]) -> tuple[int, int, int]:
+        from aragora.swarm.boss_loop_outcome import extract_iteration_metrics
 
-        for work_order in run_dict.get("work_orders", []):
-            if not isinstance(work_order, dict):
-                continue
-
-            changed_files.extend(
-                str(path).strip()
-                for path in work_order.get("changed_paths", [])
-                if str(path).strip()
-            )
-            tests_run.extend(
-                str(command).strip()
-                for command in work_order.get("tests_run", [])
-                if str(command).strip()
-            )
-
-            verification_results = work_order.get("verification_results", [])
-            if not isinstance(verification_results, list):
-                continue
-
-            for verification in verification_results:
-                if not isinstance(verification, dict):
-                    continue
-                saw_verification_results = True
-                if verification.get("passed") is True:
-                    tests_passed += 1
-
-        unique_changed_files = list(dict.fromkeys(changed_files))
-        unique_tests_run = list(dict.fromkeys(tests_run))
-        if (
-            not saw_verification_results
-            and unique_tests_run
-            and str(worker_result.get("status", "")).strip().lower() == "completed"
-        ):
-            tests_passed = len(unique_tests_run)
-
-        return len(unique_changed_files), len(unique_tests_run), tests_passed
+        return extract_iteration_metrics(worker_result)
 
     def _append_iteration_metrics(
         self,
