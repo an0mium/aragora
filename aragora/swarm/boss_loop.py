@@ -1102,97 +1102,15 @@ class BossLoop:
         return candidates
 
     def _target_issue_miss_guidance(self, issue_number: int) -> tuple[list[str], list[str]]:
-        reasons = [
-            f"Target issue #{issue_number} was not found in the issue feed or is not eligible under current filters/retry state."
-        ]
-        next_actions = [
-            f"Verify issue #{issue_number} is still open, eligible, and has not exceeded retry limits.",
-            "Remove --boss-issue-number to return to feed-driven selection.",
-        ]
-        fetch_issue = getattr(self._feed, "_fetch_issue", None)
-        if not callable(fetch_issue):
-            return reasons, next_actions
-        try:
-            issue = fetch_issue(issue_number, allow_closed=True)
-        except TypeError:
-            try:
-                issue = fetch_issue(issue_number)
-            except Exception:
-                return reasons, next_actions
-        except Exception:
-            return reasons, next_actions
-        if not isinstance(issue, GitHubIssue):
-            return reasons, next_actions
+        from aragora.swarm.boss_loop_selection import target_issue_miss_guidance
 
-        state = str(issue.state or "").strip().lower()
-        if state and state != "open":
-            return (
-                [
-                    f"Target issue #{issue_number} is {state} and cannot be selected by the open-issue boss feed."
-                ],
-                [
-                    f"Reopen issue #{issue_number} if it should be eligible for Boss dispatch.",
-                    "Remove --boss-issue-number to return to feed-driven selection.",
-                ],
-            )
-
-        labels = {str(label).strip() for label in issue.labels if str(label).strip()}
-        skipped = sorted(labels & set(self.config.skip_labels or set()))
-        if skipped:
-            return (
-                [f"Target issue #{issue_number} is excluded by skip labels: {', '.join(skipped)}."],
-                [
-                    f"Remove skip labels from issue #{issue_number} or adjust --label-filter/skip-label settings.",
-                    "Remove --boss-issue-number to return to feed-driven selection.",
-                ],
-            )
-
-        required = set(self.config.require_labels or set())
-        missing_labels = sorted(required - labels)
-        if missing_labels:
-            return (
-                [
-                    f"Target issue #{issue_number} is missing required labels: {', '.join(missing_labels)}."
-                ],
-                [
-                    f"Add the required labels to issue #{issue_number} or adjust --require-label settings.",
-                    "Remove --boss-issue-number to return to feed-driven selection.",
-                ],
-            )
-
-        overlapping_scopes = sorted(
-            {
-                entry
-                for entry in infer_issue_scope_entries(issue)
-                if entry in self._blocked_issue_scopes()
-            }
+        return target_issue_miss_guidance(
+            issue_number=issue_number,
+            fetch_issue=getattr(self._feed, "_fetch_issue", None),
+            skip_labels=self.config.skip_labels,
+            require_labels=self.config.require_labels,
+            blocked_scopes=self._blocked_issue_scopes(),
         )
-        if overlapping_scopes:
-            overlap_summary = ", ".join(overlapping_scopes[:3])
-            if len(overlapping_scopes) > 3:
-                overlap_summary = f"{overlap_summary}, +{len(overlapping_scopes) - 3} more"
-            return (
-                [
-                    (
-                        f"Target issue #{issue_number} overlaps files already owned by open PR or "
-                        f"in-flight work: {overlap_summary}."
-                    )
-                ],
-                [
-                    f"Merge, close, or retarget the overlapping work before redispatching issue #{issue_number}.",
-                    "Remove --boss-issue-number to return to feed-driven selection.",
-                ],
-            )
-
-        if not issue.title:
-            return (
-                [f"Target issue #{issue_number} is missing a title and cannot be selected."],
-                [
-                    f"Add a non-empty title to issue #{issue_number}.",
-                    "Remove --boss-issue-number to return to feed-driven selection.",
-                ],
-            )
-        return reasons, next_actions
 
     @staticmethod
     def _skip_label_summary(report: IssueEligibilityReport) -> str | None:
