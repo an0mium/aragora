@@ -52,6 +52,10 @@ from aragora.swarm.boss_feed import (  # noqa: F401
     scope_entries_overlap,
 )
 from aragora.swarm.boss_freshness import RunnerFreshnessResult, check_runner_freshness  # noqa: F401
+from aragora.swarm.boss_loop_claims import (
+    ISSUE_CLAIM_TTL_SECONDS,
+    issue_claim_path as _issue_claim_path_impl,
+)
 from aragora.swarm.boss_validation import (  # noqa: F401
     _compose_issue_dispatch_goal,
     _should_replace_with_focused_tests,
@@ -83,6 +87,7 @@ _ALREADY_DONE_MARKERS = (
     "there's nothing to commit",
 )
 _BOSS_PUBLISH_COMMENT_MARKER = "<!-- aragora-boss-loop-publish -->"
+_ISSUE_CLAIM_TTL_SECONDS = ISSUE_CLAIM_TTL_SECONDS
 
 
 def _strict_bool(value: Any) -> bool | None:
@@ -815,6 +820,10 @@ class BossLoop:
         from aragora.swarm.boss_loop_claims import filter_claimed_issues
 
         return filter_claimed_issues(issues, self.run_id)
+
+    @staticmethod
+    def _issue_claim_path(issue_number: int) -> Path:
+        return _issue_claim_path_impl(issue_number)
 
     def _claim_issue_dispatch(self, issue_number: int) -> tuple[bool, str | None]:
         from aragora.swarm.boss_loop_claims import claim_issue
