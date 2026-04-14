@@ -39,7 +39,7 @@ def test_main_ci_passes_at_threshold(tmp_path: Path, capsys) -> None:
     assert exit_code == 0
     assert (
         captured.out.strip()
-        == "status=pass scorecard_status=active success_rate=0.500 threshold=0.500 "
+        == "status=pass scorecard_status=active success_rate=0.500 threshold=0.500 coverage_status=n/a "
         "total_ticks=2 unique_issues_attempted=2 unique_issues_succeeded=1 unique_issues_failed=1"
     )
 
@@ -59,7 +59,7 @@ def test_main_ci_fails_below_threshold(tmp_path: Path, capsys) -> None:
     assert exit_code == 1
     assert (
         captured.out.strip()
-        == "status=fail scorecard_status=active success_rate=0.500 threshold=0.750 "
+        == "status=fail scorecard_status=active success_rate=0.500 threshold=0.750 coverage_status=n/a "
         "total_ticks=2 unique_issues_attempted=2 unique_issues_succeeded=1 unique_issues_failed=1"
     )
 
@@ -269,15 +269,143 @@ def test_main_publish_dir_with_json_keeps_stdout_json_and_reports_path_on_stderr
     assert reported_path.parent == tmp_path / "published" / "tw-01-bounded-execution-v1" / "rev-5"
 
 
-def test_main_publish_mode_requires_truth_artifact(tmp_path: Path) -> None:
+def test_main_json_with_corpus_filters_metrics_and_reports_coverage(tmp_path: Path, capsys) -> None:
+    metrics_path = _write_metrics(
+        tmp_path / "boss_metrics.jsonl",
+        [
+            {"issue_number": 1001, "terminal_class": "deliverable_pr_created"},
+            {"issue_number": 2002, "terminal_class": "rescue_worker_crash"},
+        ],
+    )
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 7,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [
+                {"issue_id": 1001, "title": "Issue A"},
+                {"issue_id": 1003, "title": "Issue B"},
+            ],
+        },
+    )
+
+    exit_code = mod.main(["--metrics", str(metrics_path), "--corpus", str(corpus_path), "--json"])
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["unique_issues_attempted"] == 1
+    assert payload["unique_issues_succeeded"] == 1
+    assert payload["unique_issues_failed"] == 0
+    assert payload["no_rescue_success_rate"] == 1.0
+    assert payload["corpus"]["revision"] == 7
+    assert payload["coverage"]["missing_issue_numbers"] == [1003]
+    assert payload["coverage"]["status"] == "incomplete"
+
+
+def test_main_publish_mode_uses_default_corpus_to_build_truth_artifact(
+    tmp_path: Path,
+    capsys,
+    monkeypatch,
+) -> None:
+    metrics_path = _write_metrics(
+        tmp_path / "boss_metrics.jsonl",
+        [
+            {"issue_number": 1001, "terminal_class": "deliverable_pr_created"},
+            {"issue_number": 2002, "terminal_class": "rescue_worker_crash"},
+        ],
+    )
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 3,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1001, "title": "Issue A"}],
+        },
+    )
+    truth_artifact_path = tmp_path / "truth-artifacts" / "truth-20260414T150000Z.json"
+
+    def _fake_auto_publish_truth_artifact(**_: object) -> tuple[Path, dict[str, object]]:
+        payload = {
+            "generated_at": "2026-04-14T15:00:00Z",
+            "corpus": {
+                "path": "docs/benchmarks/corpus.json",
+                "corpus_id": "tw-01-bounded-execution-v1",
+                "revision": 3,
+                "recorded_on": "2026-04-14",
+                "success_contract": "mergeable_pr_or_merged_pr",
+                "issue_count": 1,
+            },
+            "primary_metrics": {"truth_success_rate": 1.0},
+            "coverage": {"is_complete": True, "status": "complete", "missing_issue_numbers": []},
+            "failure_class_distribution": {},
+            "rescue_counts_by_type": {},
+            "issues": [{"issue_number": 1001}],
+        }
+        truth_artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        truth_artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return truth_artifact_path, payload
+
+    monkeypatch.setattr(mod, "DEFAULT_CORPUS_PATH", corpus_path)
+    monkeypatch.setattr(mod, "auto_publish_truth_artifact", _fake_auto_publish_truth_artifact)
+
+    exit_code = mod.main(
+        [
+            "--metrics",
+            str(metrics_path),
+            "--publish",
+            "--publish-dir",
+            str(tmp_path / "published"),
+            "--json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    reported_path = Path(captured.err.strip())
+    assert exit_code == 0
+    assert payload["corpus"]["revision"] == 3
+    assert payload["proxy_metrics"]["unique_issues_attempted"] == 1
+    assert payload["truth_artifact_path"] == str(truth_artifact_path)
+    assert reported_path.parent == tmp_path / "published" / "tw-01-bounded-execution-v1" / "rev-3"
+
+
+def test_main_ci_fail_incomplete_fails_for_missing_corpus_issue(tmp_path: Path, capsys) -> None:
     metrics_path = _write_metrics(
         tmp_path / "boss_metrics.jsonl",
         [{"issue_number": 1001, "terminal_class": "deliverable_pr_created"}],
     )
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 1,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [
+                {"issue_id": 1001, "title": "Issue A"},
+                {"issue_id": 1002, "title": "Issue B"},
+            ],
+        },
+    )
 
-    try:
-        mod.main(["--metrics", str(metrics_path), "--publish"])
-    except SystemExit as exc:
-        assert str(exc) == "truth artifact required for publish mode: --truth-artifact PATH"
-    else:
-        raise AssertionError("publish mode should require a truth artifact")
+    exit_code = mod.main(
+        [
+            "--metrics",
+            str(metrics_path),
+            "--corpus",
+            str(corpus_path),
+            "--ci",
+            "--threshold",
+            "0.5",
+            "--fail-incomplete",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "coverage_status=incomplete" in captured.out

@@ -29,6 +29,15 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from build_benchmark_truth_artifact import (
+    DEFAULT_CORPUS_PATH,
+    DEFAULT_PUBLISH_DIR as DEFAULT_TRUTH_ARTIFACT_PUBLISH_DIR,
+    build_benchmark_truth_artifact,
+    load_corpus as load_benchmark_corpus,
+    resolve_published_artifact_path as resolve_truth_artifact_path,
+    write_artifact as write_truth_artifact,
+)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
 DEFAULT_PUBLISH_DIR = REPO_ROOT / ".aragora" / "benchmark_scorecards"
@@ -89,6 +98,98 @@ def _load_json(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"JSON payload at {path} must be an object")
     return payload
+
+
+def load_corpus_issue_numbers(path: Path) -> tuple[dict[str, Any], set[int]]:
+    payload = load_benchmark_corpus(path)
+    issue_numbers: set[int] = set()
+    for item in payload.get("issues", []):
+        if not isinstance(item, dict):
+            continue
+        issue_number = int(item.get("issue_id", 0) or 0)
+        if issue_number > 0:
+            issue_numbers.add(issue_number)
+    return payload, issue_numbers
+
+
+def load_truth_artifact_issue_numbers(path: Path) -> tuple[dict[str, Any], set[int]]:
+    payload = _load_json(path)
+    issue_numbers: set[int] = set()
+    for item in payload.get("issues", []):
+        if not isinstance(item, dict):
+            continue
+        issue_number = int(item.get("issue_number", 0) or 0)
+        if issue_number > 0:
+            issue_numbers.add(issue_number)
+    return payload, issue_numbers
+
+
+def filter_rows_to_issue_numbers(
+    rows: list[dict[str, Any]],
+    issue_numbers: set[int],
+) -> list[dict[str, Any]]:
+    if not issue_numbers:
+        return []
+    filtered: list[dict[str, Any]] = []
+    for row in rows:
+        issue_number = row.get("issue_number")
+        if isinstance(issue_number, int) and issue_number in issue_numbers:
+            filtered.append(row)
+    return filtered
+
+
+def build_scorecard_corpus_metadata(
+    *,
+    corpus_payload: dict[str, Any],
+    issue_numbers: set[int],
+    rows: list[dict[str, Any]],
+    source_path: Path,
+) -> dict[str, Any]:
+    attempted_issue_numbers = {
+        row["issue_number"]
+        for row in rows
+        if isinstance(row.get("issue_number"), int) and row["issue_number"] in issue_numbers
+    }
+    missing_issue_numbers = sorted(issue_numbers - attempted_issue_numbers)
+    return {
+        "corpus": {
+            "path": _repo_stable_path(source_path),
+            "corpus_id": str(corpus_payload.get("corpus_id") or "").strip(),
+            "revision": int(corpus_payload.get("revision", 0) or 0),
+            "recorded_on": str(corpus_payload.get("recorded_on") or "").strip() or None,
+            "success_contract": str(corpus_payload.get("success_contract") or "").strip() or None,
+            "issue_count": len(issue_numbers),
+        },
+        "coverage": {
+            "attempted_issue_count": len(attempted_issue_numbers),
+            "missing_issue_count": len(missing_issue_numbers),
+            "missing_issue_numbers": missing_issue_numbers,
+            "is_complete": not missing_issue_numbers,
+            "status": "complete" if not missing_issue_numbers else "incomplete",
+        },
+    }
+
+
+def auto_publish_truth_artifact(
+    *,
+    repo: str,
+    metrics_path: Path,
+    corpus_path: Path,
+    truth_publish_dir: Path,
+) -> tuple[Path, dict[str, Any]]:
+    artifact = build_benchmark_truth_artifact(
+        repo=repo,
+        metrics_file=metrics_path,
+        corpus_path=corpus_path,
+    )
+    published_path = write_truth_artifact(
+        resolve_truth_artifact_path(
+            publish_dir=truth_publish_dir,
+            artifact=artifact,
+        ),
+        artifact,
+    )
+    return published_path, artifact
 
 
 def _metric_value(payload: dict[str, Any], *path: str) -> float | None:
@@ -333,6 +434,7 @@ def print_scorecard(scorecard: dict[str, Any]) -> None:
 
 def render_ci_summary(scorecard: dict[str, Any], *, threshold: float) -> str:
     success_rate = float(scorecard.get("no_rescue_success_rate", 0.0) or 0.0)
+    coverage_status = str((scorecard.get("coverage") or {}).get("status") or "n/a")
     status = (
         "pass" if success_rate >= threshold and scorecard.get("status") != "no_data" else "fail"
     )
@@ -342,6 +444,7 @@ def render_ci_summary(scorecard: dict[str, Any], *, threshold: float) -> str:
             f"scorecard_status={scorecard.get('status', 'unknown')}",
             f"success_rate={success_rate:.3f}",
             f"threshold={threshold:.3f}",
+            f"coverage_status={coverage_status}",
             f"total_ticks={int(scorecard.get('total_ticks', 0) or 0)}",
             f"unique_issues_attempted={int(scorecard.get('unique_issues_attempted', 0) or 0)}",
             f"unique_issues_succeeded={int(scorecard.get('unique_issues_succeeded', 0) or 0)}",
@@ -364,6 +467,17 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=None,
         help="Optional benchmark truth artifact JSON used for published recurring scorecards",
+    )
+    parser.add_argument(
+        "--corpus",
+        type=Path,
+        default=None,
+        help=f"Optional fixed benchmark corpus manifest (default in auto-publish mode: {DEFAULT_CORPUS_PATH})",
+    )
+    parser.add_argument(
+        "--repo",
+        default="synaptent/aragora",
+        help="GitHub repo owner/name used when auto-building a truth artifact",
     )
     output_group = parser.add_mutually_exclusive_group()
     output_group.add_argument("--json", action="store_true", help="JSON output")
@@ -389,26 +503,104 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help=f"Optional publish root override (default: {DEFAULT_PUBLISH_DIR})",
     )
+    parser.add_argument(
+        "--truth-publish-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Optional truth-artifact publish root when --publish auto-builds from --corpus "
+            f"(default: {DEFAULT_TRUTH_ARTIFACT_PUBLISH_DIR})"
+        ),
+    )
+    parser.add_argument(
+        "--fail-incomplete",
+        action="store_true",
+        help="Exit non-zero when the selected corpus does not appear completely in the metrics window",
+    )
     args = parser.parse_args(argv)
 
-    rows = load_metrics(args.metrics, args.window)
-    scorecard = compute_scorecard(rows)
+    metrics_path = args.metrics.resolve()
+    rows = load_metrics(metrics_path, args.window)
     publish_dir: Path | None = None
     if args.publish_dir is not None:
         publish_dir = args.publish_dir.resolve()
     elif args.publish:
         publish_dir = DEFAULT_PUBLISH_DIR
     truth_artifact_path = args.truth_artifact.resolve() if args.truth_artifact else None
+    corpus_path = args.corpus.resolve() if args.corpus else None
+    if truth_artifact_path is None and publish_dir is not None and corpus_path is None:
+        corpus_path = DEFAULT_CORPUS_PATH
+
+    corpus_issue_numbers: set[int] | None = None
+    corpus_metadata_payload: dict[str, Any] | None = None
+    corpus_metadata_source_path: Path | None = None
+    if corpus_path is not None:
+        if not corpus_path.exists():
+            raise SystemExit(f"corpus file not found: {corpus_path}")
+        corpus_metadata_payload, corpus_issue_numbers = load_corpus_issue_numbers(corpus_path)
+        corpus_metadata_source_path = corpus_path
+    elif truth_artifact_path is not None:
+        if not truth_artifact_path.exists():
+            raise SystemExit(f"truth artifact not found: {truth_artifact_path}")
+        truth_payload, truth_issue_numbers = load_truth_artifact_issue_numbers(truth_artifact_path)
+        truth_corpus = dict(truth_payload.get("corpus") or {})
+        if truth_corpus:
+            corpus_metadata_payload = truth_corpus
+            if truth_issue_numbers:
+                corpus_issue_numbers = truth_issue_numbers
+                truth_artifact_recorded_path = str(truth_corpus.get("path") or "").strip()
+                corpus_metadata_source_path = (
+                    REPO_ROOT / truth_artifact_recorded_path
+                    if truth_artifact_recorded_path
+                    else truth_artifact_path
+                )
+
+    selected_rows = (
+        filter_rows_to_issue_numbers(rows, corpus_issue_numbers)
+        if corpus_issue_numbers is not None
+        else rows
+    )
+    scorecard = compute_scorecard(selected_rows)
+    if corpus_metadata_payload is not None and corpus_issue_numbers is not None:
+        source_path = corpus_metadata_source_path or truth_artifact_path or metrics_path
+        scorecard.update(
+            build_scorecard_corpus_metadata(
+                corpus_payload=corpus_metadata_payload,
+                issue_numbers=corpus_issue_numbers,
+                rows=selected_rows,
+                source_path=source_path,
+            )
+        )
+
     published_scorecard: dict[str, Any] | None = None
     published_path: Path | None = None
     if publish_dir is not None:
         if truth_artifact_path is None:
-            raise SystemExit("truth artifact required for publish mode: --truth-artifact PATH")
-        if not truth_artifact_path.exists():
-            raise SystemExit(f"truth artifact not found: {truth_artifact_path}")
+            if corpus_path is None:
+                raise SystemExit("publish mode requires --truth-artifact PATH or --corpus PATH")
+            truth_publish_dir = (
+                args.truth_publish_dir.resolve()
+                if args.truth_publish_dir is not None
+                else DEFAULT_TRUTH_ARTIFACT_PUBLISH_DIR
+            )
+            truth_artifact_path, truth_payload = auto_publish_truth_artifact(
+                repo=str(args.repo),
+                metrics_path=metrics_path,
+                corpus_path=corpus_path,
+                truth_publish_dir=truth_publish_dir,
+            )
+            if corpus_metadata_payload is None or corpus_issue_numbers is None:
+                truth_corpus = dict(truth_payload.get("corpus") or {})
+                corpus_metadata_payload = truth_corpus
+                corpus_issue_numbers = {
+                    int(item.get("issue_number", 0) or 0)
+                    for item in truth_payload.get("issues", [])
+                    if isinstance(item, dict) and int(item.get("issue_number", 0) or 0) > 0
+                }
+                corpus_metadata_source_path = corpus_path
         published_scorecard = build_published_scorecard(
             scorecard=scorecard,
-            metrics_path=args.metrics.resolve(),
+            metrics_path=metrics_path,
             truth_artifact_path=truth_artifact_path,
             publish_dir=publish_dir,
         )
@@ -428,14 +620,27 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(published_scorecard or scorecard, indent=2, sort_keys=True))
     elif args.ci:
         print(render_ci_summary(scorecard, threshold=args.threshold))
+        is_complete = bool((scorecard.get("coverage") or {}).get("is_complete", True))
         return (
             0
             if scorecard.get("status") != "no_data"
             and scorecard.get("no_rescue_success_rate", 0.0) >= args.threshold
+            and (not args.fail_incomplete or is_complete)
             else 1
         )
     elif published_path is None:
         print_scorecard(scorecard)
+
+    if args.fail_incomplete and (scorecard.get("coverage") or {}).get("is_complete") is False:
+        missing_issue_numbers = list(
+            (scorecard.get("coverage") or {}).get("missing_issue_numbers") or []
+        )
+        missing_suffix = ", ".join(str(item) for item in missing_issue_numbers) or "unknown"
+        print(
+            f"incomplete corpus coverage: missing issue numbers {missing_suffix}",
+            file=sys.stderr,
+        )
+        return 2
 
     return 0
 
