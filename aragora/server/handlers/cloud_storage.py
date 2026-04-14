@@ -638,13 +638,6 @@ class CloudStorageHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests to appropriate handler method."""
-        raw_body = self.read_json_body(handler)
-        if raw_body is None:
-            body: dict[str, Any] = {}
-        elif isinstance(raw_body, dict):
-            body = raw_body
-        else:
-            return error_response("Request body must be a JSON object", 400)
         query_params, query_params_error = self._validate_query_params(query_params)
         if query_params_error:
             return error_response(query_params_error, 400)
@@ -661,10 +654,16 @@ class CloudStorageHandler(BaseHandler):
 
             # Upload file
             if path == "/api/v2/storage/files":
+                body, error = self.read_json_object_or_error(handler)
+                if error:
+                    return error
                 return await self._upload_file(body, handler)
 
             # Create bucket
             if path == "/api/v2/storage/buckets":
+                body, error = self.read_json_object_or_error(handler)
+                if error:
+                    return error
                 return await self._create_bucket(body, handler)
 
             # File-specific POST routes
@@ -681,6 +680,9 @@ class CloudStorageHandler(BaseHandler):
 
                 # Presigned URL endpoint
                 if parts[6] == "presign":
+                    body, error = self.read_json_object_or_error(handler)
+                    if error:
+                        return error
                     return await self._generate_presigned_url(file_id, body, handler)
 
                 return None

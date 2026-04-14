@@ -282,6 +282,21 @@ class TestCanHandle:
     def test_performance(self, handler):
         assert handler.can_handle("/api/v2/learning/performance", "GET")
 
+
+class TestPostBodyValidation:
+    """Focused regression tests for POST body parsing."""
+
+    @pytest.mark.asyncio
+    async def test_create_session_invalid_json_returns_400(self, handler):
+        mock_http = MockHTTPHandler(method="POST")
+        mock_http.rfile.read.return_value = b"not-json"
+        mock_http.headers["Content-Length"] = "8"
+
+        result = await handler.handle_post("/api/v2/learning/sessions", {}, mock_http)
+
+        assert _status(result) == 400
+        assert "json" in _body(result).get("error", "").lower()
+
     def test_calibrate(self, handler):
         assert handler.can_handle("/api/v2/learning/calibrate", "POST")
 

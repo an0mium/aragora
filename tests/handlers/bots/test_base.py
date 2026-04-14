@@ -771,14 +771,16 @@ class TestParseJsonBody:
         assert error is None
         assert data["outer"]["inner"]["deep"] is True
 
-    def test_json_array(self, bot):
-        """Arrays are valid JSON but not dicts - still parses."""
+    def test_json_array_rejected(self, bot):
+        """Non-object JSON payloads should be rejected for webhook handlers."""
         body = b"[1, 2, 3]"
 
         data, error = bot._parse_json_body(body)
 
-        assert error is None
-        assert data == [1, 2, 3]
+        assert data is None
+        assert error is not None
+        assert _status(error) == 400
+        assert "json object" in _body(error)["error"]["message"].lower()
 
     def test_unicode_body(self, bot):
         body = json.dumps({"emoji": "hello"}).encode("utf-8")

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from aragora.connectors.runtime_registry import (
@@ -134,6 +135,27 @@ class ConnectorManagementHandler(BaseHandler):
 
         # POST /api/v1/connectors/<name>/test
         if len(parts) == 2 and parts[1] == "test":
+            headers = getattr(handler, "headers", None)
+            content_length = 0
+            if isinstance(headers, Mapping):
+                try:
+                    content_length = int(headers.get("Content-Length", 0))
+                except (TypeError, ValueError):
+                    content_length = 0
+
+            request = getattr(handler, "request", None)
+            has_explicit_body = any(
+                isinstance(raw_body, (bytes, bytearray, str))
+                for raw_body in (
+                    getattr(handler, "body", None),
+                    getattr(request, "body", None) if request is not None else None,
+                )
+            )
+
+            if has_explicit_body or content_length > 0:
+                _, body_error = self.read_json_object_or_error(handler)
+                if body_error:
+                    return body_error
             return self._handle_test(parts[0])
 
         return None

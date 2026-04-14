@@ -862,6 +862,15 @@ class TestHandlePostRouting:
         result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
         assert _status(result) == 400
 
+    def test_correct_path_with_invalid_json_returns_400(self, handler):
+        """Malformed JSON should fail before debate_id validation."""
+        mock_h = _MockHTTPHandler("POST")
+        mock_h.rfile.read.return_value = b"not-json"
+        mock_h.headers = {"Content-Length": "8"}
+        result = handler.handle_post("/api/v1/compliance/reports/generate", {}, mock_h)
+        assert _status(result) == 400
+        assert "json" in _body(result).get("error", "").lower()
+
     def test_case_sensitive_path(self, handler):
         """Path matching is case-sensitive."""
         mock_h = _MockHTTPHandler("POST", body={"debate_id": "d1"})

@@ -369,6 +369,22 @@ class TestCreateTask:
         assert result is not None
         assert result.status_code == 400
 
+    def test_create_task_invalid_json_returns_400(self, handler):
+        """Malformed JSON should fail before task validation."""
+        mock_handler = MockRequestHandler()
+
+        with patch.object(handler, "_check_rbac_permission", return_value=None):
+            with patch.object(handler, "read_json_body", return_value=None):
+                result = handler.handle_post(
+                    "/api/v1/computer-use/tasks",
+                    {},
+                    mock_handler,
+                )
+
+        assert result is not None
+        assert result.status_code == 400
+        assert "json" in json.loads(result.body)["error"].lower()
+
 
 class TestCancelTask:
     """Test cancel task endpoint."""

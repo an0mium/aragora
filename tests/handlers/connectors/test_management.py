@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import time
+from io import BytesIO
 from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -558,6 +559,14 @@ class TestTestConnectivity:
     def test_test_invalid_name(self, handler, mock_http_handler, mock_registry):
         result = handler.handle_post(_PREFIX + "/bad-name/test", {}, mock_http_handler)
         assert _status(result) == 400
+
+    def test_test_invalid_json_returns_400(self, handler, mock_registry):
+        bad_http_handler = MagicMock()
+        bad_http_handler.headers = {"Content-Length": "8"}
+        bad_http_handler.rfile = BytesIO(b"not-json")
+        result = handler.handle_post(_PREFIX + "/slack/test", {}, bad_http_handler)
+        assert _status(result) == 400
+        assert "json" in _body(result).get("error", "").lower()
 
     def test_test_unknown_status_connector(self, handler, mock_http_handler, mock_registry):
         connector = _make_connector(

@@ -345,16 +345,21 @@ class ComputerUseHandler(BaseHandler):
         if not orchestrator:
             return error_response("Orchestrator not available", 503)
 
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
+        body, error = self.read_json_object_or_error(handler)
+        if error:
+            return error
 
         goal = body.get("goal")
-        if not goal:
-            return error_response("goal is required", 400)
+        if not isinstance(goal, str) or not goal.strip():
+            return error_response("goal is required and must be a non-empty string", 400)
 
         max_steps = body.get("max_steps", 10)
+        if isinstance(max_steps, bool) or not isinstance(max_steps, int) or max_steps <= 0:
+            return error_response("max_steps must be a positive integer", 400)
+
         dry_run = body.get("dry_run", False)
+        if not isinstance(dry_run, bool):
+            return error_response("dry_run must be a boolean", 400)
 
         # Get auth context for metadata
         auth_ctx = self._get_auth_context(handler)
@@ -399,9 +404,11 @@ class ComputerUseHandler(BaseHandler):
                         "roles": list(getattr(auth_ctx, "roles", [])),
                     }
                 receipt_id = body.get("receipt_id")
+                if receipt_id is not None and not isinstance(receipt_id, str):
+                    return error_response("receipt_id must be a string", 400)
                 result: Any = run_async(
                     orchestrator.run_task(
-                        goal=goal,
+                        goal=goal.strip(),
                         max_steps=max_steps,
                         metadata=metadata,
                         receipt_id=receipt_id,
@@ -535,13 +542,27 @@ class ComputerUseHandler(BaseHandler):
         if error := self._check_rbac_permission(handler, "computer_use:policies:create"):
             return error
 
-        body = self.read_json_body(handler)
-        if body is None:
-            return error_response("Invalid JSON body", 400)
+        body, error = self.read_json_object_or_error(handler)
+        if error:
+            return error
 
         name = body.get("name")
-        if not name:
-            return error_response("name is required", 400)
+        if not isinstance(name, str) or not name.strip():
+            return error_response("name is required and must be a non-empty string", 400)
+
+        allowed_actions = body.get(
+            "allowed_actions", ["screenshot", "click", "type", "scroll", "key"]
+        )
+        if not isinstance(allowed_actions, list) or not all(
+            isinstance(action, str) for action in allowed_actions
+        ):
+            return error_response("allowed_actions must be a list of strings", 400)
+
+        blocked_domains = body.get("blocked_domains", [])
+        if not isinstance(blocked_domains, list) or not all(
+            isinstance(domain, str) for domain in blocked_domains
+        ):
+            return error_response("blocked_domains must be a list of strings", 400)
 
         policy_id = f"policy-{uuid.uuid4().hex[:8]}"
 
@@ -552,12 +573,10 @@ class ComputerUseHandler(BaseHandler):
         # Create policy record
         policy_data = {
             "policy_id": policy_id,
-            "name": name,
+            "name": name.strip(),
             "description": body.get("description", ""),
-            "allowed_actions": body.get(
-                "allowed_actions", ["screenshot", "click", "type", "scroll", "key"]
-            ),
-            "blocked_domains": body.get("blocked_domains", []),
+            "allowed_actions": allowed_actions,
+            "blocked_domains": blocked_domains,
             "tenant_id": tenant_id,
         }
 
@@ -639,8 +658,12 @@ class ComputerUseHandler(BaseHandler):
 
         auth_ctx = self._get_auth_context(handler)
         approver_id: str = getattr(auth_ctx, "user_id", "system") if auth_ctx else "system"
-        body = self.read_json_body(handler) or {}
+        body, error = self.read_json_object_or_error(handler)
+        if error:
+            return error
         reason = body.get("reason")
+        if reason is not None and not isinstance(reason, str):
+            return error_response("reason must be a string", 400)
 
         approved = run_async(workflow.approve(request_id, approver_id, reason))
         if not approved:
@@ -664,8 +687,12 @@ class ComputerUseHandler(BaseHandler):
 
         auth_ctx = self._get_auth_context(handler)
         approver_id: str = getattr(auth_ctx, "user_id", "system") if auth_ctx else "system"
-        body = self.read_json_body(handler) or {}
+        body, error = self.read_json_object_or_error(handler)
+        if error:
+            return error
         reason = body.get("reason")
+        if reason is not None and not isinstance(reason, str):
+            return error_response("reason must be a string", 400)
 
         denied = run_async(workflow.deny(request_id, approver_id, reason))
         if not denied:

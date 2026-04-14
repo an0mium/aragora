@@ -162,27 +162,27 @@ class CoordinationHandler(BaseHandler):
         normalized = path.rstrip("/")
 
         if normalized.endswith("/coordination/workspaces"):
-            body = self.read_json_body(handler)
-            if body is None:
-                return error_response("Invalid JSON body", 400)
+            body, error = self.read_json_object_or_error(handler)
+            if error:
+                return error
             return self._handle_register_workspace(body)
 
         if normalized.endswith("/coordination/federation"):
-            body = self.read_json_body(handler)
-            if body is None:
-                return error_response("Invalid JSON body", 400)
+            body, error = self.read_json_object_or_error(handler)
+            if error:
+                return error
             return self._handle_create_policy(body)
 
         if normalized.endswith("/coordination/execute"):
-            body = self.read_json_body(handler)
-            if body is None:
-                return error_response("Invalid JSON body", 400)
+            body, error = self.read_json_object_or_error(handler)
+            if error:
+                return error
             return self._handle_execute(body)
 
         if normalized.endswith("/coordination/consent"):
-            body = self.read_json_body(handler)
-            if body is None:
-                return error_response("Invalid JSON body", 400)
+            body, error = self.read_json_object_or_error(handler)
+            if error:
+                return error
             return self._handle_grant_consent(body)
 
         # POST /api/v1/coordination/approve/{id}
@@ -196,9 +196,9 @@ class CoordinationHandler(BaseHandler):
                     break
             if not request_id:
                 return error_response("Missing request ID", 400)
-            body = self.read_json_body(handler)
-            if body is None:
-                body = {}
+            body, error = self.read_json_object_or_error(handler)
+            if error:
+                return error
             return self._handle_approve(request_id, body)
 
         return None

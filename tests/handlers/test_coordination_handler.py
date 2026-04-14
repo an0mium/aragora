@@ -686,6 +686,15 @@ class TestApprove:
         result = handler.handle_post("/api/v1/coordination/approve/req-77", {}, mock_handler)
         assert _status(result) == 200
 
+    def test_approve_invalid_json_returns_400(self, handler, coordinator):
+        """Approve endpoint rejects malformed JSON instead of silently defaulting to {}."""
+        mock_handler = MagicMock()
+        mock_handler.headers = {"Content-Length": "7"}
+        mock_handler.rfile = BytesIO(b"not-json")
+        result = handler.handle_post("/api/v1/coordination/approve/req-88", {}, mock_handler)
+        assert _status(result) == 400
+        assert "json" in _body(result).get("error", "").lower()
+
 
 # ===================================================================
 # Stats endpoint

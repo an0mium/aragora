@@ -206,6 +206,8 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
                 return err
 
             event_type = event.get("event", "")
+            if not isinstance(event_type, str) or not event_type.strip():
+                return error_response("Zoom event body must include a non-empty 'event' field", 400)
             logger.info("Zoom event received: %s", event_type)
 
             # Handle URL validation - requires ZOOM_SECRET_TOKEN

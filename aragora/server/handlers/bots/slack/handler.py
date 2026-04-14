@@ -291,6 +291,8 @@ class SlackHandler(BotHandlerMixin, SecureHandler):
                 timestamp = handler.headers.get("X-Slack-Request-Timestamp", "")
                 signature = handler.headers.get("X-Slack-Signature", "")
                 body = handler.rfile.read(int(handler.headers.get("Content-Length", 0)))
+                if not body:
+                    return error_response("Empty request body", 400)
                 # Reset the file position for later reads
                 handler.rfile.seek(0)
 

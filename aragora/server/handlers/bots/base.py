@@ -339,7 +339,18 @@ class BotHandlerMixin:
             return None, error_response("Empty request body", 400, code=BotErrorCode.EMPTY_BODY)
 
         try:
-            return json.loads(body.decode("utf-8")), None
+            parsed = json.loads(body.decode("utf-8"))
+            if not isinstance(parsed, dict):
+                logger.error("Non-object JSON in %s %s", self.bot_platform, context)
+                return (
+                    None,
+                    error_response(
+                        "Request body must be a JSON object",
+                        400,
+                        code=BotErrorCode.VALIDATION_ERROR,
+                    ),
+                )
+            return parsed, None
         except json.JSONDecodeError as e:
             logger.error("Invalid JSON in %s %s: %s", self.bot_platform, context, e)
             return None, error_response("Invalid JSON", 400, code=BotErrorCode.INVALID_JSON)

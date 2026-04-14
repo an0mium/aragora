@@ -645,6 +645,15 @@ class TestUploadFile:
         assert "required" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
+    async def test_upload_invalid_json_returns_400(self, handler):
+        h = _make_handler(method="POST")
+        h.rfile.read.return_value = b"not-json"
+        h.headers = {"Content-Length": "8"}
+        result = await handler.handle_post("/api/v2/storage/files", {}, h)
+        assert _status(result) == 400
+        assert "json" in _body(result).get("error", "").lower()
+
+    @pytest.mark.asyncio
     async def test_upload_empty_filename(self, handler):
         body = {"filename": "", "content": _sample_b64_content()}
         h = _make_handler(body=body, method="POST")

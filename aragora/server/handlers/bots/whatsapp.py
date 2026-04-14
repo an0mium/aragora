@@ -246,8 +246,14 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             if err:
                 return err
 
+            entries = payload.get("entry")
+            if not isinstance(entries, list):
+                return error_response("WhatsApp webhook body must include an 'entry' list", 400)
+
             # Process webhook entries
-            for entry in payload.get("entry", []):
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    return error_response("WhatsApp webhook entries must be JSON objects", 400)
                 for change in entry.get("changes", []):
                     if change.get("field") == "messages":
                         self._process_messages(change.get("value", {}))

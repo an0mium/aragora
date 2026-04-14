@@ -307,6 +307,11 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
                 return err
 
             interaction_type = interaction.get("type")
+            if isinstance(interaction_type, bool) or not isinstance(interaction_type, int):
+                return error_response(
+                    "Discord interaction body must include an integer 'type' field",
+                    400,
+                )
 
             # Handle PING (type 1) - required for URL verification
             if interaction_type == 1:
