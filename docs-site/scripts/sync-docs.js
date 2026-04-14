@@ -359,12 +359,15 @@ const DOC_MAP = {
   'status/FEATURE_DISCOVERY.md': 'contributing/feature-discovery.md',
   'FEATURE_GAP_LIST.md': 'contributing/feature-gap-list.md',
   'status/ACTIVE_EXECUTION_ISSUES.md': 'contributing/active-execution-issues.md',
+  'status/B0_BENCHMARK_TRUTH_STATUS.md': 'contributing/b0-benchmark-truth-status.md',
   'status/NEXT_STEPS_CANONICAL.md': 'contributing/next-steps-canonical.md',
   'status/EXECUTION_NEXT_6_WEEKS_2026-03-05.md':
     'contributing/execution-next-6-weeks-2026-03-05.md',
   'status/DOCUMENTATION_HYGIENE_AND_GAP_REGISTER.md':
     'contributing/documentation-hygiene-and-gap-register.md',
   'status/PMF_SCORECARD.md': 'contributing/pmf-scorecard.md',
+  'status/TW03_RESCUE_PRODUCTIZATION_STATUS.md':
+    'contributing/tw03-rescue-productization-status.md',
   'CANONICAL_GOALS.md': 'contributing/canonical-goals.md',
   '../CLAUDE.md': 'contributing/claude.md',
   'EXTENDED_README.md': 'contributing/extended-readme.md',

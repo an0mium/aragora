@@ -29,17 +29,16 @@ The claims below are the current proof base, not the long-term ambition.
 |---|---|---|
 | Guarded execution substrate | Boss, supervisor, tranche, contract, and preflight paths exist on the live swarm lane. | The system can decide when a run is admissible instead of blindly attempting work. |
 | Benchmark truth | A fixed benchmark corpus is checked into the repo, and the tracked B0 cohort is running at **86.7%** no-rescue success as of 2026-04-13. | Progress claims are tied to a measured cohort instead of anecdotes. |
-| Truth artifacts | The repo has a diffable benchmark truth-artifact path and GitHub-truth reconciliation scripts. | Weekly or recurring reporting can stay tied to issue-level truth. |
+| Truth artifacts | The repo has a diffable benchmark truth-artifact path, frozen-corpus binding on recurring scorecards, and GitHub-truth reconciliation scripts. | Weekly or recurring reporting can stay tied to issue-level truth instead of drifting with ad hoc samples. |
 | Repair loop progress | Resume-from-state, repair lifecycle persistence, rescue logging, and bounded recovery planning are on `main`. | Repeated failures can increasingly be resumed, diagnosed, and productized instead of re-run cold. |
-| Operator truth | Preflight receipts, blocker evidence, and session-state work are materially underway and partially landed, but not yet fully closed across every live path. | This is the remaining gap between an impressive demo and a boring reliable product lane. |
+| Operator truth | Preflight receipts, blocker evidence, session-state work, recurring benchmark truth publication, and recurring rescue productization are on `main`. | This is the proof surface that turns an impressive demo into a boring reliable product lane. |
 
 ## Current Gate
 
 The current commercial gate is the same as the current execution gate in [status/NEXT_STEPS_CANONICAL.md](../contributing/next-steps-canonical):
 
-- finish `RS-07` so receipt-backed preflight becomes the default admission truth
-- close the remaining truthful repair gaps in `BC-01` and `BC-03`
-- keep `TW-01`, `TW-02`, and `TW-03` publishing recurring corpus-linked truth
+- keep `TW-01` landed so recurring scorecards stay tied to the frozen corpus on current `main`
+- keep `TW-03` recurring so repeated rescues keep becoming benchmark fixtures or bounded product work instead of invisible operator tax
 - keep all external claims narrower than the measured proof
 
 This means Aragora should currently be positioned as:
@@ -165,9 +164,13 @@ Use these documents as the canonical backing for commercial claims:
 
 - [status/NEXT_STEPS_CANONICAL.md](../contributing/next-steps-canonical)
 - [status/ACTIVE_EXECUTION_ISSUES.md](../contributing/active-execution-issues)
+- [status/B0_BENCHMARK_TRUTH_STATUS.md](../contributing/b0-benchmark-truth-status)
+- [status/TW03_RESCUE_PRODUCTIZATION_STATUS.md](../contributing/tw03-rescue-productization-status)
 - [plans/ARAGORA_EVOLUTION_ROADMAP.md](../contributing/aragora-evolution-roadmap)
-- [benchmarks/corpus.json](benchmarks/corpus.json)
+- `docs/benchmarks/corpus.json`
+- `docs/benchmarks/rescue_productization.json`
 - `scripts/build_benchmark_truth_artifact.py`
+- `scripts/publish_rescue_productization_report.py`
 - `scripts/reconcile_b0_pr_truth.py`
 
 If a claim cannot be tied back to those sources or to current `main`, it should not be in first-tranche commercial positioning.
