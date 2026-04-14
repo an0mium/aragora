@@ -73,6 +73,58 @@ class TestParseActionPlan:
         plan = _parse_action_plan(raw)
         assert len(plan.proposed_prompt) <= 500
 
+    def test_extra_unexpected_fields_ignored(self) -> None:
+        raw = json.dumps(
+            {
+                "action": "send_followup",
+                "reason": "retry needed",
+                "confidence": 0.75,
+                "proposed_prompt": "Try again",
+                "extra_field": "should be ignored",
+                "another_unknown": 42,
+            }
+        )
+        plan = _parse_action_plan(raw)
+        assert plan.action == "send_followup"
+        assert plan.confidence == 0.75
+        assert plan.reason == "retry needed"
+        # Extra fields should not appear on the dataclass
+        assert not hasattr(plan, "extra_field")
+        assert not hasattr(plan, "another_unknown")
+
+    def test_missing_required_fields_escalates(self) -> None:
+        # Missing "action" defaults to empty string -> not in valid actions -> escalate
+        # Missing "confidence" defaults to 0.0 -> below threshold -> escalate
+        raw = json.dumps({"reason": "something happened"})
+        plan = _parse_action_plan(raw)
+        assert plan.action == "escalate"
+
+    def test_multiple_json_objects_uses_first(self) -> None:
+        raw = (
+            "Some preamble text\n"
+            '{"action": "send_followup", "reason": "first object", "confidence": 0.8}\n'
+            "More text\n"
+            '{"action": "restart_from_state", "reason": "second object", "confidence": 0.6}\n'
+        )
+        plan = _parse_action_plan(raw)
+        assert plan.action == "send_followup"
+        assert plan.reason == "first object"
+        assert plan.confidence == 0.8
+
+    def test_confidence_exactly_at_boundary(self) -> None:
+        # Confidence of 0.3 is exactly at the threshold (< 0.3 escalates, >= 0.3 does not)
+        raw = json.dumps(
+            {
+                "action": "send_followup",
+                "reason": "borderline confidence",
+                "confidence": 0.3,
+            }
+        )
+        plan = _parse_action_plan(raw)
+        assert plan.action == "send_followup"
+        assert plan.confidence == 0.3
+        assert plan.reason == "borderline confidence"
+
 
 class TestPlanRescue:
     def test_no_context_escalates(self) -> None:
