@@ -557,7 +557,7 @@ class SlackMessageQueue:
             try:
                 await self._processor_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Queue processor task cancelled")
             self._processor_task = None
 
     def get_stats(self) -> dict[str, Any]:
