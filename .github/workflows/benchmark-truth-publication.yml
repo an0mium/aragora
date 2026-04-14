@@ -47,7 +47,7 @@ jobs:
           command -v gh >/dev/null
           test -f .aragora/overnight/boss_metrics.jsonl
 
-      - name: Publish tracked benchmark truth surfaces
+      - name: Publish tracked trust-loop surfaces
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
@@ -60,25 +60,40 @@ jobs:
           python3 scripts/render_benchmark_truth_status.py \
             --output docs/status/B0_BENCHMARK_TRUTH_STATUS.md
 
+          python3 scripts/publish_rescue_productization_report.py \
+            --publish-dir docs/status/generated/rescue_productization \
+            --productization-map docs/benchmarks/rescue_productization.json \
+            --ensure-issues \
+            --repo synaptent/aragora
+
+          python3 scripts/render_rescue_productization_status.py \
+            --report-root docs/status/generated/rescue_productization \
+            --output docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md
+
       - name: Publish workflow summary
         run: |
           cat docs/status/B0_BENCHMARK_TRUTH_STATUS.md >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Commit and push refreshed truth surfaces
+      - name: Commit and push refreshed trust-loop surfaces
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
+            docs/benchmarks/rescue_productization.json \
             docs/status/B0_BENCHMARK_TRUTH_STATUS.md \
+            docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md \
             docs/status/generated/benchmark_scorecards \
-            docs/status/generated/benchmark_truth_artifacts
+            docs/status/generated/benchmark_truth_artifacts \
+            docs/status/generated/rescue_productization
 
           if git diff --cached --quiet; then
-            echo "No benchmark truth surface changes to commit."
+            echo "No recurring trust-loop surface changes to commit."
             exit 0
           fi
 
-          git commit -m "docs(status): refresh benchmark truth surfaces [skip ci]"
+          git commit -m "docs(status): refresh recurring trust-loop surfaces [skip ci]"
           git push origin HEAD:main

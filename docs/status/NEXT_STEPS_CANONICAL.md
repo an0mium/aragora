@@ -10,7 +10,7 @@ This is the single source of truth for short-horizon execution priorities.
 
 ## Current Gate
 
-The current gate is to keep `TW-01/TW-02` recurring and boring on current `main`, finish `TW-03` rescue productization, and keep `CS-01..03` narrower than measured proof before expanding the `B2` guard across the safest execution classes in [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
+The current gate is to keep `TW-01/TW-02/TW-03` recurring and boring on current `main`, and keep `CS-01..03` narrower than measured proof before expanding the `B2` guard across the safest execution classes in [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
 
 What is already true:
 
@@ -33,13 +33,15 @@ What is already true:
 - recurring benchmark scorecards are now bound to the frozen corpus revision on `main` via [#5582](https://github.com/synaptent/aragora/pull/5582) and [#5583](https://github.com/synaptent/aragora/pull/5583)
 - repo-tracked recurring truth publication now lands in `docs/status/generated/benchmark_truth_artifacts/` and `docs/status/generated/benchmark_scorecards/`, with the stable status summary at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`
 - repeated rescue-class reports now include fixture-or-issue productization status on `main` via [#5535](https://github.com/synaptent/aragora/pull/5535)
+- repo-tracked recurring rescue productization now lands in `docs/status/generated/rescue_productization/`, with the stable status summary at `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`
+- the recurring `TW-03` harvest can now relink repeated rescue classes to tracked fixture/issue targets and auto-create bounded follow-on issues when a repeated class is still unlinked
 
 What is still missing:
 
-- repeated rescue classes still need the broader live-loop conversion from repeated patterns into benchmark fixtures or bounded issues beyond the landed productization report ([#5330](https://github.com/synaptent/aragora/issues/5330))
 - proof that the B2 guard holds under repeated bounded runs instead of one-off success stories
 - broader repair-loop coverage on top of the existing audit trail
 - lower-rescue unattended operation on bounded backlogs
+- ongoing discipline so external claims stay narrower than the recurring proof surfaces
 
 The work now is not “add more speculative autonomy.” It is “make bounded unattended execution boring.”
 
@@ -57,7 +59,7 @@ The 30-day target is intentionally narrow:
 - **100%** of failures land in truthful canonical buckets
 - repeated rescue classes become explicit product work
 
-Current status: the tracked B0 cohort is running at **86.7%** no-rescue success as of 2026-04-13. The benchmark target is no longer the blocker; recurring truth publication and rescue productization are.
+Current status: the tracked B0 cohort is running at **86.7%** no-rescue success as of 2026-04-13. The benchmark target is no longer the blocker; recurring truth publication and rescue productization are now repo-tracked status surfaces.
 
 Primary truth metric:
 
@@ -113,16 +115,12 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 | Order | Code | Why it matters to the wedge | Acceptance criteria | Proof metric | Layer | GitHub coverage |
 |---|---|---|---|---|---|---|
-| 1 | `TW-02` | The project still needs routine issue-level truth publication linked cleanly from status surfaces, not one-off benchmark artifacts. | Weekly truth reporting uses `mergeable_pr OR merged_pr`, distinguishes proxy from truth, and stays linked from status docs. | Fresh `origin/main` truth reports publish issue-level truth success and no-rescue truth success. | trust | [#5540](https://github.com/synaptent/aragora/issues/5540), [#5601](https://github.com/synaptent/aragora/pull/5601) |
-| 2 | `TW-03` | Human rescues only create leverage when they become fixtures or product work. | Every repeated rescue class becomes a benchmark fixture or bounded substrate issue within one weekly cycle. | Repeated rescue classes trend down, and every repeated class has a linked fixture or bounded issue. | trust | [#5330](https://github.com/synaptent/aragora/issues/5330), [#5602](https://github.com/synaptent/aragora/pull/5602) |
-| 3 | `CS-01..03` | The wedge fails commercially if external claims outrun measured proof. | Roadmap, status, and positioning docs keep the wedge-first story and gate claims on measured proof. | External-facing docs stay narrower than current truth metrics and current gate status. | trust | Covered by [#804](https://github.com/synaptent/aragora/issues/804), [#806](https://github.com/synaptent/aragora/issues/806), and the current docs; no dedicated lane issue exists yet. |
+| 1 | `CS-01..03` | The wedge fails commercially if external claims outrun measured proof. | Roadmap, status, and positioning docs keep the wedge-first story and gate claims on measured proof. | External-facing docs stay narrower than current truth metrics and current gate status. | trust | Covered by [#804](https://github.com/synaptent/aragora/issues/804), [#806](https://github.com/synaptent/aragora/issues/806), and the current docs; no dedicated lane issue exists yet. |
 
 ## Do Now / Delay / Avoid
 
 ### Do now
 
-- `TW-02`
-- `TW-03`
 - `CS-01..03`
 
 ### Delay
@@ -144,11 +142,11 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 ## Live Boss-Ready Queue
 
-- The live `boss-ready` queue should stay empty while active trust-loop PRs already own the current bounded scopes.
-- `TW-02` remains the top open trust item, but its current bounded implementation is already in flight on [#5601](https://github.com/synaptent/aragora/pull/5601).
-- `TW-03` remains the second open trust item, but its current bounded implementation is already in flight on [#5602](https://github.com/synaptent/aragora/pull/5602).
+- There is no dedicated open boss-ready trust-loop issue right now.
+- Keep `CS-01..03` enforced through the docs/status surfaces until a concrete bounded issue exists.
+- Let the recurring `TW-01/TW-02/TW-03` publication surfaces restock the queue only when they expose a fresh repeated rescue class or a concrete regression.
 
-The live merge lane for this tranche is now carried by those trust-loop PRs. `TW-01` ([#5539](https://github.com/synaptent/aragora/issues/5539)) completed on 2026-04-14, and [#5516](https://github.com/synaptent/aragora/issues/5516) completed under `TW-03` via [#5535](https://github.com/synaptent/aragora/pull/5535). `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; do not recycle them as active blockers unless new evidence shows a concrete regression.
+`TW-01` ([#5539](https://github.com/synaptent/aragora/issues/5539)), `TW-02` ([#5540](https://github.com/synaptent/aragora/issues/5540)), and `TW-03` ([#5330](https://github.com/synaptent/aragora/issues/5330)) now publish through repo-tracked recurring status surfaces at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`. `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; do not recycle them as active blockers unless new evidence shows a concrete regression.
 
 ## Reverse-Staged Rocket Bootstrap
 

@@ -48,6 +48,10 @@ def _slugify_fragment(value: str) -> str:
     return slug.strip("-") or "repeated-rescue-class"
 
 
+def build_issue_title(rescue_class: str) -> str:
+    return f"[TW-03] Productize repeated rescue class: {_slugify_fragment(rescue_class)}"
+
+
 def _normalize_issue_target(value: str) -> str:
     candidate = value.strip()
     if not candidate:
@@ -104,10 +108,7 @@ def build_issue_drafts(report: dict[str, Any]) -> list[dict[str, Any]]:
             for item in list(row.get("issue_numbers") or [])
             if isinstance(item, int) and item > 0
         ]
-        title = (
-            f"[TW-03] Productize repeated rescue class: "
-            f"{_slugify_fragment(rescue_class)} ({count}x)"
-        )
+        title = build_issue_title(rescue_class)
         examples_text = (
             "\n".join(f"- #{issue_number}" for issue_number in issue_numbers) or "- none"
         )

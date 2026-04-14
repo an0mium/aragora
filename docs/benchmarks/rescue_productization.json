@@ -1,4 +1,12 @@
 {
   "schema_version": 1,
-  "entries": []
+  "entries": [
+    {
+      "class": "session_restart:runner freshness gate blocked launch",
+      "notes": "Receipt-backed dispatch admission landed on main via #5514 and closed RS-07/#5327.",
+      "target": "#5327",
+      "target_kind": "issue",
+      "title": "RS-07 Add a receipt-backed contract preflight path for safe admission"
+    }
+  ]
 }
