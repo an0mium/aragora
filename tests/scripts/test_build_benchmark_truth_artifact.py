@@ -277,3 +277,176 @@ def test_write_artifact_emits_diffable_json(tmp_path: Path) -> None:
     parsed = json.loads(output.read_text(encoding="utf-8"))
     assert parsed["corpus"]["revision"] == 1
     assert parsed["primary_metrics"]["truth_success_rate"] == 1.0
+
+
+def test_build_benchmark_truth_artifact_normalizes_generated_at_and_repo_paths(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text("", encoding="utf-8")
+    repo_root = tmp_path / "repo"
+    corpus_path = repo_root / "docs" / "benchmarks" / "corpus.json"
+    corpus_path.parent.mkdir(parents=True)
+    corpus_path.write_text(
+        json.dumps(
+            {
+                "corpus_id": "tw-01-bounded-execution-v1",
+                "revision": 7,
+                "recorded_on": "2026-04-14",
+                "success_contract": "mergeable_pr_or_merged_pr",
+                "issues": [{"issue_id": 1064, "title": "Dependency bump"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(mod, "REPO_ROOT", repo_root)
+
+    artifact = mod.build_benchmark_truth_artifact(
+        repo="synaptent/aragora",
+        metrics_file=metrics_path,
+        corpus_path=corpus_path,
+        client=FakeGitHubTruthClient(
+            issues={1064: {"title": "Dependency bump", "comments": []}},
+            prs={},
+        ),
+        generated_at="2026-04-14T02:03:04+00:00",
+    )
+
+    assert artifact["generated_at"] == "2026-04-14T02:03:04Z"
+    assert artifact["corpus"]["path"] == "docs/benchmarks/corpus.json"
+    assert artifact["metrics_file"] == str(metrics_path)
+
+
+def test_resolve_published_artifact_path_uses_corpus_revision_and_timestamp() -> None:
+    path = mod.resolve_published_artifact_path(
+        publish_dir=Path("/tmp/published"),
+        artifact={
+            "generated_at": "2026-04-14T02:03:04Z",
+            "corpus": {
+                "corpus_id": "TW-01 Bounded Execution v1",
+                "revision": 7,
+            },
+        },
+    )
+
+    assert path == Path(
+        "/tmp/published/tw-01-bounded-execution-v1/rev-7/truth-20260414T020304Z.json"
+    )
+
+
+def test_main_publish_dir_writes_timestamped_artifact_and_prints_path(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text("", encoding="utf-8")
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 8,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Dependency bump"}],
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "build_benchmark_truth_artifact",
+        lambda **_: {
+            "generated_at": "2026-04-14T05:06:07Z",
+            "corpus": {
+                "corpus_id": "tw-01-bounded-execution-v1",
+                "revision": 8,
+                "issue_count": 1,
+            },
+            "primary_metrics": {"truth_success_rate": 1.0},
+        },
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            "synaptent/aragora",
+            "--metrics-file",
+            str(metrics_path),
+            "--corpus",
+            str(corpus_path),
+            "--publish-dir",
+            str(tmp_path / "published"),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    written_path = Path(captured.out.strip())
+    assert exit_code == 0
+    assert written_path == Path(
+        tmp_path
+        / "published"
+        / "tw-01-bounded-execution-v1"
+        / "rev-8"
+        / "truth-20260414T050607Z.json"
+    )
+    parsed = json.loads(written_path.read_text(encoding="utf-8"))
+    assert parsed["generated_at"] == "2026-04-14T05:06:07Z"
+    assert captured.err == ""
+
+
+def test_main_publish_dir_with_json_keeps_stdout_json_and_reports_path_on_stderr(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text("", encoding="utf-8")
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 9,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Dependency bump"}],
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "build_benchmark_truth_artifact",
+        lambda **_: {
+            "generated_at": "2026-04-14T08:09:10Z",
+            "corpus": {
+                "corpus_id": "tw-01-bounded-execution-v1",
+                "revision": 9,
+                "issue_count": 1,
+            },
+            "primary_metrics": {"truth_success_rate": 1.0},
+        },
+    )
+
+    exit_code = mod.main(
+        [
+            "--repo",
+            "synaptent/aragora",
+            "--metrics-file",
+            str(metrics_path),
+            "--corpus",
+            str(corpus_path),
+            "--publish-dir",
+            str(tmp_path / "published"),
+            "--json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["generated_at"] == "2026-04-14T08:09:10Z"
+    assert captured.err.strip() == str(
+        tmp_path
+        / "published"
+        / "tw-01-bounded-execution-v1"
+        / "rev-9"
+        / "truth-20260414T080910Z.json"
+    )

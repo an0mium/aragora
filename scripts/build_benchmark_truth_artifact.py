@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -27,6 +28,7 @@ from scripts.reconcile_b0_pr_truth import (  # noqa: E402
 )
 
 DEFAULT_CORPUS_PATH = REPO_ROOT / "docs" / "benchmarks" / "corpus.json"
+DEFAULT_PUBLISH_DIR = REPO_ROOT / ".aragora" / "benchmark_truth_artifacts"
 
 
 def load_corpus(path: Path) -> dict[str, Any]:
@@ -106,6 +108,51 @@ def _missing_corpus_issue_numbers(aggregates: list[IssueMetricsAggregate]) -> li
     ]
 
 
+def _coerce_utc_datetime(value: str | None = None) -> dt.datetime:
+    if value:
+        parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        parsed = dt.datetime.now(dt.UTC)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=dt.UTC)
+    return parsed.astimezone(dt.UTC).replace(microsecond=0)
+
+
+def normalize_generated_at(value: str | None = None) -> str:
+    return _coerce_utc_datetime(value).isoformat().replace("+00:00", "Z")
+
+
+def _repo_stable_path(path: Path) -> str:
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return str(resolved)
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
+    return slug.strip("-") or "benchmark-corpus"
+
+
+def resolve_published_artifact_path(
+    *,
+    publish_dir: Path,
+    artifact: dict[str, Any],
+) -> Path:
+    corpus = artifact.get("corpus")
+    if not isinstance(corpus, dict):
+        corpus = {}
+    generated_at = artifact.get("generated_at")
+    timestamp = _coerce_utc_datetime(
+        generated_at if isinstance(generated_at, str) else None
+    ).strftime("%Y%m%dT%H%M%SZ")
+    corpus_id = _slugify(str(corpus.get("corpus_id") or "benchmark-corpus"))
+    revision = int(corpus.get("revision", 0) or 0)
+    filename = f"truth-{timestamp}.json"
+    return publish_dir / corpus_id / f"rev-{revision}" / filename
+
+
 def build_benchmark_truth_artifact(
     *,
     repo: str,
@@ -114,6 +161,7 @@ def build_benchmark_truth_artifact(
     client: GitHubTruthClient | None = None,
     generated_at: str | None = None,
 ) -> dict[str, Any]:
+    normalized_generated_at = normalize_generated_at(generated_at)
     rows = load_metrics_rows(metrics_file)
     corpus = load_corpus(corpus_path)
     aggregates = aggregate_corpus_issues(rows, corpus)
@@ -134,11 +182,11 @@ def build_benchmark_truth_artifact(
         corpus_issue_numbers={aggregate.issue_number for aggregate in aggregates},
     )
     return {
-        "generated_at": generated_at or dt.datetime.now(dt.UTC).isoformat(),
+        "generated_at": normalized_generated_at,
         "repo": repo,
-        "metrics_file": str(metrics_file),
+        "metrics_file": _repo_stable_path(metrics_file),
         "corpus": {
-            "path": str(corpus_path),
+            "path": _repo_stable_path(corpus_path),
             "corpus_id": str(corpus.get("corpus_id") or "").strip(),
             "revision": int(corpus.get("revision", 0) or 0),
             "recorded_on": str(corpus.get("recorded_on") or "").strip(),
@@ -212,6 +260,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Exit non-zero when the artifact does not cover every corpus issue",
     )
+    parser.add_argument(
+        "--publish",
+        action="store_true",
+        help="Write a timestamped artifact under the repo-stable publish path",
+    )
+    parser.add_argument(
+        "--publish-dir",
+        type=Path,
+        default=None,
+        help=f"Optional publish root override (default: {DEFAULT_PUBLISH_DIR})",
+    )
     return parser
 
 
@@ -228,10 +287,27 @@ def main(argv: list[str] | None = None) -> int:
         metrics_file=metrics_file,
         corpus_path=corpus_path,
     )
+    publish_dir: Path | None = None
+    if args.publish_dir is not None:
+        publish_dir = args.publish_dir.resolve()
+    elif args.publish:
+        publish_dir = DEFAULT_PUBLISH_DIR
     if args.output is not None:
         output_path = write_artifact(args.output.resolve(), artifact)
         print(str(output_path))
-    if args.json or args.output is None:
+    if publish_dir is not None:
+        published_path = write_artifact(
+            resolve_published_artifact_path(
+                publish_dir=publish_dir,
+                artifact=artifact,
+            ),
+            artifact,
+        )
+        if args.json:
+            print(str(published_path), file=sys.stderr)
+        else:
+            print(str(published_path))
+    if args.json or (args.output is None and publish_dir is None):
         print(json.dumps(artifact, indent=2, sort_keys=True))
     if args.fail_incomplete and artifact.get("run_status") != "complete":
         missing_issue_numbers = list(
