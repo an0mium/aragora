@@ -645,7 +645,7 @@ class DAGOperationsCoordinator:
                 if task is None:
                     break
                 status_val = getattr(task, "status", None)
-                status_str = status_val.value if hasattr(status_val, "value") else str(status_val)
+                status_str = status_val.value if hasattr(status_val, "value") else str(status_val)  # type: ignore[union-attr]
                 if status_str in ("completed", "failed", "cancelled"):
                     node.metadata["execution_status"] = status_str
                     node.metadata["task_result"] = getattr(task, "result", None)
