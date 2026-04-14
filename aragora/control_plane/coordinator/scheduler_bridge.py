@@ -47,7 +47,7 @@ except ImportError:
 HAS_POLICY = False
 EnforcementLevelType: Any = None
 try:
-    from aragora.control_plane.policy import EnforcementLevel as EnforcementLevelType
+    from aragora.control_plane.policy import EnforcementLevel as EnforcementLevelType # type: ignore[no-redef]
 
     HAS_POLICY = True
 except ImportError:
