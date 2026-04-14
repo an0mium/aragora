@@ -17,6 +17,7 @@ from aragora.swarm.preflight import (
 from aragora.swarm.terminal_truth import TerminalClass, classify_preflight_failure
 from aragora.swarm.worker_contract import WorkerContract, build_worker_contract
 from aragora.swarm.worker_process import LaunchConfig
+from aragora.swarm.worker_launcher import build_worker_runtime_env
 
 
 def _target_agent(
@@ -128,6 +129,18 @@ def _preview_work_orders(spec: Any) -> list[dict[str, Any]]:
                 str(path).strip()
                 for path in getattr(spec, "file_scope_hints", [])
                 if str(path).strip()
+            ],
+            "mission_id": str(getattr(spec, "mission_id", "") or "").strip(),
+            "stage_id": str(getattr(spec, "stage_id", "") or "").strip(),
+            "assertion_ids": [
+                str(entry).strip()
+                for entry in getattr(spec, "assertion_ids", [])
+                if str(entry).strip()
+            ],
+            "evidence_expectations": [
+                str(entry).strip()
+                for entry in getattr(spec, "evidence_expectations", [])
+                if str(entry).strip()
             ],
             "expected_tests": [],
             "mission_context_policies": dict(getattr(spec, "mission_context_policies", {}) or {}),
@@ -375,6 +388,15 @@ def dispatch_contract_gate(
     missing_slices = _missing_slices(loop, envelope=envelope, target_agent=target_agent)
     required_receipts: list[str] = []
     preflight_receipts: list[dict[str, Any]] = []
+    preview_contract_env = build_worker_runtime_env(
+        agent=target_agent,
+        worker_env_overrides=worker_env,
+        claude_profile=(
+            str((selected_runner or {}).get("profile", "")).strip() or None
+            if target_agent == "claude"
+            else None
+        ),
+    )
     launch_config = LaunchConfig(
         base_branch=loop.config.target_branch,
         execution_mode=loop.config.execution_mode,
@@ -396,7 +418,7 @@ def dispatch_contract_gate(
                 agent=target_agent,
                 config=launch_config,
                 worktree_path=str(Path.cwd()),
-                env=preview_env,
+                env=preview_contract_env,
                 work_order=work_order,
             )
             contract.validate()

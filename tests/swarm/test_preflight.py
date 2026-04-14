@@ -12,8 +12,13 @@ from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.mission import GateType, GateVerdict
 from aragora.swarm import preflight as mod
 from aragora.swarm.terminal_truth import TerminalClass
-from aragora.swarm.worker_contract import checksum_contract_payload
-from aragora.swarm.worker_process import WorkerProcess
+from aragora.swarm.worker_contract import (
+    WorkerContract,
+    build_worker_contract,
+    checksum_contract_payload,
+)
+from aragora.swarm.worker_launcher import build_worker_runtime_env
+from aragora.swarm.worker_process import LaunchConfig, WorkerProcess
 
 
 def _worker(*, branch: str, checksum: str | None = None) -> WorkerProcess:
@@ -448,6 +453,29 @@ def test_run_preflight_rejects_emitted_contract_drift(monkeypatch, tmp_path: Pat
         )
 
     assert cleanup_commands[0][:4] == ["git", "worktree", "remove", "--force"]
+
+
+def test_contract_preflight_work_order_roundtrips_empty_lineage(tmp_path: Path) -> None:
+    contract_payload = _worker(branch="preflight/20260414-empty-lineage").worker_contract
+    contract_payload["mission_id"] = ""
+    contract_payload["stage_id"] = ""
+    contract_payload["assertion_ids"] = []
+    contract = WorkerContract.from_dict(contract_payload)
+
+    round_tripped = build_worker_contract(
+        agent="codex",
+        config=LaunchConfig(
+            allow_claude_dangerously_skip_permissions=True,
+            allow_codex_full_auto=True,
+        ),
+        worktree_path=str(tmp_path),
+        env=build_worker_runtime_env(agent="codex"),
+        work_order=mod._work_order("codex", contract=contract),
+    )
+
+    assert round_tripped.mission_id == ""
+    assert round_tripped.stage_id == ""
+    assert round_tripped.assertion_ids == []
 
 
 def test_run_contract_preflight_receipt_persists_and_returns_receipt(

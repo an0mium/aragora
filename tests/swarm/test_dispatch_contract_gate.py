@@ -291,6 +291,131 @@ class TestDispatchContractGate:
 
         assert result is None
 
+    def test_preview_contract_uses_worker_runtime_env(self, tmp_path) -> None:
+        """Preview contract checksum must use the launcher's runtime env normalization."""
+        loop = _make_loop()
+        issue = _make_issue(11)
+        spec = MagicMock()
+        spec.work_orders = None
+        spec.file_scope_hints = ["aragora/swarm/preflight.py"]
+        spec.mission_context_policies = {}
+        runtime_env = {"CODEX_HOME": "/tmp/codex-home", "CODEX_COMMAND": "codex"}
+
+        def fake_build_worker_contract(**kwargs):
+            assert kwargs["env"] == runtime_env
+            return _make_valid_contract_mock()
+
+        with (
+            patch(
+                "aragora.swarm.dispatch_contract_gate.build_worker_runtime_env",
+                return_value=runtime_env,
+            ) as mock_runtime_env,
+            patch(
+                "aragora.swarm.dispatch_contract_gate.build_worker_contract",
+                side_effect=fake_build_worker_contract,
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate._persist_preview_contract",
+                return_value=tmp_path / "contract.json",
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt",
+                return_value=_make_passing_receipt(),
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.CredentialEnvelope.from_environment"
+            ) as mock_env,
+        ):
+            mock_env.return_value.missing_slices.return_value = []
+            mock_env.return_value.preflight_cache_payload.return_value = {}
+
+            result = dispatch_contract_gate(
+                loop,
+                issue,
+                spec,
+                selected_runner={"runner_type": "codex", "profile": "default"},
+                requested_target_agent="codex",
+                worker_env={"CODEX_COMMAND": "codex"},
+                claimed_runner_id=None,
+            )
+
+        assert result is None
+        mock_runtime_env.assert_called_once()
+
+    def test_preview_contract_fallback_preserves_spec_mission_lineage(self, tmp_path) -> None:
+        """Specs without explicit work_orders must still carry mission lineage into the preview contract."""
+        loop = _make_loop()
+        issue = _make_issue(12)
+        spec = MagicMock()
+        spec.work_orders = None
+        spec.file_scope_hints = ["github/workflows/benchmark-truth-publication.yml"]
+        spec.mission_id = "mission-tw02"
+        spec.stage_id = "stage-benchmark-publication"
+        spec.assertion_ids = ["TW-02-ASSERT-1"]
+        spec.evidence_expectations = ["worker_contract", "worker_contract_checksum"]
+        spec.mission_context_policies = {
+            "worker": {
+                "role": "worker",
+                "allowed_artifact_classes": ["file_scope"],
+                "max_source_count": 4,
+                "max_chars": 12000,
+                "freshness_ttl_seconds": 3600,
+                "transcript_allowance": "none",
+                "required_sources": ["github/workflows/benchmark-truth-publication.yml"],
+                "forbidden_sources": ["raw_worker_transcript"],
+            }
+        }
+        captured: dict[str, object] = {}
+
+        def fake_build_worker_contract(**kwargs):
+            captured["work_order"] = kwargs["work_order"]
+            return _make_valid_contract_mock()
+
+        with (
+            patch(
+                "aragora.swarm.dispatch_contract_gate.build_worker_runtime_env",
+                return_value={"CODEX_HOME": "/tmp/codex-home"},
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.build_worker_contract",
+                side_effect=fake_build_worker_contract,
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate._persist_preview_contract",
+                return_value=tmp_path / "contract.json",
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt",
+                return_value=_make_passing_receipt(),
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate.CredentialEnvelope.from_environment"
+            ) as mock_env,
+        ):
+            mock_env.return_value.missing_slices.return_value = []
+            mock_env.return_value.preflight_cache_payload.return_value = {}
+
+            result = dispatch_contract_gate(
+                loop,
+                issue,
+                spec,
+                selected_runner={"runner_type": "codex"},
+                requested_target_agent="codex",
+                worker_env=None,
+                claimed_runner_id=None,
+            )
+
+        assert result is None
+        assert captured["work_order"] == {
+            "file_scope": ["github/workflows/benchmark-truth-publication.yml"],
+            "mission_id": "mission-tw02",
+            "stage_id": "stage-benchmark-publication",
+            "assertion_ids": ["TW-02-ASSERT-1"],
+            "evidence_expectations": ["worker_contract", "worker_contract_checksum"],
+            "expected_tests": [],
+            "mission_context_policies": spec.mission_context_policies,
+        }
+
     def test_missing_slices_returns_blocked_outcome(self, tmp_path) -> None:
         """Missing credential slices block dispatch before preflight."""
         loop = _make_loop()

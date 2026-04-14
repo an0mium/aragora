@@ -1412,13 +1412,11 @@ def _work_order(agent: str, *, contract: WorkerContract | None = None) -> dict[s
         "receipt",
     ]
     if contract is not None:
-        mission_id = str(contract.mission_id or "").strip() or mission_id
-        stage_id = str(contract.stage_id or "").strip() or stage_id
+        mission_id = str(contract.mission_id or "").strip()
+        stage_id = str(contract.stage_id or "").strip()
         assertion_ids = [
             str(item).strip() for item in list(contract.assertion_ids or []) if str(item).strip()
         ]
-        if not assertion_ids:
-            assertion_ids = ["RS-PREFLIGHT-ASSERT-1"]
         evidence_expectations = [
             str(item).strip()
             for item in list(contract.evidence_expectations or [])
