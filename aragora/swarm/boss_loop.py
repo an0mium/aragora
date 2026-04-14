@@ -634,10 +634,14 @@ class BossLoop:
         self._configured_parallel_dispatches = max(1, int(self.config.max_parallel_dispatches or 1))
         self._current_effective_parallel_dispatches: int | None = None
         self._max_effective_parallel_dispatches_observed: int | None = None
+        issue_numbers = [int(item) for item in (self.config.issue_numbers or []) if int(item) > 0]
+        if self.config.issue_number is not None and int(self.config.issue_number) > 0:
+            if int(self.config.issue_number) not in issue_numbers:
+                issue_numbers.append(int(self.config.issue_number))
         self._feed = issue_feed or GitHubIssueFeed(
             repo=self.config.repo,
             label_filter=self.config.label_filter,
-            issue_numbers=self.config.issue_numbers,
+            issue_numbers=issue_numbers or None,
             limit=self.config.issue_limit,
         )
         self._freshness_checker = freshness_checker or check_runner_freshness
@@ -1152,6 +1156,30 @@ class BossLoop:
                 ],
                 [
                     f"Add the required labels to issue #{issue_number} or adjust --require-label settings.",
+                    "Remove --boss-issue-number to return to feed-driven selection.",
+                ],
+            )
+
+        overlapping_scopes = sorted(
+            {
+                entry
+                for entry in infer_issue_scope_entries(issue)
+                if entry in self._blocked_issue_scopes()
+            }
+        )
+        if overlapping_scopes:
+            overlap_summary = ", ".join(overlapping_scopes[:3])
+            if len(overlapping_scopes) > 3:
+                overlap_summary = f"{overlap_summary}, +{len(overlapping_scopes) - 3} more"
+            return (
+                [
+                    (
+                        f"Target issue #{issue_number} overlaps files already owned by open PR or "
+                        f"in-flight work: {overlap_summary}."
+                    )
+                ],
+                [
+                    f"Merge, close, or retarget the overlapping work before redispatching issue #{issue_number}.",
                     "Remove --boss-issue-number to return to feed-driven selection.",
                 ],
             )

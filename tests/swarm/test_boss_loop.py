@@ -1625,6 +1625,49 @@ class TestBossLoop:
         assert result.iterations_completed == 1
         assert result.issues_attempted[0]["number"] == 873
 
+    def test_specific_issue_number_seeds_explicit_feed_issue_numbers(self):
+        loop = BossLoop(config=_boss_config(max_iterations=1, issue_number=873))
+
+        assert isinstance(loop._feed, GitHubIssueFeed)
+        assert loop._feed.issue_numbers == [873]
+
+    def test_specific_issue_number_scope_conflict_reports_overlap_reason(self):
+        issue = _make_issue(
+            873,
+            "Publish recurring scorecard",
+            body=(
+                "Update `scripts/measure_b0_scorecard.py`.\n\n"
+                "Acceptance Criteria:\n"
+                "- python3 scripts/measure_b0_scorecard.py --help\n"
+            ),
+            labels=["boss-ready", "priority:critical", "autonomous"],
+        )
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [issue]
+        feed._fetch_issue.return_value = issue
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=1,
+                issue_number=873,
+                label_filter="boss-ready",
+                require_labels={"boss-ready", "priority:critical", "autonomous"},
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._blocked_issue_scopes = lambda: {"scripts/measure_b0_scorecard.py"}
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NO_SUITABLE_ISSUE.value
+        assert (
+            "overlaps files already owned by open PR or in-flight work"
+            in result.needs_human_reasons[0]
+        )
+        assert "scripts/measure_b0_scorecard.py" in result.needs_human_reasons[0]
+        assert "Merge, close, or retarget" in result.next_actions[0]
+
     def test_specific_issue_number_missing_stops_truthfully(self):
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = [_make_issue(909, "Meta benchmark issue")]
