@@ -6658,8 +6658,9 @@ def test_reset_worker_type_circuit_breaker_preserves_run_metadata(
 
 @pytest.mark.asyncio
 async def test_dispatch_workers_expires_worker_type_circuit_breaker(
-    repo: Path, store: DevCoordinationStore
+    repo: Path, store: DevCoordinationStore, monkeypatch
 ) -> None:
+    monkeypatch.setattr(Path, "home", lambda: repo / ".home")
     expired_at = datetime.now(UTC) - timedelta(minutes=10)
     run_record = store.create_supervisor_run(
         goal="expire worker breaker",
@@ -6721,6 +6722,12 @@ async def test_dispatch_workers_expires_worker_type_circuit_breaker(
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "dispatched"
     assert work_order["target_agent"] == "claude"
+    session_state = work_order["metadata"]["session_state"]
+    assert session_state["status"] == "dispatched"
+    assert session_state["phase"] == "edit"
+    assert session_state["branch_name"] == "main"
+    assert session_state["worktree_path"] == str(repo)
+    assert session_state["target_agent"] == "claude"
 
     breaker = updated["metadata"][WORKER_TYPE_CIRCUIT_BREAKERS_KEY]["claude"]
     assert breaker["status"] == "closed"

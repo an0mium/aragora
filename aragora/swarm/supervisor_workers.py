@@ -56,7 +56,8 @@ def _record_session_state(
 
         metadata = work_order.get("metadata")
         if not isinstance(metadata, dict):
-            return
+            metadata = {}
+            work_order["metadata"] = metadata
         session_data = metadata.get("session_state")
         if not isinstance(session_data, dict):
             # Create a new session if one doesn't exist
@@ -67,18 +68,65 @@ def _record_session_state(
                 session_id=f"swarm-{wo_id[:12]}",
                 issue_number=work_order.get("issue_number"),
                 target_agent=str(work_order.get("target_agent", "")).strip() or None,
+                runner_type=str(work_order.get("target_agent", "")).strip() or None,
+                worktree_path=str(work_order.get("worktree_path", "")).strip() or None,
+                branch_name=str(work_order.get("branch", "")).strip() or None,
+                pr_url=(
+                    str(
+                        work_order.get("pr_url", "")
+                        or work_order.get("adopted_pr", "")
+                        or metadata.get("pr_url", "")
+                    ).strip()
+                    or None
+                ),
                 phase=phase or "dispatch",
                 status=status or "created",
             )
         else:
             session = SessionState.from_dict(session_data)
 
+        issue_number = work_order.get("issue_number")
+        if issue_number not in {None, ""}:
+            session.issue_number = issue_number
+        target_agent = str(work_order.get("target_agent", "")).strip()
+        if target_agent:
+            session.target_agent = target_agent
+            session.runner_type = target_agent
+        worktree_path = str(work_order.get("worktree_path", "")).strip()
+        if worktree_path:
+            session.worktree_path = worktree_path
+        branch_name = str(work_order.get("branch", "")).strip()
+        if branch_name:
+            session.branch_name = branch_name
+        pr_url = str(
+            work_order.get("pr_url", "")
+            or work_order.get("adopted_pr", "")
+            or metadata.get("pr_url", "")
+        ).strip()
+        if pr_url:
+            session.pr_url = pr_url
+        selected_metadata = {
+            "work_order_id": str(work_order.get("work_order_id", "")).strip() or None,
+            "supervisor_run_id": str(metadata.get("supervisor_run_id", "")).strip() or None,
+            "task_key": str(work_order.get("task_key", "") or metadata.get("task_key", "")).strip()
+            or None,
+            "lease_id": str(work_order.get("lease_id", "")).strip() or None,
+            "receipt_id": str(work_order.get("receipt_id", "")).strip() or None,
+            "review_status": str(work_order.get("review_status", "")).strip() or None,
+        }
+        session.metadata.update({key: value for key, value in selected_metadata.items() if value})
         if status:
             session.status = status
         if phase:
             session.phase = phase
-        if blocker_evidence:
-            session.set_blocker(blocker_evidence)
+        effective_blocker_evidence = (
+            blocker_evidence
+            or str(
+                work_order.get("blocker_evidence", "") or metadata.get("blocker_evidence", "")
+            ).strip()
+        )
+        if effective_blocker_evidence:
+            session.set_blocker(effective_blocker_evidence)
         if exit_code is not None or worker_outcome:
             session.record_attempt(
                 exit_code=exit_code,
@@ -845,6 +893,7 @@ async def dispatch_workers(self, run_id: str) -> list[WorkerProcess]:
                 }
                 item["prompt_chars"] = int(worker.prompt_chars or 0)
                 item["enriched_context_chars"] = int(worker.enriched_context_chars or 0)
+                _record_session_state(item, status="dispatched", phase="edit")
                 # Persist worker PID in lease metadata so reap_stale_leases
                 # can detect dead processes even if this supervisor dies.
                 lease_id = str(item.get("lease_id", "")).strip()
@@ -1388,6 +1437,7 @@ def _lease_work_order(
             "task_key": task_key,
         }
     )
+    _record_session_state(work_order, status="leased", phase="dispatch")
     return True
 
 
