@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
@@ -122,6 +123,46 @@ def test_run_preflight_returns_structured_result(monkeypatch, tmp_path: Path) ->
         result.worker["worker_contract"]
     )
     assert cleanup_commands[0] == ["git", "worktree", "remove", "--force", str(expected_worktree)]
+    assert cleanup_commands[1] == ["git", "branch", "-D", branch]
+
+
+@pytest.mark.asyncio
+async def test_run_preflight_succeeds_inside_running_event_loop(
+    monkeypatch, tmp_path: Path
+) -> None:
+    branch = "preflight/20260414-async-loop"
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    commands: list[list[str]] = []
+    cleanup_commands: list[list[str]] = []
+
+    async def fake_run_worker(**_: object) -> WorkerProcess:
+        await asyncio.sleep(0)
+        return _worker(branch=branch)
+
+    def fake_run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
+        commands.append(list(cmd))
+
+    def fake_subprocess_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        cleanup_commands.append(list(cmd))
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod, "_branch_name", lambda: branch)
+    monkeypatch.setattr(mod, "_run_worker", fake_run_worker)
+    monkeypatch.setattr(mod, "_run", fake_run)
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+
+    result = mod.run_preflight(
+        repo_root=repo_root,
+        agent="codex",
+        base_ref="main",
+        skip_publication=True,
+    )
+
+    assert result.passed is True
+    assert result.worker["branch"] == branch
+    assert commands[0][:4] == ["git", "worktree", "add", "-b"]
+    assert cleanup_commands[0][:4] == ["git", "worktree", "remove", "--force"]
     assert cleanup_commands[1] == ["git", "branch", "-D", branch]
 
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -21,6 +20,7 @@ from aragora.swarm.mission import GateEvaluation, GateType, GateVerdict, Mission
 from aragora.swarm.terminal_truth import TerminalClass, classify_preflight_failure
 from aragora.swarm.worker_contract import WorkerContract, checksum_contract_payload
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
+from aragora.utils.async_utils import run_async
 
 _PREFLIGHT_RECEIPT_SCHEMA_VERSION = 1
 _PREFLIGHT_TTL_SECONDS = {
@@ -1659,14 +1659,15 @@ def run_preflight(
         )
         worktree_created = True
 
-        worker = asyncio.run(
+        worker = run_async(
             _run_worker(
                 repo_root=resolved_repo_root,
                 worktree_path=worktree_path,
                 branch=branch,
                 agent=normalized_agent,
                 contract=expected_contract,
-            )
+            ),
+            timeout=900.0,
         )
         dispatch_gate = _validate_worker_contract(worker)
         if expected_contract is not None:
