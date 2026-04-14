@@ -33,6 +33,15 @@ _CLI_TRANSCRIPT_MARKERS: tuple[str, ...] = (
     "\nuser\n# task:",
     "\nexec\n",
 )
+_SENSITIVE_OUTPUT_MARKERS: tuple[str, ...] = (
+    "api_key=",
+    "api key=",
+    "authorization:",
+    "bearer ",
+    "token=",
+    "secret=",
+    "password=",
+)
 
 
 def _parse_iso_timestamp(value: Any) -> datetime | None:
@@ -100,9 +109,7 @@ def _normalize_blocker_text(value: Any) -> str:
     if not text or lowered in _PLACEHOLDER_BLOCKERS:
         return ""
     if len(text) >= 500 and any(marker in lowered for marker in _CLI_TRANSCRIPT_MARKERS):
-        if "timeout" in lowered or "timed out" in lowered:
-            return "worker_timeout_transcript_captured"
-        return "worker_cli_transcript_captured"
+        return _cli_transcript_placeholder(text)
     return text
 
 
@@ -125,10 +132,43 @@ def _first_dict_list(*values: Any) -> list[dict[str, Any]]:
 
 
 def _compact_text(value: Any, *, max_chars: int = 180) -> str:
-    text = " ".join(_text(value).split())
+    text = _single_line_text(value)
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 3].rstrip() + "..."
+
+
+def _single_line_text(value: Any) -> str:
+    return " ".join(_text(value).split())
+
+
+def _cli_transcript_placeholder(value: Any) -> str:
+    lowered = _text(value).lower()
+    if "timeout" in lowered or "timed out" in lowered:
+        return "worker_timeout_transcript_captured"
+    return "worker_cli_transcript_captured"
+
+
+def _looks_like_sensitive_cli_output(value: Any) -> bool:
+    text = _single_line_text(value)
+    if not text:
+        return False
+    lowered = text.lower()
+    transcript_markers = sum(1 for marker in _CLI_TRANSCRIPT_MARKERS if marker in lowered)
+    sensitive_markers = sum(1 for marker in _SENSITIVE_OUTPUT_MARKERS if marker in lowered)
+    if transcript_markers >= 2:
+        return True
+    if transcript_markers >= 1 and (sensitive_markers >= 1 or len(text) >= 120):
+        return True
+    if sensitive_markers >= 2:
+        return True
+    return False
+
+
+def _sanitize_boss_evidence_text(value: Any, *, max_chars: int = 180) -> str:
+    if _looks_like_sensitive_cli_output(value):
+        return _cli_transcript_placeholder(value)
+    return _compact_text(value, max_chars=max_chars)
 
 
 def _optional_int(value: Any) -> int | None:
@@ -170,10 +210,10 @@ def _latest_repair_summary(*sources: dict[str, Any] | None) -> dict[str, Any] | 
     failing = latest.get("failing_verification")
     failing = dict(failing) if isinstance(failing, dict) else {}
     evidence = _first_text(
-        _compact_text(failing.get("stderr_tail")),
-        _compact_text(failing.get("stdout_tail")),
-        _compact_text(latest.get("stderr_tail")),
-        _compact_text(latest.get("stdout_tail")),
+        _sanitize_boss_evidence_text(failing.get("stderr_tail")),
+        _sanitize_boss_evidence_text(failing.get("stdout_tail")),
+        _sanitize_boss_evidence_text(latest.get("stderr_tail")),
+        _sanitize_boss_evidence_text(latest.get("stdout_tail")),
     )
     summary = {
         "failure_reason": _first_text(latest.get("failure_reason")) or None,
@@ -2294,8 +2334,8 @@ def build_boss_payload(
         )
         repair_summary = _latest_repair_summary(item, lane)
         blocker_evidence = _first_text(
-            _compact_text(item.get("blocker_evidence")),
-            _compact_text(_metadata(item).get("blocker_evidence")),
+            _sanitize_boss_evidence_text(item.get("blocker_evidence")),
+            _sanitize_boss_evidence_text(_metadata(item).get("blocker_evidence")),
             _text(repair_summary.get("evidence")) if isinstance(repair_summary, dict) else "",
         )
         lane_summary = {

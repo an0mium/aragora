@@ -2336,6 +2336,66 @@ class TestIntegratorView:
 
 
 class TestBossPayload:
+    def test_build_boss_payload_redacts_transcript_shaped_blocker_evidence(self) -> None:
+        transcript = """OpenAI Codex v0.1
+workdir: /tmp/secret
+approval: never
+sandbox: workspace-write
+API_KEY=shh-secret
+Command: pytest tests/swarm/test_reporter.py -q
+Result: timed out after 30s
+"""
+
+        payload = build_boss_payload(
+            run={
+                "run_id": "run-redacted",
+                "status": "needs_human",
+                "goal": "Repair failing lane",
+                "target_branch": "main",
+                "work_orders": [
+                    {
+                        "work_order_id": "wo-redacted",
+                        "title": "Repair failing lane",
+                        "status": "needs_human",
+                        "failure_reason": "merge_gate_failed",
+                        "metadata": {
+                            "blocker_evidence": transcript,
+                            "repair_journal": [
+                                {
+                                    "failure_reason": "merge_gate_failed",
+                                    "exit_code": 1,
+                                    "failing_verification": {
+                                        "command": "pytest tests/swarm/test_reporter.py -q",
+                                        "exit_code": 1,
+                                        "stderr_tail": transcript,
+                                    },
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+            integrator_view={
+                "lanes": [
+                    {
+                        "work_order_id": "wo-redacted",
+                        "title": "Repair failing lane",
+                        "status": "needs_human",
+                        "blockers": ["merge_gate_failed"],
+                        "failure_classes": ["merge_gate_failed"],
+                    }
+                ]
+            },
+        )
+
+        lane = payload["lanes"][0]
+        assert lane["blocker_evidence"] == "worker_timeout_transcript_captured"
+        assert lane["repair_summary"]["evidence"] == "worker_timeout_transcript_captured"
+
+        needs_human = payload["needs_human"][0]
+        assert needs_human["blocker_evidence"] == "worker_timeout_transcript_captured"
+        assert needs_human["repair_summary"]["evidence"] == "worker_timeout_transcript_captured"
+
     def test_build_boss_payload_surfaces_blocker_evidence_for_needs_human_lanes(self) -> None:
         payload = build_boss_payload(
             run={
@@ -2463,3 +2523,62 @@ class TestBossPayload:
             "needs_human_next: Repair failing lane -> "
             "Fix verification failure before rerunning the lane."
         ) in text
+
+    def test_render_boss_text_redacts_transcript_shaped_evidence(self) -> None:
+        transcript = """OpenAI Codex v0.1
+workdir: /tmp/secret
+approval: never
+sandbox: workspace-write
+API_KEY=shh-secret
+Command: pytest tests/swarm/test_reporter.py -q
+Result: timed out after 30s
+"""
+
+        text = render_boss_text(
+            build_boss_payload(
+                run={
+                    "run_id": "run-3",
+                    "status": "needs_human",
+                    "goal": "Repair failing lane",
+                    "target_branch": "main",
+                    "work_orders": [
+                        {
+                            "work_order_id": "wo-3",
+                            "title": "Repair failing lane",
+                            "status": "needs_human",
+                            "failure_reason": "merge_gate_failed",
+                            "metadata": {
+                                "blocker_evidence": transcript,
+                                "repair_journal": [
+                                    {
+                                        "failure_reason": "merge_gate_failed",
+                                        "exit_code": 1,
+                                        "failing_verification": {
+                                            "command": "pytest tests/swarm/test_reporter.py -q",
+                                            "exit_code": 1,
+                                            "stderr_tail": transcript,
+                                        },
+                                    }
+                                ],
+                            },
+                        }
+                    ],
+                },
+                integrator_view={
+                    "lanes": [
+                        {
+                            "work_order_id": "wo-3",
+                            "title": "Repair failing lane",
+                            "status": "needs_human",
+                            "blockers": ["merge_gate_failed"],
+                            "failure_classes": ["merge_gate_failed"],
+                        }
+                    ]
+                },
+            )
+        )
+
+        assert "worker_timeout_transcript_captured" in text
+        assert "API_KEY=shh-secret" not in text
+        assert "workdir: /tmp/secret" not in text
+        assert "OpenAI Codex v0.1" not in text
