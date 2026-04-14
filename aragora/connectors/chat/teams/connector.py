@@ -27,12 +27,13 @@ from aragora.connectors.chat.teams._files import TeamsFilesMixin
 from aragora.connectors.chat.teams._events import TeamsEventsMixin
 from aragora.connectors.chat.teams._channels import TeamsChannelsMixin
 
+logger = logging.getLogger(__name__)
+
 try:
     import httpx
 except ImportError:
-    pass
-
-logger = logging.getLogger(__name__)
+    httpx = None  # type: ignore[assignment]
+    logger.debug("httpx not installed; Teams connector will not be available")
 
 
 class TeamsConnector(
