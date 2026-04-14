@@ -321,8 +321,8 @@ def _build_cost_summary_for_receipt(
         summary = dct.get_debate_cost(debate_id)
         if summary and summary.total_calls > 0:
             return summary.to_dict()
-    except (ImportError, RuntimeError, ValueError, TypeError, AttributeError):
-        pass
+    except (ImportError, RuntimeError, ValueError, TypeError, AttributeError) as exc:
+        logger.debug("DebateCostTracker unavailable, falling back to DebateResult fields: %s", exc)
 
     # Fallback: build minimal summary from DebateResult fields
     if debate_result.total_cost_usd > 0 or debate_result.per_agent_cost:

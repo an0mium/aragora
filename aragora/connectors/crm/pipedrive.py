@@ -732,7 +732,10 @@ class PipedriveClient:
                             try:
                                 delay = float(retry_after)
                             except (ValueError, TypeError):
-                                pass
+                                logger.debug(
+                                    "Pipedrive: unparseable Retry-After header value: %r, using default delay",
+                                    retry_after,
+                                )
                         logger.warning(
                             "Pipedrive %s %s returned %d, retrying in %.1fs (attempt %d/%d)",
                             method,

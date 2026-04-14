@@ -228,8 +228,8 @@ class PipelineKMBridge:
                                     "confidence": meta.get("confidence", 0.0),
                                 }
                             )
-                except (AttributeError, TypeError, RuntimeError, ValueError):
-                    pass
+                except (AttributeError, TypeError, RuntimeError, ValueError) as exc:
+                    logger.debug("KM search for receipt precedents failed: %s", exc)
 
             return results[:limit]
         except (ImportError, RuntimeError, AttributeError) as exc:
@@ -281,8 +281,8 @@ class PipelineKMBridge:
                                     "lessons_learned": meta.get("lessons_learned", ""),
                                 }
                             )
-                except (AttributeError, TypeError, RuntimeError, ValueError):
-                    pass
+                except (AttributeError, TypeError, RuntimeError, ValueError) as exc:
+                    logger.debug("KM search for outcome precedents failed: %s", exc)
 
             # Supplement from adapter's local cache
             if len(results) < limit:
@@ -375,8 +375,8 @@ class PipelineKMBridge:
                                     "consensus_reached": meta.get("consensus_reached", False),
                                 }
                             )
-                except (AttributeError, TypeError, RuntimeError, ValueError):
-                    pass
+                except (AttributeError, TypeError, RuntimeError, ValueError) as exc:
+                    logger.debug("KM search for debate precedents failed: %s", exc)
 
             return results[:limit]
         except (ImportError, RuntimeError, AttributeError) as exc:
@@ -602,8 +602,10 @@ class PipelineKMBridge:
             if callable(store_method):
                 store_method(result_dict)
                 return True
-        except (ImportError, AttributeError, RuntimeError, TypeError, ValueError):
-            pass
+        except (ImportError, AttributeError, RuntimeError, TypeError, ValueError) as exc:
+            logger.debug(
+                "DecisionPlanAdapter store unavailable, falling back to direct KM: %s", exc
+            )
 
         # Fallback: store directly in KM as a knowledge item
         try:

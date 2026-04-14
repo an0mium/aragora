@@ -399,8 +399,8 @@ def _build_receipt(plan: Any) -> DecisionReceipt:
         if trust_score is not None:
             try:
                 receipt.consensus_proof.trust_score = float(trust_score)
-            except (TypeError, ValueError):
-                pass
+            except (TypeError, ValueError) as exc:
+                logger.debug("Could not coerce trust_score %r to float: %s", trust_score, exc)
         tainted_proposals = _list_of_strings(consensus.get("tainted_proposals"))
         if tainted_proposals:
             receipt.consensus_proof.tainted_proposals = tainted_proposals

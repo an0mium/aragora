@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from aragora.canvas.stages import PipelineStage, StageEdgeType
 
@@ -58,7 +61,7 @@ def _coerce_edge_type(value: StageEdgeType | str | None) -> StageEdgeType:
         try:
             return StageEdgeType(str(value))
         except ValueError:
-            pass
+            logger.debug("Unknown StageEdgeType %r, defaulting to RELATES_TO", value)
     return StageEdgeType.RELATES_TO
 
 
