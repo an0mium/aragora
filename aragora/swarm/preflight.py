@@ -1062,6 +1062,64 @@ def _checks_from_contract_preflight_result(
     return checks
 
 
+def _save_contract_preflight_receipt(
+    *,
+    result: PreflightResult,
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    base_ref: str,
+    skip_publication: bool,
+    contract_path: Path,
+    expected_contract_checksum: str,
+) -> PreflightReceipt:
+    resolved_repo_root = repo_root.resolve()
+    normalized_base_ref = str(base_ref or "main").strip() or "main"
+    normalized_contract_path = contract_path.expanduser().resolve()
+    normalized_check_type = "scratch" if skip_publication else "remote_publish"
+    finished_at = _utc_now()
+    started_at = finished_at - timedelta(seconds=max(float(result.duration_seconds or 0.0), 0.0))
+    checks = _checks_from_contract_preflight_result(
+        result,
+        expected_contract_checksum=expected_contract_checksum,
+        skip_publication=skip_publication,
+    )
+    artifacts: dict[str, Any] = {
+        "target_ref": normalized_base_ref,
+        "contract_path": str(normalized_contract_path),
+        "skip_publication": bool(skip_publication),
+        "expected_contract_checksum": expected_contract_checksum,
+        "branch": str(result.branch or "").strip(),
+        "worktree_path": str(result.worktree_path or "").strip(),
+        "agent": str(result.agent or "").strip(),
+        "published": bool(result.published),
+        "pull_request_created": bool(result.pull_request_created),
+        "pull_request_closed": bool(result.pull_request_closed),
+        "cleanup_worktree_removed": bool(result.cleanup_worktree_removed),
+        "cleanup_branch_removed": bool(result.cleanup_branch_removed),
+        "dispatch_gate": dict(result.dispatch_gate),
+        "worker_contract_checksum": str(
+            (result.worker or {}).get("worker_contract_checksum", "") or ""
+        ).strip(),
+        "commit_shas": [
+            str(item).strip()
+            for item in list((result.worker or {}).get("commit_shas") or [])
+            if str(item).strip()
+        ],
+    }
+    receipt = _finalize_preflight_receipt(
+        repo_root=resolved_repo_root,
+        envelope=envelope,
+        check_type=normalized_check_type,
+        base_ref=normalized_base_ref,
+        started_at=started_at,
+        finished_at=finished_at,
+        checks=checks,
+        artifacts=artifacts,
+    )
+    _save_preflight_receipt(resolved_repo_root, receipt)
+    return receipt
+
+
 def run_contract_preflight_receipt(
     *,
     repo_root: Path,
@@ -1142,6 +1200,18 @@ def run_contract_preflight_receipt(
                 ],
             }
         )
+
+    if "branch" in artifacts:
+        receipt = _save_contract_preflight_receipt(
+            result=result,
+            repo_root=resolved_repo_root,
+            envelope=resolved_envelope,
+            base_ref=normalized_base_ref,
+            skip_publication=skip_publication,
+            contract_path=normalized_contract_path,
+            expected_contract_checksum=expected_contract_checksum,
+        )
+        return receipt
 
     finished_at = _utc_now()
     receipt = _finalize_preflight_receipt(
@@ -1543,8 +1613,12 @@ def run_preflight(
     resolved_repo_root = repo_root.resolve()
     expected_contract: WorkerContract | None = None
     expected_contract_checksum = ""
+    normalized_contract_path: Path | None = None
     if contract_path is not None:
-        expected_contract, expected_contract_checksum = _load_contract_payload(contract_path)
+        normalized_contract_path = contract_path.expanduser().resolve()
+        expected_contract, expected_contract_checksum = _load_contract_payload(
+            normalized_contract_path
+        )
     if expected_contract is not None and str(expected_contract.agent or "").strip():
         normalized_agent = str(expected_contract.agent).strip()
     else:
@@ -1619,7 +1693,7 @@ def run_preflight(
     if dispatch_gate:
         passed = str(dispatch_gate.get("verdict", "")).strip() == GateVerdict.PASS.value
     duration = time.monotonic() - start
-    return PreflightResult(
+    result = PreflightResult(
         passed=passed,
         checks=[],
         duration_seconds=duration,
@@ -1637,6 +1711,29 @@ def run_preflight(
         dispatch_gate=dispatch_gate,
         worker=worker.to_dict() if worker is not None else {},
     )
+    if normalized_contract_path is not None:
+        envelope_for_receipt = CredentialEnvelope.from_environment(os.environ)
+        receipt = _save_contract_preflight_receipt(
+            result=result,
+            repo_root=resolved_repo_root,
+            envelope=envelope_for_receipt,
+            base_ref=normalized_base_ref,
+            skip_publication=skip_publication,
+            contract_path=normalized_contract_path,
+            expected_contract_checksum=expected_contract_checksum,
+        )
+        admission_gate = evaluate_preflight_receipt_gate(
+            receipt,
+            repo_root=resolved_repo_root,
+            envelope=envelope_for_receipt,
+            check_type="scratch" if skip_publication else "remote_publish",
+            base_ref=normalized_base_ref,
+            expected_contract_checksum=expected_contract_checksum,
+        )
+        result.dispatch_gate = admission_gate.to_dict()
+        result.passed = admission_gate.verdict == GateVerdict.PASS.value
+        result.checks = [dict(item) for item in receipt.checks]
+    return result
 
 
 def main() -> int:

@@ -297,8 +297,59 @@ def test_run_preflight_uses_contract_file_and_enforces_expected_contract(
     assert result.passed is True
     assert result.agent == "codex"
     assert result.worker["worker_contract"] == contract_payload
+    assert result.dispatch_gate["verdict"] == GateVerdict.PASS.value
+    assert str(result.dispatch_gate["notes"]).startswith("Preflight receipt verified:")
+    assert any(check["name"] == "dispatch_gate" for check in result.checks)
     assert commands[0][:4] == ["git", "worktree", "add", "-b"]
     assert cleanup_commands[0][:4] == ["git", "worktree", "remove", "--force"]
+    receipt_dir = repo_root / ".aragora" / "receipts" / "preflight"
+    assert list(receipt_dir.glob("scratch-*.json"))
+
+
+def test_run_preflight_contract_path_uses_receipt_gate_for_dispatch_truth(
+    monkeypatch, tmp_path: Path
+) -> None:
+    branch = "preflight/20260412-contract-receipt-gate"
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    contract_payload = _worker(branch=branch).worker_contract
+    contract_path = tmp_path / "worker_contract.json"
+    contract_path.write_text(json.dumps(contract_payload), encoding="utf-8")
+
+    async def fake_run_worker(**kwargs: object) -> WorkerProcess:
+        assert kwargs["agent"] == "codex"
+        return _worker(branch=branch)
+
+    def fake_run(cmd: list[str], *, cwd: Path, env: dict[str, str] | None = None) -> None:
+        return None
+
+    def fake_subprocess_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    def fake_receipt_gate(*args: object, **kwargs: object) -> mod.GateEvaluation:
+        return mod.GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_missing"],
+            required_evidence=["preflight_receipt"],
+            notes="forced receipt gate failure",
+        )
+
+    monkeypatch.setattr(mod, "_branch_name", lambda: branch)
+    monkeypatch.setattr(mod, "_run_worker", fake_run_worker)
+    monkeypatch.setattr(mod, "_run", fake_run)
+    monkeypatch.setattr(mod.subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr(mod, "evaluate_preflight_receipt_gate", fake_receipt_gate)
+
+    result = mod.run_preflight(
+        repo_root=repo_root,
+        skip_publication=True,
+        contract_path=contract_path,
+    )
+
+    assert result.passed is False
+    assert result.dispatch_gate["failure_classes"] == ["receipt_missing"]
+    assert result.dispatch_gate["notes"] == "forced receipt gate failure"
 
 
 def test_run_preflight_rejects_contract_file_checksum_mismatch(tmp_path: Path) -> None:
