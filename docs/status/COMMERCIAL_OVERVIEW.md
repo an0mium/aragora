@@ -24,17 +24,17 @@ The claims below are the current proof base, not the long-term ambition.
 |---|---|---|
 | Guarded execution substrate | Boss, supervisor, tranche, contract, and preflight paths exist on the live swarm lane. | The system can decide when a run is admissible instead of blindly attempting work. |
 | Benchmark truth | A fixed benchmark corpus is checked into the repo, and the tracked B0 cohort is running at **86.7%** no-rescue success as of 2026-04-13. | Progress claims are tied to a measured cohort instead of anecdotes. |
-| Truth artifacts | The repo has a diffable benchmark truth-artifact path and GitHub-truth reconciliation scripts. | Weekly or recurring reporting can stay tied to issue-level truth. |
+| Truth artifacts | The repo has a diffable benchmark truth-artifact path, frozen-corpus binding on recurring scorecards, and GitHub-truth reconciliation scripts. | Weekly or recurring reporting can stay tied to issue-level truth instead of drifting with ad hoc samples. |
 | Repair loop progress | Resume-from-state, repair lifecycle persistence, rescue logging, and bounded recovery planning are on `main`. | Repeated failures can increasingly be resumed, diagnosed, and productized instead of re-run cold. |
-| Operator truth | Preflight receipts, blocker evidence, and session-state work are materially underway and partially landed, but not yet fully closed across every live path. | This is the remaining gap between an impressive demo and a boring reliable product lane. |
+| Operator truth | Preflight receipts, blocker evidence, and session-state work are on `main`; the remaining gap is keeping recurring truth publication and rescue productization boring on the live loop. | This is the remaining gap between an impressive demo and a boring reliable product lane. |
 
 ## Current Gate
 
 The current commercial gate is the same as the current execution gate in [NEXT_STEPS_CANONICAL.md](NEXT_STEPS_CANONICAL.md):
 
-- finish `RS-07` so receipt-backed preflight becomes the default admission truth
-- close the remaining truthful repair gaps in `BC-01` and `BC-03`
-- keep `TW-01`, `TW-02`, and `TW-03` publishing recurring corpus-linked truth
+- keep `TW-01` landed so recurring scorecards stay tied to the frozen corpus on current `main`
+- finish `TW-02` so recurring truth artifacts and scorecards are routinely published and linked from status surfaces
+- finish `TW-03` so repeated rescues become benchmark fixtures or bounded product work instead of invisible operator tax
 - keep all external claims narrower than the measured proof
 
 This means Aragora should currently be positioned as:
