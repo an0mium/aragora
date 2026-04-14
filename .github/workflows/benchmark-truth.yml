@@ -36,7 +36,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e ".[dev]" --quiet 2>/dev/null || pip install -e . --quiet
+          python -m pip install -e ".[dev]" --quiet 2>/dev/null || python -m pip install -e . --quiet
 
       - name: Check corpus exists
         run: |
