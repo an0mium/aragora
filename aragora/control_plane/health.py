@@ -162,7 +162,7 @@ class HealthMonitor:
             try:
                 await self._monitor_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("HealthMonitor task cancelled during shutdown")
 
         logger.info("HealthMonitor stopped")
 
