@@ -1,0 +1,240 @@
+{
+  "corpus": {
+    "corpus_id": "tw-01-bounded-execution-v1",
+    "issue_count": 5,
+    "manifest_sha256": "01f5f941cb437675344d2e5c6292d3b31df3ea8041e623e32eb9f3f89b971804",
+    "membership_issue_numbers": [
+      873,
+      1064,
+      1641,
+      1733,
+      2712
+    ],
+    "membership_sha256": "04b6651df7d6f8b78c9c33709ea1379da8babec4417f01372a63374fa5c6103a",
+    "path": "docs/benchmarks/corpus.json",
+    "recorded_on": "2026-04-13",
+    "revision": 1,
+    "success_contract": "mergeable_pr_or_merged_pr"
+  },
+  "coverage": {
+    "attempted_issue_count": 1,
+    "is_complete": false,
+    "missing_issue_count": 4,
+    "missing_issue_numbers": [
+      1064,
+      1641,
+      1733,
+      2712
+    ],
+    "status": "incomplete"
+  },
+  "failure_class_distribution": {
+    "blocked_sanitation_failed": 1,
+    "rescue_no_deliverable": 3
+  },
+  "generated_at": "2026-04-14T18:12:12Z",
+  "issues": [
+    {
+      "had_rescue": true,
+      "issue_number": 873,
+      "issue_title": "Bump @eslint/eslintrc from 3.2.0 to 3.3.0 in /aragora/live",
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-09T17:12:37Z",
+          "number": 880,
+          "state": "MERGED",
+          "title": "fix(swarm): enforce file-scope constraints in Boss-loop worker execution",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/880"
+        },
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-09T17:56:06Z",
+          "number": 881,
+          "state": "MERGED",
+          "title": "fix(swarm): stop on terminal worker state",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/881"
+        },
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-09T18:53:09Z",
+          "number": 882,
+          "state": "MERGED",
+          "title": "fix(swarm): prevent autonomous workers from committing session artifacts",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/882"
+        },
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-09T23:53:16Z",
+          "number": 885,
+          "state": "MERGED",
+          "title": "fix(swarm): backfill file_scope from spec hints on work orders",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/885"
+        },
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-10T00:25:34Z",
+          "number": 886,
+          "state": "MERGED",
+          "title": "fix(swarm): escalate waiting_conflict deadlock to needs_human",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/886"
+        },
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-10T02:32:13Z",
+          "number": 887,
+          "state": "MERGED",
+          "title": "fix(swarm): override wrong decomposer scopes with spec hints",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/887"
+        },
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-10T03:40:12Z",
+          "number": 890,
+          "state": "MERGED",
+          "title": "fix(decomposer): LLM-first subtask extraction with OpenRouter fallback",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/890"
+        },
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-10T04:52:34Z",
+          "number": 893,
+          "state": "MERGED",
+          "title": "fix(boss-loop): fail closed when no concrete deliverable exists",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/893"
+        },
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-10T06:20:41Z",
+          "number": 900,
+          "state": "MERGED",
+          "title": "fix(swarm): route no-progress timeout through result collection (#899)",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/900"
+        },
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-19T14:54:15Z",
+          "number": 1059,
+          "state": "MERGED",
+          "title": "feat(swarm): allow boss-loop to target one issue",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/1059"
+        }
+      ],
+      "no_rescue_truth_success": false,
+      "proxy_pr_signal": false,
+      "truth_state": "merged_pr",
+      "truth_success": true
+    },
+    {
+      "had_rescue": false,
+      "issue_number": 1064,
+      "issue_title": "Boss-loop execution: bump @supabase/supabase-js from 2.99.1 to 2.99.3 in /aragora/live",
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-19T17:21:15Z",
+          "number": 1066,
+          "state": "MERGED",
+          "title": "fix(live): bump @supabase/supabase-js from 2.99.1 to 2.99.3",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/1066"
+        }
+      ],
+      "no_rescue_truth_success": true,
+      "proxy_pr_signal": false,
+      "truth_state": "merged_pr",
+      "truth_success": true
+    },
+    {
+      "had_rescue": false,
+      "issue_number": 1641,
+      "issue_title": "Wire prompt refiner env",
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-03-30T18:37:50Z",
+          "number": 1714,
+          "state": "MERGED",
+          "title": "feat(swarm): pass prompt-refiner hints via worker env",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/1714"
+        }
+      ],
+      "no_rescue_truth_success": true,
+      "proxy_pr_signal": false,
+      "truth_state": "merged_pr",
+      "truth_success": true
+    },
+    {
+      "had_rescue": false,
+      "issue_number": 1733,
+      "issue_title": "Tighten supervisor merge gate",
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
+      "proxy_pr_signal": false,
+      "truth_state": "no_linked_pr",
+      "truth_success": false
+    },
+    {
+      "had_rescue": false,
+      "issue_number": 2712,
+      "issue_title": "Fail closed on string booleans in QualityPipelineConfig.from_dict",
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
+      "proxy_pr_signal": false,
+      "truth_state": "no_linked_pr",
+      "truth_success": false
+    }
+  ],
+  "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+  "primary_metrics": {
+    "merged_only_rate": 0.6,
+    "no_rescue_truth_success_rate": 0.4,
+    "truth_success_rate": 0.6
+  },
+  "proxy_metrics": {
+    "attempted_issue_count": 1,
+    "note": "Proxy metrics are secondary. Truth metrics remain mergeable_pr OR merged_pr.",
+    "proxy_pr_signal_issue_count": 0,
+    "proxy_pr_signal_issue_rate": 0.0
+  },
+  "repo": "synaptent/aragora",
+  "rescue_counts_by_type": {
+    "rescue_no_deliverable": 3
+  },
+  "run_status": "incomplete"
+}

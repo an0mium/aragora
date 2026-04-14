@@ -1,0 +1,84 @@
+name: Benchmark Truth Publication
+
+on:
+  schedule:
+    - cron: "20 13 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: benchmark-truth-publication
+  cancel-in-progress: false
+
+jobs:
+  publish-benchmark-truth:
+    runs-on: aragora
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          clean: false
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
+
+      - name: Setup Python
+        uses: ./.github/actions/setup-python-safe
+        with:
+          python-version: "3.12"
+
+      - name: Verify runtime prerequisites
+        shell: bash
+        run: |
+          command -v gh >/dev/null
+          test -f .aragora/overnight/boss_metrics.jsonl
+
+      - name: Publish tracked benchmark truth surfaces
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/measure_b0_scorecard.py \
+            --publish \
+            --publish-dir docs/status/generated/benchmark_scorecards \
+            --truth-publish-dir docs/status/generated/benchmark_truth_artifacts
+
+          python3 scripts/render_benchmark_truth_status.py \
+            --output docs/status/B0_BENCHMARK_TRUTH_STATUS.md
+
+      - name: Publish workflow summary
+        run: |
+          cat docs/status/B0_BENCHMARK_TRUTH_STATUS.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and push refreshed truth surfaces
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            docs/status/B0_BENCHMARK_TRUTH_STATUS.md \
+            docs/status/generated/benchmark_scorecards \
+            docs/status/generated/benchmark_truth_artifacts
+
+          if git diff --cached --quiet; then
+            echo "No benchmark truth surface changes to commit."
+            exit 0
+          fi
+
+          git commit -m "docs(status): refresh benchmark truth surfaces [skip ci]"
+          git push origin HEAD:main

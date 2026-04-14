@@ -1,0 +1,87 @@
+{
+  "corpus": {
+    "corpus_id": "tw-01-bounded-execution-v1",
+    "issue_count": 5,
+    "manifest_sha256": "01f5f941cb437675344d2e5c6292d3b31df3ea8041e623e32eb9f3f89b971804",
+    "membership_issue_numbers": [
+      873,
+      1064,
+      1641,
+      1733,
+      2712
+    ],
+    "membership_sha256": "04b6651df7d6f8b78c9c33709ea1379da8babec4417f01372a63374fa5c6103a",
+    "path": "docs/benchmarks/corpus.json",
+    "recorded_on": "2026-04-13",
+    "revision": 1,
+    "success_contract": "mergeable_pr_or_merged_pr"
+  },
+  "coverage": {
+    "attempted_issue_count": 1,
+    "is_complete": false,
+    "missing_issue_count": 4,
+    "missing_issue_numbers": [
+      1064,
+      1641,
+      1733,
+      2712
+    ],
+    "status": "incomplete"
+  },
+  "failure_class_distribution": {
+    "blocked_sanitation_failed": 1,
+    "rescue_no_deliverable": 3
+  },
+  "generated_at": "2026-04-14T18:12:28Z",
+  "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+  "proxy_metrics": {
+    "corpus": {
+      "corpus_id": "tw-01-bounded-execution-v1",
+      "issue_count": 5,
+      "path": "docs/benchmarks/corpus.json",
+      "recorded_on": "2026-04-13",
+      "revision": 1,
+      "success_contract": "mergeable_pr_or_merged_pr"
+    },
+    "coverage": {
+      "attempted_issue_count": 1,
+      "is_complete": false,
+      "missing_issue_count": 4,
+      "missing_issue_numbers": [
+        1064,
+        1641,
+        1733,
+        2712
+      ],
+      "status": "incomplete"
+    },
+    "failure_classes": {
+      "blocked_sanitation_failed": 1,
+      "rescue_no_deliverable": 3
+    },
+    "mean_elapsed_seconds": 33.8,
+    "median_elapsed_seconds": 32.5,
+    "no_rescue_success_rate": 0.0,
+    "status": "active",
+    "success_classes": {},
+    "terminal_class_distribution": {
+      "blocked_sanitation_failed": 1,
+      "rescue_no_deliverable": 3
+    },
+    "tick_success_rate": 0.0,
+    "total_ticks": 4,
+    "unique_issues_attempted": 1,
+    "unique_issues_failed": 1,
+    "unique_issues_succeeded": 0
+  },
+  "rescue_counts_by_type": {
+    "rescue_no_deliverable": 3
+  },
+  "truth_artifact_generated_at": "2026-04-14T18:12:12Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-1/truth-20260414T181212Z.json",
+  "truth_metrics": {
+    "merged_only_rate": 0.6,
+    "no_rescue_truth_success_rate": 0.4,
+    "truth_success_rate": 0.6
+  }
+}

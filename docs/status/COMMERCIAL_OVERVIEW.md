@@ -33,7 +33,6 @@ The claims below are the current proof base, not the long-term ambition.
 The current commercial gate is the same as the current execution gate in [NEXT_STEPS_CANONICAL.md](NEXT_STEPS_CANONICAL.md):
 
 - keep `TW-01` landed so recurring scorecards stay tied to the frozen corpus on current `main`
-- finish `TW-02` so recurring truth artifacts and scorecards are routinely published and linked from status surfaces
 - finish `TW-03` so repeated rescues become benchmark fixtures or bounded product work instead of invisible operator tax
 - keep all external claims narrower than the measured proof
 
@@ -160,6 +159,7 @@ Use these documents as the canonical backing for commercial claims:
 
 - [NEXT_STEPS_CANONICAL.md](NEXT_STEPS_CANONICAL.md)
 - [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXECUTION_ISSUES.md)
+- [B0_BENCHMARK_TRUTH_STATUS.md](B0_BENCHMARK_TRUTH_STATUS.md)
 - [ARAGORA_EVOLUTION_ROADMAP.md](../plans/ARAGORA_EVOLUTION_ROADMAP.md)
 - [docs/benchmarks/corpus.json](../benchmarks/corpus.json)
 - `scripts/build_benchmark_truth_artifact.py`

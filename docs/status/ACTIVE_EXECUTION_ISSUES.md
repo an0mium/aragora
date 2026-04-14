@@ -42,11 +42,11 @@ Status note: B0 is above target at 86.7% no-rescue success on the tracked cohort
 
 Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 
-- Do now: `TW-02`, `TW-03`, `CS-01..03`
+- Do now: `TW-03`, `CS-01..03`
 - Delay: `BC-07..09`, `RS-10..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
 - Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
-- Live boss-ready queue: `TW-02` ([#5540](https://github.com/synaptent/aragora/issues/5540)) and `TW-03` ([#5330](https://github.com/synaptent/aragora/issues/5330)); `TW-01` ([#5539](https://github.com/synaptent/aragora/issues/5539)) completed on 2026-04-14 and [#5516](https://github.com/synaptent/aragora/issues/5516) landed under `TW-03` via [#5535](https://github.com/synaptent/aragora/pull/5535)
+- Live boss-ready queue: `TW-03` ([#5330](https://github.com/synaptent/aragora/issues/5330)); `TW-01` ([#5539](https://github.com/synaptent/aragora/issues/5539)) completed on 2026-04-14, `TW-02` now publishes through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`, and [#5516](https://github.com/synaptent/aragora/issues/5516) landed under `TW-03` via [#5535](https://github.com/synaptent/aragora/pull/5535)
 - `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; the live queue should not recycle them as active blockers unless a concrete regression appears
 
 ## Epic 1 — Reliability Substrate
@@ -112,7 +112,7 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 ### Milestone 3.1 — Autonomous Software Execution Benchmark `[30d]`
 
 - [x] **TW-01** Prove `prompt -> spec -> code -> verify -> PR` loops on a fixed benchmark corpus of bounded repos/issues _(Done 2026-04-14 via [#5582](https://github.com/synaptent/aragora/pull/5582) and [#5583](https://github.com/synaptent/aragora/pull/5583))_
-- [ ] **TW-02** Measure rescue rate, verification pass rate, wall-clock throughput, and no-rescue completion rate _(Partial as of 2026-04-14: diffable truth-artifact generation exists, including truth/no-rescue/failure-class/rescue-type reporting; the remaining gap is recurring publication and status linkage, tracked by [#5540](https://github.com/synaptent/aragora/issues/5540).)_
+- [x] **TW-02** Measure rescue rate, verification pass rate, wall-clock throughput, and no-rescue completion rate _(Done 2026-04-14: recurring publication now writes repo-tracked outputs under `docs/status/generated/benchmark_truth_artifacts/` and `docs/status/generated/benchmark_scorecards/`, with the stable status summary at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`.)_
 - [ ] **TW-03** Convert human rescues into benchmark fixtures and product requirements _(Partial as of 2026-04-14: rescue-class productization reporting landed via [#5535](https://github.com/synaptent/aragora/pull/5535); the remaining gap is turning repeated classes into durable fixture-or-issue closure on the live loop, tracked by [#5330](https://github.com/synaptent/aragora/issues/5330).)_
 
 ### Milestone 3.2 — Inbox / Operator Action Loops `[30-90d]`
