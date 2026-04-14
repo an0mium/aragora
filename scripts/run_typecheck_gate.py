@@ -117,13 +117,24 @@ def build_typecheck_plan(*, repo_root: Path, changed_files: list[str]) -> Typech
 
 def get_changed_files(*, repo_root: Path, base_ref: str, head_ref: str = "HEAD") -> list[str]:
     base = base_ref if base_ref.startswith("origin/") else f"origin/{base_ref}"
-    proc = subprocess.run(
-        ["git", "diff", "--name-only", f"{base}...{head_ref}"],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
+    try:
+        proc = subprocess.run(
+            ["git", "diff", "--name-only", f"{base}...{head_ref}"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode != 128:
+            raise
+        proc = subprocess.run(
+            ["git", "diff", "--name-only", f"{base}..{head_ref}"],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
     return [line for line in proc.stdout.splitlines() if line.strip()]
 
 

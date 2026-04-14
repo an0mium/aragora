@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 _scripts_dir = str(Path(__file__).resolve().parent.parent.parent / "scripts")
 if _scripts_dir not in sys.path:
@@ -88,6 +91,64 @@ def test_get_changed_files_uses_git_diff(monkeypatch: object, tmp_path: Path) ->
     assert changed == ["aragora/cli/main.py", "tests/test_cli.py"]
     assert captured["cmd"] == ["git", "diff", "--name-only", "origin/main...HEAD"]
     assert captured["cwd"] == tmp_path
+
+
+def test_get_changed_files_falls_back_to_two_dot_diff_on_missing_merge_base(
+    monkeypatch: object, tmp_path: Path
+) -> None:
+    calls: list[list[str]] = []
+
+    def _fake_run(
+        cmd: list[str],
+        cwd: Path,
+        capture_output: bool,
+        text: bool,
+        check: bool,
+    ) -> SimpleNamespace:
+        calls.append(cmd)
+        if len(calls) == 1:
+            raise subprocess.CalledProcessError(
+                128,
+                cmd,
+                stderr="fatal: no merge base",
+            )
+        return SimpleNamespace(stdout="aragora/cli/main.py\n")
+
+    monkeypatch.setattr(run_typecheck_gate.subprocess, "run", _fake_run)
+
+    changed = run_typecheck_gate.get_changed_files(
+        repo_root=tmp_path,
+        base_ref="main",
+        head_ref="HEAD",
+    )
+
+    assert changed == ["aragora/cli/main.py"]
+    assert calls == [
+        ["git", "diff", "--name-only", "origin/main...HEAD"],
+        ["git", "diff", "--name-only", "origin/main..HEAD"],
+    ]
+
+
+def test_get_changed_files_raises_non_merge_base_git_failure(
+    monkeypatch: object, tmp_path: Path
+) -> None:
+    def _fake_run(
+        cmd: list[str],
+        cwd: Path,
+        capture_output: bool,
+        text: bool,
+        check: bool,
+    ) -> SimpleNamespace:
+        raise subprocess.CalledProcessError(2, cmd, stderr="fatal: bad revision")
+
+    monkeypatch.setattr(run_typecheck_gate.subprocess, "run", _fake_run)
+
+    with pytest.raises(subprocess.CalledProcessError):
+        run_typecheck_gate.get_changed_files(
+            repo_root=tmp_path,
+            base_ref="main",
+            head_ref="HEAD",
+        )
 
 
 def test_main_writes_github_outputs_and_targets_file(tmp_path: Path, capsys: object) -> None:
