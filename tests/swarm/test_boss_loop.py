@@ -25,6 +25,7 @@ from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import pytest
 
+from aragora.swarm import preflight as preflight_mod
 from aragora.swarm.boss_loop import (
     _should_replace_with_focused_tests,
     build_issue_eligibility_report,
@@ -106,6 +107,35 @@ def _boss_config(**overrides: Any) -> BossLoopConfig:
     }
     defaults.update(overrides)
     return BossLoopConfig(**defaults)
+
+
+def _preflight_receipt(
+    *,
+    check_type: str = "scratch",
+    passed: bool = True,
+    checks: list[dict[str, Any]] | None = None,
+) -> preflight_mod.PreflightReceipt:
+    return preflight_mod.PreflightReceipt(
+        receipt_id=f"preflight-{check_type}-20260414T001900Z-test",
+        envelope_seal="seal",
+        repo_root="/tmp/repo",
+        check_type=check_type,
+        started_at="2026-04-14T00:19:00Z",
+        finished_at="2026-04-14T00:19:05Z",
+        passed=passed,
+        checks=checks
+        or [
+            {
+                "name": "receipt_check",
+                "passed": passed,
+                "detail": "ok" if passed else "failed",
+            }
+        ],
+        cache_key=f"{check_type}-cache",
+        ttl_seconds=3600,
+        expires_at="2026-04-14T01:19:05Z",
+        artifacts={"target_ref": "main"},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -3319,6 +3349,10 @@ async def test_dispatch_issue_contract_gate_allows_complete_cli_dispatch() -> No
             ),
         ),
         patch(
+            "aragora.swarm.dispatch_contract_gate.run_scratch_validation_receipt",
+            return_value=_preflight_receipt(),
+        ) as scratch_receipt,
+        patch(
             "aragora.swarm.boss_loop.dispatch_bounded_spec",
             new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
         ) as dispatch_mock,
@@ -3326,6 +3360,7 @@ async def test_dispatch_issue_contract_gate_allows_complete_cli_dispatch() -> No
         result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
     assert result["status"] == "completed"
+    scratch_receipt.assert_called_once()
     dispatch_mock.assert_awaited_once()
 
 
@@ -3379,6 +3414,65 @@ async def test_dispatch_issue_contract_gate_blocks_missing_publish_auth_slices()
 
 
 @pytest.mark.asyncio
+async def test_dispatch_issue_contract_gate_blocks_failed_scratch_preflight_receipt() -> None:
+    issue = _make_issue(2467, "Dispatch requires receipt-backed admission")
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="codex"))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+    failed_receipt = _preflight_receipt(
+        passed=False,
+        checks=[
+            {
+                "name": "git_commit",
+                "passed": False,
+                "detail": "worktree has uncommitted changes",
+            }
+        ],
+    )
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate._preview_env",
+            return_value=(
+                "codex",
+                {
+                    "ARAGORA_RUNNER_AUTH_MODE": "command",
+                    "CODEX_COMMAND": "/usr/local/bin/codex",
+                    "PYTEST_PATH": "/usr/local/bin/pytest",
+                    "RUFF_PATH": "/usr/local/bin/ruff",
+                },
+            ),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate.run_scratch_validation_receipt",
+            return_value=failed_receipt,
+        ) as scratch_receipt,
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "blocked"
+    assert "failed `scratch` preflight receipt admission" in result["reasons"][0]
+    assert result["dispatch_contract"]["required_receipts"] == ["scratch"]
+    assert result["dispatch_contract"]["preflight_receipts"][0]["failure_terminal_class"] == (
+        "blocked_not_dispatch_bounded"
+    )
+    scratch_receipt.assert_called_once()
+    dispatch_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_dispatch_issue_contract_gate_blocks_missing_provider_for_api_agent() -> None:
     issue = _make_issue(2466, "Dispatch requires provider auth")
     loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="openai-api"))
@@ -3416,6 +3510,79 @@ async def test_dispatch_issue_contract_gate_blocks_missing_provider_for_api_agen
     assert result["outcome"] == "blocked_auth_failure"
     assert result["dispatch_contract"]["missing_slices"] == ["provider"]
     assert "missing provider credentials" in result["reasons"][0]
+    dispatch_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_contract_gate_blocks_failed_remote_publish_receipt() -> None:
+    issue = _make_issue(2468, "Dispatch requires publish receipt")
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=1,
+            default_target_agent="codex",
+            auto_publish_deliverables=True,
+        )
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+    remote_failure = _preflight_receipt(
+        check_type="remote_publish",
+        passed=False,
+        checks=[
+            {
+                "name": "gh_pr_create_draft",
+                "passed": False,
+                "detail": "requires authentication",
+            }
+        ],
+    )
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate._preview_env",
+            return_value=(
+                "codex",
+                {
+                    "ARAGORA_RUNNER_AUTH_MODE": "command",
+                    "CODEX_COMMAND": "/usr/local/bin/codex",
+                    "PYTEST_PATH": "/usr/local/bin/pytest",
+                    "RUFF_PATH": "/usr/local/bin/ruff",
+                    "SSH_AUTH_SOCK": "/tmp/agent.sock",
+                    "GITHUB_TOKEN": "token",
+                },
+            ),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate.run_scratch_validation_receipt",
+            return_value=_preflight_receipt(),
+        ) as scratch_receipt,
+        patch(
+            "aragora.swarm.dispatch_contract_gate.run_remote_publish_validation_receipt",
+            return_value=remote_failure,
+        ) as remote_receipt,
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "blocked_auth_failure"
+    assert result["dispatch_contract"]["required_receipts"] == ["scratch", "remote_publish"]
+    assert result["dispatch_contract"]["preflight_receipts"][1]["check_type"] == "remote_publish"
+    assert result["dispatch_contract"]["preflight_receipts"][1]["failure_terminal_class"] == (
+        "blocked_auth_failure"
+    )
+    scratch_receipt.assert_called_once()
+    remote_receipt.assert_called_once()
     dispatch_mock.assert_not_awaited()
 
 
