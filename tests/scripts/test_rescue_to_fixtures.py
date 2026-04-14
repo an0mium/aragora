@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from subprocess import CompletedProcess
 from pathlib import Path
 
 from aragora.swarm.rescue_events import RescueEvent, RescueEventLedger
@@ -173,3 +174,59 @@ def test_create_substrate_issues_dry_run_uses_issue_drafts_only(tmp_path: Path) 
 
     assert len(results) == 1
     assert results[0].startswith("DRY-RUN: would create '[TW-03] Productize repeated rescue class:")
+
+
+def test_create_substrate_issues_records_issue_link_in_productization_map(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    ledger = _ledger_with_events(
+        tmp_path,
+        [
+            RescueEvent(
+                event_type="followup_prompt",
+                reason="needs explicit next step from founder",
+                issue_number=5512,
+            ),
+            RescueEvent(
+                event_type="followup_prompt",
+                reason="needs explicit next step from founder",
+                issue_number=5515,
+            ),
+        ],
+    )
+    productization_map_path = tmp_path / "rescue_productization.json"
+    report = mod.load_rescue_productization_report(
+        ledger_path=ledger.path,
+        threshold=2,
+        productization_map_path=productization_map_path,
+    )
+    drafts = mod.build_issue_drafts(report)
+
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda *args, **kwargs: CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout="https://github.com/synaptent/aragora/issues/6001\n",
+            stderr="",
+        ),
+    )
+
+    results = mod.create_substrate_issues(
+        drafts,
+        repo="synaptent/aragora",
+        dry_run=False,
+        productization_map_path=productization_map_path,
+    )
+    refreshed = mod.load_rescue_productization_report(
+        ledger_path=ledger.path,
+        threshold=2,
+        productization_map_path=productization_map_path,
+    )
+
+    assert len(results) == 1
+    assert "#6001" in results[0]
+    assert refreshed["repeated_classes"][0]["productization_status"] == "linked_issue"
+    assert refreshed["repeated_classes"][0]["productization_target"] == "#6001"

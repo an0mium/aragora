@@ -48,6 +48,49 @@ def _slugify_fragment(value: str) -> str:
     return slug.strip("-") or "repeated-rescue-class"
 
 
+def _normalize_issue_target(value: str) -> str:
+    candidate = value.strip()
+    if not candidate:
+        return ""
+    if candidate.startswith("#"):
+        return candidate
+    match = re.search(r"/issues/(\d+)(?:[/?#].*)?$", candidate)
+    if match:
+        return f"#{match.group(1)}"
+    return candidate
+
+
+def upsert_productization_entry(
+    path: Path,
+    *,
+    class_name: str,
+    target_kind: str,
+    target: str,
+    title: str,
+    notes: str = "",
+) -> Path:
+    existing_entries = load_productization_map(path)
+    existing_entries[class_name] = {
+        "target_kind": target_kind.strip(),
+        "target": target.strip(),
+        "title": title.strip(),
+        "notes": notes.strip(),
+    }
+    payload = {
+        "schema_version": 1,
+        "entries": [
+            {
+                "class": rescue_class,
+                **entry,
+            }
+            for rescue_class, entry in sorted(existing_entries.items())
+        ],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
 def build_issue_drafts(report: dict[str, Any]) -> list[dict[str, Any]]:
     repeated_rows = list(report.get("repeated_classes") or [])
     drafts: list[dict[str, Any]] = []
@@ -150,6 +193,7 @@ def create_substrate_issues(
     *,
     repo: str = "synaptent/aragora",
     dry_run: bool = False,
+    productization_map_path: Path = DEFAULT_PRODUCTIZATION_MAP_PATH,
 ) -> list[str]:
     created: list[str] = []
     for draft in issue_drafts:
@@ -178,7 +222,20 @@ def create_substrate_issues(
                 check=False,
             )
             if result.returncode == 0:
-                created.append(result.stdout.strip())
+                issue_url = result.stdout.strip()
+                issue_target = _normalize_issue_target(issue_url)
+                notes = "Auto-linked by scripts/rescue_to_fixtures.py after bounded substrate issue creation."
+                upsert_productization_entry(
+                    productization_map_path,
+                    class_name=str(draft.get("class") or "").strip(),
+                    target_kind="issue",
+                    target=issue_target or issue_url,
+                    title=str(draft.get("title") or "").strip(),
+                    notes=notes,
+                )
+                created.append(
+                    f"{issue_url} [recorded in {productization_map_path.as_posix()} as {issue_target or issue_url}]"
+                )
             else:
                 created.append(f"FAILED: {result.stderr.strip()[:100]}")
         except (subprocess.TimeoutExpired, OSError) as exc:
@@ -239,6 +296,7 @@ def main(argv: list[str] | None = None) -> int:
             issue_drafts,
             repo=str(args.repo),
             dry_run=bool(args.dry_run),
+            productization_map_path=args.productization_map,
         )
         for item in results:
             print(f"  {item}")
