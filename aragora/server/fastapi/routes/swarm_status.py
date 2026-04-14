@@ -86,7 +86,7 @@ def swarm_status_summary(
         failure_reason = str(row.get("failure_reason", "")).strip()
         if failure_reason:
             failure_reasons[failure_reason] += 1
-        if tc and not tc.startswith("success") and not tc.startswith("deliverable"):
+        if tc and not _is_success_terminal_class(tc):
             recent_blockers.append(
                 {
                     "issue_number": issue_num,
@@ -99,7 +99,12 @@ def swarm_status_summary(
 
         latest_tick = row
 
-    success_count = sum(v for k, v in terminal_classes.items() if _is_success_terminal_class(k))
+    tick_success_count = sum(
+        v for k, v in terminal_classes.items() if _is_success_terminal_class(k)
+    )
+    issue_success_rate = (
+        round(len(issues_succeeded) / len(issues_attempted), 3) if issues_attempted else 0.0
+    )
 
     return {
         "status": "active",
@@ -108,7 +113,8 @@ def swarm_status_summary(
         "total_ticks": len(rows),
         "unique_issues_attempted": len(issues_attempted),
         "unique_issues_succeeded": len(issues_succeeded),
-        "success_rate": round(success_count / len(rows), 3) if rows else 0,
+        "success_rate": issue_success_rate,
+        "tick_success_rate": round(tick_success_count / len(rows), 3) if rows else 0.0,
         "terminal_class_distribution": dict(terminal_classes.most_common(10)),
         "outcome_distribution": dict(outcomes.most_common(10)),
         "failure_reason_distribution": dict(failure_reasons.most_common(10)),

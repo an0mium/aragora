@@ -46,11 +46,51 @@ def test_swarm_status_summary_counts_deliverables_as_success(tmp_path: Path) -> 
     assert summary["unique_issues_attempted"] == 2
     assert summary["unique_issues_succeeded"] == 2
     assert summary["success_rate"] == 1.0
+    assert summary["tick_success_rate"] == 1.0
     assert summary["terminal_class_distribution"] == {
         "deliverable_pr_created": 1,
         "success_pr_created": 1,
     }
     assert summary["latest_tick"]["issue_number"] == 102
+
+
+def test_swarm_status_summary_uses_issue_truth_for_success_rate(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    _write_jsonl(
+        metrics_path,
+        [
+            {
+                "timestamp": "2026-04-14T02:20:00Z",
+                "issue_number": 101,
+                "terminal_class": "blocked_auth_failure",
+                "outcome": "needs_human",
+                "elapsed_seconds": 12,
+            },
+            {
+                "timestamp": "2026-04-14T02:21:00Z",
+                "issue_number": 101,
+                "terminal_class": "deliverable_pr_created",
+                "outcome": "completed",
+                "elapsed_seconds": 18,
+            },
+        ],
+    )
+
+    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path)
+
+    assert summary["unique_issues_attempted"] == 1
+    assert summary["unique_issues_succeeded"] == 1
+    assert summary["success_rate"] == 1.0
+    assert summary["tick_success_rate"] == 0.5
+    assert summary["recent_blockers"] == [
+        {
+            "issue_number": 101,
+            "terminal_class": "blocked_auth_failure",
+            "failure_reason": None,
+            "blocker_kind": None,
+            "issue_title": None,
+        }
+    ]
 
 
 def test_preflight_check_returns_receipt_dict() -> None:
