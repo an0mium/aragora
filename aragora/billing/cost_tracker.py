@@ -235,7 +235,7 @@ class Budget:
             ),
             "current_monthly_spend": str(self.current_monthly_spend),
             "current_daily_spend": str(self.current_daily_spend),
-            "alert_level": self.check_alert_level().value if self.check_alert_level() else None,
+            "alert_level": level.value if (level := self.check_alert_level()) else None,
         }
 
 

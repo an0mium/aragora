@@ -2779,7 +2779,7 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             session_id = str(
                 getattr(args, "owner_session_id", None) or f"cli-watch-{os.getpid()}"
             ).strip()
-            executor = TrancheExecutor(repo_root=repo_root) if driver_mode else None
+            executor = TrancheExecutor(repo_root=repo_root) if driver_mode else None  # type: ignore[assignment]
             supervisor = None
             github = None
             registry = None

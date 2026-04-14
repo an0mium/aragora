@@ -436,7 +436,7 @@ class CampaignManifest:
 
 
 @contextlib.contextmanager
-def locked_manifest_path(path: Path) -> Generator[Path, None, None]:
+def locked_manifest_path(path: Path) -> Generator[None, None, None]:
     """Hold an exclusive lock around manifest operations."""
     lock_path = path.with_suffix(path.suffix + ".lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)
