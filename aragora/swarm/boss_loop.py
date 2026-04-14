@@ -4801,6 +4801,18 @@ class BossLoop:
 
         self._attach_issue_handoff_metadata(spec, issue)
 
+        # BC-02: Inject resume context from prior session state if available
+        resume_context = self._load_resume_context(issue.number)
+        if resume_context:
+            spec.raw_goal = (
+                f"{spec.raw_goal}\n\n## Resume Context (from prior attempt)\n{resume_context}"
+            )
+            logger.info(
+                "boss_loop_resume issue=#%s resume_context_len=%d",
+                issue.number,
+                len(resume_context),
+            )
+
         gate = await check_pre_dispatch_gate(
             sanitized_issue_body,
             repo_root=Path.cwd(),
@@ -5005,6 +5017,32 @@ class BossLoop:
             if error:
                 logger.warning("Boss dispatch failed for issue #%d: %s", issue.number, error)
         return result
+
+    @staticmethod
+    def _load_resume_context(issue_number: int | None) -> str:
+        """Load resume context from prior session state for this issue (BC-02).
+
+        Returns the resume_context string if a prior session exists with
+        resumable state, otherwise returns empty string.
+        """
+        if not issue_number:
+            return ""
+        try:
+            from aragora.swarm.session_state import SessionStateStore
+
+            store = SessionStateStore()
+            sessions = store.list_sessions(issue_number=issue_number)
+            if not sessions:
+                return ""
+            # Use the most recent session
+            latest = max(sessions, key=lambda s: s.updated_at)
+            if latest.should_resume():
+                context = latest.resume_context()
+                if context and len(context.strip()) > 20:
+                    return context.strip()
+        except Exception:
+            logger.debug("Session state resume lookup skipped", exc_info=True)
+        return ""
 
     def _attach_issue_handoff_metadata(self, spec: Any, issue: GitHubIssue) -> None:
         repo_slug = self._repo_slug_for_issue(issue) or ""
