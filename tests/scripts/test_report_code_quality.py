@@ -15,6 +15,16 @@ if _scripts_dir not in sys.path:
 import report_code_quality  # noqa: E402
 
 
+def _write_boss_metrics(tmp_path: Path, rows: list[dict[str, object]]) -> Path:
+    metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.write_text(
+        "".join(json.dumps(row) + "\n" for row in rows),
+        encoding="utf-8",
+    )
+    return metrics_path
+
+
 def test_default_file_loc_ratchet_is_tighter_than_legacy_ceiling() -> None:
     assert report_code_quality.RATCHET["max_file_loc"] <= 5400
 
@@ -78,6 +88,46 @@ def test_build_comparison_reports_positive_delta_when_regressed() -> None:
     )
 
     assert comparison["global_suppressions"]["except_exception"]["delta"] == 1
+
+
+@pytest.mark.parametrize(
+    ("rows", "expected_completed", "expected_rate"),
+    [
+        (
+            [
+                {"issue_number": 1, "prompt_chars": 100, "worker_status": "completed"},
+                {"issue_number": 1, "prompt_chars": 100, "worker_status": "failed"},
+            ],
+            0,
+            0.0,
+        ),
+        (
+            [
+                {"issue_number": 1, "prompt_chars": 100, "worker_status": "failed"},
+                {"issue_number": 1, "prompt_chars": 100, "worker_status": "completed"},
+            ],
+            1,
+            1.0,
+        ),
+    ],
+)
+def test_scan_boss_metrics_uses_latest_issue_outcome(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    rows: list[dict[str, object]],
+    expected_completed: int,
+    expected_rate: float,
+) -> None:
+    _write_boss_metrics(tmp_path, rows)
+    monkeypatch.setattr(report_code_quality, "REPO_ROOT", tmp_path)
+
+    metrics = report_code_quality.scan_boss_metrics()
+
+    assert metrics["available"] is True
+    assert metrics["total_iterations"] == len(rows)
+    assert metrics["unique_issues"] == 1
+    assert metrics["issues_completed"] == expected_completed
+    assert metrics["per_issue_success_rate"] == expected_rate
 
 
 def test_main_json_compare_includes_baseline_comparison(
