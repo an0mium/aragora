@@ -86,6 +86,9 @@ def _record_session_state(
                 test_output=(test_output or "")[-800:],
                 worker_outcome=worker_outcome,
             )
+        repo_slug = str(metadata.get("boss_repo") or metadata.get("repo") or "").strip()
+        if repo_slug:
+            session.metadata["boss_repo"] = repo_slug
 
         store = SessionStateStore()
         store.save(session)

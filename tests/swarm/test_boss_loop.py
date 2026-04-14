@@ -50,6 +50,7 @@ from aragora.swarm.boss_loop import (
     sanitize_issue_body_for_dispatch,
     select_eligible_issue,
 )
+from aragora.swarm.session_state import SessionState, SessionStateStore
 from aragora.swarm.task_sanitizer import SanitizationOutcome
 
 UTC = timezone.utc
@@ -3501,6 +3502,81 @@ async def test_dispatch_issue_consumes_pending_handoff_prompt_and_target_agent()
     assert "Retry with prior context" in dispatched_spec.raw_goal
     assert dispatch_kwargs["default_target_agent"] == "codex"
     assert issue.number not in loop._pending_handoff_prompts
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_attaches_repo_scoped_resume_state_without_mutating_raw_goal(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    issue = _make_issue(1702, "Resume same issue safely")
+    state_dir = tmp_path / ".aragora" / "sessions"
+    store = SessionStateStore(state_dir=state_dir)
+
+    matching = SessionState(
+        session_id="same-issue-right-repo",
+        issue_number=issue.number,
+        phase="repair",
+        resume_hint="resume aragora fix",
+        metadata={"boss_repo": "synaptent/aragora"},
+    )
+    matching.record_attempt(
+        1,
+        ["aragora/swarm/boss_loop.py"],
+        "AssertionError: right repo failure",
+        "needs_human",
+    )
+    other_repo = SessionState(
+        session_id="same-issue-other-repo",
+        issue_number=issue.number,
+        phase="repair",
+        resume_hint="resume other repo fix",
+        metadata={"boss_repo": "synaptent/other-repo"},
+    )
+    other_repo.record_attempt(
+        1,
+        ["other/file.py"],
+        "AssertionError: wrong repo failure",
+        "needs_human",
+    )
+    store.save(matching)
+    store.save(other_repo)
+    monkeypatch.setattr("aragora.swarm.session_state.Path.home", lambda: tmp_path)
+
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="claude"))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": requested_target_agent or "codex",
+    }
+
+    fake_result = {
+        "status": "completed",
+        "run": {"work_orders": [{"status": "completed", "target_agent": "claude"}]},
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value=fake_result),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    dispatched_spec = dispatch_mock.await_args.args[0]
+    metadata = dispatched_spec.work_orders[0]["metadata"]
+
+    assert result["status"] == "completed"
+    assert "## Resume Context (from prior attempt)" not in dispatched_spec.raw_goal
+    assert "resume aragora fix" not in dispatched_spec.raw_goal
+    assert "resume other repo fix" not in dispatched_spec.raw_goal
+    assert metadata["session_state"]["session_id"] == "same-issue-right-repo"
+    assert metadata["session_state"]["metadata"]["boss_repo"] == "synaptent/aragora"
+    assert metadata["session_state"]["resume_hint"] == "resume aragora fix"
 
 
 @pytest.mark.asyncio

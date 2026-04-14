@@ -81,6 +81,20 @@ def _coerce_path_list(value: Any) -> list[str]:
     return [str(item).strip() for item in value if str(item).strip()]
 
 
+def _coerce_repo_slug(value: Any) -> str | None:
+    text = str(value or "").strip().strip("/")
+    return text.lower() or None
+
+
+def _session_repo_slug(state: "SessionState") -> str | None:
+    metadata = state.metadata if isinstance(state.metadata, dict) else {}
+    for key in ("boss_repo", "repo", "repo_slug", "repo_full_name"):
+        repo_slug = _coerce_repo_slug(metadata.get(key))
+        if repo_slug:
+            return repo_slug
+    return None
+
+
 @dataclass(slots=True)
 class SessionState:
     """Durable local session metadata for future retry/repair orchestration."""
@@ -282,9 +296,15 @@ class SessionStateStore:
             raise ValueError("session state payload must be a JSON object")
         return SessionState.from_dict(payload)
 
-    def list_sessions(self, *, issue_number: int | None = None) -> list[SessionState]:
+    def list_sessions(
+        self,
+        *,
+        issue_number: int | None = None,
+        repo_slug: str | None = None,
+    ) -> list[SessionState]:
         items: list[SessionState] = []
         issue_filter = _coerce_issue_number(issue_number)
+        repo_filter = _coerce_repo_slug(repo_slug)
         for path in sorted(self._state_dir.glob("*.json")):
             try:
                 payload = json.loads(path.read_text(encoding="utf-8"))
@@ -294,6 +314,8 @@ class SessionStateStore:
             except (OSError, json.JSONDecodeError, TypeError, ValueError):
                 continue
             if issue_filter is not None and state.issue_number != issue_filter:
+                continue
+            if repo_filter is not None and _session_repo_slug(state) != repo_filter:
                 continue
             items.append(state)
         items.sort(

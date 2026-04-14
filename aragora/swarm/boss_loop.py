@@ -4801,15 +4801,19 @@ class BossLoop:
 
         self._attach_issue_handoff_metadata(spec, issue)
 
-        # BC-02: Inject resume context from prior session state if available
-        resume_context = self._load_resume_context(issue.number)
-        if resume_context:
-            spec.raw_goal = (
-                f"{spec.raw_goal}\n\n## Resume Context (from prior attempt)\n{resume_context}"
-            )
+        # BC-02: Attach repo-scoped prior session state to work orders if available.
+        resume_state = self._load_resume_session_state(
+            issue.number,
+            self._repo_slug_for_issue(issue),
+        )
+        if resume_state is not None:
+            resume_context = resume_state.resume_context().strip()
+            self._attach_resume_session_state(spec, resume_state)
             logger.info(
-                "boss_loop_resume issue=#%s resume_context_len=%d",
+                "boss_loop_resume issue=#%s repo=%s session=%s resume_context_len=%d",
                 issue.number,
+                self._repo_slug_for_issue(issue),
+                resume_state.session_id,
                 len(resume_context),
             )
 
@@ -5019,30 +5023,43 @@ class BossLoop:
         return result
 
     @staticmethod
-    def _load_resume_context(issue_number: int | None) -> str:
-        """Load resume context from prior session state for this issue (BC-02).
-
-        Returns the resume_context string if a prior session exists with
-        resumable state, otherwise returns empty string.
-        """
+    def _load_resume_session_state(
+        issue_number: int | None,
+        repo_slug: str | None,
+    ) -> Any | None:
+        """Load the latest repo-scoped resumable session state for this issue."""
         if not issue_number:
-            return ""
+            return None
         try:
             from aragora.swarm.session_state import SessionStateStore
 
             store = SessionStateStore()
-            sessions = store.list_sessions(issue_number=issue_number)
+            sessions = store.list_sessions(issue_number=issue_number, repo_slug=repo_slug)
             if not sessions:
-                return ""
-            # Use the most recent session
+                return None
             latest = max(sessions, key=lambda s: s.updated_at)
             if latest.should_resume():
-                context = latest.resume_context()
-                if context and len(context.strip()) > 20:
-                    return context.strip()
+                context = latest.resume_context().strip()
+                if len(context) > 20:
+                    return latest
         except Exception:
             logger.debug("Session state resume lookup skipped", exc_info=True)
-        return ""
+        return None
+
+    @staticmethod
+    def _attach_resume_session_state(spec: Any, session_state: Any) -> None:
+        work_orders = getattr(spec, "work_orders", None)
+        if not isinstance(work_orders, list):
+            return
+        payload = session_state.to_dict() if hasattr(session_state, "to_dict") else None
+        if not isinstance(payload, dict):
+            return
+        for work_order in work_orders:
+            if not isinstance(work_order, dict):
+                continue
+            metadata = dict(work_order.get("metadata") or {})
+            metadata["session_state"] = dict(payload)
+            work_order["metadata"] = metadata
 
     def _attach_issue_handoff_metadata(self, spec: Any, issue: GitHubIssue) -> None:
         repo_slug = self._repo_slug_for_issue(issue) or ""

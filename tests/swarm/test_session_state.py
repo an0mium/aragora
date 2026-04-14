@@ -104,6 +104,29 @@ def test_session_state_store_lists_by_issue_number(tmp_path: Path) -> None:
     assert [item.session_id for item in items] == ["newer", "older"]
 
 
+def test_session_state_store_lists_by_issue_number_and_repo_slug(tmp_path: Path) -> None:
+    store = SessionStateStore(state_dir=tmp_path)
+    matching = SessionState(
+        session_id="matching-repo",
+        issue_number=7001,
+        updated_at=_dt("2026-04-13T08:00:00+00:00"),
+        metadata={"boss_repo": "synaptent/aragora"},
+    )
+    other_repo = SessionState(
+        session_id="other-repo",
+        issue_number=7001,
+        updated_at=_dt("2026-04-13T10:00:00+00:00"),
+        metadata={"boss_repo": "synaptent/other-repo"},
+    )
+
+    store.save(matching)
+    store.save(other_repo)
+
+    items = store.list_sessions(issue_number=7001, repo_slug="synaptent/aragora")
+
+    assert [item.session_id for item in items] == ["matching-repo"]
+
+
 def test_session_state_store_cleanup_old_removes_stale_files(tmp_path: Path) -> None:
     store = SessionStateStore(state_dir=tmp_path)
     stale = SessionState(
