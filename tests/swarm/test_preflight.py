@@ -457,6 +457,7 @@ def test_evaluate_preflight_receipt_gate_blocks_expired_and_failed_receipts(tmp_
     repo_root.mkdir()
     envelope = _envelope()
     now = datetime(2026, 4, 13, 2, 0, 0, tzinfo=timezone.utc)
+    valid_cache_key = mod._preflight_cache_key(repo_root, envelope, "scratch")
     expired_receipt = mod.PreflightReceipt(
         receipt_id="preflight-scratch-expired",
         envelope_seal=envelope.preflight_cache_seal(),
@@ -466,7 +467,7 @@ def test_evaluate_preflight_receipt_gate_blocks_expired_and_failed_receipts(tmp_
         finished_at="2026-04-13T00:05:00Z",
         passed=True,
         checks=[{"name": "dispatch_gate", "passed": True, "detail": "ok"}],
-        cache_key="cache-1",
+        cache_key=valid_cache_key,
         ttl_seconds=60,
         expires_at="2026-04-13T00:06:00Z",
         artifacts={},
@@ -489,7 +490,7 @@ def test_evaluate_preflight_receipt_gate_blocks_expired_and_failed_receipts(tmp_
         finished_at="2026-04-13T00:05:00Z",
         passed=False,
         checks=[{"name": "dispatch_gate", "passed": False, "detail": "bounded dispatch blocked"}],
-        cache_key="cache-2",
+        cache_key=valid_cache_key,
         ttl_seconds=3600,
         expires_at="2026-04-13T03:00:00Z",
         artifacts={},
@@ -511,6 +512,12 @@ def test_evaluate_preflight_receipt_gate_blocks_envelope_and_contract_mismatch(
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     envelope = _envelope()
+    valid_cache_key = mod._preflight_cache_key(
+        repo_root,
+        envelope,
+        "remote_publish",
+        base_ref="main",
+    )
     receipt = mod.PreflightReceipt(
         receipt_id="preflight-remote-valid",
         envelope_seal=envelope.preflight_cache_seal(),
@@ -520,7 +527,7 @@ def test_evaluate_preflight_receipt_gate_blocks_envelope_and_contract_mismatch(
         finished_at="2026-04-13T00:05:00Z",
         passed=True,
         checks=[{"name": "dispatch_gate", "passed": True, "detail": "ok"}],
-        cache_key="cache-3",
+        cache_key=valid_cache_key,
         ttl_seconds=3600,
         expires_at="2026-04-13T03:00:00Z",
         artifacts={
@@ -557,6 +564,86 @@ def test_evaluate_preflight_receipt_gate_blocks_envelope_and_contract_mismatch(
         now=datetime(2026, 4, 13, 2, 0, 0, tzinfo=timezone.utc),
     )
     assert checksum_gate.failure_classes == ["receipt_contract_mismatch"]
+
+
+def test_evaluate_preflight_receipt_gate_blocks_forged_repo_root_cache_key_and_checks(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 13, 2, 0, 0, tzinfo=timezone.utc)
+    valid_cache_key = mod._preflight_cache_key(repo_root, envelope, "scratch")
+
+    repo_root_mismatch = mod.PreflightReceipt(
+        receipt_id="preflight-scratch-repo-mismatch",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(tmp_path / "other-repo"),
+        check_type="scratch",
+        started_at="2026-04-13T00:00:00Z",
+        finished_at="2026-04-13T00:05:00Z",
+        passed=True,
+        checks=[{"name": "dispatch_gate", "passed": True, "detail": "ok"}],
+        cache_key=valid_cache_key,
+        ttl_seconds=3600,
+        expires_at="2026-04-13T03:00:00Z",
+        artifacts={},
+    )
+    repo_root_gate = mod.evaluate_preflight_receipt_gate(
+        repo_root_mismatch,
+        repo_root=repo_root,
+        envelope=envelope,
+        check_type="scratch",
+        now=now,
+    )
+    assert repo_root_gate.failure_classes == ["receipt_repo_root_mismatch"]
+
+    cache_key_mismatch = mod.PreflightReceipt(
+        receipt_id="preflight-scratch-cache-mismatch",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root),
+        check_type="scratch",
+        started_at="2026-04-13T00:00:00Z",
+        finished_at="2026-04-13T00:05:00Z",
+        passed=True,
+        checks=[{"name": "dispatch_gate", "passed": True, "detail": "ok"}],
+        cache_key="forged-cache-key",
+        ttl_seconds=3600,
+        expires_at="2026-04-13T03:00:00Z",
+        artifacts={},
+    )
+    cache_key_gate = mod.evaluate_preflight_receipt_gate(
+        cache_key_mismatch,
+        repo_root=repo_root,
+        envelope=envelope,
+        check_type="scratch",
+        now=now,
+    )
+    assert cache_key_gate.failure_classes == ["receipt_cache_key_mismatch"]
+
+    failed_checks_receipt = mod.PreflightReceipt(
+        receipt_id="preflight-scratch-failed-checks",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root),
+        check_type="scratch",
+        started_at="2026-04-13T00:00:00Z",
+        finished_at="2026-04-13T00:05:00Z",
+        passed=True,
+        checks=[{"name": "dispatch_gate", "passed": False, "detail": "bounded dispatch blocked"}],
+        cache_key=valid_cache_key,
+        ttl_seconds=3600,
+        expires_at="2026-04-13T03:00:00Z",
+        artifacts={},
+    )
+    failed_checks_gate = mod.evaluate_preflight_receipt_gate(
+        failed_checks_receipt,
+        repo_root=repo_root,
+        envelope=envelope,
+        check_type="scratch",
+        now=now,
+    )
+    assert failed_checks_gate.verdict == GateVerdict.BLOCKED.value
+    assert failed_checks_gate.failure_classes == [TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED.value]
 
 
 def test_run_scratch_validation_receipt_persists_success(monkeypatch, tmp_path: Path) -> None:

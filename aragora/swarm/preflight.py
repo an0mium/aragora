@@ -1171,6 +1171,7 @@ def evaluate_preflight_receipt_gate(
     normalized = _validate_check_type(check_type)
     current_time = now or _utc_now()
     normalized_base_ref = str(base_ref or "main").strip() or "main"
+    resolved_repo_root = repo_root.resolve()
     required_evidence = ["preflight_receipt"]
     if receipt is None:
         return GateEvaluation(
@@ -1190,6 +1191,14 @@ def evaluate_preflight_receipt_gate(
                 "Preflight admission blocked: receipt check type "
                 f"`{receipt.check_type}` does not match expected `{normalized}`."
             ),
+        )
+    if str(receipt.repo_root or "") != str(resolved_repo_root):
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_repo_root_mismatch"],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt repo root does not match the current repo.",
         )
     if str(receipt.envelope_seal or "").strip() != envelope.preflight_cache_seal():
         return GateEvaluation(
@@ -1220,6 +1229,20 @@ def evaluate_preflight_receipt_gate(
                     f"`{target_ref}` does not match expected `{normalized_base_ref}`."
                 ),
             )
+    expected_cache_key = _preflight_cache_key(
+        resolved_repo_root,
+        envelope,
+        normalized,
+        base_ref=normalized_base_ref,
+    )
+    if str(receipt.cache_key or "").strip() != expected_cache_key:
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_cache_key_mismatch"],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt cache key does not match the current repo state.",
+        )
     if expected_contract_checksum:
         actual_contract_checksum = str(
             receipt.artifacts.get("expected_contract_checksum", "") or ""
@@ -1242,6 +1265,26 @@ def evaluate_preflight_receipt_gate(
             ],
             required_evidence=required_evidence,
             notes="Preflight admission blocked: receipt recorded a failed preflight.",
+        )
+    failed_checks = [
+        dict(item)
+        for item in list(receipt.checks)
+        if isinstance(item, dict) and not bool(item.get("passed", False))
+    ]
+    if failed_checks:
+        failure_class = classify_preflight_failure(
+            passed=False,
+            checks=failed_checks,
+            dispatch_gate=None,
+        )
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=[
+                failure_class.value if failure_class is not None else "preflight_failed"
+            ],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt checks recorded a failed preflight.",
         )
     return GateEvaluation(
         gate_type=GateType.DISPATCH_READY.value,
