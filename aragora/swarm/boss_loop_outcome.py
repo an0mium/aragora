@@ -36,23 +36,27 @@ def append_iteration_metrics(
         metrics_path = Path(metrics_path_text)
         metrics_path.parent.mkdir(parents=True, exist_ok=True)
 
-        run_dict = worker_result.get("run")
-        receipt_metadata = worker_result.get("receipt_metadata")
-        prompt_chars = 0
-        enriched_context_chars = 0
-        prompt_version = "v2"
-        issue_title = str(
+        run_dict: Any = worker_result.get("run")
+        receipt_metadata: Any = worker_result.get("receipt_metadata")
+        prompt_chars: int = 0
+        enriched_context_chars: int = 0
+        prompt_version: str = "v2"
+        issue_title: str = str(
             receipt_metadata.get("issue_title", "") if isinstance(receipt_metadata, dict) else ""
         ).strip()
         issue_title = issue_title or str(worker_result.get("issue_title", "")).strip()
-        is_decomposed = bool(re.search(r"\[from #\d+\]", issue_title))
-        cohort_tag = "B0-cohort" if issue_title.startswith("[B0-cohort]") else None
-        publish_action = (
+        is_decomposed: bool = bool(re.search(r"\[from #\d+\]", issue_title))
+        cohort_tag: str | None = "B0-cohort" if issue_title.startswith("[B0-cohort]") else None
+        publish_action: str | None = (
             str((worker_result.get("publish_result") or {}).get("action", "")).strip() or None
         )
-        category_success_rates = load_category_success_rates(window_size=outcome_learner_window)
-        sanitizer_outcome = str(worker_result.get("sanitizer_outcome", "")).strip() or None
-        checks_failed = (
+        category_success_rates: dict[str, float] = load_category_success_rates(
+            window_size=outcome_learner_window
+        )
+        sanitizer_outcome: str | None = (
+            str(worker_result.get("sanitizer_outcome", "")).strip() or None
+        )
+        checks_failed: list[Any] = (
             raw_checks if isinstance(raw_checks := worker_result.get("checks_failed"), list) else []
         )
 
@@ -63,14 +67,14 @@ def append_iteration_metrics(
                     enriched_context_chars += int(wo.get("enriched_context_chars", 0) or 0)
 
         # Extract failure/blocker evidence for operator visibility (BC-03)
-        failure_reason = str(worker_result.get("failure_reason", "")).strip() or None
-        blocker_kind = str(worker_result.get("blocker_kind", "")).strip() or None
-        needs_human_reasons = worker_result.get("reasons")
+        failure_reason: str | None = str(worker_result.get("failure_reason", "")).strip() or None
+        blocker_kind: str | None = str(worker_result.get("blocker_kind", "")).strip() or None
+        needs_human_reasons: Any = worker_result.get("reasons")
         if isinstance(needs_human_reasons, list) and needs_human_reasons:
             if not failure_reason:
                 failure_reason = str(needs_human_reasons[0]).strip()[:200]
 
-        payload = {
+        payload: dict[str, Any] = {
             "iteration": int(iteration),
             "issue_number": issue_number,
             "issue_title": issue_title[:120] if issue_title else None,
