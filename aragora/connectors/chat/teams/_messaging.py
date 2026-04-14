@@ -24,12 +24,12 @@ from aragora.connectors.chat.models import (
 
 import aragora.connectors.chat.teams._constants as _tc
 
+logger = logging.getLogger(__name__)
+
 try:
     import httpx
-except ImportError:
-    pass
-
-logger = logging.getLogger(__name__)
+except ImportError as exc:
+    logger.warning("Teams messaging could not import httpx: %s", exc)
 
 
 class _TeamsConnectorProtocol(Protocol):
