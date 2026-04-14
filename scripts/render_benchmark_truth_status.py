@@ -62,6 +62,38 @@ def resolve_latest_paths(
     }
 
 
+def _payload_corpus_identity(payload: dict[str, Any]) -> tuple[str, int]:
+    corpus = dict(payload.get("corpus") or {})
+    return (
+        str(corpus.get("corpus_id") or "").strip(),
+        int(corpus.get("revision", 0) or 0),
+    )
+
+
+def _load_expected_latest_payload(
+    *,
+    path: Path,
+    label: str,
+    expected_corpus_id: str,
+    expected_revision: int,
+) -> dict[str, Any]:
+    if not path.exists():
+        raise SystemExit(f"{label} not found: {path}")
+    payload = _load_json(path)
+    payload_corpus_id, payload_revision = _payload_corpus_identity(payload)
+    if payload_corpus_id != expected_corpus_id:
+        raise SystemExit(
+            f"{label} corpus_id mismatch: expected {expected_corpus_id!r}, "
+            f"got {payload_corpus_id!r} at {path}"
+        )
+    if payload_revision != expected_revision:
+        raise SystemExit(
+            f"{label} revision mismatch: expected {expected_revision}, "
+            f"got {payload_revision} at {path}"
+        )
+    return payload
+
+
 def _format_percent(value: Any) -> str:
     if isinstance(value, (int, float)):
         return f"{float(value):.1%}"
@@ -236,24 +268,47 @@ def main(argv: list[str] | None = None) -> int:
     if not corpus_path.exists():
         raise SystemExit(f"corpus file not found: {corpus_path}")
 
+    corpus = load_corpus(corpus_path)
     latest_paths = resolve_latest_paths(
         corpus_path=corpus_path,
         truth_root=truth_root,
         scorecard_root=scorecard_root,
     )
+    expected_corpus_id = str(corpus.get("corpus_id") or "").strip()
+    expected_revision = int(corpus.get("revision", 0) or 0)
     truth_path = latest_paths["truth_corpus_latest"]
     scorecard_path = latest_paths["scorecard_corpus_latest"]
-    if not truth_path.exists():
-        raise SystemExit(f"truth artifact not found: {truth_path}")
-    if not scorecard_path.exists():
-        raise SystemExit(f"scorecard not found: {scorecard_path}")
+    truth_payload = _load_expected_latest_payload(
+        path=truth_path,
+        label="truth artifact latest.json",
+        expected_corpus_id=expected_corpus_id,
+        expected_revision=expected_revision,
+    )
+    scorecard_payload = _load_expected_latest_payload(
+        path=scorecard_path,
+        label="scorecard latest.json",
+        expected_corpus_id=expected_corpus_id,
+        expected_revision=expected_revision,
+    )
+    _load_expected_latest_payload(
+        path=latest_paths["truth_revision_latest"],
+        label="truth artifact revision latest.json",
+        expected_corpus_id=expected_corpus_id,
+        expected_revision=expected_revision,
+    )
+    _load_expected_latest_payload(
+        path=latest_paths["scorecard_revision_latest"],
+        label="scorecard revision latest.json",
+        expected_corpus_id=expected_corpus_id,
+        expected_revision=expected_revision,
+    )
 
     content = render_status_markdown(
         corpus_path=corpus_path,
         truth_path=truth_path,
         scorecard_path=scorecard_path,
-        truth_payload=_load_json(truth_path),
-        scorecard_payload=_load_json(scorecard_path),
+        truth_payload=truth_payload,
+        scorecard_payload=scorecard_payload,
         latest_paths=latest_paths,
     )
     written = write_output(output_path, content)
