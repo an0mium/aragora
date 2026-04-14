@@ -13,6 +13,7 @@ Usage:
   python3 scripts/agent_bridge.py read-all [--lines 3] [--json]
   python3 scripts/agent_bridge.py lanes [--json]
   python3 scripts/agent_bridge.py tmux-map
+  python3 scripts/agent_bridge.py health [--json]
 """
 
 from __future__ import annotations
@@ -572,6 +573,100 @@ def cmd_lanes(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_health(args: argparse.Namespace) -> int:
+    """Report stale worktrees, ambiguous lane ownership, and dead sessions."""
+    sessions = discover()
+    _enrich_prs(sessions)
+    records = _sync_lane_records(_load_lane_registry(), sessions)
+
+    issues: list[dict[str, str]] = []
+
+    # Check for stale worktrees (worktree path set but directory missing or session dead)
+    for s in sessions:
+        if s.worktree and not Path(s.worktree).is_dir():
+            issues.append(
+                {
+                    "type": "stale_worktree",
+                    "session": s.name,
+                    "detail": f"worktree path missing: {s.worktree}",
+                }
+            )
+        if s.status == "dead" and s.worktree and Path(s.worktree).is_dir():
+            issues.append(
+                {
+                    "type": "stale_worktree",
+                    "session": s.name,
+                    "detail": f"dead session with lingering worktree: {s.worktree}",
+                }
+            )
+
+    # Check for ambiguous lane ownership (multiple active owners)
+    lane_owners: dict[str, list[str]] = {}
+    for r in records:
+        if r.status in ACTIVE_LANE_STATUSES:
+            lane_owners.setdefault(r.lane_id, []).append(r.owner_session)
+    for lane_id, owners in lane_owners.items():
+        if len(owners) > 1:
+            issues.append(
+                {
+                    "type": "ambiguous_lane",
+                    "session": ", ".join(owners),
+                    "detail": f"lane '{lane_id}' claimed by multiple active sessions",
+                }
+            )
+
+    # Check for conflict-status lanes
+    for r in records:
+        if r.status == "conflict":
+            issues.append(
+                {
+                    "type": "lane_conflict",
+                    "session": r.owner_session,
+                    "detail": f"lane '{r.lane_id}' in conflict with {r.conflict_session}: {r.conflict_reason}",
+                }
+            )
+
+    # Check git worktree list for prunable entries
+    try:
+        result = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+            cwd=str(REPO_ROOT),
+        )
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if line.startswith("worktree "):
+                    wt_path = line.split(" ", 1)[1]
+                    if not Path(wt_path).is_dir():
+                        issues.append(
+                            {
+                                "type": "prunable_worktree",
+                                "session": "-",
+                                "detail": f"git worktree missing on disk: {wt_path}",
+                            }
+                        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
+
+    if args.json:
+        print(json.dumps({"ok": len(issues) == 0, "issues": issues}, indent=2))
+        return 0 if not issues else 1
+
+    if not issues:
+        print("Health OK: no stale worktrees, no lane conflicts.")
+        return 0
+
+    print(f"Found {len(issues)} issue(s):\n")
+    print(f"{'TYPE':<22} {'SESSION':<26} DETAIL")
+    print("-" * 100)
+    for issue in issues:
+        print(f"{issue['type']:<22} {issue['session']:<26} {issue['detail']}")
+    return 1
+
+
 def cmd_tmux_map(args: argparse.Namespace) -> int:
     try:
         result = subprocess.run(
@@ -637,6 +732,7 @@ def main() -> int:
 
     sub.add_parser("lanes", help="Sessions + PR state")
     sub.add_parser("tmux-map", help="Show tmux panes")
+    sub.add_parser("health", help="Check for stale worktrees and lane conflicts")
 
     args = parser.parse_args()
     if not args.command:
@@ -651,6 +747,7 @@ def main() -> int:
         "read-all": cmd_read_all,
         "lanes": cmd_lanes,
         "tmux-map": cmd_tmux_map,
+        "health": cmd_health,
     }
     return cmds[args.command](args)
 
