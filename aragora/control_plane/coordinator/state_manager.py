@@ -47,7 +47,7 @@ HAS_KM_ADAPTER = False
 # Pre-declare optional import with Any to avoid no-redef errors
 TaskOutcome: Any = None
 try:
-    from aragora.knowledge.mound.adapters.control_plane_adapter import TaskOutcome
+    from aragora.knowledge.mound.adapters.control_plane_adapter import TaskOutcome  # type: ignore[no-redef]
 
     HAS_KM_ADAPTER = True
 except ImportError:
@@ -76,7 +76,7 @@ except ImportError:
 AgentFactory: Any = None
 get_agent_factory: Any = None
 try:
-    from aragora.control_plane.agent_factory import (
+    from aragora.control_plane.agent_factory import (  # type: ignore[no-redef]
         AgentFactory,
         get_agent_factory,
     )
@@ -89,7 +89,7 @@ except ImportError:
 RedisHASettings: Any = None
 get_redis_ha_config: Any = None
 try:
-    from aragora.config.redis import RedisHASettings, get_redis_ha_config
+    from aragora.config.redis import RedisHASettings, get_redis_ha_config  # type: ignore[no-redef]
 
     HAS_REDIS_HA = True
 except ImportError:
@@ -580,7 +580,7 @@ class StateManager:
         # Get KM recommendations
         try:
             cap_strings = [str(c) for c in capabilities]
-            recommendations = await self._km_adapter.get_agent_recommendations_for_task(
+            recommendations = await self._km_adapter.get_agent_recommendations_for_task(  # type: ignore[union-attr]
                 task_type=task_type,
                 available_agents=agent_ids,
                 required_capabilities=cap_strings,
