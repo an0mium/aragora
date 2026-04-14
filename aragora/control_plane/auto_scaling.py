@@ -253,7 +253,7 @@ class AutoScaler:
             try:
                 await self._task
             except asyncio.CancelledError:
-                pass
+                pass  # Expected when stopping — task was intentionally cancelled
             self._task = None
 
         logger.info("Auto-scaler stopped")
