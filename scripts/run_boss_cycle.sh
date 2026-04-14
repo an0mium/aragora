@@ -9,6 +9,49 @@ POST_LOOP_LABEL="${ARAGORA_POST_LOOP_LABEL:-}"
 boss_repo=""
 boss_label=""
 
+resolve_python_bin() {
+    local candidates=()
+    local candidate=""
+    local python_cmd=""
+
+    if [[ -n "${ARAGORA_PYTHON:-}" ]]; then
+        if [[ -x "${ARAGORA_PYTHON}" ]]; then
+            printf '%s\n' "${ARAGORA_PYTHON}"
+            return 0
+        fi
+        echo "ARAGORA_PYTHON is set but not executable: ${ARAGORA_PYTHON}" >&2
+    fi
+    if [[ -x "${REPO_ROOT}/.venv/bin/python3" ]]; then
+        candidates+=("${REPO_ROOT}/.venv/bin/python3")
+    fi
+    if python_cmd="$(command -v python3 2>/dev/null)"; then
+        candidates+=("${python_cmd}")
+    fi
+    if python_cmd="$(command -v python 2>/dev/null)"; then
+        candidates+=("${python_cmd}")
+    fi
+    for candidate in "${candidates[@]}"; do
+        if [[ -z "${candidate}" || ! -x "${candidate}" ]]; then
+            continue
+        fi
+        if "${candidate}" -c 'import pydantic' >/dev/null 2>&1; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    done
+
+    if command -v pyenv >/dev/null 2>&1; then
+        candidate="$(pyenv which python3 2>/dev/null || true)"
+        if [[ -n "${candidate}" && -x "${candidate}" ]] && "${candidate}" -c 'import pydantic' >/dev/null 2>&1; then
+            printf '%s\n' "${candidate}"
+            return 0
+        fi
+    fi
+
+    echo "No usable python interpreter with pydantic found for boss-loop runtime." >&2
+    return 1
+}
+
 args=("$@")
 for ((i = 0; i < ${#args[@]}; i++)); do
     case "${args[$i]}" in
@@ -27,12 +70,14 @@ done
 
 boss_repo="${boss_repo:-synaptent/aragora}"
 boss_label="${POST_LOOP_LABEL:-${boss_label:-boss-ready}}"
+PYTHON_BIN="$(resolve_python_bin)"
 
 cd "${REPO_ROOT}"
 
 echo "Starting boss-loop cycle for ${boss_repo} (label=${boss_label})..."
+echo "Using Python interpreter: ${PYTHON_BIN}"
 set +e
-python3 -u -m aragora.cli.main swarm boss-loop "${args[@]}"
+"${PYTHON_BIN}" -u -m aragora.cli.main swarm boss-loop "${args[@]}"
 boss_status=$?
 set -e
 echo "Boss loop exited with status ${boss_status}."
@@ -48,7 +93,7 @@ if [[ "${boss_status}" -ne 0 ]]; then
 fi
 
 refill_cmd=(
-    python3
+    "${PYTHON_BIN}"
     scripts/generate_boss_issues.py
     --repo
     "${boss_repo}"
