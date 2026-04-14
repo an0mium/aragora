@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -11,11 +12,10 @@ from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.env_utils import git_safe_env
 from aragora.swarm.preflight import (
     PreflightReceipt,
-    run_remote_publish_validation_receipt,
-    run_scratch_validation_receipt,
+    run_contract_preflight_receipt,
 )
 from aragora.swarm.terminal_truth import TerminalClass, classify_preflight_failure
-from aragora.swarm.worker_contract import build_worker_contract
+from aragora.swarm.worker_contract import WorkerContract, build_worker_contract
 from aragora.swarm.worker_process import LaunchConfig
 
 
@@ -216,6 +216,30 @@ def _required_preflight_receipts(loop: Any) -> list[str]:
     return required
 
 
+def _persist_preview_contract(
+    *,
+    repo_root: Path,
+    issue_number: int,
+    contract: WorkerContract,
+) -> Path:
+    checksum = contract.checksum()
+    contract_dir = repo_root / ".aragora" / "dispatch_contracts"
+    contract_dir.mkdir(parents=True, exist_ok=True)
+    contract_path = contract_dir / f"issue-{issue_number}-{checksum[:12]}.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "worker_contract": contract.to_dict(),
+                "worker_contract_checksum": checksum,
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return contract_path
+
+
 def _preflight_receipt_summary(receipt: PreflightReceipt) -> dict[str, Any]:
     terminal_class = receipt.failure_terminal_class
     return {
@@ -305,22 +329,28 @@ def _run_dispatch_preflight_receipts(
     *,
     repo_root: Path,
     envelope: CredentialEnvelope,
-    preview_env: Mapping[str, str],
+    target_agent: str,
+    contract_path: Path,
 ) -> list[PreflightReceipt]:
     receipts = [
-        run_scratch_validation_receipt(
+        run_contract_preflight_receipt(
             repo_root=repo_root,
+            agent=target_agent,
+            base_ref=str(loop.config.target_branch or "main"),
+            skip_publication=True,
+            contract_path=contract_path,
             envelope=envelope,
-            env=preview_env,
         )
     ]
     if bool(loop.config.auto_publish_deliverables):
         receipts.append(
-            run_remote_publish_validation_receipt(
+            run_contract_preflight_receipt(
                 repo_root=repo_root,
-                envelope=envelope,
+                agent=target_agent,
                 base_ref=str(loop.config.target_branch or "main"),
-                env=preview_env,
+                skip_publication=False,
+                contract_path=contract_path,
+                envelope=envelope,
             )
         )
     return receipts
@@ -359,6 +389,7 @@ def dispatch_contract_gate(
         allow_codex_full_auto=loop.config.allow_codex_full_auto,
     )
     contract_valid = True
+    preview_contract: WorkerContract | None = None
     for work_order in _preview_work_orders(spec):
         try:
             contract = build_worker_contract(
@@ -372,6 +403,8 @@ def dispatch_contract_gate(
             if not contract.admission_check():
                 contract_valid = False
                 break
+            if preview_contract is None:
+                preview_contract = contract
         except ValueError:
             contract_valid = False
             break
@@ -379,11 +412,19 @@ def dispatch_contract_gate(
     if contract_valid and not missing_slices:
         required_receipts = _required_preflight_receipts(loop)
         try:
+            if preview_contract is None:
+                raise RuntimeError("dispatch preview contract missing")
+            contract_path = _persist_preview_contract(
+                repo_root=Path.cwd(),
+                issue_number=issue.number,
+                contract=preview_contract,
+            )
             receipt_payloads = _run_dispatch_preflight_receipts(
                 loop,
                 repo_root=Path.cwd(),
                 envelope=envelope,
-                preview_env=preview_env,
+                target_agent=target_agent,
+                contract_path=contract_path,
             )
         except Exception as exc:  # noqa: BLE001 - fail closed on receipt routing issues
             detail = str(exc or "").strip() or "preflight receipt generation failed"

@@ -3514,9 +3514,13 @@ async def test_dispatch_issue_contract_gate_allows_complete_cli_dispatch() -> No
             ),
         ),
         patch(
-            "aragora.swarm.dispatch_contract_gate.run_scratch_validation_receipt",
+            "aragora.swarm.dispatch_contract_gate._persist_preview_contract",
+            return_value=Path("/tmp/issue-2464-contract.json"),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt",
             return_value=_preflight_receipt(),
-        ) as scratch_receipt,
+        ) as contract_receipt,
         patch(
             "aragora.swarm.boss_loop.dispatch_bounded_spec",
             new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
@@ -3525,7 +3529,8 @@ async def test_dispatch_issue_contract_gate_allows_complete_cli_dispatch() -> No
         result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
     assert result["status"] == "completed"
-    scratch_receipt.assert_called_once()
+    contract_receipt.assert_called_once()
+    assert contract_receipt.call_args.kwargs["skip_publication"] is True
     dispatch_mock.assert_awaited_once()
 
 
@@ -3616,9 +3621,13 @@ async def test_dispatch_issue_contract_gate_blocks_failed_scratch_preflight_rece
             ),
         ),
         patch(
-            "aragora.swarm.dispatch_contract_gate.run_scratch_validation_receipt",
+            "aragora.swarm.dispatch_contract_gate._persist_preview_contract",
+            return_value=Path("/tmp/issue-2467-contract.json"),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt",
             return_value=failed_receipt,
-        ) as scratch_receipt,
+        ) as contract_receipt,
         patch(
             "aragora.swarm.boss_loop.dispatch_bounded_spec",
             new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
@@ -3633,7 +3642,7 @@ async def test_dispatch_issue_contract_gate_blocks_failed_scratch_preflight_rece
     assert result["dispatch_contract"]["preflight_receipts"][0]["failure_terminal_class"] == (
         "blocked_not_dispatch_bounded"
     )
-    scratch_receipt.assert_called_once()
+    contract_receipt.assert_called_once()
     dispatch_mock.assert_not_awaited()
 
 
@@ -3725,13 +3734,13 @@ async def test_dispatch_issue_contract_gate_blocks_failed_remote_publish_receipt
             ),
         ),
         patch(
-            "aragora.swarm.dispatch_contract_gate.run_scratch_validation_receipt",
-            return_value=_preflight_receipt(),
-        ) as scratch_receipt,
+            "aragora.swarm.dispatch_contract_gate._persist_preview_contract",
+            return_value=Path("/tmp/issue-2468-contract.json"),
+        ),
         patch(
-            "aragora.swarm.dispatch_contract_gate.run_remote_publish_validation_receipt",
-            return_value=remote_failure,
-        ) as remote_receipt,
+            "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt",
+            side_effect=[_preflight_receipt(), remote_failure],
+        ) as contract_receipt,
         patch(
             "aragora.swarm.boss_loop.dispatch_bounded_spec",
             new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
@@ -3746,8 +3755,11 @@ async def test_dispatch_issue_contract_gate_blocks_failed_remote_publish_receipt
     assert result["dispatch_contract"]["preflight_receipts"][1]["failure_terminal_class"] == (
         "blocked_auth_failure"
     )
-    scratch_receipt.assert_called_once()
-    remote_receipt.assert_called_once()
+    assert contract_receipt.call_count == 2
+    assert [call.kwargs["skip_publication"] for call in contract_receipt.call_args_list] == [
+        True,
+        False,
+    ]
     dispatch_mock.assert_not_awaited()
 
 
