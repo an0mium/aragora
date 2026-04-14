@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     from aragora.control_plane.coordinator.policy_enforcer import PolicyEnforcer
     from aragora.control_plane.policy import ControlPlanePolicyManager
 
+logger = get_logger(__name__)
+
 # Optional KM integration
 HAS_KM_ADAPTER = False
 try:
@@ -49,9 +51,9 @@ try:
 
     HAS_POLICY = True
 except ImportError:
-    pass
+    # EnforcementLevel unavailable; SLA compliance checks will be skipped
+    logger.debug("control_plane.policy not available; SLA enforcement disabled")
 
-logger = get_logger(__name__)
 
 # Retry configuration for control plane operations
 _CP_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["control_plane"]
