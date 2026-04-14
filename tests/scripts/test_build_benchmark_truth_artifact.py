@@ -421,7 +421,12 @@ def test_main_publish_dir_writes_timestamped_artifact_and_prints_path(
         / "truth-20260414T050607Z.json"
     )
     parsed = json.loads(written_path.read_text(encoding="utf-8"))
+    latest_path = tmp_path / "published" / "latest.json"
     assert parsed["generated_at"] == "2026-04-14T05:06:07Z"
+    assert (
+        json.loads(latest_path.read_text(encoding="utf-8"))["generated_at"]
+        == "2026-04-14T05:06:07Z"
+    )
     assert (
         json.loads(
             (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
@@ -488,8 +493,13 @@ def test_main_publish_dir_with_json_keeps_stdout_json_and_reports_path_on_stderr
 
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
+    latest_path = tmp_path / "published" / "latest.json"
     assert exit_code == 0
     assert payload["generated_at"] == "2026-04-14T08:09:10Z"
+    assert (
+        json.loads(latest_path.read_text(encoding="utf-8"))["generated_at"]
+        == "2026-04-14T08:09:10Z"
+    )
     assert (
         json.loads(
             (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(

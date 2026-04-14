@@ -112,7 +112,7 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 ### Milestone 3.1 — Autonomous Software Execution Benchmark `[30d]`
 
 - [x] **TW-01** Prove `prompt -> spec -> code -> verify -> PR` loops on a fixed benchmark corpus of bounded repos/issues _(Done 2026-04-14 via [#5582](https://github.com/synaptent/aragora/pull/5582) and [#5583](https://github.com/synaptent/aragora/pull/5583))_
-- [ ] **TW-02** Measure rescue rate, verification pass rate, wall-clock throughput, and no-rescue completion rate _(Partial as of 2026-04-14: diffable truth-artifact generation exists, including truth/no-rescue/failure-class/rescue-type reporting; the remaining gap is recurring publication and status linkage, tracked by [#5540](https://github.com/synaptent/aragora/issues/5540).)_
+- [ ] **TW-02** Measure rescue rate, verification pass rate, wall-clock throughput, and no-rescue completion rate _(Partial as of 2026-04-14: diffable truth-artifact and scorecard publication exist, with stable latest status handles at `.aragora/benchmark_truth_artifacts/latest.json` and `.aragora/benchmark_scorecards/latest.json`; the remaining gap is routine recurring runs on current `main`, tracked by [#5329](https://github.com/synaptent/aragora/issues/5329).)_
 - [ ] **TW-03** Convert human rescues into benchmark fixtures and product requirements _(Partial as of 2026-04-14: rescue-class productization reporting landed via [#5535](https://github.com/synaptent/aragora/pull/5535); the remaining gap is turning repeated classes into durable fixture-or-issue closure on the live loop, tracked by [#5330](https://github.com/synaptent/aragora/issues/5330).)_
 
 ### Milestone 3.2 — Inbox / Operator Action Loops `[30-90d]`

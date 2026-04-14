@@ -95,6 +95,7 @@ The recurring scorecard records the following per corpus run:
 Scorecard output rules:
 
 - Each run produces a timestamped scorecard artifact that is diffable against prior runs for week-over-week comparison.
+- The stable recurring status handles are `.aragora/benchmark_truth_artifacts/latest.json` and `.aragora/benchmark_scorecards/latest.json`; each published payload points back to timestamped corpus/revision history directories.
 - Human rescue is distinguished from autonomous completion at the issue level — a rescued issue is never counted as no-rescue success.
 - Proxy metrics (PR count, iteration count, token spend) are reported separately and never mixed with truth metrics.
 - The scorecard links back to the corpus revision it was run against.
@@ -105,7 +106,7 @@ Scorecard output rules:
 - The tracked B0 cohort is at **86.7%** no-rescue success as of 2026-04-13.
 - The frozen corpus manifest now lives at `docs/benchmarks/corpus.json`.
 - The diffable truth artifact path is `scripts/build_benchmark_truth_artifact.py`, with GitHub-truth reconciliation provided by `scripts/reconcile_b0_pr_truth.py`.
-- `TW-01` is now landed on `main`; what remains is routine `TW-02` publication and status linkage, not inventing a second benchmark definition.
+- `TW-01` is now landed on `main`, and recurring truth publication now exposes stable latest status handles at `.aragora/benchmark_truth_artifacts/latest.json` and `.aragora/benchmark_scorecards/latest.json`; what remains is routine `TW-02` publication and status linkage, not inventing a second benchmark definition.
 
 ## 30-Day Canonical Backlog
 

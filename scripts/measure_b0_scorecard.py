@@ -239,6 +239,7 @@ def resolve_latest_scorecard_paths(
 ) -> dict[str, Path]:
     corpus = dict(published_scorecard.get("corpus") or {})
     return {
+        "latest": publish_dir / "latest.json",
         "corpus_latest": _corpus_publish_dir(publish_dir=publish_dir, corpus=corpus)
         / "latest.json",
         "revision_latest": _revision_publish_dir(publish_dir=publish_dir, corpus=corpus)
@@ -379,6 +380,7 @@ def publish_scorecard_bundle(
     )
     return {
         "timestamped": timestamped_path,
+        "latest": write_artifact(latest_paths["latest"], published_scorecard),
         "corpus_latest": write_artifact(latest_paths["corpus_latest"], published_scorecard),
         "revision_latest": write_artifact(latest_paths["revision_latest"], published_scorecard),
     }

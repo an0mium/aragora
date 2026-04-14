@@ -238,11 +238,18 @@ def test_main_publish_dir_writes_timestamped_artifact_and_prints_path(
 
     captured = capsys.readouterr()
     written_path = Path(captured.out.strip())
+    latest_path = tmp_path / "published" / "latest.json"
     assert exit_code == 0
     assert written_path.parent == tmp_path / "published" / "tw-01-bounded-execution-v1" / "rev-4"
     payload = json.loads(written_path.read_text(encoding="utf-8"))
     assert payload["truth_artifact_path"] == str(truth_artifact_path)
     assert payload["proxy_metrics"]["no_rescue_success_rate"] == 1.0
+    assert (
+        json.loads(latest_path.read_text(encoding="utf-8"))["proxy_metrics"][
+            "no_rescue_success_rate"
+        ]
+        == 1.0
+    )
     assert (
         json.loads(
             (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
@@ -303,9 +310,14 @@ def test_main_publish_dir_with_json_keeps_stdout_json_and_reports_path_on_stderr
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
     reported_path = Path(captured.err.strip())
+    latest_path = tmp_path / "published" / "latest.json"
     assert exit_code == 0
     assert payload["corpus"]["revision"] == 5
     assert payload["proxy_metrics"]["unique_issues_attempted"] == 1
+    assert (
+        json.loads(latest_path.read_text(encoding="utf-8"))["corpus"]["revision"]
+        == 5
+    )
     assert (
         json.loads(
             (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
@@ -396,6 +408,9 @@ def test_main_publish_mode_uses_default_corpus_to_build_truth_artifact(
         }
         truth_artifact_path.parent.mkdir(parents=True, exist_ok=True)
         truth_artifact_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        (tmp_path / "truth-artifacts" / "latest.json").write_text(
+            json.dumps(payload, indent=2), encoding="utf-8"
+        )
         (tmp_path / "truth-artifacts" / "tw-01-bounded-execution-v1").mkdir(
             parents=True, exist_ok=True
         )
@@ -426,10 +441,19 @@ def test_main_publish_mode_uses_default_corpus_to_build_truth_artifact(
     assert payload["proxy_metrics"]["unique_issues_attempted"] == 1
     assert payload["truth_artifact_path"] == str(truth_artifact_path)
     assert json.loads(
+        (tmp_path / "published" / "latest.json").read_text(encoding="utf-8")
+    )["truth_artifact_path"] == str(truth_artifact_path)
+    assert json.loads(
         (tmp_path / "published" / "tw-01-bounded-execution-v1" / "latest.json").read_text(
             encoding="utf-8"
         )
     )["truth_artifact_path"] == str(truth_artifact_path)
+    assert (
+        json.loads(
+            (tmp_path / "truth-artifacts" / "latest.json").read_text(encoding="utf-8")
+        )["generated_at"]
+        == "2026-04-14T15:00:00Z"
+    )
     assert (
         json.loads(
             (tmp_path / "truth-artifacts" / "tw-01-bounded-execution-v1" / "latest.json").read_text(

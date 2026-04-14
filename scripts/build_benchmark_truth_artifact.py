@@ -191,6 +191,7 @@ def resolve_latest_artifact_paths(
     if not isinstance(corpus, dict):
         corpus = {}
     return {
+        "latest": publish_dir / "latest.json",
         "corpus_latest": _corpus_publish_dir(publish_dir=publish_dir, corpus=corpus)
         / "latest.json",
         "revision_latest": _revision_publish_dir(publish_dir=publish_dir, corpus=corpus)
@@ -299,6 +300,7 @@ def publish_artifact_bundle(
     latest_paths = resolve_latest_artifact_paths(publish_dir=publish_dir, artifact=artifact)
     return {
         "timestamped": timestamped_path,
+        "latest": write_artifact(latest_paths["latest"], artifact),
         "corpus_latest": write_artifact(latest_paths["corpus_latest"], artifact),
         "revision_latest": write_artifact(latest_paths["revision_latest"], artifact),
     }
