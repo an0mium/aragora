@@ -53,11 +53,11 @@ EncryptionError: Any = Exception
 CRYPTO_AVAILABLE = False
 
 try:
-    from aragora.security.encryption import (
+    from aragora.security.encryption import (  # type: ignore[no-redef]
         get_encryption_service,
         is_encryption_required,
         EncryptionError,
-        CRYPTO_AVAILABLE,  # type: ignore[no-redef]
+        CRYPTO_AVAILABLE,
     )
 except ImportError:
     # CRYPTO_AVAILABLE stays False from line 53
