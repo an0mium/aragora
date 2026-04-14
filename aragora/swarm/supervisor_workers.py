@@ -77,8 +77,14 @@ def _record_session_state(
             session.status = status
         if phase:
             session.phase = phase
-        if blocker_evidence:
-            session.set_blocker(blocker_evidence)
+        effective_blocker_evidence = str(
+            blocker_evidence
+            or work_order.get("blocker_evidence")
+            or metadata.get("blocker_evidence")
+            or ""
+        ).strip()
+        if effective_blocker_evidence:
+            session.set_blocker(effective_blocker_evidence)
         if exit_code is not None or worker_outcome:
             session.record_attempt(
                 exit_code=exit_code,
@@ -92,6 +98,21 @@ def _record_session_state(
         metadata["session_state"] = session.to_dict()
     except Exception:
         logger.debug("Session state update skipped", exc_info=True)
+
+
+def _persist_terminal_blocker_evidence(item: dict[str, Any]) -> str | None:
+    try:
+        from aragora.swarm.supervisor_probes import (
+            _derive_blocker_evidence,
+            _persist_blocker_evidence,
+        )
+
+        evidence = _derive_blocker_evidence(item)
+        _persist_blocker_evidence(item, evidence)
+        return evidence or None
+    except Exception:
+        logger.debug("Blocker evidence persistence skipped", exc_info=True)
+        return None
 
 
 def _enrich_chain_wave_summary(
@@ -282,6 +303,7 @@ def refresh_run(self, run_id: str) -> SupervisorRun:
                         str(exc),
                         failure_reason="work_order_leasing_failed",
                     )
+                    _persist_terminal_blocker_evidence(item)
                     continue
 
     derived_status = self._derive_status(work_orders)
@@ -1310,6 +1332,7 @@ def _lease_work_order(
             "Work order has no declared file scope; declare scope before dispatch.",
             failure_reason="scope_violation",
         )
+        _persist_terminal_blocker_evidence(work_order)
         return False
     session = self.lifecycle.ensure_managed_worktree(
         managed_dir=managed_dir,
@@ -1329,6 +1352,7 @@ def _lease_work_order(
             "Declared file scope resolved to no valid in-repo paths; declare scope before dispatch.",
             failure_reason="scope_violation",
         )
+        _persist_terminal_blocker_evidence(work_order)
         return False
     dependency_base = self._dependency_base_reference(work_order, work_orders)
     if dependency_base is not None:
@@ -1392,19 +1416,23 @@ def _lease_work_order(
 
 
 def _release_terminal_lease(self, item: dict[str, Any]) -> None:
-    lease_id = str(item.get("lease_id", "")).strip()
-    if not lease_id:
-        return
-
     # BC-01: Record terminal session state
     wo_status = str(item.get("status", "")).strip().lower()
     terminal_status = "completed" if wo_status in {"completed", "merged"} else "failed"
+    blocker_evidence = None
+    if terminal_status == "failed" or wo_status == "needs_human":
+        blocker_evidence = _persist_terminal_blocker_evidence(item)
     _record_session_state(
         item,
         status=terminal_status,
         phase="terminal",
         worker_outcome=str(item.get("worker_outcome", "")).strip() or None,
+        blocker_evidence=blocker_evidence,
     )
+
+    lease_id = str(item.get("lease_id", "")).strip()
+    if not lease_id:
+        return
 
     try:
         self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
@@ -1634,6 +1662,7 @@ def _requeue_with_fallback(
         "failure_reason",
         "blocking_question",
         "blocker",
+        "blocker_evidence",
         "resource_error",
         "worker_outcome",
         "confidence",
@@ -1654,6 +1683,10 @@ def _requeue_with_fallback(
         "scope_violation",
     ):
         item.pop(key, None)
+    metadata = dict(item.get("metadata") or {})
+    if "blocker_evidence" in metadata:
+        metadata.pop("blocker_evidence", None)
+        item["metadata"] = metadata
     return True
 
 
@@ -1949,6 +1982,7 @@ def _mark_worker_type_blocked(
         f"worker dispatch blocked: {detail}",
         failure_reason="worker_type_blocked",
     )
+    _persist_terminal_blocker_evidence(item)
     self._release_terminal_lease(item)
     item.pop("lease_id", None)
     item.pop("owner_session_id", None)
@@ -1989,6 +2023,7 @@ def _mark_dispatch_failed(item: dict[str, Any], reason: str) -> None:
         "failure_reason",
         "blocking_question",
         "blocker",
+        "blocker_evidence",
         "last_observed_at",
         "last_progress_at",
         "first_output_at",
@@ -1998,6 +2033,10 @@ def _mark_dispatch_failed(item: dict[str, Any], reason: str) -> None:
     ):
         item.pop(key, None)
     item.pop("blockers", None)
+    metadata = dict(item.get("metadata") or {})
+    if "blocker_evidence" in metadata:
+        metadata.pop("blocker_evidence", None)
+        item["metadata"] = metadata
 
 
 def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
@@ -2008,6 +2047,7 @@ def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
         "failure_reason",
         "blocking_question",
         "blocker",
+        "blocker_evidence",
         "conflicts",
         "receipt_id",
         "confidence",
@@ -2031,6 +2071,10 @@ def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
     ):
         item.pop(key, None)
     item.pop("blockers", None)
+    metadata = dict(item.get("metadata") or {})
+    if "blocker_evidence" in metadata:
+        metadata.pop("blocker_evidence", None)
+        item["metadata"] = metadata
 
 
 def _clear_stale_runtime_deliverable_state(item: dict[str, Any]) -> None:
@@ -2055,9 +2099,14 @@ def _clear_stale_runtime_deliverable_state(item: dict[str, Any]) -> None:
         "resource_error",
         "conflicts",
         "blockers",
+        "blocker_evidence",
         "scope_violation",
     ):
         item.pop(key, None)
+    metadata = dict(item.get("metadata") or {})
+    if "blocker_evidence" in metadata:
+        metadata.pop("blocker_evidence", None)
+        item["metadata"] = metadata
 
 
 def _release_orphaned_conflict_leases(self, conflicts: list[dict[str, Any]]) -> int:
