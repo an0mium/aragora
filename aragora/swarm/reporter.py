@@ -2120,7 +2120,7 @@ def build_integrator_view(
     lanes.sort(key=lane_sort_key)
     _sync_lane_telemetry_from_lanes(lanes)
 
-    alerts = {
+    alerts: dict[str, list[Any]] = {
         "collisions": [],
         "stalled_lanes": [],
         "expired_lanes": [],
@@ -2165,13 +2165,13 @@ def build_integrator_view(
         action = _text(lane.get("next_action"))
         if not action:
             continue
-        summary = f"{lane['title']}: {action}"
-        if summary not in next_actions:
-            next_actions.append(summary)
+        action_summary = f"{lane['title']}: {action}"
+        if action_summary not in next_actions:
+            next_actions.append(action_summary)
         if len(next_actions) >= 5:
             break
 
-    summary = {
+    status_summary: dict[str, Any] = {
         "total_lanes": len(lanes),
         "ready_lanes": sum(1 for lane in lanes if lane["merge_readiness"] == "ready"),
         "blocked_lanes": sum(1 for lane in lanes if lane["merge_readiness"] == "blocked"),
@@ -2193,7 +2193,7 @@ def build_integrator_view(
     }
     telemetry = _telemetry_summary()
     return {
-        "summary": summary,
+        "summary": status_summary,
         "telemetry": telemetry,
         "next_actions": next_actions,
         "alerts": alerts,
