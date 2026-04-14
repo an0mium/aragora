@@ -18,11 +18,23 @@ logger = logging.getLogger(__name__)
 DEFAULT_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
 DEFAULT_WINDOW = 50
 SUCCESS_TERMINAL_PREFIXES = ("success", "deliverable")
+BLOCKER_EVIDENCE_MAX_CHARS = 240
 
 
 def _is_success_terminal_class(terminal_class: str) -> bool:
     """Return whether a terminal class counts as a truthful success."""
     return terminal_class.startswith(SUCCESS_TERMINAL_PREFIXES)
+
+
+def _compact_blocker_evidence(
+    value: Any, *, max_chars: int = BLOCKER_EVIDENCE_MAX_CHARS
+) -> str | None:
+    compact = " ".join(str(value or "").split())
+    if not compact:
+        return None
+    if len(compact) <= max_chars:
+        return compact
+    return compact[: max_chars - 3].rstrip() + "..."
 
 
 def _tail_jsonl(path: Path, max_lines: int) -> list[dict[str, Any]]:
@@ -98,6 +110,7 @@ def swarm_status_summary(
                     "terminal_class": tc,
                     "failure_reason": failure_reason or None,
                     "blocker_kind": str(row.get("blocker_kind", "")).strip() or None,
+                    "blocker_evidence": _compact_blocker_evidence(row.get("blocker_evidence")),
                     "issue_title": str(row.get("issue_title", "")).strip()[:80] or None,
                 }
             )

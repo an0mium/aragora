@@ -88,7 +88,41 @@ def test_swarm_status_summary_uses_issue_truth_for_success_rate(tmp_path: Path) 
             "terminal_class": "blocked_auth_failure",
             "failure_reason": None,
             "blocker_kind": None,
+            "blocker_evidence": None,
             "issue_title": None,
+        }
+    ]
+
+
+def test_swarm_status_summary_surfaces_compact_blocker_evidence(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    _write_jsonl(
+        metrics_path,
+        [
+            {
+                "timestamp": "2026-04-14T02:20:00Z",
+                "issue_number": 201,
+                "terminal_class": "blocked_auth_failure",
+                "outcome": "needs_human",
+                "failure_reason": "auth",
+                "blocker_kind": "credentials",
+                "blocker_evidence": "  API key missing   for Anthropic provider  " + ("x" * 260),
+                "issue_title": "Repair auth preflight",
+                "elapsed_seconds": 12,
+            }
+        ],
+    )
+
+    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path)
+
+    assert summary["recent_blockers"] == [
+        {
+            "issue_number": 201,
+            "terminal_class": "blocked_auth_failure",
+            "failure_reason": "auth",
+            "blocker_kind": "credentials",
+            "blocker_evidence": "API key missing for Anthropic provider " + ("x" * 198) + "...",
+            "issue_title": "Repair auth preflight",
         }
     ]
 
