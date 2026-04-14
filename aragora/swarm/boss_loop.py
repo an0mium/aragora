@@ -4497,6 +4497,48 @@ class BossLoop:
 
             if self.config.auto_continue_on_needs_human:
                 self._consecutive_failures += 1
+                threshold_reason = (
+                    "Repeated rescue outcomes without a typed deliverable reached "
+                    f"threshold ({self.config.max_consecutive_failures})."
+                )
+                if self._consecutive_failures >= self.config.max_consecutive_failures:
+                    logger.warning(
+                        "boss_loop_stop issue=#%s "
+                        "(needs_human, no typed deliverable, consecutive failure threshold reached)",
+                        issue_dict.get("number", "?"),
+                    )
+                    self._append_iteration_metrics(
+                        iteration=iteration,
+                        issue_number=issue_number,
+                        worker_result=worker_result,
+                        elapsed_seconds=elapsed_seconds,
+                    )
+                    return BossIterationStatus(
+                        iteration=iteration,
+                        run_id=self.run_id,
+                        timestamp=timestamp,
+                        runner_freshness=runner_freshness,
+                        selected_issue=issue_dict,
+                        worker_status="needs_human",
+                        stop_reason=BossStopReason.CONSECUTIVE_FAILURES.value,
+                        needs_human_reasons=list(
+                            dict.fromkeys(
+                                [
+                                    *worker_result.get(
+                                        "reasons",
+                                        ["Worker requires human input."],
+                                    ),
+                                    threshold_reason,
+                                ]
+                            )
+                        ),
+                        next_actions=[
+                            threshold_reason,
+                            "Investigate the rescue streak before resuming the boss loop.",
+                        ],
+                        elapsed_seconds=elapsed_seconds,
+                        worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
+                    )
                 if has_untyped_deliverable:
                     logger.warning(
                         "boss_loop_skip issue=#%s "
@@ -5309,6 +5351,12 @@ class BossLoop:
                 "Create issues with concrete scope, or adjust --label-filter.",
             ]
         if self._stop_reason == BossStopReason.CONSECUTIVE_FAILURES.value:
+            for status in reversed(self._iteration_statuses):
+                if (
+                    status.stop_reason == BossStopReason.CONSECUTIVE_FAILURES.value
+                    and status.next_actions
+                ):
+                    return list(status.next_actions)
             return [
                 f"{self._consecutive_failures} consecutive failures.",
                 "Investigate the last failures before resuming.",

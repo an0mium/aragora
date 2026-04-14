@@ -1780,6 +1780,11 @@ class TestBossLoop:
             issue_feed=feed,
             freshness_checker=lambda **kw: _fresh_result(fresh=True),
         )
+        loop._blocked_issue_scopes = lambda: set()
+        loop._filter_issues_with_active_claims = lambda issues: issues
+        loop._has_open_pr_for_issue = lambda issue_number: None
+        loop._claim_issue_dispatch = lambda issue_number: (True, None)
+        loop._release_issue_dispatch_claim = lambda issue_number: None
         loop._dispatch_issue = _needs_human_dispatch
 
         result = asyncio.run(loop.run())
@@ -1814,6 +1819,50 @@ class TestBossLoop:
             "Skipping to next issue (auto-continue mode)."
         ]
         assert "Approval required for merge." in result.iteration_statuses[0]["needs_human_reasons"]
+
+    def test_auto_continue_needs_human_no_typed_deliverable_stops_at_threshold(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        call_count = 0
+
+        def _fetch():
+            nonlocal call_count
+            call_count += 1
+            return [_make_issue(call_count, f"Needs human review {call_count}")]
+
+        feed.fetch.side_effect = _fetch
+
+        config = _boss_config(
+            auto_continue_on_needs_human=True,
+            max_consecutive_failures=2,
+            max_iterations=10,
+        )
+
+        async def _needs_human_dispatch(issue, freshness):
+            return {
+                "status": "needs_human",
+                "reasons": ["Worker produced no typed deliverable."],
+            }
+
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _needs_human_dispatch
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.CONSECUTIVE_FAILURES.value
+        assert result.iterations_completed == 2
+        assert len(result.issues_failed) == 2
+        assert result.next_actions == [
+            "Repeated rescue outcomes without a typed deliverable reached threshold (2).",
+            "Investigate the rescue streak before resuming the boss loop.",
+        ]
+        assert any(
+            "without a typed deliverable reached threshold (2)" in reason
+            for reason in result.needs_human_reasons
+        )
 
     def test_retry_rotation_switches_target_agent_after_needs_human(self):
         feed = MagicMock(spec=GitHubIssueFeed)
