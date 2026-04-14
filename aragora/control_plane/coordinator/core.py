@@ -59,13 +59,18 @@ DeliberationTask: Any = None
 DeliberationOutcome: Any = None
 DELIBERATION_TASK_TYPE = "deliberation"
 try:
-    from aragora.control_plane.arena_bridge import ArenaControlPlaneBridge
+    from aragora.control_plane.arena_bridge import (
+        ArenaControlPlaneBridge as _ArenaControlPlaneBridge,
+    )
     from aragora.control_plane.deliberation import (
         DELIBERATION_TASK_TYPE as _DELIBERATION_TASK_TYPE,
-        DeliberationOutcome,
-        DeliberationTask,
+        DeliberationOutcome as _DeliberationOutcome,
+        DeliberationTask as _DeliberationTask,
     )
 
+    ArenaControlPlaneBridge = _ArenaControlPlaneBridge
+    DeliberationOutcome = _DeliberationOutcome
+    DeliberationTask = _DeliberationTask
     DELIBERATION_TASK_TYPE = _DELIBERATION_TASK_TYPE  # Use real value if available
 
     HAS_ARENA_BRIDGE = True
@@ -76,7 +81,9 @@ except ImportError:
 HAS_WATCHDOG = False
 IssueSeverityType: Any = None
 try:
-    from aragora.control_plane.watchdog import IssueSeverity as IssueSeverityType
+    from aragora.control_plane.watchdog import IssueSeverity as _IssueSeverityType
+
+    IssueSeverityType = _IssueSeverityType
 
     HAS_WATCHDOG = True
 except ImportError:

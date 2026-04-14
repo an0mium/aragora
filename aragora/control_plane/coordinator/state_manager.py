@@ -45,13 +45,16 @@ HAS_KM_ADAPTER = False
 # Pre-declare optional import with Any to avoid no-redef errors
 TaskOutcome: Any = None
 try:
-    from aragora.knowledge.mound.adapters.control_plane_adapter import TaskOutcome
+    from aragora.knowledge.mound.adapters.control_plane_adapter import TaskOutcome as _TaskOutcome
+
+    TaskOutcome = _TaskOutcome
 
     HAS_KM_ADAPTER = True
 except ImportError:
     pass
 
 # Optional Watchdog support (Gastown three-tier monitoring)
+HAS_WATCHDOG = False
 ThreeTierWatchdog: Any = None
 WatchdogConfig: Any = None
 WatchdogTier: Any = None
@@ -59,36 +62,50 @@ WatchdogIssue: Any = None
 get_watchdog: Any = None
 try:
     from aragora.control_plane.watchdog import (
-        ThreeTierWatchdog,
-        WatchdogConfig,
-        WatchdogTier,
-        WatchdogIssue,
-        get_watchdog,
+        ThreeTierWatchdog as _ThreeTierWatchdog,
+        WatchdogConfig as _WatchdogConfig,
+        WatchdogTier as _WatchdogTier,
+        WatchdogIssue as _WatchdogIssue,
+        get_watchdog as _get_watchdog,
     )
 
+    ThreeTierWatchdog = _ThreeTierWatchdog
+    WatchdogConfig = _WatchdogConfig
+    WatchdogTier = _WatchdogTier
+    WatchdogIssue = _WatchdogIssue
+    get_watchdog = _get_watchdog
     HAS_WATCHDOG = True
 except ImportError:
     HAS_WATCHDOG = False
 
 # Optional AgentFactory for auto-creating agents from registry
+HAS_AGENT_FACTORY = False
 AgentFactory: Any = None
 get_agent_factory: Any = None
 try:
     from aragora.control_plane.agent_factory import (
-        AgentFactory,
-        get_agent_factory,
+        AgentFactory as _AgentFactory,
+        get_agent_factory as _get_agent_factory,
     )
 
+    AgentFactory = _AgentFactory
+    get_agent_factory = _get_agent_factory
     HAS_AGENT_FACTORY = True
 except ImportError:
     HAS_AGENT_FACTORY = False
 
 # Optional Redis HA support
+HAS_REDIS_HA = False
 RedisHASettings: Any = None
 get_redis_ha_config: Any = None
 try:
-    from aragora.config.redis import RedisHASettings, get_redis_ha_config
+    from aragora.config.redis import (
+        RedisHASettings as _RedisHASettings,
+        get_redis_ha_config as _get_redis_ha_config,
+    )
 
+    RedisHASettings = _RedisHASettings
+    get_redis_ha_config = _get_redis_ha_config
     HAS_REDIS_HA = True
 except ImportError:
     HAS_REDIS_HA = False
@@ -578,9 +595,17 @@ class StateManager:
         agent_ids = list(agent_map.keys())
 
         # Get KM recommendations
+        km_adapter = self._km_adapter
+        if km_adapter is None:
+            return await self._registry.select_agent(
+                capabilities=capabilities,
+                exclude=exclude,
+                only_available=True,
+            )
+
         try:
             cap_strings = [str(c) for c in capabilities]
-            recommendations = await self._km_adapter.get_agent_recommendations_for_task(
+            recommendations = await km_adapter.get_agent_recommendations_for_task(
                 task_type=task_type,
                 available_agents=agent_ids,
                 required_capabilities=cap_strings,
