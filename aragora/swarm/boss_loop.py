@@ -4938,7 +4938,6 @@ class BossLoop:
 
         self._attach_issue_handoff_metadata(spec, issue)
 
-        # BC-02: Inject resume context from prior session state if available
         try:
             from aragora.swarm.session_state import load_resume_context_for_issue
 
@@ -4997,6 +4996,11 @@ class BossLoop:
                     }
                 )
 
+        from aragora.swarm import dispatch_followups as _dispatch_followups
+
+        spec = _dispatch_followups.maybe_upgrade_dispatch_spec(
+            issue=issue, spec=spec, sanitized_issue_body=sanitized_issue_body, repo_root=Path.cwd()
+        )
         if not spec.is_dispatch_bounded():
             return _with_sanitizer_metadata(
                 _blocked_pre_dispatch_result(
@@ -5154,6 +5158,9 @@ class BossLoop:
             error = str(result.get("error", "")).strip()
             if error:
                 logger.warning("Boss dispatch failed for issue #%d: %s", issue.number, error)
+        result = _dispatch_followups.annotate_result_with_conductor(
+            issue_number=issue.number, result=result, repo_root=Path.cwd()
+        )
         return result
 
     async def _dispatch_issue_under_claim(

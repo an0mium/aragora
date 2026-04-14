@@ -3871,6 +3871,83 @@ async def test_dispatch_issue_preserves_pending_handoff_on_pre_run_failure() -> 
 
 
 @pytest.mark.asyncio
+async def test_dispatch_issue_uses_followup_upgrade_before_blocking_unbounded_spec() -> None:
+    issue = _make_issue(
+        1704,
+        "Narrow broad except in helper",
+        body="Narrow broad except usage in helper without additional scope.",
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1, require_validation_contract=False))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    def _upgrade(*, issue, spec, sanitized_issue_body, repo_root):
+        spec.file_scope_hints = ["aragora/swarm/helper.py"]
+        return spec
+
+    with (
+        patch(
+            "aragora.swarm.boss_loop.dispatch_contract_gate",
+            return_value=None,
+        ),
+        patch(
+            "aragora.swarm.dispatch_followups.maybe_upgrade_dispatch_spec",
+            side_effect=_upgrade,
+        ) as upgrade_mock,
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    upgrade_mock.assert_called_once()
+    dispatch_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_attaches_conductor_followup_to_failed_result() -> None:
+    issue = _make_issue(1705, "Dispatch failed")
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "failed", "error": "boom"}),
+        ),
+        patch(
+            "aragora.swarm.dispatch_followups.annotate_result_with_conductor",
+            return_value={
+                "status": "failed",
+                "error": "boom",
+                "conductor_next_action": "retry_same",
+            },
+        ) as annotate_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["conductor_next_action"] == "retry_same"
+    annotate_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_dispatch_issue_preserves_pending_handoff_on_failed_result_with_malformed_run_id() -> (
     None
 ):
