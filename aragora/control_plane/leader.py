@@ -281,14 +281,14 @@ class LeaderElection:
             try:
                 await self._election_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[leader] Election task cancelled for node %s", self._config.node_id)
 
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
             try:
                 await self._heartbeat_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[leader] Heartbeat task cancelled for node %s", self._config.node_id)
 
         self._state = LeaderState.DISCONNECTED
         logger.info("[leader] Election stopped for node %s", self._config.node_id)
@@ -514,7 +514,9 @@ class _InMemoryRedis:
         self._data.pop(key, None)
 
     async def expire(self, key: str, seconds: int) -> None:
-        pass  # No-op for in-memory
+        # Intentional no-op: in-memory mock has no TTL expiration mechanism.
+        # Keys persist for the lifetime of the process (single-node only).
+        logger.debug("[leader] In-memory expire no-op for key %s (ttl=%ds)", key, seconds)
 
     async def hset(
         self,
