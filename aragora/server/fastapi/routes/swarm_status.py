@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
 DEFAULT_WINDOW = 50
+SUCCESS_TERMINAL_PREFIXES = ("success", "deliverable")
+
+
+def _is_success_terminal_class(terminal_class: str) -> bool:
+    """Return whether a terminal class counts as a truthful success."""
+    return terminal_class.startswith(SUCCESS_TERMINAL_PREFIXES)
 
 
 def _tail_jsonl(path: Path, max_lines: int) -> list[dict[str, Any]]:
@@ -73,7 +79,7 @@ def swarm_status_summary(
         issue_num = row.get("issue_number")
         if isinstance(issue_num, int):
             issues_attempted.add(issue_num)
-            if tc and tc.startswith("success"):
+            if tc and _is_success_terminal_class(tc):
                 issues_succeeded.add(issue_num)
 
         # Collect failure reasons and blocker evidence (BC-03)
@@ -93,7 +99,7 @@ def swarm_status_summary(
 
         latest_tick = row
 
-    success_count = sum(v for k, v in terminal_classes.items() if k.startswith("success"))
+    success_count = sum(v for k, v in terminal_classes.items() if _is_success_terminal_class(k))
 
     return {
         "status": "active",
