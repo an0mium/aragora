@@ -209,6 +209,34 @@ def test_resume_context_summarizes_prior_attempts() -> None:
     assert "AssertionError: blocker evidence missing" in text
 
 
+def test_resume_context_includes_repair_journal_details() -> None:
+    state = SessionState(
+        session_id="resume-journal-details",
+        phase="repair",
+        repair_journal=[
+            {
+                "at": "2026-04-13T11:00:00+00:00",
+                "worker_outcome": "merge_gate_failed",
+                "failure_reason": "merge_gate_failed",
+                "changed_paths": ["aragora/swarm/supervisor_workers.py"],
+                "blocker_evidence": "Quality Gates failed on lint-run",
+                "failing_verification": {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "exit_code": 1,
+                    "stderr_tail": "AssertionError: boom",
+                },
+            }
+        ],
+    )
+
+    text = state.resume_context()
+
+    assert "Repair journal entries available: 1" in text
+    assert "merge_gate_failed" in text
+    assert "python -m pytest tests/swarm/test_supervisor.py -q" in text
+    assert "Quality Gates failed on lint-run" in text
+
+
 def test_blocker_evidence_roundtrips_through_serialization() -> None:
     state = SessionState(
         session_id="blocker-roundtrip", blocker_evidence="pytest timed out on lane"
@@ -299,6 +327,62 @@ def test_record_session_state_syncs_branch_pr_and_blocker_metadata(
     assert restored is not None
     assert restored.pr_url == "https://github.com/synaptent/aragora/pull/12345"
     assert restored.branch_name == "claude/bc01-lifecycle"
+
+
+def test_record_session_state_persists_terminal_attempt_and_publish_phase(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    work_order = {
+        "work_order_id": "wo-publish",
+        "issue_number": 5515,
+        "target_agent": "codex",
+        "branch": "codex/bc01-publish-phase",
+        "worktree_path": "/tmp/codex-bc01-publish-phase",
+        "status": "completed",
+        "worker_outcome": "completed",
+        "exit_code": 0,
+        "changed_paths": ["aragora/swarm/session_state.py"],
+        "stdout_tail": "worker output",
+        "stderr_tail": "",
+        "pr_url": "https://github.com/synaptent/aragora/pull/5515",
+        "review_status": "pending_heterogeneous_review",
+        "metadata": {
+            "supervisor_run_id": "run-publish",
+            "repair_journal": [
+                {
+                    "at": "2026-04-13T12:00:00+00:00",
+                    "worker_outcome": "completed",
+                    "failure_reason": "merge_gate_failed",
+                    "changed_paths": ["aragora/swarm/session_state.py"],
+                    "blocker_evidence": "Previous merge gate failure",
+                    "failing_verification": {
+                        "command": "python -m pytest tests/swarm/test_session_state.py -q",
+                        "exit_code": 1,
+                        "stderr_tail": "AssertionError: before retry",
+                    },
+                }
+            ],
+        },
+    }
+
+    _record_session_state(work_order, status="completed", phase="terminal")
+
+    session_data = work_order["metadata"]["session_state"]
+    assert session_data["phase"] == "publish"
+    assert session_data["repair_journal"][0]["failure_reason"] == "merge_gate_failed"
+    assert session_data["attempts"][-1]["worker_outcome"] == "completed"
+    assert session_data["attempts"][-1]["changed_files"] == ["aragora/swarm/session_state.py"]
+    assert session_data["attempts"][-1]["failing_verification"]["command"] == (
+        "python -m pytest tests/swarm/test_session_state.py -q"
+    )
+
+    store = SessionStateStore()
+    restored = store.load("swarm-wo-publish")
+    assert restored is not None
+    assert restored.phase == "publish"
+    assert restored.repair_journal[0]["blocker_evidence"] == "Previous merge gate failure"
+    assert restored.attempts[-1]["stdout_tail"] == "worker output"
 
 
 def test_classify_session_blocker_import_error() -> None:

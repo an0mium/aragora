@@ -81,6 +81,12 @@ def _coerce_path_list(value: Any) -> list[str]:
     return [str(item).strip() for item in value if str(item).strip()]
 
 
+def _coerce_dict(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    return dict(value)
+
+
 @dataclass(slots=True)
 class SessionState:
     """Durable local session metadata for future retry/repair orchestration."""
@@ -175,6 +181,11 @@ class SessionState:
         changed_files: list[str] | tuple[str, ...] | set[str] | None,
         test_output: str | None,
         worker_outcome: str | None,
+        *,
+        failure_reason: str | None = None,
+        failing_verification: Mapping[str, Any] | None = None,
+        stdout_tail: str | None = None,
+        stderr_tail: str | None = None,
     ) -> dict[str, Any]:
         attempt = {
             "at": _utcnow().isoformat(),
@@ -182,6 +193,10 @@ class SessionState:
             "changed_files": _coerce_path_list(changed_files),
             "test_output": _optional_text(test_output),
             "worker_outcome": _optional_text(worker_outcome),
+            "failure_reason": _optional_text(failure_reason),
+            "failing_verification": _coerce_dict(failing_verification),
+            "stdout_tail": _optional_text(stdout_tail),
+            "stderr_tail": _optional_text(stderr_tail),
         }
         self.attempts.append(attempt)
         self.retry_count = max(self.retry_count, len(self.attempts))
@@ -224,16 +239,59 @@ class SessionState:
                 worker_outcome = _optional_text(attempt.get("worker_outcome"))
                 if worker_outcome:
                     summary.append(worker_outcome)
+                failure_reason = _optional_text(attempt.get("failure_reason"))
+                if failure_reason:
+                    summary.append(f"reason={failure_reason}")
                 changed = _coerce_path_list(attempt.get("changed_files"))
                 if changed:
                     summary.append(f"changed={', '.join(changed[:5])}")
                 lines.append(f"- Attempt {index}: {', '.join(summary) if summary else 'recorded'}")
+                failing = _coerce_dict(attempt.get("failing_verification"))
+                if failing:
+                    command = _optional_text(failing.get("command"))
+                    if command:
+                        lines.append(
+                            f"  Failing verification: {command} (exit {failing.get('exit_code')})"
+                        )
+                    stderr_tail = _optional_text(failing.get("stderr_tail"))
+                    if stderr_tail:
+                        lines.append(f"  Verification stderr: {stderr_tail[-240:]}")
                 test_output = _optional_text(attempt.get("test_output"))
                 if test_output:
-                    lines.append(f"  Test output: {test_output[-240:]}")
+                    lines.append(f"  Evidence: {test_output[-240:]}")
+                stderr_tail = _optional_text(attempt.get("stderr_tail"))
+                if stderr_tail:
+                    lines.append(f"  stderr: {stderr_tail[-240:]}")
+                stdout_tail = _optional_text(attempt.get("stdout_tail"))
+                if stdout_tail:
+                    lines.append(f"  stdout: {stdout_tail[-240:]}")
 
         if self.repair_journal:
             lines.append(f"Repair journal entries available: {len(self.repair_journal)}")
+            for entry in self.repair_journal[-2:]:
+                at = _optional_text(entry.get("at"))
+                worker_outcome = _optional_text(entry.get("worker_outcome"))
+                failure_reason = _optional_text(entry.get("failure_reason"))
+                header_parts = [part for part in [worker_outcome, failure_reason] if part]
+                header = f"- Repair {at}: " if at else "- Repair: "
+                header += ", ".join(header_parts) if header_parts else "recorded"
+                lines.append(header)
+                failing = _coerce_dict(entry.get("failing_verification"))
+                if failing:
+                    command = _optional_text(failing.get("command"))
+                    if command:
+                        lines.append(
+                            f"  Failing verification: {command} (exit {failing.get('exit_code')})"
+                        )
+                    stderr_tail = _optional_text(failing.get("stderr_tail"))
+                    if stderr_tail:
+                        lines.append(f"  Verification stderr: {stderr_tail[-240:]}")
+                blocker = _optional_text(entry.get("blocker_evidence"))
+                if blocker:
+                    lines.append(f"  Blocker evidence: {blocker[-240:]}")
+                changed = _coerce_path_list(entry.get("changed_paths"))
+                if changed:
+                    lines.append(f"  Changed: {', '.join(changed[:5])}")
 
         return "\n".join(lines).strip()
 
@@ -243,6 +301,15 @@ class SessionState:
 
     def clear_blocker(self) -> None:
         self.blocker_evidence = None
+        self.touch()
+
+    def sync_repair_journal(self, entries: Any, *, max_entries: int = 3) -> None:
+        if not isinstance(entries, list):
+            return
+        normalized = [dict(entry) for entry in entries if isinstance(entry, Mapping)]
+        if not normalized:
+            return
+        self.repair_journal = normalized[-max_entries:]
         self.touch()
 
 

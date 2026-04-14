@@ -34,6 +34,144 @@ _strict_bool = _supervisor._strict_bool
 CHAIN_WAVE_SUMMARY_METADATA_KEY = "chain_wave_summary"
 
 
+def _coerce_int(value: Any) -> int | None:
+    if value in {None, ""}:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _latest_repair_entry(metadata: dict[str, Any]) -> dict[str, Any]:
+    raw_entries = metadata.get("repair_journal")
+    if not isinstance(raw_entries, list):
+        return {}
+    for entry in reversed(raw_entries):
+        if isinstance(entry, dict):
+            return dict(entry)
+    return {}
+
+
+def _session_phase_from_work_order(
+    work_order: dict[str, Any],
+    *,
+    requested_phase: str | None,
+    requested_status: str | None,
+    metadata: dict[str, Any],
+) -> str:
+    phase = str(requested_phase or "").strip().lower()
+    if phase == "fallback":
+        return "repair"
+    if phase and phase != "terminal":
+        return phase
+
+    has_pr = bool(str(work_order.get("pr_url", "") or work_order.get("adopted_pr", "")).strip())
+    review_status = str(
+        work_order.get("review_status", "") or metadata.get("review_status", "")
+    ).strip()
+    has_verification = bool(work_order.get("verification_results") or work_order.get("tests_run"))
+    has_repair_journal = bool(metadata.get("repair_journal"))
+    has_blocker = bool(
+        str(work_order.get("blocker_evidence", "") or metadata.get("blocker_evidence", "")).strip()
+    )
+    status = str(requested_status or work_order.get("status", "")).strip().lower()
+
+    if has_pr or review_status in {
+        "pending",
+        "pending_heterogeneous_review",
+        "changes_requested",
+        "approved",
+    }:
+        return "publish"
+    if status in {"retrying", "failed", "needs_human"} or has_blocker or has_repair_journal:
+        return "repair"
+    if has_verification:
+        return "verify"
+    return phase or "dispatch"
+
+
+def _record_attempt_from_work_order(
+    session: Any,
+    work_order: dict[str, Any],
+    *,
+    metadata: dict[str, Any],
+    exit_code: int | None,
+    worker_outcome: str | None,
+    changed_files: list[str] | None,
+    test_output: str | None,
+) -> None:
+    latest_repair = _latest_repair_entry(metadata)
+    effective_exit_code = exit_code
+    if effective_exit_code is None:
+        effective_exit_code = _coerce_int(latest_repair.get("exit_code"))
+    if effective_exit_code is None:
+        effective_exit_code = _coerce_int(work_order.get("exit_code"))
+
+    effective_worker_outcome = (
+        worker_outcome
+        or str(
+            latest_repair.get("worker_outcome", "") or work_order.get("worker_outcome", "")
+        ).strip()
+    )
+    effective_changed_files = changed_files or list(
+        latest_repair.get("changed_paths", []) or work_order.get("changed_paths", []) or []
+    )
+    failure_reason = (
+        str(
+            latest_repair.get("failure_reason", "")
+            or work_order.get("failure_reason", "")
+            or metadata.get("last_failure_reason", "")
+        ).strip()
+        or None
+    )
+    failing_verification = latest_repair.get("failing_verification")
+    stdout_tail = (
+        str(latest_repair.get("stdout_tail", "") or work_order.get("stdout_tail", "")).strip()
+        or None
+    )
+    stderr_tail = (
+        str(latest_repair.get("stderr_tail", "") or work_order.get("stderr_tail", "")).strip()
+        or None
+    )
+    effective_test_output = (
+        str(test_output or "").strip()
+        or str(
+            latest_repair.get("blocker_evidence", "")
+            or work_order.get("blocker_evidence", "")
+            or metadata.get("blocker_evidence", "")
+        ).strip()
+        or None
+    )
+
+    if not any(
+        [
+            effective_exit_code is not None,
+            effective_worker_outcome,
+            effective_changed_files,
+            effective_test_output,
+            failure_reason,
+            isinstance(failing_verification, dict),
+            stdout_tail,
+            stderr_tail,
+        ]
+    ):
+        return
+
+    session.record_attempt(
+        exit_code=effective_exit_code,
+        changed_files=effective_changed_files,
+        test_output=effective_test_output,
+        worker_outcome=effective_worker_outcome,
+        failure_reason=failure_reason,
+        failing_verification=failing_verification
+        if isinstance(failing_verification, dict)
+        else None,
+        stdout_tail=stdout_tail,
+        stderr_tail=stderr_tail,
+    )
+
+
 def _record_session_state(
     work_order: dict[str, Any],
     *,
@@ -115,10 +253,15 @@ def _record_session_state(
             "review_status": str(work_order.get("review_status", "")).strip() or None,
         }
         session.metadata.update({key: value for key, value in selected_metadata.items() if value})
+        session.sync_repair_journal(metadata.get("repair_journal"))
         if status:
             session.status = status
-        if phase:
-            session.phase = phase
+        session.phase = _session_phase_from_work_order(
+            work_order,
+            requested_phase=phase,
+            requested_status=status,
+            metadata=metadata,
+        )
         effective_blocker_evidence = (
             blocker_evidence
             or str(
@@ -127,13 +270,15 @@ def _record_session_state(
         )
         if effective_blocker_evidence:
             session.set_blocker(effective_blocker_evidence)
-        if exit_code is not None or worker_outcome:
-            session.record_attempt(
-                exit_code=exit_code,
-                changed_files=changed_files or [],
-                test_output=(test_output or "")[-800:],
-                worker_outcome=worker_outcome,
-            )
+        _record_attempt_from_work_order(
+            session,
+            work_order,
+            metadata=metadata,
+            exit_code=exit_code,
+            worker_outcome=worker_outcome,
+            changed_files=changed_files or [],
+            test_output=(test_output or "")[-800:],
+        )
 
         store = SessionStateStore()
         store.save(session)
