@@ -26,6 +26,23 @@ repo — editing files in the main directory causes concurrent overwrites.
 3. **Background cleanup** — A LaunchAgent runs every 5 minutes, reconciling worktrees with main
    (merge strategy) and cleaning up stale ones after 24h. Branches are auto-deleted after merge.
 
+### Worktree cleanup (IMPORTANT)
+
+**NEVER** use raw `find .worktrees -exec rm -rf` or similar ad-hoc deletion.
+This destroys active worktrees with uncommitted work. Always use the safe helpers:
+
+```bash
+# Safe cleanup (preferred) — respects TTL, checks merge status
+python3 scripts/codex_worktree_autopilot.py cleanup --base main --ttl-hours 24
+
+# Per-worktree safe removal — checks for blockers first
+python3 scripts/safe_worktree_cleanup.py inspect <worktree-path>
+python3 scripts/safe_worktree_cleanup.py remove <worktree-path>
+
+# Minimal safe option — only prunes already-deleted directories
+git worktree prune --expire=now
+```
+
 ### Manual worktree commands
 
 - `./scripts/codex_session.sh` — Legacy session bootstrap (creates worktree + metadata)
@@ -172,7 +189,7 @@ Aragora is the **Decision Integrity Platform** -- orchestrating 43 agent types t
 
 **Five Pillars:** (1) SMB-ready with enterprise-grade security, (2) leading-edge memory and context processing, (3) extensible/modular with broad connectors and SDKs, (4) multi-agent robustness via heterogeneous model consensus, (5) self-healing and self-extending via the Nomic Loop.
 
-**Codebase Scale:** 3,000+ Python modules | 153,000+ tests | 5,000+ test files | 210+ debate modules | 3,000+ API operations across 2,700+ paths | 42 registered KM adapters | 185 Python / 183 TypeScript SDK namespaces
+**Codebase Scale:** 3,000+ Python modules | 154,000+ tests | 5,000+ test files | 210+ debate modules | 3,000+ API operations across 2,700+ paths | 42 registered KM adapters | 185 Python / 183 TypeScript SDK namespaces
 
 ## Architecture
 
@@ -420,7 +437,7 @@ See `docs/reference/ENVIRONMENT.md` for full reference.
 
 ## Feature Status
 
-**Test Suite:** 153,000+ tests across 5,000+ test files
+**Test Suite:** 154,000+ tests across 5,000+ test files
 
 **Core (stable):**
 - Debate orchestration (Arena, consensus, convergence)

@@ -1,309 +1,168 @@
-# Aragora -- The Decision Integrity Platform
+# Aragora -- Commercial Overview
 
-*Version 2.8.0 | Commercial Overview*
-*Status: Internal snapshot; metrics are directional unless sourced in docs/STATUS.md.*
+*Status: Internal positioning snapshot aligned to the current execution gate.*
+*Last updated: 2026-04-14.*
 
 ## Executive Summary
 
-Aragora is the **Decision Integrity Platform** -- orchestrating 43 agent types to adversarially vet decisions against your organization's knowledge, then delivering audit-ready decision receipts to any channel.
-
-**You don't just get an answer. You get a defensible decision trail.**
-
-Unlike chatbots, Aragora builds institutional memory with full audit trails. Vetted decisionmaking is the engine. The product is a defensible decision record.
-
----
-
-## Five Pillars
-
-Aragora is built on five architectural commitments that together produce something no single-model tool can offer.
-
-| Pillar | What It Means |
-|--------|---------------|
-| **1. SMB-Ready, Enterprise-Grade** | Useful to a 5-person startup on day one; scales to regulated enterprise without rearchitecting. Security and compliance built in, not bolted on. |
-| **2. Leading-Edge Memory and Context** | 4-tier Continuum Memory, Knowledge Mound (42 registered adapter specs), unified memory gateway, and RLM context management enable coherence across long multi-round sessions and large document sets. |
-| **3. Extensible and Modular** | Connectors, SDKs (Python 186 namespaces + TypeScript 185 namespaces), 3,000+ API operations, OpenClaw integration, workflow engine, marketplace. |
-| **4. Multi-Agent Robustness** | Heterogeneous agents (Claude, GPT, Gemini, Grok, Mistral, DeepSeek, Qwen, Kimi) produce outputs more robust, less biased, and higher quality than single models. |
-| **5. Self-Healing and Self-Extending** | Nomic Loop autonomous improvement, red-team stress-testing, multi-agent code editing with human approval gates. |
-
----
-
-## What Aragora Does
-
-| Capability | Description | Business Value |
-|------------|-------------|----------------|
-| **Omnivorous Input** | Ingest from documents, APIs, databases, web, voice | Single platform for all information sources |
-| **Multi-Channel Access** | Query via web, Slack, Telegram, WhatsApp, API | Meet users where they already work |
-| **Multi-Agent Consensus** | 43 heterogeneous agent types debate to conclusions | Diverse perspectives, defensible decisions |
-| **Bidirectional Dialogue** | Ask follow-ups, refine questions, drill into details | Interactive human-AI collaboration |
-| **Evidence Trails** | Cryptographic audit chains with provenance tracking | Compliance-ready documentation |
-| **Learn and Improve** | 4-tier memory with cross-session pattern learning | Continuously improving accuracy |
-
----
-
-## Core Value Proposition
-
-### For Engineering Leaders
-- **Reduce review bottlenecks**: AI agents provide first-pass critique 24/7
-- **Catch blind spots**: Different AI models notice different issues
-- **Accelerate decisions**: Get multi-perspective analysis in minutes, not days
-
-### For Compliance Officers
-- **Audit trails**: Every debate produces a cryptographic receipt
-- **Dissent tracking**: Know what was contested and why
-- **Provenance chains**: Trace every claim to its source
-
-### For Security Teams
-- **Adversarial testing**: Built-in red team mode attacks your specs
-- **Gauntlet mode**: Systematic stress-testing with risk heatmaps
-- **Pattern learning**: System remembers past vulnerabilities
-
----
-
-## Platform Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         ARAGORA PLATFORM                                 │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    AGENT LAYER (43 Agent Types)                   │   │
-│  │  Claude │ GPT │ Gemini │ Grok │ Mistral │ DeepSeek │ Qwen │ Kimi │   │
-│  │                     + Local Models (Ollama, LM Studio)            │   │
-│  └──────────────────────────────┬───────────────────────────────────┘   │
-│                                  ▼                                       │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    DEBATE ENGINE                                  │   │
-│  │  • 9-round structured protocol (Propose → Critique → Synthesize)  │   │
-│  │  • Graph debates with branching │ Matrix debates for scenarios    │   │
-│  │  • Consensus detection │ Convergence analysis │ Forking support   │   │
-│  └──────────────────────────────┬───────────────────────────────────┘   │
-│                                  ▼                                       │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    KNOWLEDGE LAYER                                │   │
-│  │  • Belief networks with Bayesian propagation                      │   │
-│  │  • Claims kernel with typed relationships                         │   │
-│  │  • Evidence provenance with hash chains                           │   │
-│  │  • Citation tracking and reliability scoring                      │   │
-│  └──────────────────────────────┬───────────────────────────────────┘   │
-│                                  ▼                                       │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    MEMORY SYSTEM (4 tiers)                        │   │
-│  │  Fast → Medium → Slow → Glacial                                   │   │
-│  │  • Surprise-based learning │ Consolidation scoring                │   │
-│  │  • Cross-session pattern extraction                               │   │
-│  └──────────────────────────────┬───────────────────────────────────┘   │
-│                                  ▼                                       │
-│  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │                    OUTPUT LAYER                                   │   │
-│  │  Decision Receipts │ Risk Heatmaps │ Dissent Trails │ Proofs     │   │
-│  └──────────────────────────────────────────────────────────────────┘   │
-│                                                                          │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Commercial Readiness Assessment
-
-### Overall: Strong pre-GA foundation
-
-| Category | Score | Status | Notes |
-|----------|-------|--------|-------|
-| Error Handling & Resilience | 98% | Ready | Circuit breakers, retry policies, graceful degradation |
-| Security & Authentication | 98% | Ready | OIDC/SAML SSO, MFA, SCIM 2.0, AES-256-GCM encryption |
-| Scalability & Performance | 95% | Ready | Connection pooling, caching, rate limiting |
-| Observability & Monitoring | 95% | Ready | Prometheus, Grafana, OpenTelemetry |
-| Testing & QA | 98% | Ready | 208,000+ tests across 4,300+ files |
-| Documentation | 95% | Ready | API docs, runbooks, compliance guides |
-| Compliance & Governance | 98% | Ready | RBAC v2 with 420+ permissions, 7 roles, role hierarchy |
-| SDK & Integrations | 98% | Ready | 186 Python / 185 TypeScript namespaces |
-| **OVERALL** | **Pre-GA** | **Substantial foundation** | Enterprise-grade features integrated; launch truthfulness and remaining readiness work still open |
-
-### Deployment Readiness
-
-- Docker container with non-root user
-- Kubernetes manifests in `/deploy/kubernetes/`
-- Health checks and readiness probes
-- Prometheus metrics endpoint
-- Grafana dashboards included
-
----
-
-## Key Differentiators
-
-### 1. Heterogeneous Agent Orchestration
-Unlike single-model solutions, Aragora runs debates across 43 agent types/providers. Different models catch different issues—Claude excels at reasoning, GPT at breadth, Gemini at design, Grok at lateral thinking.
-
-### 2. Audit-Ready Output
-Every debate produces a **Decision Receipt** with:
-- Cryptographic hash chain
-- Evidence provenance
-- Dissent tracking
-- Timestamp verification
-
-### 3. Adversarial Testing Built-In
-**Gauntlet Mode** provides systematic stress-testing:
-- Security red-team attacks
-- Devil's advocate logic testing
-- Scaling critic analysis
-- Compliance verification (GDPR, HIPAA, SOC 2, AI Act)
-
-### 4. Learning Memory System
-The 4-tier **Continuum Memory** enables:
-- Pattern extraction from successful critiques
-- Cross-session learning
-- Institutional knowledge accumulation
-- Surprise-based prioritization
-
-### 5. Enterprise-Grade Security
-- OIDC/SAML SSO integration
-- MFA support (TOTP/HOTP)
-- AES-256-GCM encryption at rest
-- Multi-tenant isolation with quotas
-
----
-
-## Use Cases
-
-### Specification Review
-```bash
-aragora gauntlet spec.md --profile thorough --output receipt.html
-```
-Stress-test API specifications, architecture documents, and technical designs before implementation.
-
-### Compliance Audit
-```bash
-aragora gauntlet policy.yaml --input-type policy --persona gdpr
-```
-Automated compliance checking against GDPR, HIPAA, SOC 2, and AI Act requirements.
-
-### Code Review
-```bash
-git diff main | aragora review
-```
-AI red-team review of pull requests with unanimous consensus highlighting.
-
-### Decision Validation
-```python
-from aragora import Arena, Environment, DebateProtocol
-
-env = Environment(task="Should we adopt microservices?")
-protocol = DebateProtocol(rounds=5, consensus="majority")
-arena = Arena(env, agents, protocol)
-result = await arena.run()
-```
-Structured debate for strategic decisions with evidence-based recommendations.
-
----
-
-## Platform Statistics
-
-| Metric | Source |
-|--------|--------|
-| Codebase size & tests | See `docs/STATUS.md` |
-| Agent catalog | `AGENTS.md` |
-| Connector catalog | `docs/CONNECTORS.md` |
-| Memory tiers | 4 (see `docs/MEMORY_TIERS.md`) |
-
----
-
-## Deployment Options
-
-### Self-Hosted
-- Docker Compose for single-node deployment
-- Kubernetes for scale-out deployment
-- Supports SQLite (dev) or PostgreSQL (prod)
-
-### Cloud
-- AWS Lightsail (current production)
-- Any Kubernetes-compatible cloud (AWS EKS, GCP GKE, Azure AKS)
-- Cloudflare Tunnel for secure ingress
-
-### Hybrid
-- On-premises control plane
-- Cloud-based agent APIs
-- Air-gapped deployment support
-
----
-
-## Integration Points
-
-### Chat Platforms
-- Slack (bot + connector)
-- Discord (bot + connector)
-- Microsoft Teams (bot + connector)
-- Google Chat (connector)
-
-### Data Sources
-- GitHub, GitLab
-- SharePoint, Confluence, Notion
-- ArXiv, Wikipedia, news APIs
-- Healthcare systems (HL7/FHIR)
-- SEC filings, legal databases
-
-### Observability
-- Prometheus metrics export
-- Grafana dashboards included
-- OpenTelemetry tracing
-- SIEM integration
-
----
-
-## Enterprise Readiness
-
-| Capability | Resolution | Status |
-|------------|------------|--------|
-| Fine-grained RBAC | RBAC v2 with 7 roles, 420+ permissions | Complete |
-| Automated backups | BackupManager with incremental support | Complete |
-| Bot handler consolidation | BotHandlerMixin across 8 platforms | Complete |
-| Python SDK | 186 namespaces with typed clients | Complete |
-| TypeScript SDK | 185 namespaces with full IntelliSense | Complete |
-| OpenClaw integration | Portable agent governance | Complete |
-| Knowledge Mound Phase A2 | Contradiction detection, confidence decay, RBAC governance | Complete |
-| SLA documentation | Legally-binding service levels | In Progress |
-| Distributed rate limiting | Redis-backed cluster-aware limiting | In Progress |
-
----
-
-## Pricing
-
-| Tier | Price | Target | Key Features |
-|------|-------|--------|--------------|
-| **Free** | $0 forever | Individual developers | 10 debates/month, 3 agents, demo mode, Markdown receipts |
-| **Pro** | $49/seat/month | SMB teams (5-50) | Unlimited debates, 10 agents, cryptographic signing, all exports, CI/CD, channels, memory, workflows |
-| **Enterprise** | Custom | Regulated orgs (50+) | Everything in Pro + SSO/MFA/SCIM, RBAC (390+), multi-tenancy, encryption, compliance, self-hosted, custom SLA |
-
-### BYOK Model
-Customers bring their own LLM provider API keys. Aragora does not mark up LLM costs. Near-zero COGS on the platform side -- infrastructure costs ~$5/customer/month. This produces 85%+ gross margins without the typical AI infrastructure cost burden.
-
----
-
-## Getting Started
-
-### Quick Start (5 minutes)
-```bash
-git clone https://github.com/synaptent/aragora.git
-cd aragora
-pip install -e .
-export ANTHROPIC_API_KEY=your-key
-aragora ask "Design a rate limiter" --agents anthropic-api,openai-api
-```
-
-### Production Deployment
-See [PRODUCTION_READINESS.md](../deployment/PRODUCTION_READINESS.md) for the complete checklist.
-
-### API Integration
-See [SDK_GUIDE.md](../SDK_GUIDE.md) for the Python SDK reference.
-
----
-
-## Contact
-
-- **Domain**: [aragora.ai](https://aragora.ai)
-- **Documentation**: [docs/](.)
-- **API Reference**: [API_REFERENCE.md](../api/API_REFERENCE.md)
-
----
-
-*Document generated from comprehensive codebase exploration. Feature counts verified against actual module inventory. Last updated: February 25, 2026.*
+Aragora is currently a control plane for **bounded autonomous software execution**.
+
+The commercial wedge is deliberately narrow:
+
+- take a bounded engineering task
+- run it through guarded autonomous execution
+- produce code, verification evidence, PR state, and operator-readable receipts
+- fail closed with explicit blocker evidence when autonomy should stop
+
+That is the truthful sellable surface today. The current story is not "general AI for every decision" and not "omnichannel enterprise automation for everything." The near-term value is making unattended execution on bounded software work **measurable, inspectable, and auditable**.
+
+## What Is True On `main`
+
+The claims below are the current proof base, not the long-term ambition.
+
+| Area | Current truth | Why it matters |
+|---|---|---|
+| Guarded execution substrate | Boss, supervisor, tranche, contract, and preflight paths exist on the live swarm lane. | The system can decide when a run is admissible instead of blindly attempting work. |
+| Benchmark truth | A fixed benchmark corpus is checked into the repo, and the tracked B0 cohort is running at **86.7%** no-rescue success as of 2026-04-13. | Progress claims are tied to a measured cohort instead of anecdotes. |
+| Truth artifacts | The repo has a diffable benchmark truth-artifact path and GitHub-truth reconciliation scripts. | Weekly or recurring reporting can stay tied to issue-level truth. |
+| Repair loop progress | Resume-from-state, repair lifecycle persistence, rescue logging, and bounded recovery planning are on `main`. | Repeated failures can increasingly be resumed, diagnosed, and productized instead of re-run cold. |
+| Operator truth | Preflight receipts, blocker evidence, and session-state work are materially underway and partially landed, but not yet fully closed across every live path. | This is the remaining gap between an impressive demo and a boring reliable product lane. |
+
+## Current Gate
+
+The current commercial gate is the same as the current execution gate in [NEXT_STEPS_CANONICAL.md](NEXT_STEPS_CANONICAL.md):
+
+- finish `RS-07` so receipt-backed preflight becomes the default admission truth
+- close the remaining truthful repair gaps in `BC-01` and `BC-03`
+- keep `TW-01`, `TW-02`, and `TW-03` publishing recurring corpus-linked truth
+- keep all external claims narrower than the measured proof
+
+This means Aragora should currently be positioned as:
+
+- a **guarded autonomous execution control plane** for bounded software tasks
+- a **truthful operator surface** that says what happened, what failed, and what to try next
+- a **measured benchmark system** for proving unattended execution on a fixed corpus
+
+## What Aragora Can Be Sold For Now
+
+### 1. Bounded engineering execution
+
+Aragora is strongest when the work is narrow, reviewable, and single-PR shaped:
+
+- focused bug fixes
+- bounded tests and validation work
+- safe code-generation loops with explicit verification
+- repair and retry on previously seen failure classes
+
+The operator value is not just "an AI wrote code." The value is:
+
+- the run is scoped
+- the run is checked before execution
+- the result is tied to receipts, verification, and PR truth
+- failure is explicit instead of silent
+
+### 2. Benchmark-backed autonomy proof
+
+Aragora can already support design-partner style proof loops where a team wants to know:
+
+- what percentage of bounded tasks complete without rescue
+- which failure classes repeat
+- whether repairs are becoming more truthful over time
+- whether autonomous progress is improving on a fixed corpus rather than a changing sample
+
+This is commercially useful for internal platform teams and founder-led design partners because it turns autonomy from a vibe into an operating metric.
+
+### 3. Operator-facing trust surface
+
+The system is increasingly useful as an operator control plane for:
+
+- admission truth
+- session and repair state
+- blocker evidence
+- benchmark scorecards
+- rescue-to-productization tracking
+
+That surface matters even before the system is fully autonomous, because it reduces the cost of supervising automation honestly.
+
+## Who This Is For Right Now
+
+The current wedge is best suited to:
+
+- engineering leaders who want bounded unattended execution on narrow backlogs
+- founders or staff engineers running repeated benchmark-style issue queues
+- internal platform teams that need receipts, blocker evidence, and fail-closed automation
+- design partners willing to operate on a narrow, measurable execution class first
+
+It is not yet best positioned as:
+
+- a broad cross-functional decision platform
+- a universal enterprise copilot across every channel
+- a generalized memory or knowledge operating system
+- a finished regulator-ready compliance suite
+
+## What Not To Claim Yet
+
+To stay truthful, external positioning should avoid these claims in the current tranche:
+
+- "enterprise-ready general decision platform"
+- "omnichannel AI operating system"
+- "fully autonomous software factory"
+- "broad multi-agent superiority across all workflows"
+- "compliance-complete platform for regulated industries"
+
+Those may be later-stage directions, but the current proof base is narrower. The commercial overview should stay narrower than the roadmap, not broader.
+
+## Longer-Term Direction
+
+The roadmap still supports a bigger business. The difference is sequencing.
+
+### Stage 1: Trusted bounded execution
+
+Prove that Aragora can repeatedly turn bounded tasks into:
+
+- guarded runs
+- truthful receipts
+- verification evidence
+- mergeable or merged PR outcomes
+
+### Stage 2: Adjacent operator loops
+
+Once the software-execution wedge is boringly reliable, extend the same substrate to:
+
+- inbox and operator action loops
+- prompt-to-spec handoff
+- thin truthful operator views backed by live receipts and state
+
+### Stage 3: Broader decision integrity platform
+
+Only after the wedge is proven and repeatable should Aragora broaden into the fuller long-horizon vision:
+
+- richer multi-agent decision workflows
+- broader channels and connectors
+- larger memory and context surfaces
+- wider organizational decision operations
+
+The long-term vision is still valid. The near-term positioning has to be earned by measured proof.
+
+## Commercial Positioning Guidance
+
+If a prospective customer asks what Aragora is today, the honest answer is:
+
+> Aragora is a control plane for guarded autonomous software execution on bounded work. It helps teams run narrow issue queues with receipts, verification evidence, blocker truth, and recurring benchmark measurement.
+
+If they ask what it can become, the honest answer is:
+
+> Aragora is being built toward a broader decision integrity platform, but the current go-to-market wedge is intentionally narrower: make bounded unattended execution reliable first, then expand from proved operator loops outward.
+
+## Proof Sources
+
+Use these documents as the canonical backing for commercial claims:
+
+- [NEXT_STEPS_CANONICAL.md](NEXT_STEPS_CANONICAL.md)
+- [ACTIVE_EXECUTION_ISSUES.md](ACTIVE_EXECUTION_ISSUES.md)
+- [ARAGORA_EVOLUTION_ROADMAP.md](../plans/ARAGORA_EVOLUTION_ROADMAP.md)
+- [docs/benchmarks/corpus.json](../benchmarks/corpus.json)
+- `scripts/build_benchmark_truth_artifact.py`
+- `scripts/reconcile_b0_pr_truth.py`
+
+If a claim cannot be tied back to those sources or to current `main`, it should not be in first-tranche commercial positioning.

@@ -1,131 +1,168 @@
 # Aragora Commercial Overview
 
-**Control plane for turning vague ideas into reviewed, auditable autonomous action.**
-**Last updated: April 9, 2026**
+**Internal positioning snapshot aligned to the current execution gate.**
+**Last updated: April 14, 2026**
 
 ## Executive Summary
 
-Aragora is building the Decision Integrity Platform and autonomous execution control plane.
+Aragora is currently a control plane for **bounded autonomous software execution**.
 
-We enter through a narrow wedge: reliable autonomous software execution for founders, technical leads, and small teams. Aragora takes a vague request, turns it into a reviewable spec, stress-tests the plan with heterogeneous agents, executes bounded work, verifies the result, and returns a receipt.
+The commercial wedge is deliberately narrow:
 
-Over time that wedge expands into a chief-of-staff layer and eventually an organization substrate for ideas, goals, actions, orchestration, and auditable memory.
+- take a bounded engineering task
+- run it through guarded autonomous execution
+- produce code, verification evidence, PR state, and operator-readable receipts
+- fail closed with explicit blocker evidence when autonomy should stop
 
-## Category
+That is the truthful sellable surface today. The current story is not "general AI for every decision" and not "omnichannel enterprise automation for everything." The near-term value is making unattended execution on bounded software work **measurable, inspectable, and auditable**.
 
-Aragora sits at the intersection of three categories:
+## What Is True On `main`
 
-1. **Decision Integrity Platform** — important decisions are debated, challenged, and receipted
-2. **Autonomous Execution Control Plane** — bounded work runs with contracts, verification, and human controls
-3. **SMB Operating System for Idea-to-Action** — small teams can translate messy intent into reliable autonomous work
+The claims below are the current proof base, not the long-term ambition.
 
-## Why This Wedge Wins Now
-
-The market shifted from “who can prompt best in chat” to “who can specify, coordinate, verify, and trust long-running agents.”
-
-Most teams do not need an abstract AGI narrative. They need:
-
-- help turning vague intent into a precise plan
-- autonomous execution that fails safely
-- receipts and evidence that make the work reviewable
-- optional intervention instead of all-or-nothing automation
-- memory that improves repeat work without becoming a security hole
-
-Software execution is the best first wedge because it is measurable, frequent, and easy to benchmark. That makes it the fastest path to trust.
-
-**Near-term proof bar:** benchmarked semi-autonomous software execution. The first claim to earn is that context-enriched workers can complete **50%+** of a fixed bounded issue corpus without human rescue and classify failures truthfully.
-
-## What the First Customer Actually Buys
-
-A customer buying Aragora today is buying a trust stack, not just a faster agent:
-
-- prompt-to-spec assistance
-- debate-validated plans
-- bounded autonomous execution
-- verification and repair loops
-- receipts, provenance, and dissent trails
-- optional human intervention at the level they choose
-- reusable memory and context for recurring work
-
-## Product Story by Stage
-
-| Stage | Buyer value | Product form |
+| Area | Current truth | Why it matters |
 |---|---|---|
-| **Tool** | Better one-shot outputs and review artifacts | Debate, review, prompt-to-spec, inbox triage |
-| **Teammate** | A bounded autonomous contributor | Scoped tasks with verification, receipts, and escalation |
-| **Foreman** | Coordination across many tasks and hosts | Backlog orchestration, operator controls, truthful status |
-| **Chief of Staff** | Goal translation, prioritization, and delegation | Planning, approvals, tradeoffs, portfolio reasoning |
-| **Organization Substrate** | Shared operating system for ideas to action | Unified DAG, memory fabric, auditable cross-functional workflows |
+| Guarded execution substrate | Boss, supervisor, tranche, contract, and preflight paths exist on the live swarm lane. | The system can decide when a run is admissible instead of blindly attempting work. |
+| Benchmark truth | A fixed benchmark corpus is checked into the repo, and the tracked B0 cohort is running at **86.7%** no-rescue success as of 2026-04-13. | Progress claims are tied to a measured cohort instead of anecdotes. |
+| Truth artifacts | The repo has a diffable benchmark truth-artifact path and GitHub-truth reconciliation scripts. | Weekly or recurring reporting can stay tied to issue-level truth. |
+| Repair loop progress | Resume-from-state, repair lifecycle persistence, rescue logging, and bounded recovery planning are on `main`. | Repeated failures can increasingly be resumed, diagnosed, and productized instead of re-run cold. |
+| Operator truth | Preflight receipts, blocker evidence, and session-state work are materially underway and partially landed, but not yet fully closed across every live path. | This is the remaining gap between an impressive demo and a boring reliable product lane. |
 
-## Ideal Customers
+## Current Gate
 
-### 1. Founder / Technical Lead (2–50 people)
+The current commercial gate is the same as the current execution gate in [status/NEXT_STEPS_CANONICAL.md](status/NEXT_STEPS_CANONICAL.md):
 
-Wants more output without hiring a large team, but cannot tolerate black-box automation. Values visibility, receipts, and control.
+- finish `RS-07` so receipt-backed preflight becomes the default admission truth
+- close the remaining truthful repair gaps in `BC-01` and `BC-03`
+- keep `TW-01`, `TW-02`, and `TW-03` publishing recurring corpus-linked truth
+- keep all external claims narrower than the measured proof
 
-### 2. Engineering-Led SMB (10–200 people)
+This means Aragora should currently be positioned as:
 
-Needs repeatable spec, review, implementation, and verification loops. Values trustworthy throughput over raw model demos.
+- a **guarded autonomous execution control plane** for bounded software tasks
+- a **truthful operator surface** that says what happened, what failed, and what to try next
+- a **measured benchmark system** for proving unattended execution on a fixed corpus
 
-### 3. Operations-Heavy SMB or Agency
+## What Aragora Can Be Sold For Now
 
-Wants the same control plane for inbox, support, policy, and internal operations once the software wedge is proven.
+### 1. Bounded engineering execution
 
-### 4. Regulated Teams (Later Motion)
+Aragora is strongest when the work is narrow, reviewable, and single-PR shaped:
 
-Care about audit trails, policy gates, air-gapped deployment, and compliance bundles. This becomes a stronger motion after the wedge is already repeatable.
+- focused bug fixes
+- bounded tests and validation work
+- safe code-generation loops with explicit verification
+- repair and retry on previously seen failure classes
 
-## Why Aragora Instead of Existing Alternatives?
+The operator value is not just "an AI wrote code." The value is:
 
-| Alternative | What it does well | Where Aragora differs |
-|---|---|---|
-| Chatbots | Fast answers | Aragora is about reviewed action, not conversation |
-| Coding agents | Rapid code generation | Aragora adds contracts, verification, receipts, and multi-host coordination |
-| Workflow tools | Deterministic automation | Aragora handles underspecified intent and reviewable agent work |
-| Governance/compliance tools | Policy and audit after the fact | Aragora makes receipts and dissent part of the execution path |
-| Cooperative agent frameworks | Task collaboration | Aragora's default stance is adversarial validation plus operator control |
+- the run is scoped
+- the run is checked before execution
+- the result is tied to receipts, verification, and PR truth
+- failure is explicit instead of silent
 
-## What We Can Claim Now vs. Later
+### 2. Benchmark-backed autonomy proof
 
-### Claims We Should Make Now
+Aragora can already support design-partner style proof loops where a team wants to know:
 
-- Aragora helps translate vague work into reviewable specs and bounded execution
-- Aragora can preserve receipts, provenance, and human control around agentic work
-- Aragora is proving benchmarked semi-autonomous software execution with a truthful operator control plane
+- what percentage of bounded tasks complete without rescue
+- which failure classes repeat
+- whether repairs are becoming more truthful over time
+- whether autonomous progress is improving on a fixed corpus rather than a changing sample
 
-### Claims We Should Earn Before Making Loudly
+This is commercially useful for internal platform teams and founder-led design partners because it turns autonomy from a vibe into an operating metric.
 
-- long unattended multi-host operation with low rescue overhead
-- chief-of-staff behavior across multiple projects and workflows
-- broad cross-functional operating-system coverage
-- deep vertical packaging for regulated industries
+### 3. Operator-facing trust surface
 
-## Commercial Motion
+The system is increasingly useful as an operator control plane for:
 
-1. Land with reliable autonomous software execution
-2. Expand to adjacent operator loops such as inbox, policy, and review flows
-3. Use GUI/control-plane and memory advantages as retention multipliers
-4. Package vertical and enterprise surfaces after repeatable wedge proof exists
+- admission truth
+- session and repair state
+- blocker evidence
+- benchmark scorecards
+- rescue-to-productization tracking
 
-## Packaging Logic
+That surface matters even before the system is fully autonomous, because it reduces the cost of supervising automation honestly.
 
-The commercial story should mirror the stage model:
+## Who This Is For Right Now
 
-- **Starter / Tool** — individual or small-team use for bounded review and execution loops
-- **Team / Teammate** — scoped autonomous contributors with receipts and approvals
-- **Ops / Foreman** — multi-host coordination, truthful operator views, and workflow reuse
-- **Enterprise / Substrate** — deployment controls, compliance, policy gates, and organization-wide workflows
+The current wedge is best suited to:
 
-The BYOK model remains strategically important: customers bring model keys, Aragora provides orchestration, trust, and leverage.
+- engineering leaders who want bounded unattended execution on narrow backlogs
+- founders or staff engineers running repeated benchmark-style issue queues
+- internal platform teams that need receipts, blocker evidence, and fail-closed automation
+- design partners willing to operate on a narrow, measurable execution class first
 
-## Durable Differentiators
+It is not yet best positioned as:
 
-- heterogeneous adversarial consensus rather than single-model trust
-- receipt-backed execution and decision provenance
-- unified DAG plus optional human interaction depth
-- permissioned memory and large-context handling
-- one substrate for execution, control, and self-improvement
+- a broad cross-functional decision platform
+- a universal enterprise copilot across every channel
+- a generalized memory or knowledge operating system
+- a finished regulator-ready compliance suite
 
-## Positioning Constraint
+## What Not To Claim Yet
 
-The company should market the broad vision, but sell the narrow proof. External positioning should always trail what the product can already do repeatably on real work.
+To stay truthful, external positioning should avoid these claims in the current tranche:
+
+- "enterprise-ready general decision platform"
+- "omnichannel AI operating system"
+- "fully autonomous software factory"
+- "broad multi-agent superiority across all workflows"
+- "compliance-complete platform for regulated industries"
+
+Those may be later-stage directions, but the current proof base is narrower. The commercial overview should stay narrower than the roadmap, not broader.
+
+## Longer-Term Direction
+
+The roadmap still supports a bigger business. The difference is sequencing.
+
+### Stage 1: Trusted bounded execution
+
+Prove that Aragora can repeatedly turn bounded tasks into:
+
+- guarded runs
+- truthful receipts
+- verification evidence
+- mergeable or merged PR outcomes
+
+### Stage 2: Adjacent operator loops
+
+Once the software-execution wedge is boringly reliable, extend the same substrate to:
+
+- inbox and operator action loops
+- prompt-to-spec handoff
+- thin truthful operator views backed by live receipts and state
+
+### Stage 3: Broader decision integrity platform
+
+Only after the wedge is proven and repeatable should Aragora broaden into the fuller long-horizon vision:
+
+- richer multi-agent decision workflows
+- broader channels and connectors
+- larger memory and context surfaces
+- wider organizational decision operations
+
+The long-term vision is still valid. The near-term positioning has to be earned by measured proof.
+
+## Commercial Positioning Guidance
+
+If a prospective customer asks what Aragora is today, the honest answer is:
+
+> Aragora is a control plane for guarded autonomous software execution on bounded work. It helps teams run narrow issue queues with receipts, verification evidence, blocker truth, and recurring benchmark measurement.
+
+If they ask what it can become, the honest answer is:
+
+> Aragora is being built toward a broader decision integrity platform, but the current go-to-market wedge is intentionally narrower: make bounded unattended execution reliable first, then expand from proved operator loops outward.
+
+## Proof Sources
+
+Use these documents as the canonical backing for commercial claims:
+
+- [status/NEXT_STEPS_CANONICAL.md](status/NEXT_STEPS_CANONICAL.md)
+- [status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md)
+- [plans/ARAGORA_EVOLUTION_ROADMAP.md](plans/ARAGORA_EVOLUTION_ROADMAP.md)
+- [benchmarks/corpus.json](benchmarks/corpus.json)
+- `scripts/build_benchmark_truth_artifact.py`
+- `scripts/reconcile_b0_pr_truth.py`
+
+If a claim cannot be tied back to those sources or to current `main`, it should not be in first-tranche commercial positioning.
