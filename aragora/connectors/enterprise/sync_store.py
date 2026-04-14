@@ -57,10 +57,10 @@ try:
         get_encryption_service,
         is_encryption_required,
         EncryptionError,
-        CRYPTO_AVAILABLE,
+        CRYPTO_AVAILABLE,  # type: ignore[no-redef]
     )
 except ImportError:
-    CRYPTO_AVAILABLE = False
+    # CRYPTO_AVAILABLE stays False from line 53
 
     def _fallback_get_encryption_service() -> Any:
         raise RuntimeError("Encryption not available")

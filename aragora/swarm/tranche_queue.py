@@ -2229,7 +2229,7 @@ class TrancheQueueExecutor:
             item_state.recommended_action = "plan-queue"
             item_state.set_blocker(
                 reason=f"design_review_{design_review_recommendation or 'awaiting_confirmation'}",
-                question=_design_review_blocking_question(design_review_payload),
+                question=_design_review_blocking_question(design_review_payload or {}),  # type: ignore[arg-type]
             )
             item_state.finished_at = _utcnow()
             self._append_finding(
@@ -2375,7 +2375,7 @@ class TrancheQueueExecutor:
         if not ready_to_execute or not _queue_item_is_execution_ready(item_state):
             return None
 
-        manifest_path = Path(item_state.manifest_path).resolve()
+        manifest_path = Path(item_state.manifest_path or "").resolve()
         tranche_manifest = load_tranche_manifest(manifest_path)
         self._persist_item_progress(
             manifest=manifest,
