@@ -27,6 +27,7 @@ Stability: STABLE
 
 from __future__ import annotations
 
+import binascii
 import hashlib
 import logging
 import mimetypes
@@ -931,7 +932,7 @@ class CloudStorageHandler(BaseHandler):
 
         try:
             data = base64.b64decode(content_b64, validate=True)
-        except (ValueError, TypeError, base64.binascii.Error):
+        except (ValueError, TypeError, binascii.Error):
             return error_response("Invalid base64 content", 400)
 
         # Check file size

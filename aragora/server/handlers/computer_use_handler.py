@@ -45,66 +45,51 @@ from aragora.server.http_utils import run_async
 from aragora.server.validation.query_params import safe_query_int
 
 if TYPE_CHECKING:
-    from aragora.rbac import AuthorizationContext
+    from aragora.rbac import AuthorizationContext as AuthorizationContextType
     from aragora.computer_use import (
-        ComputerUseOrchestrator,
+        ComputerUseOrchestrator as ComputerUseOrchestratorType,
     )
-
-# RBAC imports - runtime fallback
-_AuthorizationContext: Any = None
-_check_permission: Any = None
-_extract_user_from_request: Any = None
+else:
+    AuthorizationContextType = Any
+    ComputerUseOrchestratorType = Any
 
 try:
     from aragora.rbac import (
-        AuthorizationContext as _AuthorizationContext,
-        check_permission as _check_permission,
+        AuthorizationContext,
+        check_permission,
     )
     from aragora.billing.jwt_auth import (
-        extract_user_from_request as _extract_user_from_request,
+        extract_user_from_request,
     )
 
     RBAC_AVAILABLE = True
 except ImportError:
     RBAC_AVAILABLE = False
+    AuthorizationContext = None  # type: ignore[misc,assignment]
+    check_permission = None  # type: ignore[assignment]
+    extract_user_from_request = None  # type: ignore[assignment]
 
 from aragora.server.handlers.utils.rbac_guard import rbac_fail_closed
 
-# Expose RBAC symbols for patching in tests
-AuthorizationContext = _AuthorizationContext  # type: ignore[misc]
-check_permission = _check_permission
-extract_user_from_request = _extract_user_from_request
-
-# Computer Use imports - runtime fallback
-_ComputerUseOrchestrator: Any = None
-_ComputerUseConfig: Any = None
-_ComputerPolicy: Any = None
-_create_default_computer_policy: Any = None
-_TaskResult: Any = None
-_TaskStatus: Any = None
-_ApprovalStatus: Any = None
-
 try:
     from aragora.computer_use import (
-        ComputerUseOrchestrator as _ComputerUseOrchestrator,
-        ComputerUseConfig as _ComputerUseConfig,
-        create_default_computer_policy as _create_default_computer_policy,
+        ComputerUseOrchestrator,
+        ComputerUseConfig,
+        create_default_computer_policy,
     )
     from aragora.computer_use.orchestrator import (
-        TaskStatus as _TaskStatus,
+        TaskStatus,
     )
-    from aragora.computer_use.approval import ApprovalStatus as _ApprovalStatus
+    from aragora.computer_use.approval import ApprovalStatus
 
     COMPUTER_USE_AVAILABLE = True
 except ImportError:
     COMPUTER_USE_AVAILABLE = False
-
-# Expose computer-use symbols for patching in tests
-ComputerUseOrchestrator = _ComputerUseOrchestrator  # type: ignore[misc]
-ComputerUseConfig = _ComputerUseConfig
-create_default_computer_policy = _create_default_computer_policy
-TaskStatus = _TaskStatus
-ApprovalStatus = _ApprovalStatus
+    ComputerUseOrchestrator = None  # type: ignore[misc,assignment]
+    ComputerUseConfig = None  # type: ignore[assignment]
+    create_default_computer_policy = None  # type: ignore[assignment]
+    TaskStatus = None  # type: ignore[assignment]
+    ApprovalStatus = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +116,7 @@ class ComputerUseHandler(BaseHandler):
 
     def __init__(self, server_context: Any) -> None:
         super().__init__(server_context)
-        self._orchestrator: ComputerUseOrchestrator | None = None
+        self._orchestrator: ComputerUseOrchestratorType | None = None
         self._storage: ComputerUseStorage | None = None
         self._approval_workflow: Any | None = None
 
@@ -141,7 +126,7 @@ class ComputerUseHandler(BaseHandler):
             self._storage = get_computer_use_storage()
         return self._storage
 
-    def _get_orchestrator(self) -> ComputerUseOrchestrator | None:
+    def _get_orchestrator(self) -> ComputerUseOrchestratorType | None:
         """Get or create computer use orchestrator."""
         if not COMPUTER_USE_AVAILABLE:
             return None
@@ -165,7 +150,7 @@ class ComputerUseHandler(BaseHandler):
         """Get user store from context."""
         return self.ctx.get("user_store")
 
-    def _get_auth_context(self, handler: Any) -> AuthorizationContext | None:
+    def _get_auth_context(self, handler: Any) -> AuthorizationContextType | None:
         """Build AuthorizationContext from request."""
         if not RBAC_AVAILABLE or AuthorizationContext is None:
             # Fail closed in production - caller must handle None with rbac_fail_closed()
@@ -348,6 +333,8 @@ class ComputerUseHandler(BaseHandler):
         body, error = self.read_json_object_or_error(handler)
         if error:
             return error
+        if body is None:
+            return error_response("JSON object body is required", 400)
 
         goal = body.get("goal")
         if not isinstance(goal, str) or not goal.strip():
@@ -545,6 +532,8 @@ class ComputerUseHandler(BaseHandler):
         body, error = self.read_json_object_or_error(handler)
         if error:
             return error
+        if body is None:
+            return error_response("JSON object body is required", 400)
 
         name = body.get("name")
         if not isinstance(name, str) or not name.strip():
@@ -661,6 +650,8 @@ class ComputerUseHandler(BaseHandler):
         body, error = self.read_json_object_or_error(handler)
         if error:
             return error
+        if body is None:
+            return error_response("JSON object body is required", 400)
         reason = body.get("reason")
         if reason is not None and not isinstance(reason, str):
             return error_response("reason must be a string", 400)
@@ -690,6 +681,8 @@ class ComputerUseHandler(BaseHandler):
         body, error = self.read_json_object_or_error(handler)
         if error:
             return error
+        if body is None:
+            return error_response("JSON object body is required", 400)
         reason = body.get("reason")
         if reason is not None and not isinstance(reason, str):
             return error_response("reason must be a string", 400)

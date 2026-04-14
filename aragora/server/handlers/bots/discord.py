@@ -305,6 +305,8 @@ class DiscordHandler(BotHandlerMixin, SecureHandler):
             interaction, err = self._parse_json_body(body, "Discord interaction")
             if err:
                 return err
+            if interaction is None:
+                return error_response("Discord interaction body must be a JSON object", 400)
 
             interaction_type = interaction.get("type")
             if isinstance(interaction_type, bool) or not isinstance(interaction_type, int):

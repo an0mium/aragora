@@ -245,6 +245,8 @@ class WhatsAppHandler(BotHandlerMixin, SecureHandler):
             payload, err = self._parse_json_body(body, "WhatsApp webhook")
             if err:
                 return err
+            if payload is None:
+                return error_response("WhatsApp webhook body must be a JSON object", 400)
 
             entries = payload.get("entry")
             if not isinstance(entries, list):

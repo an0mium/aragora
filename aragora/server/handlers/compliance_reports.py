@@ -67,6 +67,8 @@ class ComplianceReportHandler(BaseHandler):
         body, error = self.read_json_object_or_error(handler)
         if error:
             return error
+        if body is None:
+            return error_response("JSON object body is required", 400)
 
         framework = body.get("framework", "general")
         debate_id = body.get("debate_id")

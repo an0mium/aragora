@@ -1084,8 +1084,9 @@ class AutonomousLearningHandler(BaseHandler):
             return error_response(f"Invalid target_type: {target_type}", 400)
 
         rating = body.get("rating")
-        if rating is not None and not isinstance(rating, int | float):
-            return error_response("rating must be numeric", 400)
+        if rating is not None:
+            if isinstance(rating, bool) or not isinstance(rating, int):
+                return error_response("rating must be an integer", 400)
 
         user = self.get_current_user(handler)
         submitted_by = user.user_id if user else "anonymous"
