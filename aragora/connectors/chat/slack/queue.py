@@ -540,9 +540,9 @@ class SlackMessageQueue:
 
         logger.info("Slack message queue processor stopped")
 
-    async def start_processor(self) -> asyncio.Task:
+    async def start_processor(self) -> asyncio.Task:  # type: ignore[type-arg]
         """Start the background processor."""
-        if self._running:
+        if self._running and self._processor_task is not None:
             return self._processor_task
 
         self._running = True
