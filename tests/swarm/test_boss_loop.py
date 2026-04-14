@@ -50,6 +50,7 @@ from aragora.swarm.boss_loop import (
     sanitize_issue_body_for_dispatch,
     select_eligible_issue,
 )
+from aragora.swarm.roadmap_priority import RoadmapPriorityPolicy
 from aragora.swarm.task_sanitizer import SanitizationOutcome
 
 UTC = timezone.utc
@@ -4482,6 +4483,39 @@ def test_auto_decompose_stops_at_body_lineage_depth_limit() -> None:
         loop._auto_decompose_stuck_issue(4475, [issue])
 
     mock_label_stuck.assert_called_once()
+    mock_decomposer.assert_not_called()
+
+
+def test_auto_decompose_skips_delayed_root_issue_lineage() -> None:
+    issue = _make_issue(
+        5400,
+        "[from #5390] Define operator state model",
+        body=("## Decomposition Lineage\n- Root issue: #5331\n- Parent issue: #5390\n- Depth: 2\n"),
+        labels=["boss-ready"],
+    )
+    root_issue = _make_issue(
+        5331,
+        "BC-07 Unify lane, host, runner, and publication state into one operator model",
+        body="Refs: docs/status/NEXT_STEPS_CANONICAL.md (`BC-07`)",
+        labels=[],
+    )
+    loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+    policy = RoadmapPriorityPolicy(
+        do_now=frozenset({"RS-07"}),
+        delay=frozenset({"BC-07", "BC-08", "BC-09"}),
+        avoid=frozenset(),
+    )
+
+    with (
+        patch("aragora.swarm.boss_loop.load_roadmap_priority_policy", return_value=policy),
+        patch.object(loop, "_fetch_issue_by_number", return_value=root_issue),
+        patch.object(loop, "_label_boss_stuck") as mock_label_stuck,
+        patch("aragora.nomic.task_decomposer.TaskDecomposer") as mock_decomposer,
+    ):
+        loop._auto_decompose_stuck_issue(5400, [issue])
+
+    mock_label_stuck.assert_called_once()
+    assert "BC-07" in mock_label_stuck.call_args.args[2]
     mock_decomposer.assert_not_called()
 
 

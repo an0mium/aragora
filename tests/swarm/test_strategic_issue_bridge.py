@@ -142,6 +142,54 @@ def test_generate_candidates_can_filter_by_theme() -> None:
     assert all(candidate.metadata["theme"] == "BC" for candidate in candidates)
 
 
+def test_generate_candidates_honors_canonical_do_now_filter(tmp_path: Path) -> None:
+    docs_status = tmp_path / "docs" / "status"
+    docs_status.mkdir(parents=True)
+    (tmp_path / "docs" / "CANONICAL_GOALS.md").write_text("canonical\n", encoding="utf-8")
+    (tmp_path / "ROADMAP.md").write_text("roadmap\n", encoding="utf-8")
+    (docs_status / "ACTIVE_EXECUTION_ISSUES.md").write_text(
+        "\n".join(
+            [
+                "1. **Reliability Substrate**",
+                "2. **Bounded Autonomy Control Plane**",
+                "## Epic 1 - Reliability Substrate",
+                "### Milestone 1.1 - Guard",
+                "- [ ] **RS-07** Receipt-backed preflight",
+                "## Epic 2 - Bounded Autonomy Control Plane",
+                "### Milestone 2.1 - Multi",
+                "- [ ] **BC-07** Unified operator model",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (docs_status / "NEXT_STEPS_CANONICAL.md").write_text(
+        "\n".join(
+            [
+                "## Do Now / Delay / Avoid",
+                "",
+                "### Do now",
+                "- `RS-07`",
+                "",
+                "### Delay",
+                "- `BC-07..09` until the repair loop is truthful and resumable",
+                "",
+                "### Avoid in this tranche",
+                "- `UDW-07..12`",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = StrategicIssueBridgeConfig(max_issues=5, heuristic_only=True, enable_scanner=False)
+    bridge = StrategicIssueBridge(repo_root=tmp_path, config=config)
+
+    candidates = bridge.generate_candidates()
+
+    refs = {candidate.roadmap_refs[0] for candidate in candidates if candidate.roadmap_refs}
+    assert "RS-07" in refs
+    assert "BC-07" not in refs
+
+
 def test_llm_fallback_without_keys(monkeypatch) -> None:
     for key in (
         "ANTHROPIC_API_KEY",

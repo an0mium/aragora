@@ -45,6 +45,7 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 - Do now: `RS-07`, `BC-01`, `BC-03`, `BC-02`, `TW-01`, `TW-02`, `TW-03`, `CS-01..03`
 - Delay: `BC-07..09`, `RS-10..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
+- Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
 - Top 3 boss-ready next: `RS-07`, `BC-01`, `BC-03`
 - GitHub coverage for those top 3 remains epic-level only through [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806); no dedicated lane issues exist yet
 
@@ -66,7 +67,7 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 
 ### Milestone 1.3 — Contract-Aware Preflight `[30-90d]`
 
-- [ ] **RS-07** Build `aragora swarm preflight run --contract ...` _(Partial as of 2026-04-13: module preflight plus scratch/draft-PR validation exist, but the top-level operator surface is still incomplete)_
+- [ ] **RS-07** Build `aragora swarm preflight run --contract ...` _(In progress as of 2026-04-13: the operator surface now has a contract-backed receipt path with persisted `PreflightReceipt` output and fail-closed admission verdicts; remaining follow-through is to make that receipt the default admission truth everywhere that consumes preflight.)_
 - [x] **RS-08** Validate scratch read/write/commit/push/draft-PR flow through the production code path _(Done 2026-04-13 via [#5261](https://github.com/synaptent/aragora/pull/5261))_
 - [x] **RS-09** Replace shell-only host checks with receipt-backed preflight wrappers _(Done 2026-04-13 via [#5261](https://github.com/synaptent/aragora/pull/5261))_
 
@@ -83,7 +84,7 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 ### Milestone 2.1 — Interactive Sessions & Repair Journal `[90d]`
 
 - [ ] **BC-01** Persist session state across `explore -> plan -> edit -> verify -> repair -> publish`
-- [ ] **BC-02** Resume retries from prior session state instead of fresh prompts
+- [x] **BC-02** Resume retries from prior session state instead of fresh prompts _(Done 2026-04-13 via [#5384](https://github.com/synaptent/aragora/pull/5384))_
 - [ ] **BC-03** Emit precise blocker evidence and repair transcripts for failed runs
 
 ### Milestone 2.2 — Task Sanitizer & Admission Gate `[30-90d]`
@@ -110,8 +111,8 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 
 ### Milestone 3.1 — Autonomous Software Execution Benchmark `[30d]`
 
-- [ ] **TW-01** Prove `prompt -> spec -> code -> verify -> PR` loops on a fixed benchmark corpus of bounded repos/issues
-- [ ] **TW-02** Measure rescue rate, verification pass rate, wall-clock throughput, and no-rescue completion rate
+- [ ] **TW-01** Prove `prompt -> spec -> code -> verify -> PR` loops on a fixed benchmark corpus of bounded repos/issues _(Partial as of 2026-04-13: the frozen corpus manifest is checked in at `docs/benchmarks/corpus.json`; the remaining gap is recurring execution against that fixed revision.)_
+- [ ] **TW-02** Measure rescue rate, verification pass rate, wall-clock throughput, and no-rescue completion rate _(Partial as of 2026-04-13: diffable truth-artifact generation exists, including truth/no-rescue/failure-class/rescue-type reporting; the remaining gap is recurring publication and status linkage.)_
 - [ ] **TW-03** Convert human rescues into benchmark fixtures and product requirements
 
 ### Milestone 3.2 — Inbox / Operator Action Loops `[30-90d]`

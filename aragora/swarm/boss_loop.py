@@ -28,6 +28,7 @@ from aragora.swarm.boss_loop_outcome import append_iteration_metrics
 from aragora.swarm.debate_gate import DebateGate, DebateGateConfig, DebateGateRequest
 from aragora.swarm.dispatch_contract_gate import dispatch_contract_gate
 from aragora.swarm.env_utils import git_safe_env
+from aragora.swarm.roadmap_priority import load_roadmap_priority_policy
 from aragora.swarm.task_sanitizer import SanitizationOutcome, TaskSanitizer
 from aragora.swarm.terminal_truth import (
     extract_run_deliverable,
@@ -1447,6 +1448,20 @@ class BossLoop:
             return
 
         lineage_root, decomposition_depth = self._decomposition_lineage(issue)
+        roadmap_priority = self._roadmap_priority_match_for_issue_lineage(
+            issue=issue,
+            issues=issues,
+            lineage_root=lineage_root,
+        )
+        if roadmap_priority is not None and roadmap_priority.priority.blocks_boss_ready:
+            blocked_codes = ", ".join(roadmap_priority.blocked_codes) or "delayed roadmap refs"
+            self._label_boss_stuck(
+                issue_number,
+                repo,
+                "Auto-decomposition skipped because the issue lineage references "
+                f"{blocked_codes}, which is outside the canonical do-now set.",
+            )
+            return
         if decomposition_depth >= self.config.max_decomposition_depth:
             self._label_boss_stuck(
                 issue_number,
@@ -1758,6 +1773,39 @@ class BossLoop:
             depth = 0
 
         return root_issue, depth
+
+    def _fetch_issue_by_number(self, issue_number: int) -> GitHubIssue | None:
+        fetch_issue = getattr(self._feed, "_fetch_issue", None)
+        if not callable(fetch_issue):
+            return None
+        try:
+            issue = fetch_issue(issue_number, allow_closed=True)
+        except TypeError:
+            try:
+                issue = fetch_issue(issue_number)
+            except Exception:
+                return None
+        except Exception:
+            return None
+        return issue if isinstance(issue, GitHubIssue) else None
+
+    def _roadmap_priority_match_for_issue_lineage(
+        self,
+        *,
+        issue: GitHubIssue,
+        issues: list[GitHubIssue],
+        lineage_root: int,
+    ) -> Any:
+        policy = load_roadmap_priority_policy(Path.cwd())
+        if policy is None:
+            return None
+        root_issue = next((item for item in issues if item.number == lineage_root), None)
+        if root_issue is None and lineage_root != int(issue.number):
+            root_issue = self._fetch_issue_by_number(lineage_root)
+        texts = [issue.title, issue.body or ""]
+        if root_issue is not None and int(root_issue.number) != int(issue.number):
+            texts.extend([root_issue.title, root_issue.body or ""])
+        return policy.priority_for_text(*texts)
 
     @staticmethod
     def _decomposition_scope_entries(

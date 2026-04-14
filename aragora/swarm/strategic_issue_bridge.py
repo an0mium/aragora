@@ -25,6 +25,7 @@ from aragora.swarm.mission import (
     RepairPolicy,
     normalize_context_policies,
 )
+from aragora.swarm.roadmap_priority import load_roadmap_priority_policy
 from aragora.swarm.spec import SwarmSpec
 
 logger = logging.getLogger(__name__)
@@ -450,6 +451,13 @@ class StrategicIssueBridge:
         context = self.load_context()
         active_text = context.get("active_execution", "")
         roadmap_items, priority_order = self.parse_roadmap_items(active_text)
+        priority_policy = load_roadmap_priority_policy(self.repo_root)
+        if priority_policy is not None:
+            roadmap_items = [
+                item
+                for item in roadmap_items
+                if priority_policy.priority_for_codes([item.code]).priority.value == "do_now"
+            ]
 
         llm_candidates: list[StrategicIssueCandidate] = []
         if self.config.enable_llm and not self.config.heuristic_only:

@@ -1208,30 +1208,83 @@ def cmd_swarm(args: argparse.Namespace) -> None:
     autonomy_level = autonomy_map.get(autonomy_str, AutonomyLevel.PROPOSE_APPROVE)
 
     if action == "preflight":
-        from aragora.swarm.preflight import run_preflight
+        from aragora.swarm.credential_envelope import CredentialEnvelope
+        from aragora.swarm.preflight import (
+            evaluate_preflight_receipt_gate,
+            run_contract_preflight_receipt,
+            run_preflight,
+        )
 
         repo_root = resolve_repo_root(Path.cwd())
         contract_arg = getattr(args, "contract", None)
-        result = run_preflight(
-            repo_root=repo_root,
-            agent=str(getattr(args, "worker_model", "claude") or "claude"),
-            base_ref=str(target_branch or "main"),
-            skip_publication=skip_publication,
-            contract_path=Path(str(contract_arg)).expanduser() if contract_arg else None,
-        )
-        payload = {"mode": "swarm-preflight", **result.to_dict()}
+        if contract_arg:
+            contract_path = Path(str(contract_arg)).expanduser()
+            envelope = CredentialEnvelope.from_environment(os.environ)
+            receipt = run_contract_preflight_receipt(
+                repo_root=repo_root,
+                agent=str(getattr(args, "worker_model", "claude") or "claude"),
+                base_ref=str(target_branch or "main"),
+                skip_publication=skip_publication,
+                contract_path=contract_path,
+                envelope=envelope,
+            )
+            expected_contract_checksum = str(
+                receipt.artifacts.get("expected_contract_checksum", "") or ""
+            ).strip()
+            admission_gate = evaluate_preflight_receipt_gate(
+                receipt,
+                repo_root=repo_root,
+                envelope=envelope,
+                check_type="scratch" if skip_publication else "remote_publish",
+                base_ref=str(target_branch or "main"),
+                expected_contract_checksum=expected_contract_checksum,
+            )
+            failure_terminal_class = receipt.failure_terminal_class
+            payload = {
+                "mode": "swarm-preflight",
+                "receipt": receipt.to_dict(),
+                "admission_gate": admission_gate.to_dict(),
+                "failure_terminal_class": (
+                    failure_terminal_class.value if failure_terminal_class is not None else None
+                ),
+            }
+        else:
+            result = run_preflight(
+                repo_root=repo_root,
+                agent=str(getattr(args, "worker_model", "claude") or "claude"),
+                base_ref=str(target_branch or "main"),
+                skip_publication=skip_publication,
+                contract_path=None,
+            )
+            payload = {"mode": "swarm-preflight", **result.to_dict()}
         if as_json:
             print(json.dumps(payload, indent=2))
         else:
-            print("swarm preflight: ok")
-            print(f"repo_root={payload['repo_root']}")
-            print(f"agent={payload['agent']}")
-            print(f"base_ref={payload['base_ref']}")
-            print(f"branch={payload['branch']}")
-            worker = payload.get("worker", {})
-            checksum = str(worker.get("worker_contract_checksum", "")).strip()
-            if checksum:
-                print(f"worker_contract_checksum={checksum}")
+            if contract_arg:
+                receipt_payload = dict(payload.get("receipt", {}) or {})
+                gate_payload = dict(payload.get("admission_gate", {}) or {})
+                print(f"swarm preflight: {gate_payload.get('verdict', 'blocked')}")
+                print(f"receipt_id={receipt_payload.get('receipt_id', '')}")
+                print(f"check_type={receipt_payload.get('check_type', '')}")
+                print(f"passed={receipt_payload.get('passed', False)}")
+                print(f"expires_at={receipt_payload.get('expires_at', '')}")
+                failure_terminal_class = str(
+                    payload.get("failure_terminal_class", "") or ""
+                ).strip()
+                if failure_terminal_class:
+                    print(f"failure_terminal_class={failure_terminal_class}")
+            else:
+                print("swarm preflight: ok")
+                print(f"repo_root={payload['repo_root']}")
+                print(f"agent={payload['agent']}")
+                print(f"base_ref={payload['base_ref']}")
+                print(f"branch={payload['branch']}")
+                worker = payload.get("worker", {})
+                checksum = str(worker.get("worker_contract_checksum", "")).strip()
+                if checksum:
+                    print(f"worker_contract_checksum={checksum}")
+        if contract_arg and payload["admission_gate"]["verdict"] != "pass":
+            raise SystemExit(2)
         return
 
     if action in {"coord", "assign", "claim-pr", "report", "findings"}:

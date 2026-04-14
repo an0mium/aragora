@@ -29,6 +29,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.swarm.decomposition_bridge import DecompositionBridge  # noqa: E402
 from aragora.swarm.issue_scanner import BossIssueCandidate, scan_all  # noqa: E402
 from aragora.swarm.issue_upgrader import upgrade_issue_heuristic  # noqa: E402
+from aragora.swarm.roadmap_priority import load_roadmap_priority_policy  # noqa: E402
 
 _GENERIC_PARENT_PHRASES: tuple[str, ...] = (
     "read the module and identify all public functions",
@@ -483,6 +484,8 @@ def main() -> None:
     skipped_dup = 0
     skipped_pr = 0
     skipped_val = 0
+    skipped_priority = 0
+    priority_policy = load_roadmap_priority_policy(repo_root)
 
     for candidate in candidates:
         if len(filtered) >= args.max_issues * 2:
@@ -501,6 +504,16 @@ def main() -> None:
             continue
 
         body = format_boss_ready_body(candidate)
+        if args.label == "boss-ready" and priority_policy is not None:
+            priority = priority_policy.priority_for_text(candidate.title, body)
+            if priority.priority.blocks_boss_ready:
+                skipped_priority += 1
+                if args.verbose:
+                    print(
+                        "  SKIP (canonical priority): "
+                        f"{candidate.title} [{', '.join(priority.blocked_codes)}]"
+                    )
+                continue
         ok, reason = validate_body(body)
         if not ok:
             skipped_val += 1
@@ -512,7 +525,11 @@ def main() -> None:
 
     print(f"\nFiltered to {len(filtered)} valid candidates")
     print(
-        f"  Skipped: {skipped_dup} duplicates, {skipped_pr} PR conflicts, {skipped_val} validation failures"
+        "  Skipped: "
+        f"{skipped_dup} duplicates, "
+        f"{skipped_pr} PR conflicts, "
+        f"{skipped_priority} canonical priority blocks, "
+        f"{skipped_val} validation failures"
     )
 
     # 5. Trim to max

@@ -994,6 +994,263 @@ def run_remote_publish_validation_receipt(
     return receipt
 
 
+def _dispatch_gate_detail(dispatch_gate: dict[str, Any]) -> str:
+    gate = dict(dispatch_gate or {})
+    parts: list[str] = []
+    verdict = str(gate.get("verdict", "") or "").strip()
+    if verdict:
+        parts.append(f"verdict={verdict}")
+    failure_classes = [
+        str(item).strip() for item in list(gate.get("failure_classes") or []) if str(item).strip()
+    ]
+    if failure_classes:
+        parts.append(f"failure_classes={','.join(failure_classes)}")
+    notes = str(gate.get("notes", "") or "").strip()
+    if notes:
+        parts.append(notes)
+    return " | ".join(parts) or "dispatch gate unavailable"
+
+
+def _checks_from_contract_preflight_result(
+    result: PreflightResult,
+    *,
+    expected_contract_checksum: str,
+    skip_publication: bool,
+) -> list[dict[str, Any]]:
+    checks = [dict(item) for item in list(result.checks or [])]
+    worker = dict(result.worker or {})
+    worker_checksum = str(worker.get("worker_contract_checksum", "") or "").strip()
+    checks.append(
+        {
+            "name": "dispatch_gate",
+            "passed": str(result.dispatch_gate.get("verdict", "")).strip()
+            == GateVerdict.PASS.value,
+            "detail": _dispatch_gate_detail(result.dispatch_gate),
+        }
+    )
+    checks.append(
+        {
+            "name": "worker_contract_checksum",
+            "passed": bool(worker_checksum) and worker_checksum == expected_contract_checksum,
+            "detail": worker_checksum or "missing worker_contract_checksum",
+        }
+    )
+    commit_shas = [
+        str(item).strip() for item in list(worker.get("commit_shas") or []) if str(item).strip()
+    ]
+    checks.append(
+        {
+            "name": "worker_commit",
+            "passed": bool(commit_shas),
+            "detail": ",".join(commit_shas) if commit_shas else "worker produced no commit",
+        }
+    )
+    if not skip_publication:
+        checks.append(
+            {
+                "name": "publication_flow",
+                "passed": bool(result.published)
+                and bool(result.pull_request_created)
+                and bool(result.pull_request_closed),
+                "detail": (
+                    f"published={result.published} "
+                    f"pr_created={result.pull_request_created} "
+                    f"pr_closed={result.pull_request_closed}"
+                ),
+            }
+        )
+    return checks
+
+
+def run_contract_preflight_receipt(
+    *,
+    repo_root: Path,
+    agent: str | None = None,
+    base_ref: str = "main",
+    skip_publication: bool = False,
+    contract_path: Path,
+    envelope: CredentialEnvelope | None = None,
+) -> PreflightReceipt:
+    resolved_repo_root = repo_root.resolve()
+    normalized_base_ref = str(base_ref or "main").strip() or "main"
+    normalized_contract_path = contract_path.expanduser().resolve()
+    normalized_check_type = "scratch" if skip_publication else "remote_publish"
+    resolved_envelope = envelope or CredentialEnvelope.from_environment(os.environ)
+    started_at = _utc_now()
+    checks: list[dict[str, Any]] = []
+    artifacts: dict[str, Any] = {
+        "target_ref": normalized_base_ref,
+        "contract_path": str(normalized_contract_path),
+        "skip_publication": bool(skip_publication),
+        "expected_contract_checksum": "",
+    }
+    try:
+        _, expected_contract_checksum = _load_contract_payload(normalized_contract_path)
+        artifacts["expected_contract_checksum"] = expected_contract_checksum
+    except Exception as exc:
+        checks.append({"name": "contract_payload", "passed": False, "detail": str(exc)})
+        finished_at = _utc_now()
+        receipt = _finalize_preflight_receipt(
+            repo_root=resolved_repo_root,
+            envelope=resolved_envelope,
+            check_type=normalized_check_type,
+            base_ref=normalized_base_ref,
+            started_at=started_at,
+            finished_at=finished_at,
+            checks=checks,
+            artifacts=artifacts,
+        )
+        _save_preflight_receipt(resolved_repo_root, receipt)
+        return receipt
+
+    try:
+        result = run_preflight(
+            repo_root=resolved_repo_root,
+            agent=agent,
+            base_ref=normalized_base_ref,
+            skip_publication=skip_publication,
+            contract_path=normalized_contract_path,
+        )
+    except Exception as exc:
+        checks.append({"name": "contract_preflight", "passed": False, "detail": str(exc)})
+    else:
+        checks.extend(
+            _checks_from_contract_preflight_result(
+                result,
+                expected_contract_checksum=expected_contract_checksum,
+                skip_publication=skip_publication,
+            )
+        )
+        artifacts.update(
+            {
+                "branch": str(result.branch or "").strip(),
+                "worktree_path": str(result.worktree_path or "").strip(),
+                "agent": str(result.agent or "").strip(),
+                "published": bool(result.published),
+                "pull_request_created": bool(result.pull_request_created),
+                "pull_request_closed": bool(result.pull_request_closed),
+                "cleanup_worktree_removed": bool(result.cleanup_worktree_removed),
+                "cleanup_branch_removed": bool(result.cleanup_branch_removed),
+                "dispatch_gate": dict(result.dispatch_gate),
+                "worker_contract_checksum": str(
+                    (result.worker or {}).get("worker_contract_checksum", "") or ""
+                ).strip(),
+                "commit_shas": [
+                    str(item).strip()
+                    for item in list((result.worker or {}).get("commit_shas") or [])
+                    if str(item).strip()
+                ],
+            }
+        )
+
+    finished_at = _utc_now()
+    receipt = _finalize_preflight_receipt(
+        repo_root=resolved_repo_root,
+        envelope=resolved_envelope,
+        check_type=normalized_check_type,
+        base_ref=normalized_base_ref,
+        started_at=started_at,
+        finished_at=finished_at,
+        checks=checks,
+        artifacts=artifacts,
+    )
+    _save_preflight_receipt(resolved_repo_root, receipt)
+    return receipt
+
+
+def evaluate_preflight_receipt_gate(
+    receipt: PreflightReceipt | None,
+    *,
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    check_type: str,
+    base_ref: str = "main",
+    expected_contract_checksum: str = "",
+    now: datetime | None = None,
+) -> GateEvaluation:
+    normalized = _validate_check_type(check_type)
+    current_time = now or _utc_now()
+    normalized_base_ref = str(base_ref or "main").strip() or "main"
+    required_evidence = ["preflight_receipt"]
+    if receipt is None:
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_missing"],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt missing.",
+        )
+    if str(receipt.check_type or "").strip() != normalized:
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_check_type_mismatch"],
+            required_evidence=required_evidence,
+            notes=(
+                "Preflight admission blocked: receipt check type "
+                f"`{receipt.check_type}` does not match expected `{normalized}`."
+            ),
+        )
+    if str(receipt.envelope_seal or "").strip() != envelope.preflight_cache_seal():
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_envelope_mismatch"],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: credential envelope no longer matches the receipt.",
+        )
+    if _parse_isoformat_utc(receipt.expires_at) <= current_time:
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_expired"],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt expired.",
+        )
+    if normalized == "remote_publish":
+        target_ref = str(receipt.artifacts.get("target_ref", "") or "").strip() or "main"
+        if target_ref != normalized_base_ref:
+            return GateEvaluation(
+                gate_type=GateType.DISPATCH_READY.value,
+                verdict=GateVerdict.BLOCKED.value,
+                failure_classes=["receipt_target_ref_mismatch"],
+                required_evidence=required_evidence,
+                notes=(
+                    "Preflight admission blocked: receipt target ref "
+                    f"`{target_ref}` does not match expected `{normalized_base_ref}`."
+                ),
+            )
+    if expected_contract_checksum:
+        actual_contract_checksum = str(
+            receipt.artifacts.get("expected_contract_checksum", "") or ""
+        ).strip()
+        if actual_contract_checksum != expected_contract_checksum:
+            return GateEvaluation(
+                gate_type=GateType.DISPATCH_READY.value,
+                verdict=GateVerdict.BLOCKED.value,
+                failure_classes=["receipt_contract_mismatch"],
+                required_evidence=required_evidence,
+                notes="Preflight admission blocked: receipt contract checksum mismatch.",
+            )
+    if not receipt.passed:
+        failure_class = receipt.failure_terminal_class
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=[
+                failure_class.value if failure_class is not None else "preflight_failed"
+            ],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt recorded a failed preflight.",
+        )
+    return GateEvaluation(
+        gate_type=GateType.DISPATCH_READY.value,
+        verdict=GateVerdict.PASS.value,
+        required_evidence=required_evidence,
+        notes=f"Preflight receipt verified: {receipt.receipt_id}",
+    )
+
+
 def _branch_name() -> str:
     stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
     return f"preflight/{stamp}"

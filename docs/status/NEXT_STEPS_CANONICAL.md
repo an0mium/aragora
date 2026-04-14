@@ -10,7 +10,7 @@ This is the single source of truth for short-horizon execution priorities.
 
 ## Current Gate
 
-The current gate is to finish `RS-07` and `BC-01..03`, then prove the `B2` guard on the safest execution classes across the current execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
+The current gate is to finish `RS-07`, close the remaining truthful repair gaps in `BC-01/03`, and keep `TW-01/TW-02` publishing recurring truth artifacts before expanding the `B2` guard across the safest execution classes in [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806).
 
 What is already true:
 
@@ -25,17 +25,24 @@ What is already true:
 - scratch and remote-publish preflight validation now run through the production preflight path and emit canonical terminal truth on `main`
 - task sanitizer outcomes and success-rate filtering are shaping safer boss-loop intake
 - original versus sanitized task text is already preserved for audit on `main`
+- retry dispatch now carries prior session resume context on `main` via [#5384](https://github.com/synaptent/aragora/pull/5384)
+- the rescue loop can now record interventions, plan bounded recovery, and execute safe followups on `main` via [#5379](https://github.com/synaptent/aragora/pull/5379), [#5380](https://github.com/synaptent/aragora/pull/5380), and [#5383](https://github.com/synaptent/aragora/pull/5383)
 
 What is still missing:
 
-- receipt-backed contract preflight on the operator admission path — the module-level preflight exists but nothing yet returns a signed receipt that the supervisor can use as an admission gate for safe classes ([#5327](https://github.com/synaptent/aragora/issues/5327))
-- resumable session state, retry context, and precise blocker evidence on the live swarm loop
-- a checked-in frozen benchmark corpus and recurring no-rescue scorecard that meets the TW-01/TW-02 spec ([#5329](https://github.com/synaptent/aragora/issues/5329))
+- the last `RS-07` step is to make receipt-backed contract preflight the default operator admission truth everywhere, not just a substrate primitive — contract in, persisted receipt out, fail-closed on any mismatch ([#5327](https://github.com/synaptent/aragora/issues/5327))
+- broader repair truth on the live swarm loop still depends on full `BC-01` persistence and precise `BC-03` blocker evidence
+- recurring scheduled use of the frozen corpus and diffable truth artifact still needs to become routine status output ([#5329](https://github.com/synaptent/aragora/issues/5329))
 - proof that the B2 guard holds under repeated bounded runs instead of one-off success stories
 - broader repair-loop coverage on top of the existing audit trail
 - lower-rescue unattended operation on bounded backlogs
 
 The work now is not “add more speculative autonomy.” It is “make bounded unattended execution boring.”
+
+Queue rule for this tranche:
+
+- only roadmap codes in the **Do now** set may carry or be auto-created with `boss-ready`
+- delayed-track issues may stay open for planning truth, but restock and auto-decomposition should strip them from the live dispatch queue
 
 ## 30-Day Success Metric
 
@@ -62,7 +69,7 @@ If a task does not improve that metric, it is not first-tranche work.
 
 ### Benchmark corpus requirements (TW-01)
 
-- The corpus is a fixed, versioned list of bounded issues checked into the repo (e.g. `benchmarks/corpus.json`).
+- The corpus is a fixed, versioned list of bounded issues checked into the repo (e.g. `docs/benchmarks/corpus.json`).
 - Issues in the corpus are not swapped ad hoc between runs; additions and removals are tracked as explicit corpus revisions.
 - Each corpus entry includes: issue identifier, expected execution class, and any known constraints.
 - The corpus runs against current `main` on a recurring basis (at minimum weekly) using the existing benchmark scoring lane.
@@ -92,7 +99,9 @@ Scorecard output rules:
 
 - Terminal-truth taxonomy, benchmark fixtures, and the benchmark scoring lane are on `main`.
 - The tracked B0 cohort is at **86.7%** no-rescue success as of 2026-04-13.
-- What is missing: a checked-in frozen corpus definition and a recurring scorecard output that meets the format above.
+- The frozen corpus manifest now lives at `docs/benchmarks/corpus.json`.
+- The diffable truth artifact path is `scripts/build_benchmark_truth_artifact.py`, with GitHub-truth reconciliation provided by `scripts/reconcile_b0_pr_truth.py`.
+- What remains is recurring scheduled use of that artifact path, not inventing a second benchmark definition.
 
 ## 30-Day Canonical Backlog
 
@@ -141,7 +150,7 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 ## Top 3 Boss-Ready Next
 
-1. `RS-07` ([#5327](https://github.com/synaptent/aragora/issues/5327)) because it closes the last missing guard on the live operator path — contract in, receipt out, fail-closed admission.
+1. `RS-07` ([#5327](https://github.com/synaptent/aragora/issues/5327)) because it closes the last missing guard on the live operator path and turns preflight into the admission truth the operator can actually trust.
 2. `BC-01` because retries and repair loops cannot become truthful until session state survives restarts.
 3. `BC-03` because founder leverage depends on precise blocker evidence before more retry logic is added.
 

@@ -358,6 +358,207 @@ def test_run_preflight_rejects_emitted_contract_drift(monkeypatch, tmp_path: Pat
     assert cleanup_commands[0][:4] == ["git", "worktree", "remove", "--force"]
 
 
+def test_run_contract_preflight_receipt_persists_and_returns_receipt(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    contract_payload = _worker(branch="preflight/20260413-contract").worker_contract
+    contract_path = tmp_path / "worker_contract.json"
+    contract_path.write_text(json.dumps(contract_payload), encoding="utf-8")
+    fake_result = mod.PreflightResult(
+        repo_root=str(repo_root),
+        base_ref="main",
+        branch="preflight/20260413-contract",
+        worktree_path=str(repo_root / ".worktrees" / "preflight-contract"),
+        agent="codex",
+        published=False,
+        pull_request_created=False,
+        pull_request_closed=False,
+        cleanup_worktree_removed=True,
+        cleanup_branch_removed=True,
+        dispatch_gate={
+            "gate_type": GateType.DISPATCH_READY.value,
+            "verdict": GateVerdict.PASS.value,
+            "failure_classes": [],
+            "notes": "dispatch ready",
+        },
+        worker=_worker(branch="preflight/20260413-contract").to_dict(),
+        passed=True,
+    )
+
+    monkeypatch.setattr(mod, "run_preflight", lambda **_: fake_result)
+    receipt = mod.run_contract_preflight_receipt(
+        repo_root=repo_root,
+        agent="codex",
+        base_ref="main",
+        skip_publication=True,
+        contract_path=contract_path,
+        envelope=envelope,
+    )
+
+    expected_checksum = checksum_contract_payload(contract_payload)
+    assert receipt.passed is True
+    assert receipt.check_type == "scratch"
+    assert receipt.artifacts["expected_contract_checksum"] == expected_checksum
+    assert receipt.artifacts["worker_contract_checksum"] == expected_checksum
+    assert any(check["name"] == "dispatch_gate" for check in receipt.checks)
+    receipt_path = (
+        repo_root / ".aragora" / "receipts" / "preflight" / f"scratch-{receipt.cache_key}.json"
+    )
+    assert receipt_path.exists()
+
+
+def test_run_contract_preflight_receipt_persists_failure_on_preflight_error(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    contract_payload = _worker(branch="preflight/20260413-contract-bad").worker_contract
+    contract_path = tmp_path / "worker_contract_bad.json"
+    contract_path.write_text(json.dumps(contract_payload), encoding="utf-8")
+
+    monkeypatch.setattr(
+        mod,
+        "run_preflight",
+        lambda **_: (_ for _ in ()).throw(RuntimeError("worker contract checksum mismatch")),
+    )
+
+    receipt = mod.run_contract_preflight_receipt(
+        repo_root=repo_root,
+        agent="codex",
+        base_ref="main",
+        skip_publication=True,
+        contract_path=contract_path,
+        envelope=envelope,
+    )
+
+    assert receipt.passed is False
+    assert "checksum mismatch" in receipt.checks[0]["detail"]
+    assert receipt.failure_terminal_class == TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED
+
+
+def test_evaluate_preflight_receipt_gate_blocks_missing_receipt(tmp_path: Path) -> None:
+    gate = mod.evaluate_preflight_receipt_gate(
+        None,
+        repo_root=tmp_path,
+        envelope=_envelope(),
+        check_type="scratch",
+    )
+
+    assert gate.verdict == GateVerdict.BLOCKED.value
+    assert gate.failure_classes == ["receipt_missing"]
+
+
+def test_evaluate_preflight_receipt_gate_blocks_expired_and_failed_receipts(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    now = datetime(2026, 4, 13, 2, 0, 0, tzinfo=timezone.utc)
+    expired_receipt = mod.PreflightReceipt(
+        receipt_id="preflight-scratch-expired",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root),
+        check_type="scratch",
+        started_at="2026-04-13T00:00:00Z",
+        finished_at="2026-04-13T00:05:00Z",
+        passed=True,
+        checks=[{"name": "dispatch_gate", "passed": True, "detail": "ok"}],
+        cache_key="cache-1",
+        ttl_seconds=60,
+        expires_at="2026-04-13T00:06:00Z",
+        artifacts={},
+    )
+    expired_gate = mod.evaluate_preflight_receipt_gate(
+        expired_receipt,
+        repo_root=repo_root,
+        envelope=envelope,
+        check_type="scratch",
+        now=now,
+    )
+    assert expired_gate.failure_classes == ["receipt_expired"]
+
+    failed_receipt = mod.PreflightReceipt(
+        receipt_id="preflight-scratch-failed",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root),
+        check_type="scratch",
+        started_at="2026-04-13T00:00:00Z",
+        finished_at="2026-04-13T00:05:00Z",
+        passed=False,
+        checks=[{"name": "dispatch_gate", "passed": False, "detail": "bounded dispatch blocked"}],
+        cache_key="cache-2",
+        ttl_seconds=3600,
+        expires_at="2026-04-13T03:00:00Z",
+        artifacts={},
+    )
+    failed_gate = mod.evaluate_preflight_receipt_gate(
+        failed_receipt,
+        repo_root=repo_root,
+        envelope=envelope,
+        check_type="scratch",
+        now=now,
+    )
+    assert failed_gate.verdict == GateVerdict.BLOCKED.value
+    assert failed_gate.failure_classes == [TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED.value]
+
+
+def test_evaluate_preflight_receipt_gate_blocks_envelope_and_contract_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    envelope = _envelope()
+    receipt = mod.PreflightReceipt(
+        receipt_id="preflight-remote-valid",
+        envelope_seal=envelope.preflight_cache_seal(),
+        repo_root=str(repo_root),
+        check_type="remote_publish",
+        started_at="2026-04-13T00:00:00Z",
+        finished_at="2026-04-13T00:05:00Z",
+        passed=True,
+        checks=[{"name": "dispatch_gate", "passed": True, "detail": "ok"}],
+        cache_key="cache-3",
+        ttl_seconds=3600,
+        expires_at="2026-04-13T03:00:00Z",
+        artifacts={
+            "target_ref": "main",
+            "expected_contract_checksum": "expected-1",
+        },
+    )
+
+    changed_envelope = CredentialEnvelope.from_environment(
+        {
+            "ARAGORA_CLAUDE_PROFILE": "different",
+            "GITHUB_TOKEN": "token",
+            "OPENAI_API_KEY": "key",
+        }
+    )
+    envelope_gate = mod.evaluate_preflight_receipt_gate(
+        receipt,
+        repo_root=repo_root,
+        envelope=changed_envelope,
+        check_type="remote_publish",
+        base_ref="main",
+        expected_contract_checksum="expected-1",
+        now=datetime(2026, 4, 13, 2, 0, 0, tzinfo=timezone.utc),
+    )
+    assert envelope_gate.failure_classes == ["receipt_envelope_mismatch"]
+
+    checksum_gate = mod.evaluate_preflight_receipt_gate(
+        receipt,
+        repo_root=repo_root,
+        envelope=envelope,
+        check_type="remote_publish",
+        base_ref="main",
+        expected_contract_checksum="expected-2",
+        now=datetime(2026, 4, 13, 2, 0, 0, tzinfo=timezone.utc),
+    )
+    assert checksum_gate.failure_classes == ["receipt_contract_mismatch"]
+
+
 def test_run_scratch_validation_receipt_persists_success(monkeypatch, tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
