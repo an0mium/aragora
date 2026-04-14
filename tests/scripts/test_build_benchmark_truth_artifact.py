@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -105,6 +106,12 @@ def test_build_benchmark_truth_artifact_links_corpus_revision_and_truth_metrics(
 
     assert artifact["corpus"]["corpus_id"] == "tw-01-bounded-execution-v1"
     assert artifact["corpus"]["revision"] == 3
+    assert (
+        artifact["corpus"]["manifest_sha256"]
+        == hashlib.sha256(corpus_path.read_bytes()).hexdigest()
+    )
+    assert artifact["corpus"]["membership_issue_numbers"] == [1064, 2712]
+    assert artifact["corpus"]["membership_sha256"] == hashlib.sha256(b"[1064,2712]").hexdigest()
     assert artifact["run_status"] == "complete"
     assert artifact["coverage"]["attempted_issue_count"] == 2
     assert artifact["coverage"]["missing_issue_numbers"] == []
@@ -179,6 +186,7 @@ def test_build_benchmark_truth_artifact_marks_partial_corpus_runs_incomplete(
     )
 
     assert artifact["run_status"] == "incomplete"
+    assert artifact["corpus"]["membership_issue_numbers"] == [873, 1064]
     assert artifact["coverage"]["attempted_issue_count"] == 1
     assert artifact["coverage"]["missing_issue_count"] == 1
     assert artifact["coverage"]["missing_issue_numbers"] == [873]
@@ -315,6 +323,11 @@ def test_build_benchmark_truth_artifact_normalizes_generated_at_and_repo_paths(
 
     assert artifact["generated_at"] == "2026-04-14T02:03:04Z"
     assert artifact["corpus"]["path"] == "docs/benchmarks/corpus.json"
+    assert (
+        artifact["corpus"]["manifest_sha256"]
+        == hashlib.sha256(corpus_path.read_bytes()).hexdigest()
+    )
+    assert artifact["corpus"]["membership_issue_numbers"] == [1064]
     assert artifact["metrics_file"] == str(metrics_path)
 
 

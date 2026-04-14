@@ -166,20 +166,29 @@ def build_published_scorecard(
     if not corpus:
         raise ValueError(f"Truth artifact at {truth_artifact_path} is missing corpus metadata")
 
+    published_corpus: dict[str, Any] = {
+        "path": str(corpus.get("path") or "").strip() or None,
+        "corpus_id": str(corpus.get("corpus_id") or "").strip(),
+        "revision": int(corpus.get("revision", 0) or 0),
+        "recorded_on": str(corpus.get("recorded_on") or "").strip() or None,
+        "success_contract": str(corpus.get("success_contract") or "").strip() or None,
+        "manifest_sha256": str(corpus.get("manifest_sha256") or "").strip() or None,
+        "membership_sha256": str(corpus.get("membership_sha256") or "").strip() or None,
+        "membership_issue_numbers": [
+            int(item)
+            for item in list(corpus.get("membership_issue_numbers") or [])
+            if isinstance(item, int)
+        ],
+        "issue_count": int(corpus.get("issue_count", 0) or 0),
+    }
+
     published = {
         "generated_at": normalize_generated_at(generated_at),
         "metrics_file": _repo_stable_path(metrics_path),
         "truth_artifact_path": _repo_stable_path(truth_artifact_path),
         "truth_artifact_generated_at": str(truth_artifact.get("generated_at") or "").strip()
         or None,
-        "corpus": {
-            "path": str(corpus.get("path") or "").strip() or None,
-            "corpus_id": str(corpus.get("corpus_id") or "").strip(),
-            "revision": int(corpus.get("revision", 0) or 0),
-            "recorded_on": str(corpus.get("recorded_on") or "").strip() or None,
-            "success_contract": str(corpus.get("success_contract") or "").strip() or None,
-            "issue_count": int(corpus.get("issue_count", 0) or 0),
-        },
+        "corpus": published_corpus,
         "truth_metrics": dict(truth_artifact.get("primary_metrics") or {}),
         "coverage": dict(truth_artifact.get("coverage") or {}),
         "failure_class_distribution": dict(truth_artifact.get("failure_class_distribution") or {}),
@@ -189,8 +198,8 @@ def build_published_scorecard(
 
     previous_path = _previous_published_scorecard_path(
         publish_dir=publish_dir,
-        corpus_id=published["corpus"]["corpus_id"],
-        revision=int(published["corpus"]["revision"] or 0),
+        corpus_id=str(published_corpus["corpus_id"]),
+        revision=int(published_corpus["revision"] or 0),
     )
     if previous_path is not None:
         previous = _load_json(previous_path)

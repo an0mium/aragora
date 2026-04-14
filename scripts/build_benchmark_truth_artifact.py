@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import re
 import sys
@@ -41,6 +42,26 @@ def load_corpus(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _corpus_issue_numbers(corpus: dict[str, Any]) -> list[int]:
+    issue_numbers: list[int] = []
+    for item in list(corpus.get("issues") or []):
+        if not isinstance(item, dict):
+            continue
+        issue_number = int(item.get("issue_id", 0) or 0)
+        if issue_number > 0:
+            issue_numbers.append(issue_number)
+    return sorted(issue_numbers)
+
+
+def _sha256_bytes(payload: bytes) -> str:
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _corpus_membership_sha256(issue_numbers: list[int]) -> str:
+    normalized = json.dumps(issue_numbers, separators=(",", ":")).encode("utf-8")
+    return _sha256_bytes(normalized)
+
+
 def aggregate_corpus_issues(
     rows: list[dict[str, Any]],
     corpus: dict[str, Any],
@@ -61,10 +82,10 @@ def aggregate_corpus_issues(
 
     corpus_issue_numbers = set(by_issue)
     for row in rows:
-        issue_number = row.get("issue_number")
-        if not isinstance(issue_number, int) or issue_number not in corpus_issue_numbers:
+        row_issue_number: object = row.get("issue_number")
+        if not isinstance(row_issue_number, int) or row_issue_number not in corpus_issue_numbers:
             continue
-        aggregate = by_issue[issue_number]
+        aggregate = by_issue[row_issue_number]
         aggregate.row_count += 1
         terminal_class = resolve_terminal_class(row)
         publish_action = str(row.get("publish_action", "") or "").strip().lower()
@@ -164,6 +185,7 @@ def build_benchmark_truth_artifact(
     normalized_generated_at = normalize_generated_at(generated_at)
     rows = load_metrics_rows(metrics_file)
     corpus = load_corpus(corpus_path)
+    membership_issue_numbers = _corpus_issue_numbers(corpus)
     aggregates = aggregate_corpus_issues(rows, corpus)
     truth_client = client or GitHubTruthClient()
     records = [reconcile_issue_truth(repo, aggregate, truth_client) for aggregate in aggregates]
@@ -191,6 +213,9 @@ def build_benchmark_truth_artifact(
             "revision": int(corpus.get("revision", 0) or 0),
             "recorded_on": str(corpus.get("recorded_on") or "").strip(),
             "success_contract": str(corpus.get("success_contract") or "").strip(),
+            "manifest_sha256": _sha256_bytes(corpus_path.read_bytes()),
+            "membership_sha256": _corpus_membership_sha256(membership_issue_numbers),
+            "membership_issue_numbers": membership_issue_numbers,
             "issue_count": corpus_issue_count,
         },
         "run_status": "complete" if run_complete else "incomplete",

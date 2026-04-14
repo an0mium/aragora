@@ -102,6 +102,9 @@ def test_build_published_scorecard_links_truth_artifact_and_previous_delta(
                 "revision": 3,
                 "recorded_on": "2026-04-14",
                 "success_contract": "mergeable_pr_or_merged_pr",
+                "manifest_sha256": "abc123",
+                "membership_sha256": "def456",
+                "membership_issue_numbers": [1001, 1002],
                 "issue_count": 2,
             },
             "primary_metrics": {
@@ -142,6 +145,9 @@ def test_build_published_scorecard_links_truth_artifact_and_previous_delta(
 
     assert published["generated_at"] == "2026-04-14T15:16:17Z"
     assert published["corpus"]["corpus_id"] == "tw-01-bounded-execution-v1"
+    assert published["corpus"]["manifest_sha256"] == "abc123"
+    assert published["corpus"]["membership_sha256"] == "def456"
+    assert published["corpus"]["membership_issue_numbers"] == [1001, 1002]
     assert published["truth_metrics"]["truth_success_rate"] == 0.5
     assert published["proxy_metrics"]["no_rescue_success_rate"] == 0.5
     assert published["previous_artifact"]["path"].endswith(
@@ -192,6 +198,9 @@ def test_main_publish_dir_writes_timestamped_artifact_and_prints_path(
                 "revision": 4,
                 "recorded_on": "2026-04-14",
                 "success_contract": "mergeable_pr_or_merged_pr",
+                "manifest_sha256": "abc123",
+                "membership_sha256": "def456",
+                "membership_issue_numbers": [1001],
                 "issue_count": 1,
             },
             "primary_metrics": {"truth_success_rate": 1.0},
@@ -239,6 +248,9 @@ def test_main_publish_dir_with_json_keeps_stdout_json_and_reports_path_on_stderr
                 "revision": 5,
                 "recorded_on": "2026-04-14",
                 "success_contract": "mergeable_pr_or_merged_pr",
+                "manifest_sha256": "abc123",
+                "membership_sha256": "def456",
+                "membership_issue_numbers": [1001],
                 "issue_count": 1,
             },
             "primary_metrics": {"truth_success_rate": 1.0},
