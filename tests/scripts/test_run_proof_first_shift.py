@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+from aragora.swarm.shift_ledger import ShiftLedger
 from scripts import run_proof_first_shift as mod
 
 
@@ -16,6 +17,8 @@ def _run_shift_cycle(
     failure_log: str = "",
     benchmark_mode: str = "disabled",
     restart_service_side_effect: list[tuple[bool, str]] | None = None,
+    trigger_benchmark_side_effect: Exception | None = None,
+    ledger: ShiftLedger | None = None,
 ) -> dict[str, object]:
     restart_patch = (
         patch(
@@ -47,7 +50,10 @@ def _run_shift_cycle(
         patch(
             "scripts.run_proof_first_shift.fetch_benchmark_failure_log", return_value=failure_log
         ),
-        patch("scripts.run_proof_first_shift.trigger_benchmark_workflow"),
+        patch(
+            "scripts.run_proof_first_shift.trigger_benchmark_workflow",
+            side_effect=trigger_benchmark_side_effect,
+        ),
     ):
         return mod.run_shift_cycle(
             repo_root=Path(".").resolve(),
@@ -55,6 +61,7 @@ def _run_shift_cycle(
             benchmark_mode=benchmark_mode,
             automation_backlog_limit=12,
             runtime_state=runtime_state,
+            ledger=ledger,
         )
 
 
@@ -164,6 +171,7 @@ def test_run_shift_cycle_clears_failure_budget_after_successful_benchmark_run() 
     state = mod.ProofFirstRuntimeState(
         auth_failure_count=1,
         publication_failure_count=1,
+        runtime_failure_count=1,
         last_benchmark_run_id=100,
     )
 
@@ -180,6 +188,7 @@ def test_run_shift_cycle_clears_failure_budget_after_successful_benchmark_run() 
 
     assert state.auth_failure_count == 0
     assert state.publication_failure_count == 0
+    assert state.runtime_failure_count == 0
 
     report = _run_shift_cycle(
         state,
@@ -195,7 +204,9 @@ def test_run_shift_cycle_clears_failure_budget_after_successful_benchmark_run() 
 
     assert state.auth_failure_count == 1
     assert state.publication_failure_count == 0
+    assert state.runtime_failure_count == 0
     assert report["stop_reason"] == ""
+    assert report["failure_policy"]["auth_failure"]["will_stop"] is False
 
 
 def test_run_shift_cycle_reports_restart_failure_instead_of_crashing() -> None:
@@ -210,10 +221,12 @@ def test_run_shift_cycle_reports_restart_failure_instead_of_crashing() -> None:
     assert state.boss_restart_count == 1
     assert report["actions"] == ["restart_boss_loop_failed"]
     assert report["stop_reason"] == "BossRestartFailed: launchctl kickstart timed out for boss loop"
+    assert report["failure_policy"]["service_failure"]["will_stop"] is True
 
 
-def test_run_shift_cycle_stops_cleanly_when_github_is_unavailable() -> None:
+def test_run_shift_cycle_stops_cleanly_when_github_is_unavailable(tmp_path: Path) -> None:
     state = mod.ProofFirstRuntimeState()
+    ledger = ShiftLedger(path=tmp_path / "test_shift_ledger.jsonl")
 
     with (
         patch(
@@ -243,6 +256,7 @@ def test_run_shift_cycle_stops_cleanly_when_github_is_unavailable() -> None:
             benchmark_mode="hybrid",
             automation_backlog_limit=12,
             runtime_state=state,
+            ledger=ledger,
         )
 
     assert report["snapshot"] == {}
@@ -251,3 +265,71 @@ def test_run_shift_cycle_stops_cleanly_when_github_is_unavailable() -> None:
     assert report["latest_benchmark_run"] is None
     assert report["actions"] == []
     assert report["stop_reason"] == "GitHubUnavailable: error connecting to api.github.com"
+    assert report["failure_policy"]["runtime_failure"]["will_stop"] is True
+    assert state.runtime_failure_count == 1
+    assert ledger.get_status_summary()["runtime_failures"] == 1
+
+
+def test_run_shift_cycle_fails_closed_after_second_auth_failure() -> None:
+    state = mod.ProofFirstRuntimeState(auth_failure_count=1, last_benchmark_run_id=100)
+
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[True, True],
+        latest_run={
+            "databaseId": 101,
+            "createdAt": "2026-04-15T13:00:00Z",
+            "status": "completed",
+            "conclusion": "failure",
+        },
+        failure_log="codex login required before benchmark publish",
+    )
+
+    assert state.auth_failure_count == 2
+    assert report["stop_reason"] == "RepeatedAuthFailure: benchmark publication failed auth twice"
+    assert report["failure_policy"]["auth_failure"]["will_stop"] is True
+
+
+def test_run_shift_cycle_fails_closed_after_second_publication_failure() -> None:
+    state = mod.ProofFirstRuntimeState(publication_failure_count=1, last_benchmark_run_id=200)
+
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[True, True],
+        latest_run={
+            "databaseId": 201,
+            "createdAt": "2026-04-15T13:00:00Z",
+            "status": "completed",
+            "conclusion": "failure",
+        },
+        failure_log="resource not accessible by integration during pr creation",
+    )
+
+    assert state.publication_failure_count == 2
+    assert (
+        report["stop_reason"]
+        == "RepeatedPublicationFailure: benchmark publication failed PR handoff twice"
+    )
+    assert report["failure_policy"]["publication_failure"]["will_stop"] is True
+
+
+def test_run_shift_cycle_fails_closed_when_benchmark_trigger_runtime_fails() -> None:
+    state = mod.ProofFirstRuntimeState()
+
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[True, True],
+        benchmark_mode="hybrid",
+        latest_run={
+            "databaseId": 123,
+            "createdAt": "2026-04-14T00:00:00Z",
+            "status": "completed",
+            "conclusion": "success",
+        },
+        trigger_benchmark_side_effect=RuntimeError("gh workflow run failed"),
+    )
+
+    assert state.runtime_failure_count == 1
+    assert report["actions"] == ["trigger_benchmark_failed:stale_publication_window"]
+    assert report["stop_reason"] == "RuntimeFailure: gh workflow run failed"
+    assert report["failure_policy"]["runtime_failure"]["will_stop"] is True

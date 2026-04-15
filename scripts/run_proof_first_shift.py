@@ -35,6 +35,32 @@ DEFAULT_BOSS_LABEL = "com.aragora.swarm-boss-loop"
 DEFAULT_MERGE_LABEL = "com.aragora.swarm-merge-arbiter"
 DEFAULT_BOSS_PROCESS_PATTERN = r"aragora\.cli\.main swarm boss-loop|run_boss_cycle\.sh"
 DEFAULT_MERGE_PROCESS_PATTERN = r"aragora\.cli\.main swarm merge-arbiter"
+AUTH_FAILURE_STOP_AFTER = 2
+PUBLICATION_FAILURE_STOP_AFTER = 2
+RUNTIME_FAILURE_STOP_AFTER = 1
+SERVICE_FAILURE_STOP_AFTER = 1
+FAILURE_POLICIES: dict[str, dict[str, Any]] = {
+    "auth_failure": {
+        "stop_after": AUTH_FAILURE_STOP_AFTER,
+        "self_heal": "retry_benchmark_once",
+        "description": "Allow one benchmark auth failure, then fail closed on the next one.",
+    },
+    "publication_failure": {
+        "stop_after": PUBLICATION_FAILURE_STOP_AFTER,
+        "self_heal": "retry_benchmark_once",
+        "description": "Allow one benchmark publication handoff failure, then fail closed.",
+    },
+    "runtime_failure": {
+        "stop_after": RUNTIME_FAILURE_STOP_AFTER,
+        "self_heal": "none",
+        "description": "Stop immediately when the shift runtime loses truthful control surfaces.",
+    },
+    "service_failure": {
+        "stop_after": SERVICE_FAILURE_STOP_AFTER,
+        "self_heal": "restart_service_once",
+        "description": "Attempt one service restart when work is pending, then fail closed.",
+    },
+}
 AUTOMATION_BRANCH_PREFIXES = (
     "codex/",
     "factory/",
@@ -49,6 +75,7 @@ class ProofFirstRuntimeState:
     merge_restart_count: int = 0
     auth_failure_count: int = 0
     publication_failure_count: int = 0
+    runtime_failure_count: int = 0
     last_benchmark_run_id: int | None = None
     last_triggered_benchmark_run_id: int | None = None
 
@@ -76,6 +103,7 @@ def load_runtime_state(path: Path) -> ProofFirstRuntimeState:
         merge_restart_count=int(payload.get("merge_restart_count", 0) or 0),
         auth_failure_count=int(payload.get("auth_failure_count", 0) or 0),
         publication_failure_count=int(payload.get("publication_failure_count", 0) or 0),
+        runtime_failure_count=int(payload.get("runtime_failure_count", 0) or 0),
         last_benchmark_run_id=(
             int(payload["last_benchmark_run_id"]) if payload.get("last_benchmark_run_id") else None
         ),
@@ -281,6 +309,32 @@ def github_unavailable_stop_reason(queue_report: dict[str, Any]) -> str:
     return "GitHubUnavailable: proof-first queue reconciliation could not reach GitHub"
 
 
+def build_failure_policy_status(
+    runtime_state: ProofFirstRuntimeState,
+    *,
+    service_failure_count: int = 0,
+) -> dict[str, dict[str, Any]]:
+    counts = {
+        "auth_failure": int(runtime_state.auth_failure_count or 0),
+        "publication_failure": int(runtime_state.publication_failure_count or 0),
+        "runtime_failure": int(runtime_state.runtime_failure_count or 0),
+        "service_failure": int(service_failure_count or 0),
+    }
+    status: dict[str, dict[str, Any]] = {}
+    for failure_type, policy in FAILURE_POLICIES.items():
+        stop_after = int(policy["stop_after"])
+        count = counts[failure_type]
+        status[failure_type] = {
+            "count": count,
+            "stop_after": stop_after,
+            "remaining_self_heal_attempts": max(0, stop_after - count - 1),
+            "self_heal": str(policy["self_heal"]),
+            "description": str(policy["description"]),
+            "will_stop": count >= stop_after,
+        }
+    return status
+
+
 def fetch_benchmark_failure_log(*, repo_root: Path, run_id: int) -> str:
     proc = _run(
         ["gh", "run", "view", str(run_id), "--log-failed"],
@@ -398,7 +452,23 @@ def run_shift_cycle(
 ) -> dict[str, Any]:
     queue_report = reconcile_proof_first_queue(repo=repo, repo_root=repo_root, apply=True)
     github_status = dict(queue_report.get("github_status") or {})
+    queue_removed_count = len(queue_report.get("removed") or [])
     if github_status.get("available") is False:
+        runtime_state.runtime_failure_count += 1
+        stop_reason = github_unavailable_stop_reason(queue_report)
+        failure_policy = build_failure_policy_status(runtime_state)
+        if ledger:
+            ledger.record_failure(failure_type="runtime_failure", detail=stop_reason)
+            ledger.record_cycle_tick(
+                queue_size=len(queue_report.get("kept") or []),
+                queue_removed=queue_removed_count,
+                open_prs=0,
+                boss_running=False,
+                merge_running=False,
+                benchmark_fresh=False,
+                actions=[],
+                stop_reason=stop_reason,
+            )
         return {
             "queue_report": queue_report,
             "snapshot": {},
@@ -406,7 +476,8 @@ def run_shift_cycle(
             "automation_backlog": 0,
             "latest_benchmark_run": None,
             "actions": [],
-            "stop_reason": github_unavailable_stop_reason(queue_report),
+            "stop_reason": stop_reason,
+            "failure_policy": failure_policy,
         }
     snapshot = collect_boss_lane_snapshot(repo_root=repo_root, repo=repo)
     prs = list_open_prs(repo_root=repo_root, repo=repo)
@@ -424,6 +495,7 @@ def run_shift_cycle(
 
     actions: list[str] = []
     service_failures: list[str] = []
+    runtime_failures: list[str] = []
     if should_restart_service(
         is_running=boss_running,
         pending_count=canonical_queue_count,
@@ -440,11 +512,11 @@ def run_shift_cycle(
                 ledger.record_service_restart(service="boss_loop", success=True)
         else:
             actions.append("restart_boss_loop_failed")
-            service_failures.append(
-                f"BossRestartFailed: {detail or 'boss loop restart did not produce a running process'}"
-            )
+            stop_reason = f"BossRestartFailed: {detail or 'boss loop restart did not produce a running process'}"
+            service_failures.append(stop_reason)
             if ledger:
                 ledger.record_service_restart(service="boss_loop", success=False, detail=detail)
+                ledger.record_failure(failure_type="service_failure", detail=stop_reason)
 
     if should_restart_service(
         is_running=merge_running,
@@ -462,11 +534,11 @@ def run_shift_cycle(
                 ledger.record_service_restart(service="merge_arbiter", success=True)
         else:
             actions.append("restart_merge_arbiter_failed")
-            service_failures.append(
-                f"MergeArbiterRestartFailed: {detail or 'merge arbiter restart did not produce a running process'}"
-            )
+            stop_reason = f"MergeArbiterRestartFailed: {detail or 'merge arbiter restart did not produce a running process'}"
+            service_failures.append(stop_reason)
             if ledger:
                 ledger.record_service_restart(service="merge_arbiter", success=False, detail=detail)
+                ledger.record_failure(failure_type="service_failure", detail=stop_reason)
 
     merge_report = run_merge_arbiter_apply(
         repo_root=repo_root,
@@ -505,9 +577,21 @@ def run_shift_cycle(
                         ledger.record_failure(
                             failure_type="publication_failure", detail=failure_log[:500]
                         )
+                else:
+                    runtime_state.runtime_failure_count += 1
+                    runtime_failures.append(
+                        "RuntimeFailure: benchmark publication failed with an unclassified runtime error"
+                    )
+                    if ledger:
+                        ledger.record_failure(
+                            failure_type="runtime_failure",
+                            detail=failure_log[:500]
+                            or "benchmark publication failed with an unclassified runtime error",
+                        )
             elif conclusion == "success":
                 runtime_state.auth_failure_count = 0
                 runtime_state.publication_failure_count = 0
+                runtime_state.runtime_failure_count = 0
 
     should_trigger, trigger_reason = should_trigger_benchmark_rerun(
         benchmark_mode=benchmark_mode,
@@ -518,22 +602,40 @@ def run_shift_cycle(
         last_triggered_run_id=runtime_state.last_triggered_benchmark_run_id,
     )
     if should_trigger:
-        trigger_benchmark_workflow(repo_root=repo_root, repo=repo)
-        actions.append(f"trigger_benchmark:{trigger_reason}")
-        if latest_run is not None:
-            runtime_state.last_triggered_benchmark_run_id = int(
-                latest_run.get("databaseId", 0) or 0
-            )
+        try:
+            trigger_benchmark_workflow(repo_root=repo_root, repo=repo)
+        except RuntimeError as exc:
+            runtime_state.runtime_failure_count += 1
+            detail = str(exc).strip() or "benchmark workflow trigger failed"
+            runtime_failures.append(f"RuntimeFailure: {detail}")
+            actions.append(f"trigger_benchmark_failed:{trigger_reason}")
+            if ledger:
+                ledger.record_failure(failure_type="runtime_failure", detail=detail)
         else:
-            runtime_state.last_triggered_benchmark_run_id = -1
+            actions.append(f"trigger_benchmark:{trigger_reason}")
+            if latest_run is not None:
+                runtime_state.last_triggered_benchmark_run_id = int(
+                    latest_run.get("databaseId", 0) or 0
+                )
+            else:
+                runtime_state.last_triggered_benchmark_run_id = -1
 
     stop_reason = ""
-    if runtime_state.auth_failure_count >= 2:
-        stop_reason = "RepeatedAuthFailure: benchmark publication failed auth twice"
-    elif runtime_state.publication_failure_count >= 2:
-        stop_reason = "RepeatedPublicationFailure: benchmark publication failed PR handoff twice"
+    if runtime_failures:
+        stop_reason = runtime_failures[0]
     elif service_failures:
         stop_reason = service_failures[0]
+    elif runtime_state.auth_failure_count >= AUTH_FAILURE_STOP_AFTER:
+        stop_reason = "RepeatedAuthFailure: benchmark publication failed auth twice"
+    elif runtime_state.publication_failure_count >= PUBLICATION_FAILURE_STOP_AFTER:
+        stop_reason = "RepeatedPublicationFailure: benchmark publication failed PR handoff twice"
+    elif runtime_state.runtime_failure_count >= RUNTIME_FAILURE_STOP_AFTER:
+        stop_reason = "RuntimeFailure: proof-first shift lost a required runtime control surface"
+
+    failure_policy = build_failure_policy_status(
+        runtime_state,
+        service_failure_count=len(service_failures),
+    )
 
     # Record cycle tick in ledger
     benchmark_fresh = False
@@ -543,11 +645,13 @@ def run_shift_cycle(
     if ledger:
         ledger.record_cycle_tick(
             queue_size=canonical_queue_count,
+            queue_removed=queue_removed_count,
             open_prs=open_pr_count,
             boss_running=boss_running,
             merge_running=merge_running,
             benchmark_fresh=benchmark_fresh,
             actions=actions,
+            stop_reason=stop_reason,
         )
 
     return {
@@ -558,6 +662,7 @@ def run_shift_cycle(
         "latest_benchmark_run": latest_run,
         "actions": actions,
         "stop_reason": stop_reason,
+        "failure_policy": failure_policy,
     }
 
 

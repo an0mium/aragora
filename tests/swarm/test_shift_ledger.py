@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
 
 import pytest
@@ -77,6 +76,7 @@ class TestShiftLedger:
         )
         ledger.record_cycle_tick(
             queue_size=5,
+            queue_removed=0,
             open_prs=2,
             boss_running=True,
             merge_running=True,
@@ -120,6 +120,7 @@ class TestStatusSummary:
         )
         ledger.record_cycle_tick(
             queue_size=3,
+            queue_removed=0,
             open_prs=1,
             boss_running=True,
             merge_running=True,
@@ -146,12 +147,17 @@ class TestStatusSummary:
         assert summary["benchmark_runs"] == 1
         assert summary["last_benchmark_conclusion"] == "success"
         assert summary["current_queue_size"] == 3
+        assert summary["current_queue_removed"] == 0
+        assert summary["current_open_prs"] == 1
         assert summary["current_boss_running"] is True
         assert summary["current_benchmark_fresh"] is True
+        assert summary["failure_policy"]["auth_failure"]["count"] == 1
+        assert summary["green_shift"]["is_green"] is False
 
     def test_multiple_ticks_uses_latest(self, ledger: ShiftLedger) -> None:
         ledger.record_cycle_tick(
             queue_size=10,
+            queue_removed=1,
             open_prs=5,
             boss_running=False,
             merge_running=True,
@@ -159,6 +165,7 @@ class TestStatusSummary:
         )
         ledger.record_cycle_tick(
             queue_size=3,
+            queue_removed=0,
             open_prs=1,
             boss_running=True,
             merge_running=True,
@@ -167,3 +174,113 @@ class TestStatusSummary:
         summary = ledger.get_status_summary()
         assert summary["current_queue_size"] == 3
         assert summary["current_boss_running"] is True
+
+    def test_green_shift_summary_marks_healthy_12_hour_shift_green(
+        self, ledger: ShiftLedger
+    ) -> None:
+        entries = [
+            LedgerEntry(
+                entry_type="shift_start",
+                timestamp="2026-04-15T00:00:00Z",
+                payload={
+                    "shift_id": "s1",
+                    "max_hours": 12,
+                    "benchmark_mode": "hybrid",
+                    "queue_size": 0,
+                },
+            ),
+            LedgerEntry(
+                entry_type="cycle_tick",
+                timestamp="2026-04-15T12:00:00Z",
+                payload={
+                    "queue_size": 0,
+                    "queue_removed": 0,
+                    "open_prs": 0,
+                    "boss_running": False,
+                    "merge_running": False,
+                    "benchmark_fresh": True,
+                    "actions": [],
+                    "stop_reason": "",
+                },
+            ),
+            LedgerEntry(
+                entry_type="shift_stop",
+                timestamp="2026-04-15T12:00:00Z",
+                payload={
+                    "shift_id": "s1",
+                    "reason": "TimeLimit: 12.00h >= max 12.00h",
+                    "cycles": 60,
+                    "duration_seconds": 43200,
+                },
+            ),
+        ]
+        ledger.path.write_text(
+            "\n".join(json.dumps(entry.to_dict(), sort_keys=True) for entry in entries) + "\n",
+            encoding="utf-8",
+        )
+
+        summary = ledger.get_status_summary(max_age_hours=48.0)
+
+        assert summary["green_shift"]["window_complete"] is True
+        assert summary["green_shift"]["benchmark_fresh"] is True
+        assert summary["green_shift"]["queue_disciplined"] is True
+        assert summary["green_shift"]["boss_service_healthy"] is True
+        assert summary["green_shift"]["merge_service_healthy"] is True
+        assert summary["green_shift"]["healthy_stop_reason"] is True
+        assert summary["green_shift"]["is_green"] is True
+
+    def test_green_shift_summary_marks_failure_class_as_not_green(
+        self, ledger: ShiftLedger
+    ) -> None:
+        entries = [
+            LedgerEntry(
+                entry_type="shift_start",
+                timestamp="2026-04-15T00:00:00Z",
+                payload={
+                    "shift_id": "s2",
+                    "max_hours": 12,
+                    "benchmark_mode": "hybrid",
+                    "queue_size": 1,
+                },
+            ),
+            LedgerEntry(
+                entry_type="runtime_failure",
+                timestamp="2026-04-15T06:00:00Z",
+                payload={"detail": "GitHubUnavailable: api outage"},
+            ),
+            LedgerEntry(
+                entry_type="cycle_tick",
+                timestamp="2026-04-15T06:00:00Z",
+                payload={
+                    "queue_size": 1,
+                    "queue_removed": 0,
+                    "open_prs": 0,
+                    "boss_running": False,
+                    "merge_running": True,
+                    "benchmark_fresh": False,
+                    "actions": [],
+                    "stop_reason": "GitHubUnavailable: api outage",
+                },
+            ),
+            LedgerEntry(
+                entry_type="shift_stop",
+                timestamp="2026-04-15T06:00:00Z",
+                payload={
+                    "shift_id": "s2",
+                    "reason": "GitHubUnavailable: api outage",
+                    "cycles": 3,
+                    "duration_seconds": 21600,
+                },
+            ),
+        ]
+        ledger.path.write_text(
+            "\n".join(json.dumps(entry.to_dict(), sort_keys=True) for entry in entries) + "\n",
+            encoding="utf-8",
+        )
+
+        summary = ledger.get_status_summary(max_age_hours=48.0)
+
+        assert summary["failure_policy"]["runtime_failure"]["will_stop"] is True
+        assert summary["green_shift"]["window_complete"] is False
+        assert summary["green_shift"]["healthy_stop_reason"] is False
+        assert summary["green_shift"]["is_green"] is False
