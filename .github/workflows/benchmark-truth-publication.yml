@@ -70,6 +70,8 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
+          # Upgrade pip/setuptools first (Homebrew's may be too old for pyproject.toml)
+          python3 -m pip install --upgrade pip setuptools --quiet
           python3 -m pip install -e ".[dev]" --quiet 2>/dev/null || python3 -m pip install -e . --quiet
 
       - name: Install GitHub CLI
