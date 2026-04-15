@@ -149,6 +149,24 @@ def _render_stale_closed_issues(issues: list[dict[str, Any]]) -> list[str]:
     return lines or ["- none"]
 
 
+def _render_linkage_errors(issues: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for issue in issues:
+        issue_number = _format_value(issue.get("issue_number"))
+        title = _format_value(issue.get("issue_title"))
+        closed_at = _format_value(issue.get("issue_closed_at"))
+        state_reason = _format_value(issue.get("issue_state_reason"))
+        truth_state = _format_value(issue.get("truth_state"))
+        linkage_status = _format_value(issue.get("linkage_status"))
+        linkage_error = _format_value(issue.get("linkage_error"))
+        lines.append(
+            f"- `#{issue_number}` `{title}`: closed `{closed_at}`, "
+            f"reason `{state_reason}`, truth `{truth_state}`, "
+            f"linkage `{linkage_status}`, error `{linkage_error}`"
+        )
+    return lines or ["- none"]
+
+
 def _render_linked_issues(issues: list[dict[str, Any]]) -> list[str]:
     lines: list[str] = []
     for issue in issues:
@@ -236,6 +254,11 @@ def render_status_markdown(
     stale_closed_issues = [
         item
         for item in list(corpus_freshness.get("stale_closed_issues") or [])
+        if isinstance(item, dict)
+    ]
+    linkage_errors = [
+        item
+        for item in list(corpus_freshness.get("linkage_errors") or [])
         if isinstance(item, dict)
     ]
     linked_issues = [
@@ -368,6 +391,17 @@ def render_status_markdown(
                         *_render_issue_drafts(issue_drafts),
                     ]
                 )
+    if linkage_errors:
+        lines.extend(
+            [
+                "",
+                "## Corpus Freshness Verification Warnings",
+                "",
+                "Closed issues with failed GitHub linkage checks were excluded from stale-corpus alerts until verification can be retried cleanly.",
+                "",
+                *_render_linkage_errors(linkage_errors),
+            ]
+        )
     lines.extend(
         [
             "",

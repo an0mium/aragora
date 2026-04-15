@@ -132,11 +132,21 @@ class IssueTruthRecord:
     issue_state: str = ""
     issue_state_reason: str = ""
     issue_closed_at: str | None = None
+    linkage_status: str = "verified"
+    linkage_error: str = ""
     linked_prs: list[LinkedPullRequest] = field(default_factory=list)
 
     @property
+    def linkage_verification_incomplete(self) -> bool:
+        return self.linkage_status != "verified"
+
+    @property
     def stale_corpus_issue(self) -> bool:
-        return self.issue_state == "CLOSED" and self.truth_state == "no_linked_pr"
+        return (
+            self.issue_state == "CLOSED"
+            and self.truth_state == "no_linked_pr"
+            and not self.linkage_verification_incomplete
+        )
 
     @property
     def stale_corpus_reason(self) -> str | None:
@@ -157,6 +167,9 @@ class IssueTruthRecord:
             "issue_state": self.issue_state,
             "issue_state_reason": self.issue_state_reason,
             "issue_closed_at": self.issue_closed_at,
+            "linkage_status": self.linkage_status,
+            "linkage_error": self.linkage_error,
+            "linkage_verification_incomplete": self.linkage_verification_incomplete,
             "stale_corpus_issue": self.stale_corpus_issue,
             "stale_corpus_reason": self.stale_corpus_reason,
             "linked_prs": [asdict(pr) | {"truth_state": pr.truth_state} for pr in self.linked_prs],
@@ -471,6 +484,8 @@ def reconcile_issue_truth(
     issue_state = str(issue_payload.get("state") or "").strip().upper()
     issue_state_reason = str(issue_payload.get("stateReason") or "").strip().upper()
     issue_closed_at = issue_payload.get("closedAt")
+    linkage_status = "verified"
+    linkage_error = ""
 
     pr_numbers = extract_pr_numbers_from_issue(repo, issue_payload)
     if not pr_numbers:
@@ -478,9 +493,11 @@ def reconcile_issue_truth(
             pr_numbers = sorted(
                 set(client.get_cross_referenced_pr_numbers(repo, aggregate.issue_number))
             )
-        except RuntimeError:
+        except RuntimeError as error:
             if issue_state != "CLOSED":
                 raise
+            linkage_status = "cross_reference_lookup_failed"
+            linkage_error = str(error)
             pr_numbers = []
 
     linked_prs: list[LinkedPullRequest] = []
@@ -514,6 +531,8 @@ def reconcile_issue_truth(
         issue_state=issue_state,
         issue_state_reason=issue_state_reason,
         issue_closed_at=issue_closed_at if isinstance(issue_closed_at, str) else None,
+        linkage_status=linkage_status,
+        linkage_error=linkage_error,
         linked_prs=linked_prs,
     )
 

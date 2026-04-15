@@ -443,7 +443,7 @@ def test_reconcile_issue_truth_marks_closed_issue_without_linked_pr_as_stale() -
             }
         },
         prs={},
-        cross_refs={1733: RuntimeError("error connecting to api.github.com")},
+        cross_refs={1733: []},
     )
 
     record = reconcile_issue_truth("synaptent/aragora", aggregate, client)
@@ -452,6 +452,40 @@ def test_reconcile_issue_truth_marks_closed_issue_without_linked_pr_as_stale() -
     assert record.issue_state == "CLOSED"
     assert record.stale_corpus_issue is True
     assert record.stale_corpus_reason == "closed_without_linked_pr"
+
+
+def test_reconcile_issue_truth_skips_stale_flag_when_linkage_lookup_fails() -> None:
+    aggregate = IssueMetricsAggregate(
+        issue_number=1733,
+        title="Detached worker cleanup",
+        proxy_pr_signal=False,
+        had_rescue=False,
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            1733: {
+                "title": aggregate.title,
+                "url": "https://github.com/synaptent/aragora/issues/1733",
+                "state": "CLOSED",
+                "stateReason": "COMPLETED",
+                "closedAt": "2026-03-31T23:45:29Z",
+                "closedByPullRequestsReferences": [],
+                "comments": [],
+            }
+        },
+        prs={},
+        cross_refs={1733: RuntimeError("error connecting to api.github.com")},
+    )
+
+    record = reconcile_issue_truth("synaptent/aragora", aggregate, client)
+
+    assert record.truth_state == "no_linked_pr"
+    assert record.issue_state == "CLOSED"
+    assert record.linkage_status == "cross_reference_lookup_failed"
+    assert record.linkage_verification_incomplete is True
+    assert record.linkage_error == "error connecting to api.github.com"
+    assert record.stale_corpus_issue is False
+    assert record.stale_corpus_reason is None
 
 
 def test_summary_and_renderers_include_proxy_vs_truth_language() -> None:

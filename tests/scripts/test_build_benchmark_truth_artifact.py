@@ -13,9 +13,16 @@ import build_benchmark_truth_artifact as mod  # noqa: E402
 
 
 class FakeGitHubTruthClient:
-    def __init__(self, *, issues: dict[int, dict], prs: dict[int, dict]) -> None:
+    def __init__(
+        self,
+        *,
+        issues: dict[int, dict],
+        prs: dict[int, dict],
+        cross_refs: dict[int, list[int] | Exception] | None = None,
+    ) -> None:
         self.issues = issues
         self.prs = prs
+        self.cross_refs = cross_refs or {}
 
     def get_issue(self, repo: str, number: int) -> dict:
         return self.issues[number]
@@ -24,7 +31,10 @@ class FakeGitHubTruthClient:
         return self.prs[number]
 
     def get_cross_referenced_pr_numbers(self, repo: str, number: int) -> list[int]:
-        return []
+        value = self.cross_refs.get(number, [])
+        if isinstance(value, Exception):
+            raise value
+        return list(value)
 
 
 def _write_json(path: Path, payload: dict) -> Path:
@@ -322,6 +332,65 @@ def test_build_benchmark_truth_artifact_reports_stale_closed_corpus_issues(
     assert artifact["corpus_freshness"]["stale_closed_issue_numbers"] == [1733]
     assert artifact["issues"][0]["stale_corpus_issue"] is True
     assert artifact["issues"][0]["issue_state"] == "CLOSED"
+
+
+def test_build_benchmark_truth_artifact_surfaces_linkage_warnings_without_stale_alerts(
+    tmp_path: Path,
+) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        json.dumps(
+            {
+                "issue_number": 1733,
+                "issue_title": "Detached worker cleanup",
+                "terminal_class": "issue_already_resolved",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 4,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [
+                {"issue_id": 1733, "title": "Detached worker cleanup"},
+            ],
+        },
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            1733: {
+                "title": "Detached worker cleanup",
+                "url": "https://github.com/synaptent/aragora/issues/1733",
+                "state": "CLOSED",
+                "stateReason": "COMPLETED",
+                "closedAt": "2026-03-31T23:45:29Z",
+                "closedByPullRequestsReferences": [],
+                "comments": [],
+            }
+        },
+        prs={},
+        cross_refs={1733: RuntimeError("error connecting to api.github.com")},
+    )
+
+    artifact = mod.build_benchmark_truth_artifact(
+        repo="synaptent/aragora",
+        metrics_file=metrics_path,
+        corpus_path=corpus_path,
+        client=client,
+        generated_at="2026-04-14T01:00:00Z",
+    )
+
+    assert artifact["corpus_freshness"]["status"] == "linkage_verification_incomplete"
+    assert artifact["corpus_freshness"]["stale_closed_issue_count"] == 0
+    assert artifact["corpus_freshness"]["linkage_error_count"] == 1
+    assert artifact["corpus_freshness"]["linkage_errors"][0]["issue_number"] == 1733
+    assert artifact["issues"][0]["linkage_verification_incomplete"] is True
+    assert artifact["issues"][0]["stale_corpus_issue"] is False
 
 
 def test_build_benchmark_truth_artifact_surfaces_freshness_issue_draft(
