@@ -13,6 +13,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH as DEFAULT_SHIFT_LEDGER_PATH
+from aragora.swarm.shift_ledger import ShiftLedger
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
@@ -54,16 +57,35 @@ def _tail_jsonl(path: Path, max_lines: int) -> list[dict[str, Any]]:
         return []
 
 
+def _load_ledger_status(
+    *,
+    repo_root: Path,
+    ledger_path: Path | None = None,
+) -> dict[str, Any] | None:
+    path = ledger_path or (repo_root / Path(DEFAULT_SHIFT_LEDGER_PATH))
+    if not path.exists():
+        return None
+    try:
+        payload = ShiftLedger(path=path).get_status_summary()
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) and payload else None
+
+
 def swarm_status_summary(
     *,
     metrics_path: Path | None = None,
+    repo_root: Path | None = None,
+    ledger_path: Path | None = None,
     window: int = DEFAULT_WINDOW,
 ) -> dict[str, Any]:
-    """Build a swarm status summary from boss metrics JSONL."""
+    """Build a swarm status summary, preferring proof-first ledger truth."""
     path = metrics_path or DEFAULT_METRICS_PATH
+    root = repo_root or Path.cwd()
     rows = _tail_jsonl(path, window)
+    ledger_status = _load_ledger_status(repo_root=root, ledger_path=ledger_path)
 
-    if not rows:
+    if not rows and not ledger_status:
         return {
             "status": "no_data",
             "metrics_path": str(path),
@@ -129,6 +151,30 @@ def swarm_status_summary(
         "metrics_path": str(path),
         "window": window,
         "total_ticks": len(rows),
+        "ledger_status": ledger_status or {},
+        "queue_depth": (
+            ledger_status.get("current_queue_size") if isinstance(ledger_status, dict) else None
+        ),
+        "boss_running": (
+            ledger_status.get("current_boss_running") if isinstance(ledger_status, dict) else None
+        ),
+        "merge_running": (
+            ledger_status.get("current_merge_running") if isinstance(ledger_status, dict) else None
+        ),
+        "benchmark_fresh": (
+            ledger_status.get("current_benchmark_fresh")
+            if isinstance(ledger_status, dict)
+            else None
+        ),
+        "last_stop_reason": (
+            ledger_status.get("last_stop_reason") if isinstance(ledger_status, dict) else ""
+        ),
+        "prs_merged_recent": (
+            ledger_status.get("prs_merged") if isinstance(ledger_status, dict) else 0
+        ),
+        "merged_pr_numbers": (
+            ledger_status.get("pr_numbers_merged") if isinstance(ledger_status, dict) else []
+        ),
         "unique_issues_attempted": len(issues_attempted),
         "unique_issues_succeeded": len(issues_succeeded),
         "success_rate": issue_success_rate,

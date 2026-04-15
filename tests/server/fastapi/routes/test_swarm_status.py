@@ -11,6 +11,7 @@ os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "0")
 
 from aragora.server.fastapi.routes import swarm_status
 from aragora.swarm.preflight import PreflightReceipt
+from aragora.swarm.shift_ledger import ShiftLedger
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
@@ -125,6 +126,45 @@ def test_swarm_status_summary_surfaces_compact_blocker_evidence(tmp_path: Path) 
             "issue_title": "Repair auth preflight",
         }
     ]
+
+
+def test_swarm_status_summary_prefers_ledger_truth_when_present(tmp_path: Path) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    _write_jsonl(metrics_path, [])
+    ledger = ShiftLedger(path=tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl")
+    ledger.record_shift_start(
+        shift_id="shift-1",
+        max_hours=12.0,
+        benchmark_mode="hybrid",
+        queue_size=0,
+    )
+    ledger.record_cycle_tick(
+        queue_size=0,
+        open_prs=0,
+        boss_running=False,
+        merge_running=True,
+        benchmark_fresh=True,
+        actions=["steady_state"],
+        stop_reason="completed",
+    )
+    ledger.record_pr_merged(pr_number=5857)
+    ledger.record_shift_stop(
+        shift_id="shift-1",
+        reason="completed",
+        cycles=1,
+        duration_seconds=45.0,
+    )
+
+    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path, repo_root=tmp_path)
+
+    assert summary["status"] == "active"
+    assert summary["ledger_status"]["current_benchmark_fresh"] is True
+    assert summary["queue_depth"] == 0
+    assert summary["boss_running"] is False
+    assert summary["merge_running"] is True
+    assert summary["last_stop_reason"] == "completed"
+    assert summary["prs_merged_recent"] == 1
+    assert summary["merged_pr_numbers"] == [5857]
 
 
 def test_preflight_check_returns_receipt_dict() -> None:

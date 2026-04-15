@@ -22,6 +22,44 @@ eval $SSH "
     cd ~/Development/aragora 2>/dev/null || { echo 'REPO: NOT FOUND'; exit 1; }
     source .venv/bin/activate 2>/dev/null || { echo 'VENV: NOT FOUND'; exit 1; }
 
+    echo '--- Proof-First Ledger ---'
+    python3 - <<'PY'
+from pathlib import Path
+
+try:
+    from aragora.swarm.shift_ledger import ShiftLedger
+except Exception as exc:  # pragma: no cover - operator fallback
+    print(f'ledger: unavailable ({exc})')
+    raise SystemExit(0)
+
+repo_root = Path.cwd()
+ledger_path = repo_root / '.aragora' / 'proof_first_shift' / 'shift_ledger.jsonl'
+if not ledger_path.exists():
+    print('ledger: missing')
+    raise SystemExit(0)
+
+summary = ShiftLedger(path=ledger_path).get_status_summary()
+green = summary.get('green_shift') or {}
+print(
+    'queue={queue} boss={boss} merge={merge} benchmark_fresh={fresh} merged_prs={merged} last_stop={stop}'.format(
+        queue=summary.get('current_queue_size'),
+        boss=summary.get('current_boss_running'),
+        merge=summary.get('current_merge_running'),
+        fresh=summary.get('current_benchmark_fresh'),
+        merged=summary.get('prs_merged'),
+        stop=summary.get('last_stop_reason') or '-',
+    )
+)
+print(
+    'green_shift={green} observed_hours={hours} window_complete={window}'.format(
+        green=green.get('is_green'),
+        hours=green.get('observed_hours'),
+        window=green.get('window_complete'),
+    )
+)
+PY
+
+    echo ''
     echo '--- Processes ---'
     ARBITER=\$(pgrep -f 'swarm.*merge-arbiter' | head -1)
     BOSS=\$(pgrep -f 'swarm.*boss-loop' | head -1)
