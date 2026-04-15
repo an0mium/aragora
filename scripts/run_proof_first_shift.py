@@ -21,6 +21,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from aragora.nomic.checkpoints import load_latest_checkpoint  # noqa: E402
 from aragora.nomic.shift_controller import ShiftConfig, ShiftController, ShiftState  # noqa: E402
+from aragora.swarm.shift_ledger import ShiftLedger  # noqa: E402
 from scripts.reconcile_proof_first_queue import reconcile_proof_first_queue  # noqa: E402
 from scripts.watch_boss_lane import collect_snapshot  # noqa: E402
 
@@ -385,6 +386,7 @@ def run_shift_cycle(
     benchmark_mode: str,
     automation_backlog_limit: int,
     runtime_state: ProofFirstRuntimeState,
+    ledger: ShiftLedger | None = None,
 ) -> dict[str, Any]:
     queue_report = reconcile_proof_first_queue(repo=repo, repo_root=repo_root, apply=True)
     snapshot = collect_boss_lane_snapshot(repo_root=repo_root, repo=repo)
@@ -415,11 +417,15 @@ def run_shift_cycle(
         runtime_state.boss_restart_count += 1
         if restarted:
             actions.append("restart_boss_loop")
+            if ledger:
+                ledger.record_service_restart(service="boss_loop", success=True)
         else:
             actions.append("restart_boss_loop_failed")
             service_failures.append(
                 f"BossRestartFailed: {detail or 'boss loop restart did not produce a running process'}"
             )
+            if ledger:
+                ledger.record_service_restart(service="boss_loop", success=False, detail=detail)
 
     if should_restart_service(
         is_running=merge_running,
@@ -433,11 +439,15 @@ def run_shift_cycle(
         runtime_state.merge_restart_count += 1
         if restarted:
             actions.append("restart_merge_arbiter")
+            if ledger:
+                ledger.record_service_restart(service="merge_arbiter", success=True)
         else:
             actions.append("restart_merge_arbiter_failed")
             service_failures.append(
                 f"MergeArbiterRestartFailed: {detail or 'merge arbiter restart did not produce a running process'}"
             )
+            if ledger:
+                ledger.record_service_restart(service="merge_arbiter", success=False, detail=detail)
 
     merge_report = run_merge_arbiter_apply(
         repo_root=repo_root,
@@ -447,6 +457,9 @@ def run_shift_cycle(
     merged_numbers = list(merge_report.get("merged") or [])
     if merged_numbers:
         actions.append(f"merged_prs:{','.join(str(number) for number in merged_numbers)}")
+        if ledger:
+            for num in merged_numbers:
+                ledger.record_pr_merged(pr_number=int(num))
 
     latest_run = latest_benchmark_run(repo_root=repo_root, repo=repo)
     if latest_run is not None:
@@ -454,13 +467,25 @@ def run_shift_cycle(
         conclusion = str(latest_run.get("conclusion") or "").strip().lower()
         if run_id and run_id != int(runtime_state.last_benchmark_run_id or 0):
             runtime_state.last_benchmark_run_id = run_id
+            if ledger:
+                ledger.record_benchmark_run(
+                    run_id=run_id,
+                    conclusion=conclusion,
+                    created_at=str(latest_run.get("createdAt", "")),
+                )
             if conclusion == "failure":
                 failure_log = fetch_benchmark_failure_log(repo_root=repo_root, run_id=run_id)
                 failure_class = classify_benchmark_failure_log(failure_log)
                 if failure_class == "auth_failure":
                     runtime_state.auth_failure_count += 1
+                    if ledger:
+                        ledger.record_failure(failure_type="auth_failure", detail=failure_log[:500])
                 elif failure_class == "publication_failure":
                     runtime_state.publication_failure_count += 1
+                    if ledger:
+                        ledger.record_failure(
+                            failure_type="publication_failure", detail=failure_log[:500]
+                        )
             elif conclusion == "success":
                 runtime_state.auth_failure_count = 0
                 runtime_state.publication_failure_count = 0
@@ -491,6 +516,21 @@ def run_shift_cycle(
     elif service_failures:
         stop_reason = service_failures[0]
 
+    # Record cycle tick in ledger
+    benchmark_fresh = False
+    if latest_run is not None:
+        conclusion = str(latest_run.get("conclusion") or "").strip().lower()
+        benchmark_fresh = conclusion == "success"
+    if ledger:
+        ledger.record_cycle_tick(
+            queue_size=canonical_queue_count,
+            open_prs=open_pr_count,
+            boss_running=boss_running,
+            merge_running=merge_running,
+            benchmark_fresh=benchmark_fresh,
+            actions=actions,
+        )
+
     return {
         "queue_report": queue_report,
         "snapshot": snapshot,
@@ -520,6 +560,9 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
     checkpoint_dir = repo_root / ".aragora" / DEFAULT_SHIFT_DIRNAME / "checkpoints"
     runtime_state_path = _runtime_state_path(repo_root)
     runtime_state = load_runtime_state(runtime_state_path)
+    ledger = ShiftLedger(path=repo_root / ".aragora" / DEFAULT_SHIFT_DIRNAME / "shift_ledger.jsonl")
+    shift_id = _assessment_id()
+    shift_start_time = time.monotonic()
 
     controller = ShiftController(
         ShiftConfig(
@@ -534,13 +577,22 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
     )
     restored = restore_shift_controller(controller, checkpoint_dir=checkpoint_dir)
     if restored is None:
-        await controller.start_shift(assessment_id=_assessment_id())
+        await controller.start_shift(assessment_id=shift_id)
     elif restored.status == "paused_for_refresh":
-        await controller.resume_after_refresh(_assessment_id())
+        await controller.resume_after_refresh(shift_id)
     elif restored.status != "running":
-        await controller.start_shift(assessment_id=_assessment_id())
+        await controller.start_shift(assessment_id=shift_id)
+
+    # Record shift start in ledger
+    ledger.record_shift_start(
+        shift_id=shift_id,
+        max_hours=float(args.max_hours),
+        benchmark_mode=args.benchmark_mode,
+        queue_size=0,  # will be updated on first tick
+    )
 
     cycle_reports: list[dict[str, Any]] = []
+    cycle_count = 0
     while True:
         should_stop, reason = controller.check_should_stop()
         if should_stop:
@@ -549,6 +601,12 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
                 await controller.resume_after_refresh(_assessment_id())
             else:
                 controller.complete_shift(reason)
+                ledger.record_shift_stop(
+                    shift_id=shift_id,
+                    reason=reason,
+                    cycles=cycle_count,
+                    duration_seconds=time.monotonic() - shift_start_time,
+                )
                 break
 
         report = run_shift_cycle(
@@ -557,17 +615,31 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
             benchmark_mode=args.benchmark_mode,
             automation_backlog_limit=int(args.automation_backlog_limit),
             runtime_state=runtime_state,
+            ledger=ledger,
         )
         cycle_reports.append(report)
+        cycle_count += 1
         save_runtime_state(runtime_state_path, runtime_state)
 
         objective = build_cycle_objective(report)
         await controller.run_cycle(objective)
         if report["stop_reason"]:
             controller.complete_shift(str(report["stop_reason"]))
+            ledger.record_shift_stop(
+                shift_id=shift_id,
+                reason=str(report["stop_reason"]),
+                cycles=cycle_count,
+                duration_seconds=time.monotonic() - shift_start_time,
+            )
             break
         if args.once:
             controller.complete_shift("completed")
+            ledger.record_shift_stop(
+                shift_id=shift_id,
+                reason="completed",
+                cycles=cycle_count,
+                duration_seconds=time.monotonic() - shift_start_time,
+            )
             break
         await asyncio.sleep(float(args.interval_seconds))
 
@@ -575,6 +647,7 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
         "shift": controller.get_progress_summary(),
         "runtime_state": asdict(runtime_state),
         "cycles": cycle_reports,
+        "ledger_status": ledger.get_status_summary(max_age_hours=float(args.max_hours)),
     }
     save_runtime_state(runtime_state_path, runtime_state)
     return summary
