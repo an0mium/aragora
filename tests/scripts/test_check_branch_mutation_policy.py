@@ -57,10 +57,6 @@ def test_find_mutating_workflow_violations_requires_safe_benchmark_truth_publica
         "must push only to benchmark-truth-publication/* branch namespace" in v.message
         for v in violations
     )
-    assert any(
-        "must open a pull request instead of pushing directly to main" in v.message
-        for v in violations
-    )
 
 
 def test_repo_branch_mutation_policy_passes_for_current_tree() -> None:

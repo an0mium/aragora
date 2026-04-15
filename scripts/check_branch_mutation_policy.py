@@ -141,11 +141,14 @@ def find_mutating_workflow_violations(workflows: dict[str, str]) -> list[Violati
                         ),
                     )
                 )
-            if "gh pr create" not in text:
+            if 'git push origin "$branch"' not in text:
                 violations.append(
                     Violation(
                         path=f".github/workflows/{name}",
-                        message="must open a pull request instead of pushing directly to main",
+                        message=(
+                            "must push the generated publication branch and rely on the "
+                            "repo PR automation path instead of pushing directly to main"
+                        ),
                     )
                 )
     return violations

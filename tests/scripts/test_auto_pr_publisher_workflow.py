@@ -18,6 +18,26 @@ def _auto_pr_publisher_steps() -> list[dict[str, object]]:
     return [step for step in steps if isinstance(step, dict)]
 
 
+def _auto_pr_publisher_workflow() -> dict[str, object]:
+    workflow_path = (
+        Path(__file__).resolve().parents[2] / ".github" / "workflows" / "auto-pr-publisher.yml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    if not isinstance(workflow, dict):
+        raise AssertionError("auto-pr-publisher workflow not found")
+    return workflow
+
+
+def _auto_pr_publisher_on() -> dict[str, object]:
+    workflow = _auto_pr_publisher_workflow()
+    on = workflow.get("on")
+    if not isinstance(on, dict):
+        on = workflow.get(True)
+    if not isinstance(on, dict):
+        raise AssertionError("auto-pr-publisher on block not found")
+    return on
+
+
 def test_auto_pr_publisher_runs_publish_guard_before_pr_creation() -> None:
     steps = _auto_pr_publisher_steps()
     names = [str(step.get("name", "")) for step in steps]
@@ -47,3 +67,17 @@ def test_auto_pr_publisher_skips_pr_creation_when_publish_guard_blocks() -> None
     script = str((publish_step.get("with") or {}).get("script", ""))
     assert "process.env.PUBLISH_GUARD_ALLOW" in script
     assert 'core.setOutput("status", "preflight_failed")' in script
+
+
+def test_auto_pr_publisher_includes_benchmark_publication_branches() -> None:
+    push = _auto_pr_publisher_on().get("push", {})
+    branches = push.get("branches", [])
+    assert "benchmark-truth-publication/**" in branches
+
+    publish_step = next(
+        step
+        for step in _auto_pr_publisher_steps()
+        if step.get("name") == "Publish draft PR for automation branch"
+    )
+    script = str((publish_step.get("with") or {}).get("script", ""))
+    assert 'ref.startsWith("benchmark-truth-publication/")' in script
