@@ -128,7 +128,21 @@ class IssueTruthRecord:
     truth_state: str
     truth_success: bool
     no_rescue_truth_success: bool
+    issue_url: str = ""
+    issue_state: str = ""
+    issue_state_reason: str = ""
+    issue_closed_at: str | None = None
     linked_prs: list[LinkedPullRequest] = field(default_factory=list)
+
+    @property
+    def stale_corpus_issue(self) -> bool:
+        return self.issue_state == "CLOSED" and self.truth_state == "no_linked_pr"
+
+    @property
+    def stale_corpus_reason(self) -> str | None:
+        if not self.stale_corpus_issue:
+            return None
+        return "closed_without_linked_pr"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -139,6 +153,12 @@ class IssueTruthRecord:
             "truth_state": self.truth_state,
             "truth_success": self.truth_success,
             "no_rescue_truth_success": self.no_rescue_truth_success,
+            "issue_url": self.issue_url,
+            "issue_state": self.issue_state,
+            "issue_state_reason": self.issue_state_reason,
+            "issue_closed_at": self.issue_closed_at,
+            "stale_corpus_issue": self.stale_corpus_issue,
+            "stale_corpus_reason": self.stale_corpus_reason,
             "linked_prs": [asdict(pr) | {"truth_state": pr.truth_state} for pr in self.linked_prs],
         }
 
@@ -215,7 +235,7 @@ class GitHubTruthClient:
                 "--repo",
                 repo,
                 "--json",
-                "number,title,url",
+                "number,title,url,state,stateReason,closedAt,closedByPullRequestsReferences",
             ]
         )
         payload["comments"] = self.get_issue_comments(repo, number)
@@ -403,6 +423,19 @@ def aggregate_b0_issues(rows: list[dict[str, Any]]) -> list[IssueMetricsAggregat
 def extract_pr_numbers_from_issue(repo: str, issue_payload: dict[str, Any]) -> list[int]:
     expected_repo = repo.lower()
     found: set[int] = set()
+    for pr_payload in issue_payload.get("closedByPullRequestsReferences", []):
+        if not isinstance(pr_payload, dict):
+            continue
+        pr_repo = pr_payload.get("repository")
+        if isinstance(pr_repo, dict):
+            owner = pr_repo.get("owner")
+            owner_login = owner.get("login") if isinstance(owner, dict) else ""
+            repo_name = pr_repo.get("name")
+            if f"{owner_login}/{repo_name}".lower() != expected_repo:
+                continue
+        pr_number = pr_payload.get("number")
+        if isinstance(pr_number, int):
+            found.add(pr_number)
     for comment in issue_payload.get("comments", []):
         if not isinstance(comment, dict):
             continue
@@ -434,12 +467,21 @@ def reconcile_issue_truth(
 ) -> IssueTruthRecord:
     issue_payload = client.get_issue(repo, aggregate.issue_number)
     issue_title = aggregate.title or str(issue_payload.get("title") or "").strip()
+    issue_url = str(issue_payload.get("url") or "").strip()
+    issue_state = str(issue_payload.get("state") or "").strip().upper()
+    issue_state_reason = str(issue_payload.get("stateReason") or "").strip().upper()
+    issue_closed_at = issue_payload.get("closedAt")
 
     pr_numbers = extract_pr_numbers_from_issue(repo, issue_payload)
     if not pr_numbers:
-        pr_numbers = sorted(
-            set(client.get_cross_referenced_pr_numbers(repo, aggregate.issue_number))
-        )
+        try:
+            pr_numbers = sorted(
+                set(client.get_cross_referenced_pr_numbers(repo, aggregate.issue_number))
+            )
+        except RuntimeError:
+            if issue_state != "CLOSED":
+                raise
+            pr_numbers = []
 
     linked_prs: list[LinkedPullRequest] = []
     for pr_number in pr_numbers:
@@ -468,6 +510,10 @@ def reconcile_issue_truth(
         truth_state=truth_state,
         truth_success=truth_success,
         no_rescue_truth_success=no_rescue_truth_success,
+        issue_url=issue_url,
+        issue_state=issue_state,
+        issue_state_reason=issue_state_reason,
+        issue_closed_at=issue_closed_at if isinstance(issue_closed_at, str) else None,
         linked_prs=linked_prs,
     )
 

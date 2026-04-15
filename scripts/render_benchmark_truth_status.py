@@ -114,6 +114,21 @@ def _render_mapping(mapping: dict[str, Any]) -> list[str]:
     return [f"- `{key}`: {_format_value(value)}" for key, value in mapping.items()]
 
 
+def _render_stale_closed_issues(issues: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for issue in issues:
+        issue_number = _format_value(issue.get("issue_number"))
+        title = _format_value(issue.get("issue_title"))
+        closed_at = _format_value(issue.get("issue_closed_at"))
+        state_reason = _format_value(issue.get("issue_state_reason"))
+        truth_state = _format_value(issue.get("truth_state"))
+        lines.append(
+            f"- `#{issue_number}` `{title}`: closed `{closed_at}`, "
+            f"reason `{state_reason}`, truth `{truth_state}`"
+        )
+    return lines or ["- none"]
+
+
 def render_status_markdown(
     *,
     corpus_path: Path,
@@ -134,6 +149,12 @@ def render_status_markdown(
     failure_distribution = dict(scorecard_payload.get("failure_class_distribution") or {})
     rescue_counts = dict(scorecard_payload.get("rescue_counts_by_type") or {})
     neutral_classes = dict(proxy_metrics.get("neutral_classes") or {})
+    corpus_freshness = dict(truth_payload.get("corpus_freshness") or {})
+    stale_closed_issues = [
+        item
+        for item in list(corpus_freshness.get("stale_closed_issues") or [])
+        if isinstance(item, dict)
+    ]
     generated_at = (
         str(scorecard_payload.get("generated_at") or "").strip()
         or str(truth_payload.get("generated_at") or "").strip()
@@ -204,6 +225,17 @@ def render_status_markdown(
                 "## Proxy Neutral Class Distribution",
                 "",
                 *_render_mapping(neutral_classes),
+            ]
+        )
+    if stale_closed_issues:
+        lines.extend(
+            [
+                "",
+                "## Corpus Freshness Alerts",
+                "",
+                "Truth metrics still reflect the frozen corpus revision. Closed issues without linked PR truth should be retired or replaced in the next corpus revision.",
+                "",
+                *_render_stale_closed_issues(stale_closed_issues),
             ]
         )
     lines.extend(

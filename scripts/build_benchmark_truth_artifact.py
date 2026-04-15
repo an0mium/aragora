@@ -130,6 +130,31 @@ def _missing_corpus_issue_numbers(aggregates: list[IssueMetricsAggregate]) -> li
     ]
 
 
+def _corpus_freshness(records: list[IssueTruthRecord]) -> dict[str, Any]:
+    stale_closed_issues = [
+        {
+            "issue_number": record.issue_number,
+            "issue_title": record.issue_title,
+            "issue_url": record.issue_url,
+            "issue_state": record.issue_state,
+            "issue_state_reason": record.issue_state_reason,
+            "issue_closed_at": record.issue_closed_at,
+            "truth_state": record.truth_state,
+            "stale_corpus_reason": record.stale_corpus_reason,
+        }
+        for record in records
+        if record.stale_corpus_issue
+    ]
+    return {
+        "status": "stale_closed_issues_detected" if stale_closed_issues else "fresh",
+        "stale_closed_issue_count": len(stale_closed_issues),
+        "stale_closed_issue_numbers": [
+            item["issue_number"] for item in stale_closed_issues if item["issue_number"] > 0
+        ],
+        "stale_closed_issues": stale_closed_issues,
+    }
+
+
 def _coerce_utc_datetime(value: str | None = None) -> dt.datetime:
     if value:
         parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -293,6 +318,7 @@ def build_benchmark_truth_artifact(
         },
         "failure_class_distribution": failure_class_distribution,
         "rescue_counts_by_type": rescue_counts_by_type,
+        "corpus_freshness": _corpus_freshness(records),
         "issues": [record.to_dict() for record in records],
     }
 

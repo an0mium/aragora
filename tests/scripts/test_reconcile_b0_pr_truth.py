@@ -32,7 +32,7 @@ class FakeGitHubTruthClient:
         *,
         issues: dict[int, dict],
         prs: dict[int, dict],
-        cross_refs: dict[int, list[int]] | None = None,
+        cross_refs: dict[int, list[int] | Exception] | None = None,
     ) -> None:
         self.issues = issues
         self.prs = prs
@@ -45,7 +45,10 @@ class FakeGitHubTruthClient:
         return self.prs[number]
 
     def get_cross_referenced_pr_numbers(self, repo: str, number: int) -> list[int]:
-        return list(self.cross_refs.get(number, []))
+        value = self.cross_refs.get(number, [])
+        if isinstance(value, Exception):
+            raise value
+        return list(value)
 
 
 class PaginatedGitHubTruthClient(GitHubTruthClient):
@@ -131,6 +134,32 @@ def test_extract_pr_numbers_from_issue_filters_repo() -> None:
     result = extract_pr_numbers_from_issue("synaptent/aragora", issue_payload)
 
     assert result == [5107]
+
+
+def test_extract_pr_numbers_from_issue_includes_closed_by_pull_references() -> None:
+    issue_payload = {
+        "closedByPullRequestsReferences": [
+            {
+                "number": 5763,
+                "repository": {
+                    "name": "aragora",
+                    "owner": {"login": "synaptent"},
+                },
+            },
+            {
+                "number": 99,
+                "repository": {
+                    "name": "repo",
+                    "owner": {"login": "other"},
+                },
+            },
+        ],
+        "comments": [],
+    }
+
+    result = extract_pr_numbers_from_issue("synaptent/aragora", issue_payload)
+
+    assert result == [5763]
 
 
 def test_reconcile_issue_truth_prefers_merged_pr() -> None:
@@ -343,6 +372,86 @@ def test_reconcile_issue_truth_preserves_closed_unmerged_pr() -> None:
     assert record.truth_success is False
     assert record.no_rescue_truth_success is False
     assert [pr.truth_state for pr in record.linked_prs] == ["closed_unmerged_pr"]
+
+
+def test_reconcile_issue_truth_uses_closed_by_pull_request_references() -> None:
+    aggregate = IssueMetricsAggregate(
+        issue_number=2712,
+        title="Boolean parsing fix",
+        proxy_pr_signal=False,
+        had_rescue=False,
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            2712: {
+                "title": aggregate.title,
+                "state": "CLOSED",
+                "stateReason": "COMPLETED",
+                "closedAt": "2026-04-15T05:27:50Z",
+                "closedByPullRequestsReferences": [
+                    {
+                        "number": 5763,
+                        "repository": {
+                            "name": "aragora",
+                            "owner": {"login": "synaptent"},
+                        },
+                    }
+                ],
+                "comments": [],
+            }
+        },
+        prs={
+            5763: {
+                "number": 5763,
+                "title": "merged fix",
+                "url": "https://github.com/synaptent/aragora/pull/5763",
+                "state": "MERGED",
+                "mergeable": "MERGEABLE",
+                "mergeStateStatus": "CLEAN",
+                "mergedAt": "2026-04-15T05:27:49Z",
+                "isDraft": False,
+            }
+        },
+        cross_refs={2712: RuntimeError("cross refs should not be used")},
+    )
+
+    record = reconcile_issue_truth("synaptent/aragora", aggregate, client)
+
+    assert record.truth_state == "merged_pr"
+    assert record.truth_success is True
+    assert record.issue_state == "CLOSED"
+    assert [pr.number for pr in record.linked_prs] == [5763]
+
+
+def test_reconcile_issue_truth_marks_closed_issue_without_linked_pr_as_stale() -> None:
+    aggregate = IssueMetricsAggregate(
+        issue_number=1733,
+        title="Detached worker cleanup",
+        proxy_pr_signal=False,
+        had_rescue=False,
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            1733: {
+                "title": aggregate.title,
+                "url": "https://github.com/synaptent/aragora/issues/1733",
+                "state": "CLOSED",
+                "stateReason": "COMPLETED",
+                "closedAt": "2026-03-31T23:45:29Z",
+                "closedByPullRequestsReferences": [],
+                "comments": [],
+            }
+        },
+        prs={},
+        cross_refs={1733: RuntimeError("error connecting to api.github.com")},
+    )
+
+    record = reconcile_issue_truth("synaptent/aragora", aggregate, client)
+
+    assert record.truth_state == "no_linked_pr"
+    assert record.issue_state == "CLOSED"
+    assert record.stale_corpus_issue is True
+    assert record.stale_corpus_reason == "closed_without_linked_pr"
 
 
 def test_summary_and_renderers_include_proxy_vs_truth_language() -> None:
