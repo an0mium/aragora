@@ -58,6 +58,29 @@ jobs:
         run: |
           python -m pip install -e ".[dev]" --quiet 2>/dev/null || python -m pip install -e . --quiet
 
+      - name: Install GitHub CLI
+        shell: bash
+        run: |
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64|amd64) gh_arch="amd64" ;;
+            aarch64|arm64) gh_arch="arm64" ;;
+            *)
+              echo "::error::Unsupported architecture for gh install: $arch"
+              exit 1
+              ;;
+          esac
+          gh_version="$(
+            curl -fsSL https://api.github.com/repos/cli/cli/releases/latest |
+              python3 -c 'import json, sys; print(json.load(sys.stdin)["tag_name"].lstrip("v"))'
+          )"
+          gh_root="$RUNNER_TEMP/gh-cli"
+          archive="gh_${gh_version}_linux_${gh_arch}.tar.gz"
+          mkdir -p "$gh_root"
+          curl -fsSL "https://github.com/cli/cli/releases/download/v${gh_version}/${archive}" |
+            tar -xz -C "$gh_root"
+          echo "$gh_root/gh_${gh_version}_linux_${gh_arch}/bin" >> "$GITHUB_PATH"
+
       - name: Verify runtime prerequisites
         shell: bash
         run: |

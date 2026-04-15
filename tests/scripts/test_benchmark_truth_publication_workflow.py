@@ -54,3 +54,15 @@ def test_installs_dependencies_before_recurrence() -> None:
     assert install_index < recurrence_index
     install_run = str(steps[install_index].get("run", ""))
     assert 'python -m pip install -e ".[dev]" --quiet' in install_run
+
+
+def test_installs_github_cli_before_runtime_prerequisites() -> None:
+    steps = _benchmark_truth_publication_steps()
+    names = [str(step.get("name", "")) for step in steps]
+    gh_index = names.index("Install GitHub CLI")
+    prereq_index = names.index("Verify runtime prerequisites")
+    assert gh_index < prereq_index
+    gh_run = str(steps[gh_index].get("run", ""))
+    assert "https://api.github.com/repos/cli/cli/releases/latest" in gh_run
+    assert "https://github.com/cli/cli/releases/download/" in gh_run
+    assert 'echo "$gh_root/gh_${gh_version}_linux_${gh_arch}/bin" >> "$GITHUB_PATH"' in gh_run
