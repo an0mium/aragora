@@ -284,6 +284,72 @@ def test_render_status_markdown_surfaces_stale_closed_corpus_issues(tmp_path: Pa
     assert "truth `no_linked_pr`" in markdown
 
 
+def test_render_status_markdown_surfaces_corpus_freshness_follow_up(tmp_path: Path) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 1,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1733, "title": "Issue A"}],
+        },
+    )
+    latest_paths = mod.resolve_latest_paths(
+        corpus_path=corpus_path,
+        truth_root=tmp_path / "truth",
+        scorecard_root=tmp_path / "scorecards",
+    )
+    markdown = mod.render_status_markdown(
+        corpus_path=corpus_path,
+        truth_path=latest_paths["truth_corpus_latest"],
+        scorecard_path=latest_paths["scorecard_corpus_latest"],
+        latest_paths=latest_paths,
+        truth_payload={
+            **_truth_payload(revision=1),
+            "corpus_freshness": {
+                "status": "stale_closed_issues_detected",
+                "stale_closed_issue_count": 1,
+                "stale_closed_issue_numbers": [1733],
+                "stale_closed_issues": [
+                    {
+                        "issue_number": 1733,
+                        "issue_title": "Detached worker cleanup",
+                        "issue_closed_at": "2026-03-31T23:45:29Z",
+                        "issue_state_reason": "COMPLETED",
+                        "truth_state": "no_linked_pr",
+                    }
+                ],
+                "issue_map_path": "docs/benchmarks/benchmark_corpus_freshness.json",
+                "linked_issues": [
+                    {
+                        "target": "#6001",
+                        "title": "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-1",
+                        "url": "https://github.com/synaptent/aragora/issues/6001",
+                    }
+                ],
+                "issue_linkage_results": [
+                    {
+                        "action": "linked_existing_issue",
+                        "target": "#6001",
+                        "url": "https://github.com/synaptent/aragora/issues/6001",
+                    }
+                ],
+                "issue_drafts": [],
+            },
+        },
+        scorecard_payload=_scorecard_payload(revision=1),
+    )
+
+    assert "## Corpus Freshness Follow-Up" in markdown
+    assert "Freshness map: `docs/benchmarks/benchmark_corpus_freshness.json`" in markdown
+    assert "[#6001](https://github.com/synaptent/aragora/issues/6001)" in markdown
+    assert (
+        "`linked_existing_issue` -> [#6001](https://github.com/synaptent/aragora/issues/6001)"
+        in markdown
+    )
+
+
 def test_main_writes_markdown_from_latest_paths(tmp_path: Path, capsys) -> None:
     corpus_path = _write_json(
         tmp_path / "docs" / "benchmarks" / "corpus.json",

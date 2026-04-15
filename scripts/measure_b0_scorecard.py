@@ -32,8 +32,11 @@ from typing import Any
 
 from build_benchmark_truth_artifact import (
     DEFAULT_CORPUS_PATH,
+    DEFAULT_FRESHNESS_MAP_PATH,
     DEFAULT_PUBLISH_DIR as DEFAULT_TRUTH_ARTIFACT_PUBLISH_DIR,
+    attach_corpus_freshness_follow_up,
     build_benchmark_truth_artifact,
+    ensure_corpus_freshness_issue_linkage,
     load_corpus as load_benchmark_corpus,
     publish_artifact_bundle as publish_truth_artifact_bundle,
 )
@@ -188,12 +191,34 @@ def auto_publish_truth_artifact(
     metrics_path: Path,
     corpus_path: Path,
     truth_publish_dir: Path,
+    freshness_map_path: Path,
+    ensure_issues: bool = False,
+    dry_run: bool = False,
 ) -> tuple[Path, dict[str, Any]]:
     artifact = build_benchmark_truth_artifact(
         repo=repo,
         metrics_file=metrics_path,
         corpus_path=corpus_path,
+        freshness_map_path=freshness_map_path,
     )
+    if ensure_issues:
+        issue_drafts = [
+            dict(item)
+            for item in list((artifact.get("corpus_freshness") or {}).get("issue_drafts") or [])
+            if isinstance(item, dict)
+        ]
+        issue_linkage_results = ensure_corpus_freshness_issue_linkage(
+            issue_drafts=issue_drafts,
+            freshness_map_path=freshness_map_path,
+            repo=repo,
+            dry_run=dry_run,
+        )
+        artifact = attach_corpus_freshness_follow_up(
+            artifact=artifact,
+            freshness_map_path=freshness_map_path,
+            repo=repo,
+            issue_linkage_results=issue_linkage_results,
+        )
     published_path = publish_truth_artifact_bundle(
         publish_dir=truth_publish_dir,
         artifact=artifact,
@@ -587,6 +612,18 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--freshness-map",
+        type=Path,
+        default=DEFAULT_FRESHNESS_MAP_PATH,
+        help=f"Tracked benchmark corpus freshness map (default: {DEFAULT_FRESHNESS_MAP_PATH})",
+    )
+    parser.add_argument(
+        "--ensure-issues",
+        action="store_true",
+        help="Create or relink a bounded follow-up issue when stale closed corpus issues are detected.",
+    )
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
         "--fail-incomplete",
         action="store_true",
         help="Exit non-zero when the selected corpus does not appear completely in the metrics window",
@@ -664,6 +701,9 @@ def main(argv: list[str] | None = None) -> int:
                 metrics_path=metrics_path,
                 corpus_path=corpus_path,
                 truth_publish_dir=truth_publish_dir,
+                freshness_map_path=args.freshness_map.resolve(),
+                ensure_issues=bool(args.ensure_issues),
+                dry_run=bool(args.dry_run),
             )
             if corpus_metadata_payload is None or corpus_issue_numbers is None:
                 truth_corpus = dict(truth_payload.get("corpus") or {})

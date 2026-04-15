@@ -146,14 +146,18 @@ def test_publishes_refresh_via_pr_branch_instead_of_direct_main_push() -> None:
     permissions = workflow.get("permissions")
     assert permissions == {
         "contents": "write",
-        "issues": "read",
+        "issues": "write",
         "pull-requests": "write",
     }
 
+    publish_run = str(_workflow_step("Publish tracked trust-loop surfaces").get("run", ""))
     run = str(_workflow_step("Commit and open PR for refreshed trust-loop surfaces").get("run", ""))
+    assert "--freshness-map docs/benchmarks/benchmark_corpus_freshness.json \\" in publish_run
+    assert "--ensure-issues \\" in publish_run
     assert 'branch="benchmark-truth-publication/${GITHUB_RUN_ID}"' in run
     assert 'git checkout -b "$branch"' in run
     assert 'git push origin "$branch"' in run
+    assert "docs/benchmarks/benchmark_corpus_freshness.json \\" in run
     assert "gh pr create \\" in run
     assert "--base main \\" in run
     assert '--head "$branch" \\' in run

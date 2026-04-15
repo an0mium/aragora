@@ -324,6 +324,133 @@ def test_build_benchmark_truth_artifact_reports_stale_closed_corpus_issues(
     assert artifact["issues"][0]["issue_state"] == "CLOSED"
 
 
+def test_build_benchmark_truth_artifact_surfaces_freshness_issue_draft(
+    tmp_path: Path,
+) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        json.dumps(
+            {
+                "issue_number": 1733,
+                "issue_title": "Detached worker cleanup",
+                "terminal_class": "issue_already_resolved",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 4,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [
+                {"issue_id": 1733, "title": "Detached worker cleanup"},
+            ],
+        },
+    )
+    freshness_map_path = _write_json(
+        tmp_path / "benchmark_corpus_freshness.json",
+        {
+            "schema_version": 1,
+            "entries": [],
+        },
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            1733: {
+                "title": "Detached worker cleanup",
+                "url": "https://github.com/synaptent/aragora/issues/1733",
+                "state": "CLOSED",
+                "stateReason": "COMPLETED",
+                "closedAt": "2026-03-31T23:45:29Z",
+                "closedByPullRequestsReferences": [],
+                "comments": [],
+            }
+        },
+        prs={},
+    )
+
+    artifact = mod.build_benchmark_truth_artifact(
+        repo="synaptent/aragora",
+        metrics_file=metrics_path,
+        corpus_path=corpus_path,
+        client=client,
+        generated_at="2026-04-14T01:00:00Z",
+        freshness_map_path=freshness_map_path,
+    )
+
+    assert artifact["corpus_freshness"]["issue_map_path"] == str(freshness_map_path)
+    assert artifact["corpus_freshness"]["linked_issue_count"] == 0
+    assert artifact["corpus_freshness"]["unlinked_issue_count"] == 1
+    assert artifact["corpus_freshness"]["issue_drafts"][0]["title"] == (
+        "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-4"
+    )
+
+
+def test_ensure_corpus_freshness_issue_linkage_updates_map(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    freshness_map_path = _write_json(
+        tmp_path / "benchmark_corpus_freshness.json",
+        {
+            "schema_version": 1,
+            "entries": [],
+        },
+    )
+    monkeypatch.setattr(
+        mod,
+        "find_existing_issue_by_title",
+        lambda **_: {
+            "number": 6001,
+            "title": "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-4",
+            "url": "https://github.com/synaptent/aragora/issues/6001",
+            "state": "open",
+        },
+    )
+
+    results = mod.ensure_corpus_freshness_issue_linkage(
+        issue_drafts=[
+            {
+                "corpus_id": "tw-01-bounded-execution-v1",
+                "revision": 4,
+                "stale_issue_numbers": [1733],
+                "title": "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-4",
+                "body": "body",
+            }
+        ],
+        freshness_map_path=freshness_map_path,
+        repo="synaptent/aragora",
+    )
+
+    assert results == [
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 4,
+            "action": "linked_existing_issue",
+            "target_kind": "issue",
+            "target": "#6001",
+            "url": "https://github.com/synaptent/aragora/issues/6001",
+        }
+    ]
+    written_map = json.loads(freshness_map_path.read_text(encoding="utf-8"))
+    assert written_map["entries"] == [
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "notes": "Auto-linked by recurring TW-02 publication.",
+            "revision": 4,
+            "stale_issue_numbers": [1733],
+            "target": "#6001",
+            "target_kind": "issue",
+            "title": "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-4",
+            "url": "https://github.com/synaptent/aragora/issues/6001",
+        }
+    ]
+
+
 def test_main_fail_incomplete_returns_nonzero_and_emits_artifact(
     tmp_path: Path,
     monkeypatch,

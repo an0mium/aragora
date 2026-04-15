@@ -8,6 +8,7 @@ import datetime as dt
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
@@ -30,6 +31,7 @@ from scripts.reconcile_b0_pr_truth import (  # noqa: E402
 )
 
 DEFAULT_CORPUS_PATH = REPO_ROOT / "docs" / "benchmarks" / "corpus.json"
+DEFAULT_FRESHNESS_MAP_PATH = REPO_ROOT / "docs" / "benchmarks" / "benchmark_corpus_freshness.json"
 DEFAULT_PUBLISH_DIR = REPO_ROOT / ".aragora" / "benchmark_truth_artifacts"
 
 
@@ -155,6 +157,425 @@ def _corpus_freshness(records: list[IssueTruthRecord]) -> dict[str, Any]:
     }
 
 
+def load_corpus_freshness_map_payload(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"schema_version": 1, "entries": []}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"Corpus freshness map at {path} must be a JSON object")
+    entries = payload.get("entries")
+    if not isinstance(entries, list):
+        raise ValueError(f"Corpus freshness map at {path} must contain an 'entries' list")
+    return {
+        "schema_version": int(payload.get("schema_version", 1) or 1),
+        "entries": entries,
+    }
+
+
+def write_corpus_freshness_map_payload(path: Path, payload: dict[str, Any]) -> Path:
+    entries = [
+        entry
+        for entry in list(payload.get("entries") or [])
+        if isinstance(entry, dict)
+        and str(entry.get("corpus_id") or "").strip()
+        and str(entry.get("title") or "").strip()
+    ]
+    entries.sort(
+        key=lambda entry: (
+            str(entry.get("corpus_id") or "").strip(),
+            int(entry.get("revision", 0) or 0),
+            str(entry.get("title") or "").strip(),
+        )
+    )
+    normalized = {
+        "schema_version": int(payload.get("schema_version", 1) or 1),
+        "entries": entries,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(normalized, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def _issue_target_url(*, repo: str, target: str, url: str = "") -> str:
+    if url.strip():
+        return url.strip()
+    match = re.fullmatch(r"#(\d+)", target.strip())
+    if not match:
+        return ""
+    return f"https://github.com/{repo}/issues/{match.group(1)}"
+
+
+def _freshness_entry_key(*, corpus_id: str, revision: int) -> tuple[str, int]:
+    return corpus_id.strip(), int(revision)
+
+
+def _linked_corpus_freshness_entries(
+    *,
+    artifact: dict[str, Any],
+    freshness_map_path: Path,
+    repo: str,
+) -> list[dict[str, Any]]:
+    corpus = dict(artifact.get("corpus") or {})
+    corpus_id = str(corpus.get("corpus_id") or "").strip()
+    revision = int(corpus.get("revision", 0) or 0)
+    stale_issue_numbers = {
+        int(item)
+        for item in list(
+            (artifact.get("corpus_freshness") or {}).get("stale_closed_issue_numbers") or []
+        )
+        if isinstance(item, int) and item > 0
+    }
+    if not corpus_id or not stale_issue_numbers:
+        return []
+
+    payload = load_corpus_freshness_map_payload(freshness_map_path)
+    linked_entries: list[dict[str, Any]] = []
+    for entry in list(payload.get("entries") or []):
+        if not isinstance(entry, dict):
+            continue
+        if _freshness_entry_key(
+            corpus_id=str(entry.get("corpus_id") or "").strip(),
+            revision=int(entry.get("revision", 0) or 0),
+        ) != _freshness_entry_key(corpus_id=corpus_id, revision=revision):
+            continue
+        target = str(entry.get("target") or "").strip()
+        if not target:
+            continue
+        linked_entries.append(
+            {
+                "corpus_id": corpus_id,
+                "revision": revision,
+                "target_kind": str(entry.get("target_kind") or "").strip() or "issue",
+                "target": target,
+                "title": str(entry.get("title") or "").strip(),
+                "notes": str(entry.get("notes") or "").strip(),
+                "stale_issue_numbers": [
+                    int(item)
+                    for item in list(entry.get("stale_issue_numbers") or [])
+                    if isinstance(item, int) and item > 0
+                ],
+                "url": _issue_target_url(
+                    repo=repo,
+                    target=target,
+                    url=str(entry.get("url") or ""),
+                ),
+            }
+        )
+    return linked_entries
+
+
+def build_corpus_freshness_issue_drafts(
+    *,
+    artifact: dict[str, Any],
+    freshness_map_path: Path,
+    repo: str,
+) -> list[dict[str, Any]]:
+    corpus = dict(artifact.get("corpus") or {})
+    corpus_id = str(corpus.get("corpus_id") or "").strip()
+    revision = int(corpus.get("revision", 0) or 0)
+    stale_closed_issues = [
+        dict(item)
+        for item in list((artifact.get("corpus_freshness") or {}).get("stale_closed_issues") or [])
+        if isinstance(item, dict)
+    ]
+    if not corpus_id or not stale_closed_issues:
+        return []
+    if _linked_corpus_freshness_entries(
+        artifact=artifact,
+        freshness_map_path=freshness_map_path,
+        repo=repo,
+    ):
+        return []
+
+    title = f"[TW-02] Restock stale issues in {corpus_id} rev-{revision}"
+    stale_issue_numbers = [
+        int(item.get("issue_number", 0) or 0)
+        for item in stale_closed_issues
+        if int(item.get("issue_number", 0) or 0) > 0
+    ]
+    stale_issue_lines: list[str] = []
+    for item in stale_closed_issues:
+        issue_number = int(item.get("issue_number", 0) or 0)
+        if issue_number <= 0:
+            continue
+        issue_url = str(item.get("issue_url") or "").strip() or _issue_target_url(
+            repo=repo,
+            target=f"#{issue_number}",
+        )
+        truth_state = str(item.get("truth_state") or "").strip() or "n/a"
+        stale_issue_lines.append(
+            f"- #{issue_number} "
+            f"`{str(item.get('issue_title') or '').strip()}` "
+            f"({issue_url}, truth `{truth_state}`)"
+        )
+    stale_issue_lines_text = "\n".join(stale_issue_lines) or "- none"
+    body = (
+        "## Goal\n"
+        "Refresh the fixed benchmark corpus so TW-02 only measures live bounded issues.\n\n"
+        "## Why now\n"
+        f"The recurring truth artifact for `{corpus_id}` revision `{revision}` reports "
+        f"{len(stale_closed_issues)} stale closed corpus issue(s), so the repo-tracked "
+        "benchmark surface is publishing a known stale membership alert.\n\n"
+        "## Evidence\n"
+        f"- Corpus id: `{corpus_id}`\n"
+        f"- Revision: `{revision}`\n"
+        f"- Freshness map: `{_repo_stable_path(freshness_map_path)}`\n"
+        f"- Stale closed issue count: {len(stale_closed_issues)}\n\n"
+        "### Stale closed issues\n"
+        f"{stale_issue_lines_text}\n\n"
+        "## Acceptance\n"
+        "- Update `docs/benchmarks/corpus.json` with an explicit revision that retires or replaces each stale closed issue.\n"
+        "- Re-run the recurring benchmark truth publication until `corpus_freshness.status` is `fresh`.\n"
+        "- Keep the recurring TW-02 status surface linked to this follow-up issue until the stale set is cleared.\n"
+    )
+    return [
+        {
+            "corpus_id": corpus_id,
+            "revision": revision,
+            "stale_issue_numbers": stale_issue_numbers,
+            "title": title,
+            "body": body,
+        }
+    ]
+
+
+def find_existing_issue_by_title(*, repo: str, title: str) -> dict[str, Any] | None:
+    result = subprocess.run(
+        [
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            repo,
+            "--state",
+            "all",
+            "--search",
+            title,
+            "--json",
+            "number,title,url,state",
+            "--limit",
+            "100",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "gh issue list failed")
+    payload = json.loads(result.stdout or "[]")
+    if not isinstance(payload, list):
+        return None
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("title") or "").strip() != title:
+            continue
+        if str(item.get("state") or "").strip().lower() != "open":
+            continue
+        number = int(item.get("number", 0) or 0)
+        if number <= 0:
+            continue
+        return {
+            "number": number,
+            "title": str(item.get("title") or "").strip(),
+            "url": str(item.get("url") or "").strip(),
+            "state": str(item.get("state") or "").strip().lower(),
+        }
+    return None
+
+
+def create_issue_for_draft(*, repo: str, draft: dict[str, Any]) -> dict[str, Any]:
+    result = subprocess.run(
+        [
+            "gh",
+            "issue",
+            "create",
+            "--repo",
+            repo,
+            "--title",
+            str(draft.get("title") or "").strip(),
+            "--body",
+            str(draft.get("body") or "").strip(),
+            "--label",
+            "boss-ready",
+            "--label",
+            "autonomous",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "gh issue create failed")
+    url = str(result.stdout or "").strip().splitlines()[-1].strip()
+    match = re.search(r"/issues/(\d+)$", url)
+    if not match:
+        raise RuntimeError(f"could not parse issue URL from gh output: {url}")
+    return {
+        "number": int(match.group(1)),
+        "title": str(draft.get("title") or "").strip(),
+        "url": url,
+        "state": "open",
+    }
+
+
+def _upsert_corpus_freshness_entry(
+    *,
+    entries_by_key: dict[tuple[str, int], dict[str, Any]],
+    draft: dict[str, Any],
+    issue: dict[str, Any],
+) -> None:
+    corpus_id = str(draft.get("corpus_id") or "").strip()
+    revision = int(draft.get("revision", 0) or 0)
+    stale_issue_numbers = [
+        int(item)
+        for item in list(draft.get("stale_issue_numbers") or [])
+        if isinstance(item, int) and item > 0
+    ]
+    existing = dict(
+        entries_by_key.get(_freshness_entry_key(corpus_id=corpus_id, revision=revision), {}) or {}
+    )
+    notes = str(existing.get("notes") or "").strip()
+    entries_by_key[_freshness_entry_key(corpus_id=corpus_id, revision=revision)] = {
+        "corpus_id": corpus_id,
+        "revision": revision,
+        "stale_issue_numbers": stale_issue_numbers,
+        "target_kind": "issue",
+        "target": f"#{int(issue['number'])}",
+        "title": str(issue.get("title") or "").strip(),
+        "url": str(issue.get("url") or "").strip(),
+        "notes": notes or "Auto-linked by recurring TW-02 publication.",
+    }
+
+
+def ensure_corpus_freshness_issue_linkage(
+    *,
+    issue_drafts: list[dict[str, Any]],
+    freshness_map_path: Path,
+    repo: str,
+    dry_run: bool = False,
+) -> list[dict[str, Any]]:
+    payload = load_corpus_freshness_map_payload(freshness_map_path)
+    entries_by_key = {
+        _freshness_entry_key(
+            corpus_id=str(entry.get("corpus_id") or "").strip(),
+            revision=int(entry.get("revision", 0) or 0),
+        ): dict(entry)
+        for entry in list(payload.get("entries") or [])
+        if isinstance(entry, dict) and str(entry.get("corpus_id") or "").strip()
+    }
+    results: list[dict[str, Any]] = []
+    changed = False
+
+    for draft in issue_drafts:
+        corpus_id = str(draft.get("corpus_id") or "").strip()
+        revision = int(draft.get("revision", 0) or 0)
+        title = str(draft.get("title") or "").strip()
+        if not corpus_id or not title:
+            continue
+        try:
+            existing = find_existing_issue_by_title(repo=repo, title=title)
+            if existing:
+                _upsert_corpus_freshness_entry(
+                    entries_by_key=entries_by_key,
+                    draft=draft,
+                    issue=existing,
+                )
+                results.append(
+                    {
+                        "corpus_id": corpus_id,
+                        "revision": revision,
+                        "action": "linked_existing_issue",
+                        "target_kind": "issue",
+                        "target": f"#{existing['number']}",
+                        "url": existing["url"],
+                    }
+                )
+                changed = True
+                continue
+            if dry_run:
+                results.append(
+                    {
+                        "corpus_id": corpus_id,
+                        "revision": revision,
+                        "action": "dry_run_issue_create",
+                        "target_kind": "issue",
+                        "target": title,
+                    }
+                )
+                continue
+            created = create_issue_for_draft(repo=repo, draft=draft)
+            _upsert_corpus_freshness_entry(
+                entries_by_key=entries_by_key,
+                draft=draft,
+                issue=created,
+            )
+            results.append(
+                {
+                    "corpus_id": corpus_id,
+                    "revision": revision,
+                    "action": "created_issue",
+                    "target_kind": "issue",
+                    "target": f"#{created['number']}",
+                    "url": created["url"],
+                }
+            )
+            changed = True
+        except (RuntimeError, subprocess.TimeoutExpired, OSError, json.JSONDecodeError) as exc:
+            results.append(
+                {
+                    "corpus_id": corpus_id,
+                    "revision": revision,
+                    "action": "error",
+                    "error": str(exc),
+                }
+            )
+
+    if changed and not dry_run:
+        write_corpus_freshness_map_payload(
+            freshness_map_path,
+            {
+                "schema_version": int(payload.get("schema_version", 1) or 1),
+                "entries": list(entries_by_key.values()),
+            },
+        )
+    return results
+
+
+def attach_corpus_freshness_follow_up(
+    *,
+    artifact: dict[str, Any],
+    freshness_map_path: Path,
+    repo: str,
+    issue_linkage_results: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    linked_issues = _linked_corpus_freshness_entries(
+        artifact=artifact,
+        freshness_map_path=freshness_map_path,
+        repo=repo,
+    )
+    issue_drafts = build_corpus_freshness_issue_drafts(
+        artifact=artifact,
+        freshness_map_path=freshness_map_path,
+        repo=repo,
+    )
+    corpus_freshness = dict(artifact.get("corpus_freshness") or {})
+    corpus_freshness.update(
+        {
+            "issue_map_path": _repo_stable_path(freshness_map_path),
+            "linked_issues": linked_issues,
+            "linked_issue_count": len(linked_issues),
+            "issue_drafts": issue_drafts,
+            "unlinked_issue_count": len(issue_drafts),
+            "issue_linkage_results": issue_linkage_results or [],
+        }
+    )
+    artifact["corpus_freshness"] = corpus_freshness
+    return artifact
+
+
 def _coerce_utc_datetime(value: str | None = None) -> dt.datetime:
     if value:
         parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -231,6 +652,7 @@ def build_benchmark_truth_artifact(
     corpus_path: Path,
     client: GitHubTruthClient | None = None,
     generated_at: str | None = None,
+    freshness_map_path: Path | None = None,
 ) -> dict[str, Any]:
     normalized_generated_at = normalize_generated_at(generated_at)
     rows = load_metrics_rows(metrics_file)
@@ -268,7 +690,7 @@ def build_benchmark_truth_artifact(
         rows,
         corpus_issue_numbers={aggregate.issue_number for aggregate in aggregates},
     )
-    return {
+    artifact = {
         "generated_at": normalized_generated_at,
         "repo": repo,
         "metrics_file": _repo_stable_path(metrics_file),
@@ -321,6 +743,13 @@ def build_benchmark_truth_artifact(
         "corpus_freshness": _corpus_freshness(records),
         "issues": [record.to_dict() for record in records],
     }
+    if freshness_map_path is not None:
+        return attach_corpus_freshness_follow_up(
+            artifact=artifact,
+            freshness_map_path=freshness_map_path,
+            repo=repo,
+        )
+    return artifact
 
 
 def write_artifact(path: Path, artifact: dict[str, Any]) -> Path:
@@ -379,6 +808,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help=f"Optional publish root override (default: {DEFAULT_PUBLISH_DIR})",
     )
+    parser.add_argument(
+        "--freshness-map",
+        type=Path,
+        default=DEFAULT_FRESHNESS_MAP_PATH,
+        help=f"Tracked benchmark corpus freshness map (default: {DEFAULT_FRESHNESS_MAP_PATH})",
+    )
+    parser.add_argument(
+        "--ensure-issues",
+        action="store_true",
+        help="Create or relink a bounded follow-up issue when stale closed corpus issues are detected.",
+    )
+    parser.add_argument("--dry-run", action="store_true")
     return parser
 
 
@@ -394,7 +835,26 @@ def main(argv: list[str] | None = None) -> int:
         repo=str(args.repo),
         metrics_file=metrics_file,
         corpus_path=corpus_path,
+        freshness_map_path=args.freshness_map.resolve(),
     )
+    if args.ensure_issues:
+        issue_drafts = [
+            dict(item)
+            for item in list((artifact.get("corpus_freshness") or {}).get("issue_drafts") or [])
+            if isinstance(item, dict)
+        ]
+        issue_linkage_results = ensure_corpus_freshness_issue_linkage(
+            issue_drafts=issue_drafts,
+            freshness_map_path=args.freshness_map.resolve(),
+            repo=str(args.repo),
+            dry_run=bool(args.dry_run),
+        )
+        artifact = attach_corpus_freshness_follow_up(
+            artifact=artifact,
+            freshness_map_path=args.freshness_map.resolve(),
+            repo=str(args.repo),
+            issue_linkage_results=issue_linkage_results,
+        )
     publish_dir: Path | None = None
     if args.publish_dir is not None:
         publish_dir = args.publish_dir.resolve()

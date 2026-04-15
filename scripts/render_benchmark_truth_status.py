@@ -149,6 +149,45 @@ def _render_stale_closed_issues(issues: list[dict[str, Any]]) -> list[str]:
     return lines or ["- none"]
 
 
+def _render_linked_issues(issues: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for issue in issues:
+        target = _format_value(issue.get("target"))
+        title = _format_value(issue.get("title"))
+        url = str(issue.get("url") or "").strip()
+        if url and target != "n/a":
+            lines.append(f"- [{target}]({url}) `{title}`")
+            continue
+        if url:
+            lines.append(f"- [link]({url}) `{title}`")
+            continue
+        lines.append(f"- `{target}` `{title}`")
+    return lines or ["- none"]
+
+
+def _render_issue_linkage_results(results: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for result in results:
+        action = _format_value(result.get("action"))
+        target = _format_value(result.get("target"))
+        url = str(result.get("url") or "").strip()
+        if url and target != "n/a":
+            lines.append(f"- `{action}` -> [{target}]({url})")
+            continue
+        error = str(result.get("error") or "").strip()
+        if error:
+            lines.append(f"- `{action}` -> `{error}`")
+            continue
+        lines.append(f"- `{action}` -> `{target}`")
+    return lines or ["- none"]
+
+
+def _render_issue_drafts(drafts: list[dict[str, Any]]) -> list[str]:
+    return [
+        f"- `{_format_value(draft.get('title'))}`" for draft in drafts if isinstance(draft, dict)
+    ] or ["- none"]
+
+
 def _normalize_proxy_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     proxy_metrics = dict(payload)
     terminal_class_distribution = dict(proxy_metrics.get("terminal_class_distribution") or {})
@@ -199,6 +238,18 @@ def render_status_markdown(
         for item in list(corpus_freshness.get("stale_closed_issues") or [])
         if isinstance(item, dict)
     ]
+    linked_issues = [
+        item for item in list(corpus_freshness.get("linked_issues") or []) if isinstance(item, dict)
+    ]
+    issue_linkage_results = [
+        item
+        for item in list(corpus_freshness.get("issue_linkage_results") or [])
+        if isinstance(item, dict)
+    ]
+    issue_drafts = [
+        item for item in list(corpus_freshness.get("issue_drafts") or []) if isinstance(item, dict)
+    ]
+    issue_map_path = str(corpus_freshness.get("issue_map_path") or "").strip()
     generated_at = (
         str(scorecard_payload.get("generated_at") or "").strip()
         or str(truth_payload.get("generated_at") or "").strip()
@@ -282,6 +333,41 @@ def render_status_markdown(
                 *_render_stale_closed_issues(stale_closed_issues),
             ]
         )
+        if issue_map_path or linked_issues or issue_drafts or issue_linkage_results:
+            lines.extend(
+                [
+                    "",
+                    "## Corpus Freshness Follow-Up",
+                    "",
+                    f"- Freshness map: `{_format_value(issue_map_path)}`",
+                    f"- Linked issues: `{len(linked_issues)}`",
+                    f"- Pending issue drafts: `{len(issue_drafts)}`",
+                ]
+            )
+            if linked_issues:
+                lines.extend(
+                    [
+                        "",
+                        "Linked issues:",
+                        *_render_linked_issues(linked_issues),
+                    ]
+                )
+            if issue_linkage_results:
+                lines.extend(
+                    [
+                        "",
+                        "Latest issue linkage actions:",
+                        *_render_issue_linkage_results(issue_linkage_results),
+                    ]
+                )
+            if issue_drafts:
+                lines.extend(
+                    [
+                        "",
+                        "Pending issue drafts:",
+                        *_render_issue_drafts(issue_drafts),
+                    ]
+                )
     lines.extend(
         [
             "",

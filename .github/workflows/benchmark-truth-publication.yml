@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: write
-  issues: read
+  issues: write
   pull-requests: write
 
 concurrency:
@@ -302,6 +302,8 @@ jobs:
             --publish \
             --publish-dir docs/status/generated/benchmark_scorecards \
             --truth-publish-dir docs/status/generated/benchmark_truth_artifacts \
+            --freshness-map docs/benchmarks/benchmark_corpus_freshness.json \
+            --ensure-issues \
             --fail-incomplete
 
           python3 scripts/render_benchmark_truth_status.py \
@@ -331,6 +333,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
+            docs/benchmarks/benchmark_corpus_freshness.json \
             docs/benchmarks/rescue_productization.json \
             docs/status/B0_BENCHMARK_TRUTH_STATUS.md \
             docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md \
