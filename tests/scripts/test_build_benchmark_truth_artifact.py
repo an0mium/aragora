@@ -192,6 +192,76 @@ def test_build_benchmark_truth_artifact_marks_partial_corpus_runs_incomplete(
     assert artifact["coverage"]["missing_issue_numbers"] == [873]
     assert artifact["coverage"]["is_complete"] is False
     assert artifact["primary_metrics"]["truth_success_rate"] == 0.5
+    assert [issue["truth_state"] for issue in artifact["issues"]] == ["not_attempted", "merged_pr"]
+
+
+def test_build_benchmark_truth_artifact_does_not_count_historical_truth_for_unattempted_issues(
+    tmp_path: Path,
+) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        json.dumps(
+            {
+                "issue_number": 1064,
+                "issue_title": "Dependency bump",
+                "terminal_class": "rescue_worker_crash",
+                "worker_outcome": "crash",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 4,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [
+                {"issue_id": 1064, "title": "Dependency bump"},
+                {"issue_id": 873, "title": "ESLint bump"},
+            ],
+        },
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            1064: {"title": "Dependency bump", "comments": []},
+            873: {
+                "title": "ESLint bump",
+                "comments": [{"body": "PR: https://github.com/synaptent/aragora/pull/6001"}],
+            },
+        },
+        prs={
+            6001: {
+                "number": 6001,
+                "title": "merged fix",
+                "url": "https://github.com/synaptent/aragora/pull/6001",
+                "state": "MERGED",
+                "mergeable": "MERGEABLE",
+                "mergeStateStatus": "CLEAN",
+                "mergedAt": "2026-04-13T12:00:00Z",
+                "isDraft": False,
+            }
+        },
+    )
+
+    artifact = mod.build_benchmark_truth_artifact(
+        repo="synaptent/aragora",
+        metrics_file=metrics_path,
+        corpus_path=corpus_path,
+        client=client,
+        generated_at="2026-04-14T01:00:00Z",
+    )
+
+    assert artifact["run_status"] == "incomplete"
+    assert artifact["coverage"]["missing_issue_numbers"] == [873]
+    assert artifact["primary_metrics"]["truth_success_rate"] == 0.0
+    assert artifact["primary_metrics"]["no_rescue_truth_success_rate"] == 0.0
+    assert [issue["truth_state"] for issue in artifact["issues"]] == [
+        "not_attempted",
+        "no_linked_pr",
+    ]
 
 
 def test_main_fail_incomplete_returns_nonzero_and_emits_artifact(

@@ -21,6 +21,7 @@ from scripts.reconcile_b0_pr_truth import (  # noqa: E402
     DEFAULT_METRICS_PATH,
     GitHubTruthClient,
     IssueMetricsAggregate,
+    IssueTruthRecord,
     reconcile_issue_truth,
     report_to_json as _unused_report_to_json,
     resolve_metrics_path,
@@ -212,7 +213,22 @@ def build_benchmark_truth_artifact(
     membership_issue_numbers = _corpus_issue_numbers(corpus)
     aggregates = aggregate_corpus_issues(rows, corpus)
     truth_client = client or GitHubTruthClient()
-    records = [reconcile_issue_truth(repo, aggregate, truth_client) for aggregate in aggregates]
+    records: list[IssueTruthRecord] = []
+    for aggregate in aggregates:
+        if aggregate.row_count <= 0:
+            records.append(
+                IssueTruthRecord(
+                    issue_number=aggregate.issue_number,
+                    issue_title=aggregate.title,
+                    proxy_pr_signal=False,
+                    had_rescue=False,
+                    truth_state="not_attempted",
+                    truth_success=False,
+                    no_rescue_truth_success=False,
+                )
+            )
+            continue
+        records.append(reconcile_issue_truth(repo, aggregate, truth_client))
     corpus_issue_count = len(aggregates)
     attempted_issue_count = sum(1 for aggregate in aggregates if aggregate.row_count > 0)
     truth_success_issue_count = sum(1 for record in records if record.truth_success)
