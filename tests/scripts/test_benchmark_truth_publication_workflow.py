@@ -84,7 +84,9 @@ def test_resolves_codex_auth_paths_before_runner_refresh() -> None:
 
     run = str(_workflow_step("Resolve Codex runner auth paths").get("run", ""))
     assert 'RUNNER_USER="${ARAGORA_USER_ID:-${USER:-$(id -un)}}"' in run
+    assert 'RUNNER_HOME="$(python3 -c' in run
     assert "pwd.getpwnam" in run
+    assert "pwd.getpwall" in run
     assert 'echo "HOME=$RUNNER_HOME" >> "$GITHUB_ENV"' in run
     assert 'echo "CODEX_HOME=$RUNNER_HOME/.codex" >> "$GITHUB_ENV"' in run
     assert (

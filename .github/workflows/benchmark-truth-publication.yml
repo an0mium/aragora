@@ -95,22 +95,7 @@ jobs:
         shell: bash
         run: |
           RUNNER_USER="${ARAGORA_USER_ID:-${USER:-$(id -un)}}"
-          RUNNER_HOME="$(
-            python3 - "$RUNNER_USER" <<'PY'
-            import pwd
-            import sys
-            from pathlib import Path
-
-            user = str(sys.argv[1] or "").strip()
-            if user:
-                try:
-                    print(pwd.getpwnam(user).pw_dir)
-                    raise SystemExit(0)
-                except KeyError:
-                    pass
-            print(Path.home())
-            PY
-          )"
+          RUNNER_HOME="$(python3 -c 'import os, pathlib, pwd, sys; user = sys.argv[1].strip() if len(sys.argv) > 1 else ""; print(pwd.getpwnam(user).pw_dir if user and user in {entry.pw_name for entry in pwd.getpwall()} else pathlib.Path.home())' "$RUNNER_USER")"
           echo "HOME=$RUNNER_HOME" >> "$GITHUB_ENV"
           echo "CODEX_HOME=$RUNNER_HOME/.codex" >> "$GITHUB_ENV"
           echo "ARAGORA_RUNNER_REGISTRY_PATH=$RUNNER_HOME/.aragora/swarm_runners.json" >> "$GITHUB_ENV"
