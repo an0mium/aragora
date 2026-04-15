@@ -370,6 +370,11 @@ def run_shift_cycle(
     boss_running = process_running(r"aragora\.cli\.main swarm boss-loop")
     merge_running = process_running(r"aragora\.cli\.main swarm merge-arbiter")
 
+    if boss_running:
+        runtime_state.boss_restart_count = 0
+    if merge_running:
+        runtime_state.merge_restart_count = 0
+
     actions: list[str] = []
     if should_restart_service(
         is_running=boss_running,
@@ -411,6 +416,9 @@ def run_shift_cycle(
                     runtime_state.auth_failure_count += 1
                 elif failure_class == "publication_failure":
                     runtime_state.publication_failure_count += 1
+            elif conclusion == "success":
+                runtime_state.auth_failure_count = 0
+                runtime_state.publication_failure_count = 0
 
     should_trigger, trigger_reason = should_trigger_benchmark_rerun(
         benchmark_mode=benchmark_mode,
