@@ -18,6 +18,15 @@ from aragora.swarm.proof_first_queue import classify_proof_first_queue_issue  # 
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_QUEUE_LABEL = "boss-ready"
 DEFAULT_DOCS_ISSUE_TITLE = "[CS-01..03] Reconcile docs/status surfaces to current proof"
+GITHUB_CONNECTIVITY_ERROR_TOKENS = (
+    "error connecting to api.github.com",
+    "could not resolve host: github.com",
+)
+
+
+def is_github_connectivity_error(message: str) -> bool:
+    lowered = str(message or "").strip().lower()
+    return any(token in lowered for token in GITHUB_CONNECTIVITY_ERROR_TOKENS)
 
 
 def list_open_queue_issues(*, repo: str, label: str) -> list[dict[str, Any]]:
@@ -194,7 +203,34 @@ def reconcile_proof_first_queue(
     apply: bool = False,
     queue_label: str = DEFAULT_QUEUE_LABEL,
 ) -> dict[str, Any]:
-    issues = list_open_queue_issues(repo=repo, label=queue_label)
+    docs_report = load_status_reconciliation_report(repo_root=repo_root)
+    github_status: dict[str, Any] = {"available": True}
+    try:
+        issues = list_open_queue_issues(repo=repo, label=queue_label)
+    except RuntimeError as exc:
+        if not is_github_connectivity_error(str(exc)):
+            raise
+        docs_issue_payload = build_docs_proof_drift_issue(docs_report)
+        docs_issue_action = None
+        if docs_issue_payload is not None:
+            docs_issue_action = {
+                "action": "deferred_github_unavailable",
+                "title": docs_issue_payload["title"],
+                "error": str(exc),
+            }
+        return {
+            "repo": repo,
+            "queue_label": queue_label,
+            "kept": [],
+            "removed": [],
+            "docs_issue": docs_issue_action,
+            "docs_report_summary": dict(docs_report.get("summary") or {}),
+            "github_status": {
+                "available": False,
+                "operation": "list_open_queue_issues",
+                "error": str(exc),
+            },
+        }
     kept: list[dict[str, Any]] = []
     removed: list[dict[str, Any]] = []
 
@@ -227,35 +263,66 @@ def reconcile_proof_first_queue(
             record["action"] = "would_remove_label"
         removed.append(record)
 
-    docs_report = load_status_reconciliation_report(repo_root=repo_root)
     docs_issue_payload = build_docs_proof_drift_issue(docs_report)
     docs_issue_action: dict[str, Any] | None = None
     if docs_issue_payload is not None:
-        existing = find_existing_open_issue_by_title(repo=repo, title=docs_issue_payload["title"])
-        if existing is not None:
-            docs_issue_action = {
-                "action": "existing_issue",
-                "title": docs_issue_payload["title"],
-                "number": int(existing.get("number", 0) or 0),
-                "url": str(existing.get("url") or "").strip(),
-            }
-        elif apply:
-            created = create_issue(
-                repo=repo,
-                title=str(docs_issue_payload["title"]),
-                body=str(docs_issue_payload["body"]),
-                labels=list(docs_issue_payload["labels"]),
+        try:
+            existing = find_existing_open_issue_by_title(
+                repo=repo, title=docs_issue_payload["title"]
             )
+        except RuntimeError as exc:
+            if not is_github_connectivity_error(str(exc)):
+                raise
+            github_status = {
+                "available": False,
+                "operation": "find_existing_open_issue_by_title",
+                "error": str(exc),
+            }
             docs_issue_action = {
-                "action": "created_issue",
+                "action": "deferred_github_unavailable",
                 "title": docs_issue_payload["title"],
-                "url": str(created.get("url") or "").strip(),
+                "error": str(exc),
             }
         else:
-            docs_issue_action = {
-                "action": "would_create_issue",
-                "title": docs_issue_payload["title"],
-            }
+            if existing is not None:
+                docs_issue_action = {
+                    "action": "existing_issue",
+                    "title": docs_issue_payload["title"],
+                    "number": int(existing.get("number", 0) or 0),
+                    "url": str(existing.get("url") or "").strip(),
+                }
+            elif apply:
+                try:
+                    created = create_issue(
+                        repo=repo,
+                        title=str(docs_issue_payload["title"]),
+                        body=str(docs_issue_payload["body"]),
+                        labels=list(docs_issue_payload["labels"]),
+                    )
+                except RuntimeError as exc:
+                    if not is_github_connectivity_error(str(exc)):
+                        raise
+                    github_status = {
+                        "available": False,
+                        "operation": "create_issue",
+                        "error": str(exc),
+                    }
+                    docs_issue_action = {
+                        "action": "deferred_github_unavailable",
+                        "title": docs_issue_payload["title"],
+                        "error": str(exc),
+                    }
+                else:
+                    docs_issue_action = {
+                        "action": "created_issue",
+                        "title": docs_issue_payload["title"],
+                        "url": str(created.get("url") or "").strip(),
+                    }
+            else:
+                docs_issue_action = {
+                    "action": "would_create_issue",
+                    "title": docs_issue_payload["title"],
+                }
 
     return {
         "repo": repo,
@@ -264,6 +331,7 @@ def reconcile_proof_first_queue(
         "removed": removed,
         "docs_issue": docs_issue_action,
         "docs_report_summary": dict(docs_report.get("summary") or {}),
+        "github_status": github_status,
     }
 
 

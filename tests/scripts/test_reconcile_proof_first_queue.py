@@ -118,3 +118,48 @@ def test_reconcile_proof_first_queue_apply_removes_label_and_reuses_existing_doc
         "number": 42,
         "url": "https://github.com/org/repo/issues/42",
     }
+
+
+def test_reconcile_proof_first_queue_reports_github_unavailable_without_crashing(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "list_open_queue_issues",
+        lambda **kwargs: (_ for _ in ()).throw(
+            RuntimeError("error connecting to api.github.com\ncheck your internet connection")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "load_status_reconciliation_report",
+        lambda **kwargs: {
+            "summary": {"critical": 0, "warning": 1, "info": 0},
+            "findings": [
+                {
+                    "severity": "warning",
+                    "source": "status/NEXT_STEPS_CANONICAL.md",
+                    "message": "Docs claims outrun measured proof.",
+                }
+            ],
+        },
+    )
+
+    report = mod.reconcile_proof_first_queue(
+        repo="org/repo",
+        repo_root=Path("/tmp/repo"),
+        apply=True,
+    )
+
+    assert report["kept"] == []
+    assert report["removed"] == []
+    assert report["docs_issue"] == {
+        "action": "deferred_github_unavailable",
+        "title": mod.DEFAULT_DOCS_ISSUE_TITLE,
+        "error": "error connecting to api.github.com\ncheck your internet connection",
+    }
+    assert report["github_status"] == {
+        "available": False,
+        "operation": "list_open_queue_issues",
+        "error": "error connecting to api.github.com\ncheck your internet connection",
+    }

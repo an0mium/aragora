@@ -210,3 +210,44 @@ def test_run_shift_cycle_reports_restart_failure_instead_of_crashing() -> None:
     assert state.boss_restart_count == 1
     assert report["actions"] == ["restart_boss_loop_failed"]
     assert report["stop_reason"] == "BossRestartFailed: launchctl kickstart timed out for boss loop"
+
+
+def test_run_shift_cycle_stops_cleanly_when_github_is_unavailable() -> None:
+    state = mod.ProofFirstRuntimeState()
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={
+                "kept": [],
+                "removed": [],
+                "github_status": {
+                    "available": False,
+                    "operation": "list_open_queue_issues",
+                    "error": "error connecting to api.github.com",
+                },
+            },
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot",
+            side_effect=AssertionError("snapshot should not run when GitHub is unavailable"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.list_open_prs",
+            side_effect=AssertionError("pr listing should not run when GitHub is unavailable"),
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            benchmark_mode="hybrid",
+            automation_backlog_limit=12,
+            runtime_state=state,
+        )
+
+    assert report["snapshot"] == {}
+    assert report["open_pr_count"] == 0
+    assert report["automation_backlog"] == 0
+    assert report["latest_benchmark_run"] is None
+    assert report["actions"] == []
+    assert report["stop_reason"] == "GitHubUnavailable: error connecting to api.github.com"

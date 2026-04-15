@@ -272,6 +272,14 @@ def classify_benchmark_failure_log(text: str) -> str:
     return "other_failure"
 
 
+def github_unavailable_stop_reason(queue_report: dict[str, Any]) -> str:
+    github_status = dict(queue_report.get("github_status") or {})
+    detail = str(github_status.get("error") or "").strip()
+    if detail:
+        return f"GitHubUnavailable: {detail}"
+    return "GitHubUnavailable: proof-first queue reconciliation could not reach GitHub"
+
+
 def fetch_benchmark_failure_log(*, repo_root: Path, run_id: int) -> str:
     proc = _run(
         ["gh", "run", "view", str(run_id), "--log-failed"],
@@ -387,6 +395,17 @@ def run_shift_cycle(
     runtime_state: ProofFirstRuntimeState,
 ) -> dict[str, Any]:
     queue_report = reconcile_proof_first_queue(repo=repo, repo_root=repo_root, apply=True)
+    github_status = dict(queue_report.get("github_status") or {})
+    if github_status.get("available") is False:
+        return {
+            "queue_report": queue_report,
+            "snapshot": {},
+            "open_pr_count": 0,
+            "automation_backlog": 0,
+            "latest_benchmark_run": None,
+            "actions": [],
+            "stop_reason": github_unavailable_stop_reason(queue_report),
+        }
     snapshot = collect_boss_lane_snapshot(repo_root=repo_root, repo=repo)
     prs = list_open_prs(repo_root=repo_root, repo=repo)
     automation_backlog = count_automation_backlog(prs)
