@@ -17,25 +17,19 @@
     "success_contract": "mergeable_pr_or_merged_pr"
   },
   "coverage": {
-    "attempted_issue_count": 1,
-    "is_complete": false,
-    "missing_issue_count": 4,
-    "missing_issue_numbers": [
-      1064,
-      1641,
-      1733,
-      2712
-    ],
-    "status": "incomplete"
+    "attempted_issue_count": 5,
+    "is_complete": true,
+    "missing_issue_count": 0,
+    "missing_issue_numbers": [],
+    "status": "complete"
   },
   "failure_class_distribution": {
-    "blocked_sanitation_failed": 1,
-    "rescue_no_deliverable": 3
+    "blocked_auth_failure": 2
   },
-  "generated_at": "2026-04-14T18:12:12Z",
+  "generated_at": "2026-04-15T04:42:53Z",
   "issues": [
     {
-      "had_rescue": true,
+      "had_rescue": false,
       "issue_number": 873,
       "issue_title": "Bump @eslint/eslintrc from 3.2.0 to 3.3.0 in /aragora/live",
       "linked_prs": [
@@ -150,7 +144,7 @@
           "url": "https://github.com/synaptent/aragora/pull/1059"
         }
       ],
-      "no_rescue_truth_success": false,
+      "no_rescue_truth_success": true,
       "proxy_pr_signal": false,
       "truth_state": "merged_pr",
       "truth_success": true
@@ -223,18 +217,16 @@
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "primary_metrics": {
     "merged_only_rate": 0.6,
-    "no_rescue_truth_success_rate": 0.4,
+    "no_rescue_truth_success_rate": 0.6,
     "truth_success_rate": 0.6
   },
   "proxy_metrics": {
-    "attempted_issue_count": 1,
+    "attempted_issue_count": 5,
     "note": "Proxy metrics are secondary. Truth metrics remain mergeable_pr OR merged_pr.",
     "proxy_pr_signal_issue_count": 0,
     "proxy_pr_signal_issue_rate": 0.0
   },
   "repo": "synaptent/aragora",
-  "rescue_counts_by_type": {
-    "rescue_no_deliverable": 3
-  },
-  "run_status": "incomplete"
+  "rescue_counts_by_type": {},
+  "run_status": "complete"
 }
