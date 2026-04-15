@@ -373,8 +373,8 @@ class SwarmInterrogator:
             if await harness.initialize():
                 self._harness = harness
                 return harness
-        except Exception:  # noqa: BLE001 - optional harness setup should fail closed to fallback mode
-            pass
+        except Exception as exc:  # noqa: BLE001 - optional harness setup should fail closed to fallback mode
+            logger.debug("interrogator_harness_init_failed: %s", exc)
         return None
 
     @staticmethod
