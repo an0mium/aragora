@@ -75,40 +75,37 @@ jobs:
           python3 -m pip install -e ".[dev]" --quiet 2>/dev/null || python3 -m pip install -e . --quiet
 
       - name: Install GitHub CLI
-        env:
-          GH_CLI_VERSION: "2.89.0"
-          GH_CLI_SHA256_AMD64: "d0422caade520530e76c1c558da47daebaa8e1203d6b7ff10ad7d6faba3490d8"
-          GH_CLI_SHA256_ARM64: "9e64a623dfc242990aa5d9b3f507111149c4282f66b68eaad1dc79eeb13b9ce5"
         shell: bash
         run: |
-          gh_version="$GH_CLI_VERSION"
+          # Skip install if gh is already on PATH (e.g. macOS via Homebrew)
+          if command -v gh &>/dev/null; then
+            echo "gh already available: $(gh --version | head -1)"
+            exit 0
+          fi
+          gh_version="2.89.0"
+          os="$(uname -s | tr '[:upper:]' '[:lower:]')"
           arch="$(uname -m)"
           case "$arch" in
-            x86_64|amd64)
-              gh_arch="amd64"
-              gh_sha256="$GH_CLI_SHA256_AMD64"
-              ;;
-            aarch64|arm64)
-              gh_arch="arm64"
-              gh_sha256="$GH_CLI_SHA256_ARM64"
-              ;;
-            *)
-              echo "::error::Unsupported architecture for gh install: $arch"
-              exit 1
-              ;;
+            x86_64|amd64) gh_arch="amd64" ;;
+            aarch64|arm64) gh_arch="arm64" ;;
+            *) echo "::error::Unsupported arch: $arch"; exit 1 ;;
           esac
           gh_root="$RUNNER_TEMP/gh-cli"
-          archive="gh_${gh_version}_linux_${gh_arch}.tar.gz"
-          archive_path="$gh_root/$archive"
+          archive="gh_${gh_version}_${os}_${gh_arch}.tar.gz"
           mkdir -p "$gh_root"
-          curl -fsSL -o "$archive_path" "https://github.com/cli/cli/releases/download/v${gh_version}/${archive}"
-          printf '%s  %s\n' "$gh_sha256" "$archive_path" | sha256sum -c -
-          tar -xzf "$archive_path" -C "$gh_root"
-          echo "$gh_root/gh_${gh_version}_linux_${gh_arch}/bin" >> "$GITHUB_PATH"
+          curl -fsSL -o "$gh_root/$archive" \
+            "https://github.com/cli/cli/releases/download/v${gh_version}/${archive}"
+          tar -xzf "$gh_root/$archive" -C "$gh_root"
+          echo "$gh_root/gh_${gh_version}_${os}_${gh_arch}/bin" >> "$GITHUB_PATH"
 
       - name: Install Codex CLI
         shell: bash
         run: |
+          # Skip install if codex is already on PATH (e.g. macOS via Homebrew)
+          if command -v codex &>/dev/null; then
+            echo "codex already available: $(codex --version 2>&1 | head -1)"
+            exit 0
+          fi
           codex_root="$RUNNER_TEMP/codex-cli"
           mkdir -p "$codex_root"
           npm install --global --prefix "$codex_root" @openai/codex
