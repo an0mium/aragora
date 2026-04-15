@@ -60,6 +60,9 @@
     },
     "mean_elapsed_seconds": 17.3,
     "median_elapsed_seconds": 22.4,
+    "neutral_classes": {
+      "issue_already_resolved": 4
+    },
     "no_rescue_success_rate": 0.0,
     "status": "active",
     "success_classes": {},
@@ -71,6 +74,7 @@
     "total_ticks": 6,
     "unique_issues_attempted": 5,
     "unique_issues_failed": 1,
+    "unique_issues_neutral": 4,
     "unique_issues_succeeded": 0
   },
   "rescue_counts_by_type": {},

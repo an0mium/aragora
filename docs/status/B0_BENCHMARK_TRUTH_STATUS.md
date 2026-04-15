@@ -33,11 +33,18 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 
 | Metric | Value |
 | --- | --- |
-| No-rescue success rate | 0.0% |
+| Proxy no-rescue success rate | 0.0% |
 | Unique issues attempted | 5 |
 | Unique issues succeeded | 0 |
 | Unique issues failed | 1 |
+| Unique issues neutral | 4 |
 | Total ticks | 6 |
+
+Proxy note: neutral issue outcomes are current-corpus rows that were neither fresh success nor failure, such as `issue_already_resolved`.
+
+## Proxy Neutral Class Distribution
+
+- `issue_already_resolved`: 4
 
 ## Failure Class Distribution
 

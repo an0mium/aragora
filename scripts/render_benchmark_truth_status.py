@@ -15,6 +15,26 @@ DEFAULT_TRUTH_ROOT = REPO_ROOT / "docs" / "status" / "generated" / "benchmark_tr
 DEFAULT_SCORECARD_ROOT = REPO_ROOT / "docs" / "status" / "generated" / "benchmark_scorecards"
 DEFAULT_OUTPUT = REPO_ROOT / "docs" / "status" / "B0_BENCHMARK_TRUTH_STATUS.md"
 
+SUCCESS_CLASSES = frozenset(
+    {
+        "success_merged",
+        "success_pr_created",
+        "deliverable_pr_created",
+    }
+)
+FAILURE_CLASSES = frozenset(
+    {
+        "rescue_timeout",
+        "rescue_worker_crash",
+        "rescue_no_deliverable",
+        "blocked_not_dispatch_bounded",
+        "blocked_validation_target_missing",
+        "blocked_sanitation_failed",
+        "blocked_auth_failure",
+        "blocked_no_runner",
+    }
+)
+
 
 def _slugify(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
@@ -129,6 +149,30 @@ def _render_stale_closed_issues(issues: list[dict[str, Any]]) -> list[str]:
     return lines or ["- none"]
 
 
+def _normalize_proxy_metrics(payload: dict[str, Any]) -> dict[str, Any]:
+    proxy_metrics = dict(payload)
+    terminal_class_distribution = dict(proxy_metrics.get("terminal_class_distribution") or {})
+
+    if "unique_issues_neutral" not in proxy_metrics:
+        attempted = proxy_metrics.get("unique_issues_attempted")
+        succeeded = proxy_metrics.get("unique_issues_succeeded")
+        failed = proxy_metrics.get("unique_issues_failed")
+        if all(isinstance(value, (int, float)) for value in (attempted, succeeded, failed)):
+            proxy_metrics["unique_issues_neutral"] = max(
+                int(attempted) - int(succeeded) - int(failed),
+                0,
+            )
+
+    if "neutral_classes" not in proxy_metrics and terminal_class_distribution:
+        proxy_metrics["neutral_classes"] = {
+            key: value
+            for key, value in terminal_class_distribution.items()
+            if key not in SUCCESS_CLASSES and key not in FAILURE_CLASSES
+        }
+
+    return proxy_metrics
+
+
 def render_status_markdown(
     *,
     corpus_path: Path,
@@ -143,7 +187,7 @@ def render_status_markdown(
     truth_metrics = dict(
         scorecard_payload.get("truth_metrics") or truth_payload.get("primary_metrics") or {}
     )
-    proxy_metrics = dict(scorecard_payload.get("proxy_metrics") or {})
+    proxy_metrics = _normalize_proxy_metrics(dict(scorecard_payload.get("proxy_metrics") or {}))
     previous_artifact = dict(scorecard_payload.get("previous_artifact") or {})
     deltas = dict(scorecard_payload.get("deltas") or {})
     failure_distribution = dict(scorecard_payload.get("failure_class_distribution") or {})
