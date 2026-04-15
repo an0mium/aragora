@@ -22,6 +22,37 @@ TMUX_SESSION="aragora"
 LOG_DIR="${HOME}/.aragora/tmux-sessions"
 mkdir -p "${LOG_DIR}"
 
+wait_for_agent_ready() {
+    local agent="$1"
+    local log_file="$2"
+    local timeout_seconds="$3"
+    local pattern=""
+    local elapsed=0
+
+    case "${agent}" in
+        codex)
+            pattern='OpenAI Codex|Use /skills to list available skills|Improve documentation in @filename'
+            ;;
+        claude)
+            pattern='Claude Code|ctrl\+g to edit in VS Code|don'"'"'t ask on'
+            ;;
+    esac
+
+    if [[ -z "${pattern}" ]]; then
+        return 1
+    fi
+
+    while (( elapsed < timeout_seconds )); do
+        if [[ -f "${log_file}" ]] && grep -Eq "${pattern}" "${log_file}"; then
+            return 0
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    return 1
+}
+
 # --- argument parsing ---
 NAME=""
 AGENT="codex"
@@ -144,7 +175,12 @@ echo "  Meta: ${META_FILE}"
 
 # If there's a prompt to send, wait for the session to initialize then send it
 if [[ -n "${PROMPT}" ]]; then
-    echo "Waiting 5s for session init before sending prompt..."
-    sleep 5
+    INIT_WAIT_SECONDS="${ARAGORA_TMUX_INIT_WAIT_SECONDS:-30}"
+    echo "Waiting up to ${INIT_WAIT_SECONDS}s for ${AGENT} readiness before sending prompt..."
+    if wait_for_agent_ready "${AGENT}" "${LOG_FILE}" "${INIT_WAIT_SECONDS}"; then
+        echo "Readiness markers detected for ${NAME}."
+    else
+        echo "Timed out waiting for readiness markers for ${NAME}; sending prompt anyway."
+    fi
     "${SCRIPT_DIR}/tmux_send_prompt.sh" --name "${NAME}" --prompt "${PROMPT}"
 fi
