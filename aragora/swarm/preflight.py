@@ -1389,15 +1389,6 @@ def _worktree_path(repo_root: Path, branch: str) -> Path:
 
 
 def _preflight_filename(contract: WorkerContract | None = None) -> str:
-    if contract is not None:
-        policy = dict(contract.mission_context_policy or {})
-        required_sources = [
-            str(item).strip()
-            for item in list(policy.get("required_sources", []) or [])
-            if str(item).strip()
-        ]
-        if required_sources:
-            return required_sources[0]
     return "scratch/preflight_worker_check.txt"
 
 
@@ -1412,6 +1403,12 @@ def _work_order(agent: str, *, contract: WorkerContract | None = None) -> dict[s
         "receipt",
     ]
     if contract is not None:
+        policy = dict(contract.mission_context_policy or {})
+        required_sources = [
+            str(item).strip()
+            for item in list(policy.get("required_sources", []) or [])
+            if str(item).strip()
+        ]
         mission_id = str(contract.mission_id or "").strip()
         stage_id = str(contract.stage_id or "").strip()
         assertion_ids = [
@@ -1422,6 +1419,18 @@ def _work_order(agent: str, *, contract: WorkerContract | None = None) -> dict[s
             for item in list(contract.evidence_expectations or [])
             if str(item).strip()
         ] or evidence_expectations
+    description = (
+        f"Create a file named `{filename}` with a single line "
+        "timestamp. Commit it with message `chore: preflight worker check`. "
+        "Do not modify any other files."
+    )
+    if contract is not None and required_sources:
+        quoted_sources = ", ".join(f"`{item}`" for item in required_sources)
+        description = (
+            f"Read the required source files {quoted_sources} to confirm access, then "
+            + description
+        )
+
     return {
         "work_order_id": f"preflight-{int(time.time())}",
         "target_agent": agent,
@@ -1437,11 +1446,7 @@ def _work_order(agent: str, *, contract: WorkerContract | None = None) -> dict[s
         "title": "Contract-aware preflight worker check"
         if contract is not None
         else "Preflight worker check",
-        "description": (
-            f"Create a file named `{filename}` with a single line "
-            "timestamp. Commit it with message `chore: preflight worker check`. "
-            "Do not modify any other files."
-        ),
+        "description": description,
         "file_scope": [filename],
         "expected_tests": [],
         "metadata": {"admin_approved": True},
@@ -1459,6 +1464,11 @@ async def _run_worker(
     config = LaunchConfig(
         allow_claude_dangerously_skip_permissions=True,
         allow_codex_full_auto=True,
+        # Preflight already provisions and owns the disposable worktree.
+        # Wrapping the worker in codex_session.sh tries to create another
+        # managed worktree on top of it and fails before any commit happens.
+        use_managed_session_script=False,
+        require_explicit_approval=False,
     )
     launcher = WorkerLauncher(config=config)
     work_order = _work_order(agent, contract=contract)

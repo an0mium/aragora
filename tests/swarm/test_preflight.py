@@ -478,6 +478,56 @@ def test_contract_preflight_work_order_roundtrips_empty_lineage(tmp_path: Path) 
     assert round_tripped.assertion_ids == []
 
 
+def test_contract_preflight_uses_scratch_output_not_required_source() -> None:
+    contract_payload = _worker(branch="preflight/20260415-required-source").worker_contract
+    contract_payload["mission_context_policy"]["required_sources"] = [
+        "github/workflows/benchmark-truth-publication.yml",
+        "workflow/action",
+    ]
+    contract = WorkerContract.from_dict(contract_payload)
+
+    work_order = mod._work_order("codex", contract=contract)
+
+    assert work_order["file_scope"] == ["scratch/preflight_worker_check.txt"]
+    assert "Read the required source files" in str(work_order["description"])
+    assert "`github/workflows/benchmark-truth-publication.yml`" in str(work_order["description"])
+    assert "Create a file named `scratch/preflight_worker_check.txt`" in str(
+        work_order["description"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_worker_disables_managed_session_wrapper(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeLauncher:
+        def __init__(self, config: LaunchConfig) -> None:
+            captured["config"] = config
+
+        async def launch_and_wait(
+            self, work_order: dict[str, object], **kwargs: object
+        ) -> WorkerProcess:
+            captured["work_order"] = work_order
+            captured["kwargs"] = kwargs
+            return _worker(branch=str(kwargs["branch"]))
+
+    monkeypatch.setattr(mod, "WorkerLauncher", FakeLauncher)
+
+    result = await mod._run_worker(
+        repo_root=tmp_path,
+        worktree_path=tmp_path / "worktree",
+        branch="preflight/20260415-direct-launch",
+        agent="codex",
+        contract=None,
+    )
+
+    config = captured["config"]
+    assert isinstance(config, LaunchConfig)
+    assert config.use_managed_session_script is False
+    assert config.require_explicit_approval is False
+    assert isinstance(result, WorkerProcess)
+
+
 def test_run_contract_preflight_receipt_persists_and_returns_receipt(
     monkeypatch, tmp_path: Path
 ) -> None:
