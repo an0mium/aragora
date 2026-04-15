@@ -71,9 +71,14 @@ class QualityPipelineConfig:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> QualityPipelineConfig:
-        """Construct from a JSON-compatible dict (e.g. API request body)."""
+        """Construct from a JSON-compatible dict, validating bool fields strictly."""
         if not isinstance(data, dict):
             return cls()
+
+        enabled = _coerce_bool_config(data.get("enabled"), default=True, field_name="enabled")
+        has_context = _coerce_bool_config(
+            data.get("has_context"), default=False, field_name="has_context"
+        )
 
         sections_raw = data.get("required_sections")
         sections: list[str] | None = None
@@ -83,13 +88,11 @@ class QualityPipelineConfig:
                 sections = None
 
         return cls(
-            enabled=_coerce_bool_config(data.get("enabled"), default=True, field_name="enabled"),
+            enabled=enabled,
             output_contract_file=data.get("output_contract_file"),
             required_sections=sections,
             repo_root=data.get("repo_root"),
-            has_context=_coerce_bool_config(
-                data.get("has_context"), default=False, field_name="has_context"
-            ),
+            has_context=has_context,
             quality_min_score=float(data.get("quality_min_score", 9.0)),
             practicality_min_score=float(data.get("practicality_min_score", 5.0)),
         )
