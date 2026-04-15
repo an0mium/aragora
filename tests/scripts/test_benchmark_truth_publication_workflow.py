@@ -75,6 +75,24 @@ def test_installs_github_cli_before_runtime_prerequisites() -> None:
     assert 'echo "$gh_root/gh_${gh_version}_linux_${gh_arch}/bin" >> "$GITHUB_PATH"' in gh_run
 
 
+def test_resolves_codex_auth_paths_before_runner_refresh() -> None:
+    steps = _benchmark_truth_publication_steps()
+    names = [str(step.get("name", "")) for step in steps]
+    resolve_index = names.index("Resolve Codex runner auth paths")
+    refresh_index = names.index("Refresh execution-verified Codex runner")
+    assert resolve_index < refresh_index
+
+    run = str(_workflow_step("Resolve Codex runner auth paths").get("run", ""))
+    assert 'RUNNER_USER="${ARAGORA_USER_ID:-${USER:-$(id -un)}}"' in run
+    assert "pwd.getpwnam" in run
+    assert 'echo "HOME=$RUNNER_HOME" >> "$GITHUB_ENV"' in run
+    assert 'echo "CODEX_HOME=$RUNNER_HOME/.codex" >> "$GITHUB_ENV"' in run
+    assert (
+        'echo "ARAGORA_RUNNER_REGISTRY_PATH=$RUNNER_HOME/.aragora/swarm_runners.json" >> "$GITHUB_ENV"'
+        in run
+    )
+
+
 def test_refreshes_execution_verified_codex_runner_before_recurrence() -> None:
     steps = _benchmark_truth_publication_steps()
     names = [str(step.get("name", "")) for step in steps]

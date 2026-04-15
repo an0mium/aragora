@@ -91,6 +91,30 @@ jobs:
             echo "::notice::No repo-local benchmark metrics snapshot found; recurrence will generate a fresh window"
           fi
 
+      - name: Resolve Codex runner auth paths
+        shell: bash
+        run: |
+          RUNNER_USER="${ARAGORA_USER_ID:-${USER:-$(id -un)}}"
+          RUNNER_HOME="$(
+            python3 - "$RUNNER_USER" <<'PY'
+            import pwd
+            import sys
+            from pathlib import Path
+
+            user = str(sys.argv[1] or "").strip()
+            if user:
+                try:
+                    print(pwd.getpwnam(user).pw_dir)
+                    raise SystemExit(0)
+                except KeyError:
+                    pass
+            print(Path.home())
+            PY
+          )"
+          echo "HOME=$RUNNER_HOME" >> "$GITHUB_ENV"
+          echo "CODEX_HOME=$RUNNER_HOME/.codex" >> "$GITHUB_ENV"
+          echo "ARAGORA_RUNNER_REGISTRY_PATH=$RUNNER_HOME/.aragora/swarm_runners.json" >> "$GITHUB_ENV"
+
       - name: Refresh execution-verified Codex runner
         shell: bash
         run: |
