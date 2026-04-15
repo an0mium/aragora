@@ -12,6 +12,7 @@ from aragora.cli.commands.swarm_status import (
     load_operator_status,
     render_operator_status,
 )
+from aragora.swarm.shift_ledger import ShiftLedger
 
 
 def _write_metrics(metrics_path: Path, rows: list[dict[str, object]]) -> None:
@@ -110,6 +111,41 @@ def test_load_operator_status_reports_unknown_queue_depth_when_probe_unavailable
     assert payload["summary"]["queue_depth"] == "unknown"
 
 
+def test_load_operator_status_prefers_ledger_truth_for_queue_depth(tmp_path: Path) -> None:
+    metrics_path = tmp_path / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    _write_metrics(metrics_path, [])
+    ledger = ShiftLedger(path=tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl")
+    ledger.record_shift_start(
+        shift_id="shift-1",
+        max_hours=12.0,
+        benchmark_mode="hybrid",
+        queue_size=0,
+    )
+    ledger.record_cycle_tick(
+        queue_size=2,
+        open_prs=1,
+        boss_running=False,
+        merge_running=True,
+        benchmark_fresh=True,
+        actions=["steady_state"],
+        stop_reason="completed",
+    )
+    ledger.record_pr_merged(pr_number=5857)
+    ledger.record_shift_stop(
+        shift_id="shift-1",
+        reason="completed",
+        cycles=1,
+        duration_seconds=30.0,
+    )
+
+    with patch("aragora.cli.commands.swarm_status._boss_ready_queue_depth", return_value=9):
+        payload = load_operator_status(tmp_path, metrics_path=metrics_path)
+
+    assert payload["summary"]["queue_depth"] == 2
+    assert payload["ledger_status"]["current_queue_size"] == 2
+    assert payload["ledger_status"]["prs_merged"] == 1
+
+
 def test_render_operator_status_includes_recent_iterations() -> None:
     text = render_operator_status(
         {
@@ -119,6 +155,15 @@ def test_render_operator_status_includes_recent_iterations() -> None:
                 "sanitizer_rejection_rate": 0.25,
                 "deferred_publish_count": 1,
                 "queue_depth": 4,
+            },
+            "ledger_status": {
+                "current_queue_size": 0,
+                "current_boss_running": False,
+                "current_merge_running": True,
+                "current_benchmark_fresh": True,
+                "prs_merged": 3,
+                "last_stop_reason": "completed",
+                "green_shift": {"is_green": False},
             },
             "last_iterations": [
                 {
@@ -140,6 +185,7 @@ def test_render_operator_status_includes_recent_iterations() -> None:
     )
 
     assert "operator attempted=2 completed=1" in text
+    assert "proof-first queue=0 boss=False merge=True benchmark_fresh=True" in text
     assert "recent iterations:" in text
     assert "#101 deliverable_pr_created" in text
     assert "per-issue success:" in text
