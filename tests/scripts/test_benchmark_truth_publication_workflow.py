@@ -85,6 +85,8 @@ def test_installs_github_cli_before_runtime_prerequisites() -> None:
         "GITHUB_TOKEN": "${{ github.token }}",
     }
     gh_run = str(gh_step.get("run", ""))
+    assert "if command -v gh >/dev/null 2>&1; then" in gh_run
+    assert "gh --version | head -1" in gh_run
     assert "https://api.github.com/repos/cli/cli/releases/latest" not in gh_run
     assert "installed_version=\"$(gh --version | awk 'NR==1 {print $3}')\"" in gh_run
     assert "Replacing preinstalled gh" in gh_run
