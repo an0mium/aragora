@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   publish-benchmark-truth:
-    runs-on: aragora
+    runs-on: mac-studio
     timeout-minutes: 20
     steps:
       - name: Checkout
