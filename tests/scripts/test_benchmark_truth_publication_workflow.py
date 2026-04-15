@@ -75,6 +75,18 @@ def test_installs_github_cli_before_runtime_prerequisites() -> None:
     assert 'echo "$gh_root/gh_${gh_version}_linux_${gh_arch}/bin" >> "$GITHUB_PATH"' in gh_run
 
 
+def test_installs_codex_cli_before_runtime_prerequisites() -> None:
+    steps = _benchmark_truth_publication_steps()
+    names = [str(step.get("name", "")) for step in steps]
+    codex_index = names.index("Install Codex CLI")
+    prereq_index = names.index("Verify runtime prerequisites")
+    assert codex_index < prereq_index
+    codex_run = str(steps[codex_index].get("run", ""))
+    assert 'codex_root="$RUNNER_TEMP/codex-cli"' in codex_run
+    assert 'npm install --global --prefix "$codex_root" @openai/codex' in codex_run
+    assert 'echo "$codex_root/bin" >> "$GITHUB_PATH"' in codex_run
+
+
 def test_resolves_codex_auth_paths_before_runner_refresh() -> None:
     steps = _benchmark_truth_publication_steps()
     names = [str(step.get("name", "")) for step in steps]

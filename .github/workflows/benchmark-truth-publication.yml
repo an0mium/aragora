@@ -81,9 +81,18 @@ jobs:
             tar -xz -C "$gh_root"
           echo "$gh_root/gh_${gh_version}_linux_${gh_arch}/bin" >> "$GITHUB_PATH"
 
+      - name: Install Codex CLI
+        shell: bash
+        run: |
+          codex_root="$RUNNER_TEMP/codex-cli"
+          mkdir -p "$codex_root"
+          npm install --global --prefix "$codex_root" @openai/codex
+          echo "$codex_root/bin" >> "$GITHUB_PATH"
+
       - name: Verify runtime prerequisites
         shell: bash
         run: |
+          command -v codex >/dev/null
           command -v gh >/dev/null
           METRICS_PATH=".aragora/overnight/boss_metrics.jsonl"
           mkdir -p "$(dirname "$METRICS_PATH")"
