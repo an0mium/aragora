@@ -26,9 +26,40 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Checkout automation branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Preflight automation branch for draft publish
+        id: publish_guard
+        shell: bash
+        run: |
+          set +e
+          {
+            git fetch --no-tags origin main:refs/remotes/origin/main &&
+            bash scripts/automation_pr_preflight.sh origin/main HEAD
+          } > "$RUNNER_TEMP/automation-pr-preflight.log" 2>&1
+          guard_status=$?
+          cat "$RUNNER_TEMP/automation-pr-preflight.log"
+          if [[ $guard_status -eq 0 ]]; then
+            echo "allow=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "allow=false" >> "$GITHUB_OUTPUT"
+          {
+            echo "reason<<EOF"
+            sed -n '1,160p' "$RUNNER_TEMP/automation-pr-preflight.log"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          exit 0
+
       - name: Publish draft PR for automation branch
         id: publish
         uses: actions/github-script@v7
+        env:
+          PUBLISH_GUARD_ALLOW: ${{ steps.publish_guard.outputs.allow }}
+          PUBLISH_GUARD_REASON: ${{ steps.publish_guard.outputs.reason }}
         with:
           script: |
             const branch = context.ref.replace("refs/heads/", "");
@@ -36,6 +67,17 @@ jobs:
             const repo = context.repo.repo;
             const head = `${owner}:${branch}`;
             const backlogLimit = 20;
+
+            if (String(process.env.PUBLISH_GUARD_ALLOW || "").trim().toLowerCase() !== "true") {
+              const reason = String(process.env.PUBLISH_GUARD_REASON || "").trim();
+              if (reason) {
+                core.notice(`preflight_failed ${reason}`);
+              } else {
+                core.notice("preflight_failed");
+              }
+              core.setOutput("status", "preflight_failed");
+              return;
+            }
 
             function isAutomationBranch(ref) {
               return (
