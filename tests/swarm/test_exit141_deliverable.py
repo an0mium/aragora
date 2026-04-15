@@ -384,6 +384,19 @@ class TestUntrackedFileDetection:
         head = _head(repo)
         self._create_untracked_file(repo)
 
+        # The fail-closed handler in wait() requires a terminal session marker
+        # (.codex_session_meta.json with ended_at + exit_code) to trust the
+        # process exit code.  Without it, exit_code is overridden to 1.
+        meta = {
+            "pid": 99999,
+            "session_id": "test-untracked-wait",
+            "agent": "codex",
+            "started_at": "2026-03-10T05:00:00Z",
+            "ended_at": "2026-03-10T05:01:00Z",
+            "exit_code": 0,
+        }
+        (repo / ".codex_session_meta.json").write_text(json.dumps(meta) + "\n", encoding="utf-8")
+
         launcher = WorkerLauncher(config=LaunchConfig(auto_commit=True))
 
         worker = WorkerProcess(
@@ -393,6 +406,7 @@ class TestUntrackedFileDetection:
             branch="main",
             pid=None,
             initial_head=head,
+            admin_approved=True,
         )
         launcher._workers["wo-untracked-wait"] = worker
 
