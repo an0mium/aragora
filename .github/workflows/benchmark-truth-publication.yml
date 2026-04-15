@@ -81,6 +81,11 @@ jobs:
           GH_CLI_SHA256_ARM64: "9e64a623dfc242990aa5d9b3f507111149c4282f66b68eaad1dc79eeb13b9ce5"
         shell: bash
         run: |
+          if command -v gh >/dev/null 2>&1; then
+            gh --version | head -1
+            exit 0
+          fi
+
           gh_version="$GH_CLI_VERSION"
           arch="$(uname -m)"
           case "$arch" in

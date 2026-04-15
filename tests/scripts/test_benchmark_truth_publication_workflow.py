@@ -79,6 +79,8 @@ def test_installs_github_cli_before_runtime_prerequisites() -> None:
         "GH_CLI_SHA256_ARM64": "9e64a623dfc242990aa5d9b3f507111149c4282f66b68eaad1dc79eeb13b9ce5",
     }
     gh_run = str(gh_step.get("run", ""))
+    assert "if command -v gh >/dev/null 2>&1; then" in gh_run
+    assert "gh --version | head -1" in gh_run
     assert "https://api.github.com/repos/cli/cli/releases/latest" not in gh_run
     assert "https://github.com/cli/cli/releases/download/" in gh_run
     assert 'printf \'%s  %s\\n\' "$gh_sha256" "$archive_path" | sha256sum -c -' in gh_run
