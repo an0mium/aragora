@@ -51,12 +51,22 @@ jobs:
       - name: Setup Python
         uses: ./.github/actions/setup-python-safe
         with:
-          python-version: "3.12"
+          python-version: "3.11"
+
+      - name: Ensure pyenv Python on PATH
+        shell: bash
+        run: |
+          # Self-hosted Mac runners use pyenv; ensure shims are on PATH
+          if [[ -d "$HOME/.pyenv/shims" ]]; then
+            export PATH="$HOME/.pyenv/shims:$PATH"
+            echo "$HOME/.pyenv/shims" >> "$GITHUB_PATH"
+          fi
+          python3 --version
 
       - name: Install dependencies
         shell: bash
         run: |
-          python -m pip install -e ".[dev]" --quiet 2>/dev/null || python -m pip install -e . --quiet
+          python3 -m pip install -e ".[dev]" --quiet 2>/dev/null || python3 -m pip install -e . --quiet
 
       - name: Install GitHub CLI
         shell: bash
