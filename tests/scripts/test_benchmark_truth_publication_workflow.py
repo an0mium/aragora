@@ -39,6 +39,13 @@ def _benchmark_truth_publication_steps() -> list[dict[str, object]]:
     return [step for step in steps if isinstance(step, dict)]
 
 
+def _workflow_on(workflow: dict[str, object]) -> dict[str, object]:
+    on = workflow.get("on", workflow.get(True))
+    if not isinstance(on, dict):
+        raise AssertionError("workflow triggers not found")
+    return on
+
+
 def _workflow_step(name: str) -> dict[str, object]:
     for step in _benchmark_truth_publication_steps():
         if str(step.get("name", "")) == name:
@@ -141,25 +148,34 @@ def test_refreshes_execution_verified_codex_runner_before_recurrence() -> None:
     assert "No execution-verified Codex runner selected after refresh." in run
 
 
-def test_publishes_refresh_via_pr_branch_instead_of_direct_main_push() -> None:
+def test_runs_daily_and_manual_dispatch() -> None:
+    workflow = _benchmark_truth_publication_workflow()
+    on = _workflow_on(workflow)
+    assert on.get("workflow_dispatch") is None or on.get("workflow_dispatch") == {}
+    schedule = on.get("schedule")
+    assert isinstance(schedule, list)
+    assert schedule == [{"cron": "20 13 * * *"}]
+
+
+def test_publishes_refresh_via_branch_only_and_delegates_pr_creation() -> None:
     workflow = _benchmark_truth_publication_workflow()
     permissions = workflow.get("permissions")
     assert permissions == {
         "contents": "write",
         "issues": "write",
-        "pull-requests": "write",
+        "pull-requests": "read",
     }
 
     publish_run = str(_workflow_step("Publish tracked trust-loop surfaces").get("run", ""))
-    run = str(_workflow_step("Commit and open PR for refreshed trust-loop surfaces").get("run", ""))
+    run = str(
+        _workflow_step("Commit and publish refreshed trust-loop surfaces branch").get("run", "")
+    )
     assert "--freshness-map docs/benchmarks/benchmark_corpus_freshness.json \\" in publish_run
     assert "--ensure-issues \\" in publish_run
     assert 'branch="benchmark-truth-publication/${GITHUB_RUN_ID}"' in run
     assert 'git checkout -b "$branch"' in run
     assert 'git push origin "$branch"' in run
-    assert "docs/benchmarks/benchmark_corpus_freshness.json \\" in run
-    assert "gh pr create \\" in run
-    assert "--base main \\" in run
-    assert '--head "$branch" \\' in run
-    assert '--body-file "$body_file"' in run
+    assert 'git commit -m "${title}"' in run
+    assert "[skip ci]" not in run
+    assert "gh pr create" not in run
     assert "git push origin HEAD:main" not in run

@@ -29,10 +29,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.swarm.decomposition_bridge import DecompositionBridge  # noqa: E402
 from aragora.swarm.issue_scanner import BossIssueCandidate, scan_all  # noqa: E402
 from aragora.swarm.issue_upgrader import upgrade_issue_heuristic  # noqa: E402
-from aragora.swarm.roadmap_priority import (  # noqa: E402
-    RoadmapPriority,
-    load_roadmap_priority_policy,
-)
+from aragora.swarm.proof_first_queue import classify_proof_first_queue_issue  # noqa: E402
+from aragora.swarm.roadmap_priority import load_roadmap_priority_policy  # noqa: E402
 
 _GENERIC_PARENT_PHRASES: tuple[str, ...] = (
     "read the module and identify all public functions",
@@ -512,12 +510,19 @@ def main() -> None:
             continue
 
         body = format_boss_ready_body(candidate)
-        if args.label == "boss-ready" and priority_policy is not None:
-            priority = priority_policy.priority_for_text(candidate.title, body)
-            if priority.priority is not RoadmapPriority.DO_NOW:
+        if args.label == "boss-ready":
+            decision = classify_proof_first_queue_issue(
+                candidate.title,
+                body,
+                repo_root=repo_root,
+                roadmap_policy=priority_policy,
+            )
+            if not decision.allowed:
                 skipped_priority += 1
                 if args.verbose:
-                    detail = ", ".join(priority.blocked_codes) or priority.priority.value
+                    detail = (
+                        ", ".join(decision.blocked_codes or decision.roadmap_codes) or decision.lane
+                    )
                     print(f"  SKIP (canonical priority): {candidate.title} [{detail}]")
                 continue
         ok, reason = validate_body(body)

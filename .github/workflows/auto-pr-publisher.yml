@@ -6,6 +6,7 @@ on:
       - "codex/**"
       - "factory/**"
       - "aragora/boss-harvest/**"
+      - "benchmark-truth-publication/**"
   # Schedule disabled — push trigger is sufficient; cron caused 714 PR flood (2026-04-09)
   # schedule:
   #   - cron: "*/15 * * * *"
@@ -84,7 +85,8 @@ jobs:
               return (
                 ref.startsWith("codex/") ||
                 ref.startsWith("factory/") ||
-                ref.startsWith("aragora/boss-harvest/")
+                ref.startsWith("aragora/boss-harvest/") ||
+                ref.startsWith("benchmark-truth-publication/")
               );
             }
 

@@ -77,7 +77,7 @@ def load_roadmap_priority_policy(repo_root: Path | str) -> RoadmapPriorityPolicy
     if not path.exists():
         return None
     text = path.read_text(encoding="utf-8")
-    buckets = {
+    buckets: dict[str, set[str]] = {
         _SECTION_DO_NOW: set(),
         _SECTION_DELAY: set(),
         _SECTION_AVOID: set(),
@@ -87,7 +87,7 @@ def load_roadmap_priority_policy(repo_root: Path | str) -> RoadmapPriorityPolicy
         line = raw_line.strip()
         if not line:
             continue
-        if line.startswith("### "):
+        if line.startswith("#"):
             current_section = _SECTION_NAMES.get(line, "")
             continue
         if not current_section or not line.startswith("- "):

@@ -46,6 +46,7 @@ def test_find_mutating_workflow_violations_requires_safe_benchmark_truth_publica
             "jobs:\n  x:\n    steps:\n      - run: |\n"
             '          branch="unsafe/tmp"\n'
             '          git push origin "$branch"\n'
+            '          gh pr create --base main --head "$branch"\n'
         ),
     }
     violations = find_mutating_workflow_violations(workflows)
@@ -58,8 +59,7 @@ def test_find_mutating_workflow_violations_requires_safe_benchmark_truth_publica
         for v in violations
     )
     assert any(
-        "must open a pull request instead of pushing directly to main" in v.message
-        for v in violations
+        "must delegate pull request creation to Auto PR Publisher" in v.message for v in violations
     )
 
 

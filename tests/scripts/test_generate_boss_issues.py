@@ -93,6 +93,8 @@ def test_main_dry_run_fetches_and_filters_like_real_mode(
             "--dry-run",
             "--max-issues",
             "5",
+            "--label",
+            "lane:test",
         ],
     )
 
@@ -145,7 +147,7 @@ def test_main_create_mode_trims_to_max_and_writes_fingerprint(
             "--max-issues",
             "1",
             "--label",
-            "boss-ready",
+            "lane:test",
         ],
     )
 
@@ -157,7 +159,7 @@ def test_main_create_mode_trims_to_max_and_writes_fingerprint(
     repo, title, body, label = created[0]
     assert repo == "org/repo"
     assert title == first.title
-    assert label == "boss-ready"
+    assert label == "lane:test"
     assert f"<!-- fingerprint:{first.fingerprint} -->" in body
 
 
@@ -278,6 +280,70 @@ def test_main_non_boss_ready_label_allows_unknown_priority(monkeypatch, capsys) 
     out = capsys.readouterr().out
     assert "Done: 1 created, 0 failed" in out
     assert created[0][3] == "lane:test"
+
+
+def test_main_boss_ready_allows_tw02_benchmark_follow_up_without_do_now_code(
+    monkeypatch,
+    capsys,
+) -> None:
+    candidate = BossIssueCandidate(
+        category="test_coverage",
+        title="[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-1",
+        description=(
+            "Refresh benchmark corpus freshness by updating docs/benchmarks/corpus.json "
+            "after stale closed issues were detected."
+        ),
+        file_scope=["docs/benchmarks/corpus.json"],
+        new_files=[],
+        validation_command="python3 scripts/measure_b0_scorecard.py --json",
+        acceptance_criteria=[
+            "Recurring benchmark truth publication reports fresh corpus membership."
+        ],
+    )
+    created: list[tuple[str, str, str, str]] = []
+
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: [candidate],
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(
+        mod,
+        "load_roadmap_priority_policy",
+        lambda repo_root: RoadmapPriorityPolicy(
+            do_now=frozenset({"CS-01", "CS-02", "CS-03"}),
+            delay=frozenset({"BC-07"}),
+            avoid=frozenset({"CS-04"}),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "create_github_issue",
+        lambda repo, title, body, label: (created.append((repo, title, body, label)) or True),
+    )
+    monkeypatch.setattr(mod.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_boss_issues.py",
+            "--repo",
+            "org/repo",
+            "--max-issues",
+            "1",
+            "--label",
+            "boss-ready",
+        ],
+    )
+
+    mod.main()
+
+    out = capsys.readouterr().out
+    assert "Done: 1 created, 0 failed" in out
+    assert created[0][1] == candidate.title
 
 
 def test_fetch_existing_boss_issues_includes_fingerprinted_open_issues_without_label_filter(

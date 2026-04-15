@@ -52,3 +52,25 @@ def test_load_priority_policy_parses_canonical_sections(tmp_path: Path) -> None:
     assert blocked.blocked_codes == ("BC-07",)
     avoid = policy.priority_for_text("Refs: (`UDW-08`)")
     assert avoid.priority == RoadmapPriority.AVOID
+
+
+def test_load_priority_policy_resets_section_on_higher_level_heading(tmp_path: Path) -> None:
+    docs = tmp_path / "docs" / "status"
+    docs.mkdir(parents=True)
+    (docs / "NEXT_STEPS_CANONICAL.md").write_text(
+        "\n".join(
+            [
+                "### Avoid in this tranche",
+                "- `CS-04..12`",
+                "",
+                "## Live Boss-Ready Queue",
+                "- `TW-01`, `TW-02`, and `TW-03` publish through recurring status surfaces.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    policy = load_roadmap_priority_policy(tmp_path)
+
+    assert policy is not None
+    assert "TW-02" not in policy.avoid

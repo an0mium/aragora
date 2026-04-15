@@ -32,6 +32,7 @@ from aragora.swarm.boss_loop_outcome import (
 from aragora.swarm.debate_gate import DebateGate, DebateGateConfig, DebateGateRequest
 from aragora.swarm.dispatch_contract_gate import dispatch_contract_gate
 from aragora.swarm.env_utils import git_safe_env
+from aragora.swarm.proof_first_queue import filter_noncanonical_boss_ready_issues
 from aragora.swarm.roadmap_priority import load_roadmap_priority_policy
 from aragora.swarm.task_sanitizer import SanitizationOutcome, TaskSanitizer
 from aragora.swarm.mission import GateType, GateVerdict
@@ -2041,6 +2042,17 @@ class BossLoop:
                 close=closed,
             )
 
+    def _filter_noncanonical_boss_ready_issues(
+        self,
+        issues: list[GitHubIssue],
+    ) -> list[GitHubIssue]:
+        return filter_noncanonical_boss_ready_issues(
+            issues,
+            repo_root=Path.cwd(),
+            repo_slug_for_issue=self._repo_slug_for_issue,
+            comment_and_update_issue=self._comment_and_update_issue,
+        )
+
     @staticmethod
     def _reuse_existing_published_branch_deliverable(
         worker_result: dict[str, Any],
@@ -3569,6 +3581,8 @@ class BossLoop:
                 elapsed_seconds=time.monotonic() - iter_start,
                 error="issue_feed_error",
             )
+
+        issues = self._filter_noncanonical_boss_ready_issues(issues)
 
         # Step 1b: Log strategic refill candidates when queue is low
         if len(issues) < self.config.auto_refill_threshold:

@@ -3083,48 +3083,84 @@ class TestBossLoopCLI:
         parsed = json.loads(out)
         assert parsed["stop_reason"] == "no_suitable_issue"
 
-    def test_boss_loop_label_filter_passes_with_all_labels(self, capsys):
-        """Issues carrying ALL required labels pass the filter."""
-        from aragora.cli.commands.swarm import cmd_swarm
 
-        fixture_issues = [
-            _make_issue(
-                1,
-                "Full match",
-                labels=["P0", "queue-eligible", "enhancement"],
-                body=(
-                    "Fix the thing\n\n"
-                    "Acceptance Criteria:\n"
-                    "- pytest -q tests/swarm/test_boss_loop.py\n"
-                ),
+def test_boss_loop_label_filter_passes_with_all_labels(self, capsys):
+    """Issues carrying ALL required labels pass the filter."""
+    from aragora.cli.commands.swarm import cmd_swarm
+
+    fixture_issues = [
+        _make_issue(
+            1,
+            "Full match",
+            labels=["P0", "queue-eligible", "enhancement"],
+            body=(
+                "Fix the thing\n\nAcceptance Criteria:\n- pytest -q tests/swarm/test_boss_loop.py\n"
             ),
-        ]
-        feed = MagicMock(spec=GitHubIssueFeed)
-        feed.fetch.return_value = fixture_issues
+        ),
+    ]
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = fixture_issues
 
-        args = self._swarm_args(
-            json=True,
-            max_ticks=1,
-            labels=["P0", "queue-eligible"],
-            no_dispatch=True,
-        )
+    args = self._swarm_args(
+        json=True,
+        max_ticks=1,
+        labels=["P0", "queue-eligible"],
+        no_dispatch=True,
+    )
 
-        with (
-            patch(
-                "aragora.swarm.boss_loop.check_runner_freshness",
-                return_value=_fresh_result(fresh=True),
-            ),
-            patch(
-                "aragora.swarm.boss_loop.GitHubIssueFeed",
-                return_value=feed,
-            ),
-        ):
-            cmd_swarm(args)
+    with (
+        patch(
+            "aragora.swarm.boss_loop.check_runner_freshness",
+            return_value=_fresh_result(fresh=True),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.GitHubIssueFeed",
+            return_value=feed,
+        ),
+    ):
+        cmd_swarm(args)
 
-        out = capsys.readouterr().out
-        parsed = json.loads(out)
-        # The issue was selected (didn't stop with no_suitable_issue)
-        assert parsed["stop_reason"] != "no_suitable_issue"
+    out = capsys.readouterr().out
+    parsed = json.loads(out)
+    # The issue was selected (didn't stop with no_suitable_issue)
+    assert parsed["stop_reason"] != "no_suitable_issue"
+
+
+def test_filter_noncanonical_boss_ready_issues_strips_label_and_excludes_issue() -> None:
+    generic = _make_issue(
+        901,
+        "Replace silent exception swallowing in postgres_store.py",
+        body="Generic cleanup only.",
+        labels=["boss-ready"],
+    )
+    canonical = _make_issue(
+        902,
+        "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-1",
+        body="Refresh benchmark corpus freshness after stale closed issues were detected.",
+        labels=["boss-ready"],
+    )
+    loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+    commands: list[list[str]] = []
+    comments: list[str] = []
+
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        result.stderr = ""
+        commands.append(list(cmd))
+        if cmd[:3] == ["gh", "issue", "comment"]:
+            comments.append(cmd[cmd.index("--body") + 1])
+        return result
+
+    with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=_run):
+        kept = loop._filter_noncanonical_boss_ready_issues([generic, canonical])
+
+    assert kept == [canonical]
+    assert "boss-ready" not in generic.labels
+    assert comments
+    assert "outside the canonical proof-first queue" in comments[-1]
+    assert any(cmd[:3] == ["gh", "issue", "edit"] for cmd in commands)
 
 
 @pytest.mark.asyncio

@@ -18,6 +18,33 @@ def _auto_pr_publisher_steps() -> list[dict[str, object]]:
     return [step for step in steps if isinstance(step, dict)]
 
 
+def _auto_pr_publisher_workflow() -> dict[str, object]:
+    workflow_path = (
+        Path(__file__).resolve().parents[2] / ".github" / "workflows" / "auto-pr-publisher.yml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    if not isinstance(workflow, dict):
+        raise AssertionError("auto-pr-publisher workflow not found")
+    return workflow
+
+
+def _workflow_on(workflow: dict[str, object]) -> dict[str, object]:
+    on = workflow.get("on", workflow.get(True))
+    if not isinstance(on, dict):
+        raise AssertionError("auto-pr-publisher triggers not found")
+    return on
+
+
+def test_auto_pr_publisher_triggers_for_benchmark_publication_branches() -> None:
+    workflow = _auto_pr_publisher_workflow()
+    on = _workflow_on(workflow)
+    push = on.get("push")
+    assert isinstance(push, dict)
+    branches = push.get("branches")
+    assert isinstance(branches, list)
+    assert "benchmark-truth-publication/**" in branches
+
+
 def test_auto_pr_publisher_runs_publish_guard_before_pr_creation() -> None:
     steps = _auto_pr_publisher_steps()
     names = [str(step.get("name", "")) for step in steps]
@@ -59,3 +86,12 @@ def test_auto_pr_publisher_stops_when_automation_backlog_hits_cap() -> None:
     assert "const backlogLimit = 12;" in script
     assert "if (automationBacklog >= backlogLimit)" in script
     assert 'core.setOutput("status", "backlog_full")' in script
+
+
+def test_auto_pr_publisher_treats_benchmark_publication_branches_as_automation() -> None:
+    steps = _auto_pr_publisher_steps()
+    publish_step = next(
+        step for step in steps if step.get("name") == "Publish draft PR for automation branch"
+    )
+    script = str((publish_step.get("with") or {}).get("script", ""))
+    assert 'ref.startsWith("benchmark-truth-publication/")' in script
