@@ -13,6 +13,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
@@ -57,15 +59,48 @@ def _tail_jsonl(path: Path, max_lines: int) -> list[dict[str, Any]]:
 def swarm_status_summary(
     *,
     metrics_path: Path | None = None,
+    ledger_path: Path | None = None,
     window: int = DEFAULT_WINDOW,
 ) -> dict[str, Any]:
-    """Build a swarm status summary from boss metrics JSONL."""
+    """Build a swarm status summary from shift ledger or boss metrics JSONL."""
+    ledger_file = ledger_path or Path(DEFAULT_LEDGER_PATH)
+    if ledger_file.exists():
+        ledger_summary = ShiftLedger(path=ledger_file).get_status_summary()
+    else:
+        ledger_summary = {}
+    if int(ledger_summary.get("total_entries", 0) or 0) > 0:
+        return {
+            "status": "active",
+            "source": "ledger",
+            "ledger_path": str(ledger_file),
+            "period_hours": ledger_summary.get("period_hours", 24.0),
+            "total_entries": ledger_summary.get("total_entries", 0),
+            "shifts_started": ledger_summary.get("shifts_started", 0),
+            "shifts_stopped": ledger_summary.get("shifts_stopped", 0),
+            "cycle_ticks": ledger_summary.get("cycle_ticks", 0),
+            "queue_depth": ledger_summary.get("current_queue_size"),
+            "benchmark_fresh": ledger_summary.get("current_benchmark_fresh"),
+            "boss_running": ledger_summary.get("current_boss_running"),
+            "merge_running": ledger_summary.get("current_merge_running"),
+            "last_stop_reason": ledger_summary.get("last_stop_reason", ""),
+            "service_restarts": ledger_summary.get("service_restarts", 0),
+            "restart_successes": ledger_summary.get("restart_successes", 0),
+            "restart_failures": ledger_summary.get("restart_failures", 0),
+            "prs_merged": ledger_summary.get("prs_merged", 0),
+            "pr_numbers_merged": ledger_summary.get("pr_numbers_merged", []),
+            "auth_failures": ledger_summary.get("auth_failures", 0),
+            "publication_failures": ledger_summary.get("publication_failures", 0),
+            "benchmark_runs": ledger_summary.get("benchmark_runs", 0),
+            "last_benchmark_conclusion": ledger_summary.get("last_benchmark_conclusion", ""),
+        }
+
     path = metrics_path or DEFAULT_METRICS_PATH
     rows = _tail_jsonl(path, window)
 
     if not rows:
         return {
             "status": "no_data",
+            "source": "metrics",
             "metrics_path": str(path),
             "window": window,
             "total_ticks": 0,
@@ -126,6 +161,7 @@ def swarm_status_summary(
 
     return {
         "status": "active",
+        "source": "metrics",
         "metrics_path": str(path),
         "window": window,
         "total_ticks": len(rows),

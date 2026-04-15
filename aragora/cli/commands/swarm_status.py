@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
 from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics
 
 DEFAULT_METRICS_PATH = Path(".aragora") / "overnight" / "boss_metrics.jsonl"
@@ -146,6 +147,47 @@ def _boss_ready_queue_depth(repo_root: Path, *, boss_repo: str | None = None) ->
     return len(payload) if isinstance(payload, list) else None
 
 
+def _load_ledger_operator_status(
+    repo_root: Path,
+    *,
+    max_age_hours: float = 24.0,
+) -> dict[str, Any] | None:
+    ledger_path = repo_root / Path(DEFAULT_LEDGER_PATH)
+    if not ledger_path.exists():
+        return None
+
+    summary = ShiftLedger(path=ledger_path).get_status_summary(max_age_hours=max_age_hours)
+    if int(summary.get("total_entries", 0) or 0) <= 0:
+        return None
+
+    return {
+        "available": True,
+        "source": "ledger",
+        "ledger_path": str(ledger_path),
+        "summary": {
+            "queue_depth": summary.get("current_queue_size", "unknown"),
+            "benchmark_fresh": summary.get("current_benchmark_fresh"),
+            "boss_running": summary.get("current_boss_running"),
+            "merge_running": summary.get("current_merge_running"),
+            "last_stop_reason": summary.get("last_stop_reason", ""),
+            "restart_successes": summary.get("restart_successes", 0),
+            "restart_failures": summary.get("restart_failures", 0),
+            "service_restarts": summary.get("service_restarts", 0),
+            "prs_merged": summary.get("prs_merged", 0),
+            "pr_numbers_merged": summary.get("pr_numbers_merged", []),
+            "auth_failures": summary.get("auth_failures", 0),
+            "publication_failures": summary.get("publication_failures", 0),
+            "benchmark_runs": summary.get("benchmark_runs", 0),
+            "last_benchmark_conclusion": summary.get("last_benchmark_conclusion", ""),
+            "cycle_ticks": summary.get("cycle_ticks", 0),
+            "shifts_started": summary.get("shifts_started", 0),
+            "shifts_stopped": summary.get("shifts_stopped", 0),
+        },
+        "last_iterations": [],
+        "per_issue_success": [],
+    }
+
+
 def load_operator_status(
     repo_root: Path,
     *,
@@ -153,6 +195,10 @@ def load_operator_status(
     boss_repo: str | None = None,
     metrics_path: Path | None = None,
 ) -> dict[str, Any]:
+    ledger_payload = _load_ledger_operator_status(repo_root)
+    if ledger_payload is not None:
+        return ledger_payload
+
     metrics_file = metrics_path or (repo_root / DEFAULT_METRICS_PATH)
     rows = _load_metrics_rows(metrics_file)
     queue_depth = _boss_ready_queue_depth(repo_root, boss_repo=boss_repo)
@@ -222,6 +268,7 @@ def load_operator_status(
 
     return {
         "available": metrics_file.exists(),
+        "source": "metrics",
         "metrics_path": str(metrics_file),
         "summary": {
             "unique_issues_attempted": len(attempted_issues),
@@ -237,6 +284,52 @@ def load_operator_status(
 
 
 def render_operator_status(payload: dict[str, Any]) -> str:
+    if payload.get("source") == "ledger":
+        summary = payload.get("summary", {}) if isinstance(payload.get("summary"), dict) else {}
+        queue_depth = summary.get("queue_depth", "unknown")
+        benchmark_fresh = summary.get("benchmark_fresh")
+        benchmark_state = (
+            "fresh"
+            if benchmark_fresh is True
+            else "stale"
+            if benchmark_fresh is False
+            else "unknown"
+        )
+        boss_running = summary.get("boss_running")
+        merge_running = summary.get("merge_running")
+        boss_state = (
+            "running" if boss_running is True else "stopped" if boss_running is False else "unknown"
+        )
+        merge_state = (
+            "running"
+            if merge_running is True
+            else "stopped"
+            if merge_running is False
+            else "unknown"
+        )
+        lines = [
+            "operator queue_depth={queue_depth} benchmark={benchmark} boss={boss} merge={merge} "
+            "prs_merged={prs_merged} restarts={restart_successes}/{restart_failures} "
+            "auth_failures={auth_failures} publication_failures={publication_failures}".format(
+                queue_depth=queue_depth,
+                benchmark=benchmark_state,
+                boss=boss_state,
+                merge=merge_state,
+                prs_merged=summary.get("prs_merged", 0),
+                restart_successes=summary.get("restart_successes", 0),
+                restart_failures=summary.get("restart_failures", 0),
+                auth_failures=summary.get("auth_failures", 0),
+                publication_failures=summary.get("publication_failures", 0),
+            )
+        ]
+        last_stop_reason = _optional_text(summary.get("last_stop_reason"))
+        if last_stop_reason:
+            lines.append(f"last stop: {last_stop_reason}")
+        last_benchmark_conclusion = _optional_text(summary.get("last_benchmark_conclusion"))
+        if last_benchmark_conclusion:
+            lines.append(f"last benchmark conclusion: {last_benchmark_conclusion}")
+        return "\n".join(lines)
+
     summary = payload.get("summary", {}) if isinstance(payload.get("summary"), dict) else {}
     lines = [
         "operator attempted={attempted} completed={completed} sanitizer_rejection_rate={rate:.1%} "

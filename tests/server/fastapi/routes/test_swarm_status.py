@@ -11,6 +11,7 @@ os.environ.setdefault("ARAGORA_USE_SECRETS_MANAGER", "0")
 
 from aragora.server.fastapi.routes import swarm_status
 from aragora.swarm.preflight import PreflightReceipt
+from aragora.swarm.shift_ledger import ShiftLedger
 
 
 def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
@@ -19,6 +20,7 @@ def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
 
 def test_swarm_status_summary_counts_deliverables_as_success(tmp_path: Path) -> None:
     metrics_path = tmp_path / "boss_metrics.jsonl"
+    missing_ledger_path = tmp_path / "missing-ledger.jsonl"
     _write_jsonl(
         metrics_path,
         [
@@ -39,7 +41,10 @@ def test_swarm_status_summary_counts_deliverables_as_success(tmp_path: Path) -> 
         ],
     )
 
-    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path)
+    summary = swarm_status.swarm_status_summary(
+        metrics_path=metrics_path,
+        ledger_path=missing_ledger_path,
+    )
 
     assert summary["status"] == "active"
     assert summary["total_ticks"] == 2
@@ -56,6 +61,7 @@ def test_swarm_status_summary_counts_deliverables_as_success(tmp_path: Path) -> 
 
 def test_swarm_status_summary_uses_issue_truth_for_success_rate(tmp_path: Path) -> None:
     metrics_path = tmp_path / "boss_metrics.jsonl"
+    missing_ledger_path = tmp_path / "missing-ledger.jsonl"
     _write_jsonl(
         metrics_path,
         [
@@ -76,7 +82,10 @@ def test_swarm_status_summary_uses_issue_truth_for_success_rate(tmp_path: Path) 
         ],
     )
 
-    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path)
+    summary = swarm_status.swarm_status_summary(
+        metrics_path=metrics_path,
+        ledger_path=missing_ledger_path,
+    )
 
     assert summary["unique_issues_attempted"] == 1
     assert summary["unique_issues_succeeded"] == 1
@@ -96,6 +105,7 @@ def test_swarm_status_summary_uses_issue_truth_for_success_rate(tmp_path: Path) 
 
 def test_swarm_status_summary_surfaces_compact_blocker_evidence(tmp_path: Path) -> None:
     metrics_path = tmp_path / "boss_metrics.jsonl"
+    missing_ledger_path = tmp_path / "missing-ledger.jsonl"
     _write_jsonl(
         metrics_path,
         [
@@ -113,7 +123,10 @@ def test_swarm_status_summary_surfaces_compact_blocker_evidence(tmp_path: Path) 
         ],
     )
 
-    summary = swarm_status.swarm_status_summary(metrics_path=metrics_path)
+    summary = swarm_status.swarm_status_summary(
+        metrics_path=metrics_path,
+        ledger_path=missing_ledger_path,
+    )
 
     assert summary["recent_blockers"] == [
         {
@@ -125,6 +138,45 @@ def test_swarm_status_summary_surfaces_compact_blocker_evidence(tmp_path: Path) 
             "issue_title": "Repair auth preflight",
         }
     ]
+
+
+def test_swarm_status_summary_prefers_shift_ledger(tmp_path: Path) -> None:
+    ledger_path = tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl"
+    ledger = ShiftLedger(path=ledger_path)
+    ledger.record_cycle_tick(
+        queue_size=3,
+        open_prs=1,
+        boss_running=True,
+        merge_running=False,
+        benchmark_fresh=True,
+        actions=["restart_merge_arbiter"],
+    )
+    ledger.record_service_restart(service="boss_loop", success=True)
+    ledger.record_service_restart(service="merge_arbiter", success=False, detail="timeout")
+    ledger.record_pr_merged(pr_number=5857)
+    ledger.record_failure(failure_type="auth_failure", detail="token expired")
+    ledger.record_failure(failure_type="publication_failure", detail="gh pr failed")
+    ledger.record_shift_stop(
+        shift_id="shift-1",
+        reason="queue_empty",
+        cycles=5,
+        duration_seconds=120.0,
+    )
+
+    summary = swarm_status.swarm_status_summary(ledger_path=ledger_path)
+
+    assert summary["status"] == "active"
+    assert summary["source"] == "ledger"
+    assert summary["queue_depth"] == 3
+    assert summary["benchmark_fresh"] is True
+    assert summary["boss_running"] is True
+    assert summary["merge_running"] is False
+    assert summary["last_stop_reason"] == "queue_empty"
+    assert summary["restart_successes"] == 1
+    assert summary["restart_failures"] == 1
+    assert summary["prs_merged"] == 1
+    assert summary["auth_failures"] == 1
+    assert summary["publication_failures"] == 1
 
 
 def test_preflight_check_returns_receipt_dict() -> None:

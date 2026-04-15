@@ -1,6 +1,6 @@
 # Active Execution Issues
 
-Last updated: 2026-04-14
+Last updated: 2026-04-15
 
 This document is the canonical epic, milestone, and execution-issue tree for the current roadmap tranche.
 
@@ -36,14 +36,14 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 | **B3 — Repair** | Productize retry, salvage, quarantine, and session reuse | `BC-01..03`, `RS-10..11` |
 | **B4 — Multi** | Extend proven loops across hosts with truthful state | `BC-07..12`, `UDW-01..03` |
 
-Status note: B0 is above target at 86.7% no-rescue success on the tracked cohort as of 2026-04-13. The remaining near-term gate is keeping the recurring truth/productization surfaces boring and keeping claims narrower than proof, not reopening already-landed guard work.
+Status note: the latest published B0 surface on `main` is 80.0% truth success and 80.0% no-rescue truth success as of 2026-04-15. The remaining near-term gate is cutting the proof-first operator lane over to ledger-backed truth and fail-closed self-heal while keeping claims narrower than proof, not reopening already-landed guard work.
 
 ## Current 30-Day Execution Set
 
 Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 
-- Do now: `CS-01..03`
-- Delay: `BC-07..09`, `RS-10..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
+- Do now: `RS-12`, `BC-07`, `RS-11`, `BC-12`, with `CS-01..03` enforced as a standing proof-claim guard
+- Delay: `BC-08..09`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
 - Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
 - Live boss-ready queue: no dedicated open trust-loop issue right now; `TW-01`, `TW-02`, and `TW-03` now publish through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`, and the recurring surfaces should restock the queue only when they expose a fresh bounded regression or repeated rescue class
@@ -73,7 +73,7 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 
 ### Milestone 1.4 — Ledger & Self-Heal `[90d]`
 
-- [ ] **RS-10** Mirror probes, queue state, contracts, and receipts into `AutonomyLedger`
+- [x] **RS-10** Mirror probes, queue state, contracts, and receipts into `AutonomyLedger` _(Done 2026-04-15 via [#5857](https://github.com/synaptent/aragora/pull/5857))_
 - [ ] **RS-11** Add quarantine and fallback rules for auth drift, rate limits, permission mismatch, and publication failures
 - [ ] **RS-12** Cut `studio-health`, reporter, and status surfaces to ledger-backed truth
 

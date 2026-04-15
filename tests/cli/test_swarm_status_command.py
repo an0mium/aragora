@@ -12,6 +12,7 @@ from aragora.cli.commands.swarm_status import (
     load_operator_status,
     render_operator_status,
 )
+from aragora.swarm.shift_ledger import ShiftLedger
 
 
 def _write_metrics(metrics_path: Path, rows: list[dict[str, object]]) -> None:
@@ -110,6 +111,45 @@ def test_load_operator_status_reports_unknown_queue_depth_when_probe_unavailable
     assert payload["summary"]["queue_depth"] == "unknown"
 
 
+def test_load_operator_status_prefers_shift_ledger(tmp_path: Path) -> None:
+    ledger = ShiftLedger(path=tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl")
+    ledger.record_cycle_tick(
+        queue_size=4,
+        open_prs=1,
+        boss_running=True,
+        merge_running=False,
+        benchmark_fresh=True,
+        actions=["restart_boss_loop"],
+    )
+    ledger.record_service_restart(service="boss_loop", success=True)
+    ledger.record_service_restart(service="merge_arbiter", success=False, detail="timeout")
+    ledger.record_pr_merged(pr_number=5857, title="ledger-backed status")
+    ledger.record_failure(failure_type="auth_failure", detail="not logged in")
+    ledger.record_failure(failure_type="publication_failure", detail="gh unavailable")
+    ledger.record_shift_stop(
+        shift_id="shift-1",
+        reason="queue_empty",
+        cycles=4,
+        duration_seconds=120.0,
+    )
+
+    payload = load_operator_status(tmp_path)
+
+    assert payload["source"] == "ledger"
+    assert payload["summary"]["queue_depth"] == 4
+    assert payload["summary"]["benchmark_fresh"] is True
+    assert payload["summary"]["boss_running"] is True
+    assert payload["summary"]["merge_running"] is False
+    assert payload["summary"]["last_stop_reason"] == "queue_empty"
+    assert payload["summary"]["restart_successes"] == 1
+    assert payload["summary"]["restart_failures"] == 1
+    assert payload["summary"]["prs_merged"] == 1
+    assert payload["summary"]["auth_failures"] == 1
+    assert payload["summary"]["publication_failures"] == 1
+    assert payload["last_iterations"] == []
+    assert payload["per_issue_success"] == []
+
+
 def test_render_operator_status_includes_recent_iterations() -> None:
     text = render_operator_status(
         {
@@ -143,6 +183,33 @@ def test_render_operator_status_includes_recent_iterations() -> None:
     assert "recent iterations:" in text
     assert "#101 deliverable_pr_created" in text
     assert "per-issue success:" in text
+
+
+def test_render_operator_status_formats_shift_ledger_summary() -> None:
+    text = render_operator_status(
+        {
+            "source": "ledger",
+            "summary": {
+                "queue_depth": 2,
+                "benchmark_fresh": False,
+                "boss_running": True,
+                "merge_running": False,
+                "last_stop_reason": "BossRestartFailed",
+                "restart_successes": 1,
+                "restart_failures": 2,
+                "prs_merged": 3,
+                "auth_failures": 1,
+                "publication_failures": 0,
+                "last_benchmark_conclusion": "failure",
+            },
+        }
+    )
+
+    assert "operator queue_depth=2 benchmark=stale boss=running merge=stopped" in text
+    assert "restarts=1/2" in text
+    assert "auth_failures=1" in text
+    assert "last stop: BossRestartFailed" in text
+    assert "last benchmark conclusion: failure" in text
 
 
 def test_cmd_swarm_status_json_includes_operator_status(tmp_path: Path, capsys) -> None:
@@ -263,3 +330,78 @@ def test_cmd_swarm_status_text_includes_operator_metrics(tmp_path: Path, capsys)
     assert "runs=1 queued=0 leased=0 completed=1" in out
     assert "operator attempted=1 completed=1" in out
     assert "queue_depth=3" in out
+
+
+def test_cmd_swarm_status_text_prefers_shift_ledger(tmp_path: Path, capsys) -> None:
+    ledger = ShiftLedger(path=tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl")
+    ledger.record_cycle_tick(
+        queue_size=1,
+        open_prs=0,
+        boss_running=False,
+        merge_running=True,
+        benchmark_fresh=True,
+        actions=[],
+    )
+    ledger.record_service_restart(service="boss_loop", success=True)
+    ledger.record_pr_merged(pr_number=5845)
+    ledger.record_failure(failure_type="auth_failure", detail="expired token")
+    ledger.record_shift_stop(
+        shift_id="shift-2",
+        reason="benchmark_fresh",
+        cycles=3,
+        duration_seconds=90.0,
+    )
+
+    with (
+        patch("aragora.worktree.fleet.resolve_repo_root", return_value=tmp_path),
+        patch("aragora.worktree.fleet.build_fleet_rows", return_value=[]),
+        patch("aragora.worktree.fleet.FleetCoordinationStore") as store_cls,
+        patch(
+            "aragora.swarm.reporter.build_integrator_view",
+            return_value={
+                "summary": {
+                    "ready_lanes": 0,
+                    "review_lanes": 0,
+                    "blocked_lanes": 0,
+                    "stale_heartbeat_lanes": 0,
+                    "collision_lanes": 0,
+                    "missing_receipt_lanes": 0,
+                    "superseded_lanes": 0,
+                },
+                "next_actions": [],
+            },
+        ),
+        patch("aragora.swarm.SwarmSupervisor") as supervisor_cls,
+        patch(
+            "aragora.swarm.session_coordinator.read_directives",
+            return_value={
+                "summary": {
+                    "directive_count": 0,
+                    "session_count": 0,
+                    "claim_count": 0,
+                    "finding_count": 0,
+                },
+                "directives": [],
+                "claims": [],
+                "findings": [],
+            },
+        ),
+    ):
+        store_cls.return_value.list_claims.return_value = []
+        store_cls.return_value.list_merge_queue.return_value = []
+        supervisor_cls.return_value.status_summary.return_value = {
+            "runs": [],
+            "counts": {
+                "runs": 0,
+                "queued_work_orders": 0,
+                "leased_work_orders": 0,
+                "completed_work_orders": 0,
+            },
+            "coordination": {"counts": {"active_leases": 0}},
+        }
+        cmd_swarm(_swarm_status_args())
+
+    out = capsys.readouterr().out
+    assert "operator queue_depth=1 benchmark=fresh boss=stopped merge=running" in out
+    assert "prs_merged=1" in out
+    assert "last stop: benchmark_fresh" in out
