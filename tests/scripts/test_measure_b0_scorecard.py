@@ -82,6 +82,33 @@ def test_main_json_mode_keeps_json_output(tmp_path: Path, capsys) -> None:
     assert payload["unique_issues_attempted"] == 1
 
 
+def test_main_uses_resolved_metrics_path_for_default_metrics(
+    tmp_path: Path, capsys, monkeypatch
+) -> None:
+    shared_metrics_path = tmp_path / "shared" / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    shared_metrics_path.parent.mkdir(parents=True)
+    _write_metrics(
+        shared_metrics_path,
+        [{"issue_number": 1001, "terminal_class": "deliverable_pr_created"}],
+    )
+    seen_candidates: list[Path] = []
+
+    def _fake_resolve_metrics_path(candidate: Path) -> Path:
+        seen_candidates.append(candidate)
+        return shared_metrics_path
+
+    monkeypatch.setattr(mod, "resolve_metrics_path", _fake_resolve_metrics_path)
+
+    exit_code = mod.main(["--json"])
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert seen_candidates == [mod.DEFAULT_METRICS_PATH]
+    assert payload["status"] == "active"
+    assert payload["unique_issues_attempted"] == 1
+
+
 def test_compute_scorecard_uses_latest_terminal_state_per_issue() -> None:
     scorecard = mod.compute_scorecard(
         [

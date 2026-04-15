@@ -40,6 +40,7 @@ from build_benchmark_truth_artifact import (
     load_corpus as load_benchmark_corpus,
     publish_artifact_bundle as publish_truth_artifact_bundle,
 )
+from reconcile_b0_pr_truth import resolve_metrics_path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
@@ -630,7 +631,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    metrics_path = args.metrics.resolve()
+    metrics_path = resolve_metrics_path(args.metrics)
     rows = load_metrics(metrics_path, args.window)
     publish_dir: Path | None = None
     if args.publish_dir is not None:
