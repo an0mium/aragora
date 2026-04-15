@@ -24,20 +24,20 @@
     "status": "complete"
   },
   "deltas": {
-    "merged_only_rate": 0.0,
+    "merged_only_rate": 0.2,
     "no_rescue_truth_success_rate": 0.2,
     "proxy_no_rescue_success_rate": 0.0,
-    "truth_success_rate": 0.0,
-    "unique_issues_attempted": 4.0
+    "truth_success_rate": 0.2,
+    "unique_issues_attempted": 0.0
   },
   "failure_class_distribution": {
     "blocked_auth_failure": 2
   },
-  "generated_at": "2026-04-15T04:43:03Z",
+  "generated_at": "2026-04-15T09:08:54Z",
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "previous_artifact": {
-    "generated_at": "2026-04-14T18:12:28Z",
-    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-1/scorecard-20260414T181228Z.json"
+    "generated_at": "2026-04-15T04:43:03Z",
+    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-1/scorecard-20260415T044303Z.json"
   },
   "proxy_metrics": {
     "corpus": {
@@ -78,11 +78,11 @@
     "unique_issues_succeeded": 0
   },
   "rescue_counts_by_type": {},
-  "truth_artifact_generated_at": "2026-04-15T04:42:53Z",
-  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-1/truth-20260415T044253Z.json",
+  "truth_artifact_generated_at": "2026-04-15T09:07:45Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-1/truth-20260415T090745Z.json",
   "truth_metrics": {
-    "merged_only_rate": 0.6,
-    "no_rescue_truth_success_rate": 0.6,
-    "truth_success_rate": 0.6
+    "merged_only_rate": 0.8,
+    "no_rescue_truth_success_rate": 0.8,
+    "truth_success_rate": 0.8
   }
 }

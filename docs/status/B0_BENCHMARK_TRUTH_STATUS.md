@@ -1,6 +1,6 @@
 # B0 Benchmark Truth Status
 
-Last updated: 2026-04-15T04:43:03Z
+Last updated: 2026-04-15T09:08:54Z
 
 This is the repo-tracked recurring `TW-02` publication surface for the fixed benchmark corpus.
 
@@ -25,9 +25,9 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 
 | Metric | Value |
 | --- | --- |
-| Truth success rate | 60.0% |
-| No-rescue truth success rate | 60.0% |
-| Merged-only rate | 60.0% |
+| Truth success rate | 80.0% |
+| No-rescue truth success rate | 80.0% |
+| Merged-only rate | 80.0% |
 
 ## Proxy Metrics
 
@@ -46,6 +46,12 @@ Proxy note: neutral issue outcomes are current-corpus rows that were neither fre
 
 - `issue_already_resolved`: 4
 
+## Corpus Freshness Alerts
+
+Truth metrics still reflect the frozen corpus revision. Closed issues without linked PR truth should be retired or replaced in the next corpus revision.
+
+- `#1733` `fix(swarm): collect finished detached workers before stale lease reap`: closed `2026-03-31T23:45:29Z`, reason `COMPLETED`, truth `no_linked_pr`
+
 ## Failure Class Distribution
 
 - `blocked_auth_failure`: 2
@@ -56,13 +62,13 @@ Proxy note: neutral issue outcomes are current-corpus rows that were neither fre
 
 ## Previous Published Artifact
 
-- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-1/scorecard-20260414T181228Z.json`
-- Previous generated_at: `2026-04-14T18:12:28Z`
+- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-1/scorecard-20260415T044303Z.json`
+- Previous generated_at: `2026-04-15T04:43:03Z`
 
 ## Deltas
 
-- `merged_only_rate`: 0.0000
+- `merged_only_rate`: 0.2000
 - `no_rescue_truth_success_rate`: 0.2000
 - `proxy_no_rescue_success_rate`: 0.0000
-- `truth_success_rate`: 0.0000
-- `unique_issues_attempted`: 4.0000
+- `truth_success_rate`: 0.2000
+- `unique_issues_attempted`: 0.0000

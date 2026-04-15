@@ -16,6 +16,25 @@
     "revision": 1,
     "success_contract": "mergeable_pr_or_merged_pr"
   },
+  "corpus_freshness": {
+    "stale_closed_issue_count": 1,
+    "stale_closed_issue_numbers": [
+      1733
+    ],
+    "stale_closed_issues": [
+      {
+        "issue_closed_at": "2026-03-31T23:45:29Z",
+        "issue_number": 1733,
+        "issue_state": "CLOSED",
+        "issue_state_reason": "COMPLETED",
+        "issue_title": "fix(swarm): collect finished detached workers before stale lease reap",
+        "issue_url": "https://github.com/synaptent/aragora/issues/1733",
+        "stale_corpus_reason": "closed_without_linked_pr",
+        "truth_state": "no_linked_pr"
+      }
+    ],
+    "status": "stale_closed_issues_detected"
+  },
   "coverage": {
     "attempted_issue_count": 5,
     "is_complete": true,
@@ -26,7 +45,7 @@
   "failure_class_distribution": {
     "blocked_auth_failure": 2
   },
-  "generated_at": "2026-04-15T04:42:53Z",
+  "generated_at": "2026-04-15T09:07:45Z",
   "issues": [
     {
       "had_rescue": false,
@@ -195,30 +214,54 @@
     },
     {
       "had_rescue": false,
+      "issue_closed_at": "2026-03-31T23:45:29Z",
       "issue_number": 1733,
-      "issue_title": "Tighten supervisor merge gate",
+      "issue_state": "CLOSED",
+      "issue_state_reason": "COMPLETED",
+      "issue_title": "fix(swarm): collect finished detached workers before stale lease reap",
+      "issue_url": "https://github.com/synaptent/aragora/issues/1733",
       "linked_prs": [],
       "no_rescue_truth_success": false,
       "proxy_pr_signal": false,
+      "stale_corpus_issue": true,
+      "stale_corpus_reason": "closed_without_linked_pr",
       "truth_state": "no_linked_pr",
       "truth_success": false
     },
     {
       "had_rescue": false,
+      "issue_closed_at": "2026-04-15T05:27:50Z",
       "issue_number": 2712,
+      "issue_state": "CLOSED",
+      "issue_state_reason": "COMPLETED",
       "issue_title": "Fail closed on string booleans in QualityPipelineConfig.from_dict",
-      "linked_prs": [],
-      "no_rescue_truth_success": false,
+      "issue_url": "https://github.com/synaptent/aragora/issues/2712",
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-04-15T05:27:49Z",
+          "number": 5763,
+          "state": "MERGED",
+          "title": "fix(debate): fail closed on string booleans in QualityPipelineConfig.from_dict",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/5763"
+        }
+      ],
+      "no_rescue_truth_success": true,
       "proxy_pr_signal": false,
-      "truth_state": "no_linked_pr",
-      "truth_success": false
+      "stale_corpus_issue": false,
+      "stale_corpus_reason": null,
+      "truth_state": "merged_pr",
+      "truth_success": true
     }
   ],
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "primary_metrics": {
-    "merged_only_rate": 0.6,
-    "no_rescue_truth_success_rate": 0.6,
-    "truth_success_rate": 0.6
+    "merged_only_rate": 0.8,
+    "no_rescue_truth_success_rate": 0.8,
+    "truth_success_rate": 0.8
   },
   "proxy_metrics": {
     "attempted_issue_count": 5,
