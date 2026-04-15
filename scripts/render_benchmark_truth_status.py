@@ -133,6 +133,7 @@ def render_status_markdown(
     deltas = dict(scorecard_payload.get("deltas") or {})
     failure_distribution = dict(scorecard_payload.get("failure_class_distribution") or {})
     rescue_counts = dict(scorecard_payload.get("rescue_counts_by_type") or {})
+    neutral_classes = dict(proxy_metrics.get("neutral_classes") or {})
     generated_at = (
         str(scorecard_payload.get("generated_at") or "").strip()
         or str(truth_payload.get("generated_at") or "").strip()
@@ -186,11 +187,27 @@ def render_status_markdown(
             "",
             "| Metric | Value |",
             "| --- | --- |",
-            f"| No-rescue success rate | {_format_percent(proxy_metrics.get('no_rescue_success_rate'))} |",
+            f"| Proxy no-rescue success rate | {_format_percent(proxy_metrics.get('no_rescue_success_rate'))} |",
             f"| Unique issues attempted | {_format_value(proxy_metrics.get('unique_issues_attempted'))} |",
             f"| Unique issues succeeded | {_format_value(proxy_metrics.get('unique_issues_succeeded'))} |",
             f"| Unique issues failed | {_format_value(proxy_metrics.get('unique_issues_failed'))} |",
+            f"| Unique issues neutral | {_format_value(proxy_metrics.get('unique_issues_neutral'))} |",
             f"| Total ticks | {_format_value(proxy_metrics.get('total_ticks'))} |",
+        ]
+    )
+    if neutral_classes:
+        lines.extend(
+            [
+                "",
+                "Proxy note: neutral issue outcomes are current-corpus rows that were neither fresh success nor failure, such as `issue_already_resolved`.",
+                "",
+                "## Proxy Neutral Class Distribution",
+                "",
+                *_render_mapping(neutral_classes),
+            ]
+        )
+    lines.extend(
+        [
             "",
             "## Failure Class Distribution",
             "",

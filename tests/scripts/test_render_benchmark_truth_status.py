@@ -61,7 +61,9 @@ def _scorecard_payload(
             "unique_issues_attempted": 0,
             "unique_issues_succeeded": 0,
             "unique_issues_failed": 0,
+            "unique_issues_neutral": 0,
             "total_ticks": 0,
+            "neutral_classes": {},
         },
         "failure_class_distribution": {"blocked_auth_failure": 1},
         "rescue_counts_by_type": {},
@@ -123,7 +125,9 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
                 "unique_issues_attempted": 1,
                 "unique_issues_succeeded": 1,
                 "unique_issues_failed": 0,
+                "unique_issues_neutral": 0,
                 "total_ticks": 1,
+                "neutral_classes": {},
             },
             "failure_class_distribution": {},
             "rescue_counts_by_type": {},
@@ -143,8 +147,51 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
     assert f"`{latest_paths['scorecard_corpus_latest']}`" in markdown
     assert "| Truth success rate | 100.0% |" in markdown
     assert "## Proxy Metrics" in markdown
+    assert "| Proxy no-rescue success rate | 100.0% |" in markdown
     assert "## Deltas" in markdown
     assert "`truth_success_rate`: 0.2500" in markdown
+
+
+def test_render_status_markdown_surfaces_proxy_neutral_issue_classes(tmp_path: Path) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 1,
+            "recorded_on": "2026-04-14",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 1064, "title": "Issue A"}],
+        },
+    )
+    latest_paths = mod.resolve_latest_paths(
+        corpus_path=corpus_path,
+        truth_root=tmp_path / "truth",
+        scorecard_root=tmp_path / "scorecards",
+    )
+    markdown = mod.render_status_markdown(
+        corpus_path=corpus_path,
+        truth_path=latest_paths["truth_corpus_latest"],
+        scorecard_path=latest_paths["scorecard_corpus_latest"],
+        latest_paths=latest_paths,
+        truth_payload=_truth_payload(revision=1),
+        scorecard_payload={
+            **_scorecard_payload(revision=1),
+            "proxy_metrics": {
+                "no_rescue_success_rate": 0.0,
+                "unique_issues_attempted": 1,
+                "unique_issues_succeeded": 0,
+                "unique_issues_failed": 0,
+                "unique_issues_neutral": 1,
+                "total_ticks": 1,
+                "neutral_classes": {"issue_already_resolved": 1},
+            },
+        },
+    )
+
+    assert "| Unique issues neutral | 1 |" in markdown
+    assert "Proxy note: neutral issue outcomes" in markdown
+    assert "## Proxy Neutral Class Distribution" in markdown
+    assert "`issue_already_resolved`: 1" in markdown
 
 
 def test_main_writes_markdown_from_latest_paths(tmp_path: Path, capsys) -> None:

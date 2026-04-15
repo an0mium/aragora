@@ -3,7 +3,8 @@
 
 Reads boss_metrics.jsonl and produces a no-rescue scorecard showing:
 - Total ticks / unique issues attempted
-- No-rescue success rate (deliverable_pr_created without human intervention)
+- Proxy no-rescue success rate (direct PR-creating success classes without human intervention)
+- Neutral issue counts for rows like issue_already_resolved that are neither fresh success nor failure
 - Terminal class distribution
 - Failure class breakdown
 - Per-category success rates (when outcome learner data exists)
@@ -41,7 +42,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
 DEFAULT_PUBLISH_DIR = REPO_ROOT / ".aragora" / "benchmark_scorecards"
 
-# Terminal classes that count as autonomous success (no human rescue)
+# Terminal classes that count as fresh autonomous success in the proxy scorecard.
+# Some rows, like issue_already_resolved, are intentionally neutral here and are
+# reconciled by the linked truth artifact instead of being treated as new success.
 SUCCESS_CLASSES = frozenset(
     {
         "success_merged",
@@ -437,9 +440,13 @@ def compute_scorecard(rows: list[dict[str, Any]]) -> dict[str, Any]:
         for issue_num, terminal_class in latest_terminal_class_by_issue.items()
         if terminal_class in FAILURE_CLASSES
     }
+    issues_neutral = {
+        issue_num
+        for issue_num, terminal_class in latest_terminal_class_by_issue.items()
+        if terminal_class not in SUCCESS_CLASSES and terminal_class not in FAILURE_CLASSES
+    }
     total_ticks = len(rows)
     success_ticks = sum(terminal_classes[tc] for tc in SUCCESS_CLASSES)
-    failure_ticks = sum(terminal_classes[tc] for tc in FAILURE_CLASSES)
 
     return {
         "status": "active",
@@ -447,6 +454,7 @@ def compute_scorecard(rows: list[dict[str, Any]]) -> dict[str, Any]:
         "unique_issues_attempted": len(issues_attempted),
         "unique_issues_succeeded": len(issues_succeeded),
         "unique_issues_failed": len(issues_failed),
+        "unique_issues_neutral": len(issues_neutral),
         "no_rescue_success_rate": round(len(issues_succeeded) / len(issues_attempted), 3)
         if issues_attempted
         else 0.0,
@@ -457,6 +465,11 @@ def compute_scorecard(rows: list[dict[str, Any]]) -> dict[str, Any]:
         },
         "failure_classes": {
             tc: terminal_classes[tc] for tc in sorted(FAILURE_CLASSES) if terminal_classes[tc]
+        },
+        "neutral_classes": {
+            tc: terminal_classes[tc]
+            for tc in sorted(terminal_classes)
+            if tc not in SUCCESS_CLASSES and tc not in FAILURE_CLASSES and terminal_classes[tc]
         },
         "median_elapsed_seconds": round(sorted(elapsed_times)[len(elapsed_times) // 2], 1)
         if elapsed_times
@@ -480,7 +493,8 @@ def print_scorecard(scorecard: dict[str, Any]) -> None:
     print(f"  Unique issues attempted:  {scorecard['unique_issues_attempted']}")
     print(f"  Unique issues succeeded:  {scorecard['unique_issues_succeeded']}")
     print(f"  Unique issues failed:     {scorecard['unique_issues_failed']}")
-    print(f"  No-rescue success rate:   {scorecard['no_rescue_success_rate']:.1%}")
+    print(f"  Unique issues neutral:    {scorecard.get('unique_issues_neutral', 0)}")
+    print(f"  Proxy no-rescue rate:     {scorecard['no_rescue_success_rate']:.1%}")
     print(f"  Per-tick success rate:    {scorecard['tick_success_rate']:.1%}")
     print(f"  Median elapsed time:      {scorecard['median_elapsed_seconds']:.0f}s")
     print(f"  Mean elapsed time:        {scorecard['mean_elapsed_seconds']:.0f}s")

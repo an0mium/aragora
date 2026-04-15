@@ -99,6 +99,24 @@ def test_compute_scorecard_uses_latest_terminal_state_per_issue() -> None:
     assert scorecard["tick_success_rate"] == 0.5
 
 
+def test_compute_scorecard_tracks_neutral_issue_rows_without_counting_success() -> None:
+    scorecard = mod.compute_scorecard(
+        [
+            {"issue_number": 1001, "terminal_class": "issue_already_resolved"},
+            {"issue_number": 1002, "terminal_class": "deliverable_pr_created"},
+            {"issue_number": 1003, "terminal_class": "blocked_auth_failure"},
+        ]
+    )
+
+    assert scorecard["unique_issues_attempted"] == 3
+    assert scorecard["unique_issues_succeeded"] == 1
+    assert scorecard["unique_issues_failed"] == 1
+    assert scorecard["unique_issues_neutral"] == 1
+    assert scorecard["no_rescue_success_rate"] == 0.333
+    assert scorecard["tick_success_rate"] == 0.333
+    assert scorecard["neutral_classes"] == {"issue_already_resolved": 1}
+
+
 def test_build_published_scorecard_links_truth_artifact_and_previous_delta(
     tmp_path: Path,
 ) -> None:
