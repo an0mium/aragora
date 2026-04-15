@@ -459,6 +459,66 @@ def test_build_benchmark_truth_artifact_surfaces_freshness_issue_draft(
     )
 
 
+def test_attach_corpus_freshness_follow_up_reopens_draft_when_stale_set_drifts(
+    tmp_path: Path,
+) -> None:
+    freshness_map_path = _write_json(
+        tmp_path / "benchmark_corpus_freshness.json",
+        {
+            "schema_version": 1,
+            "entries": [
+                {
+                    "corpus_id": "tw-01-bounded-execution-v1",
+                    "revision": 4,
+                    "stale_issue_numbers": [1733],
+                    "target_kind": "issue",
+                    "target": "#6001",
+                    "title": "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-4",
+                    "url": "https://github.com/synaptent/aragora/issues/6001",
+                    "notes": "Auto-linked by recurring TW-02 publication.",
+                }
+            ],
+        },
+    )
+
+    artifact = mod.attach_corpus_freshness_follow_up(
+        artifact={
+            "corpus": {
+                "corpus_id": "tw-01-bounded-execution-v1",
+                "revision": 4,
+            },
+            "corpus_freshness": {
+                "status": "stale_closed_issues_detected",
+                "stale_closed_issue_numbers": [9999],
+                "stale_closed_issues": [
+                    {
+                        "issue_number": 9999,
+                        "issue_title": "New stale issue",
+                        "issue_url": "https://github.com/synaptent/aragora/issues/9999",
+                        "truth_state": "no_linked_pr",
+                    }
+                ],
+            },
+        },
+        freshness_map_path=freshness_map_path,
+        repo="synaptent/aragora",
+    )
+
+    assert artifact["corpus_freshness"]["linked_issues"] == []
+    assert artifact["corpus_freshness"]["linked_issue_count"] == 0
+    assert artifact["corpus_freshness"]["unlinked_issue_count"] == 1
+    assert artifact["corpus_freshness"]["issue_drafts"] == [
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 4,
+            "stale_issue_numbers": [9999],
+            "title": "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-4",
+            "body": artifact["corpus_freshness"]["issue_drafts"][0]["body"],
+        }
+    ]
+    assert "#9999" in artifact["corpus_freshness"]["issue_drafts"][0]["body"]
+
+
 def test_ensure_corpus_freshness_issue_linkage_updates_map(
     tmp_path: Path,
     monkeypatch,

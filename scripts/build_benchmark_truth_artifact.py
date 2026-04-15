@@ -231,6 +231,13 @@ def _freshness_entry_key(*, corpus_id: str, revision: int) -> tuple[str, int]:
     return corpus_id.strip(), int(revision)
 
 
+def _normalize_stale_issue_numbers(values: Any) -> list[int]:
+    normalized = {
+        int(item) for item in list(values or []) if isinstance(item, int) and int(item) > 0
+    }
+    return sorted(normalized)
+
+
 def _linked_corpus_freshness_entries(
     *,
     artifact: dict[str, Any],
@@ -240,13 +247,9 @@ def _linked_corpus_freshness_entries(
     corpus = dict(artifact.get("corpus") or {})
     corpus_id = str(corpus.get("corpus_id") or "").strip()
     revision = int(corpus.get("revision", 0) or 0)
-    stale_issue_numbers = {
-        int(item)
-        for item in list(
-            (artifact.get("corpus_freshness") or {}).get("stale_closed_issue_numbers") or []
-        )
-        if isinstance(item, int) and item > 0
-    }
+    stale_issue_numbers = _normalize_stale_issue_numbers(
+        (artifact.get("corpus_freshness") or {}).get("stale_closed_issue_numbers") or []
+    )
     if not corpus_id or not stale_issue_numbers:
         return []
 
@@ -263,6 +266,11 @@ def _linked_corpus_freshness_entries(
         target = str(entry.get("target") or "").strip()
         if not target:
             continue
+        entry_stale_issue_numbers = _normalize_stale_issue_numbers(
+            entry.get("stale_issue_numbers") or []
+        )
+        if entry_stale_issue_numbers != stale_issue_numbers:
+            continue
         linked_entries.append(
             {
                 "corpus_id": corpus_id,
@@ -271,11 +279,7 @@ def _linked_corpus_freshness_entries(
                 "target": target,
                 "title": str(entry.get("title") or "").strip(),
                 "notes": str(entry.get("notes") or "").strip(),
-                "stale_issue_numbers": [
-                    int(item)
-                    for item in list(entry.get("stale_issue_numbers") or [])
-                    if isinstance(item, int) and item > 0
-                ],
+                "stale_issue_numbers": entry_stale_issue_numbers,
                 "url": _issue_target_url(
                     repo=repo,
                     target=target,
