@@ -51,6 +51,9 @@ ISSUE_COMMENTS_PER_PAGE = 100
 ISSUE_COMMENTS_MAX_PAGES = 5
 CROSS_REFS_PER_PAGE = 100
 CROSS_REFS_MAX_PAGES = 5
+COMMENTS_LOOKUP_ERROR_KEY = "_comments_lookup_error"
+GITHUB_CONNECTION_ERROR_SNIPPET = "error connecting to api.github.com"
+GH_NETWORK_RETRY_ATTEMPTS = 3
 
 
 def _git_common_repo_root() -> Path | None:
@@ -212,32 +215,48 @@ class GitHubTruthClient:
     """Minimal GitHub reader backed by the gh CLI."""
 
     def _run_json_object(self, args: list[str]) -> dict[str, Any]:
-        proc = subprocess.run(
-            ["gh", *args],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh command failed")
-        payload = json.loads(proc.stdout or "{}")
-        if not isinstance(payload, dict):
-            raise RuntimeError("gh command did not return a JSON object")
-        return payload
+        last_error = "gh command failed"
+        for attempt in range(1, GH_NETWORK_RETRY_ATTEMPTS + 1):
+            proc = subprocess.run(
+                ["gh", *args],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode == 0:
+                payload = json.loads(proc.stdout or "{}")
+                if not isinstance(payload, dict):
+                    raise RuntimeError("gh command did not return a JSON object")
+                return payload
+            last_error = proc.stderr.strip() or proc.stdout.strip() or "gh command failed"
+            if (
+                GITHUB_CONNECTION_ERROR_SNIPPET not in last_error.lower()
+                or attempt >= GH_NETWORK_RETRY_ATTEMPTS
+            ):
+                raise RuntimeError(last_error)
+        raise RuntimeError(last_error)
 
     def _run_json_list(self, args: list[str]) -> list[dict[str, Any]]:
-        proc = subprocess.run(
-            ["gh", *args],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh command failed")
-        payload = json.loads(proc.stdout or "[]")
-        if not isinstance(payload, list):
-            raise RuntimeError("gh command did not return a JSON array")
-        return [item for item in payload if isinstance(item, dict)]
+        last_error = "gh command failed"
+        for attempt in range(1, GH_NETWORK_RETRY_ATTEMPTS + 1):
+            proc = subprocess.run(
+                ["gh", *args],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode == 0:
+                payload = json.loads(proc.stdout or "[]")
+                if not isinstance(payload, list):
+                    raise RuntimeError("gh command did not return a JSON array")
+                return [item for item in payload if isinstance(item, dict)]
+            last_error = proc.stderr.strip() or proc.stdout.strip() or "gh command failed"
+            if (
+                GITHUB_CONNECTION_ERROR_SNIPPET not in last_error.lower()
+                or attempt >= GH_NETWORK_RETRY_ATTEMPTS
+            ):
+                raise RuntimeError(last_error)
+        raise RuntimeError(last_error)
 
     def get_issue(self, repo: str, number: int) -> dict[str, Any]:
         payload = self._run_json_object(
@@ -251,7 +270,11 @@ class GitHubTruthClient:
                 "number,title,url,state,stateReason,closedAt,closedByPullRequestsReferences",
             ]
         )
-        payload["comments"] = self.get_issue_comments(repo, number)
+        try:
+            payload["comments"] = self.get_issue_comments(repo, number)
+        except RuntimeError as error:
+            payload["comments"] = []
+            payload[COMMENTS_LOOKUP_ERROR_KEY] = str(error)
         return payload
 
     def get_pr(self, repo: str, number: int) -> dict[str, Any]:
@@ -478,7 +501,21 @@ def reconcile_issue_truth(
     aggregate: IssueMetricsAggregate,
     client: GitHubTruthClient,
 ) -> IssueTruthRecord:
-    issue_payload = client.get_issue(repo, aggregate.issue_number)
+    try:
+        issue_payload = client.get_issue(repo, aggregate.issue_number)
+    except RuntimeError as error:
+        return IssueTruthRecord(
+            issue_number=aggregate.issue_number,
+            issue_title=aggregate.title,
+            proxy_pr_signal=aggregate.proxy_pr_signal,
+            had_rescue=aggregate.had_rescue,
+            truth_state="no_linked_pr",
+            truth_success=False,
+            no_rescue_truth_success=False,
+            linkage_status="issue_lookup_failed",
+            linkage_error=str(error),
+        )
+    comments_lookup_error = str(issue_payload.get(COMMENTS_LOOKUP_ERROR_KEY) or "").strip()
     issue_title = aggregate.title or str(issue_payload.get("title") or "").strip()
     issue_url = str(issue_payload.get("url") or "").strip()
     issue_state = str(issue_payload.get("state") or "").strip().upper()
@@ -499,6 +536,22 @@ def reconcile_issue_truth(
             linkage_status = "cross_reference_lookup_failed"
             linkage_error = str(error)
             pr_numbers = []
+    if not pr_numbers and comments_lookup_error:
+        if linkage_status == "verified":
+            linkage_status = "issue_comments_lookup_failed"
+            linkage_error = comments_lookup_error
+        else:
+            prior_status = linkage_status
+            prior_error = linkage_error
+            linkage_status = "linkage_lookup_failed"
+            linkage_error = "; ".join(
+                part
+                for part in (
+                    f"issue_comments_lookup_failed: {comments_lookup_error}",
+                    f"{prior_status}: {prior_error}" if prior_error else prior_status,
+                )
+                if part
+            )
 
     linked_prs: list[LinkedPullRequest] = []
     for pr_number in pr_numbers:

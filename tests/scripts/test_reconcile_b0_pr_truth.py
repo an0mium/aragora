@@ -39,7 +39,10 @@ class FakeGitHubTruthClient:
         self.cross_refs = cross_refs or {}
 
     def get_issue(self, repo: str, number: int) -> dict:
-        return self.issues[number]
+        value = self.issues[number]
+        if isinstance(value, Exception):
+            raise value
+        return value
 
     def get_pr(self, repo: str, number: int) -> dict:
         return self.prs[number]
@@ -75,6 +78,22 @@ class PaginatedGitHubTruthClient(GitHubTruthClient):
             payload = self.comment_pages[self.comment_calls]
             self.comment_calls += 1
             return payload
+        raise AssertionError(f"unexpected list args: {args}")
+
+
+class IssueViewGitHubTruthClient(GitHubTruthClient):
+    def __init__(self, *, issue_payload: dict, comment_error: Exception) -> None:
+        self.issue_payload = issue_payload
+        self.comment_error = comment_error
+
+    def _run_json_object(self, args: list[str]) -> dict:
+        if args[:2] == ["issue", "view"]:
+            return dict(self.issue_payload)
+        raise AssertionError(f"unexpected object args: {args}")
+
+    def _run_json_list(self, args: list[str]) -> list[dict]:
+        if args and args[0] == "api" and "/comments?" in args[1]:
+            raise self.comment_error
         raise AssertionError(f"unexpected list args: {args}")
 
 
@@ -486,6 +505,83 @@ def test_reconcile_issue_truth_skips_stale_flag_when_linkage_lookup_fails() -> N
     assert record.linkage_error == "error connecting to api.github.com"
     assert record.stale_corpus_issue is False
     assert record.stale_corpus_reason is None
+
+
+def test_get_issue_tolerates_issue_comment_lookup_failure() -> None:
+    client = IssueViewGitHubTruthClient(
+        issue_payload={
+            "number": 873,
+            "title": "ESLint bump",
+            "url": "https://github.com/synaptent/aragora/issues/873",
+            "state": "CLOSED",
+            "stateReason": "COMPLETED",
+            "closedAt": "2026-03-09T17:12:37Z",
+            "closedByPullRequestsReferences": [],
+        },
+        comment_error=RuntimeError("error connecting to api.github.com"),
+    )
+
+    payload = client.get_issue("synaptent/aragora", 873)
+
+    assert payload["comments"] == []
+    assert payload["_comments_lookup_error"] == "error connecting to api.github.com"
+
+
+def test_reconcile_issue_truth_marks_comment_lookup_failure_incomplete() -> None:
+    aggregate = IssueMetricsAggregate(
+        issue_number=873,
+        title="ESLint bump",
+        proxy_pr_signal=False,
+        had_rescue=False,
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            873: {
+                "title": aggregate.title,
+                "url": "https://github.com/synaptent/aragora/issues/873",
+                "state": "CLOSED",
+                "stateReason": "COMPLETED",
+                "closedAt": "2026-03-09T17:12:37Z",
+                "closedByPullRequestsReferences": [],
+                "comments": [],
+                "_comments_lookup_error": "error connecting to api.github.com",
+            }
+        },
+        prs={},
+        cross_refs={873: []},
+    )
+
+    record = reconcile_issue_truth("synaptent/aragora", aggregate, client)
+
+    assert record.truth_state == "no_linked_pr"
+    assert record.linkage_status == "issue_comments_lookup_failed"
+    assert record.linkage_verification_incomplete is True
+    assert record.linkage_error == "error connecting to api.github.com"
+    assert record.stale_corpus_issue is False
+
+
+def test_reconcile_issue_truth_tolerates_issue_lookup_failure() -> None:
+    aggregate = IssueMetricsAggregate(
+        issue_number=873,
+        title="ESLint bump",
+        proxy_pr_signal=True,
+        had_rescue=False,
+    )
+    client = FakeGitHubTruthClient(
+        issues={873: RuntimeError("error connecting to api.github.com")},
+        prs={},
+    )
+
+    record = reconcile_issue_truth("synaptent/aragora", aggregate, client)
+
+    assert record.issue_number == 873
+    assert record.issue_title == "ESLint bump"
+    assert record.truth_state == "no_linked_pr"
+    assert record.proxy_pr_signal is True
+    assert record.linkage_status == "issue_lookup_failed"
+    assert record.linkage_verification_incomplete is True
+    assert record.linkage_error == "error connecting to api.github.com"
+    assert record.stale_corpus_issue is False
 
 
 def test_summary_and_renderers_include_proxy_vs_truth_language() -> None:

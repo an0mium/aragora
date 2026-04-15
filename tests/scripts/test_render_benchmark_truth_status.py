@@ -539,3 +539,69 @@ def test_main_rejects_stale_corpus_latest_payload_revision(tmp_path: Path) -> No
         )
 
     assert not output_path.exists()
+
+
+def test_repo_checked_in_benchmark_truth_surfaces_match_current_corpus(tmp_path: Path) -> None:
+    corpus_path = mod.DEFAULT_CORPUS_PATH
+    latest_paths = mod.resolve_latest_paths(
+        corpus_path=corpus_path,
+        truth_root=mod.DEFAULT_TRUTH_ROOT,
+        scorecard_root=mod.DEFAULT_SCORECARD_ROOT,
+    )
+    corpus = mod.load_corpus(corpus_path)
+    expected_corpus_id = str(corpus.get("corpus_id") or "").strip()
+    expected_revision = int(corpus.get("revision", 0) or 0)
+    expected_issue_numbers = sorted(
+        int(item.get("issue_id", 0) or 0)
+        for item in list(corpus.get("issues") or [])
+        if isinstance(item, dict) and int(item.get("issue_id", 0) or 0) > 0
+    )
+
+    truth_payload = mod._load_expected_latest_payload(
+        path=latest_paths["truth_corpus_latest"],
+        label="truth artifact latest.json",
+        expected_corpus_id=expected_corpus_id,
+        expected_revision=expected_revision,
+    )
+    truth_revision_payload = mod._load_expected_latest_payload(
+        path=latest_paths["truth_revision_latest"],
+        label="truth artifact revision latest.json",
+        expected_corpus_id=expected_corpus_id,
+        expected_revision=expected_revision,
+    )
+    scorecard_payload = mod._load_expected_latest_payload(
+        path=latest_paths["scorecard_corpus_latest"],
+        label="scorecard latest.json",
+        expected_corpus_id=expected_corpus_id,
+        expected_revision=expected_revision,
+    )
+    scorecard_revision_payload = mod._load_expected_latest_payload(
+        path=latest_paths["scorecard_revision_latest"],
+        label="scorecard revision latest.json",
+        expected_corpus_id=expected_corpus_id,
+        expected_revision=expected_revision,
+    )
+
+    assert truth_payload == truth_revision_payload
+    assert scorecard_payload == scorecard_revision_payload
+    assert truth_payload["corpus"]["membership_issue_numbers"] == expected_issue_numbers
+    assert scorecard_payload["corpus"]["membership_issue_numbers"] == expected_issue_numbers
+
+    output_path = tmp_path / "B0_BENCHMARK_TRUTH_STATUS.md"
+    assert (
+        mod.main(
+            [
+                "--corpus",
+                str(corpus_path),
+                "--truth-root",
+                str(mod.DEFAULT_TRUTH_ROOT),
+                "--scorecard-root",
+                str(mod.DEFAULT_SCORECARD_ROOT),
+                "--output",
+                str(output_path),
+            ]
+        )
+        == 0
+    )
+    rendered = output_path.read_text(encoding="utf-8")
+    assert f"- Revision: `{expected_revision}`" in rendered
