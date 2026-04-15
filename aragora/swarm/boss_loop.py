@@ -1455,8 +1455,8 @@ class BossLoop:
                     f"PR #{pr_check.stdout.strip()} already merged for this issue.",
                 )
                 return
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("boss_loop_pr_check_failed: %s", exc)
 
         open_pr_changed_paths: set[str] = set()
         if repo:
@@ -1516,8 +1516,8 @@ class BossLoop:
                     existing_titles = {
                         line.strip().lower() for line in proc.stdout.splitlines() if line.strip()
                     }
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("boss_loop_decomposition_lookup_failed: %s", exc)
 
         parent_signature = self._decomposition_issue_signature(
             number=issue.number,
@@ -1653,8 +1653,8 @@ class BossLoop:
                         if proc.returncode == 0:
                             sub_issues_created += 1
                             self._total_sub_issues_created += 1
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("boss_loop_sub_issue_creation_failed: %s", exc)
 
         except Exception as exc:
             logger.debug("Auto-decomposition failed for #%s: %s", issue_number, exc)
@@ -2003,8 +2003,8 @@ class BossLoop:
                     capture_output=True,
                     timeout=15,
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("boss_loop_issue_close_failed: #%s: %s", issue_number, exc)
 
     @classmethod
     def _label_boss_stuck(cls, issue_number: int | str, repo: str, comment: str) -> None:
@@ -2593,8 +2593,8 @@ class BossLoop:
                     ["fetch", "--no-tags", "origin", target_branch],
                     timeout=60.0,
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("boss_loop_git_fetch_target_failed: %s", exc)
             base_ref = self._verify_git_commit_ref(repo_root, f"origin/{target_branch}")
         if base_ref is None:
             base_ref = self._verify_git_commit_ref(repo_root, target_branch)
@@ -2618,8 +2618,8 @@ class BossLoop:
                         ],
                         timeout=60.0,
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("boss_loop_git_fetch_branch_failed: %s", exc)
                 branch_ref = self._verify_git_commit_ref(repo_root, remote_ref)
         if branch_ref is None:
             return None
@@ -3395,8 +3395,8 @@ class BossLoop:
         status = self._decorate_iteration_status(status)
         try:
             on_status(status)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("boss_loop_status_callback_failed: %s", exc)
 
     async def run(
         self,
@@ -4915,8 +4915,8 @@ class BossLoop:
             _rc = load_resume_context_for_issue(issue.number)
             if _rc:
                 spec.raw_goal = f"{spec.raw_goal}\n\n## Resume Context (from prior attempt)\n{_rc}"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("boss_loop_resume_context_load_failed: #%s: %s", issue.number, exc)
 
         gate = await check_pre_dispatch_gate(
             sanitized_issue_body,
