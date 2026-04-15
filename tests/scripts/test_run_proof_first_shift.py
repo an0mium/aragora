@@ -144,17 +144,18 @@ def test_kickstart_launchd_returns_timeout_detail_instead_of_raising() -> None:
     assert detail == "launchctl timed out"
 
 
-def test_run_shift_cycle_restores_restart_budget_after_healthy_cycle() -> None:
+def test_run_shift_cycle_exhausts_restart_budget_within_shift_window() -> None:
     state = mod.ProofFirstRuntimeState(boss_restart_count=1, merge_restart_count=1)
 
-    _run_shift_cycle(
+    report = _run_shift_cycle(
         state,
         process_running_side_effect=[True, True],
         prs=[{"headRefName": "feature/test"}],
     )
 
-    assert state.boss_restart_count == 0
-    assert state.merge_restart_count == 0
+    assert report["actions"] == []
+    assert state.boss_restart_count == 1
+    assert state.merge_restart_count == 1
 
     report = _run_shift_cycle(
         state,
@@ -162,9 +163,40 @@ def test_run_shift_cycle_restores_restart_budget_after_healthy_cycle() -> None:
         prs=[{"headRefName": "feature/test"}],
     )
 
-    assert state.boss_restart_count == 1
-    assert state.merge_restart_count == 1
+    assert report["actions"] == []
+    assert report["stop_reason"] == mod.RECOVERY_STOP_REASONS[mod.BOSS_RESTART_FAILURE]
+    assert set(report["green_shift_evaluation"]["repeated_failure_classes"]) == {
+        mod.BOSS_RESTART_FAILURE,
+        mod.MERGE_RESTART_FAILURE,
+    }
+
+
+def test_run_shift_cycle_successful_restart_marks_services_healthy_for_green_shift() -> None:
+    state = mod.ProofFirstRuntimeState()
+
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[False, False],
+        prs=[{"headRefName": "feature/test"}],
+    )
+
     assert report["actions"] == ["restart_boss_loop", "restart_merge_arbiter"]
+    assert (
+        report["green_shift_evaluation"]["criteria"]["services_healthy_or_intentionally_idle"]
+        is True
+    )
+    assert (
+        report["green_shift_evaluation"]["recovery_budgets"][mod.BOSS_RESTART_FAILURE][
+            "attempts_used"
+        ]
+        == 1
+    )
+    assert (
+        report["green_shift_evaluation"]["recovery_budgets"][mod.MERGE_RESTART_FAILURE][
+            "attempts_used"
+        ]
+        == 1
+    )
 
 
 def test_run_shift_cycle_clears_failure_budget_after_successful_benchmark_run() -> None:
@@ -263,11 +295,58 @@ def test_run_shift_cycle_stops_cleanly_when_github_is_unavailable(tmp_path: Path
     assert report["open_pr_count"] == 0
     assert report["automation_backlog"] == 0
     assert report["latest_benchmark_run"] is None
+    assert report["actions"] == ["retry_github_outage_next_cycle"]
+    assert report["stop_reason"] == ""
+    assert state.github_outage_count == 1
+    assert (
+        report["green_shift_evaluation"]["recovery_budgets"][mod.GITHUB_OUTAGE_FAILURE][
+            "attempts_used"
+        ]
+        == 1
+    )
+
+
+def test_run_shift_cycle_stops_after_repeated_github_outage() -> None:
+    state = mod.ProofFirstRuntimeState(
+        github_outage_count=1,
+        recovery_attempt_counts={mod.GITHUB_OUTAGE_FAILURE: 1},
+    )
+
+    with (
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={
+                "kept": [],
+                "removed": [],
+                "github_status": {
+                    "available": False,
+                    "operation": "list_open_queue_issues",
+                    "error": "error connecting to api.github.com",
+                },
+            },
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot",
+            side_effect=AssertionError("snapshot should not run when GitHub is unavailable"),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.list_open_prs",
+            side_effect=AssertionError("pr listing should not run when GitHub is unavailable"),
+        ),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            benchmark_mode="hybrid",
+            automation_backlog_limit=12,
+            runtime_state=state,
+        )
+
     assert report["actions"] == []
-    assert report["stop_reason"] == "GitHubUnavailable: error connecting to api.github.com"
-    assert report["failure_policy"]["runtime_failure"]["will_stop"] is True
-    assert state.runtime_failure_count == 1
-    assert ledger.get_status_summary()["runtime_failures"] == 1
+    assert report["stop_reason"] == mod.RECOVERY_STOP_REASONS[mod.GITHUB_OUTAGE_FAILURE]
+    assert report["green_shift_evaluation"]["repeated_failure_classes"] == [
+        mod.GITHUB_OUTAGE_FAILURE
+    ]
 
 
 def test_run_shift_cycle_fails_closed_after_second_auth_failure() -> None:

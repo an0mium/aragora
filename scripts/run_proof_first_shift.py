@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
@@ -67,6 +67,26 @@ AUTOMATION_BRANCH_PREFIXES = (
     "aragora/boss-harvest/",
     "benchmark-truth-publication/",
 )
+RECOVERY_BUDGET_PER_FAILURE_CLASS = 1
+AUTH_DRIFT_FAILURE = "auth_drift"
+GITHUB_OUTAGE_FAILURE = "github_outage"
+PUBLICATION_FAILURE = "benchmark_publication_failure"
+BOSS_RESTART_FAILURE = "boss_restart_failure"
+MERGE_RESTART_FAILURE = "merge_restart_failure"
+RECOVERY_FAILURE_CLASSES = (
+    AUTH_DRIFT_FAILURE,
+    GITHUB_OUTAGE_FAILURE,
+    PUBLICATION_FAILURE,
+    BOSS_RESTART_FAILURE,
+    MERGE_RESTART_FAILURE,
+)
+RECOVERY_STOP_REASONS = {
+    AUTH_DRIFT_FAILURE: "RepeatedAuthFailure: benchmark publication auth drift persisted after one automatic recovery attempt",
+    GITHUB_OUTAGE_FAILURE: "RepeatedGitHubOutage: proof-first queue reconciliation could not reach GitHub after one automatic recovery attempt",
+    PUBLICATION_FAILURE: "RepeatedPublicationFailure: benchmark publication PR handoff persisted after one automatic recovery attempt",
+    BOSS_RESTART_FAILURE: "RepeatedBossRestartFailure: boss loop still required intervention after one automatic recovery attempt",
+    MERGE_RESTART_FAILURE: "RepeatedMergeArbiterRestartFailure: merge arbiter still required intervention after one automatic recovery attempt",
+}
 
 
 @dataclass
@@ -76,6 +96,8 @@ class ProofFirstRuntimeState:
     auth_failure_count: int = 0
     publication_failure_count: int = 0
     runtime_failure_count: int = 0
+    github_outage_count: int = 0
+    recovery_attempt_counts: dict[str, int] = field(default_factory=dict)
     last_benchmark_run_id: int | None = None
     last_triggered_benchmark_run_id: int | None = None
 
@@ -92,6 +114,18 @@ def _runtime_state_path(repo_root: Path) -> Path:
     return repo_root / ".aragora" / DEFAULT_SHIFT_DIRNAME / "runtime_state.json"
 
 
+def _default_recovery_attempt_counts() -> dict[str, int]:
+    return dict.fromkeys(RECOVERY_FAILURE_CLASSES, 0)
+
+
+def _normalize_recovery_attempt_counts(payload: Any) -> dict[str, int]:
+    counts = _default_recovery_attempt_counts()
+    if isinstance(payload, dict):
+        for failure_class in RECOVERY_FAILURE_CLASSES:
+            counts[failure_class] = int(payload.get(failure_class, 0) or 0)
+    return counts
+
+
 def load_runtime_state(path: Path) -> ProofFirstRuntimeState:
     if not path.exists():
         return ProofFirstRuntimeState()
@@ -104,6 +138,10 @@ def load_runtime_state(path: Path) -> ProofFirstRuntimeState:
         auth_failure_count=int(payload.get("auth_failure_count", 0) or 0),
         publication_failure_count=int(payload.get("publication_failure_count", 0) or 0),
         runtime_failure_count=int(payload.get("runtime_failure_count", 0) or 0),
+        github_outage_count=int(payload.get("github_outage_count", 0) or 0),
+        recovery_attempt_counts=_normalize_recovery_attempt_counts(
+            payload.get("recovery_attempt_counts")
+        ),
         last_benchmark_run_id=(
             int(payload["last_benchmark_run_id"]) if payload.get("last_benchmark_run_id") else None
         ),
@@ -118,6 +156,63 @@ def load_runtime_state(path: Path) -> ProofFirstRuntimeState:
 def save_runtime_state(path: Path, state: ProofFirstRuntimeState) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(asdict(state), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def recovery_budget_remaining(runtime_state: ProofFirstRuntimeState, failure_class: str) -> int:
+    used = int(runtime_state.recovery_attempt_counts.get(failure_class, 0) or 0)
+    return max(0, RECOVERY_BUDGET_PER_FAILURE_CLASS - used)
+
+
+def consume_recovery_attempt(
+    runtime_state: ProofFirstRuntimeState,
+    *,
+    failure_class: str,
+) -> tuple[int, int]:
+    attempt_number = int(runtime_state.recovery_attempt_counts.get(failure_class, 0) or 0) + 1
+    runtime_state.recovery_attempt_counts[failure_class] = attempt_number
+    remaining_budget = max(0, RECOVERY_BUDGET_PER_FAILURE_CLASS - attempt_number)
+    return attempt_number, remaining_budget
+
+
+def record_recovery_attempt(
+    ledger: ShiftLedger | None,
+    runtime_state: ProofFirstRuntimeState,
+    *,
+    failure_class: str,
+    action: str,
+    success: bool,
+    detail: str = "",
+) -> None:
+    attempt_number, remaining_budget = consume_recovery_attempt(
+        runtime_state,
+        failure_class=failure_class,
+    )
+    if ledger:
+        ledger.append(
+            "recovery_attempt",
+            failure_class=failure_class,
+            action=action,
+            success=success,
+            detail=detail,
+            attempt_number=attempt_number,
+            budget_limit=RECOVERY_BUDGET_PER_FAILURE_CLASS,
+            remaining_budget=remaining_budget,
+        )
+
+
+def failure_budget_summary(
+    runtime_state: ProofFirstRuntimeState,
+) -> dict[str, dict[str, int | bool]]:
+    summary: dict[str, dict[str, int | bool]] = {}
+    for failure_class in RECOVERY_FAILURE_CLASSES:
+        attempts_used = int(runtime_state.recovery_attempt_counts.get(failure_class, 0) or 0)
+        summary[failure_class] = {
+            "budget": RECOVERY_BUDGET_PER_FAILURE_CLASS,
+            "attempts_used": attempts_used,
+            "remaining": max(0, RECOVERY_BUDGET_PER_FAILURE_CLASS - attempts_used),
+            "exhausted": attempts_used >= RECOVERY_BUDGET_PER_FAILURE_CLASS,
+        }
+    return summary
 
 
 def _run(
@@ -441,6 +536,65 @@ def trigger_benchmark_workflow(*, repo_root: Path, repo: str) -> None:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh workflow run failed")
 
 
+def benchmark_fresh_within_window(
+    latest_run: dict[str, Any] | None,
+    *,
+    max_age_hours: float,
+) -> bool:
+    if latest_run is None:
+        return False
+    conclusion = str(latest_run.get("conclusion") or "").strip().lower()
+    if conclusion != "success":
+        return False
+    created_at = _parse_timestamp(str(latest_run.get("createdAt") or ""))
+    if created_at is None:
+        return False
+    age_hours = (_utc_now() - created_at).total_seconds() / 3600.0
+    return age_hours < max_age_hours
+
+
+def evaluate_green_shift(
+    *,
+    queue_report: dict[str, Any],
+    queue_count: int,
+    open_pr_count: int,
+    boss_running: bool | None,
+    merge_running: bool | None,
+    latest_run: dict[str, Any] | None,
+    benchmark_drift_open: bool,
+    runtime_state: ProofFirstRuntimeState,
+    max_age_hours: float,
+    stop_reason: str,
+    repeated_failure_classes: list[str],
+) -> dict[str, Any]:
+    queue_canonical_or_empty = True
+    if dict(queue_report.get("github_status") or {}).get("available") is False:
+        queue_canonical_or_empty = False
+
+    boss_ok = bool(boss_running) or queue_count == 0
+    merge_ok = bool(merge_running) or open_pr_count == 0
+    criteria = {
+        "benchmark_fresh_within_window": benchmark_fresh_within_window(
+            latest_run,
+            max_age_hours=max_age_hours,
+        ),
+        "queue_canonical_or_empty": queue_canonical_or_empty,
+        "services_healthy_or_intentionally_idle": boss_ok and merge_ok,
+        "failure_budgets_respected": not repeated_failure_classes,
+        "no_open_benchmark_publication_drift": not benchmark_drift_open,
+    }
+    blocking_reasons = [name for name, passed in criteria.items() if not passed]
+    if stop_reason:
+        blocking_reasons.append("shift_stop_reason_present")
+    return {
+        "is_green": all(criteria.values()) and not stop_reason,
+        "criteria": criteria,
+        "blocking_reasons": blocking_reasons,
+        "repeated_failure_classes": repeated_failure_classes,
+        "recovery_budgets": failure_budget_summary(runtime_state),
+    }
+
+
 def run_shift_cycle(
     *,
     repo_root: Path,
@@ -449,16 +603,34 @@ def run_shift_cycle(
     automation_backlog_limit: int,
     runtime_state: ProofFirstRuntimeState,
     ledger: ShiftLedger | None = None,
+    max_hours: float = DEFAULT_MAX_HOURS,
 ) -> dict[str, Any]:
     queue_report = reconcile_proof_first_queue(repo=repo, repo_root=repo_root, apply=True)
     github_status = dict(queue_report.get("github_status") or {})
     queue_removed_count = len(queue_report.get("removed") or [])
     if github_status.get("available") is False:
-        runtime_state.runtime_failure_count += 1
-        stop_reason = github_unavailable_stop_reason(queue_report)
+        detail = github_unavailable_stop_reason(queue_report)
+        runtime_state.github_outage_count += 1
+        if ledger:
+            ledger.record_failure(failure_type=GITHUB_OUTAGE_FAILURE, detail=detail)
+        actions: list[str] = []
+        stop_reason = ""
+        repeated_failure_classes: list[str] = []
+        if recovery_budget_remaining(runtime_state, GITHUB_OUTAGE_FAILURE) > 0:
+            record_recovery_attempt(
+                ledger,
+                runtime_state,
+                failure_class=GITHUB_OUTAGE_FAILURE,
+                action="retry_queue_reconciliation_next_cycle",
+                success=False,
+                detail=detail,
+            )
+            actions.append("retry_github_outage_next_cycle")
+        else:
+            stop_reason = RECOVERY_STOP_REASONS[GITHUB_OUTAGE_FAILURE]
+            repeated_failure_classes.append(GITHUB_OUTAGE_FAILURE)
         failure_policy = build_failure_policy_status(runtime_state)
         if ledger:
-            ledger.record_failure(failure_type="runtime_failure", detail=stop_reason)
             ledger.record_cycle_tick(
                 queue_size=len(queue_report.get("kept") or []),
                 queue_removed=queue_removed_count,
@@ -466,7 +638,7 @@ def run_shift_cycle(
                 boss_running=False,
                 merge_running=False,
                 benchmark_fresh=False,
-                actions=[],
+                actions=actions,
                 stop_reason=stop_reason,
             )
         return {
@@ -475,9 +647,22 @@ def run_shift_cycle(
             "open_pr_count": 0,
             "automation_backlog": 0,
             "latest_benchmark_run": None,
-            "actions": [],
+            "actions": actions,
             "stop_reason": stop_reason,
             "failure_policy": failure_policy,
+            "green_shift_evaluation": evaluate_green_shift(
+                queue_report=queue_report,
+                queue_count=0,
+                open_pr_count=0,
+                boss_running=None,
+                merge_running=None,
+                latest_run=None,
+                benchmark_drift_open=True,
+                runtime_state=runtime_state,
+                max_age_hours=max_hours,
+                stop_reason=stop_reason,
+                repeated_failure_classes=repeated_failure_classes,
+            ),
         }
     snapshot = collect_boss_lane_snapshot(repo_root=repo_root, repo=repo)
     prs = list_open_prs(repo_root=repo_root, repo=repo)
@@ -488,14 +673,10 @@ def run_shift_cycle(
     boss_running = process_running(DEFAULT_BOSS_PROCESS_PATTERN)
     merge_running = process_running(DEFAULT_MERGE_PROCESS_PATTERN)
 
-    if boss_running:
-        runtime_state.boss_restart_count = 0
-    if merge_running:
-        runtime_state.merge_restart_count = 0
-
     actions: list[str] = []
     service_failures: list[str] = []
     runtime_failures: list[str] = []
+    repeated_failure_classes: list[str] = []
     if should_restart_service(
         is_running=boss_running,
         pending_count=canonical_queue_count,
@@ -506,7 +687,16 @@ def run_shift_cycle(
             process_pattern=DEFAULT_BOSS_PROCESS_PATTERN,
         )
         runtime_state.boss_restart_count += 1
+        record_recovery_attempt(
+            ledger,
+            runtime_state,
+            failure_class=BOSS_RESTART_FAILURE,
+            action="restart_boss_loop",
+            success=restarted,
+            detail=detail,
+        )
         if restarted:
+            boss_running = True
             actions.append("restart_boss_loop")
             if ledger:
                 ledger.record_service_restart(service="boss_loop", success=True)
@@ -517,6 +707,9 @@ def run_shift_cycle(
             if ledger:
                 ledger.record_service_restart(service="boss_loop", success=False, detail=detail)
                 ledger.record_failure(failure_type="service_failure", detail=stop_reason)
+    elif (not boss_running) and canonical_queue_count > 0 and runtime_state.boss_restart_count >= 1:
+        repeated_failure_classes.append(BOSS_RESTART_FAILURE)
+        service_failures.append(RECOVERY_STOP_REASONS[BOSS_RESTART_FAILURE])
 
     if should_restart_service(
         is_running=merge_running,
@@ -528,7 +721,16 @@ def run_shift_cycle(
             process_pattern=DEFAULT_MERGE_PROCESS_PATTERN,
         )
         runtime_state.merge_restart_count += 1
+        record_recovery_attempt(
+            ledger,
+            runtime_state,
+            failure_class=MERGE_RESTART_FAILURE,
+            action="restart_merge_arbiter",
+            success=restarted,
+            detail=detail,
+        )
         if restarted:
+            merge_running = True
             actions.append("restart_merge_arbiter")
             if ledger:
                 ledger.record_service_restart(service="merge_arbiter", success=True)
@@ -539,6 +741,9 @@ def run_shift_cycle(
             if ledger:
                 ledger.record_service_restart(service="merge_arbiter", success=False, detail=detail)
                 ledger.record_failure(failure_type="service_failure", detail=stop_reason)
+    elif (not merge_running) and open_pr_count > 0 and runtime_state.merge_restart_count >= 1:
+        repeated_failure_classes.append(MERGE_RESTART_FAILURE)
+        service_failures.append(RECOVERY_STOP_REASONS[MERGE_RESTART_FAILURE])
 
     merge_report = run_merge_arbiter_apply(
         repo_root=repo_root,
@@ -553,6 +758,8 @@ def run_shift_cycle(
                 ledger.record_pr_merged(pr_number=int(num))
 
     latest_run = latest_benchmark_run(repo_root=repo_root, repo=repo)
+    latest_failure_class = ""
+    latest_failure_detail = ""
     if latest_run is not None:
         run_id = int(latest_run.get("databaseId", 0) or 0)
         conclusion = str(latest_run.get("conclusion") or "").strip().lower()
@@ -569,10 +776,14 @@ def run_shift_cycle(
                 failure_class = classify_benchmark_failure_log(failure_log)
                 if failure_class == "auth_failure":
                     runtime_state.auth_failure_count += 1
+                    latest_failure_class = AUTH_DRIFT_FAILURE
+                    latest_failure_detail = failure_log[:500]
                     if ledger:
                         ledger.record_failure(failure_type="auth_failure", detail=failure_log[:500])
                 elif failure_class == "publication_failure":
                     runtime_state.publication_failure_count += 1
+                    latest_failure_class = PUBLICATION_FAILURE
+                    latest_failure_detail = failure_log[:500]
                     if ledger:
                         ledger.record_failure(
                             failure_type="publication_failure", detail=failure_log[:500]
@@ -600,36 +811,79 @@ def run_shift_cycle(
         automation_backlog=automation_backlog,
         automation_backlog_limit=automation_backlog_limit,
         last_triggered_run_id=runtime_state.last_triggered_benchmark_run_id,
+        max_age_hours=max_hours,
     )
-    if should_trigger:
-        try:
-            trigger_benchmark_workflow(repo_root=repo_root, repo=repo)
-        except RuntimeError as exc:
-            runtime_state.runtime_failure_count += 1
-            detail = str(exc).strip() or "benchmark workflow trigger failed"
-            runtime_failures.append(f"RuntimeFailure: {detail}")
-            actions.append(f"trigger_benchmark_failed:{trigger_reason}")
-            if ledger:
-                ledger.record_failure(failure_type="runtime_failure", detail=detail)
-        else:
-            actions.append(f"trigger_benchmark:{trigger_reason}")
-            if latest_run is not None:
-                runtime_state.last_triggered_benchmark_run_id = int(
-                    latest_run.get("databaseId", 0) or 0
-                )
-            else:
-                runtime_state.last_triggered_benchmark_run_id = -1
-
     stop_reason = ""
-    if runtime_failures:
+    if should_trigger:
+        if trigger_reason == "retry_after_failed_run" and latest_failure_class:
+            if recovery_budget_remaining(runtime_state, latest_failure_class) <= 0:
+                repeated_failure_classes.append(latest_failure_class)
+                stop_reason = RECOVERY_STOP_REASONS[latest_failure_class]
+            else:
+                try:
+                    trigger_benchmark_workflow(repo_root=repo_root, repo=repo)
+                except RuntimeError as exc:
+                    detail = str(exc).strip() or "benchmark workflow trigger failed"
+                    runtime_state.runtime_failure_count += 1
+                    runtime_failures.append(f"RuntimeFailure: {detail}")
+                    actions.append(f"trigger_benchmark_failed:{trigger_reason}")
+                    record_recovery_attempt(
+                        ledger,
+                        runtime_state,
+                        failure_class=latest_failure_class,
+                        action="trigger_benchmark_workflow",
+                        success=False,
+                        detail=detail,
+                    )
+                    if ledger:
+                        ledger.record_failure(failure_type="runtime_failure", detail=detail)
+                else:
+                    actions.append(f"trigger_benchmark:{trigger_reason}")
+                    record_recovery_attempt(
+                        ledger,
+                        runtime_state,
+                        failure_class=latest_failure_class,
+                        action="trigger_benchmark_workflow",
+                        success=True,
+                        detail=latest_failure_detail or trigger_reason,
+                    )
+                    if latest_run is not None:
+                        runtime_state.last_triggered_benchmark_run_id = int(
+                            latest_run.get("databaseId", 0) or 0
+                        )
+                    else:
+                        runtime_state.last_triggered_benchmark_run_id = -1
+        else:
+            try:
+                trigger_benchmark_workflow(repo_root=repo_root, repo=repo)
+            except RuntimeError as exc:
+                detail = str(exc).strip() or "benchmark workflow trigger failed"
+                runtime_state.runtime_failure_count += 1
+                runtime_failures.append(f"RuntimeFailure: {detail}")
+                actions.append(f"trigger_benchmark_failed:{trigger_reason}")
+                if ledger:
+                    ledger.record_failure(failure_type="runtime_failure", detail=detail)
+            else:
+                actions.append(f"trigger_benchmark:{trigger_reason}")
+                if latest_run is not None:
+                    runtime_state.last_triggered_benchmark_run_id = int(
+                        latest_run.get("databaseId", 0) or 0
+                    )
+                else:
+                    runtime_state.last_triggered_benchmark_run_id = -1
+
+    if not stop_reason and runtime_failures:
         stop_reason = runtime_failures[0]
-    elif service_failures:
+    elif not stop_reason and service_failures:
         stop_reason = service_failures[0]
-    elif runtime_state.auth_failure_count >= AUTH_FAILURE_STOP_AFTER:
+    elif not stop_reason and runtime_state.auth_failure_count >= AUTH_FAILURE_STOP_AFTER:
         stop_reason = "RepeatedAuthFailure: benchmark publication failed auth twice"
-    elif runtime_state.publication_failure_count >= PUBLICATION_FAILURE_STOP_AFTER:
+    elif (
+        not stop_reason
+        and runtime_state.publication_failure_count >= PUBLICATION_FAILURE_STOP_AFTER
+    ):
         stop_reason = "RepeatedPublicationFailure: benchmark publication failed PR handoff twice"
-    elif runtime_state.runtime_failure_count >= RUNTIME_FAILURE_STOP_AFTER:
+    elif not stop_reason and runtime_state.runtime_failure_count >= RUNTIME_FAILURE_STOP_AFTER:
         stop_reason = "RuntimeFailure: proof-first shift lost a required runtime control surface"
 
     failure_policy = build_failure_policy_status(
@@ -638,10 +892,7 @@ def run_shift_cycle(
     )
 
     # Record cycle tick in ledger
-    benchmark_fresh = False
-    if latest_run is not None:
-        conclusion = str(latest_run.get("conclusion") or "").strip().lower()
-        benchmark_fresh = conclusion == "success"
+    benchmark_fresh = benchmark_fresh_within_window(latest_run, max_age_hours=max_hours)
     if ledger:
         ledger.record_cycle_tick(
             queue_size=canonical_queue_count,
@@ -654,6 +905,8 @@ def run_shift_cycle(
             stop_reason=stop_reason,
         )
 
+    benchmark_drift_open = has_open_benchmark_publication_pr(prs) or should_trigger
+
     return {
         "queue_report": queue_report,
         "snapshot": snapshot,
@@ -663,6 +916,19 @@ def run_shift_cycle(
         "actions": actions,
         "stop_reason": stop_reason,
         "failure_policy": failure_policy,
+        "green_shift_evaluation": evaluate_green_shift(
+            queue_report=queue_report,
+            queue_count=canonical_queue_count,
+            open_pr_count=open_pr_count,
+            boss_running=boss_running,
+            merge_running=merge_running,
+            latest_run=latest_run,
+            benchmark_drift_open=benchmark_drift_open,
+            runtime_state=runtime_state,
+            max_age_hours=max_hours,
+            stop_reason=stop_reason,
+            repeated_failure_classes=repeated_failure_classes,
+        ),
     }
 
 
@@ -740,6 +1006,7 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
             automation_backlog_limit=int(args.automation_backlog_limit),
             runtime_state=runtime_state,
             ledger=ledger,
+            max_hours=float(args.max_hours),
         )
         cycle_reports.append(report)
         cycle_count += 1
@@ -772,6 +1039,24 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
         "runtime_state": asdict(runtime_state),
         "cycles": cycle_reports,
         "ledger_status": ledger.get_status_summary(max_age_hours=float(args.max_hours)),
+        "green_shift_evaluation": (
+            cycle_reports[-1]["green_shift_evaluation"]
+            if cycle_reports
+            else evaluate_green_shift(
+                queue_report={"kept": [], "removed": []},
+                queue_count=0,
+                open_pr_count=0,
+                boss_running=None,
+                merge_running=None,
+                latest_run=None,
+                benchmark_drift_open=True,
+                runtime_state=runtime_state,
+                max_age_hours=float(args.max_hours),
+                stop_reason=str(controller.get_progress_summary().get("stop_reason") or ""),
+                repeated_failure_classes=[],
+            )
+        ),
+        "recovery_budgets": failure_budget_summary(runtime_state),
     }
     save_runtime_state(runtime_state_path, runtime_state)
     return summary
