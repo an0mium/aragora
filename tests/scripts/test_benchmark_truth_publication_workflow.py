@@ -69,9 +69,18 @@ def test_installs_github_cli_before_runtime_prerequisites() -> None:
     gh_index = names.index("Install GitHub CLI")
     prereq_index = names.index("Verify runtime prerequisites")
     assert gh_index < prereq_index
-    gh_run = str(steps[gh_index].get("run", ""))
-    assert "https://api.github.com/repos/cli/cli/releases/latest" in gh_run
+    gh_step = steps[gh_index]
+    gh_env = gh_step.get("env")
+    assert gh_env == {
+        "GH_CLI_VERSION": "2.89.0",
+        "GH_CLI_SHA256_AMD64": "d0422caade520530e76c1c558da47daebaa8e1203d6b7ff10ad7d6faba3490d8",
+        "GH_CLI_SHA256_ARM64": "9e64a623dfc242990aa5d9b3f507111149c4282f66b68eaad1dc79eeb13b9ce5",
+    }
+    gh_run = str(gh_step.get("run", ""))
+    assert "https://api.github.com/repos/cli/cli/releases/latest" not in gh_run
     assert "https://github.com/cli/cli/releases/download/" in gh_run
+    assert 'printf \'%s  %s\\n\' "$gh_sha256" "$archive_path" | sha256sum -c -' in gh_run
+    assert 'curl -fsSL -o "$archive_path"' in gh_run
     assert 'echo "$gh_root/gh_${gh_version}_linux_${gh_arch}/bin" >> "$GITHUB_PATH"' in gh_run
 
 
