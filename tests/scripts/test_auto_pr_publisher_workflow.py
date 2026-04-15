@@ -47,3 +47,15 @@ def test_auto_pr_publisher_skips_pr_creation_when_publish_guard_blocks() -> None
     script = str((publish_step.get("with") or {}).get("script", ""))
     assert "process.env.PUBLISH_GUARD_ALLOW" in script
     assert 'core.setOutput("status", "preflight_failed")' in script
+
+
+def test_auto_pr_publisher_stops_when_automation_backlog_hits_cap() -> None:
+    steps = _auto_pr_publisher_steps()
+    publish_step = next(
+        step for step in steps if step.get("name") == "Publish draft PR for automation branch"
+    )
+
+    script = str((publish_step.get("with") or {}).get("script", ""))
+    assert "const backlogLimit = 12;" in script
+    assert "if (automationBacklog >= backlogLimit)" in script
+    assert 'core.setOutput("status", "backlog_full")' in script
