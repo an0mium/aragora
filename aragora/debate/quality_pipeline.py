@@ -24,20 +24,22 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_TRUE_BOOL_STRINGS = {"true", "1", "yes", "on"}
 
+def _coerce_bool_config(value: Any, *, default: bool, field_name: str = "unknown") -> bool:
+    """Parse config booleans strictly, rejecting string booleans.
 
-def _coerce_bool_config(value: Any, *, default: bool) -> bool:
-    """Parse config booleans conservatively, defaulting only when absent."""
+    Fail closed: only ``None`` (uses default) and actual ``bool`` values
+    are accepted.  String look-alikes like ``"true"`` and ``"1"`` are
+    rejected with a ``ValueError`` so callers discover type mismatches
+    early instead of silently coercing.
+    """
     if value is None:
         return default
     if isinstance(value, bool):
         return value
-    if isinstance(value, str):
-        return value.strip().lower() in _TRUE_BOOL_STRINGS
-    if isinstance(value, (int, float)):
-        return value == 1
-    return False
+    raise ValueError(
+        f"QualityPipelineConfig.{field_name} expects a bool, got {type(value).__name__}: {value!r}"
+    )
 
 
 @dataclass
@@ -81,11 +83,13 @@ class QualityPipelineConfig:
                 sections = None
 
         return cls(
-            enabled=_coerce_bool_config(data.get("enabled"), default=True),
+            enabled=_coerce_bool_config(data.get("enabled"), default=True, field_name="enabled"),
             output_contract_file=data.get("output_contract_file"),
             required_sections=sections,
             repo_root=data.get("repo_root"),
-            has_context=_coerce_bool_config(data.get("has_context"), default=False),
+            has_context=_coerce_bool_config(
+                data.get("has_context"), default=False, field_name="has_context"
+            ),
             quality_min_score=float(data.get("quality_min_score", 9.0)),
             practicality_min_score=float(data.get("practicality_min_score", 5.0)),
         )

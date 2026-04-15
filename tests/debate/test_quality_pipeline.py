@@ -81,24 +81,24 @@ class TestQualityPipelineConfig:
         assert cfg.enabled is False
 
     @pytest.mark.parametrize(
-        ("value", "expected"),
-        [
-            ("true", True),
-            ("1", True),
-            ("yes", True),
-            ("on", True),
-            ("false", False),
-            ("0", False),
-            ("no", False),
-            ("off", False),
-            ("", False),
-            ("definitely", False),
-        ],
+        "value", ["true", "1", "yes", "on", "false", "0", "no", "off", "", "definitely"]
     )
-    def test_from_dict_string_booleans_fail_closed(self, value, expected):
-        cfg = QualityPipelineConfig.from_dict({"enabled": value, "has_context": value})
-        assert cfg.enabled is expected
-        assert cfg.has_context is expected
+    def test_from_dict_string_booleans_fail_closed(self, value):
+        """String booleans must raise ValueError, not silently coerce."""
+        with pytest.raises(ValueError, match="expects a bool"):
+            QualityPipelineConfig.from_dict({"enabled": value})
+
+    @pytest.mark.parametrize("value", ["true", "false", "1", "0"])
+    def test_from_dict_string_booleans_has_context_fail_closed(self, value):
+        """String booleans in has_context must also raise."""
+        with pytest.raises(ValueError, match="expects a bool"):
+            QualityPipelineConfig.from_dict({"has_context": value})
+
+    @pytest.mark.parametrize("value", [42, 1.5, [True], {"v": True}])
+    def test_from_dict_non_bool_types_fail_closed(self, value):
+        """Non-bool, non-None types must raise ValueError."""
+        with pytest.raises(ValueError, match="expects a bool"):
+            QualityPipelineConfig.from_dict({"enabled": value})
 
     def test_from_dict_with_sections(self):
         cfg = QualityPipelineConfig.from_dict(
