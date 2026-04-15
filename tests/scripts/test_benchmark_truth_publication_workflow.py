@@ -38,6 +38,13 @@ def _benchmark_truth_publication_steps() -> list[dict[str, object]]:
     return [step for step in steps if isinstance(step, dict)]
 
 
+def _workflow_step(name: str) -> dict[str, object]:
+    for step in _benchmark_truth_publication_steps():
+        if str(step.get("name", "")) == name:
+            return step
+    raise AssertionError(f"{name} step not found")
+
+
 def test_runtime_prereq_creates_metrics_dir_and_allows_fresh_recurrence() -> None:
     run = _benchmark_truth_publication_run()
     assert 'METRICS_PATH=".aragora/overnight/boss_metrics.jsonl"' in run
@@ -66,3 +73,19 @@ def test_installs_github_cli_before_runtime_prerequisites() -> None:
     assert "https://api.github.com/repos/cli/cli/releases/latest" in gh_run
     assert "https://github.com/cli/cli/releases/download/" in gh_run
     assert 'echo "$gh_root/gh_${gh_version}_linux_${gh_arch}/bin" >> "$GITHUB_PATH"' in gh_run
+
+
+def test_refreshes_execution_verified_codex_runner_before_recurrence() -> None:
+    steps = _benchmark_truth_publication_steps()
+    names = [str(step.get("name", "")) for step in steps]
+    refresh_index = names.index("Refresh execution-verified Codex runner")
+    recurrence_index = names.index("Refresh recurring benchmark corpus metrics")
+    assert refresh_index < recurrence_index
+
+    run = str(_workflow_step("Refresh execution-verified Codex runner").get("run", ""))
+    assert "python3 -m aragora.cli.main swarm runner maintain" in run
+    assert "--runner-type codex" in run
+    assert "--probe-limit 1" in run
+    assert 'RUNNER_REPORT="$RUNNER_TEMP/codex-runner-maintain.json"' in run
+    assert 'payload.get("routing_after") or {}' in run
+    assert "No execution-verified Codex runner selected after refresh." in run

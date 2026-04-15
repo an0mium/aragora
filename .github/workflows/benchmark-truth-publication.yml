@@ -91,6 +91,44 @@ jobs:
             echo "::notice::No repo-local benchmark metrics snapshot found; recurrence will generate a fresh window"
           fi
 
+      - name: Refresh execution-verified Codex runner
+        shell: bash
+        run: |
+          RUNNER_REPORT="$RUNNER_TEMP/codex-runner-maintain.json"
+          python3 -m aragora.cli.main swarm runner maintain \
+            --runner-type codex \
+            --probe-limit 1 \
+            --json > "$RUNNER_REPORT"
+          python3 - "$RUNNER_REPORT" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          summary = payload.get("summary") or {}
+          if int(summary.get("passed", 0) or 0) < 1:
+              raise SystemExit(
+                  "No Codex runner probe passed during benchmark publication setup."
+              )
+
+          routing = payload.get("routing_after") or {}
+          selected = [
+              item
+              for item in routing.get("selected_runners", [])
+              if isinstance(item, dict)
+          ]
+          verified = [
+              item
+              for item in selected
+              if str(item.get("runner_type", "")).strip() == "codex"
+              and str(item.get("probe_status", "")).strip() == "passed"
+          ]
+          if not verified:
+              raise SystemExit(
+                  "No execution-verified Codex runner selected after refresh."
+              )
+          PY
+
       - name: Refresh recurring benchmark corpus metrics
         env:
           GH_TOKEN: ${{ github.token }}
