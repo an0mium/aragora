@@ -13,6 +13,7 @@ It is intentionally standalone for now and is not wired into ``boss_loop.py``.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 import tempfile
@@ -26,6 +27,8 @@ from aragora.swarm.terminal_truth import (
     classify_from_metrics,
     extract_run_worker_outcome,
 )
+
+logger = logging.getLogger(__name__)
 
 NextAction = Literal["retry_same", "retry_different_agent", "decompose", "escalate", "done"]
 _VALID_NEXT_ACTIONS = frozenset(
@@ -520,7 +523,10 @@ class Conductor:
             try:
                 return TerminalClass(raw_terminal_text)
             except ValueError:
-                pass
+                logger.warning(
+                    "conductor: ignoring invalid terminal_class %r; falling back to metrics",
+                    raw_terminal_text,
+                )
 
         outcome = _text(worker_result.get("outcome")).lower()
         deliverable = worker_result.get("deliverable")
