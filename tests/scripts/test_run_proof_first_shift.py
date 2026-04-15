@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -14,7 +15,19 @@ def _run_shift_cycle(
     latest_run: dict[str, object] | None = None,
     failure_log: str = "",
     benchmark_mode: str = "disabled",
+    restart_service_side_effect: list[tuple[bool, str]] | None = None,
 ) -> dict[str, object]:
+    restart_patch = (
+        patch(
+            "scripts.run_proof_first_shift.restart_service_via_launchd",
+            side_effect=restart_service_side_effect,
+        )
+        if restart_service_side_effect is not None
+        else patch(
+            "scripts.run_proof_first_shift.restart_service_via_launchd",
+            return_value=(True, ""),
+        )
+    )
     with (
         patch(
             "scripts.run_proof_first_shift.reconcile_proof_first_queue",
@@ -28,7 +41,7 @@ def _run_shift_cycle(
             "scripts.run_proof_first_shift.process_running",
             side_effect=process_running_side_effect,
         ),
-        patch("scripts.run_proof_first_shift.kickstart_launchd"),
+        restart_patch,
         patch("scripts.run_proof_first_shift.run_merge_arbiter_apply", return_value={"merged": []}),
         patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=latest_run),
         patch(
@@ -109,6 +122,21 @@ def test_classify_benchmark_failure_log_detects_auth_and_publication_failures() 
     assert mod.classify_benchmark_failure_log("unknown shell failure") == "other_failure"
 
 
+def test_kickstart_launchd_returns_timeout_detail_instead_of_raising() -> None:
+    with patch(
+        "scripts.run_proof_first_shift.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(
+            cmd=["launchctl", "kickstart", "gui/501/com.aragora.swarm-boss-loop"],
+            timeout=30,
+            stderr="launchctl timed out",
+        ),
+    ):
+        ok, detail = mod.kickstart_launchd("com.aragora.swarm-boss-loop")
+
+    assert ok is False
+    assert detail == "launchctl timed out"
+
+
 def test_run_shift_cycle_restores_restart_budget_after_healthy_cycle() -> None:
     state = mod.ProofFirstRuntimeState(boss_restart_count=1, merge_restart_count=1)
 
@@ -168,3 +196,17 @@ def test_run_shift_cycle_clears_failure_budget_after_successful_benchmark_run() 
     assert state.auth_failure_count == 1
     assert state.publication_failure_count == 0
     assert report["stop_reason"] == ""
+
+
+def test_run_shift_cycle_reports_restart_failure_instead_of_crashing() -> None:
+    state = mod.ProofFirstRuntimeState()
+
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[False, True],
+        restart_service_side_effect=[(False, "launchctl kickstart timed out for boss loop")],
+    )
+
+    assert state.boss_restart_count == 1
+    assert report["actions"] == ["restart_boss_loop_failed"]
+    assert report["stop_reason"] == "BossRestartFailed: launchctl kickstart timed out for boss loop"

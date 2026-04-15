@@ -32,6 +32,8 @@ DEFAULT_MAX_HOURS = 12.0
 DEFAULT_INTERVAL_SECONDS = 120
 DEFAULT_BOSS_LABEL = "com.aragora.swarm-boss-loop"
 DEFAULT_MERGE_LABEL = "com.aragora.swarm-merge-arbiter"
+DEFAULT_BOSS_PROCESS_PATTERN = r"aragora\.cli\.main swarm boss-loop|run_boss_cycle\.sh"
+DEFAULT_MERGE_PROCESS_PATTERN = r"aragora\.cli\.main swarm merge-arbiter"
 AUTOMATION_BRANCH_PREFIXES = (
     "codex/",
     "factory/",
@@ -300,19 +302,43 @@ def should_restart_service(
     return (not is_running) and pending_count > 0 and restart_count < restart_limit
 
 
-def kickstart_launchd(label: str) -> None:
+def kickstart_launchd(label: str) -> tuple[bool, str]:
     uid = os.getuid()
-    proc = subprocess.run(
-        ["launchctl", "kickstart", f"gui/{uid}/{label}"],
-        text=True,
-        capture_output=True,
-        timeout=30,
-        check=False,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(
-            proc.stderr.strip() or proc.stdout.strip() or f"launchctl kickstart failed for {label}"
+    try:
+        proc = subprocess.run(
+            ["launchctl", "kickstart", f"gui/{uid}/{label}"],
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=False,
         )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout.strip() if isinstance(exc.stdout, str) else ""
+        stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else ""
+        detail = stderr or stdout or f"launchctl kickstart timed out for {label}"
+        return False, detail
+    if proc.returncode != 0:
+        return (
+            False,
+            proc.stderr.strip() or proc.stdout.strip() or f"launchctl kickstart failed for {label}",
+        )
+    return True, ""
+
+
+def restart_service_via_launchd(
+    *,
+    label: str,
+    process_pattern: str,
+) -> tuple[bool, str]:
+    kicked, detail = kickstart_launchd(label)
+    if process_running(process_pattern):
+        return True, "" if kicked else detail
+    if kicked:
+        return (
+            False,
+            f"launchctl kickstart returned success for {label}, but process pattern {process_pattern!r} is still not running",
+        )
+    return False, detail
 
 
 def run_merge_arbiter_apply(
@@ -367,8 +393,8 @@ def run_shift_cycle(
     open_pr_count = len(prs)
     canonical_queue_count = len(queue_report["kept"])
 
-    boss_running = process_running(r"aragora\.cli\.main swarm boss-loop")
-    merge_running = process_running(r"aragora\.cli\.main swarm merge-arbiter")
+    boss_running = process_running(DEFAULT_BOSS_PROCESS_PATTERN)
+    merge_running = process_running(DEFAULT_MERGE_PROCESS_PATTERN)
 
     if boss_running:
         runtime_state.boss_restart_count = 0
@@ -376,23 +402,42 @@ def run_shift_cycle(
         runtime_state.merge_restart_count = 0
 
     actions: list[str] = []
+    service_failures: list[str] = []
     if should_restart_service(
         is_running=boss_running,
         pending_count=canonical_queue_count,
         restart_count=runtime_state.boss_restart_count,
     ):
-        kickstart_launchd(DEFAULT_BOSS_LABEL)
+        restarted, detail = restart_service_via_launchd(
+            label=DEFAULT_BOSS_LABEL,
+            process_pattern=DEFAULT_BOSS_PROCESS_PATTERN,
+        )
         runtime_state.boss_restart_count += 1
-        actions.append("restart_boss_loop")
+        if restarted:
+            actions.append("restart_boss_loop")
+        else:
+            actions.append("restart_boss_loop_failed")
+            service_failures.append(
+                f"BossRestartFailed: {detail or 'boss loop restart did not produce a running process'}"
+            )
 
     if should_restart_service(
         is_running=merge_running,
         pending_count=open_pr_count,
         restart_count=runtime_state.merge_restart_count,
     ):
-        kickstart_launchd(DEFAULT_MERGE_LABEL)
+        restarted, detail = restart_service_via_launchd(
+            label=DEFAULT_MERGE_LABEL,
+            process_pattern=DEFAULT_MERGE_PROCESS_PATTERN,
+        )
         runtime_state.merge_restart_count += 1
-        actions.append("restart_merge_arbiter")
+        if restarted:
+            actions.append("restart_merge_arbiter")
+        else:
+            actions.append("restart_merge_arbiter_failed")
+            service_failures.append(
+                f"MergeArbiterRestartFailed: {detail or 'merge arbiter restart did not produce a running process'}"
+            )
 
     merge_report = run_merge_arbiter_apply(
         repo_root=repo_root,
@@ -443,6 +488,8 @@ def run_shift_cycle(
         stop_reason = "RepeatedAuthFailure: benchmark publication failed auth twice"
     elif runtime_state.publication_failure_count >= 2:
         stop_reason = "RepeatedPublicationFailure: benchmark publication failed PR handoff twice"
+    elif service_failures:
+        stop_reason = service_failures[0]
 
     return {
         "queue_report": queue_report,
