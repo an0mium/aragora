@@ -48,15 +48,10 @@ jobs:
             exit 1
           fi
 
-      - name: Setup Python
-        uses: ./.github/actions/setup-python-safe
-        with:
-          python-version: "3.11"
-
       - name: Ensure local toolchain on PATH
         shell: bash
         run: |
-          # Self-hosted Mac runners have tools via Homebrew and pyenv
+          # Must run BEFORE setup-python so its fallback finds pyenv python3.11
           for dir in /opt/homebrew/bin "$HOME/.pyenv/shims"; do
             if [[ -d "$dir" ]]; then
               echo "$dir" >> "$GITHUB_PATH"
@@ -66,6 +61,11 @@ jobs:
           python3 --version
           node --version || true
           npm --version || true
+
+      - name: Setup Python
+        uses: ./.github/actions/setup-python-safe
+        with:
+          python-version: "3.11"
 
       - name: Install dependencies
         shell: bash
