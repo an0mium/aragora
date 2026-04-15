@@ -22,11 +22,9 @@ def _benchmark_truth_publication_run() -> str:
     raise AssertionError("Verify runtime prerequisites step not found")
 
 
-def test_runtime_prereq_recovers_repo_local_metrics_from_runner_paths() -> None:
+def test_runtime_prereq_creates_metrics_dir_and_allows_fresh_recurrence() -> None:
     run = _benchmark_truth_publication_run()
     assert 'METRICS_PATH=".aragora/overnight/boss_metrics.jsonl"' in run
-    assert '"$HOME/.aragora/overnight/boss_metrics.jsonl"' in run
-    assert '".aragora/boss_metrics.jsonl"' in run
-    assert '"$HOME/.aragora/boss_metrics.jsonl"' in run
-    assert 'cp "$candidate" "$METRICS_PATH"' in run
-    assert 'test -f "$METRICS_PATH"' in run
+    assert 'mkdir -p "$(dirname "$METRICS_PATH")"' in run
+    assert "recurrence will generate a fresh window" in run
+    assert 'test -f "$METRICS_PATH"' not in run
