@@ -53,15 +53,19 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Ensure pyenv Python on PATH
+      - name: Ensure local toolchain on PATH
         shell: bash
         run: |
-          # Self-hosted Mac runners use pyenv; ensure shims are on PATH
-          if [[ -d "$HOME/.pyenv/shims" ]]; then
-            export PATH="$HOME/.pyenv/shims:$PATH"
-            echo "$HOME/.pyenv/shims" >> "$GITHUB_PATH"
-          fi
+          # Self-hosted Mac runners have tools via Homebrew and pyenv
+          for dir in /opt/homebrew/bin "$HOME/.pyenv/shims"; do
+            if [[ -d "$dir" ]]; then
+              echo "$dir" >> "$GITHUB_PATH"
+              export PATH="$dir:$PATH"
+            fi
+          done
           python3 --version
+          node --version || true
+          npm --version || true
 
       - name: Install dependencies
         shell: bash
