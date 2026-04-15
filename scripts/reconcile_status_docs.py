@@ -573,11 +573,32 @@ def _closed_current_execution_epic_findings() -> list[dict]:
     if not closed_epics:
         return findings
 
+    completed_context_markers = (
+        "completed",
+        "closed",
+        "foundation",
+        "foundational",
+        "historical",
+        "already completed",
+    )
     for path, label in CURRENT_EXECUTION_EPIC_DOCS:
         if not path.exists():
             continue
         content = path.read_text(encoding="utf-8", errors="replace")
-        referenced = [epic for epic in closed_epics if f"/issues/{int(epic['number'])}" in content]
+        referenced: list[dict] = []
+        lines = content.splitlines()
+        for epic in closed_epics:
+            issue_token = f"/issues/{int(epic['number'])}"
+            epic_lines = [line for line in lines if issue_token in line]
+            if not epic_lines:
+                continue
+            if any(
+                marker in line.lower()
+                for line in epic_lines
+                for marker in completed_context_markers
+            ):
+                continue
+            referenced.append(epic)
         if not referenced:
             continue
         refs = ", ".join(
