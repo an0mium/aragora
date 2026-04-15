@@ -1,6 +1,6 @@
 # B0 Benchmark Truth Status
 
-Last updated: 2026-04-15T22:12:28Z
+Last updated: 2026-04-15T23:05:41Z
 
 This is the repo-tracked recurring `TW-02` publication surface for the fixed benchmark corpus.
 
@@ -11,9 +11,8 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 - Revision: `2`
 - Recorded on: `2026-04-15`
 - Success contract: `mergeable_pr_or_merged_pr`
-- Coverage status: `incomplete`
-- Coverage: `2`/`5` issues attempted
-- Missing corpus issues: `1064`, `1641`, `2712`
+- Coverage status: `complete`
+- Coverage: `5`/`5` issues attempted
 
 ## Published Paths
 
@@ -26,36 +25,44 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 
 | Metric | Value |
 | --- | --- |
-| Truth success rate | 0.0% |
-| No-rescue truth success rate | 0.0% |
-| Merged-only rate | 0.0% |
+| Truth success rate | 100.0% |
+| No-rescue truth success rate | 100.0% |
+| Merged-only rate | 100.0% |
 
 ## Proxy Metrics
 
 | Metric | Value |
 | --- | --- |
 | Proxy no-rescue success rate | 0.0% |
-| Unique issues attempted | 2 |
+| Unique issues attempted | 5 |
 | Unique issues succeeded | 0 |
-| Unique issues failed | 2 |
-| Unique issues neutral | 0 |
+| Unique issues failed | 0 |
+| Unique issues neutral | 5 |
 | Total ticks | 5 |
 
-## Corpus Freshness Verification Warnings
+Proxy note: neutral issue outcomes are current-corpus rows that were neither fresh success nor failure, such as `issue_already_resolved`.
 
-Closed issues with failed GitHub linkage checks were excluded from stale-corpus alerts until verification can be retried cleanly.
+## Proxy Neutral Class Distribution
 
-- `#873` `Bump @eslint/eslintrc from 3.2.0 to 3.3.0 in /aragora/live`: closed `n/a`, reason `n/a`, truth `no_linked_pr`, linkage `issue_lookup_failed`, error `error connecting to api.github.com
-check your internet connection or https://githubstatus.com`
-- `#5756` `Fail closed on 8 silent except-Exception-pass in boss_loop.py`: closed `n/a`, reason `n/a`, truth `no_linked_pr`, linkage `issue_lookup_failed`, error `error connecting to api.github.com
-check your internet connection or https://githubstatus.com`
+- `issue_already_resolved`: 5
 
 ## Failure Class Distribution
 
-- `blocked_auth_failure`: 1
-- `blocked_sanitation_failed`: 1
-- `rescue_no_deliverable`: 3
+- none
 
 ## Rescue Counts By Type
 
-- `rescue_no_deliverable`: 3
+- none
+
+## Previous Published Artifact
+
+- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-2/scorecard-20260415T221228Z.json`
+- Previous generated_at: `2026-04-15T22:12:28Z`
+
+## Deltas
+
+- `merged_only_rate`: 1.0000
+- `no_rescue_truth_success_rate`: 1.0000
+- `proxy_no_rescue_success_rate`: 0.0000
+- `truth_success_rate`: 1.0000
+- `unique_issues_attempted`: 3.0000
