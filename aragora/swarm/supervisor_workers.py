@@ -1221,6 +1221,10 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                 pid=item.get("pid"),
                 initial_head=str(item.get("initial_head", "")),
                 auto_commit=self.launcher.config.auto_commit,
+                admin_approved=WorkerLauncher._is_admin_approved(
+                    item,
+                    WorkerLauncher._metadata_dict(item),
+                ),
                 expected_tests=[
                     str(test).strip()
                     for test in item.get("expected_tests", [])
@@ -1320,6 +1324,10 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                         pid=item.get("pid"),
                         initial_head=str(item.get("initial_head", "")),
                         auto_commit=self.launcher.config.auto_commit,
+                        admin_approved=WorkerLauncher._is_admin_approved(
+                            item,
+                            WorkerLauncher._metadata_dict(item),
+                        ),
                         expected_tests=[
                             str(test).strip()
                             for test in item.get("expected_tests", [])
@@ -1394,6 +1402,10 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                         pid=item.get("pid"),
                         initial_head=str(item.get("initial_head", "")),
                         auto_commit=self.launcher.config.auto_commit,
+                        admin_approved=WorkerLauncher._is_admin_approved(
+                            item,
+                            WorkerLauncher._metadata_dict(item),
+                        ),
                         expected_tests=[
                             str(test).strip()
                             for test in item.get("expected_tests", [])

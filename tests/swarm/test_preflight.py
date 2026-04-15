@@ -455,6 +455,12 @@ def test_run_preflight_rejects_emitted_contract_drift(monkeypatch, tmp_path: Pat
     assert cleanup_commands[0][:4] == ["git", "worktree", "remove", "--force"]
 
 
+def test_build_worker_runtime_env_marks_admin_approved_lanes() -> None:
+    env = build_worker_runtime_env(agent="codex", base_env={}, admin_approved=True)
+
+    assert env["ARAGORA_ADMIN_APPROVED"] == "1"
+
+
 def test_contract_preflight_work_order_roundtrips_empty_lineage(tmp_path: Path) -> None:
     contract_payload = _worker(branch="preflight/20260414-empty-lineage").worker_contract
     contract_payload["mission_id"] = ""

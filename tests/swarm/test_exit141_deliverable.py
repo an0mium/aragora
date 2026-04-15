@@ -350,6 +350,7 @@ class TestUntrackedFileDetection:
             "pid": 99999,
             "session_id": "test-untracked-detached",
             "agent": "codex",
+            "admin_approved": True,
             "started_at": "2026-03-10T05:00:00Z",
             "ended_at": "2026-03-10T05:01:00Z",
             "exit_code": 0,

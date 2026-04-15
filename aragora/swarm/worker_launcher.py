@@ -79,6 +79,7 @@ def build_worker_runtime_env(
     worker_env_overrides: Mapping[str, str] | None = None,
     claude_profile: str | None = None,
     base_env: Mapping[str, str] | None = None,
+    admin_approved: bool = False,
 ) -> dict[str, str]:
     """Build the worker runtime environment used for contract emission.
 
@@ -96,6 +97,8 @@ def build_worker_runtime_env(
         effective_profile = str(claude_profile or "").strip()
         if effective_profile and "ARAGORA_CLAUDE_PROFILE" not in overrides:
             overrides["ARAGORA_CLAUDE_PROFILE"] = effective_profile
+    if admin_approved and "ARAGORA_ADMIN_APPROVED" not in overrides:
+        overrides["ARAGORA_ADMIN_APPROVED"] = "1"
 
     worker_env = dict(base_env or os.environ)
     _strip_github_tokens(worker_env)
@@ -182,6 +185,7 @@ class WorkerLauncher:
             agent=agent,
             worker_env_overrides=raw_worker_env,
             claude_profile=profile_override or self.config.claude_profile,
+            admin_approved=admin_approved,
         )
 
         contract = build_worker_contract(
@@ -1428,6 +1432,7 @@ class WorkerLauncher:
         initial_head: str = "",
         auto_commit: bool = True,
         expected_tests: list[str] | None = None,
+        admin_approved: bool = False,
         allow_session_meta_pid_fallback: bool = True,
         preserve_incomplete_artifacts: bool = True,
     ) -> WorkerProcess | None:
@@ -1464,6 +1469,10 @@ class WorkerLauncher:
         ):
             return None
 
+        recovered_admin_approved = admin_approved or (
+            cls._strict_bool(session_meta.get("admin_approved")) is True
+        )
+
         worker = WorkerProcess(
             work_order_id=work_order_id,
             agent=agent,
@@ -1471,6 +1480,7 @@ class WorkerLauncher:
             branch=branch,
             pid=observed_pid,
             initial_head=initial_head,
+            admin_approved=recovered_admin_approved,
             expected_tests=[
                 str(item).strip() for item in expected_tests or [] if str(item).strip()
             ],

@@ -213,6 +213,7 @@ META_FILE="${META_FILE}" \
 WORKTREE_PATH="${WORKTREE_PATH}" \
 BRANCH_NAME="${BRANCH_NAME}" \
 AGENT="${AGENT}" \
+ADMIN_APPROVED="${ARAGORA_ADMIN_APPROVED:-0}" \
 SHELL_PID="$$" \
 SESSION_ID="${SESSION_ID}" \
 LOG_FILE="${LOG_FILE}" \
@@ -233,6 +234,7 @@ meta = {
     "branch": os.environ["BRANCH_NAME"],
     "worktree_path": os.environ["WORKTREE_PATH"],
     "log_path": os.environ["LOG_FILE"],
+    "admin_approved": os.environ.get("ADMIN_APPROVED", "").strip() == "1",
     "mode": os.environ["SESSION_MODE"],
     "orchestrator": os.environ["ORCHESTRATOR"],
     "command": os.environ["SESSION_COMMAND"],
