@@ -10,7 +10,7 @@ This is the single source of truth for short-horizon execution priorities.
 
 ## Current Gate
 
-The current gate is to keep `TW-01/TW-02/TW-03` recurring and boring on current `main`, and keep `CS-01..03` narrower than measured proof before expanding the `B2` guard across the safest execution classes. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop, not adding new roadmap scope.
+The immediate gate is keeping recurring benchmark truth publication complete, fresh, and trustworthy on current `main`, then keeping `CS-01..03` narrower than measured proof before expanding the `B2` guard across the safest execution classes. The execution epics [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), and [#806](https://github.com/synaptent/aragora/issues/806) are now closed; the current obligation is operationalizing the proof-first loop, not adding new roadmap scope.
 
 What is already true:
 
@@ -19,7 +19,7 @@ What is already true:
 - bounded product wedges such as prompt-to-spec and inbox workflows exist
 - the approved reliability substrate spec identifies the missing layer clearly
 - terminal-truth taxonomy, benchmark fixtures, and the benchmark scoring lane are now on `main`
-- the latest published B0 surface is **80.0%** truth success and **80.0%** no-rescue truth success on the tracked corpus, with one pending corpus-freshness alert to clear on the next publication
+- the recurring B0 benchmark truth surface is repo-tracked at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`; operator decisions should read the live published surface there instead of hardcoding percentages in this document
 - `WorkerContract` and `CredentialEnvelope` primitives exist on the live swarm path
 - launcher-side contract admission, dispatch gating, and module-level contract-aware preflight are on `main`
 - receipt-backed preflight is now the default operator and live dispatch admission truth on `main` via [#5514](https://github.com/synaptent/aragora/pull/5514)
@@ -36,10 +36,13 @@ What is already true:
 - repo-tracked recurring rescue productization now lands in `docs/status/generated/rescue_productization/`, with the stable status summary at `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`
 - the recurring `TW-03` harvest can now relink repeated rescue classes to tracked fixture/issue targets and auto-create bounded follow-on issues when a repeated class is still unlinked
 - proof-first runtime truth is now persisted in `ShiftLedger` on `main` via [#5857](https://github.com/synaptent/aragora/pull/5857)
+- proof-first shifts now fail closed after repeated recovery failures for the implemented failure classes via [#5867](https://github.com/synaptent/aragora/pull/5867)
+- `swarm status`, FastAPI swarm-status routes, and `studio-health.sh` now prefer ledger-backed operator truth on `main` via [#5861](https://github.com/synaptent/aragora/pull/5861) and [#5868](https://github.com/synaptent/aragora/pull/5868)
 
 What is still missing:
 
 - proof that the B2 guard holds under repeated bounded runs instead of one-off success stories
+- proof that recurring benchmark publication stays complete and fresh on `main` without operator babysitting
 - broader repair-loop coverage on top of the existing audit trail
 - lower-rescue unattended operation on bounded backlogs
 - ongoing discipline so external claims stay narrower than the recurring proof surfaces
@@ -60,7 +63,7 @@ The 30-day target is intentionally narrow:
 - **100%** of failures land in truthful canonical buckets
 - repeated rescue classes become explicit product work
 
-Current status: the latest published B0 surface is at **80.0%** truth success and **80.0%** no-rescue truth success as of 2026-04-15, and the latest published `TW-03` surface shows zero repeated rescue classes. The benchmark target is no longer the blocker; recurring truth publication, stale-corpus cleanup through the normal publication loop, and proof-first operator discipline are the remaining near-term gates.
+Current status: `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md` are the live recurring proof surfaces. When benchmark publication drifts, lags, or lands incomplete corpus coverage, restoring that publication becomes the immediate gate again before any scope widening.
 
 Primary truth metric:
 
@@ -105,7 +108,7 @@ Scorecard output rules:
 ### Current state
 
 - Terminal-truth taxonomy, benchmark fixtures, and the benchmark scoring lane are on `main`.
-- The latest published B0 surface is at **80.0%** truth success and **80.0%** no-rescue truth success as of 2026-04-15.
+- The latest recurring benchmark status must be read from `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`, not copied into this document as a hardcoded percentage.
 - The frozen corpus manifest now lives at `docs/benchmarks/corpus.json`.
 - The diffable truth artifact path is `scripts/build_benchmark_truth_artifact.py`, with GitHub-truth reconciliation provided by `scripts/reconcile_b0_pr_truth.py`.
 - The stable recurring status surface is `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`, backed by the latest JSON pointers under `docs/status/generated/benchmark_truth_artifacts/` and `docs/status/generated/benchmark_scorecards/`.
@@ -126,8 +129,8 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 ### Delay
 
-- `BC-07..09` until the repair loop is truthful and resumable
-- `RS-11..12` until the operator-surface guard is real
+- `BC-07..09` until the repair loop is truthful, resumable, and consolidated into one operator model
+- `RS-11..12` until recovery-budget coverage extends to the remaining failure classes and the remaining status/reporter surfaces are ledger-backed
 - `TW-07..09` until the bounded execution wedge is boringly reliable
 - `UDW-01..06` except for thin read-only queue, receipt, lineage, replay, retry, pause, resume, and override views backed by live runtime truth
 - `MCF-01..03` until the wedge needs permissioned memory to improve bounded execution instead of broad retrieval ambition
@@ -153,7 +156,7 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 ### Booster 0 — Corpus
 
-Build the fixed benchmark corpus, enrich worker context, and record rescues honestly. This booster is already above target, so the remaining work is to keep it truthful while the guard layers catch up.
+Build the fixed benchmark corpus, enrich worker context, and record rescues honestly. This booster only counts as above target while the recurring B0 surface stays complete and fresh on current `main`; if publication drifts, restoring that surface takes priority over scope widening.
 
 ### Booster 1 — Assist
 

@@ -32,6 +32,7 @@ Operational runbooks for responding to Aragora alerts and incidents.
 | Redis Failover | [redis-failover.md](./redis-failover.md) | Redis HA and recovery procedures |
 | Multi-Region | [RUNBOOK_MULTI_REGION_SETUP.md](./RUNBOOK_MULTI_REGION_SETUP.md) | Multi-region deployment and failover |
 | Fleet Coordination | [RUNBOOK_FLEET_COORDINATION.md](./RUNBOOK_FLEET_COORDINATION.md) | Multi-agent worktree ownership and merge queue policy |
+| Proof-First tmux Operator | [RUNBOOK_PROOF_FIRST_TMUX_OPERATOR.md](./RUNBOOK_PROOF_FIRST_TMUX_OPERATOR.md) | Conductor-led tmux coordination for benchmark/docs/monitor lanes without replacing the unattended proof-first shift |
 
 ## Incident Severity Levels
 

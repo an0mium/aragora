@@ -36,7 +36,7 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 | **B3 — Repair** | Productize retry, salvage, quarantine, and session reuse | `BC-01..03`, `RS-10..12` |
 | **B4 — Multi** | Extend proven loops across hosts with truthful state | `BC-07..12`, `UDW-01..03` |
 
-Status note: the latest published B0 surface is at 80.0% truth success and 80.0% no-rescue truth success as of 2026-04-15, while the latest published `TW-03` surface has 0 repeated rescue classes. The remaining near-term gate is keeping the recurring truth/productization surfaces boring, clearing stale corpus alerts through the normal publication loop, and keeping claims narrower than proof.
+Status note: use `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md` as the live recurring proof surfaces instead of hardcoded percentages here. When the B0 surface is stale, incomplete, or otherwise untrustworthy, restoring benchmark publication completeness becomes the immediate gate again.
 
 ## Current 30-Day Execution Set
 
@@ -74,8 +74,8 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 ### Milestone 1.4 — Ledger & Self-Heal `[90d]`
 
 - [x] **RS-10** Mirror probes, queue state, contracts, and receipts into `AutonomyLedger` _(Done 2026-04-15 via [#5857](https://github.com/synaptent/aragora/pull/5857))_
-- [ ] **RS-11** Add quarantine and fallback rules for auth drift, rate limits, permission mismatch, and publication failures
-- [ ] **RS-12** Cut `studio-health`, reporter, and status surfaces to ledger-backed truth
+- [ ] **RS-11** Add quarantine and fallback rules for auth drift, rate limits, permission mismatch, and publication failures _(Partial 2026-04-15: one-shot recovery budgets and fail-closed handling landed for auth drift, GitHub outage, publication failure, and boss/merge restart failures via [#5867](https://github.com/synaptent/aragora/pull/5867); rate-limit and permission-mismatch coverage still need explicit policy.)_
+- [ ] **RS-12** Cut `studio-health`, reporter, and status surfaces to ledger-backed truth _(Partial 2026-04-15: `swarm status`, FastAPI swarm-status routes, and `studio-health.sh` now prefer ledger-backed truth via [#5861](https://github.com/synaptent/aragora/pull/5861) and [#5868](https://github.com/synaptent/aragora/pull/5868); reporter and remaining status surfaces are still incomplete.)_
 
 ## Epic 2 — Bounded Autonomy Control Plane
 
@@ -103,7 +103,7 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 
 - [ ] **BC-10** Run repeated multi-host soak tests on the bounded backlog
 - [ ] **BC-11** Route Nomic-generated work through the same substrate as operator work
-- [ ] **BC-12** Define explicit stop/go criteria for unattended 12-hour runs
+- [ ] **BC-12** Define explicit stop/go criteria for unattended 12-hour runs _(Partial 2026-04-15: proof-first shifts now emit machine-readable `green_shift_evaluation` via [#5867](https://github.com/synaptent/aragora/pull/5867), but the 12-hour unattended gate is not yet proven by repeated green runs.)_
 
 ## Epic 3 — Trust-Wedge Product Loops
 
