@@ -57,7 +57,22 @@ jobs:
         shell: bash
         run: |
           command -v gh >/dev/null
-          test -f .aragora/overnight/boss_metrics.jsonl
+          METRICS_PATH=".aragora/overnight/boss_metrics.jsonl"
+          if [[ ! -f "$METRICS_PATH" ]]; then
+            for candidate in \
+              "$HOME/.aragora/overnight/boss_metrics.jsonl" \
+              ".aragora/boss_metrics.jsonl" \
+              "$HOME/.aragora/boss_metrics.jsonl"
+            do
+              if [[ -f "$candidate" ]]; then
+                mkdir -p "$(dirname "$METRICS_PATH")"
+                cp "$candidate" "$METRICS_PATH"
+                echo "::notice::Seeded repo-local benchmark metrics from $candidate"
+                break
+              fi
+            done
+          fi
+          test -f "$METRICS_PATH"
 
       - name: Refresh recurring benchmark corpus metrics
         env:
