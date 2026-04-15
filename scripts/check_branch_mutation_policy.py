@@ -132,11 +132,20 @@ def find_mutating_workflow_violations(workflows: dict[str, str]) -> list[Violati
                         message="must not be triggered by pull_request/pull_request_target",
                     )
                 )
-            if "git push origin HEAD:main" not in text:
+            if not re.search(r'branch="benchmark-truth-publication/', text):
                 violations.append(
                     Violation(
                         path=f".github/workflows/{name}",
-                        message="must push only to main via HEAD:main",
+                        message=(
+                            "must push only to benchmark-truth-publication/* branch namespace"
+                        ),
+                    )
+                )
+            if "gh pr create" not in text:
+                violations.append(
+                    Violation(
+                        path=f".github/workflows/{name}",
+                        message="must open a pull request instead of pushing directly to main",
                     )
                 )
     return violations

@@ -8,7 +8,7 @@ on:
 permissions:
   contents: write
   issues: read
-  pull-requests: read
+  pull-requests: write
 
 concurrency:
   group: benchmark-truth-publication
@@ -259,8 +259,9 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           cat docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Commit and push refreshed trust-loop surfaces
+      - name: Commit and open PR for refreshed trust-loop surfaces
         env:
+          GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           git config user.name "github-actions[bot]"
@@ -278,5 +279,27 @@ jobs:
             exit 0
           fi
 
-          git commit -m "docs(status): refresh recurring trust-loop surfaces [skip ci]"
-          git push origin HEAD:main
+          branch="benchmark-truth-publication/${GITHUB_RUN_ID}"
+          title="docs(status): refresh recurring trust-loop surfaces"
+          body_file="$RUNNER_TEMP/benchmark-truth-publication-pr.md"
+
+          cat > "$body_file" <<EOF
+          ## Summary
+
+          Automated refresh of recurring trust-loop benchmark and rescue status surfaces.
+
+          - updates benchmark truth artifacts and scorecards
+          - updates rescue productization outputs
+          - refreshes the rendered status pages
+
+          Source workflow run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+
+          git checkout -b "$branch"
+          git commit -m "${title} [skip ci]"
+          git push origin "$branch"
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "$title" \
+            --body-file "$body_file"

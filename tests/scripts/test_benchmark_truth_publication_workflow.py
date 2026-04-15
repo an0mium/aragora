@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 
 
-def _benchmark_truth_publication_run() -> str:
+def _benchmark_truth_publication_workflow() -> dict[str, object]:
     workflow_path = (
         Path(__file__).resolve().parents[2]
         / ".github"
@@ -13,6 +13,13 @@ def _benchmark_truth_publication_run() -> str:
         / "benchmark-truth-publication.yml"
     )
     workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    if not isinstance(workflow, dict):
+        raise AssertionError("benchmark-truth-publication workflow not found")
+    return workflow
+
+
+def _benchmark_truth_publication_run() -> str:
+    workflow = _benchmark_truth_publication_workflow()
     jobs = workflow.get("jobs", {})
     publish_job = jobs.get("publish-benchmark-truth", {})
     steps = publish_job.get("steps", [])
@@ -23,13 +30,7 @@ def _benchmark_truth_publication_run() -> str:
 
 
 def _benchmark_truth_publication_steps() -> list[dict[str, object]]:
-    workflow_path = (
-        Path(__file__).resolve().parents[2]
-        / ".github"
-        / "workflows"
-        / "benchmark-truth-publication.yml"
-    )
-    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    workflow = _benchmark_truth_publication_workflow()
     jobs = workflow.get("jobs", {})
     publish_job = jobs.get("publish-benchmark-truth", {})
     steps = publish_job.get("steps", [])
@@ -60,7 +61,8 @@ def test_installs_dependencies_before_recurrence() -> None:
     recurrence_index = names.index("Refresh recurring benchmark corpus metrics")
     assert install_index < recurrence_index
     install_run = str(steps[install_index].get("run", ""))
-    assert 'python -m pip install -e ".[dev]" --quiet' in install_run
+    assert "python3 -m pip install --upgrade pip setuptools --quiet" in install_run
+    assert 'python3 -m pip install -e ".[dev]" --quiet' in install_run
 
 
 def test_installs_github_cli_before_runtime_prerequisites() -> None:
@@ -134,3 +136,23 @@ def test_refreshes_execution_verified_codex_runner_before_recurrence() -> None:
     assert "routing blocked_reason=" in run
     assert 'payload.get("routing_after") or {}' in run
     assert "No execution-verified Codex runner selected after refresh." in run
+
+
+def test_publishes_refresh_via_pr_branch_instead_of_direct_main_push() -> None:
+    workflow = _benchmark_truth_publication_workflow()
+    permissions = workflow.get("permissions")
+    assert permissions == {
+        "contents": "write",
+        "issues": "read",
+        "pull-requests": "write",
+    }
+
+    run = str(_workflow_step("Commit and open PR for refreshed trust-loop surfaces").get("run", ""))
+    assert 'branch="benchmark-truth-publication/${GITHUB_RUN_ID}"' in run
+    assert 'git checkout -b "$branch"' in run
+    assert 'git push origin "$branch"' in run
+    assert "gh pr create \\" in run
+    assert "--base main \\" in run
+    assert '--head "$branch" \\' in run
+    assert '--body-file "$body_file"' in run
+    assert "git push origin HEAD:main" not in run

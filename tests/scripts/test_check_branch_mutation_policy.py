@@ -43,7 +43,9 @@ def test_find_mutating_workflow_violations_requires_safe_benchmark_truth_publica
     workflows = {
         "benchmark-truth-publication.yml": (
             "on:\n  pull_request:\n  workflow_dispatch:\n"
-            "jobs:\n  x:\n    steps:\n      - run: git push origin HEAD:feature\n"
+            "jobs:\n  x:\n    steps:\n      - run: |\n"
+            '          branch="unsafe/tmp"\n'
+            '          git push origin "$branch"\n'
         ),
     }
     violations = find_mutating_workflow_violations(workflows)
@@ -51,7 +53,14 @@ def test_find_mutating_workflow_violations_requires_safe_benchmark_truth_publica
     assert any(
         "must not be triggered by pull_request/pull_request_target" in v.message for v in violations
     )
-    assert any("must push only to main via HEAD:main" in v.message for v in violations)
+    assert any(
+        "must push only to benchmark-truth-publication/* branch namespace" in v.message
+        for v in violations
+    )
+    assert any(
+        "must open a pull request instead of pushing directly to main" in v.message
+        for v in violations
+    )
 
 
 def test_repo_branch_mutation_policy_passes_for_current_tree() -> None:
