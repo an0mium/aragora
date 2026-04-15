@@ -40,7 +40,7 @@ from build_benchmark_truth_artifact import (
     load_corpus as load_benchmark_corpus,
     publish_artifact_bundle as publish_truth_artifact_bundle,
 )
-from reconcile_b0_pr_truth import resolve_metrics_path
+from reconcile_b0_pr_truth import GitHubTruthClient, resolve_metrics_path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_METRICS_PATH = Path(".aragora/overnight/boss_metrics.jsonl")
@@ -196,10 +196,12 @@ def auto_publish_truth_artifact(
     ensure_issues: bool = False,
     dry_run: bool = False,
 ) -> tuple[Path, dict[str, Any]]:
+    truth_client = GitHubTruthClient()
     artifact = build_benchmark_truth_artifact(
         repo=repo,
         metrics_file=metrics_path,
         corpus_path=corpus_path,
+        client=truth_client,
         freshness_map_path=freshness_map_path,
     )
     if ensure_issues:
@@ -219,6 +221,7 @@ def auto_publish_truth_artifact(
             freshness_map_path=freshness_map_path,
             repo=repo,
             issue_linkage_results=issue_linkage_results,
+            client=truth_client,
         )
     published_path = publish_truth_artifact_bundle(
         publish_dir=truth_publish_dir,

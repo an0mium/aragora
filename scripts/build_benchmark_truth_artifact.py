@@ -238,11 +238,42 @@ def _normalize_stale_issue_numbers(values: Any) -> list[int]:
     return sorted(normalized)
 
 
+def _freshness_issue_target_number(*, target_kind: str, target: str) -> int | None:
+    if target_kind.strip().lower() != "issue":
+        return None
+    match = re.fullmatch(r"#(\d+)", target.strip())
+    if not match:
+        return None
+    issue_number = int(match.group(1))
+    return issue_number if issue_number > 0 else None
+
+
+def _freshness_entry_target_is_open(
+    *,
+    entry: dict[str, Any],
+    repo: str,
+    client: GitHubTruthClient | None,
+) -> bool:
+    target_kind = str(entry.get("target_kind") or "").strip() or "issue"
+    target = str(entry.get("target") or "").strip()
+    issue_number = _freshness_issue_target_number(target_kind=target_kind, target=target)
+    if target_kind.strip().lower() != "issue":
+        return True
+    if issue_number is None or client is None:
+        return False
+    try:
+        issue = client.get_issue(repo, issue_number)
+    except (RuntimeError, subprocess.TimeoutExpired, OSError, json.JSONDecodeError, KeyError):
+        return False
+    return str(issue.get("state") or "").strip().upper() == "OPEN"
+
+
 def _linked_corpus_freshness_entries(
     *,
     artifact: dict[str, Any],
     freshness_map_path: Path,
     repo: str,
+    client: GitHubTruthClient | None = None,
 ) -> list[dict[str, Any]]:
     corpus = dict(artifact.get("corpus") or {})
     corpus_id = str(corpus.get("corpus_id") or "").strip()
@@ -271,6 +302,8 @@ def _linked_corpus_freshness_entries(
         )
         if entry_stale_issue_numbers != stale_issue_numbers:
             continue
+        if not _freshness_entry_target_is_open(entry=entry, repo=repo, client=client):
+            continue
         linked_entries.append(
             {
                 "corpus_id": corpus_id,
@@ -295,6 +328,7 @@ def build_corpus_freshness_issue_drafts(
     artifact: dict[str, Any],
     freshness_map_path: Path,
     repo: str,
+    client: GitHubTruthClient | None = None,
 ) -> list[dict[str, Any]]:
     corpus = dict(artifact.get("corpus") or {})
     corpus_id = str(corpus.get("corpus_id") or "").strip()
@@ -310,6 +344,7 @@ def build_corpus_freshness_issue_drafts(
         artifact=artifact,
         freshness_map_path=freshness_map_path,
         repo=repo,
+        client=client,
     ):
         return []
 
@@ -576,16 +611,19 @@ def attach_corpus_freshness_follow_up(
     freshness_map_path: Path,
     repo: str,
     issue_linkage_results: list[dict[str, Any]] | None = None,
+    client: GitHubTruthClient | None = None,
 ) -> dict[str, Any]:
     linked_issues = _linked_corpus_freshness_entries(
         artifact=artifact,
         freshness_map_path=freshness_map_path,
         repo=repo,
+        client=client,
     )
     issue_drafts = build_corpus_freshness_issue_drafts(
         artifact=artifact,
         freshness_map_path=freshness_map_path,
         repo=repo,
+        client=client,
     )
     corpus_freshness = dict(artifact.get("corpus_freshness") or {})
     corpus_freshness.update(
@@ -774,6 +812,7 @@ def build_benchmark_truth_artifact(
             artifact=artifact,
             freshness_map_path=freshness_map_path,
             repo=repo,
+            client=truth_client,
         )
     return artifact
 
@@ -857,10 +896,12 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"metrics file not found: {metrics_file}")
     if not corpus_path.exists():
         raise SystemExit(f"corpus file not found: {corpus_path}")
+    truth_client = GitHubTruthClient()
     artifact = build_benchmark_truth_artifact(
         repo=str(args.repo),
         metrics_file=metrics_file,
         corpus_path=corpus_path,
+        client=truth_client,
         freshness_map_path=args.freshness_map.resolve(),
     )
     if args.ensure_issues:
@@ -880,6 +921,7 @@ def main(argv: list[str] | None = None) -> int:
             freshness_map_path=args.freshness_map.resolve(),
             repo=str(args.repo),
             issue_linkage_results=issue_linkage_results,
+            client=truth_client,
         )
     publish_dir: Path | None = None
     if args.publish_dir is not None:
