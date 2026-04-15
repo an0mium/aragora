@@ -96,6 +96,7 @@ jobs:
         run: |
           RUNNER_USER="${ARAGORA_USER_ID:-${USER:-$(id -un)}}"
           RUNNER_HOME="$(python3 -c 'import os, pathlib, pwd, sys; user = sys.argv[1].strip() if len(sys.argv) > 1 else ""; print(pwd.getpwnam(user).pw_dir if user and user in {entry.pw_name for entry in pwd.getpwall()} else pathlib.Path.home())' "$RUNNER_USER")"
+          mkdir -p "$RUNNER_HOME/.codex" "$RUNNER_HOME/.aragora"
           echo "HOME=$RUNNER_HOME" >> "$GITHUB_ENV"
           echo "CODEX_HOME=$RUNNER_HOME/.codex" >> "$GITHUB_ENV"
           echo "ARAGORA_RUNNER_REGISTRY_PATH=$RUNNER_HOME/.aragora/swarm_runners.json" >> "$GITHUB_ENV"
@@ -115,12 +116,59 @@ jobs:
 
           payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
           summary = payload.get("summary") or {}
-          if int(summary.get("passed", 0) or 0) < 1:
-              raise SystemExit(
-                  "No Codex runner probe passed during benchmark publication setup."
-              )
-
+          runners = [item for item in payload.get("runners", []) if isinstance(item, dict)]
           routing = payload.get("routing_after") or {}
+
+          def _snapshot(item):
+              return {
+                  "runner_id": item.get("runner_id"),
+                  "runner_type": item.get("runner_type"),
+                  "auth_mode": item.get("auth_mode"),
+                  "status_summary": item.get("status_summary"),
+                  "probe_status": item.get("probe_status"),
+                  "probe_detail": item.get("probe_detail"),
+                  "next_action": item.get("next_action"),
+              }
+
+          diagnostic = {
+              "summary": summary,
+              "routing_after": {
+                  "blocked_reason": routing.get("blocked_reason"),
+                  "selected_runner_ids": routing.get("selected_runner_ids"),
+                  "next_action": routing.get("next_action"),
+              },
+              "runners": [_snapshot(item) for item in runners],
+              "discovered_runners": [
+                  _snapshot(item)
+                  for item in payload.get("discovered_runners", [])
+                  if isinstance(item, dict)
+              ],
+          }
+
+          failed_runner = next(
+              (
+                  item
+                  for item in runners
+                  if str(item.get("probe_status", "")).strip() == "failed"
+              ),
+              None,
+          )
+          failure_parts = ["No Codex runner probe passed during benchmark publication setup."]
+          if failed_runner:
+              probe_detail = str(failed_runner.get("probe_detail") or "").strip()
+              next_action = str(failed_runner.get("next_action") or "").strip()
+              if probe_detail:
+                  failure_parts.append(probe_detail)
+              if next_action and next_action not in failure_parts:
+                  failure_parts.append(next_action)
+          blocked_reason = str(routing.get("blocked_reason") or "").strip()
+          if blocked_reason:
+              failure_parts.append(f"routing blocked_reason={blocked_reason}")
+
+          if int(summary.get("passed", 0) or 0) < 1:
+              print(json.dumps(diagnostic, indent=2))
+              raise SystemExit(" ".join(part for part in failure_parts if part))
+
           selected = [
               item
               for item in routing.get("selected_runners", [])
@@ -133,6 +181,7 @@ jobs:
               and str(item.get("probe_status", "")).strip() == "passed"
           ]
           if not verified:
+              print(json.dumps(diagnostic, indent=2))
               raise SystemExit(
                   "No execution-verified Codex runner selected after refresh."
               )

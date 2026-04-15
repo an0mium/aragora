@@ -87,6 +87,7 @@ def test_resolves_codex_auth_paths_before_runner_refresh() -> None:
     assert 'RUNNER_HOME="$(python3 -c' in run
     assert "pwd.getpwnam" in run
     assert "pwd.getpwall" in run
+    assert 'mkdir -p "$RUNNER_HOME/.codex" "$RUNNER_HOME/.aragora"' in run
     assert 'echo "HOME=$RUNNER_HOME" >> "$GITHUB_ENV"' in run
     assert 'echo "CODEX_HOME=$RUNNER_HOME/.codex" >> "$GITHUB_ENV"' in run
     assert (
@@ -107,5 +108,8 @@ def test_refreshes_execution_verified_codex_runner_before_recurrence() -> None:
     assert "--runner-type codex" in run
     assert "--probe-limit 1" in run
     assert 'RUNNER_REPORT="$RUNNER_TEMP/codex-runner-maintain.json"' in run
+    assert "failed_runner = next(" in run
+    assert "print(json.dumps(diagnostic, indent=2))" in run
+    assert "routing blocked_reason=" in run
     assert 'payload.get("routing_after") or {}' in run
     assert "No execution-verified Codex runner selected after refresh." in run
