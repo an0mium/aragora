@@ -23,7 +23,7 @@ The claims below are the current proof base, not the long-term ambition.
 | Area | Current truth | Why it matters |
 |---|---|---|
 | Guarded execution substrate | Boss, supervisor, tranche, contract, and preflight paths exist on the live swarm lane. | The system can decide when a run is admissible instead of blindly attempting work. |
-| Benchmark truth | A fixed benchmark corpus is checked into the repo, and the tracked B0 cohort is running at **86.7%** no-rescue success as of 2026-04-13. | Progress claims are tied to a measured cohort instead of anecdotes. |
+| Benchmark truth | A fixed benchmark corpus is checked into the repo, and the tracked B0 cohort is published live. **Live number lives in [docs/status/B0_BENCHMARK_TRUTH_STATUS.md](status/B0_BENCHMARK_TRUTH_STATUS.md)** — do not hardcode here (per this doc's own rule below that "external claims stay narrower than the measured proof"). | Progress claims are tied to a measured cohort instead of anecdotes. |
 | Truth artifacts | The repo has a diffable benchmark truth-artifact path, frozen-corpus binding on recurring scorecards, and GitHub-truth reconciliation scripts. | Weekly or recurring reporting can stay tied to issue-level truth instead of drifting with ad hoc samples. |
 | Repair loop progress | Resume-from-state, repair lifecycle persistence, rescue logging, and bounded recovery planning are on `main`. | Repeated failures can increasingly be resumed, diagnosed, and productized instead of re-run cold. |
 | Operator truth | Preflight receipts, blocker evidence, session-state work, recurring benchmark truth publication, and recurring rescue productization are on `main`. | This is the proof surface that turns an impressive demo into a boring reliable product lane. |

@@ -1,8 +1,9 @@
 # Aragora Feature Gap List
 
 > **Living document** — tracks features planned, partially built, or in need of hardening. Updated as items are completed or priorities shift.
-> Active execution status now lives in [docs/status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md) and the linked GitHub issues. This file remains the capability and productization backlog truth.
-> Last updated: March 24, 2026
+> **For current execution sequencing** (what to work on right now, what is gated, what is delayed), defer to [docs/status/NEXT_STEPS_CANONICAL.md](status/NEXT_STEPS_CANONICAL.md). Active execution status is tracked in [docs/status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md) and linked GitHub issues. **This file is the long-horizon capability and productization backlog** — the P0–P4 tiering expresses intended ordering, not dispatch readiness.
+> **For the unified finish-line vision and stage model**, see [docs/CANONICAL_GOALS.md](CANONICAL_GOALS.md). The Decision Integrity Core tranche (crux engine, executable claims, proof-carrying code) is gated on Foreman reliability per [docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md](plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md).
+> Last updated: April 16, 2026
 > March 2026 priority reframe: product cohesion and PMF proof come before certification. Pentest / SOC 2 stay tracked, but they are no longer the first blocker lane.
 
 ## How to Read This List

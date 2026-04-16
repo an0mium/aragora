@@ -14,7 +14,7 @@ receipts, provenance, and truthful gates.
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a deeper overview, see [Start Here](docs/START_HERE.md). For strategic framing, see [Competitive Positioning (March 2026)](docs/strategy/COMPETITIVE_POSITIONING_2026_03.md), [When To Use Aragora Vs Execution Substrates](docs/strategy/WHEN_TO_USE_ARAGORA_VS_EXECUTION_SUBSTRATES.md), and the [Terminology And Phrase Glossary](docs/strategy/TERMINOLOGY_GLOSSARY.md).
+**New here?** Start with the [Quickstart Guide](docs/quickstart.md) -- you'll have a working debate in under a minute. For a deeper overview, see [Start Here](docs/START_HERE.md). For strategic framing, see [Positioning And Messaging](docs/strategy/POSITIONING_AND_MESSAGING.md) (includes competitive positioning), [Boundaries And Scope](docs/strategy/BOUNDARIES_AND_SCOPE.md) (includes when-to-use-Aragora-vs-execution-substrates), and [Precision And Terms](docs/strategy/PRECISION_AND_TERMS.md) (includes the terminology glossary). The consolidation of earlier-dated strategy files is tracked in [STRATEGY_INDEX.md](docs/STRATEGY_INDEX.md).
 
 | I want to... | Install |
 |--------------|---------|
