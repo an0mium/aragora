@@ -39020,6 +39020,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inbox/wedge/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List inbox trust wedge receipts
+         * @description List receipt-backed inbox review decisions staged by the trust wedge.
+         */
+        get: operations["listInboxTrustWedgeReceipts"];
+        put?: never;
+        /**
+         * Create inbox trust wedge receipt
+         * @description Stage a receipt-gated inbox action for later review or execution.
+         */
+        post: operations["createInboxTrustWedgeReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/wedge/receipts/{receipt_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get inbox trust wedge receipt
+         * @description Fetch the stored receipt, debated action intent, and signed envelope.
+         */
+        get: operations["getInboxTrustWedgeReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/wedge/receipts/{receipt_id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute inbox trust wedge receipt
+         * @description Execute an approved inbox trust wedge receipt against the backing provider.
+         */
+        post: operations["executeInboxTrustWedgeReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/wedge/receipts/{receipt_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review inbox trust wedge receipt
+         * @description Approve, reject, edit, or skip a staged trust wedge receipt.
+         */
+        post: operations["reviewInboxTrustWedgeReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents": {
         parameters: {
             query?: never;
@@ -62375,6 +62459,133 @@ export interface components {
         };
         RoutingRuleTestRequest: {
             workspace_id: string;
+        };
+        InboxTrustWedgePersistedReceipt: {
+            receipt_id: string;
+            intent_hash: string;
+            signature: string;
+            signing_key_id: string;
+            /** @enum {string} */
+            state: "created" | "approved" | "executed" | "expired";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: date-time */
+            approved_at?: string | null;
+            /** Format: date-time */
+            executed_at?: string | null;
+            execution_count: number;
+            last_error?: string | null;
+            canonical_receipt_id?: string | null;
+        };
+        InboxTrustWedgeActionIntent: {
+            provider: string;
+            message_id: string;
+            /** @enum {string} */
+            action: "archive" | "star" | "label" | "ignore";
+            content_hash: string;
+            synthesized_rationale: string;
+            confidence: number;
+            provider_route: string;
+            debate_id?: string | null;
+            label_id?: string | null;
+            user_id?: string | null;
+            email_subject?: string;
+            email_from?: string;
+            email_snippet?: string;
+        };
+        InboxTrustWedgeTriageDecision: {
+            /** @enum {string} */
+            final_action: "archive" | "star" | "label" | "ignore";
+            confidence: number;
+            dissent_summary: string;
+            receipt_id?: string | null;
+            auto_approval_eligible: boolean;
+            receipt_state: string;
+            provider_route: string;
+            label_id?: string | null;
+            blocked_by_policy: boolean;
+            cost_usd?: number | null;
+            latency_seconds?: number | null;
+            execution_tier: string;
+            escalation_reasons: string[];
+            suppressed_diagnostics_count: number;
+            intent?: components["schemas"]["InboxTrustWedgeActionIntent"];
+        };
+        InboxTrustWedgeEnvelope: {
+            intent: components["schemas"]["InboxTrustWedgeActionIntent"];
+            decision: components["schemas"]["InboxTrustWedgeTriageDecision"];
+            receipt: components["schemas"]["InboxTrustWedgePersistedReceipt"];
+            signed_receipt: {
+                [key: string]: unknown;
+            };
+            provider_route: string;
+            debate_id?: string | null;
+            review_choice?: string | null;
+            execution_result?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        InboxTrustWedgeReceiptListResponse: {
+            receipts: components["schemas"]["InboxTrustWedgeEnvelope"][];
+            count: number;
+            requested_by?: string | null;
+        };
+        InboxTrustWedgeActionResponse: {
+            message_id: string;
+            action: string;
+            success: boolean;
+            receipt: components["schemas"]["InboxTrustWedgePersistedReceipt"];
+            intent: components["schemas"]["InboxTrustWedgeActionIntent"];
+            decision: components["schemas"]["InboxTrustWedgeTriageDecision"];
+            provider_route: string;
+            debate_id?: string | null;
+            requires_approval: boolean;
+            executed: boolean;
+            execution_result?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        InboxTrustWedgeCreateReceiptRequest: {
+            /** @default gmail */
+            provider: string;
+            user_id?: string;
+            message_id: string;
+            /** @enum {string} */
+            action: "archive" | "star" | "label" | "ignore";
+            content_hash?: string;
+            subject?: string;
+            snippet?: string;
+            body?: string;
+            preview?: string;
+            message_text?: string;
+            synthesized_rationale?: string;
+            rationale?: string;
+            reason?: string;
+            confidence?: number;
+            debate_confidence?: number;
+            provider_route?: string;
+            debate_id?: string;
+            label_id?: string;
+            labels?: string[];
+            blocked_by_policy?: boolean;
+            cost_usd?: number;
+            latency_seconds?: number;
+            expires_in_hours?: number;
+            auto_approve?: boolean;
+            auto_execute?: boolean;
+        };
+        InboxTrustWedgeReviewRequest: {
+            /** @enum {string} */
+            choice: "approve" | "reject" | "edit" | "skip";
+            /** @enum {string} */
+            action?: "archive" | "star" | "label" | "ignore";
+            synthesized_rationale?: string;
+            rationale?: string;
+            label_id?: string;
+            labels?: string[];
+            execute?: boolean;
         };
         /** @description Memory system statistics */
         MemoryStats: {
@@ -138426,6 +138637,434 @@ export interface operations {
                         data?: Record<string, never>;
                         success?: boolean;
                     };
+                };
+            };
+        };
+    };
+    listInboxTrustWedgeReceipts: {
+        parameters: {
+            query?: {
+                /** @description Filter receipts by lifecycle state. */
+                state?: "created" | "approved" | "executed" | "expired";
+                /** @description Maximum receipts to return. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trust wedge receipt list */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxTrustWedgeReceiptListResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createInboxTrustWedgeReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InboxTrustWedgeCreateReceiptRequest"];
+            };
+        };
+        responses: {
+            /** @description Trust wedge receipt staged */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxTrustWedgeActionResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getInboxTrustWedgeReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier of the receipt */
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trust wedge receipt */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxTrustWedgeEnvelope"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    executeInboxTrustWedgeReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier of the receipt */
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trust wedge receipt executed */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxTrustWedgeActionResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    reviewInboxTrustWedgeReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique identifier of the receipt */
+                receipt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InboxTrustWedgeReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Trust wedge receipt reviewed */
+            200: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxTrustWedgeActionResponse"];
+                };
+            };
+            /** @description Bad request - Invalid input or malformed JSON */
+            400: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unauthorized - Authentication required or token invalid */
+            401: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden - Insufficient permissions for this operation */
+            403: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not found - The requested resource does not exist */
+            404: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error - Unexpected error occurred */
+            500: {
+                headers: {
+                    /** @description Unique request identifier for tracing and debugging */
+                    "X-Request-ID"?: string;
+                    /** @description Server processing time in milliseconds */
+                    "X-Response-Time"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
