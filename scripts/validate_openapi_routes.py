@@ -110,6 +110,12 @@ def get_handler_routes() -> set[str]:
                 if isinstance(method_routes, (list, tuple)):
                     routes.update(method_routes)
 
+        dynamic_routes = getattr(handler_class, "DYNAMIC_ROUTES", None)
+        if isinstance(dynamic_routes, dict):
+            routes.update(route for route in dynamic_routes if isinstance(route, str))
+        elif isinstance(dynamic_routes, (list, tuple, set)):
+            routes.update(route for route in dynamic_routes if isinstance(route, str))
+
         # Collect decorator-backed OpenAPI metadata for handlers that rely on
         # @api_endpoint instead of legacy ROUTES constants.
         for attr_name in dir(handler_class):

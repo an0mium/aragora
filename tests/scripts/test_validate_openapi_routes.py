@@ -122,6 +122,43 @@ def test_get_handler_routes_includes_api_endpoint_metadata(monkeypatch):
     assert "/api/v1/coordination/fleet/status" in routes
 
 
+def test_get_handler_routes_includes_dynamic_routes(monkeypatch):
+    class DummyHandler:
+        DYNAMIC_ROUTES = {
+            "GET /api/v1/code-review/results/{result_id}": object(),
+            "/api/v1/accounting/invoices/{invoice_id}": ["GET"],
+        }
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    routes = validate_openapi_routes.get_handler_routes()
+
+    assert "GET /api/v1/code-review/results/{result_id}" in routes
+    assert "/api/v1/accounting/invoices/{invoice_id}" in routes
+
+
+def test_validate_coverage_reports_dynamic_routes_missing_from_spec(monkeypatch):
+    class DummyHandler:
+        DYNAMIC_ROUTES = {
+            "GET /api/v1/code-review/results/{result_id}": object(),
+        }
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+    monkeypatch.setattr(validate_openapi_routes, "get_openapi_routes", lambda _spec: set())
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        fail_on_missing=False,
+        output_json=False,
+        baseline_path=None,
+        include_internal=True,
+    )
+
+    assert "/api/v1/code-review/results/{param}" in results["missing_in_spec"]
+
+
 def test_validate_coverage_treats_decorator_routes_as_implemented(monkeypatch, tmp_path: Path):
     endpoint = types.SimpleNamespace(path="/api/v1/coordination/swarm/integrator")
 
