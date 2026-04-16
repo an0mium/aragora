@@ -139,6 +139,26 @@ def _json_default(value: Any) -> Any:
     return str(value)
 
 
+def _loads_receipt_json(
+    value: Any,
+    *,
+    receipt_id: str,
+    field_name: str,
+    context: str,
+) -> Any:
+    try:
+        return json.loads(value or "{}")
+    except (json.JSONDecodeError, TypeError):
+        logger.debug(
+            "Ignoring malformed inbox trust wedge %s while building %s for receipt %s",
+            field_name,
+            context,
+            receipt_id,
+            exc_info=True,
+        )
+        return {}
+
+
 def _canonical_json(payload: dict[str, Any]) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), default=_json_default)
 
@@ -1161,16 +1181,18 @@ class InboxTrustWedgeStore:
             ).fetchall()
         result: list[dict[str, Any]] = []
         for row in rows:
-            intent = {}
-            decision = {}
-            try:
-                intent = json.loads(row["intent_json"] or "{}")
-            except (json.JSONDecodeError, TypeError):
-                pass
-            try:
-                decision = json.loads(row["decision_json"] or "{}")
-            except (json.JSONDecodeError, TypeError):
-                pass
+            intent = _loads_receipt_json(
+                row["intent_json"],
+                receipt_id=row["receipt_id"],
+                field_name="intent_json",
+                context="review queue",
+            )
+            decision = _loads_receipt_json(
+                row["decision_json"],
+                receipt_id=row["receipt_id"],
+                field_name="decision_json",
+                context="review queue",
+            )
             result.append(
                 {
                     "receipt_id": row["receipt_id"],
@@ -1218,16 +1240,18 @@ class InboxTrustWedgeStore:
             by_action[action] = by_action.get(action, 0) + 1
             by_state[state] = by_state.get(state, 0) + 1
 
-            intent = {}
-            decision = {}
-            try:
-                intent = json.loads(row["intent_json"] or "{}")
-            except (json.JSONDecodeError, TypeError):
-                pass
-            try:
-                decision = json.loads(row["decision_json"] or "{}")
-            except (json.JSONDecodeError, TypeError):
-                pass
+            intent = _loads_receipt_json(
+                row["intent_json"],
+                receipt_id=row["receipt_id"],
+                field_name="intent_json",
+                context="digest data",
+            )
+            decision = _loads_receipt_json(
+                row["decision_json"],
+                receipt_id=row["receipt_id"],
+                field_name="decision_json",
+                context="digest data",
+            )
 
             sender = intent.get("_sender", "")
             domain = sender.split("@")[-1] if "@" in sender else sender
