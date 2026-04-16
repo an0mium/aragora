@@ -163,3 +163,34 @@ def test_reconcile_proof_first_queue_reports_github_unavailable_without_crashing
         "operation": "list_open_queue_issues",
         "error": "error connecting to api.github.com\ncheck your internet connection",
     }
+
+
+def test_reconcile_proof_first_queue_treats_graphql_quota_as_github_unavailable(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        mod,
+        "list_open_queue_issues",
+        lambda **kwargs: (_ for _ in ()).throw(
+            RuntimeError("GraphQL: API rate limit already exceeded for user ID 123")
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "load_status_reconciliation_report",
+        lambda **kwargs: {"summary": {"critical": 0, "warning": 0, "info": 0}, "findings": []},
+    )
+
+    report = mod.reconcile_proof_first_queue(
+        repo="org/repo",
+        repo_root=Path("/tmp/repo"),
+        apply=True,
+    )
+
+    assert report["kept"] == []
+    assert report["removed"] == []
+    assert report["github_status"] == {
+        "available": False,
+        "operation": "list_open_queue_issues",
+        "error": "GraphQL: API rate limit already exceeded for user ID 123",
+    }

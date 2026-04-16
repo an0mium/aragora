@@ -16,6 +16,7 @@ from fnmatch import fnmatch
 from typing import Any
 
 from aragora.swarm.boss_validation import assess_issue_body_sanitation
+from aragora.swarm.github_app_auth import github_cli_env
 
 logger = logging.getLogger(__name__)
 _SCOPE_ROOT_PREFIXES = (
@@ -173,6 +174,7 @@ class GitHubIssueFeed:
                 capture_output=True,
                 timeout=30,
                 check=False,
+                env=github_cli_env(),
             )
         except (FileNotFoundError, OSError, subprocess.TimeoutExpired) as exc:
             logger.warning("gh issue list failed: %s", exc)
@@ -233,6 +235,7 @@ class GitHubIssueFeed:
                 capture_output=True,
                 timeout=30,
                 check=False,
+                env=github_cli_env(),
             )
         except (FileNotFoundError, OSError, subprocess.TimeoutExpired) as exc:
             logger.warning("gh issue view failed: %s", exc)

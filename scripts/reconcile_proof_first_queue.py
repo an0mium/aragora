@@ -13,6 +13,7 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from aragora.swarm.github_app_auth import github_cli_env  # noqa: E402
 from aragora.swarm.proof_first_queue import classify_proof_first_queue_issue  # noqa: E402
 
 DEFAULT_REPO = "synaptent/aragora"
@@ -21,6 +22,9 @@ DEFAULT_DOCS_ISSUE_TITLE = "[CS-01..03] Reconcile docs/status surfaces to curren
 GITHUB_CONNECTIVITY_ERROR_TOKENS = (
     "error connecting to api.github.com",
     "could not resolve host: github.com",
+    "api rate limit already exceeded",
+    "graphql: api rate limit",
+    "secondary rate limit",
 )
 
 
@@ -50,6 +54,7 @@ def list_open_queue_issues(*, repo: str, label: str) -> list[dict[str, Any]]:
         text=True,
         timeout=30,
         check=False,
+        env=github_cli_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue list failed")
@@ -75,6 +80,7 @@ def remove_queue_label(*, repo: str, issue_number: int, label: str) -> None:
         text=True,
         timeout=30,
         check=False,
+        env=github_cli_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue edit failed")
@@ -165,6 +171,7 @@ def find_existing_open_issue_by_title(*, repo: str, title: str) -> dict[str, Any
         text=True,
         timeout=30,
         check=False,
+        env=github_cli_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue list failed")
@@ -189,6 +196,7 @@ def create_issue(*, repo: str, title: str, body: str, labels: list[str]) -> dict
         text=True,
         timeout=30,
         check=False,
+        env=github_cli_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue create failed")

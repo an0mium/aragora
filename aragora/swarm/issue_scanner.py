@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.github_app_auth import github_cli_env
 from aragora.swarm.outcome_learner import load_category_success_rates
 from aragora.swarm.terminal_truth import classify_from_metrics
 
@@ -117,6 +118,7 @@ def _fetch_issue_titles(
                 capture_output=True,
                 text=True,
                 timeout=20,
+                env=github_cli_env(),
             )
         except (OSError, subprocess.TimeoutExpired):
             return {}
