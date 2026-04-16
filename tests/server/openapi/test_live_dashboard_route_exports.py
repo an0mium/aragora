@@ -43,6 +43,21 @@ def test_live_dashboard_routes_appear_in_generated_openapi() -> None:
     assert "/api/v1/feedback-hub/history" in paths
 
 
+def test_agent_evolution_action_routes_use_declared_methods() -> None:
+    schema = generate_openapi_schema()
+    paths = schema["paths"]
+
+    assert _operation_methods(paths["/api/v1/agent-evolution/timeline"]) == {"get"}
+    assert _operation_methods(paths["/api/v1/agent-evolution/elo-trends"]) == {"get"}
+    assert _operation_methods(paths["/api/v1/agent-evolution/pending"]) == {"get"}
+    assert _operation_methods(paths["/api/v1/agent-evolution/pending/{change_id}/approve"]) == {
+        "post"
+    }
+    assert _operation_methods(paths["/api/v1/agent-evolution/pending/{change_id}/reject"]) == {
+        "post"
+    }
+
+
 def test_decision_analytics_routes_use_handler_metadata_not_placeholders() -> None:
     schema = generate_openapi_schema()
     paths = schema["paths"]

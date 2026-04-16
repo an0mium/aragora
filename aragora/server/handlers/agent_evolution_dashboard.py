@@ -254,6 +254,13 @@ class AgentEvolutionDashboardHandler(SecureHandler):
         "/api/v1/agent-evolution/pending/{change_id}/approve",
         "/api/v1/agent-evolution/pending/{change_id}/reject",
     ]
+    _ROUTE_MAP = {
+        "GET /api/v1/agent-evolution/timeline": "_handle_timeline",
+        "GET /api/v1/agent-evolution/elo-trends": "_handle_elo_trends",
+        "GET /api/v1/agent-evolution/pending": "_handle_pending",
+        "POST /api/v1/agent-evolution/pending/{change_id}/approve": "_handle_approve",
+        "POST /api/v1/agent-evolution/pending/{change_id}/reject": "_handle_reject",
+    }
 
     def can_handle(self, path: str) -> bool:
         """Check if this handler can process the given path."""
