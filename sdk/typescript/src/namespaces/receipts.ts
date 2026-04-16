@@ -201,6 +201,53 @@ export class ReceiptsAPI {
   }
 
   /**
+   * List recent receipt delivery attempts.
+   *
+   * @param params - Optional filters and pagination
+   * @returns Receipt delivery history
+   */
+  async listDeliveries(params?: {
+    limit?: number;
+    offset?: number;
+    receiptId?: string;
+    channelType?: string;
+    status?: string;
+  }): Promise<Record<string, unknown>> {
+    const queryParams: Record<string, unknown> = {
+      limit: params?.limit ?? 50,
+      offset: params?.offset ?? 0,
+    };
+    if (params?.receiptId) queryParams.receipt_id = params.receiptId;
+    if (params?.channelType) queryParams.channel_type = params.channelType;
+    if (params?.status) queryParams.status = params.status;
+    return this.client.request('GET', '/api/v1/receipts/deliveries', {
+      params: queryParams,
+    });
+  }
+
+  /**
+   * List recently anchored receipt hashes.
+   *
+   * @param params - Optional limit
+   * @returns Recent anchor records
+   */
+  async listRecentAnchors(params?: { limit?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/receipts/recent-anchors', {
+      params: { limit: params?.limit ?? 10 },
+    });
+  }
+
+  /**
+   * Get blockchain anchor status for a receipt.
+   *
+   * @param receiptId - Receipt identifier
+   * @returns Anchor verification status
+   */
+  async getAnchorStatus(receiptId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/receipts/${encodeURIComponent(receiptId)}/anchor-status`);
+  }
+
+  /**
    * Share a receipt (generate shareable link or send to recipients).
    *
    * @param receiptId - Receipt identifier
