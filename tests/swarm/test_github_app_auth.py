@@ -29,6 +29,45 @@ def test_load_github_app_config_reads_automation_env_file(tmp_path) -> None:
     assert config.private_key_source == str(key_path)
 
 
+def test_load_github_app_config_reads_multiline_private_key(tmp_path) -> None:
+    env_path = tmp_path / ".env.automation"
+    env_path.write_text(
+        "\n".join(
+            [
+                "GITHUB_APP_ID=123",
+                "GITHUB_APP_INSTALLATION_ID=456",
+                'GITHUB_APP_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----',
+                "key-body",
+                '-----END RSA PRIVATE KEY-----"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = mod.load_github_app_config({"ARAGORA_AUTOMATION_ENV_FILE": str(env_path)})
+
+    assert config is not None
+    assert config.private_key == (
+        "-----BEGIN RSA PRIVATE KEY-----\nkey-body\n-----END RSA PRIVATE KEY-----"
+    )
+
+
+def test_load_github_app_config_decodes_escaped_newline_private_key() -> None:
+    config = mod.load_github_app_config(
+        {
+            "ARAGORA_AUTOMATION_ENV_FILE": "/missing",
+            "GITHUB_APP_ID": "123",
+            "GITHUB_APP_INSTALLATION_ID": "456",
+            "GITHUB_APP_PRIVATE_KEY": "-----BEGIN RSA PRIVATE KEY-----\\nkey-body\\n-----END RSA PRIVATE KEY-----",
+        }
+    )
+
+    assert config is not None
+    assert config.private_key == (
+        "-----BEGIN RSA PRIVATE KEY-----\nkey-body\n-----END RSA PRIVATE KEY-----"
+    )
+
+
 def test_github_cli_env_prefers_installation_token(monkeypatch, tmp_path) -> None:
     mod.clear_github_app_token_cache()
     key_path = tmp_path / "app.pem"

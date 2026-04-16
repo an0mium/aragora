@@ -25,15 +25,27 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! gh auth status >/dev/null 2>&1; then
-  echo "$(STAMP) [codex-automation-publisher] gh auth unavailable; skipping publish pass"
-  exit 0
+if ! git fetch --no-write-fetch-head --prune origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1; then
+  echo "$(STAMP) [codex-automation-publisher] origin refresh failed; continuing with cached refs"
 fi
 
 echo "$(STAMP) [codex-automation-publisher] starting handoff publish pass"
-python3 scripts/publish_automation_handoffs.py --apply --limit 1 --max-open-issues 12 --json
-echo "$(STAMP) [codex-automation-publisher] handoff publish pass complete"
+if python3 scripts/publish_automation_handoffs.py --apply --limit 1 --max-open-issues 12 --json; then
+  echo "$(STAMP) [codex-automation-publisher] handoff publish pass complete"
+else
+  echo "$(STAMP) [codex-automation-publisher] handoff publish pass failed; continuing"
+fi
 
 echo "$(STAMP) [codex-automation-publisher] starting branch publish pass"
-python3 scripts/publish_codex_automation_branches.py --apply --limit 1 --max-open-prs 1 --json
+if python3 scripts/publish_codex_automation_branches.py \
+  --base origin/main \
+  --apply \
+  --limit 1 \
+  --max-open-prs 1 \
+  --json; then
+  echo "$(STAMP) [codex-automation-publisher] branch publish pass complete"
+else
+  echo "$(STAMP) [codex-automation-publisher] branch publish pass failed"
+fi
+
 echo "$(STAMP) [codex-automation-publisher] publish pass complete"

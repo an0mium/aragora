@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -22,6 +23,9 @@ UTC = timezone.utc
 DEFAULT_SINCE_HOURS = 72
 DEFAULT_PUBLISH_LIMIT = 1
 DEFAULT_MAX_OPEN_PRS = 1
+DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
+DEFAULT_GIT_TIMEOUT_SECONDS = 15
+DEFAULT_SCAN_LIMIT = 12
 CODEX_BRANCH_PREFIX = "codex/"
 DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
 ACTIVE_SESSION_FILES = (
@@ -29,6 +33,17 @@ ACTIVE_SESSION_FILES = (
     ".codex_session_active",
     ".nomic-session-active",
 )
+
+try:
+    from aragora.swarm.github_app_auth import github_cli_env
+except Exception:  # pragma: no cover - fallback for partially bootstrapped script contexts
+
+    def github_cli_env(
+        base_env: dict[str, str] | None = None,
+        *,
+        prefer_app: bool = True,
+    ) -> dict[str, str]:
+        return dict(os.environ if base_env is None else base_env)
 
 
 @dataclass(frozen=True)
@@ -69,13 +84,25 @@ def _run(
     cwd: Path,
     check: bool = False,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        args,
-        cwd=cwd,
-        text=True,
-        capture_output=True,
-        check=check,
+    env = github_cli_env(os.environ) if args and args[0] == "gh" else None
+    timeout = (
+        DEFAULT_COMMAND_TIMEOUT_SECONDS if args and args[0] == "gh" else DEFAULT_GIT_TIMEOUT_SECONDS
     )
+    try:
+        return subprocess.run(
+            args,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=check,
+            timeout=timeout,
+            env=env,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+        message = stderr or f"command timed out after {timeout}s: {' '.join(args)}"
+        return subprocess.CompletedProcess(args=args, returncode=124, stdout=stdout, stderr=message)
 
 
 def _parse_git_dt(value: str) -> datetime:
@@ -109,6 +136,14 @@ def _branch_unique_commit_count(repo_root: Path, base: str, branch: str) -> int:
 def _branch_is_merged(repo_root: Path, base: str, branch: str) -> bool:
     proc = _run(["git", "merge-base", "--is-ancestor", branch, base], cwd=repo_root)
     return proc.returncode == 0
+
+
+def _branch_patch_equivalent_to_base(repo_root: Path, base: str, branch: str) -> bool:
+    proc = _run(["git", "cherry", base, branch], cwd=repo_root)
+    if proc.returncode != 0:
+        return False
+    statuses = [line[:1] for line in proc.stdout.splitlines() if line.strip()]
+    return bool(statuses) and all(status == "-" for status in statuses)
 
 
 def _local_codex_branches(repo_root: Path) -> list[BranchSnapshot]:
@@ -155,7 +190,11 @@ def _worktree_is_dirty(path: Path) -> bool:
     return bool(proc.stdout.strip())
 
 
-def _list_worktrees(repo_root: Path) -> list[WorktreeSnapshot]:
+def _list_worktrees(
+    repo_root: Path,
+    *,
+    branch_filter: set[str] | None = None,
+) -> list[WorktreeSnapshot]:
     proc = _run(["git", "worktree", "list", "--porcelain"], cwd=repo_root)
     if proc.returncode != 0:
         raise RuntimeError(proc.stderr.strip() or "failed to list worktrees")
@@ -167,6 +206,8 @@ def _list_worktrees(repo_root: Path) -> list[WorktreeSnapshot]:
 
     def flush() -> None:
         if current_path is None:
+            return
+        if branch_filter is not None and current_branch not in branch_filter:
             return
         snapshots.append(
             WorktreeSnapshot(
@@ -264,6 +305,7 @@ def select_publishable_branches(
     cutoff: datetime,
     base: str,
     is_merged: dict[str, bool] | None = None,
+    is_patch_equivalent: dict[str, bool] | None = None,
     historical_pr_branches: set[str] | None = None,
 ) -> list[PublishDecision]:
     worktrees_by_branch: dict[str, list[WorktreeSnapshot]] = {}
@@ -272,6 +314,7 @@ def select_publishable_branches(
             worktrees_by_branch.setdefault(worktree.branch, []).append(worktree)
 
     merged_lookup = is_merged or {}
+    patch_equivalent_lookup = is_patch_equivalent or {}
     historical_lookup = historical_pr_branches or set()
     decisions: list[PublishDecision] = []
 
@@ -281,6 +324,8 @@ def select_publishable_branches(
 
         if merged_lookup.get(branch.branch, False):
             reason = "already_merged"
+        elif patch_equivalent_lookup.get(branch.branch, False):
+            reason = "patch_equivalent_to_base"
         elif branch.unique_commit_count <= 0:
             reason = "no_unique_commits"
         elif branch.committed_at < cutoff:
@@ -512,6 +557,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Restrict evaluation to one or more explicit branch names",
     )
     parser.add_argument(
+        "--scan-limit",
+        type=int,
+        default=DEFAULT_SCAN_LIMIT,
+        help="Maximum recent local codex branches to inspect when --branch is not provided.",
+    )
+    parser.add_argument(
         "--label",
         action="append",
         dest="labels",
@@ -555,10 +606,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.branches:
         requested = set(args.branches)
         branches = [branch for branch in branches if branch.branch in requested]
+    else:
+        branches = sorted(
+            [branch for branch in branches if branch.committed_at >= cutoff],
+            key=lambda branch: branch.committed_at,
+            reverse=True,
+        )[: max(args.scan_limit, 0)]
 
-    worktrees = _list_worktrees(repo_root)
+    branch_names = {branch.branch for branch in branches}
+    worktrees = _list_worktrees(repo_root, branch_filter=branch_names)
     merged_lookup = {
         branch.branch: _branch_is_merged(repo_root, args.base, branch.branch) for branch in branches
+    }
+    patch_equivalent_lookup = {
+        branch.branch: _branch_patch_equivalent_to_base(repo_root, args.base, branch.branch)
+        for branch in branches
+        if not merged_lookup.get(branch.branch, False)
     }
     hydrated_branches = [
         BranchSnapshot(
@@ -585,6 +648,7 @@ def main(argv: list[str] | None = None) -> int:
         cutoff=cutoff,
         base=args.base,
         is_merged=merged_lookup,
+        is_patch_equivalent=patch_equivalent_lookup,
         historical_pr_branches=historical_pr_branches,
     )
 

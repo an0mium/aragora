@@ -70,6 +70,7 @@ def test_parser_defaults_to_single_branch_publish_budget() -> None:
 
     assert args.limit == 1
     assert args.max_open_prs == 1
+    assert args.scan_limit == mod.DEFAULT_SCAN_LIMIT
     assert args.skip_preflight is False
     assert args.preflight_script == mod.DEFAULT_PREFLIGHT_SCRIPT
 
@@ -80,6 +81,7 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
             _branch("codex/already-open"),
             _branch("codex/old", hours_ago=200),
             _branch("codex/merged"),
+            _branch("codex/cherry-picked"),
             _branch("codex/no-unique", unique_commit_count=0),
         ],
         [],
@@ -90,8 +92,10 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
             "codex/already-open": False,
             "codex/old": False,
             "codex/merged": True,
+            "codex/cherry-picked": False,
             "codex/no-unique": False,
         },
+        is_patch_equivalent={"codex/cherry-picked": True},
         historical_pr_branches=set(),
     )
 
@@ -99,6 +103,7 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
     assert by_branch["codex/already-open"].reason == "open_pr_exists"
     assert by_branch["codex/old"].reason == "older_than_cutoff"
     assert by_branch["codex/merged"].reason == "already_merged"
+    assert by_branch["codex/cherry-picked"].reason == "patch_equivalent_to_base"
     assert by_branch["codex/no-unique"].reason == "no_unique_commits"
 
 
@@ -200,6 +205,39 @@ def test_worktree_is_dirty_ignores_untracked_files(tmp_path: Path) -> None:
 
     tracked.write_text("changed\n", encoding="utf-8")
     assert _worktree_is_dirty(repo) is True
+
+
+def test_list_worktrees_filters_before_dirty_checks(monkeypatch: Any, tmp_path: Path) -> None:
+    payload = """
+worktree /tmp/codex-a
+HEAD abc123
+branch refs/heads/codex/a
+
+worktree /tmp/codex-b
+HEAD def456
+branch refs/heads/codex/b
+""".strip()
+    dirty_checked: list[str] = []
+
+    monkeypatch.setattr(
+        mod,
+        "_run",
+        lambda args, cwd, check=False: subprocess.CompletedProcess(
+            args=args, returncode=0, stdout=payload, stderr=""
+        ),
+    )
+    monkeypatch.setattr(mod, "_has_active_session", lambda path: False)
+
+    def fake_dirty(path: Path) -> bool:
+        dirty_checked.append(str(path))
+        return False
+
+    monkeypatch.setattr(mod, "_worktree_is_dirty", fake_dirty)
+
+    snapshots = mod._list_worktrees(tmp_path, branch_filter={"codex/b"})
+
+    assert [snapshot.branch for snapshot in snapshots] == ["codex/b"]
+    assert dirty_checked == [str(Path("/tmp/codex-b").resolve())]
 
 
 def test_publish_decisions_respects_open_pr_cap(monkeypatch: Any, tmp_path: Path) -> None:

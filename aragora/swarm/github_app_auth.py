@@ -38,15 +38,44 @@ def _read_env_file(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
     values: dict[str, str] = {}
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
+    lines = path.read_text(encoding="utf-8").splitlines()
+    index = 0
+    while index < len(lines):
+        raw_line = lines[index]
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
+            index += 1
             continue
         key, value = line.split("=", 1)
         key = key.strip()
-        value = value.strip().strip("'\"")
-        if key:
-            values[key] = value
+        value = value.strip()
+        if not key:
+            index += 1
+            continue
+
+        if value.startswith(("'", '"')):
+            quote = value[0]
+            value = value[1:]
+            if value.endswith(quote):
+                values[key] = value[:-1]
+                index += 1
+                continue
+
+            parts = [value]
+            index += 1
+            while index < len(lines):
+                next_line = lines[index]
+                if next_line.endswith(quote):
+                    parts.append(next_line[:-1])
+                    index += 1
+                    break
+                parts.append(next_line)
+                index += 1
+            values[key] = "\n".join(parts)
+            continue
+
+        values[key] = value
+        index += 1
     return values
 
 
@@ -70,6 +99,12 @@ def _automation_env_file(env: Mapping[str, str]) -> Path:
     return Path(configured).expanduser() if configured else DEFAULT_AUTOMATION_ENV_FILE
 
 
+def _normalize_private_key(value: str) -> str:
+    if "\\n" in value:
+        return value.replace("\\n", "\n")
+    return value
+
+
 def load_github_app_config(env: Mapping[str, str] | None = None) -> GitHubAppConfig | None:
     base_env = dict(os.environ if env is None else env)
     file_env = _read_env_file(_automation_env_file(base_env))
@@ -86,6 +121,8 @@ def load_github_app_config(env: Mapping[str, str] | None = None) -> GitHubAppCon
     )
     private_key = _first_value(values, ("GITHUB_APP_PRIVATE_KEY", "ARAGORA_GITHUB_APP_KEY"))
     private_key_source = "env:GITHUB_APP_PRIVATE_KEY" if private_key else ""
+    if private_key:
+        private_key = _normalize_private_key(private_key)
     if not private_key:
         key_path = _first_value(
             values,
