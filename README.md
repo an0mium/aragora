@@ -47,13 +47,39 @@ when AI-assisted work becomes consequential enough to require receipts, review,
 provenance, bounded delegation, and truthful stopping behavior.
 
 The explicit product non-goals are tracked in the
-[Non-Goals Ledger](docs/strategy/NON_GOALS_LEDGER.md). In practice that means:
+[Non-Goals Ledger](docs/strategy/BOUNDARIES_AND_SCOPE.md). In practice that means:
 
 - we do not try to win on raw agent breadth or generic orchestration alone
 - we do not sell lights-out autonomy as the default story
 - we do not replace execution substrates; we govern work that runs through them
 - we do not treat bigger swarms as a product goal unless they improve truthfulness
 - we do not advance work without evidence, review, and clear terminal states
+
+### Current Stage Vs Finish Line
+
+The long-horizon vision is deliberately ambitious — Aragora is being built toward
+an auditable operating system for consequential AI-assisted work across the full
+*idea → goal → plan → action → receipt* loop, with heterogeneous adversarial
+agents, calibrated trust, executable claims that can go stale and trigger bounded
+repair, and proof-carrying code units that fail closed when their evidence
+decays. The staged evolution — Tool → Teammate → Foreman → Chief of Staff →
+Organization Substrate — is laid out in
+[docs/CANONICAL_GOALS.md](docs/CANONICAL_GOALS.md) with the sequencing through
+narrow reliability wedges in
+[docs/plans/ARAGORA_EVOLUTION_ROADMAP.md](docs/plans/ARAGORA_EVOLUTION_ROADMAP.md).
+
+**What Aragora is *today* is narrower than that finish line, and deliberately so.**
+The current promise is a trustworthy control plane for bounded AI-assisted
+software execution — with receipts, review, and truthful stopping behavior.
+Current-stage commercial positioning lives in
+[docs/COMMERCIAL_OVERVIEW.md](docs/COMMERCIAL_OVERVIEW.md); near-term execution
+sequencing lives in
+[docs/status/NEXT_STEPS_CANONICAL.md](docs/status/NEXT_STEPS_CANONICAL.md). The
+Decision Integrity Core tranche — crux-finding, executable claims, proof-carrying
+code — is tracked in
+[docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md](docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md)
+and gated on Foreman reliability. Claims here should stay narrower than the
+measured proof; the long-term vision is earned stage by stage, not asserted.
 
 ## Try It Now
 
