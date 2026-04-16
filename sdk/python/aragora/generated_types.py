@@ -2141,6 +2141,152 @@ class RoutingRuleTestRequest(BaseModel):
     workspace_id: str
 
 
+class State(StrEnum):
+    created = "created"
+    approved = "approved"
+    executed = "executed"
+    expired = "expired"
+
+
+class InboxTrustWedgePersistedReceipt(BaseModel):
+    receipt_id: str
+    intent_hash: str
+    signature: str
+    signing_key_id: str
+    state: State
+    created_at: datetime
+    expires_at: datetime | None = None
+    approved_at: datetime | None = None
+    executed_at: datetime | None = None
+    execution_count: int
+    last_error: str | None = None
+    canonical_receipt_id: str | None = None
+
+
+class Action(StrEnum):
+    archive = "archive"
+    star = "star"
+    label = "label"
+    ignore = "ignore"
+
+
+class InboxTrustWedgeActionIntent(BaseModel):
+    provider: str
+    message_id: str
+    action: Action
+    content_hash: str
+    synthesized_rationale: str
+    confidence: float
+    provider_route: str
+    debate_id: str | None = None
+    label_id: str | None = None
+    user_id: str | None = None
+    email_subject: str | None = None
+    email_from: str | None = None
+    email_snippet: str | None = None
+
+
+class FinalAction(StrEnum):
+    archive = "archive"
+    star = "star"
+    label = "label"
+    ignore = "ignore"
+
+
+class InboxTrustWedgeTriageDecision(BaseModel):
+    final_action: FinalAction
+    confidence: float
+    dissent_summary: str
+    receipt_id: str | None = None
+    auto_approval_eligible: bool
+    receipt_state: str
+    provider_route: str
+    label_id: str | None = None
+    blocked_by_policy: bool
+    cost_usd: float | None = None
+    latency_seconds: float | None = None
+    execution_tier: str
+    escalation_reasons: list[str]
+    suppressed_diagnostics_count: int
+    intent: InboxTrustWedgeActionIntent | None = None
+
+
+class InboxTrustWedgeEnvelope(BaseModel):
+    intent: InboxTrustWedgeActionIntent
+    decision: InboxTrustWedgeTriageDecision
+    receipt: InboxTrustWedgePersistedReceipt
+    signed_receipt: dict[str, Any]
+    provider_route: str
+    debate_id: str | None = None
+    review_choice: str | None = None
+    execution_result: dict[str, Any] | None = None
+
+
+class InboxTrustWedgeReceiptListResponse(BaseModel):
+    receipts: list[InboxTrustWedgeEnvelope]
+    count: int
+    requested_by: str | None = None
+
+
+class InboxTrustWedgeActionResponse(BaseModel):
+    message_id: str
+    action: str
+    success: bool
+    receipt: InboxTrustWedgePersistedReceipt
+    intent: InboxTrustWedgeActionIntent
+    decision: InboxTrustWedgeTriageDecision
+    provider_route: str
+    debate_id: str | None = None
+    requires_approval: bool
+    executed: bool
+    execution_result: dict[str, Any] | None = None
+
+
+class InboxTrustWedgeCreateReceiptRequest(BaseModel):
+    provider: str | None = "gmail"
+    user_id: str | None = None
+    message_id: str
+    action: Action
+    content_hash: str | None = None
+    subject: str | None = None
+    snippet: str | None = None
+    body: str | None = None
+    preview: str | None = None
+    message_text: str | None = None
+    synthesized_rationale: str | None = None
+    rationale: str | None = None
+    reason: str | None = None
+    confidence: float | None = None
+    debate_confidence: float | None = None
+    provider_route: str | None = None
+    debate_id: str | None = None
+    label_id: str | None = None
+    labels: list[str] | None = None
+    blocked_by_policy: bool | None = None
+    cost_usd: float | None = None
+    latency_seconds: float | None = None
+    expires_in_hours: float | None = None
+    auto_approve: bool | None = None
+    auto_execute: bool | None = None
+
+
+class Choice(StrEnum):
+    approve = "approve"
+    reject = "reject"
+    edit = "edit"
+    skip = "skip"
+
+
+class InboxTrustWedgeReviewRequest(BaseModel):
+    choice: Choice
+    action: Action | None = None
+    synthesized_rationale: str | None = None
+    rationale: str | None = None
+    label_id: str | None = None
+    labels: list[str] | None = None
+    execute: bool | None = None
+
+
 class ByTier(BaseModel):
     fast: int | None = None
     medium: int | None = None

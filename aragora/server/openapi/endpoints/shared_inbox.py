@@ -318,6 +318,161 @@ INBOX_ENDPOINTS = {
             },
         }
     },
+    "/api/v1/inbox/wedge/receipts": {
+        "get": {
+            "tags": ["Inbox"],
+            "summary": "List inbox trust wedge receipts",
+            "operationId": "listInboxTrustWedgeReceipts",
+            "description": (
+                "List receipt-backed inbox review decisions staged by the trust wedge."
+            ),
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "state",
+                    "in": "query",
+                    "schema": {
+                        "type": "string",
+                        "enum": ["created", "approved", "executed", "expired"],
+                    },
+                    "description": "Filter receipts by lifecycle state.",
+                },
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 500, "default": 50},
+                    "description": "Maximum receipts to return.",
+                },
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Trust wedge receipt list",
+                    "InboxTrustWedgeReceiptListResponse",
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+        "post": {
+            "tags": ["Inbox"],
+            "summary": "Create inbox trust wedge receipt",
+            "operationId": "createInboxTrustWedgeReceipt",
+            "description": "Stage a receipt-gated inbox action for later review or execution.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "$ref": "#/components/schemas/InboxTrustWedgeCreateReceiptRequest"
+                        }
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "Trust wedge receipt staged",
+                    "InboxTrustWedgeActionResponse",
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
+    "/api/v1/inbox/wedge/receipts/{receipt_id}": {
+        "get": {
+            "tags": ["Inbox"],
+            "summary": "Get inbox trust wedge receipt",
+            "operationId": "getInboxTrustWedgeReceipt",
+            "description": "Fetch the stored receipt, debated action intent, and signed envelope.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "receipt_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response("Trust wedge receipt", "InboxTrustWedgeEnvelope"),
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/inbox/wedge/receipts/{receipt_id}/review": {
+        "post": {
+            "tags": ["Inbox"],
+            "summary": "Review inbox trust wedge receipt",
+            "operationId": "reviewInboxTrustWedgeReceipt",
+            "description": "Approve, reject, edit, or skip a staged trust wedge receipt.",
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "receipt_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {"$ref": "#/components/schemas/InboxTrustWedgeReviewRequest"}
+                    }
+                },
+            },
+            "responses": {
+                "200": _ok_response(
+                    "Trust wedge receipt reviewed",
+                    "InboxTrustWedgeActionResponse",
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
+    "/api/v1/inbox/wedge/receipts/{receipt_id}/execute": {
+        "post": {
+            "tags": ["Inbox"],
+            "summary": "Execute inbox trust wedge receipt",
+            "operationId": "executeInboxTrustWedgeReceipt",
+            "description": (
+                "Execute an approved inbox trust wedge receipt against the backing provider."
+            ),
+            "security": AUTH_REQUIREMENTS["optional"]["security"],
+            "parameters": [
+                {
+                    "name": "receipt_id",
+                    "in": "path",
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            ],
+            "responses": {
+                "200": _ok_response(
+                    "Trust wedge receipt executed",
+                    "InboxTrustWedgeActionResponse",
+                ),
+                "400": STANDARD_ERRORS["400"],
+                "401": STANDARD_ERRORS["401"],
+                "403": STANDARD_ERRORS["403"],
+                "404": STANDARD_ERRORS["404"],
+                "500": STANDARD_ERRORS["500"],
+            },
+        }
+    },
 }
 
 
