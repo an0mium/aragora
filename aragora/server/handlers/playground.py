@@ -295,7 +295,7 @@ def _record_landing_feedback(
 ) -> dict[str, Any]:
     """Record a bounded wrong-answer report for internal review."""
     payload = data if isinstance(data, dict) else {}
-    report = {
+    report: dict[str, Any] = {
         "id": f"lfb_{uuid.uuid4().hex[:12]}",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "client_tag": _client_tag(client_ip),
