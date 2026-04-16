@@ -169,6 +169,11 @@ def test_related_search_queries_include_stable_nouns() -> None:
     ]
 
 
+def test_github_base_ref_strips_remote_tracking_prefix() -> None:
+    assert mod._github_base_ref("origin/main") == "main"
+    assert mod._github_base_ref("main") == "main"
+
+
 def test_open_pr_heads_counts_only_codex_branches(monkeypatch: Any, tmp_path: Path) -> None:
     payload = """
     [

@@ -490,6 +490,10 @@ def _ensure_gh_auth(repo_root: Path) -> None:
         raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh auth failed")
 
 
+def _github_base_ref(base: str) -> str:
+    return base.removeprefix("origin/")
+
+
 def _push_branch(repo_root: Path, branch: str, upstream: str | None) -> None:
     args = ["git", "push"]
     if upstream:
@@ -502,6 +506,7 @@ def _push_branch(repo_root: Path, branch: str, upstream: str | None) -> None:
 
 
 def _existing_pr_number(repo_root: Path, repo: str, branch: str, base: str) -> int | None:
+    github_base = _github_base_ref(base)
     proc = _run(
         [
             "gh",
@@ -512,7 +517,7 @@ def _existing_pr_number(repo_root: Path, repo: str, branch: str, base: str) -> i
             "--head",
             branch,
             "--base",
-            base,
+            github_base,
             "--state",
             "open",
             "--json",
@@ -532,6 +537,7 @@ def _existing_pr_number(repo_root: Path, repo: str, branch: str, base: str) -> i
 
 
 def _create_pr(repo_root: Path, repo: str, branch: str, base: str) -> int:
+    github_base = _github_base_ref(base)
     proc = _run(
         [
             "gh",
@@ -540,7 +546,7 @@ def _create_pr(repo_root: Path, repo: str, branch: str, base: str) -> int:
             "--repo",
             repo,
             "--base",
-            base,
+            github_base,
             "--head",
             branch,
             "--fill",
