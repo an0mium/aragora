@@ -739,6 +739,14 @@ def _is_live_public_result(data: dict[str, Any]) -> bool:
     return data.get("is_live") is True
 
 
+def _has_public_receipt(data: dict[str, Any]) -> bool:
+    """Return True when a debate payload includes the public receipt contract."""
+    receipt = data.get("receipt")
+    if not isinstance(receipt, dict):
+        return False
+    return bool(receipt.get("receipt_id") and receipt.get("signature"))
+
+
 def _annotate_mock_fallback(
     data: dict[str, Any],
     *,
@@ -3425,28 +3433,50 @@ class PlaygroundHandler(BaseHandler):
                     return _build_landing_preview_timeout_response()
                 logger.info("Multi-perspective call failed — trying live debate")
 
+        if source in {"landing", "playground", "try"} and not question:
+            return self._mock_fallback_response(
+                topic,
+                rounds,
+                agent_count,
+                question=question,
+                source=source,
+                cache_kw=_cache_kw,
+                reason=(
+                    "The public mock debate endpoint returned a deterministic "
+                    "receipt-bearing fallback."
+                ),
+            )
+
         # Run a real live debate, fall back to mock if it fails
         try:
             live_result = self._run_live_debate(question or topic, rounds, agent_count)
             # Check if live debate returned an error response (status >= 400)
             if live_result.status_code < 400:
-                # Inject TL;DR into live debate result
                 try:
                     live_data = json.loads(live_result.body.decode("utf-8"))
-                    proposals = live_data.get("proposals", {})
-                    if isinstance(proposals, dict) and proposals:
-                        live_data["tldr"] = self._synthesize_tldr(
-                            question or topic,
-                            proposals,
-                            fallback_text=live_data.get("final_answer", ""),
-                        )
-                        live_result = json_response(live_data, status=live_result.status_code)
-                except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
-                    logger.debug("Could not inject TL;DR into live debate result")
-                return self._persist_and_respond(live_result, topic, source, **_cache_kw)
-            logger.info(
-                "Live debate returned status %d, falling back to mock", live_result.status_code
-            )
+                    if not isinstance(live_data, dict):
+                        raise TypeError("live debate body was not a JSON object")
+                except (json.JSONDecodeError, UnicodeDecodeError, AttributeError, TypeError):
+                    logger.info("Live debate response was unreadable, falling back to mock")
+                else:
+                    if _has_public_receipt(live_data):
+                        proposals = live_data.get("proposals", {})
+                        if isinstance(proposals, dict) and proposals:
+                            live_data["tldr"] = self._synthesize_tldr(
+                                question or topic,
+                                proposals,
+                                fallback_text=live_data.get("final_answer", ""),
+                            )
+                            live_result = json_response(live_data, status=live_result.status_code)
+                        return self._persist_and_respond(live_result, topic, source, **_cache_kw)
+                    logger.info(
+                        "Live debate response omitted a public receipt, falling back to mock"
+                    )
+            else:
+                logger.info(
+                    "Live debate returned status %d, falling back to mock",
+                    live_result.status_code,
+                )
         except Exception as exc:  # noqa: BLE001 — landing page must never error
             logger.warning("Live debate failed, falling back to mock: %s", exc)
 
@@ -3456,10 +3486,34 @@ class PlaygroundHandler(BaseHandler):
                 "Use the labeled recorded example or retry for a fresh proof run."
             )
 
-        # Mock fallback -- always works, no external dependencies
+        return self._mock_fallback_response(
+            topic,
+            rounds,
+            agent_count,
+            question=question,
+            source=source,
+            cache_kw=_cache_kw,
+            reason=(
+                "Live agents were unavailable, so the public beta returned a "
+                "deterministic fallback."
+            ),
+        )
+
+    def _mock_fallback_response(
+        self,
+        topic: str,
+        rounds: int,
+        agent_count: int,
+        *,
+        question: str | None,
+        source: str,
+        cache_kw: dict[str, Any],
+        reason: str,
+    ) -> HandlerResult:
+        """Return the deterministic mock debate with explicit fallback provenance."""
         mock_data = _annotate_mock_fallback(
             _run_inline_mock_debate(topic, rounds, agent_count, question=question),
-            reason="Live agents were unavailable, so the public beta returned a deterministic fallback.",
+            reason=reason,
         )
         proposals = mock_data.get("proposals", {})
         if proposals:
@@ -3468,7 +3522,7 @@ class PlaygroundHandler(BaseHandler):
                 proposals,
                 fallback_text=mock_data.get("final_answer", ""),
             )
-        return self._persist_and_respond(json_response(mock_data), topic, source, **_cache_kw)
+        return self._persist_and_respond(json_response(mock_data), topic, source, **cache_kw)
 
     @staticmethod
     def _persist_and_respond(

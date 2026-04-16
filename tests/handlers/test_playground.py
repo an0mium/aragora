@@ -414,6 +414,46 @@ class TestMockDebate:
         assert "signature" in receipt
         assert receipt["signature_algorithm"] == "SHA-256-content-hash"
 
+    def test_mock_endpoint_does_not_run_receiptless_live_debate(self, handler):
+        with patch.object(handler, "_run_live_debate") as mock_run_live:
+            mock_h = _MockHTTPHandler("POST", body={})
+            result = handler.handle_post("/api/v1/playground/debate", {}, mock_h)
+
+        body = _body(result)
+        mock_run_live.assert_not_called()
+        assert body["mock_fallback"] is True
+        assert body["receipt"]["receipt_id"]
+        assert body["receipt"]["signature"]
+
+    def test_receiptless_live_success_falls_back_to_mock(self, handler):
+        from aragora.server.handlers.base import HandlerResult
+
+        receiptless = HandlerResult(
+            status_code=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "id": "live-without-receipt",
+                    "topic": "test topic",
+                    "status": "completed",
+                    "participants": ["openai-api"],
+                    "proposals": {"openai-api": "A receiptless live result"},
+                    "final_answer": "A receiptless live result",
+                    "is_live": True,
+                    "receipt_preview": {"receipt_id": "preview-only"},
+                }
+            ).encode(),
+        )
+
+        with patch.object(handler, "_run_live_debate", return_value=receiptless):
+            result = handler._run_debate("test topic", 1, 2, source="oracle")
+
+        body = _body(result)
+        assert body["mock_fallback"] is True
+        assert body["is_live"] is False
+        assert body["receipt"]["receipt_id"]
+        assert body["receipt"]["signature"]
+
     def test_unmatched_post_path_returns_none(self, handler):
         mock_h = _MockHTTPHandler("POST", body={})
         result = handler.handle_post("/api/v1/playground/unknown", {}, mock_h)
