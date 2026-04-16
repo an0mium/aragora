@@ -493,7 +493,12 @@ def send_prompt(
     if not _tmux_session_exists(record.tmux_session):
         raise RuntimeError(f"tmux session is not running: {name}")
 
-    prompt_text = text if text is not None else file_path.read_text(encoding="utf-8")
+    if text is not None:
+        prompt_text = text
+    else:
+        if file_path is None:
+            raise ValueError("Provide either text or file_path")
+        prompt_text = file_path.read_text(encoding="utf-8")
     prompt_id = uuid.uuid4().hex[:8]
     prompt_at = _utc_now()
     append_prompt_marker(Path(record.log_path), prompt_id=prompt_id, at=prompt_at)
