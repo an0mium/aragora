@@ -3,6 +3,7 @@ from __future__ import annotations
 from aragora.server.handlers import ALL_HANDLERS
 from aragora.server.handlers.agent_evolution_dashboard import AgentEvolutionDashboardHandler
 from aragora.server.handlers.chat.router import ChatHandler
+from aragora.server.handlers.decision_analytics import DecisionAnalyticsHandler
 from aragora.server.handlers.feedback_hub import FeedbackHubHandler
 from aragora.server.handlers.outcome_dashboard import OutcomeDashboardHandler
 from aragora.server.handlers.system_intelligence import SystemIntelligenceHandler
@@ -22,6 +23,7 @@ def test_live_dashboard_handlers_participate_in_all_handlers() -> None:
     assert SystemIntelligenceHandler in handlers
     assert OutcomeDashboardHandler in handlers
     assert AgentEvolutionDashboardHandler in handlers
+    assert DecisionAnalyticsHandler in handlers
     assert FeedbackHubHandler in handlers
 
 
@@ -32,6 +34,11 @@ def test_live_dashboard_routes_appear_in_generated_openapi() -> None:
     assert "/api/v1/system-intelligence/overview" in paths
     assert "/api/v1/outcome-dashboard" in paths
     assert "/api/v1/agent-evolution/timeline" in paths
+    assert "/api/v1/decision-analytics/overview" in paths
+    assert "/api/v1/decision-analytics/trends" in paths
+    assert "/api/v1/decision-analytics/outcomes" in paths
+    assert "/api/v1/decision-analytics/agents" in paths
+    assert "/api/v1/decision-analytics/domains" in paths
     assert "/api/v1/feedback-hub/stats" in paths
     assert "/api/v1/feedback-hub/history" in paths
 
