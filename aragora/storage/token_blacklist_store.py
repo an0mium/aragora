@@ -30,6 +30,8 @@ from aragora.utils.async_utils import run_async
 
 logger = logging.getLogger(__name__)
 
+_SQLITE_BUSY_TIMEOUT_SECONDS = 30.0
+
 
 class BlacklistBackend(ABC):
     """Abstract base for token blacklist storage."""
@@ -179,6 +181,7 @@ class SQLiteBlacklist(BlacklistBackend):
         # Track all connections for proper cleanup
         self._connections: set[sqlite3.Connection] = set()
         self._connections_lock = threading.Lock()
+        self._write_lock = threading.RLock()
         self._cleanup_interval = cleanup_interval
         self._last_cleanup = time.time()
         self._init_schema()
@@ -188,8 +191,12 @@ class SQLiteBlacklist(BlacklistBackend):
         """Get per-context database connection (async-safe)."""
         conn = self._conn_var.get()
         if conn is None:
-            conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
-            conn.execute("PRAGMA journal_mode=WAL")
+            conn = sqlite3.connect(
+                str(self.db_path),
+                check_same_thread=False,
+                timeout=_SQLITE_BUSY_TIMEOUT_SECONDS,
+            )
+            conn.execute(f"PRAGMA busy_timeout={int(_SQLITE_BUSY_TIMEOUT_SECONDS * 1000)}")
             conn.execute("PRAGMA synchronous=NORMAL")
             self._conn_var.set(conn)
             with self._connections_lock:
@@ -198,7 +205,10 @@ class SQLiteBlacklist(BlacklistBackend):
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
-        conn = sqlite3.connect(str(self.db_path))
+        conn = sqlite3.connect(str(self.db_path), timeout=_SQLITE_BUSY_TIMEOUT_SECONDS)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute(f"PRAGMA busy_timeout={int(_SQLITE_BUSY_TIMEOUT_SECONDS * 1000)}")
+        conn.execute("PRAGMA synchronous=NORMAL")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS token_blacklist (
                 jti TEXT PRIMARY KEY,
@@ -214,14 +224,15 @@ class SQLiteBlacklist(BlacklistBackend):
 
     def add(self, token_jti: str, expires_at: float) -> None:
         """Add token to blacklist."""
-        conn = self._get_conn()
-        conn.execute(
-            """INSERT OR REPLACE INTO token_blacklist (jti, expires_at, revoked_at)
-               VALUES (?, ?, ?)""",
-            (token_jti, expires_at, time.time()),
-        )
-        conn.commit()
-        self._maybe_cleanup()
+        with self._write_lock:
+            conn = self._get_conn()
+            conn.execute(
+                """INSERT OR REPLACE INTO token_blacklist (jti, expires_at, revoked_at)
+                   VALUES (?, ?, ?)""",
+                (token_jti, expires_at, time.time()),
+            )
+            conn.commit()
+            self._maybe_cleanup()
 
     def contains(self, token_jti: str) -> bool:
         """Check if token is blacklisted."""
@@ -234,17 +245,18 @@ class SQLiteBlacklist(BlacklistBackend):
 
     def cleanup_expired(self) -> int:
         """Remove expired tokens."""
-        conn = self._get_conn()
-        cursor = conn.execute(
-            "DELETE FROM token_blacklist WHERE expires_at < ?",
-            (time.time(),),
-        )
-        conn.commit()
-        removed = cursor.rowcount
-        self._last_cleanup = time.time()
-        if removed > 0:
-            logger.debug("SQLiteBlacklist cleanup: removed %s", removed)
-        return removed
+        with self._write_lock:
+            conn = self._get_conn()
+            cursor = conn.execute(
+                "DELETE FROM token_blacklist WHERE expires_at < ?",
+                (time.time(),),
+            )
+            conn.commit()
+            removed = cursor.rowcount
+            self._last_cleanup = time.time()
+            if removed > 0:
+                logger.debug("SQLiteBlacklist cleanup: removed %s", removed)
+            return removed
 
     def _maybe_cleanup(self) -> None:
         """Run cleanup if enough time has passed."""

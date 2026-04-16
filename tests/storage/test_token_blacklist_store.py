@@ -418,6 +418,19 @@ class TestSQLiteBlacklist:
 
         blacklist.close()
 
+    def test_configures_busy_timeout(self, tmp_path):
+        """Should wait for short-lived SQLite locks before failing."""
+        db_path = tmp_path / "busy_timeout_test.db"
+        blacklist = SQLiteBlacklist(db_path=db_path)
+
+        conn = blacklist._get_conn()
+        cursor = conn.execute("PRAGMA busy_timeout")
+        busy_timeout_ms = cursor.fetchone()[0]
+
+        assert busy_timeout_ms >= 30000
+
+        blacklist.close()
+
     def test_persistence_across_instances(self, tmp_path):
         """Data should persist across store instances."""
         db_path = tmp_path / "persist_test.db"
