@@ -110,6 +110,18 @@ def get_handler_routes() -> set[str]:
                 if isinstance(method_routes, (list, tuple)):
                     routes.update(method_routes)
 
+        # Collect decorator-backed OpenAPI metadata for handlers that rely on
+        # @api_endpoint instead of legacy ROUTES constants.
+        for attr_name in dir(handler_class):
+            try:
+                attr = getattr(handler_class, attr_name)
+            except Exception:  # noqa: BLE001 - defensive: discovery should stay best-effort
+                continue
+            endpoint = getattr(attr, "_openapi", None)
+            path = getattr(endpoint, "path", None)
+            if isinstance(path, str) and path:
+                routes.add(path)
+
     return routes
 
 
