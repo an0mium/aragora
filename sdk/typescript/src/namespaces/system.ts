@@ -149,6 +149,13 @@ export interface HistoryOptions {
 }
 
 /**
+ * Options for system-intelligence event queries.
+ */
+export interface SystemIntelligenceEventsOptions extends Record<string, unknown> {
+  limit?: number;
+}
+
+/**
  * Interface for the internal client methods used by SystemAPI.
  */
 interface SystemClientInterface {
@@ -287,5 +294,70 @@ export class SystemAPI {
    */
   async getPrometheusMetrics(): Promise<string> {
     return this.client.request<string>('GET', '/metrics');
+  }
+
+  /**
+   * Get high-level system intelligence dashboard stats.
+   */
+  async getSystemIntelligenceOverview(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/system-intelligence/overview');
+  }
+
+  /**
+   * Get agent ELO, calibration, and win-rate dashboard data.
+   */
+  async getSystemIntelligenceAgentPerformance(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/system-intelligence/agent-performance');
+  }
+
+  /**
+   * Get institutional-memory dashboard data.
+   */
+  async getSystemIntelligenceInstitutionalMemory(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/system-intelligence/institutional-memory');
+  }
+
+  /**
+   * Get improvement-queue dashboard data.
+   */
+  async getSystemIntelligenceImprovementQueue(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/system-intelligence/improvement-queue');
+  }
+
+  /**
+   * Get recent anomaly alerts for the system-intelligence dashboard.
+   */
+  async getSystemIntelligenceAnomalies(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/system-intelligence/anomalies');
+  }
+
+  /**
+   * Get recent system events for the system-intelligence dashboard.
+   */
+  async getSystemIntelligenceEvents(options?: SystemIntelligenceEventsOptions): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/system-intelligence/events', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get Knowledge Mound sync dashboard data.
+   */
+  async getSystemIntelligenceKmSync(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/system-intelligence/km-sync');
+  }
+
+  /**
+   * Get nomic loop status dashboard data.
+   */
+  async getSystemIntelligenceNomicStatus(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/system-intelligence/nomic-status');
+  }
+
+  /**
+   * Get debate queue activity dashboard data.
+   */
+  async getSystemIntelligenceDebateQueue(): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/system-intelligence/debate-queue');
   }
 }

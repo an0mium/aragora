@@ -194,6 +194,45 @@ class SystemAPI:
         """
         return self._client.request("GET", "/metrics")
 
+    def get_system_intelligence_overview(self) -> dict[str, Any]:
+        """Get high-level system intelligence dashboard stats."""
+        return self._client.request("GET", "/api/v1/system-intelligence/overview")
+
+    def get_system_intelligence_agent_performance(self) -> dict[str, Any]:
+        """Get agent ELO, calibration, and win-rate dashboard data."""
+        return self._client.request("GET", "/api/v1/system-intelligence/agent-performance")
+
+    def get_system_intelligence_institutional_memory(self) -> dict[str, Any]:
+        """Get institutional-memory dashboard data."""
+        return self._client.request("GET", "/api/v1/system-intelligence/institutional-memory")
+
+    def get_system_intelligence_improvement_queue(self) -> dict[str, Any]:
+        """Get improvement-queue dashboard data."""
+        return self._client.request("GET", "/api/v1/system-intelligence/improvement-queue")
+
+    def get_system_intelligence_anomalies(self) -> dict[str, Any]:
+        """Get recent anomaly alerts for the system-intelligence dashboard."""
+        return self._client.request("GET", "/api/v1/system-intelligence/anomalies")
+
+    def get_system_intelligence_events(self, limit: int | None = None) -> dict[str, Any]:
+        """Get recent system events for the system-intelligence dashboard."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return self._client.request("GET", "/api/v1/system-intelligence/events", params=params)
+
+    def get_system_intelligence_km_sync(self) -> dict[str, Any]:
+        """Get Knowledge Mound sync dashboard data."""
+        return self._client.request("GET", "/api/v1/system-intelligence/km-sync")
+
+    def get_system_intelligence_nomic_status(self) -> dict[str, Any]:
+        """Get nomic loop status dashboard data."""
+        return self._client.request("GET", "/api/v1/system-intelligence/nomic-status")
+
+    def get_system_intelligence_debate_queue(self) -> dict[str, Any]:
+        """Get debate queue activity dashboard data."""
+        return self._client.request("GET", "/api/v1/system-intelligence/debate-queue")
+
 
 class AsyncSystemAPI:
     """Asynchronous System API."""
@@ -276,3 +315,44 @@ class AsyncSystemAPI:
     async def get_prometheus_metrics(self) -> dict[str, Any]:
         """Get Prometheus metrics."""
         return await self._client.request("GET", "/metrics")
+
+    async def get_system_intelligence_overview(self) -> dict[str, Any]:
+        """Get high-level system intelligence dashboard stats."""
+        return await self._client.request("GET", "/api/v1/system-intelligence/overview")
+
+    async def get_system_intelligence_agent_performance(self) -> dict[str, Any]:
+        """Get agent ELO, calibration, and win-rate dashboard data."""
+        return await self._client.request("GET", "/api/v1/system-intelligence/agent-performance")
+
+    async def get_system_intelligence_institutional_memory(self) -> dict[str, Any]:
+        """Get institutional-memory dashboard data."""
+        return await self._client.request("GET", "/api/v1/system-intelligence/institutional-memory")
+
+    async def get_system_intelligence_improvement_queue(self) -> dict[str, Any]:
+        """Get improvement-queue dashboard data."""
+        return await self._client.request("GET", "/api/v1/system-intelligence/improvement-queue")
+
+    async def get_system_intelligence_anomalies(self) -> dict[str, Any]:
+        """Get recent anomaly alerts for the system-intelligence dashboard."""
+        return await self._client.request("GET", "/api/v1/system-intelligence/anomalies")
+
+    async def get_system_intelligence_events(self, limit: int | None = None) -> dict[str, Any]:
+        """Get recent system events for the system-intelligence dashboard."""
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        return await self._client.request(
+            "GET", "/api/v1/system-intelligence/events", params=params
+        )
+
+    async def get_system_intelligence_km_sync(self) -> dict[str, Any]:
+        """Get Knowledge Mound sync dashboard data."""
+        return await self._client.request("GET", "/api/v1/system-intelligence/km-sync")
+
+    async def get_system_intelligence_nomic_status(self) -> dict[str, Any]:
+        """Get nomic loop status dashboard data."""
+        return await self._client.request("GET", "/api/v1/system-intelligence/nomic-status")
+
+    async def get_system_intelligence_debate_queue(self) -> dict[str, Any]:
+        """Get debate queue activity dashboard data."""
+        return await self._client.request("GET", "/api/v1/system-intelligence/debate-queue")
