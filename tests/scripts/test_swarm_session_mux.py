@@ -11,6 +11,10 @@ def _completed(*, returncode: int = 0, stdout: str = "", stderr: str = "") -> Si
     return SimpleNamespace(returncode=returncode, stdout=stdout, stderr=stderr)
 
 
+def test_cli_uses_direct_session_mux_module() -> None:
+    assert cli.session_mux.__name__ == "aragora_swarm_session_mux_direct"
+
+
 def test_launch_command_creates_registry_entry(monkeypatch, tmp_path: Path, capsys) -> None:
     state = {"exists": False}
 

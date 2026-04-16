@@ -1,15 +1,33 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 from pathlib import Path
 import sys
+from types import ModuleType
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from aragora.swarm import session_mux
+
+def _load_session_mux_module() -> ModuleType:
+    module_name = "aragora_swarm_session_mux_direct"
+    existing = sys.modules.get(module_name)
+    if isinstance(existing, ModuleType):
+        return existing
+    module_path = REPO_ROOT / "aragora" / "swarm" / "session_mux.py"
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Unable to load session mux module from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+session_mux = _load_session_mux_module()
 
 
 def _repo_root() -> Path:
