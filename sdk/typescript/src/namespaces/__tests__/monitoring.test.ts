@@ -319,4 +319,44 @@ describe('MonitoringAPI Namespace', () => {
       );
     });
   });
+
+  describe('Observability Routes', () => {
+    it('should map observability dashboard and crash telemetry endpoints', async () => {
+      mockClient.request.mockResolvedValue({ data: {} });
+
+      await api.getObservabilityDashboard();
+      await api.getObservabilityMetrics();
+      await api.listCrashes({ limit: 25, offset: 5 });
+      await api.reportCrashes([{ message: 'boom' }]);
+      await api.getCrashStats();
+
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        1,
+        'GET',
+        '/api/observability/dashboard'
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        2,
+        'GET',
+        '/api/observability/metrics'
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        3,
+        'GET',
+        '/api/observability/crashes',
+        { params: { limit: 25, offset: 5 } }
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        4,
+        'POST',
+        '/api/observability/crashes',
+        { body: { reports: [{ message: 'boom' }] } }
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        5,
+        'GET',
+        '/api/observability/crashes/stats'
+      );
+    });
+  });
 });

@@ -78,6 +78,7 @@ from aragora.server.openapi.endpoints.pipeline import PIPELINE_ENDPOINTS
 from aragora.server.openapi.endpoints.playbooks import PLAYBOOK_ENDPOINTS
 from aragora.server.openapi.endpoints.marketplace import MARKETPLACE_ENDPOINTS
 from aragora.server.openapi.endpoints.orchestration import ORCHESTRATION_ENDPOINTS
+from aragora.server.openapi.endpoints.observability import OBSERVABILITY_ENDPOINTS
 from aragora.server.openapi.endpoints.prompt_engine import PROMPT_ENGINE_ENDPOINTS
 
 
@@ -175,6 +176,7 @@ ALL_ENDPOINTS = {
     **PLAYBOOK_ENDPOINTS,
     **MARKETPLACE_ENDPOINTS,
     **ORCHESTRATION_ENDPOINTS,
+    **OBSERVABILITY_ENDPOINTS,
     **PROMPT_ENGINE_ENDPOINTS,
 }
 
@@ -258,6 +260,7 @@ __all__ = [
     "PLAYBOOK_ENDPOINTS",
     "MARKETPLACE_ENDPOINTS",
     "ORCHESTRATION_ENDPOINTS",
+    "OBSERVABILITY_ENDPOINTS",
     "PROMPT_ENGINE_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

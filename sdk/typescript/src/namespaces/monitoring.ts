@@ -134,6 +134,11 @@ export interface GetAnomaliesOptions {
   metric_name?: string;
 }
 
+export interface ListCrashesOptions {
+  limit?: number;
+  offset?: number;
+}
+
 /**
  * Interface for the internal client methods used by MonitoringAPI.
  */
@@ -243,5 +248,47 @@ export class MonitoringAPI {
    */
   async getCircuitBreaker(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/autonomous/monitoring/circuit-breaker', { params }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get the aggregated operator observability dashboard.
+   */
+  async getObservabilityDashboard(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/observability/dashboard') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get aggregated observability metrics.
+   */
+  async getObservabilityMetrics(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/observability/metrics') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List recent frontend crash telemetry reports.
+   */
+  async listCrashes(options?: ListCrashesOptions): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/observability/crashes', {
+      params: {
+        limit: options?.limit ?? 50,
+        offset: options?.offset ?? 0,
+      },
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Submit frontend crash telemetry reports.
+   */
+  async reportCrashes(reports: Array<Record<string, unknown>>): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/observability/crashes', {
+      body: { reports },
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get aggregate frontend crash telemetry statistics.
+   */
+  async getCrashStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/observability/crashes/stats') as Promise<Record<string, unknown>>;
   }
 }

@@ -208,6 +208,34 @@ class MonitoringAPI:
         """
         return self._client.request("GET", "/api/v1/monitoring/slos")
 
+    def get_observability_dashboard(self) -> dict[str, Any]:
+        """Get the aggregated operator observability dashboard."""
+        return self._client.request("GET", "/api/observability/dashboard")
+
+    def get_observability_metrics(self) -> dict[str, Any]:
+        """Get aggregated observability metrics."""
+        return self._client.request("GET", "/api/observability/metrics")
+
+    def list_crashes(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List recent frontend crash telemetry reports."""
+        return self._client.request(
+            "GET",
+            "/api/observability/crashes",
+            params={"limit": limit, "offset": offset},
+        )
+
+    def report_crashes(self, reports: list[dict[str, Any]]) -> dict[str, Any]:
+        """Submit frontend crash telemetry reports."""
+        return self._client.request(
+            "POST",
+            "/api/observability/crashes",
+            json={"reports": reports},
+        )
+
+    def get_crash_stats(self) -> dict[str, Any]:
+        """Get aggregate frontend crash telemetry statistics."""
+        return self._client.request("GET", "/api/observability/crashes/stats")
+
 
 class AsyncMonitoringAPI:
     """Asynchronous monitoring API."""
@@ -322,3 +350,31 @@ class AsyncMonitoringAPI:
     async def get_slos(self) -> dict[str, Any]:
         """Get SLO status."""
         return await self._client.request("GET", "/api/v1/monitoring/slos")
+
+    async def get_observability_dashboard(self) -> dict[str, Any]:
+        """Get the aggregated operator observability dashboard."""
+        return await self._client.request("GET", "/api/observability/dashboard")
+
+    async def get_observability_metrics(self) -> dict[str, Any]:
+        """Get aggregated observability metrics."""
+        return await self._client.request("GET", "/api/observability/metrics")
+
+    async def list_crashes(self, limit: int = 50, offset: int = 0) -> dict[str, Any]:
+        """List recent frontend crash telemetry reports."""
+        return await self._client.request(
+            "GET",
+            "/api/observability/crashes",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def report_crashes(self, reports: list[dict[str, Any]]) -> dict[str, Any]:
+        """Submit frontend crash telemetry reports."""
+        return await self._client.request(
+            "POST",
+            "/api/observability/crashes",
+            json={"reports": reports},
+        )
+
+    async def get_crash_stats(self) -> dict[str, Any]:
+        """Get aggregate frontend crash telemetry statistics."""
+        return await self._client.request("GET", "/api/observability/crashes/stats")
