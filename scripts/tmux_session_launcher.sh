@@ -26,6 +26,21 @@ TMUX_SESSION="aragora"
 LOG_DIR="${HOME}/.aragora/tmux-sessions"
 mkdir -p "${LOG_DIR}"
 
+send_prompt_to_target() {
+    local target="$1"
+    local prompt="$2"
+    if [[ "$(echo "${prompt}" | wc -l)" -gt 1 ]]; then
+        local buffer_name="aragora-prompt-launch-${NAME}-$$-$(date +%s%N)"
+        tmux set-buffer -b "${buffer_name}" "${prompt}"
+        tmux paste-buffer -b "${buffer_name}" -t "${target}"
+        tmux send-keys -t "${target}" "" Enter
+        tmux delete-buffer -b "${buffer_name}" 2>/dev/null || true
+    else
+        tmux send-keys -t "${target}" "${prompt}" Enter
+    fi
+    echo "Prompt sent to '${NAME}' (${#prompt} chars)"
+}
+
 wait_for_agent_ready() {
     local agent="$1"
     local log_file="$2"
@@ -178,22 +193,23 @@ if [[ -n "${PROMPT_FILE}" && -f "${PROMPT_FILE}" ]]; then
 fi
 
 # Create new tmux window with logging
-tmux new-window -t "${TMUX_SESSION}" -n "${NAME}"
-tmux pipe-pane -t "${TMUX_SESSION}:${NAME}" -o "cat >> '${LOG_FILE}'"
+WINDOW_TARGET="$(tmux new-window -P -F '#{window_id}' -t "${TMUX_SESSION}" -n "${NAME}")"
+tmux pipe-pane -t "${WINDOW_TARGET}" -o "cat >> '${LOG_FILE}'"
 
 # Send the launch command
-tmux send-keys -t "${TMUX_SESSION}:${NAME}" "${LAUNCH_CMD}" Enter
+tmux send-keys -t "${WINDOW_TARGET}" "${LAUNCH_CMD}" Enter
 
 # Write metadata (avoid embedding prompt content in Python literal)
-python3 - "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" <<'PYEOF'
+python3 - "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" "${WINDOW_TARGET}" <<'PYEOF'
 import json, datetime, sys
-name, agent, log_file, repo_root, prompt_file, meta_file, has_prompt = sys.argv[1:8]
+name, agent, log_file, repo_root, prompt_file, meta_file, has_prompt, window_target = sys.argv[1:9]
 meta = {
     "name": name,
     "agent": agent,
     "started": datetime.datetime.now().isoformat(),
     "log_file": log_file,
     "repo_root": repo_root,
+    "tmux_window_target": window_target,
     "prompt_file": prompt_file or None,
     "has_prompt": bool(has_prompt),
 }
@@ -208,11 +224,18 @@ echo "  Meta: ${META_FILE}"
 # If there's a prompt to send, wait for the session to initialize then send it
 if [[ -n "${PROMPT}" ]]; then
     INIT_WAIT_SECONDS="${ARAGORA_TMUX_INIT_WAIT_SECONDS:-$(default_init_wait_seconds "${AGENT}")}"
+    SEND_ON_TIMEOUT="${ARAGORA_TMUX_SEND_ON_TIMEOUT:-0}"
     echo "Waiting up to ${INIT_WAIT_SECONDS}s for ${AGENT} readiness before sending prompt..."
     if wait_for_agent_ready "${AGENT}" "${LOG_FILE}" "${INIT_WAIT_SECONDS}"; then
         echo "Readiness markers detected for ${NAME}."
+        send_prompt_to_target "${WINDOW_TARGET}" "${PROMPT}"
     else
-        echo "Timed out waiting for readiness markers for ${NAME}; sending prompt anyway."
+        if [[ "${SEND_ON_TIMEOUT}" == "1" ]]; then
+            echo "Timed out waiting for readiness markers for ${NAME}; sending prompt anyway because ARAGORA_TMUX_SEND_ON_TIMEOUT=1."
+            send_prompt_to_target "${WINDOW_TARGET}" "${PROMPT}"
+        else
+            echo "Timed out waiting for readiness markers for ${NAME}; prompt not sent."
+            echo "Re-send once ready with: ${SCRIPT_DIR}/tmux_send_prompt.sh --name ${NAME} --prompt '...'"
+        fi
     fi
-    "${SCRIPT_DIR}/tmux_send_prompt.sh" --name "${NAME}" --prompt "${PROMPT}"
 fi
