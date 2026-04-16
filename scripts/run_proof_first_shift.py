@@ -580,12 +580,38 @@ def restart_service_via_launchd(
     kicked, detail = kickstart_launchd(label)
     if wait_for_process(process_pattern, timeout_seconds=start_timeout_seconds):
         return True, "" if kicked else detail
+    state_detail = _read_launchd_failure_detail(label)
     if kicked:
-        return (
-            False,
-            f"launchctl kickstart returned success for {label}, but process pattern {process_pattern!r} is still not running",
+        message = (
+            f"launchctl kickstart returned success for {label}, but process pattern "
+            f"{process_pattern!r} is still not running"
         )
+        if state_detail:
+            message = f"{message}; {state_detail}"
+        return False, message
+    if state_detail:
+        return False, f"{detail}; {state_detail}"
     return False, detail
+
+
+def _read_launchd_failure_detail(label: str) -> str:
+    """Return a redacted, truthful state summary for ``label`` after a stuck restart."""
+
+    try:
+        from scripts.probe_boss_loop_launchd import read_launchd_state
+    except Exception:
+        return ""
+    state = read_launchd_state(label, timeout_seconds=5.0)
+    if state is None:
+        return f"launchd state unavailable for {label}"
+    parts = [f"launchd state={state.state!r}", f"runs={state.runs}"]
+    if state.last_exit_code is not None:
+        parts.append(f"last_exit={state.last_exit_code}")
+    if state.minimum_runtime_seconds is not None:
+        parts.append(f"min_runtime={state.minimum_runtime_seconds}s")
+    if state.is_spawn_scheduled:
+        parts.append("hint=ThrottleInterval may not have elapsed")
+    return ", ".join(parts)
 
 
 def run_merge_arbiter_apply(
