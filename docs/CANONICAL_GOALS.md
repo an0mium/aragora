@@ -2,7 +2,7 @@
 
 **Single source of truth for WHAT Aragora is and WHY it exists.**
 **The [Evolution Roadmap](plans/ARAGORA_EVOLUTION_ROADMAP.md) defines HOW we get there.**
-**Last updated: April 9, 2026**
+**Last updated: April 16, 2026**
 
 ## Canonical Metrics (March 2026 baseline)
 
@@ -59,6 +59,8 @@ If a roadmap item does not strengthen one or more of those layers, it is probabl
 
 Any single model can hallucinate, flatter, or share hidden blind spots. Aragora's default stance is structured challenge across heterogeneous models, not trust in one witness. This pillar serves the debate engine, gauntlet, truth weighting, calibration, dissent capture, and cross-verification.
 
+The next differentiator is crux-finding: debates should identify the load-bearing facts, framings, values, and assumptions where reasonable agents diverge, not merely produce an answer.
+
 ### 2. Reliable Autonomous Execution
 
 Reasoning alone is not enough. The system must execute bounded work with explicit contracts, verification, and fail-closed escalation. This pillar serves swarm, supervisor, worker contracts, preflight, repair, publication, and self-heal.
@@ -74,6 +76,8 @@ Memory is only useful if it is permissioned, attributable, and relevance-ranked.
 ### 5. Cryptographic Receipts and Auditability
 
 Every consequential decision or execution step should be inspectable. Receipts, provenance links, signatures, and compliance artifacts are not side effects; they are the trust layer that makes autonomy acceptable in real organizations.
+
+Important organizational claims should also become executable, evidence-linked objects with freshness, verification, provenance, and bounded repair behavior. This is the Epistemic CI direction: what Aragora believes should be testable, not just written down.
 
 ### 6. SMB Operator Leverage
 
@@ -154,4 +158,5 @@ Aragora's trust story is structural:
 2. A bounded backlog can run unattended with clear receipts, stop conditions, and minimal rescue.
 3. Humans can inspect any decision or execution result from summary level down to evidence and provenance.
 4. Shared memory improves future work without collapsing trust boundaries.
-5. Aragora evolves from tool -> teammate -> foreman -> chief of staff -> organization substrate on one coherent runtime.
+5. Important claims and cruxes remain linked to evidence, receipts, freshness, and later settlement.
+6. Aragora evolves from tool -> teammate -> foreman -> chief of staff -> organization substrate on one coherent runtime.

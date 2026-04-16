@@ -1,6 +1,6 @@
 # Next Steps (Canonical)
 
-Last updated: 2026-04-15
+Last updated: 2026-04-16
 
 This is the single source of truth for short-horizon execution priorities.
 [CANONICAL_GOALS](../CANONICAL_GOALS.md) defines what Aragora is and why.
@@ -38,6 +38,7 @@ What is already true:
 - proof-first runtime truth is now persisted in `ShiftLedger` on `main` via [#5857](https://github.com/synaptent/aragora/pull/5857)
 - proof-first shifts now fail closed after repeated recovery failures for the implemented failure classes via [#5867](https://github.com/synaptent/aragora/pull/5867)
 - `swarm status`, FastAPI swarm-status routes, and `studio-health.sh` now prefer ledger-backed operator truth on `main` via [#5861](https://github.com/synaptent/aragora/pull/5861) and [#5868](https://github.com/synaptent/aragora/pull/5868)
+- the future Decision Integrity expansion is now tracked as an additive Epistemic CI / Crux Engine tranche in [EPISTEMIC_CI_AND_CRUX_ENGINE](../plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md) and issues [#6023](https://github.com/synaptent/aragora/issues/6023)-[#6028](https://github.com/synaptent/aragora/issues/6028); it is planning truth, not current live queue scope
 
 What is still missing:
 
@@ -46,6 +47,7 @@ What is still missing:
 - broader repair-loop coverage on top of the existing audit trail
 - lower-rescue unattended operation on bounded backlogs
 - ongoing discipline so external claims stay narrower than the recurring proof surfaces
+- delayed decision-integrity work that turns important claims into executable evidence-linked objects and debates into ranked `CruxSet` outputs, after the proof-first Foreman gate is stable
 
 The work now is not “add more speculative autonomy.” It is “make bounded unattended execution boring.”
 
@@ -131,6 +133,7 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 
 - `BC-07..09` until the repair loop is truthful, resumable, and consolidated into one operator model
 - `RS-11..12` until recovery-budget coverage extends to the remaining failure classes and the remaining status/reporter surfaces are ledger-backed
+- `DIC-13..18` until BC-12/Foreman reliability is proven; Epistemic CI and Crux Engine issues may stay open for planning but must not enter the live boss-ready queue
 - `TW-07..09` until the bounded execution wedge is boringly reliable
 - `UDW-01..06` except for thin read-only queue, receipt, lineage, replay, retry, pause, resume, and override views backed by live runtime truth
 - `MCF-01..03` until the wedge needs permissioned memory to improve bounded execution instead of broad retrieval ambition
