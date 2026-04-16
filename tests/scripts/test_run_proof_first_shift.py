@@ -126,6 +126,14 @@ def test_classify_benchmark_failure_log_detects_auth_and_publication_failures() 
         )
         == "publication_failure"
     )
+    assert (
+        mod.classify_benchmark_failure_log("HTTP 429: secondary rate limit exceeded")
+        == mod.RATE_LIMIT_FAILURE
+    )
+    assert (
+        mod.classify_benchmark_failure_log("permission denied: workflow requires write permission")
+        == mod.PERMISSION_MISMATCH_FAILURE
+    )
     assert mod.classify_benchmark_failure_log("unknown shell failure") == "other_failure"
 
 
@@ -203,6 +211,8 @@ def test_run_shift_cycle_clears_failure_budget_after_successful_benchmark_run() 
     state = mod.ProofFirstRuntimeState(
         auth_failure_count=1,
         publication_failure_count=1,
+        rate_limit_failure_count=1,
+        permission_mismatch_count=1,
         runtime_failure_count=1,
         last_benchmark_run_id=100,
     )
@@ -220,6 +230,8 @@ def test_run_shift_cycle_clears_failure_budget_after_successful_benchmark_run() 
 
     assert state.auth_failure_count == 0
     assert state.publication_failure_count == 0
+    assert state.rate_limit_failure_count == 0
+    assert state.permission_mismatch_count == 0
     assert state.runtime_failure_count == 0
 
     report = _run_shift_cycle(
@@ -239,6 +251,72 @@ def test_run_shift_cycle_clears_failure_budget_after_successful_benchmark_run() 
     assert state.runtime_failure_count == 0
     assert report["stop_reason"] == ""
     assert report["failure_policy"]["auth_failure"]["will_stop"] is False
+
+
+def test_run_shift_cycle_rate_limit_uses_budget_without_immediate_stop(
+    tmp_path: Path,
+) -> None:
+    state = mod.ProofFirstRuntimeState(last_benchmark_run_id=100)
+    ledger = ShiftLedger(path=tmp_path / "test_shift_ledger.jsonl")
+
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[True, True],
+        benchmark_mode="hybrid",
+        latest_run={
+            "databaseId": 101,
+            "createdAt": "2999-01-01T00:00:00Z",
+            "status": "completed",
+            "conclusion": "failure",
+        },
+        failure_log="HTTP 429: secondary rate limit exceeded",
+        ledger=ledger,
+    )
+
+    assert state.rate_limit_failure_count == 1
+    assert report["actions"] == ["trigger_benchmark:retry_after_failed_run"]
+    assert report["stop_reason"] == ""
+    assert report["failure_policy"][mod.RATE_LIMIT_FAILURE]["will_stop"] is False
+    assert (
+        report["green_shift_evaluation"]["recovery_budgets"][mod.RATE_LIMIT_FAILURE][
+            "attempts_used"
+        ]
+        == 1
+    )
+    assert ledger.get_status_summary()["rate_limit_failures"] == 1
+
+
+def test_run_shift_cycle_permission_mismatch_uses_budget_without_immediate_stop(
+    tmp_path: Path,
+) -> None:
+    state = mod.ProofFirstRuntimeState(last_benchmark_run_id=100)
+    ledger = ShiftLedger(path=tmp_path / "test_shift_ledger.jsonl")
+
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[True, True],
+        benchmark_mode="hybrid",
+        latest_run={
+            "databaseId": 101,
+            "createdAt": "2999-01-01T00:00:00Z",
+            "status": "completed",
+            "conclusion": "failure",
+        },
+        failure_log="permission denied: workflow requires write permission",
+        ledger=ledger,
+    )
+
+    assert state.permission_mismatch_count == 1
+    assert report["actions"] == ["trigger_benchmark:retry_after_failed_run"]
+    assert report["stop_reason"] == ""
+    assert report["failure_policy"][mod.PERMISSION_MISMATCH_FAILURE]["will_stop"] is False
+    assert (
+        report["green_shift_evaluation"]["recovery_budgets"][mod.PERMISSION_MISMATCH_FAILURE][
+            "attempts_used"
+        ]
+        == 1
+    )
+    assert ledger.get_status_summary()["permission_mismatches"] == 1
 
 
 def test_run_shift_cycle_reports_restart_failure_instead_of_crashing() -> None:
@@ -390,6 +468,72 @@ def test_run_shift_cycle_fails_closed_after_second_publication_failure() -> None
         == "RepeatedPublicationFailure: benchmark publication failed PR handoff twice"
     )
     assert report["failure_policy"]["publication_failure"]["will_stop"] is True
+
+
+def test_run_shift_cycle_fails_closed_after_repeated_rate_limit_failure() -> None:
+    state = mod.ProofFirstRuntimeState(
+        rate_limit_failure_count=1,
+        recovery_attempt_counts={mod.RATE_LIMIT_FAILURE: 1},
+        last_benchmark_run_id=300,
+    )
+
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[True, True],
+        benchmark_mode="hybrid",
+        latest_run={
+            "databaseId": 301,
+            "createdAt": "2999-01-01T00:00:00Z",
+            "status": "completed",
+            "conclusion": "failure",
+        },
+        failure_log="API rate limit exceeded",
+    )
+
+    assert state.rate_limit_failure_count == 2
+    assert report["actions"] == []
+    assert report["stop_reason"] == mod.RECOVERY_STOP_REASONS[mod.RATE_LIMIT_FAILURE]
+    assert report["failure_policy"][mod.RATE_LIMIT_FAILURE]["will_stop"] is True
+    assert report["green_shift_evaluation"]["repeated_failure_classes"] == [mod.RATE_LIMIT_FAILURE]
+    assert (
+        report["green_shift_evaluation"]["recovery_budgets"][mod.RATE_LIMIT_FAILURE]["exhausted"]
+        is True
+    )
+
+
+def test_run_shift_cycle_fails_closed_after_repeated_permission_mismatch() -> None:
+    state = mod.ProofFirstRuntimeState(
+        permission_mismatch_count=1,
+        recovery_attempt_counts={mod.PERMISSION_MISMATCH_FAILURE: 1},
+        last_benchmark_run_id=400,
+    )
+
+    report = _run_shift_cycle(
+        state,
+        process_running_side_effect=[True, True],
+        benchmark_mode="hybrid",
+        latest_run={
+            "databaseId": 401,
+            "createdAt": "2999-01-01T00:00:00Z",
+            "status": "completed",
+            "conclusion": "failure",
+        },
+        failure_log="permission denied: workflow requires write permission",
+    )
+
+    assert state.permission_mismatch_count == 2
+    assert report["actions"] == []
+    assert report["stop_reason"] == mod.RECOVERY_STOP_REASONS[mod.PERMISSION_MISMATCH_FAILURE]
+    assert report["failure_policy"][mod.PERMISSION_MISMATCH_FAILURE]["will_stop"] is True
+    assert report["green_shift_evaluation"]["repeated_failure_classes"] == [
+        mod.PERMISSION_MISMATCH_FAILURE
+    ]
+    assert (
+        report["green_shift_evaluation"]["recovery_budgets"][mod.PERMISSION_MISMATCH_FAILURE][
+            "exhausted"
+        ]
+        is True
+    )
 
 
 def test_run_shift_cycle_fails_closed_when_benchmark_trigger_runtime_fails() -> None:

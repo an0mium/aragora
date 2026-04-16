@@ -22,6 +22,8 @@ GREEN_SHIFT_REQUIRED_HOURS = 12.0
 FAILURE_THRESHOLDS = {
     "auth_failure": 2,
     "publication_failure": 2,
+    "rate_limit": 2,
+    "permission_mismatch": 2,
     "runtime_failure": 1,
     "service_failure": 1,
 }
@@ -226,6 +228,8 @@ class ShiftLedger:
         counts = {
             "auth_failure": sum(1 for e in entries if e.entry_type == "auth_failure"),
             "publication_failure": sum(1 for e in entries if e.entry_type == "publication_failure"),
+            "rate_limit": sum(1 for e in entries if e.entry_type == "rate_limit"),
+            "permission_mismatch": sum(1 for e in entries if e.entry_type == "permission_mismatch"),
             "runtime_failure": sum(1 for e in entries if e.entry_type == "runtime_failure"),
             "service_failure": sum(1 for e in entries if e.entry_type == "service_failure"),
         }
@@ -330,6 +334,8 @@ class ShiftLedger:
         restarts = [e for e in recent if e.entry_type == "service_restart"]
         auth_failures = [e for e in recent if e.entry_type == "auth_failure"]
         pub_failures = [e for e in recent if e.entry_type == "publication_failure"]
+        rate_limit_failures = [e for e in recent if e.entry_type == "rate_limit"]
+        permission_mismatches = [e for e in recent if e.entry_type == "permission_mismatch"]
         runtime_failures = [e for e in recent if e.entry_type == "runtime_failure"]
         service_failures = [e for e in recent if e.entry_type == "service_failure"]
 
@@ -353,6 +359,8 @@ class ShiftLedger:
             "restart_failures": sum(1 for e in restarts if not e.payload.get("success")),
             "auth_failures": len(auth_failures),
             "publication_failures": len(pub_failures),
+            "rate_limit_failures": len(rate_limit_failures),
+            "permission_mismatches": len(permission_mismatches),
             "runtime_failures": len(runtime_failures),
             "service_failures": len(service_failures),
             "benchmark_runs": len(benchmarks),

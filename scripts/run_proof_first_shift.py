@@ -50,6 +50,16 @@ FAILURE_POLICIES: dict[str, dict[str, Any]] = {
         "self_heal": "retry_benchmark_once",
         "description": "Allow one benchmark publication handoff failure, then fail closed.",
     },
+    "rate_limit": {
+        "stop_after": PUBLICATION_FAILURE_STOP_AFTER,
+        "self_heal": "retry_benchmark_once",
+        "description": "Allow one benchmark rate limit failure, then fail closed.",
+    },
+    "permission_mismatch": {
+        "stop_after": PUBLICATION_FAILURE_STOP_AFTER,
+        "self_heal": "retry_benchmark_once",
+        "description": "Allow one benchmark permission mismatch, then fail closed.",
+    },
     "runtime_failure": {
         "stop_after": RUNTIME_FAILURE_STOP_AFTER,
         "self_heal": "none",
@@ -71,12 +81,16 @@ RECOVERY_BUDGET_PER_FAILURE_CLASS = 1
 AUTH_DRIFT_FAILURE = "auth_drift"
 GITHUB_OUTAGE_FAILURE = "github_outage"
 PUBLICATION_FAILURE = "benchmark_publication_failure"
+RATE_LIMIT_FAILURE = "rate_limit"
+PERMISSION_MISMATCH_FAILURE = "permission_mismatch"
 BOSS_RESTART_FAILURE = "boss_restart_failure"
 MERGE_RESTART_FAILURE = "merge_restart_failure"
 RECOVERY_FAILURE_CLASSES = (
     AUTH_DRIFT_FAILURE,
     GITHUB_OUTAGE_FAILURE,
     PUBLICATION_FAILURE,
+    RATE_LIMIT_FAILURE,
+    PERMISSION_MISMATCH_FAILURE,
     BOSS_RESTART_FAILURE,
     MERGE_RESTART_FAILURE,
 )
@@ -84,6 +98,8 @@ RECOVERY_STOP_REASONS = {
     AUTH_DRIFT_FAILURE: "RepeatedAuthFailure: benchmark publication auth drift persisted after one automatic recovery attempt",
     GITHUB_OUTAGE_FAILURE: "RepeatedGitHubOutage: proof-first queue reconciliation could not reach GitHub after one automatic recovery attempt",
     PUBLICATION_FAILURE: "RepeatedPublicationFailure: benchmark publication PR handoff persisted after one automatic recovery attempt",
+    RATE_LIMIT_FAILURE: "RepeatedRateLimitFailure: benchmark publication rate limit persisted after one automatic recovery attempt",
+    PERMISSION_MISMATCH_FAILURE: "RepeatedPermissionMismatch: benchmark publication permission mismatch persisted after one automatic recovery attempt",
     BOSS_RESTART_FAILURE: "RepeatedBossRestartFailure: boss loop still required intervention after one automatic recovery attempt",
     MERGE_RESTART_FAILURE: "RepeatedMergeArbiterRestartFailure: merge arbiter still required intervention after one automatic recovery attempt",
 }
@@ -95,6 +111,8 @@ class ProofFirstRuntimeState:
     merge_restart_count: int = 0
     auth_failure_count: int = 0
     publication_failure_count: int = 0
+    rate_limit_failure_count: int = 0
+    permission_mismatch_count: int = 0
     runtime_failure_count: int = 0
     github_outage_count: int = 0
     recovery_attempt_counts: dict[str, int] = field(default_factory=dict)
@@ -137,6 +155,8 @@ def load_runtime_state(path: Path) -> ProofFirstRuntimeState:
         merge_restart_count=int(payload.get("merge_restart_count", 0) or 0),
         auth_failure_count=int(payload.get("auth_failure_count", 0) or 0),
         publication_failure_count=int(payload.get("publication_failure_count", 0) or 0),
+        rate_limit_failure_count=int(payload.get("rate_limit_failure_count", 0) or 0),
+        permission_mismatch_count=int(payload.get("permission_mismatch_count", 0) or 0),
         runtime_failure_count=int(payload.get("runtime_failure_count", 0) or 0),
         github_outage_count=int(payload.get("github_outage_count", 0) or 0),
         recovery_attempt_counts=_normalize_recovery_attempt_counts(
@@ -393,6 +413,30 @@ def classify_benchmark_failure_log(text: str) -> str:
         )
     ):
         return "publication_failure"
+    if any(
+        token in lowered
+        for token in (
+            "api rate limit exceeded",
+            "http 429",
+            "rate limit",
+            "rate-limited",
+            "secondary rate limit",
+            "too many requests",
+        )
+    ):
+        return RATE_LIMIT_FAILURE
+    if any(
+        token in lowered
+        for token in (
+            "permission denied",
+            "permission mismatch",
+            "insufficient permission",
+            "insufficient permissions",
+            "requires write permission",
+            "workflow permission",
+        )
+    ):
+        return PERMISSION_MISMATCH_FAILURE
     return "other_failure"
 
 
@@ -412,6 +456,8 @@ def build_failure_policy_status(
     counts = {
         "auth_failure": int(runtime_state.auth_failure_count or 0),
         "publication_failure": int(runtime_state.publication_failure_count or 0),
+        "rate_limit": int(runtime_state.rate_limit_failure_count or 0),
+        "permission_mismatch": int(runtime_state.permission_mismatch_count or 0),
         "runtime_failure": int(runtime_state.runtime_failure_count or 0),
         "service_failure": int(service_failure_count or 0),
     }
@@ -788,6 +834,23 @@ def run_shift_cycle(
                         ledger.record_failure(
                             failure_type="publication_failure", detail=failure_log[:500]
                         )
+                elif failure_class == RATE_LIMIT_FAILURE:
+                    runtime_state.rate_limit_failure_count += 1
+                    latest_failure_class = RATE_LIMIT_FAILURE
+                    latest_failure_detail = failure_log[:500]
+                    if ledger:
+                        ledger.record_failure(
+                            failure_type=RATE_LIMIT_FAILURE, detail=failure_log[:500]
+                        )
+                elif failure_class == PERMISSION_MISMATCH_FAILURE:
+                    runtime_state.permission_mismatch_count += 1
+                    latest_failure_class = PERMISSION_MISMATCH_FAILURE
+                    latest_failure_detail = failure_log[:500]
+                    if ledger:
+                        ledger.record_failure(
+                            failure_type=PERMISSION_MISMATCH_FAILURE,
+                            detail=failure_log[:500],
+                        )
                 else:
                     runtime_state.runtime_failure_count += 1
                     runtime_failures.append(
@@ -802,6 +865,8 @@ def run_shift_cycle(
             elif conclusion == "success":
                 runtime_state.auth_failure_count = 0
                 runtime_state.publication_failure_count = 0
+                runtime_state.rate_limit_failure_count = 0
+                runtime_state.permission_mismatch_count = 0
                 runtime_state.runtime_failure_count = 0
 
     should_trigger, trigger_reason = should_trigger_benchmark_rerun(
@@ -883,6 +948,17 @@ def run_shift_cycle(
         and runtime_state.publication_failure_count >= PUBLICATION_FAILURE_STOP_AFTER
     ):
         stop_reason = "RepeatedPublicationFailure: benchmark publication failed PR handoff twice"
+    elif (
+        not stop_reason and runtime_state.rate_limit_failure_count >= PUBLICATION_FAILURE_STOP_AFTER
+    ):
+        stop_reason = RECOVERY_STOP_REASONS[RATE_LIMIT_FAILURE]
+        repeated_failure_classes.append(RATE_LIMIT_FAILURE)
+    elif (
+        not stop_reason
+        and runtime_state.permission_mismatch_count >= PUBLICATION_FAILURE_STOP_AFTER
+    ):
+        stop_reason = RECOVERY_STOP_REASONS[PERMISSION_MISMATCH_FAILURE]
+        repeated_failure_classes.append(PERMISSION_MISMATCH_FAILURE)
     elif not stop_reason and runtime_state.runtime_failure_count >= RUNTIME_FAILURE_STOP_AFTER:
         stop_reason = "RuntimeFailure: proof-first shift lost a required runtime control surface"
 
