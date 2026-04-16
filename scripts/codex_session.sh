@@ -4,6 +4,7 @@
 # Usage:
 #   ./scripts/codex_session.sh
 #   ./scripts/codex_session.sh --agent codex-qa
+#   ./scripts/codex_session.sh --agent codex-qa --full-auto
 #   ./scripts/codex_session.sh --orchestrator crewai
 #   ./scripts/codex_session.sh --agent codex-qa --base main -- python -m pytest tests/debate -q
 #   ./scripts/codex_session.sh --managed-dir .worktrees/codex-auto-qa --no-maintain --no-reconcile
@@ -36,6 +37,7 @@ ALLOW_LEASE_OVERLAP=false
 WRITE_SCOPES=()
 CLAIMED_PATHS=()
 TEST_COMMANDS=()
+CODEX_ARGS=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -99,6 +101,14 @@ while [[ $# -gt 0 ]]; do
             ALLOW_LEASE_OVERLAP=true
             shift
             ;;
+        --full-auto)
+            CODEX_ARGS+=(--full-auto)
+            shift
+            ;;
+        --dangerously-bypass-approvals-and-sandbox)
+            CODEX_ARGS+=(--dangerously-bypass-approvals-and-sandbox)
+            shift
+            ;;
         --help|-h)
             sed -n '1,20p' "$0"
             exit 0
@@ -152,8 +162,13 @@ SESSION_ID="$(basename "${WORKTREE_PATH}")"
 
 if [[ $# -eq 0 ]]; then
     SESSION_MODE="codex"
-    SESSION_COMMAND="codex"
-    SESSION_ARGS_JSON='["codex"]'
+    SESSION_COMMAND="codex ${CODEX_ARGS[*]}"
+    SESSION_ARGS_JSON="$(python3 - "${CODEX_ARGS[@]}" <<'PY'
+import json
+import sys
+print(json.dumps(["codex", *sys.argv[1:]]))
+PY
+)"
 else
     SESSION_MODE="command"
     SESSION_COMMAND="$*"
@@ -348,7 +363,7 @@ run_sanitized_session() {
 
 if command -v script >/dev/null 2>&1 && [ -t 0 ]; then
     if [[ $# -eq 0 ]]; then
-        script -q "${LOG_FILE}" env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex
+        script -q "${LOG_FILE}" env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY codex "${CODEX_ARGS[@]}"
     else
         script -q "${LOG_FILE}" env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY "$@"
     fi
@@ -357,7 +372,7 @@ fi
 
 # Fallback when script(1) is unavailable.
 if [[ $# -eq 0 ]]; then
-    run_sanitized_session codex 2>&1 | tee -a "${LOG_FILE}"
+    run_sanitized_session codex "${CODEX_ARGS[@]}" 2>&1 | tee -a "${LOG_FILE}"
     exit ${PIPESTATUS[0]}
 fi
 
