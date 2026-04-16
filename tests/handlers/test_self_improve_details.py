@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import time
 from collections import deque
+from io import BytesIO
 from threading import Lock
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -82,6 +83,34 @@ class MockHTTPHandler:
             self.request.body = b"{}"
             self.rfile.read.return_value = b"{}"
             self.headers["Content-Length"] = "2"
+
+
+class StandardHTTPHandler:
+    """Minimal standard HTTP handler shape with headers and rfile only."""
+
+    def __init__(
+        self,
+        body: dict[str, Any] | str | bytes | None = None,
+        method: str = "POST",
+    ):
+        self.command = method
+        self.client_address = ("127.0.0.1", 12345)
+        self.path = ""
+
+        if isinstance(body, bytes):
+            raw = body
+        elif isinstance(body, str):
+            raw = body.encode("utf-8")
+        elif body is None:
+            raw = b""
+        else:
+            raw = json.dumps(body).encode("utf-8")
+
+        self.headers = {
+            "Content-Type": "application/json",
+            "Content-Length": str(len(raw)),
+        }
+        self.rfile = BytesIO(raw)
 
 
 # ---------------------------------------------------------------------------
@@ -1372,6 +1401,36 @@ class TestPostImprovementQueue:
         assert data["status"] == "pending"
 
     @pytest.mark.asyncio
+    async def test_add_goal_reads_standard_rfile_body(self, handler):
+        """Successfully add a goal from a standard headers/rfile request body."""
+        from aragora.nomic.improvement_queue import ImprovementSuggestion
+
+        mock_queue = MockImprovementQueue()
+
+        queue_mod = MagicMock()
+        queue_mod.get_improvement_queue.return_value = mock_queue
+        queue_mod.ImprovementSuggestion = ImprovementSuggestion
+
+        http = StandardHTTPHandler(
+            {"goal": "Prove queue writes work", "priority": 80, "source": "test"},
+            method="POST",
+        )
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
+            result = await handler.handle_post("/api/self-improve/improvement-queue", {}, http)
+
+        assert _status(result) == 201
+        data = _parse_data(result)
+        assert data["goal"] == "Prove queue writes work"
+        assert data["priority"] == 80
+        assert data["source"] == "test"
+
+    @pytest.mark.asyncio
     async def test_add_goal_missing_goal_field(self, handler):
         """Missing 'goal' field returns 400."""
         http = MockHTTPHandler(body={"priority": 50}, method="POST")
@@ -1483,6 +1542,33 @@ class TestPutImprovementQueuePriority:
         assert data["status"] == "updated"
         # Confidence should be updated
         assert suggestion.confidence == 0.9
+
+    @pytest.mark.asyncio
+    async def test_update_priority_reads_standard_rfile_body(self, handler):
+        """Successfully update priority from a standard headers/rfile request body."""
+        suggestion = MockImprovementSuggestion("item-rfile", "Fix bugs", "user", 0.5)
+        mock_queue = MockImprovementQueue([suggestion])
+
+        queue_mod = MagicMock()
+        queue_mod.get_improvement_queue.return_value = mock_queue
+
+        http = StandardHTTPHandler({"priority": 65}, method="PUT")
+
+        with patch.dict(
+            "sys.modules",
+            {
+                "aragora.nomic.improvement_queue": queue_mod,
+            },
+        ):
+            result = await handler.handle_put(
+                "/api/self-improve/improvement-queue/item-rfile/priority", {}, http
+            )
+
+        assert _status(result) == 200
+        data = _parse_data(result)
+        assert data["id"] == "item-rfile"
+        assert data["priority"] == 65
+        assert suggestion.confidence == 0.65
 
     @pytest.mark.asyncio
     async def test_update_priority_item_not_found(self, handler):
@@ -1864,41 +1950,47 @@ class TestGetRequestBody:
     def test_extracts_json_from_request_body(self):
         """Extract JSON body from handler.request.body."""
         http = MockHTTPHandler(body={"key": "value"})
-        result = SelfImproveDetailsHandler._get_request_body(http)
+        result = SelfImproveDetailsHandler({})._get_request_body(http)
+        assert result == {"key": "value"}
+
+    def test_extracts_json_from_standard_rfile_body(self):
+        """Extract JSON body from handler headers and rfile."""
+        http = StandardHTTPHandler({"key": "value"})
+        result = SelfImproveDetailsHandler({})._get_request_body(http)
         assert result == {"key": "value"}
 
     def test_returns_empty_dict_for_no_body(self):
         """Return empty dict when no body is present."""
         http = MagicMock(spec=[])
-        result = SelfImproveDetailsHandler._get_request_body(http)
+        result = SelfImproveDetailsHandler({})._get_request_body(http)
         assert result == {}
 
     def test_returns_empty_dict_for_invalid_json(self):
         """Return empty dict when body is not valid JSON."""
         http = MagicMock()
         http.request.body = b"not valid json"
-        result = SelfImproveDetailsHandler._get_request_body(http)
+        result = SelfImproveDetailsHandler({})._get_request_body(http)
         assert result == {}
 
     def test_returns_empty_dict_for_empty_body(self):
         """Return empty dict when body is empty bytes."""
         http = MagicMock()
         http.request.body = b""
-        result = SelfImproveDetailsHandler._get_request_body(http)
+        result = SelfImproveDetailsHandler({})._get_request_body(http)
         assert result == {}
 
     def test_handles_string_body(self):
         """Handle body as a string instead of bytes."""
         http = MagicMock()
         http.request.body = '{"key": "value"}'
-        result = SelfImproveDetailsHandler._get_request_body(http)
+        result = SelfImproveDetailsHandler({})._get_request_body(http)
         assert result == {"key": "value"}
 
     def test_handles_none_body(self):
         """Handle body that is None."""
         http = MagicMock()
         http.request.body = None
-        result = SelfImproveDetailsHandler._get_request_body(http)
+        result = SelfImproveDetailsHandler({})._get_request_body(http)
         assert result == {}
 
 

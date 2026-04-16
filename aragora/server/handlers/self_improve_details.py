@@ -16,7 +16,6 @@ why it chose specific goals, and how it learns over time.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 import uuid
@@ -533,17 +532,12 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
     # Improvement Queue write endpoints
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _get_request_body(handler: Any) -> dict[str, Any]:
-        """Extract JSON body from the request handler."""
+    def _get_request_body(self, handler: Any) -> dict[str, Any]:
+        """Extract JSON body from buffered or standard HTTP request handlers."""
         try:
-            if hasattr(handler, "request") and hasattr(handler.request, "body"):
-                raw = handler.request.body
-                if raw:
-                    return json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
-        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
-            pass
-        return {}
+            return self.read_json_body(handler) or {}
+        except AttributeError:
+            return {}
 
     @handle_errors("improvement queue add")
     async def handle_post(
