@@ -29,6 +29,7 @@ HANDLER_MODULES: dict[str, str] = {
     "AgentsHandler": "aragora.server.handlers.agents",
     "CalibrationHandler": "aragora.server.handlers.agents",
     "FeedbackHandler": "aragora.server.handlers.agents.feedback",
+    "FeedbackHubHandler": "aragora.server.handlers.feedback_hub",
     "LeaderboardViewHandler": "aragora.server.handlers.agents",
     "ProbesHandler": "aragora.server.handlers.agents",
     # analytics
@@ -579,6 +580,7 @@ ALL_HANDLER_NAMES: list[str] = [
     # agents/ sub-handlers
     "AgentRecommendationHandler",
     "FeedbackHandler",
+    "FeedbackHubHandler",
     # canvas pipeline stages
     "ActionCanvasHandler",
     "GoalCanvasHandler",
