@@ -52,12 +52,31 @@ describe('Cross SDK Python Compatibility Routes', () => {
     await api.tasksToWorkflow({ pipeline_id: 'p1' });
     await api.executeTransitions({ pipeline_id: 'p1' });
     await api.getTransitionProvenance('n/1');
+    await api.listPipelines();
+    await api.approvePipelineTransition('pipe-1', 'ideas', 'goals', {
+      approved: false,
+      comment: 'needs refinement',
+    });
 
     expect(mockClient.request).toHaveBeenNthCalledWith(1, 'POST', '/api/v1/canvas/pipeline/demo', {
       body: { ideas: ['a'] },
     });
     expect(mockClient.request).toHaveBeenNthCalledWith(10, 'GET', '/api/v1/pipeline/graph/g%2F1');
     expect(mockClient.request).toHaveBeenNthCalledWith(24, 'GET', '/api/v1/pipeline/transitions/n%2F1/provenance');
+    expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/canvas/pipeline');
+    expect(mockClient.request).toHaveBeenCalledWith(
+      'POST',
+      '/api/v1/canvas/pipeline/approve-transition',
+      {
+        body: {
+          pipeline_id: 'pipe-1',
+          from_stage: 'ideas',
+          to_stage: 'goals',
+          approved: false,
+          comment: 'needs refinement',
+        },
+      }
+    );
   });
 
   it('maps costs analytics compatibility routes', async () => {

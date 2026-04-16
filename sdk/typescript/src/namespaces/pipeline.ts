@@ -95,6 +95,16 @@ export class PipelineNamespace {
   constructor(private client: AragoraClient) {}
 
   /**
+   * List saved canvas pipelines.
+   */
+  async listPipelines(): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'GET',
+      '/api/v1/canvas/pipeline'
+    );
+  }
+
+  /**
    * Start an async pipeline execution.
    *
    * Runs the 4-stage pipeline: ideation → goals → workflow → orchestration.
@@ -250,6 +260,30 @@ export class PipelineNamespace {
       `/api/v1/canvas/pipeline/${encodeURIComponent(pipelineId)}/approve-transition`,
       {
         body: {
+          from_stage: fromStage,
+          to_stage: toStage,
+          approved: options?.approved ?? true,
+          ...(options?.comment ? { comment: options.comment } : {}),
+        },
+      }
+    );
+  }
+
+  /**
+   * Approve or reject a pending stage transition through the root route.
+   */
+  async approvePipelineTransition(
+    pipelineId: string,
+    fromStage: string,
+    toStage: string,
+    options?: { approved?: boolean; comment?: string },
+  ): Promise<Record<string, unknown>> {
+    return this.client.request<Record<string, unknown>>(
+      'POST',
+      '/api/v1/canvas/pipeline/approve-transition',
+      {
+        body: {
+          pipeline_id: pipelineId,
           from_stage: fromStage,
           to_stage: toStage,
           approved: options?.approved ?? true,

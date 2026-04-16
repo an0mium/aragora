@@ -54,10 +54,12 @@ OPENCLAW_ENDPOINTS: list[tuple[str, str]] = [
 
 PIPELINE_ENDPOINTS: list[tuple[str, str]] = [
     # Pipeline execution
+    ("GET", "/api/v1/canvas/pipeline"),
     ("POST", "/api/v1/canvas/pipeline/run"),
     ("POST", "/api/v1/canvas/pipeline/from-debate"),
     ("POST", "/api/v1/canvas/pipeline/from-ideas"),
     ("POST", "/api/v1/canvas/pipeline/advance"),
+    ("POST", "/api/v1/canvas/pipeline/approve-transition"),
     ("POST", "/api/v1/canvas/pipeline/{id}/approve-transition"),
     # Pipeline queries
     ("GET", "/api/v1/canvas/pipeline/{id}"),
