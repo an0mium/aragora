@@ -287,6 +287,7 @@ class AragoraClient:
         from .namespaces.policies import PoliciesAPI
         from .namespaces.privacy import PrivacyAPI
         from .namespaces.probes import ProbesAPI
+        from .namespaces.prompt_engine import PromptEngineAPI
         from .namespaces.pulse import PulseAPI
         from .namespaces.queue import QueueAPI
         from .namespaces.quotas import QuotasAPI
@@ -472,6 +473,7 @@ class AragoraClient:
         self.podcast = PodcastAPI(self)
         self.policies = PoliciesAPI(self)
         self.privacy = PrivacyAPI(self)
+        self.prompt_engine = PromptEngineAPI(self)
         self.probes = ProbesAPI(self)
         self.pulse = PulseAPI(self)
         self.queue = QueueAPI(self)
@@ -932,6 +934,7 @@ class AragoraAsyncClient:
         from .namespaces.policies import AsyncPoliciesAPI
         from .namespaces.privacy import AsyncPrivacyAPI
         from .namespaces.probes import AsyncProbesAPI
+        from .namespaces.prompt_engine import AsyncPromptEngineAPI
         from .namespaces.pulse import AsyncPulseAPI
         from .namespaces.queue import AsyncQueueAPI
         from .namespaces.quotas import AsyncQuotasAPI
@@ -1104,6 +1107,7 @@ class AragoraAsyncClient:
         self.podcast = AsyncPodcastAPI(self)
         self.policies = AsyncPoliciesAPI(self)
         self.privacy = AsyncPrivacyAPI(self)
+        self.prompt_engine = AsyncPromptEngineAPI(self)
         self.probes = AsyncProbesAPI(self)
         self.pulse = AsyncPulseAPI(self)
         self.queue = AsyncQueueAPI(self)

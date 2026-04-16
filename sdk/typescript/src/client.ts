@@ -299,6 +299,7 @@ import {
   OutcomesAPI,
   PlansAPI,
   PlaybooksAPI,
+  PromptEngineAPI,
   ReadinessAPI,
   TasksAPI,
   TemplatesAPI,
@@ -955,6 +956,9 @@ export class AragoraClient {
   /** Playbooks API - Playbook CRUD and execution. */
   readonly playbooks: PlaybooksAPI;
 
+  /** Prompt Engine API - Prompt-to-specification pipeline operations. */
+  readonly promptEngine: PromptEngineAPI;
+
   /** Readiness API - System readiness checks. */
   readonly readiness: ReadinessAPI;
 
@@ -1172,6 +1176,7 @@ export class AragoraClient {
     this.outcomes = new OutcomesAPI(this);
     this.plans = new PlansAPI(this);
     this.playbooks = new PlaybooksAPI(this);
+    this.promptEngine = new PromptEngineAPI(this);
     this.readiness = new ReadinessAPI(this);
     this.tasks = new TasksAPI(this);
     this.templates = new TemplatesAPI(this);

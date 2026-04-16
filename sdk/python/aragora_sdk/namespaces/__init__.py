@@ -131,6 +131,7 @@ from .podcast import AsyncPodcastAPI, PodcastAPI
 from .policies import AsyncPoliciesAPI, PoliciesAPI
 from .privacy import AsyncPrivacyAPI, PrivacyAPI
 from .probes import AsyncProbesAPI, ProbesAPI
+from .prompt_engine import AsyncPromptEngineAPI, PromptEngineAPI
 from .pulse import AsyncPulseAPI, PulseAPI
 from .queue import AsyncQueueAPI, QueueAPI
 from .quotas import AsyncQuotasAPI, QuotasAPI
@@ -437,6 +438,8 @@ __all__ = [
     "AsyncPrivacyAPI",
     "ProbesAPI",
     "AsyncProbesAPI",
+    "PromptEngineAPI",
+    "AsyncPromptEngineAPI",
     "PulseAPI",
     "AsyncPulseAPI",
     "QueueAPI",

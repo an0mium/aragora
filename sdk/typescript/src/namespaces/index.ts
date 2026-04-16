@@ -145,6 +145,17 @@ export {
   type TemplateRatings,
 } from './marketplace';
 
+export {
+  PromptEngineAPI,
+  type PromptEngineRunListOptions,
+  type PromptEngineRunRequest,
+  type PromptEnginePromptRequest,
+  type PromptEngineIntentRequest,
+  type PromptEngineInterrogateRequest,
+  type PromptEngineSpecifyRequest,
+  type PromptEngineValidateRequest,
+} from './prompt-engine';
+
 // Codebase Analysis
 export { CodebaseAPI } from './codebase';
 

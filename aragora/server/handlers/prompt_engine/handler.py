@@ -63,6 +63,17 @@ class PromptEngineHandler(SecureHandler):
         "/api/prompt-engine/runs/{run_id}",
     ]
 
+    _ROUTE_MAP = {
+        "POST /api/prompt-engine/run": "handle_post",
+        "POST /api/prompt-engine/decompose": "handle_post",
+        "POST /api/prompt-engine/interrogate": "handle_post",
+        "POST /api/prompt-engine/research": "handle_post",
+        "POST /api/prompt-engine/specify": "handle_post",
+        "POST /api/prompt-engine/validate": "handle_post",
+        "GET /api/prompt-engine/runs": "handle",
+        "GET /api/prompt-engine/runs/{run_id}": "handle",
+    }
+
     def can_handle(self, path: str, method: str | None = None) -> bool:
         # Backward-compatible signature: can_handle(method, path)
         if method is not None and not path.startswith("/") and method.startswith("/"):

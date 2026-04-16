@@ -78,6 +78,7 @@ from aragora.server.openapi.endpoints.pipeline import PIPELINE_ENDPOINTS
 from aragora.server.openapi.endpoints.playbooks import PLAYBOOK_ENDPOINTS
 from aragora.server.openapi.endpoints.marketplace import MARKETPLACE_ENDPOINTS
 from aragora.server.openapi.endpoints.orchestration import ORCHESTRATION_ENDPOINTS
+from aragora.server.openapi.endpoints.prompt_engine import PROMPT_ENGINE_ENDPOINTS
 
 
 import logging
@@ -174,6 +175,7 @@ ALL_ENDPOINTS = {
     **PLAYBOOK_ENDPOINTS,
     **MARKETPLACE_ENDPOINTS,
     **ORCHESTRATION_ENDPOINTS,
+    **PROMPT_ENGINE_ENDPOINTS,
 }
 
 # Deep merge decorator endpoints: manual specs take precedence over decorator
@@ -256,5 +258,6 @@ __all__ = [
     "PLAYBOOK_ENDPOINTS",
     "MARKETPLACE_ENDPOINTS",
     "ORCHESTRATION_ENDPOINTS",
+    "PROMPT_ENGINE_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]
