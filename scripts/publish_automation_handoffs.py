@@ -43,6 +43,11 @@ REQUIRED_LABELS = (
 )
 OPTIONAL_LABELS = ("Backup Task",)
 ALL_LABELS = REQUIRED_LABELS + OPTIONAL_LABELS
+BLOCK_TIMESTAMP_KEY = "__block_timestamp"
+BLOCK_POSITION_KEY = "__block_position"
+BLOCK_TIMESTAMP_PATTERN = re.compile(
+    r"(?m)(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)"
+)
 STOPWORDS = {
     "a",
     "an",
@@ -121,6 +126,29 @@ def _label_matches(text: str) -> list[re.Match[str]]:
     return list(re.finditer(rf"(?m)^({label_pattern}):\s*", text))
 
 
+def _timestamp_before(text: str, position: int) -> str | None:
+    """Return the closest preceding full ISO timestamp for a memory handoff block."""
+
+    matches = list(BLOCK_TIMESTAMP_PATTERN.finditer(text[:position]))
+    if not matches:
+        return None
+    return matches[-1].group(1)
+
+
+def _parse_block_datetime(values: dict[str, str]) -> datetime | None:
+    raw_timestamp = values.get(BLOCK_TIMESTAMP_KEY)
+    if not raw_timestamp:
+        return None
+    normalized = raw_timestamp.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
 def _parse_blocks(text: str) -> list[dict[str, str]]:
     matches = _label_matches(text)
     blocks: list[dict[str, str]] = []
@@ -144,6 +172,8 @@ def _parse_blocks(text: str) -> list[dict[str, str]]:
             values[item.group(1)] = text[item.end() : next_start].strip()
 
         if all(label in values and values[label] for label in REQUIRED_LABELS):
+            values[BLOCK_TIMESTAMP_KEY] = _timestamp_before(text, match.start()) or ""
+            values[BLOCK_POSITION_KEY] = str(match.start())
             blocks.append(values)
     return blocks
 
@@ -156,9 +186,10 @@ def _expiration(values: dict[str, str], source_file: Path) -> str | None:
         return None
     if hours <= 0:
         return None
-    expires_at = datetime.fromtimestamp(source_file.stat().st_mtime, tz=UTC) + timedelta(
-        hours=hours
+    reference_time = _parse_block_datetime(values) or datetime.fromtimestamp(
+        source_file.stat().st_mtime, tz=UTC
     )
+    expires_at = reference_time + timedelta(hours=hours)
     return expires_at.isoformat()
 
 
@@ -180,6 +211,18 @@ def _format_body(values: dict[str, str], source_file: Path) -> str:
     return "\n".join(lines).strip()
 
 
+def _latest_block(parsed_blocks: list[dict[str, str]]) -> dict[str, str]:
+    def key(values: dict[str, str]) -> tuple[datetime, int]:
+        block_time = _parse_block_datetime(values) or datetime.min.replace(tzinfo=UTC)
+        try:
+            position = int(values.get(BLOCK_POSITION_KEY, "0"))
+        except ValueError:
+            position = 0
+        return (block_time, position)
+
+    return max(parsed_blocks, key=key)
+
+
 def load_handoffs(
     codex_home: Path,
     *,
@@ -196,7 +239,7 @@ def load_handoffs(
         parsed_blocks = _parse_blocks(text)
         if not parsed_blocks:
             continue
-        values = parsed_blocks[-1]
+        values = _latest_block(parsed_blocks)
         priority = values["Priority"].strip()
         task_title = values["Task Title"].strip()
         expires_at = _expiration(values, memory_file)
@@ -241,6 +284,14 @@ def _looks_duplicate(candidate: str, existing: str) -> bool:
     existing_tokens = _title_tokens(existing)
     if not candidate_tokens or not existing_tokens:
         return candidate.strip().lower() == existing.strip().lower()
+    candidate_handlers = {token for token in candidate_tokens if token.endswith("handler")}
+    existing_handlers = {token for token in existing_tokens if token.endswith("handler")}
+    if (
+        candidate_handlers
+        and existing_handlers
+        and candidate_handlers.isdisjoint(existing_handlers)
+    ):
+        return False
     overlap = candidate_tokens & existing_tokens
     return len(overlap) >= min(3, len(candidate_tokens))
 

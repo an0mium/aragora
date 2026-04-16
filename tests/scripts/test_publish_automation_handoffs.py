@@ -75,6 +75,50 @@ def test_load_handoffs_uses_latest_structured_block_per_memory(tmp_path: Path) -
     assert [handoff.task_title for handoff in handoffs] == ["Fresh decision task"]
 
 
+def test_load_handoffs_uses_newest_timestamp_when_memory_is_out_of_order(
+    tmp_path: Path,
+) -> None:
+    _memory(
+        tmp_path,
+        "founder-review",
+        "\n\n".join(
+            [
+                "2026-04-16T08:14:42-05:00 - Founder review\n\n"
+                + _handoff("Fresh modular dispatch task"),
+                "2026-04-16T06:11:29-05:00 - Founder review\n\n"
+                + _handoff("Older sqlite lock task"),
+            ]
+        ),
+    )
+
+    handoffs = mod.load_handoffs(tmp_path, now=datetime(2026, 4, 16, 14, 0, tzinfo=timezone.utc))
+
+    assert [handoff.task_title for handoff in handoffs] == ["Fresh modular dispatch task"]
+
+
+def test_load_handoffs_expires_from_block_timestamp_not_file_mtime(tmp_path: Path) -> None:
+    memory = _memory(
+        tmp_path,
+        "founder-review",
+        "2026-04-15T08:14:42-05:00 - Founder review\n\n" + _handoff("Expired task"),
+    )
+    text = memory.read_text(encoding="utf-8").replace("Expiration Hours: 72", "Expiration Hours: 1")
+    memory.write_text(text, encoding="utf-8")
+    fresh_time = datetime(2026, 4, 16, 13, 59, tzinfo=timezone.utc).timestamp()
+    os.utime(memory, (fresh_time, fresh_time))
+
+    handoffs = mod.load_handoffs(tmp_path, now=datetime(2026, 4, 16, 14, 20, tzinfo=timezone.utc))
+
+    assert handoffs == []
+
+
+def test_looks_duplicate_does_not_conflate_distinct_handlers() -> None:
+    assert not mod._looks_duplicate(
+        "Restore PromptEngineHandler OpenAPI and SDK contract",
+        "Restore TaskQueueHandler OpenAPI and SDK contract",
+    )
+
+
 def test_decide_handoffs_marks_duplicate_issue(monkeypatch: Any, tmp_path: Path) -> None:
     handoff = Handoff(
         source_file=str(tmp_path / "memory.md"),
