@@ -151,7 +151,11 @@ def compute_calibration_k_multipliers(
                 if isinstance(val, (int, float)):
                     ece = float(val)
             except (KeyError, AttributeError, TypeError):
-                pass
+                logger.debug(
+                    "Skipping calibration ECE lookup for agent=%s",
+                    agent,
+                    exc_info=True,
+                )
 
             # Brier score: recent prediction accuracy (0-1, lower is better)
             brier = None
@@ -160,7 +164,11 @@ def compute_calibration_k_multipliers(
                 if isinstance(val, (int, float)):
                     brier = float(val)
             except (KeyError, AttributeError, TypeError):
-                pass
+                logger.debug(
+                    "Skipping calibration Brier score lookup for agent=%s",
+                    agent,
+                    exc_info=True,
+                )
 
             # Blend available signals into composite calibration error
             if ece is not None and brier is not None:
@@ -183,6 +191,11 @@ def compute_calibration_k_multipliers(
             else:
                 multipliers[agent] = 1.4
         except (KeyError, AttributeError):
+            logger.debug(
+                "Using default calibration multiplier for agent=%s",
+                agent,
+                exc_info=True,
+            )
             multipliers[agent] = 1.0
 
     return multipliers
