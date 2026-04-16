@@ -789,6 +789,16 @@ if HANDLER_BASE_AVAILABLE:
             "/api/v1/chat/telegram/webhook",
             "/api/v1/chat/whatsapp/webhook",
         ]
+        _ROUTE_MAP = {
+            "POST /api/v1/chat/webhook": "handle_post",
+            "GET /api/v1/chat/status": "handle",
+            "POST /api/v1/chat/slack/webhook": "handle_post",
+            "POST /api/v1/chat/teams/webhook": "handle_post",
+            "POST /api/v1/chat/discord/webhook": "handle_post",
+            "POST /api/v1/chat/google_chat/webhook": "handle_post",
+            "POST /api/v1/chat/telegram/webhook": "handle_post",
+            "POST /api/v1/chat/whatsapp/webhook": "handle_post",
+        }
 
         def __init__(self, ctx: dict | None = None):
             """Initialize with router."""

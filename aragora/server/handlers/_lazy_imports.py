@@ -58,6 +58,8 @@ HANDLER_MODULES: dict[str, str] = {
     "TelegramHandler": "aragora.server.handlers.bots",
     "WhatsAppHandler": "aragora.server.handlers.bots",
     "ZoomHandler": "aragora.server.handlers.bots",
+    # chat/ directory
+    "ChatHandler": "aragora.server.handlers.chat.router",
     # codebase/ directory
     "IntelligenceHandler": "aragora.server.handlers.codebase",
     # connectors/ directory
@@ -514,6 +516,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "EmailServicesHandler",
     "DependencyAnalysisHandler",
     "IntelligenceHandler",
+    "ChatHandler",
     "DiscordHandler",
     "GoogleChatHandler",
     "TeamsHandler",
