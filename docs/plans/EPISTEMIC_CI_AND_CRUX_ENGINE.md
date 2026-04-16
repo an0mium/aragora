@@ -211,4 +211,3 @@ The tranche is ready to enter active implementation only when:
 - recurring proof surfaces stay fresh without babysitting
 - queue governance can prevent claim/crux follow-up work from becoming generic churn
 - receipt and Knowledge Mound paths can preserve provenance without schema drift
-
