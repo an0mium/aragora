@@ -789,12 +789,49 @@ class CanvasPipelineHandler:
     @staticmethod
     def _get_request_body(handler: Any) -> dict[str, Any]:
         """Extract JSON body from the request handler."""
+
+        def parse_raw(raw: Any) -> dict[str, Any]:
+            if not raw:
+                return {}
+            if isinstance(raw, bytes | bytearray):
+                raw = bytes(raw).decode("utf-8")
+            parsed = json.loads(raw) if isinstance(raw, str) else raw
+            return parsed if isinstance(parsed, dict) else {}
+
+        def header_value(name: str) -> str | None:
+            headers = getattr(handler, "headers", None)
+            if not headers or not hasattr(headers, "get"):
+                return None
+            return headers.get(name) or headers.get(name.lower()) or headers.get(name.title())
+
         try:
             if hasattr(handler, "request") and hasattr(handler.request, "body"):
                 raw = handler.request.body
-                if raw:
-                    return json.loads(raw.decode("utf-8") if isinstance(raw, bytes) else raw)
+                if raw is not None:
+                    return parse_raw(raw)
         except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+            pass
+
+        try:
+            if hasattr(handler, "_body"):
+                raw = handler._body
+                if raw is not None:
+                    return parse_raw(raw)
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+            pass
+
+        try:
+            length = int(header_value("Content-Length") or "0")
+            if length <= 0 or not hasattr(handler, "rfile"):
+                return {}
+            return parse_raw(handler.rfile.read(length))
+        except (
+            ValueError,
+            TypeError,
+            json.JSONDecodeError,
+            UnicodeDecodeError,
+            AttributeError,
+        ):
             pass
         return {}
 
