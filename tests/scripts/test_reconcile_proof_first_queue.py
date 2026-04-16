@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from scripts import reconcile_proof_first_queue as mod
 
@@ -194,3 +195,44 @@ def test_reconcile_proof_first_queue_treats_graphql_quota_as_github_unavailable(
         "operation": "list_open_queue_issues",
         "error": "GraphQL: API rate limit already exceeded for user ID 123",
     }
+
+
+def test_queue_reads_prefer_app_env_and_label_removal_uses_user_env(monkeypatch) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def fake_github_cli_env(*, prefer_app: bool = True) -> dict[str, str]:
+        return {"AUTH_SOURCE": "app" if prefer_app else "user"}
+
+    def fake_run(cmd: list[str], **kwargs: Any):
+        calls.append({"cmd": cmd, "env": kwargs.get("env")})
+        if cmd[:3] == ["gh", "issue", "list"]:
+            return mod.subprocess.CompletedProcess(cmd, 0, "[]", "")
+        return mod.subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(mod, "github_cli_env", fake_github_cli_env)
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    mod.list_open_queue_issues(repo="org/repo", label="boss-ready")
+    mod.remove_queue_label(repo="org/repo", issue_number=1, label="boss-ready")
+
+    assert calls[0]["env"] == {"AUTH_SOURCE": "app"}
+    assert calls[1]["env"] == {"AUTH_SOURCE": "user"}
+
+
+def test_create_issue_uses_user_env(monkeypatch) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def fake_github_cli_env(*, prefer_app: bool = True) -> dict[str, str]:
+        return {"AUTH_SOURCE": "app" if prefer_app else "user"}
+
+    def fake_run(cmd: list[str], **kwargs: Any):
+        calls.append({"cmd": cmd, "env": kwargs.get("env")})
+        return mod.subprocess.CompletedProcess(cmd, 0, "https://github.com/org/repo/issues/1\n", "")
+
+    monkeypatch.setattr(mod, "github_cli_env", fake_github_cli_env)
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    issue = mod.create_issue(repo="org/repo", title="Title", body="Body", labels=["boss-ready"])
+
+    assert issue["url"] == "https://github.com/org/repo/issues/1"
+    assert calls[0]["env"] == {"AUTH_SOURCE": "user"}

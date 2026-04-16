@@ -33,6 +33,16 @@ def is_github_connectivity_error(message: str) -> bool:
     return any(token in lowered for token in GITHUB_CONNECTIVITY_ERROR_TOKENS)
 
 
+def github_read_env() -> dict[str, str]:
+    return github_cli_env()
+
+
+def github_write_env() -> dict[str, str]:
+    # The installation token is intentionally read-optimized for quota isolation.
+    # Label mutation and issue creation still need the user's gh credentials.
+    return github_cli_env(prefer_app=False)
+
+
 def list_open_queue_issues(*, repo: str, label: str) -> list[dict[str, Any]]:
     result = subprocess.run(
         [
@@ -54,7 +64,7 @@ def list_open_queue_issues(*, repo: str, label: str) -> list[dict[str, Any]]:
         text=True,
         timeout=30,
         check=False,
-        env=github_cli_env(),
+        env=github_read_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue list failed")
@@ -80,7 +90,7 @@ def remove_queue_label(*, repo: str, issue_number: int, label: str) -> None:
         text=True,
         timeout=30,
         check=False,
-        env=github_cli_env(),
+        env=github_write_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue edit failed")
@@ -171,7 +181,7 @@ def find_existing_open_issue_by_title(*, repo: str, title: str) -> dict[str, Any
         text=True,
         timeout=30,
         check=False,
-        env=github_cli_env(),
+        env=github_read_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue list failed")
@@ -196,7 +206,7 @@ def create_issue(*, repo: str, title: str, body: str, labels: list[str]) -> dict
         text=True,
         timeout=30,
         check=False,
-        env=github_cli_env(),
+        env=github_write_env(),
     )
     if result.returncode != 0:
         raise RuntimeError(result.stderr.strip() or "gh issue create failed")
