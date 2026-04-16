@@ -5,6 +5,10 @@ import json
 from pathlib import Path
 import sys
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from aragora.swarm import session_mux
 
 
@@ -48,10 +52,14 @@ def _print_json(payload: object) -> None:
 
 
 def _print_status_text(status: dict[str, object]) -> None:
+    readiness = status.get("readiness")
+    phase = "-"
+    if isinstance(readiness, dict):
+        phase = str(readiness.get("phase") or "-")
     line = (
         f"{status['name']}: running={status['running']} "
         f"tmux={status['tmux_target']} branch={status.get('branch') or '-'} "
-        f"worktree={status.get('worktree_path') or '-'}"
+        f"worktree={status.get('worktree_path') or '-'} readiness={phase}"
     )
     sys.stdout.write(f"{line}\n")
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 from aragora.swarm import session_mux as mod
 
@@ -105,6 +106,75 @@ def test_refresh_session_record_harvests_codex_metadata(monkeypatch, tmp_path: P
     assert refreshed.meta_path == str(meta_path)
 
 
+def test_refresh_session_record_targets_registered_window(monkeypatch, tmp_path: Path) -> None:
+    commands: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **kwargs) -> SimpleNamespace:  # noqa: ANN003
+        commands.append(cmd)
+        if cmd[:3] == ["tmux", "has-session", "-t"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if cmd[:2] == ["tmux", "list-panes"]:
+            assert cmd[3] == "@17"
+            return SimpleNamespace(returncode=0, stdout="4\t0\t/tmp/target-worktree\n", stderr="")
+        if cmd[:3] == ["git", "-C", "/tmp/target-worktree"]:
+            return SimpleNamespace(returncode=0, stdout="codex/target\n", stderr="")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    record = mod.SessionRecord(
+        name="codex-1",
+        tmux_session="aragora",
+        tmux_window="@17",
+        tmux_pane="0",
+        launcher_command="codex",
+        started_at="2026-04-13T18:00:00Z",
+        log_path=str(tmp_path / ".aragora" / "session_mux" / "logs" / "codex-1.log"),
+    )
+
+    refreshed = mod.refresh_session_record(tmp_path, record)
+
+    assert refreshed.tmux_window == "4"
+    assert refreshed.tmux_pane == "0"
+    assert refreshed.worktree_path == "/tmp/target-worktree"
+    assert refreshed.branch == "codex/target"
+    assert refreshed.tmux_target == "aragora:4.0"
+    assert any(cmd[:2] == ["tmux", "list-panes"] for cmd in commands)
+
+
+def test_list_sessions_marks_stale_window_without_aborting(monkeypatch, tmp_path: Path) -> None:
+    registry = mod.SessionMuxRegistry(tmp_path)
+    log_path = tmp_path / ".aragora" / "session_mux" / "logs" / "codex-1.log"
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("booting\n", encoding="utf-8")
+    registry.upsert(
+        mod.SessionRecord(
+            name="codex-1",
+            tmux_session="aragora",
+            tmux_window="@17",
+            tmux_pane="0",
+            launcher_command="codex",
+            started_at="2026-04-13T18:00:00Z",
+            log_path=str(log_path),
+        )
+    )
+
+    def fake_run(cmd: list[str], **kwargs) -> SimpleNamespace:  # noqa: ANN003
+        if cmd[:3] == ["tmux", "has-session", "-t"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if cmd[:2] == ["tmux", "list-panes"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="can't find window: @17")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    statuses = mod.list_sessions(tmp_path)
+
+    assert len(statuses) == 1
+    assert statuses[0]["name"] == "codex-1"
+    assert statuses[0]["running"] is False
+    assert "can't find window" in str(statuses[0]["error"])
+
+
 def test_capture_output_uses_last_prompt_marker(tmp_path: Path) -> None:
     log_path = tmp_path / ".aragora" / "session_mux" / "logs" / "codex-1.log"
     log_path.parent.mkdir(parents=True)
@@ -138,3 +208,31 @@ def test_capture_output_uses_last_prompt_marker(tmp_path: Path) -> None:
     captured = mod.capture_output(tmp_path, name="codex-1", tail_lines=1)
 
     assert captured == "recent line 2"
+
+
+def test_readiness_state_reports_booting_ready_and_prompt_accepted() -> None:
+    booting = mod._readiness_state_from_log(agent_name="codex-1", log_text="starting...\n")
+    ready = mod._readiness_state_from_log(
+        agent_name="codex-1",
+        log_text="OpenAI Codex\nUse /skills to list available skills\n",
+    )
+    accepted = mod._readiness_state_from_log(
+        agent_name="codex-1",
+        log_text="OpenAI Codex\n[Pasted Content 123 chars]\n",
+    )
+
+    assert booting == {
+        "ready": False,
+        "prompt_accepted": False,
+        "phase": "booting",
+    }
+    assert ready == {
+        "ready": True,
+        "prompt_accepted": False,
+        "phase": "ready",
+    }
+    assert accepted == {
+        "ready": True,
+        "prompt_accepted": True,
+        "phase": "prompt_accepted",
+    }

@@ -26,6 +26,21 @@ TMUX_SESSION="aragora"
 LOG_DIR="${HOME}/.aragora/tmux-sessions"
 mkdir -p "${LOG_DIR}"
 
+send_prompt_to_target() {
+    local target="$1"
+    local prompt="$2"
+    if [[ "$(echo "${prompt}" | wc -l)" -gt 1 ]]; then
+        local buffer_name="aragora-prompt-launch-${NAME}-$$-$(date +%s%N)"
+        tmux set-buffer -b "${buffer_name}" "${prompt}"
+        tmux paste-buffer -b "${buffer_name}" -t "${target}"
+        tmux send-keys -t "${target}" "" Enter
+        tmux delete-buffer -b "${buffer_name}" 2>/dev/null || true
+    else
+        tmux send-keys -t "${target}" "${prompt}" Enter
+    fi
+    echo "Prompt sent to '${NAME}' (${#prompt} chars)"
+}
+
 wait_for_agent_ready() {
     local agent="$1"
     local log_file="$2"
@@ -35,7 +50,7 @@ wait_for_agent_ready() {
 
     case "${agent}" in
         codex)
-            pattern='OpenAI Codex|Use /skills to list available skills|Improve documentation in @filename'
+            pattern='OpenAI Codex|Use /skills to list available skills|Improve documentation in @filename|Find and fix a bug in @filename|Explain this codebase|Use /rename to rename your threads'
             ;;
         claude)
             pattern='Claude Code|ctrl\+g to edit in VS Code|don'"'"'t ask on'
@@ -55,6 +70,21 @@ wait_for_agent_ready() {
     done
 
     return 1
+}
+
+default_init_wait_seconds() {
+    local agent="$1"
+    case "${agent}" in
+        codex)
+            echo "60"
+            ;;
+        claude)
+            echo "30"
+            ;;
+        *)
+            echo "30"
+            ;;
+    esac
 }
 
 # --- argument parsing ---
@@ -129,6 +159,7 @@ fi
 
 LOG_FILE="${LOG_DIR}/${NAME}.log"
 META_FILE="${LOG_DIR}/${NAME}.meta.json"
+REGISTRY_REPO_ROOT="${ARAGORA_TMUX_REGISTRY_REPO_ROOT:-${REPO_ROOT}}"
 
 # Ensure tmux session exists
 if ! tmux has-session -t "${TMUX_SESSION}" 2>/dev/null; then
@@ -142,9 +173,9 @@ fi
 #   - Codex gets --full-auto approval mode
 if [[ "${AGENT}" == "codex" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
-        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent codex --base main --full-auto"
+        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent '${NAME}' --base main --full-auto"
     else
-        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent codex --base main"
+        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent '${NAME}' --base main"
     fi
 elif [[ "${AGENT}" == "claude" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
@@ -163,27 +194,59 @@ if [[ -n "${PROMPT_FILE}" && -f "${PROMPT_FILE}" ]]; then
 fi
 
 # Create new tmux window with logging
-tmux new-window -t "${TMUX_SESSION}" -n "${NAME}"
-tmux pipe-pane -t "${TMUX_SESSION}:${NAME}" -o "cat >> '${LOG_FILE}'"
+WINDOW_TARGET="$(tmux new-window -P -F '#{window_id}' -t "${TMUX_SESSION}" -n "${NAME}")"
+PANE_INDEX="$(tmux list-panes -t "${WINDOW_TARGET}" -F '#{pane_index}' | head -1)"
+tmux pipe-pane -t "${WINDOW_TARGET}" -o "cat >> '${LOG_FILE}'"
 
 # Send the launch command
-tmux send-keys -t "${TMUX_SESSION}:${NAME}" "${LAUNCH_CMD}" Enter
+tmux send-keys -t "${WINDOW_TARGET}" "${LAUNCH_CMD}" Enter
 
 # Write metadata (avoid embedding prompt content in Python literal)
-python3 - "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" <<'PYEOF'
-import json, datetime, sys
-name, agent, log_file, repo_root, prompt_file, meta_file, has_prompt = sys.argv[1:8]
+python3 - "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}" <<'PYEOF'
+import datetime
+import importlib.util
+import json
+from pathlib import Path
+import sys
+
+name, agent, log_file, repo_root, prompt_file, meta_file, has_prompt, window_target, tmux_session, pane_index, launch_cmd, registry_repo_root = sys.argv[1:13]
+started_at = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 meta = {
     "name": name,
     "agent": agent,
-    "started": datetime.datetime.now().isoformat(),
+    "started": started_at,
     "log_file": log_file,
     "repo_root": repo_root,
+    "tmux_session": tmux_session,
+    "tmux_window_target": window_target,
+    "tmux_pane_index": pane_index,
     "prompt_file": prompt_file or None,
     "has_prompt": bool(has_prompt),
 }
-with open(meta_file, "w") as f:
-    json.dump(meta, f, indent=2)
+Path(meta_file).write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+
+try:
+    module_path = Path(repo_root) / "aragora" / "swarm" / "session_mux.py"
+    spec = importlib.util.spec_from_file_location("aragora_swarm_session_mux", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"unable to load session_mux module from {module_path}")
+    session_mux = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = session_mux
+    spec.loader.exec_module(session_mux)
+
+    record = session_mux.SessionRecord(
+        name=name,
+        tmux_session=tmux_session,
+        tmux_window=window_target,
+        tmux_pane=pane_index or "0",
+        launcher_command=launch_cmd,
+        started_at=started_at,
+        log_path=log_file,
+        meta_path=meta_file,
+    )
+    session_mux.SessionMuxRegistry(Path(registry_repo_root)).upsert(record)
+except Exception as exc:  # pragma: no cover - launcher should still succeed if registry sync fails
+    print(f"warning: failed to register launcher session: {exc}", file=sys.stderr)
 PYEOF
 
 echo "Launched '${NAME}' (${AGENT}) in tmux session '${TMUX_SESSION}'"
@@ -192,12 +255,19 @@ echo "  Meta: ${META_FILE}"
 
 # If there's a prompt to send, wait for the session to initialize then send it
 if [[ -n "${PROMPT}" ]]; then
-    INIT_WAIT_SECONDS="${ARAGORA_TMUX_INIT_WAIT_SECONDS:-30}"
+    INIT_WAIT_SECONDS="${ARAGORA_TMUX_INIT_WAIT_SECONDS:-$(default_init_wait_seconds "${AGENT}")}"
+    SEND_ON_TIMEOUT="${ARAGORA_TMUX_SEND_ON_TIMEOUT:-0}"
     echo "Waiting up to ${INIT_WAIT_SECONDS}s for ${AGENT} readiness before sending prompt..."
     if wait_for_agent_ready "${AGENT}" "${LOG_FILE}" "${INIT_WAIT_SECONDS}"; then
         echo "Readiness markers detected for ${NAME}."
+        send_prompt_to_target "${WINDOW_TARGET}" "${PROMPT}"
     else
-        echo "Timed out waiting for readiness markers for ${NAME}; sending prompt anyway."
+        if [[ "${SEND_ON_TIMEOUT}" == "1" ]]; then
+            echo "Timed out waiting for readiness markers for ${NAME}; sending prompt anyway because ARAGORA_TMUX_SEND_ON_TIMEOUT=1."
+            send_prompt_to_target "${WINDOW_TARGET}" "${PROMPT}"
+        else
+            echo "Timed out waiting for readiness markers for ${NAME}; prompt not sent."
+            echo "Re-send once ready with: ${SCRIPT_DIR}/tmux_send_prompt.sh --name ${NAME} --prompt '...'"
+        fi
     fi
-    "${SCRIPT_DIR}/tmux_send_prompt.sh" --name "${NAME}" --prompt "${PROMPT}"
 fi

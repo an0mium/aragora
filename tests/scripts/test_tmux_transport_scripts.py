@@ -28,7 +28,13 @@ if cmd[:3] == ["has-session", "-t", "aragora"]:
 if cmd[:3] == ["list-windows", "-t", "aragora"]:
     print("0 {window_name}")
     raise SystemExit(0)
-if cmd[:2] in (["new-session", "-d"], ["new-window", "-t"], ["pipe-pane", "-t"]):
+if cmd[:2] == ["list-panes", "-t"]:
+    print("0")
+    raise SystemExit(0)
+if cmd[:2] == ["new-window", "-P"]:
+    print("@17")
+    raise SystemExit(0)
+if cmd[:2] in (["new-session", "-d"], ["pipe-pane", "-t"]):
     raise SystemExit(0)
 if cmd[:2] in (["send-keys", "-t"], ["set-buffer", "-b"], ["paste-buffer", "-b"], ["delete-buffer", "-b"]):
     raise SystemExit(0)
@@ -99,6 +105,7 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     _write_fake_tmux(tmp_path)
     env = _fake_tmux_env(tmp_path)
     env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
 
     log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
     log_dir.mkdir(parents=True)
@@ -124,5 +131,128 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
 
     assert "Readiness markers detected for testpane." in result.stdout
     calls = _load_tmux_calls(env)
-    assert any(call[:2] == ["new-window", "-t"] for call in calls)
-    assert any("hello from launcher" in call for call in calls if call[:2] == ["send-keys", "-t"])
+    assert any(call[:2] == ["new-window", "-P"] for call in calls)
+    assert any(call[:2] == ["pipe-pane", "-t"] and call[2] == "@17" for call in calls)
+    assert any(
+        call[:2] == ["send-keys", "-t"] and call[2] == "@17" and "hello from launcher" in call
+        for call in calls
+    )
+    assert any(
+        call[:2] == ["send-keys", "-t"]
+        and call[2] == "@17"
+        and "./scripts/codex_session.sh --agent 'testpane'" in call[3]
+        for call in calls
+    )
+    registry_payload = json.loads(
+        (tmp_path / ".aragora" / "session_mux" / "registry.json").read_text()
+    )
+    assert "testpane" in registry_payload["sessions"]
+    assert registry_payload["sessions"]["testpane"]["tmux_window"] == "@17"
+
+
+def test_tmux_session_launcher_accepts_new_codex_readiness_markers(tmp_path: Path) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
+    log_dir.mkdir(parents=True)
+    (log_dir / "testpane.log").write_text(
+        "boot\nFind and fix a bug in @filename\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "testpane",
+            "--agent",
+            "codex",
+            "--prompt",
+            "hello from launcher",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "Readiness markers detected for testpane." in result.stdout
+
+
+def test_tmux_session_launcher_does_not_send_prompt_before_readiness_by_default(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
+    log_dir.mkdir(parents=True)
+    (log_dir / "testpane.log").write_text("boot only\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "testpane",
+            "--agent",
+            "codex",
+            "--prompt",
+            "do not send yet",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "prompt not sent" in result.stdout
+    calls = _load_tmux_calls(env)
+    assert not any(call[:2] == ["send-keys", "-t"] and "do not send yet" in call for call in calls)
+
+
+def test_tmux_session_launcher_can_send_prompt_on_timeout_when_explicitly_enabled(
+    tmp_path: Path,
+) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_SEND_ON_TIMEOUT"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
+
+    log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
+    log_dir.mkdir(parents=True)
+    (log_dir / "testpane.log").write_text("boot only\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "testpane",
+            "--agent",
+            "codex",
+            "--prompt",
+            "send despite timeout",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "sending prompt anyway because ARAGORA_TMUX_SEND_ON_TIMEOUT=1" in result.stdout
+    calls = _load_tmux_calls(env)
+    assert any(
+        call[:2] == ["send-keys", "-t"] and call[2] == "@17" and "send despite timeout" in call
+        for call in calls
+    )

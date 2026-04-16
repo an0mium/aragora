@@ -11,6 +11,22 @@ import uuid
 
 _REGISTRY_SCHEMA_VERSION = 1
 _PROMPT_MARKER_PREFIX = "=== ARAGORA_SESSION_MUX_PROMPT "
+_CODEX_READY_MARKERS = (
+    "openai codex",
+    "use /skills to list available skills",
+    "find and fix a bug in @filename",
+    "explain this codebase",
+    "use /rename to rename your threads",
+)
+_CLAUDE_READY_MARKERS = (
+    "claude code",
+    "don't ask on",
+    "ctrl+g to edit in vs code",
+)
+_PROMPT_ACCEPTED_MARKERS = (
+    "[pasted content",
+    "[pasted text",
+)
 
 
 def resolve_repo_root(path_hint: Path | None = None) -> Path:
@@ -68,6 +84,32 @@ def _tail_text(text: str, line_count: int) -> str:
     return "\n".join(lines[-line_count:])
 
 
+def _agent_ready_markers(agent_name: str) -> tuple[str, ...]:
+    lowered = agent_name.lower()
+    if "claude" in lowered:
+        return _CLAUDE_READY_MARKERS
+    return _CODEX_READY_MARKERS
+
+
+def _readiness_state_from_log(*, agent_name: str, log_text: str) -> dict[str, Any]:
+    lowered = log_text.lower()
+    ready = any(marker in lowered for marker in _agent_ready_markers(agent_name))
+    prompt_accepted = any(marker in lowered for marker in _PROMPT_ACCEPTED_MARKERS)
+    if prompt_accepted:
+        phase = "prompt_accepted"
+    elif ready:
+        phase = "ready"
+    elif log_text.strip():
+        phase = "booting"
+    else:
+        phase = "no_output"
+    return {
+        "ready": ready,
+        "prompt_accepted": prompt_accepted,
+        "phase": phase,
+    }
+
+
 def prompt_marker(prompt_id: str, *, at: datetime | None = None) -> str:
     return f"{_PROMPT_MARKER_PREFIX}{prompt_id} {_isoformat_utc(at or _utc_now())}"
 
@@ -112,6 +154,8 @@ class SessionRecord:
 
     @property
     def tmux_target(self) -> str:
+        if self.tmux_window.startswith("@"):
+            return f"{self.tmux_window}.{self.tmux_pane}"
         return f"{self.tmux_session}:{self.tmux_window}.{self.tmux_pane}"
 
     def to_dict(self) -> dict[str, Any]:
@@ -223,6 +267,18 @@ def build_tmux_list_panes_cmd(tmux_session: str) -> list[str]:
     ]
 
 
+def build_tmux_list_window_panes_cmd(*, tmux_session: str, tmux_window: str) -> list[str]:
+    target = tmux_window if tmux_window.startswith("@") else f"{tmux_session}:{tmux_window}"
+    return [
+        "tmux",
+        "list-panes",
+        "-t",
+        target,
+        "-F",
+        "#{window_index}\t#{pane_index}\t#{pane_current_path}",
+    ]
+
+
 def build_tmux_pipe_pane_cmd(*, target: str, log_path: Path) -> list[str]:
     sink = f"cat >> {shlex.quote(str(log_path))}"
     return ["tmux", "pipe-pane", "-o", "-t", target, sink]
@@ -277,6 +333,28 @@ def _primary_pane(tmux_session: str) -> dict[str, str]:
     }
 
 
+def _window_pane(*, tmux_session: str, tmux_window: str) -> dict[str, str]:
+    result = _run_tmux(
+        build_tmux_list_window_panes_cmd(tmux_session=tmux_session, tmux_window=tmux_window)
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        raise RuntimeError(
+            f"Unable to inspect tmux panes for window {tmux_session}:{tmux_window}: {result.stderr.strip()}"
+        )
+    line = result.stdout.strip().splitlines()[0]
+    parts = line.split("\t")
+    if len(parts) != 3:
+        raise RuntimeError(
+            f"Unexpected tmux pane format for window {tmux_session}:{tmux_window}: {line}"
+        )
+    window, pane, current_path = parts
+    return {
+        "window": window,
+        "pane": pane,
+        "current_path": current_path,
+    }
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -322,7 +400,7 @@ def _git_branch(path: Path) -> str | None:
 def refresh_session_record(repo_root: Path, record: SessionRecord) -> SessionRecord:
     refreshed = SessionRecord.from_dict(record.to_dict())
     if _tmux_session_exists(refreshed.tmux_session):
-        pane = _primary_pane(refreshed.tmux_session)
+        pane = _window_pane(tmux_session=refreshed.tmux_session, tmux_window=refreshed.tmux_window)
         refreshed.tmux_window = pane["window"]
         refreshed.tmux_pane = pane["pane"]
         current_path = pane["current_path"].strip()
@@ -353,6 +431,10 @@ def session_status(repo_root: Path, *, name: str) -> dict[str, Any]:
     payload = record.to_dict()
     payload["running"] = running
     payload["tmux_target"] = record.tmux_target
+    log_text = (
+        Path(record.log_path).read_text(encoding="utf-8") if Path(record.log_path).exists() else ""
+    )
+    payload["readiness"] = _readiness_state_from_log(agent_name=record.name, log_text=log_text)
     return payload
 
 
@@ -360,11 +442,26 @@ def list_sessions(repo_root: Path) -> list[dict[str, Any]]:
     registry = SessionMuxRegistry(repo_root)
     statuses: list[dict[str, Any]] = []
     for record in registry.list():
-        refreshed = refresh_session_record(repo_root, record)
-        registry.upsert(refreshed)
-        status = refreshed.to_dict()
-        status["running"] = _tmux_session_exists(refreshed.tmux_session)
+        try:
+            refreshed = refresh_session_record(repo_root, record)
+            registry.upsert(refreshed)
+            status = refreshed.to_dict()
+            status["running"] = _tmux_session_exists(refreshed.tmux_session)
+        except RuntimeError as exc:
+            status = record.to_dict()
+            status["running"] = False
+            status["error"] = str(exc)
+            refreshed = record
         status["tmux_target"] = refreshed.tmux_target
+        log_text = (
+            Path(refreshed.log_path).read_text(encoding="utf-8")
+            if Path(refreshed.log_path).exists()
+            else ""
+        )
+        status["readiness"] = _readiness_state_from_log(
+            agent_name=refreshed.name,
+            log_text=log_text,
+        )
         statuses.append(status)
     return statuses
 
@@ -438,7 +535,12 @@ def send_prompt(
     if not _tmux_session_exists(record.tmux_session):
         raise RuntimeError(f"tmux session is not running: {name}")
 
-    prompt_text = text if text is not None else file_path.read_text(encoding="utf-8")
+    if text is not None:
+        prompt_text = text
+    else:
+        if file_path is None:
+            raise ValueError("Provide either text or file_path")
+        prompt_text = file_path.read_text(encoding="utf-8")
     prompt_id = uuid.uuid4().hex[:8]
     prompt_at = _utc_now()
     append_prompt_marker(Path(record.log_path), prompt_id=prompt_id, at=prompt_at)
