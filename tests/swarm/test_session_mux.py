@@ -114,7 +114,7 @@ def test_refresh_session_record_targets_registered_window(monkeypatch, tmp_path:
         if cmd[:3] == ["tmux", "has-session", "-t"]:
             return SimpleNamespace(returncode=0, stdout="", stderr="")
         if cmd[:2] == ["tmux", "list-panes"]:
-            assert cmd[3] == "aragora:@17"
+            assert cmd[3] == "@17"
             return SimpleNamespace(returncode=0, stdout="4\t0\t/tmp/target-worktree\n", stderr="")
         if cmd[:3] == ["git", "-C", "/tmp/target-worktree"]:
             return SimpleNamespace(returncode=0, stdout="codex/target\n", stderr="")
@@ -137,7 +137,42 @@ def test_refresh_session_record_targets_registered_window(monkeypatch, tmp_path:
     assert refreshed.tmux_pane == "0"
     assert refreshed.worktree_path == "/tmp/target-worktree"
     assert refreshed.branch == "codex/target"
+    assert refreshed.tmux_target == "aragora:4.0"
     assert any(cmd[:2] == ["tmux", "list-panes"] for cmd in commands)
+
+
+def test_list_sessions_marks_stale_window_without_aborting(monkeypatch, tmp_path: Path) -> None:
+    registry = mod.SessionMuxRegistry(tmp_path)
+    log_path = tmp_path / ".aragora" / "session_mux" / "logs" / "codex-1.log"
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("booting\n", encoding="utf-8")
+    registry.upsert(
+        mod.SessionRecord(
+            name="codex-1",
+            tmux_session="aragora",
+            tmux_window="@17",
+            tmux_pane="0",
+            launcher_command="codex",
+            started_at="2026-04-13T18:00:00Z",
+            log_path=str(log_path),
+        )
+    )
+
+    def fake_run(cmd: list[str], **kwargs) -> SimpleNamespace:  # noqa: ANN003
+        if cmd[:3] == ["tmux", "has-session", "-t"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        if cmd[:2] == ["tmux", "list-panes"]:
+            return SimpleNamespace(returncode=1, stdout="", stderr="can't find window: @17")
+        raise AssertionError(f"unexpected command: {cmd}")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    statuses = mod.list_sessions(tmp_path)
+
+    assert len(statuses) == 1
+    assert statuses[0]["name"] == "codex-1"
+    assert statuses[0]["running"] is False
+    assert "can't find window" in str(statuses[0]["error"])
 
 
 def test_capture_output_uses_last_prompt_marker(tmp_path: Path) -> None:

@@ -154,6 +154,8 @@ class SessionRecord:
 
     @property
     def tmux_target(self) -> str:
+        if self.tmux_window.startswith("@"):
+            return f"{self.tmux_window}.{self.tmux_pane}"
         return f"{self.tmux_session}:{self.tmux_window}.{self.tmux_pane}"
 
     def to_dict(self) -> dict[str, Any]:
@@ -266,11 +268,12 @@ def build_tmux_list_panes_cmd(tmux_session: str) -> list[str]:
 
 
 def build_tmux_list_window_panes_cmd(*, tmux_session: str, tmux_window: str) -> list[str]:
+    target = tmux_window if tmux_window.startswith("@") else f"{tmux_session}:{tmux_window}"
     return [
         "tmux",
         "list-panes",
         "-t",
-        f"{tmux_session}:{tmux_window}",
+        target,
         "-F",
         "#{window_index}\t#{pane_index}\t#{pane_current_path}",
     ]
@@ -439,10 +442,16 @@ def list_sessions(repo_root: Path) -> list[dict[str, Any]]:
     registry = SessionMuxRegistry(repo_root)
     statuses: list[dict[str, Any]] = []
     for record in registry.list():
-        refreshed = refresh_session_record(repo_root, record)
-        registry.upsert(refreshed)
-        status = refreshed.to_dict()
-        status["running"] = _tmux_session_exists(refreshed.tmux_session)
+        try:
+            refreshed = refresh_session_record(repo_root, record)
+            registry.upsert(refreshed)
+            status = refreshed.to_dict()
+            status["running"] = _tmux_session_exists(refreshed.tmux_session)
+        except RuntimeError as exc:
+            status = record.to_dict()
+            status["running"] = False
+            status["error"] = str(exc)
+            refreshed = record
         status["tmux_target"] = refreshed.tmux_target
         log_text = (
             Path(refreshed.log_path).read_text(encoding="utf-8")

@@ -226,6 +226,7 @@ def test_tmux_session_launcher_can_send_prompt_on_timeout_when_explicitly_enable
     env = _fake_tmux_env(tmp_path)
     env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
     env["ARAGORA_TMUX_SEND_ON_TIMEOUT"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
 
     log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
     log_dir.mkdir(parents=True)
