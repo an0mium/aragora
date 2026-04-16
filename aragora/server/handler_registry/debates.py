@@ -88,6 +88,9 @@ TemplateDiscoveryHandler = _safe_import(
     "aragora.server.handlers.template_discovery", "TemplateDiscoveryHandler"
 )
 
+# Prompt engine handler
+PromptEngineHandler = _safe_import("aragora.server.handlers.prompt_engine", "PromptEngineHandler")
+
 # Composite, stats, share, interventions, settlement, spectate, receipt export
 CompositeHandler = _safe_import("aragora.server.handlers.composite", "CompositeHandler")
 DebateStatsHandler = _safe_import("aragora.server.handlers.debate_stats", "DebateStatsHandler")
@@ -152,6 +155,8 @@ DEBATE_HANDLER_REGISTRY: list[tuple[str, object]] = [
     ("_security_debate_handler", SecurityDebateHandler),
     # Template discovery
     ("_template_discovery_handler", TemplateDiscoveryHandler),
+    # Prompt engine
+    ("_prompt_engine_handler", PromptEngineHandler),
     # Composite debate
     ("_composite_handler", CompositeHandler),
     # Debate stats, share, interventions
@@ -211,6 +216,7 @@ __all__ = [
     "EmailDebateHandler",
     "SecurityDebateHandler",
     "TemplateDiscoveryHandler",
+    "PromptEngineHandler",
     "CompositeHandler",
     "DebateStatsHandler",
     "DebateShareHandler",

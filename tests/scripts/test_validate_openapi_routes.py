@@ -165,3 +165,13 @@ def test_get_openapi_routes_includes_sibling_generated_snapshot(tmp_path: Path):
 
     assert "/api/v1/canonical" in routes
     assert "/api/v1/generated" in routes
+
+
+def test_validate_coverage_counts_prompt_engine_registry_routes() -> None:
+    results = validate_openapi_routes.validate_coverage(
+        "docs/api/openapi.json",
+        output_json=True,
+    )
+
+    assert "/api/v1/prompt-engine/run" not in results["orphaned_in_spec"]
+    assert "/api/v1/prompt-engine/decompose" not in results["orphaned_in_spec"]
