@@ -13,6 +13,7 @@ import json
 import hashlib
 import re
 import subprocess
+from collections.abc import Callable
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -748,7 +749,7 @@ def scan_all(
     min_success_rate: float = 0.3,
 ) -> list[BossIssueCandidate]:
     """Run all scanners and return merged, prioritized candidates."""
-    all_scanners = {
+    all_scanners: dict[str, Callable[[Path], list[BossIssueCandidate]]] = {
         "broad_exception": scan_bare_except_handlers,
         "silent_exception": scan_silent_exception_swallowing,
         "test_coverage": scan_untested_modules,

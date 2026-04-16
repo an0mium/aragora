@@ -193,7 +193,7 @@ class GitHubIssueFeed:
         if not isinstance(raw_issues, list):
             return []
 
-        issues: list[GitHubIssue] = []
+        fetched_issues: list[GitHubIssue] = []
         for item in raw_issues:
             if not isinstance(item, dict):
                 continue
@@ -203,7 +203,7 @@ class GitHubIssueFeed:
                 for lbl in labels_raw
                 if str(lbl.get("name", "") if isinstance(lbl, dict) else lbl).strip()
             ]
-            issues.append(
+            fetched_issues.append(
                 GitHubIssue(
                     number=int(item.get("number", 0)),
                     title=str(item.get("title", "")).strip(),
@@ -214,7 +214,7 @@ class GitHubIssueFeed:
                     created_at=str(item.get("createdAt", "")).strip(),
                 )
             )
-        return issues
+        return fetched_issues
 
     def _fetch_issue(self, number: int, *, allow_closed: bool = False) -> GitHubIssue | None:
         cmd = [
