@@ -72,6 +72,44 @@ class EvolutionAPI:
         """
         return self._client.request("GET", "/api/v1/evolution")
 
+    def get_agent_evolution_timeline(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Get agent evolution dashboard timeline events."""
+        return self._client.request(
+            "GET",
+            "/api/v1/agent-evolution/timeline",
+            params={"limit": limit, "offset": offset},
+        )
+
+    def get_agent_evolution_elo_trends(self, period: str = "7d") -> dict[str, Any]:
+        """Get agent evolution ELO trend data."""
+        return self._client.request(
+            "GET",
+            "/api/v1/agent-evolution/elo-trends",
+            params={"period": period},
+        )
+
+    def get_agent_evolution_pending(self) -> dict[str, Any]:
+        """Get pending agent evolution changes."""
+        return self._client.request("GET", "/api/v1/agent-evolution/pending")
+
+    def approve_agent_evolution_change(self, change_id: str) -> dict[str, Any]:
+        """Approve a pending agent evolution change."""
+        return self._client.request(
+            "POST",
+            f"/api/v1/agent-evolution/pending/{change_id}/approve",
+        )
+
+    def reject_agent_evolution_change(self, change_id: str) -> dict[str, Any]:
+        """Reject a pending agent evolution change."""
+        return self._client.request(
+            "POST",
+            f"/api/v1/agent-evolution/pending/{change_id}/reject",
+        )
+
 
 class AsyncEvolutionAPI:
     """Asynchronous Evolution API for agent evolution tracking."""
@@ -128,3 +166,41 @@ class AsyncEvolutionAPI:
     async def get_overview(self) -> dict[str, Any]:
         """Get evolution overview."""
         return await self._client.request("GET", "/api/v1/evolution")
+
+    async def get_agent_evolution_timeline(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Get agent evolution dashboard timeline events."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/agent-evolution/timeline",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def get_agent_evolution_elo_trends(self, period: str = "7d") -> dict[str, Any]:
+        """Get agent evolution ELO trend data."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/agent-evolution/elo-trends",
+            params={"period": period},
+        )
+
+    async def get_agent_evolution_pending(self) -> dict[str, Any]:
+        """Get pending agent evolution changes."""
+        return await self._client.request("GET", "/api/v1/agent-evolution/pending")
+
+    async def approve_agent_evolution_change(self, change_id: str) -> dict[str, Any]:
+        """Approve a pending agent evolution change."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/agent-evolution/pending/{change_id}/approve",
+        )
+
+    async def reject_agent_evolution_change(self, change_id: str) -> dict[str, Any]:
+        """Reject a pending agent evolution change."""
+        return await self._client.request(
+            "POST",
+            f"/api/v1/agent-evolution/pending/{change_id}/reject",
+        )

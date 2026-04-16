@@ -69,6 +69,15 @@ export interface CreateABTestRequest {
   config?: Record<string, unknown>;
 }
 
+export interface AgentEvolutionTimelineOptions {
+  limit?: number;
+  offset?: number;
+}
+
+export interface AgentEvolutionEloTrendsOptions {
+  period?: '24h' | '7d' | '30d' | '90d' | string;
+}
+
 interface EvolutionClientInterface {
   request<T = unknown>(
     method: string,
@@ -152,5 +161,40 @@ export class EvolutionAPI {
   /** Get evolution overview. */
   async getOverview(): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/evolution');
+  }
+
+  /** Get agent evolution dashboard timeline events. */
+  async getAgentEvolutionTimeline(params?: AgentEvolutionTimelineOptions): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/agent-evolution/timeline', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /** Get agent evolution ELO trend data. */
+  async getAgentEvolutionEloTrends(params?: AgentEvolutionEloTrendsOptions): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/agent-evolution/elo-trends', {
+      params: params as Record<string, unknown>,
+    });
+  }
+
+  /** Get pending agent evolution changes. */
+  async getAgentEvolutionPending(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/agent-evolution/pending');
+  }
+
+  /** Approve a pending agent evolution change. */
+  async approveAgentEvolutionChange(changeId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/agent-evolution/pending/${encodeURIComponent(changeId)}/approve`
+    );
+  }
+
+  /** Reject a pending agent evolution change. */
+  async rejectAgentEvolutionChange(changeId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'POST',
+      `/api/v1/agent-evolution/pending/${encodeURIComponent(changeId)}/reject`
+    );
   }
 }
