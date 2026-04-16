@@ -104,6 +104,12 @@ class CrashTelemetryHandler(SecureHandler):
         "/api/observability/crashes/stats",
     ]
 
+    _ROUTE_MAP = {
+        "GET /api/observability/crashes": "handle",
+        "POST /api/observability/crashes": "handle_post",
+        "GET /api/observability/crashes/stats": "handle",
+    }
+
     def can_handle(self, path: str, method: str = "GET") -> bool:
         path = strip_version_prefix(path)
         return path in self.ROUTES
