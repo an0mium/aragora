@@ -41,6 +41,7 @@ HANDLER_MODULES: dict[str, str] = {
     "AnalyticsPerformanceHandler": "aragora.server.handlers.analytics_performance",
     "OutcomeDashboardHandler": "aragora.server.handlers.outcome_dashboard",
     "OutcomeAnalyticsHandler": "aragora.server.handlers.outcome_analytics",
+    "DecisionAnalyticsHandler": "aragora.server.handlers.decision_analytics",
     # autonomous/ directory
     "ApprovalHandler": "aragora.server.handlers.autonomous",
     "AlertHandler": "aragora.server.handlers.autonomous",
@@ -382,6 +383,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "AnalyticsPerformanceHandler",
     "OutcomeAnalyticsHandler",
     "OutcomeDashboardHandler",
+    "DecisionAnalyticsHandler",
     "EndpointAnalyticsHandler",
     "CrossPlatformAnalyticsHandler",
     "MetricsHandler",
