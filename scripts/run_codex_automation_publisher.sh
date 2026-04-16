@@ -30,6 +30,10 @@ if ! gh auth status >/dev/null 2>&1; then
   exit 0
 fi
 
-echo "$(STAMP) [codex-automation-publisher] starting publish pass"
+echo "$(STAMP) [codex-automation-publisher] starting handoff publish pass"
+python3 scripts/publish_automation_handoffs.py --apply --limit 1 --max-open-issues 12 --json
+echo "$(STAMP) [codex-automation-publisher] handoff publish pass complete"
+
+echo "$(STAMP) [codex-automation-publisher] starting branch publish pass"
 python3 scripts/publish_codex_automation_branches.py --apply --limit 1 --max-open-prs 1 --json
 echo "$(STAMP) [codex-automation-publisher] publish pass complete"
