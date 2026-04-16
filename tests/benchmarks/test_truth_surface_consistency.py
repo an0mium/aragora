@@ -1,0 +1,214 @@
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _rel_path(raw: str) -> Path:
+    return REPO_ROOT / raw
+
+
+def _last_updated(markdown: str) -> str:
+    match = re.search(r"^Last updated:\s*(\S+)$", markdown, flags=re.MULTILINE)
+    assert match is not None
+    return match.group(1)
+
+
+def _bullet_value(markdown: str, label: str) -> str:
+    match = re.search(
+        rf"^- {re.escape(label)}:\s*(.+)$",
+        markdown,
+        flags=re.MULTILINE,
+    )
+    assert match is not None, f"missing bullet: {label}"
+    value = match.group(1).strip()
+    if re.fullmatch(r"`[^`]+`", value):
+        return value[1:-1]
+    return value
+
+
+def _published_path(markdown: str, label: str) -> Path:
+    return _rel_path(_bullet_value(markdown, label))
+
+
+def _table(markdown: str, section: str) -> dict[str, str]:
+    match = re.search(
+        rf"^## {re.escape(section)}\n\n(?P<table>(?:\| .+\n)+)",
+        markdown,
+        flags=re.MULTILINE,
+    )
+    assert match is not None, f"missing table: {section}"
+    rows: dict[str, str] = {}
+    for line in match.group("table").splitlines():
+        columns = [column.strip() for column in line.strip("|").split("|")]
+        if len(columns) != 2 or columns[0] in {"---", "Metric"}:
+            continue
+        rows[columns[0]] = columns[1]
+    return rows
+
+
+def _section_bullets(markdown: str, section: str) -> dict[str, int]:
+    match = re.search(
+        rf"^## {re.escape(section)}\n\n(?P<body>.*?)(?=\n## |\Z)",
+        markdown,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    assert match is not None, f"missing section: {section}"
+    body = match.group("body").strip()
+    if body == "- none":
+        return {}
+    result: dict[str, int] = {}
+    for line in body.splitlines():
+        item = re.match(r"^- `(?P<name>.+)`: (?P<count>\d+)$", line)
+        assert item is not None, f"unexpected section row in {section}: {line}"
+        result[item.group("name")] = int(item.group("count"))
+    return result
+
+
+def _percent_to_rate(value: str) -> float:
+    assert value.endswith("%")
+    return round(float(value[:-1]) / 100.0, 6)
+
+
+def _int_value(value: str) -> int:
+    return int(value.replace(",", ""))
+
+
+def test_b0_benchmark_truth_status_matches_latest_json_artifacts() -> None:
+    markdown = (REPO_ROOT / "docs/status/B0_BENCHMARK_TRUTH_STATUS.md").read_text(encoding="utf-8")
+    truth_path = _published_path(markdown, "Latest truth artifact")
+    scorecard_path = _published_path(markdown, "Latest scorecard")
+    revision_truth_path = _published_path(markdown, "Revision-scoped truth pointer")
+    revision_scorecard_path = _published_path(markdown, "Revision-scoped scorecard pointer")
+
+    truth_payload = _read_json(truth_path)
+    scorecard_payload = _read_json(scorecard_path)
+
+    assert _read_json(revision_truth_path) == truth_payload
+    assert _read_json(revision_scorecard_path) == scorecard_payload
+    assert _last_updated(markdown) == scorecard_payload["generated_at"]
+
+    corpus = scorecard_payload["corpus"]
+    truth_corpus = truth_payload["corpus"]
+    assert truth_corpus["corpus_id"] == corpus["corpus_id"]
+    assert truth_corpus["revision"] == corpus["revision"]
+    assert truth_corpus["recorded_on"] == corpus["recorded_on"]
+    assert truth_corpus["success_contract"] == corpus["success_contract"]
+    assert truth_corpus["issue_count"] == corpus["issue_count"]
+
+    assert _bullet_value(markdown, "Corpus id") == corpus["corpus_id"]
+    assert int(_bullet_value(markdown, "Revision")) == corpus["revision"]
+    assert _bullet_value(markdown, "Recorded on") == corpus["recorded_on"]
+    assert _bullet_value(markdown, "Success contract") == corpus["success_contract"]
+
+    coverage = scorecard_payload["coverage"]
+    assert _bullet_value(markdown, "Coverage status") == coverage["status"]
+    coverage_match = re.fullmatch(
+        r"`(?P<attempted>\d+)`/`(?P<total>\d+)` issues attempted",
+        _bullet_value(markdown, "Coverage"),
+    )
+    assert coverage_match is not None
+    assert int(coverage_match.group("attempted")) == coverage["attempted_issue_count"]
+    assert int(coverage_match.group("total")) == corpus["issue_count"]
+
+    truth_metrics = _table(markdown, "Truth Metrics")
+    assert _percent_to_rate(truth_metrics["Truth success rate"]) == round(
+        scorecard_payload["truth_metrics"]["truth_success_rate"], 6
+    )
+    assert _percent_to_rate(truth_metrics["No-rescue truth success rate"]) == round(
+        scorecard_payload["truth_metrics"]["no_rescue_truth_success_rate"], 6
+    )
+    assert _percent_to_rate(truth_metrics["Merged-only rate"]) == round(
+        scorecard_payload["truth_metrics"]["merged_only_rate"], 6
+    )
+    assert scorecard_payload["truth_metrics"] == truth_payload["primary_metrics"]
+    assert scorecard_payload["truth_artifact_generated_at"] == truth_payload["generated_at"]
+
+    proxy_metrics = _table(markdown, "Proxy Metrics")
+    proxy_payload = scorecard_payload["proxy_metrics"]
+    assert _percent_to_rate(proxy_metrics["Proxy no-rescue success rate"]) == round(
+        proxy_payload["no_rescue_success_rate"], 6
+    )
+    assert (
+        _int_value(proxy_metrics["Unique issues attempted"])
+        == proxy_payload["unique_issues_attempted"]
+    )
+    assert (
+        _int_value(proxy_metrics["Unique issues succeeded"])
+        == proxy_payload["unique_issues_succeeded"]
+    )
+    assert (
+        _int_value(proxy_metrics["Unique issues failed"]) == proxy_payload["unique_issues_failed"]
+    )
+    assert (
+        _int_value(proxy_metrics["Unique issues neutral"]) == proxy_payload["unique_issues_neutral"]
+    )
+    assert _int_value(proxy_metrics["Total ticks"]) == proxy_payload["total_ticks"]
+    assert (
+        _section_bullets(markdown, "Proxy Neutral Class Distribution")
+        == proxy_payload["neutral_classes"]
+    )
+    assert (
+        _section_bullets(markdown, "Failure Class Distribution")
+        == scorecard_payload["failure_class_distribution"]
+    )
+    assert (
+        _section_bullets(markdown, "Rescue Counts By Type")
+        == scorecard_payload["rescue_counts_by_type"]
+    )
+
+
+def test_tw03_rescue_productization_status_matches_latest_report_json() -> None:
+    markdown = (REPO_ROOT / "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md").read_text(
+        encoding="utf-8"
+    )
+    report_path = _published_path(markdown, "Latest report")
+    report_payload = _read_json(report_path)
+
+    assert _last_updated(markdown) == report_payload["generated_at"]
+    assert _bullet_value(markdown, "Rescue ledger path") == report_payload["ledger_path"]
+    assert (
+        _bullet_value(markdown, "Productization map") == report_payload["productization_map_path"]
+    )
+
+    summary = report_payload["summary"]
+    linked_repeated_count = (
+        summary["linked_fixture_count"]
+        + summary["linked_issue_count"]
+        + summary["linked_other_count"]
+    )
+    assert (
+        int(_bullet_value(markdown, "Repeated rescue classes")) == summary["repeated_class_count"]
+    )
+    assert int(_bullet_value(markdown, "Linked repeated classes")) == linked_repeated_count
+    assert (
+        int(_bullet_value(markdown, "Unlinked repeated classes"))
+        == summary["unlinked_repeated_class_count"]
+    )
+    assert int(_bullet_value(markdown, "One-off classes")) == summary["one_off_class_count"]
+    assert (
+        int(_bullet_value(markdown, "Below-threshold classes"))
+        == summary["below_threshold_class_count"]
+    )
+    assert int(_bullet_value(markdown, "Issue drafts remaining")) == len(
+        report_payload["issue_drafts"]
+    )
+
+    for rescue_class in report_payload["repeated_classes"]:
+        assert f"`{rescue_class['class']}`" in markdown
+    for linkage in report_payload["issue_linkage_results"]:
+        assert linkage["action"] in markdown
+    for draft in report_payload["issue_drafts"]:
+        assert draft["title"] in markdown
+    for rescue_class in report_payload["one_off_classes"]:
+        assert rescue_class["class"] in markdown
+    for rescue_class in report_payload["below_threshold_classes"]:
+        assert rescue_class["class"] in markdown
