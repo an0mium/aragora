@@ -356,6 +356,7 @@ HANDLER_MODULES: dict[str, str] = {
     "RBACHandler": "aragora.server.handlers.rbac",
     # Self-improvement
     "SelfImproveHandler": "aragora.server.handlers.self_improve",
+    "SelfImproveDetailsHandler": "aragora.server.handlers.self_improve_details",
     # Spectate (real-time debate observation)
     "SpectateStreamHandler": "aragora.server.handlers.spectate_ws",
     # Readiness check (SME onboarding)
@@ -565,6 +566,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "GmailThreadsHandler",
     "RBACHandler",
     "SelfImproveHandler",
+    "SelfImproveDetailsHandler",
     "SpectateStreamHandler",
     "VoiceHandler",
     "AudienceSuggestionsHandler",

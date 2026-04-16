@@ -56,7 +56,20 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
         "/api/self-improve/metrics/comparison",
         "/api/self-improve/trends/cycles",
         "/api/self-improve/improvement-queue",
+        "/api/self-improve/improvement-queue/{id}/priority",
+        "/api/self-improve/improvement-queue/{id}",
     ]
+
+    _ROUTE_MAP = {
+        "GET /api/self-improve/meta-planner/goals": "_get_meta_planner_goals",
+        "GET /api/self-improve/execution/timeline": "_get_execution_timeline",
+        "GET /api/self-improve/learning/insights": "_get_learning_insights",
+        "GET /api/self-improve/metrics/comparison": "_get_metrics_comparison",
+        "GET /api/self-improve/trends/cycles": "_get_cycle_trends",
+        "POST /api/self-improve/improvement-queue": "handle_post",
+        "PUT /api/self-improve/improvement-queue/{id}/priority": "handle_put",
+        "DELETE /api/self-improve/improvement-queue/{id}": "handle_delete",
+    }
 
     # Prefix for PUT/DELETE on individual queue items
     _QUEUE_ITEM_PREFIX = "/api/self-improve/improvement-queue/"
