@@ -171,7 +171,8 @@ def _mint_installation_token(config: GitHubAppConfig) -> GitHubAppToken:
             "X-GitHub-Api-Version": GITHUB_API_VERSION,
         },
     )
-    with urllib.request.urlopen(request, timeout=20) as response:
+    # Bandit cannot infer that the Request target above is fixed to https://api.github.com.
+    with urllib.request.urlopen(request, timeout=20) as response:  # nosec B310
         payload = json.loads(response.read().decode("utf-8") or "{}")
     token = str(payload.get("token") or "").strip()
     expires_at_raw = str(payload.get("expires_at") or "").strip()
