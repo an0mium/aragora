@@ -73,6 +73,7 @@ class SelfImproveDetailsHandler(SecureEndpointMixin, SecureHandler):  # type: ig
 
     # Prefix for PUT/DELETE on individual queue items
     _QUEUE_ITEM_PREFIX = "/api/self-improve/improvement-queue/"
+    ROUTE_PREFIXES = [_QUEUE_ITEM_PREFIX]
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
         """Check if this handler can handle the given path."""
