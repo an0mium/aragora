@@ -31,6 +31,7 @@ from aragora.utils.async_utils import run_async
 logger = logging.getLogger(__name__)
 
 _SQLITE_BUSY_TIMEOUT_SECONDS = 30.0
+_REDIS_BACKEND_ERRORS: tuple[type[Exception], ...]
 
 
 class BlacklistBackend(ABC):
