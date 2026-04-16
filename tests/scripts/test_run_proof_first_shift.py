@@ -99,6 +99,17 @@ def test_should_trigger_benchmark_rerun_respects_backlog_cap() -> None:
     assert reason == "automation_backlog_full"
 
 
+def test_count_automation_backlog_ignores_draft_prs() -> None:
+    prs = [
+        {"headRefName": "codex/draft", "isDraft": True},
+        {"headRefName": "codex/ready", "isDraft": False},
+        {"headRefName": "feature/manual", "isDraft": False},
+    ]
+
+    assert mod.count_automation_backlog(prs) == 1
+    assert mod.actionable_open_prs(prs) == prs[1:]
+
+
 def test_should_restart_service_requires_pending_work_and_budget() -> None:
     assert (
         mod.should_restart_service(

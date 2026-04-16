@@ -337,8 +337,15 @@ def list_open_prs(*, repo_root: Path, repo: str) -> list[dict[str, Any]]:
 
 def count_automation_backlog(prs: list[dict[str, Any]]) -> int:
     return sum(
-        1 for pr in prs if str(pr.get("headRefName") or "").startswith(AUTOMATION_BRANCH_PREFIXES)
+        1
+        for pr in prs
+        if not bool(pr.get("isDraft"))
+        and str(pr.get("headRefName") or "").startswith(AUTOMATION_BRANCH_PREFIXES)
     )
+
+
+def actionable_open_prs(prs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [pr for pr in prs if not bool(pr.get("isDraft"))]
 
 
 def has_open_benchmark_publication_pr(prs: list[dict[str, Any]]) -> bool:
@@ -748,8 +755,10 @@ def run_shift_cycle(
         }
     snapshot = collect_boss_lane_snapshot(repo_root=repo_root, repo=repo)
     prs = list_open_prs(repo_root=repo_root, repo=repo)
-    automation_backlog = count_automation_backlog(prs)
-    open_pr_count = len(prs)
+    actionable_prs = actionable_open_prs(prs)
+    automation_backlog = count_automation_backlog(actionable_prs)
+    open_pr_count = len(actionable_prs)
+    draft_pr_count = len(prs) - open_pr_count
     canonical_queue_count = len(queue_report["kept"])
 
     boss_running = process_running(DEFAULT_BOSS_PROCESS_PATTERN)
@@ -1023,6 +1032,8 @@ def run_shift_cycle(
         "queue_report": queue_report,
         "snapshot": snapshot,
         "open_pr_count": open_pr_count,
+        "draft_pr_count": draft_pr_count,
+        "total_open_pr_count": len(prs),
         "automation_backlog": automation_backlog,
         "latest_benchmark_run": latest_run,
         "actions": actions,
