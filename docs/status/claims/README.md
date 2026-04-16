@@ -27,4 +27,3 @@ only; DIC-14 owns evaluation.
 Queue policy: failed or stale claims must not directly create `boss-ready` work
 from this manifest. DIC-17 may later propose bounded follow-up issues, still
 subject to proof-first queue governance.
-

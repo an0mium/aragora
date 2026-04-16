@@ -72,4 +72,3 @@ claims:
     receipts:
       - type: status_doc_reconciliation
         note: "Backed by scripts/reconcile_status_docs.py output."
-
