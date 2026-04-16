@@ -250,6 +250,51 @@ class AnalyticsAPI:
             params["time_range"] = time_range
         return self._client.request("GET", "/api/analytics/debates/outcomes", params=params)
 
+    def decision_overview(self, period: str = "30d") -> dict[str, Any]:
+        """Get decision analytics overview metrics."""
+        return self._client.request(
+            "GET",
+            "/api/v1/decision-analytics/overview",
+            params={"period": period},
+        )
+
+    def decision_trends(self, period: str = "90d") -> dict[str, Any]:
+        """Get decision quality trend data."""
+        return self._client.request(
+            "GET",
+            "/api/v1/decision-analytics/trends",
+            params={"period": period},
+        )
+
+    def decision_outcomes(
+        self,
+        period: str = "30d",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Get paginated decision outcomes."""
+        return self._client.request(
+            "GET",
+            "/api/v1/decision-analytics/outcomes",
+            params={"period": period, "limit": limit, "offset": offset},
+        )
+
+    def decision_agents(self, period: str = "30d") -> dict[str, Any]:
+        """Get per-agent decision quality metrics."""
+        return self._client.request(
+            "GET",
+            "/api/v1/decision-analytics/agents",
+            params={"period": period},
+        )
+
+    def decision_domains(self, period: str = "30d") -> dict[str, Any]:
+        """Get decision quality metrics grouped by domain."""
+        return self._client.request(
+            "GET",
+            "/api/v1/decision-analytics/domains",
+            params={"period": period},
+        )
+
     def outcomes_summary(self, period: str = "30d") -> dict[str, Any]:
         """Get outcome analytics summary."""
         return self._client.request("GET", "/api/analytics/outcomes", params={"period": period})
@@ -313,6 +358,7 @@ class AnalyticsAPI:
     def differentiation_benchmarks(self) -> dict[str, Any]:
         """Get differentiation benchmark metrics."""
         return self._client.request("GET", "/api/differentiation/benchmarks")
+
     # ===========================================================================
     # Agent Analytics
     # ===========================================================================
@@ -750,6 +796,51 @@ class AsyncAnalyticsAPI:
             params["time_range"] = time_range
         return await self._client.request("GET", "/api/analytics/debates/topics", params=params)
 
+    async def decision_overview(self, period: str = "30d") -> dict[str, Any]:
+        """Get decision analytics overview metrics."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/decision-analytics/overview",
+            params={"period": period},
+        )
+
+    async def decision_trends(self, period: str = "90d") -> dict[str, Any]:
+        """Get decision quality trend data."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/decision-analytics/trends",
+            params={"period": period},
+        )
+
+    async def decision_outcomes(
+        self,
+        period: str = "30d",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Get paginated decision outcomes."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/decision-analytics/outcomes",
+            params={"period": period, "limit": limit, "offset": offset},
+        )
+
+    async def decision_agents(self, period: str = "30d") -> dict[str, Any]:
+        """Get per-agent decision quality metrics."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/decision-analytics/agents",
+            params={"period": period},
+        )
+
+    async def decision_domains(self, period: str = "30d") -> dict[str, Any]:
+        """Get decision quality metrics grouped by domain."""
+        return await self._client.request(
+            "GET",
+            "/api/v1/decision-analytics/domains",
+            params={"period": period},
+        )
+
     async def outcomes_summary(self, period: str = "30d") -> dict[str, Any]:
         """Get outcome analytics summary."""
         return await self._client.request(
@@ -815,6 +906,7 @@ class AsyncAnalyticsAPI:
     async def differentiation_benchmarks(self) -> dict[str, Any]:
         """Get differentiation benchmark metrics."""
         return await self._client.request("GET", "/api/differentiation/benchmarks")
+
     # ===========================================================================
     # Agent Analytics
     # ===========================================================================

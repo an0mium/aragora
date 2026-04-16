@@ -23,6 +23,24 @@ export interface AnalyticsPeriodOptions {
 }
 
 /**
+ * Options for decision analytics queries.
+ */
+export interface DecisionAnalyticsPeriodOptions extends Record<string, unknown> {
+  /** Time period (e.g., '24h', '7d', '30d', '90d') */
+  period?: string;
+}
+
+/**
+ * Options for paginated decision outcomes.
+ */
+export interface DecisionAnalyticsOutcomesOptions extends DecisionAnalyticsPeriodOptions {
+  /** Maximum number of outcomes to return */
+  limit?: number;
+  /** Pagination offset */
+  offset?: number;
+}
+
+/**
  * Interface for the internal client methods used by AnalyticsAPI.
  */
 interface AnalyticsClientInterface {
@@ -176,6 +194,51 @@ export class AnalyticsAPI {
    */
   async getDebateOutcomes(options?: { time_range?: string }): Promise<unknown> {
     return this.client.request('GET', '/api/analytics/debates/outcomes', { params: options });
+  }
+
+  /**
+   * Get decision analytics overview metrics.
+   */
+  async getDecisionOverview(options?: DecisionAnalyticsPeriodOptions): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/decision-analytics/overview', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get decision quality trend data.
+   */
+  async getDecisionTrends(options?: DecisionAnalyticsPeriodOptions): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/decision-analytics/trends', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get paginated decision outcomes.
+   */
+  async getDecisionOutcomes(options?: DecisionAnalyticsOutcomesOptions): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/decision-analytics/outcomes', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get per-agent decision quality metrics.
+   */
+  async getDecisionAgents(options?: DecisionAnalyticsPeriodOptions): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/decision-analytics/agents', {
+      params: options,
+    });
+  }
+
+  /**
+   * Get decision quality metrics grouped by domain.
+   */
+  async getDecisionDomains(options?: DecisionAnalyticsPeriodOptions): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/decision-analytics/domains', {
+      params: options,
+    });
   }
 
   /**

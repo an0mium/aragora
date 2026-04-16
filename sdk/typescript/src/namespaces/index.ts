@@ -48,7 +48,12 @@ export { ModesAPI } from './modes';
 export { SpectateAPI } from './spectate';
 export { GauntletAPI } from './gauntlet';
 export type { GauntletRunRequest } from '../types';
-export { AnalyticsAPI, type AnalyticsPeriodOptions } from './analytics';
+export {
+  AnalyticsAPI,
+  type AnalyticsPeriodOptions,
+  type DecisionAnalyticsOutcomesOptions,
+  type DecisionAnalyticsPeriodOptions,
+} from './analytics';
 export { MemoryAPI, type MemoryStoreOptions, type MemoryRetrieveOptions } from './memory';
 export { RBACAPI, type CreateRoleRequest, type UpdateRoleRequest } from './rbac';
 export { KnowledgeAPI, type KnowledgeSearchOptions, type KnowledgeMoundQueryOptions } from './knowledge';

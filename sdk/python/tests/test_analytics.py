@@ -103,6 +103,36 @@ class TestAnalyticsTimeSeries:
             client.close()
 
 
+class TestDecisionAnalytics:
+    """Tests for /api/v1/decision-analytics endpoints."""
+
+    def test_decision_analytics_endpoints(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"data": {}}
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+
+            client.analytics.decision_overview(period="7d")
+            client.analytics.decision_trends(period="90d")
+            client.analytics.decision_outcomes(period="30d", limit=25, offset=50)
+            client.analytics.decision_agents(period="30d")
+            client.analytics.decision_domains(period="30d")
+
+            expected_calls = [
+                call("GET", "/api/v1/decision-analytics/overview", params={"period": "7d"}),
+                call("GET", "/api/v1/decision-analytics/trends", params={"period": "90d"}),
+                call(
+                    "GET",
+                    "/api/v1/decision-analytics/outcomes",
+                    params={"period": "30d", "limit": 25, "offset": 50},
+                ),
+                call("GET", "/api/v1/decision-analytics/agents", params={"period": "30d"}),
+                call("GET", "/api/v1/decision-analytics/domains", params={"period": "30d"}),
+            ]
+            mock_request.assert_has_calls(expected_calls)
+            assert mock_request.call_count == 5
+            client.close()
+
+
 class TestAnalyticsAgentPerformance:
     """Tests for agent analytics and comparison endpoints."""
 
@@ -230,6 +260,7 @@ class TestOutcomeAnalytics:
             assert mock_request.call_count == 5
             client.close()
 
+
 class TestAsyncAnalytics:
     """Tests for async analytics methods."""
 
@@ -270,6 +301,33 @@ class TestAsyncAnalytics:
             await client.close()
 
     @pytest.mark.asyncio
+    async def test_async_decision_analytics_endpoints(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"data": {}}
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+
+            await client.analytics.decision_overview(period="7d")
+            await client.analytics.decision_trends(period="90d")
+            await client.analytics.decision_outcomes(period="30d", limit=25, offset=50)
+            await client.analytics.decision_agents(period="30d")
+            await client.analytics.decision_domains(period="30d")
+
+            expected_calls = [
+                call("GET", "/api/v1/decision-analytics/overview", params={"period": "7d"}),
+                call("GET", "/api/v1/decision-analytics/trends", params={"period": "90d"}),
+                call(
+                    "GET",
+                    "/api/v1/decision-analytics/outcomes",
+                    params={"period": "30d", "limit": 25, "offset": 50},
+                ),
+                call("GET", "/api/v1/decision-analytics/agents", params={"period": "30d"}),
+                call("GET", "/api/v1/decision-analytics/domains", params={"period": "30d"}),
+            ]
+            mock_request.assert_has_calls(expected_calls)
+            assert mock_request.call_count == 5
+            await client.close()
+
+    @pytest.mark.asyncio
     async def test_async_cost_breakdown(self) -> None:
         with patch.object(AragoraAsyncClient, "request") as mock_request:
             mock_request.return_value = {"by_provider": {"anthropic": 25.00}}
@@ -307,6 +365,7 @@ class TestAsyncAnalytics:
             mock_request.assert_has_calls(expected_calls)
             assert mock_request.call_count == 6
             await client.close()
+
     @pytest.mark.asyncio
     async def test_async_differentiation_endpoints(self) -> None:
         with patch.object(AragoraAsyncClient, "request") as mock_request:

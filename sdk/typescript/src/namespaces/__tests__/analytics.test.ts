@@ -290,6 +290,49 @@ describe('AnalyticsAPI', () => {
     });
   });
 
+  describe('Decision Analytics', () => {
+    it('should get decision analytics endpoints', async () => {
+      mockClient.request.mockResolvedValue({ data: {} });
+
+      await api.getDecisionOverview({ period: '7d' });
+      await api.getDecisionTrends({ period: '90d' });
+      await api.getDecisionOutcomes({ period: '30d', limit: 25, offset: 50 });
+      await api.getDecisionAgents({ period: '30d' });
+      await api.getDecisionDomains({ period: '30d' });
+
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        1,
+        'GET',
+        '/api/v1/decision-analytics/overview',
+        { params: { period: '7d' } }
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        2,
+        'GET',
+        '/api/v1/decision-analytics/trends',
+        { params: { period: '90d' } }
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        3,
+        'GET',
+        '/api/v1/decision-analytics/outcomes',
+        { params: { period: '30d', limit: 25, offset: 50 } }
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        4,
+        'GET',
+        '/api/v1/decision-analytics/agents',
+        { params: { period: '30d' } }
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        5,
+        'GET',
+        '/api/v1/decision-analytics/domains',
+        { params: { period: '30d' } }
+      );
+    });
+  });
+
   // ===========================================================================
   // Outcome Analytics
   // ===========================================================================
