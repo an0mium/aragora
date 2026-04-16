@@ -4559,6 +4559,14 @@ async def test_collect_results_blocks_merge_gate_without_verification_plan(
     assert wo["failure_reason"] == "missing_verification_plan"
     assert "verification command" in wo["blocking_question"]
     assert "missing verification plan" in wo["dispatch_error"]
+    assert (
+        wo["blocker_evidence"]
+        == "merge gate blocked: missing verification plan or verification command"
+    )
+    assert (
+        wo["metadata"]["blocker_evidence"]
+        == "merge gate blocked: missing verification plan or verification command"
+    )
 
 
 @pytest.mark.asyncio
@@ -6658,8 +6666,9 @@ def test_reset_worker_type_circuit_breaker_preserves_run_metadata(
 
 @pytest.mark.asyncio
 async def test_dispatch_workers_expires_worker_type_circuit_breaker(
-    repo: Path, store: DevCoordinationStore
+    repo: Path, store: DevCoordinationStore, monkeypatch
 ) -> None:
+    monkeypatch.setattr(Path, "home", lambda: repo / ".home")
     expired_at = datetime.now(UTC) - timedelta(minutes=10)
     run_record = store.create_supervisor_run(
         goal="expire worker breaker",
@@ -6721,6 +6730,12 @@ async def test_dispatch_workers_expires_worker_type_circuit_breaker(
     work_order = updated["work_orders"][0]
     assert work_order["status"] == "dispatched"
     assert work_order["target_agent"] == "claude"
+    session_state = work_order["metadata"]["session_state"]
+    assert session_state["status"] == "dispatched"
+    assert session_state["phase"] == "edit"
+    assert session_state["branch_name"] == "main"
+    assert session_state["worktree_path"] == str(repo)
+    assert session_state["target_agent"] == "claude"
 
     breaker = updated["metadata"][WORKER_TYPE_CIRCUIT_BREAKERS_KEY]["claude"]
     assert breaker["status"] == "closed"
@@ -7435,6 +7450,11 @@ async def test_collect_finished_results_marks_no_progress_timeout_needs_human(
     assert "stalled lane" in work_order["blocking_question"]
     assert work_order["worker_outcome"] == "timeout_no_progress"
     assert work_order["blockers"] == [work_order["dispatch_error"]]
+    assert work_order["blocker_evidence"] in {"stalled warning", work_order["dispatch_error"]}
+    assert work_order["metadata"]["blocker_evidence"] in {
+        "stalled warning",
+        work_order["dispatch_error"],
+    }
     for key in (
         "receipt_id",
         "confidence",

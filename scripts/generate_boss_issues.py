@@ -29,6 +29,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from aragora.swarm.decomposition_bridge import DecompositionBridge  # noqa: E402
 from aragora.swarm.issue_scanner import BossIssueCandidate, scan_all  # noqa: E402
 from aragora.swarm.issue_upgrader import upgrade_issue_heuristic  # noqa: E402
+from aragora.swarm.proof_first_queue import classify_proof_first_queue_issue  # noqa: E402
+from aragora.swarm.roadmap_priority import load_roadmap_priority_policy  # noqa: E402
 
 _GENERIC_PARENT_PHRASES: tuple[str, ...] = (
     "read the module and identify all public functions",
@@ -38,6 +40,7 @@ _GENERIC_PARENT_PHRASES: tuple[str, ...] = (
     "supporting tests",
     "think about it",
 )
+_OPEN_ISSUE_LIMIT = 500
 _OPEN_PR_PAGE_SIZE = 100
 _OPEN_PR_MAX_PAGES = 10
 _OPEN_PR_FILES_PAGE_SIZE = 100
@@ -120,7 +123,7 @@ def format_boss_ready_body(candidate: BossIssueCandidate) -> str:
 
 
 def fetch_existing_boss_issues(repo: str) -> list[dict]:
-    """Fetch open boss-ready issues from GitHub."""
+    """Fetch open generated issues from GitHub, regardless of current labels."""
     try:
         result = subprocess.run(
             [
@@ -129,12 +132,10 @@ def fetch_existing_boss_issues(repo: str) -> list[dict]:
                 "list",
                 "--repo",
                 repo,
-                "--label",
-                "boss-ready",
                 "--state",
                 "open",
                 "--limit",
-                "200",
+                str(_OPEN_ISSUE_LIMIT),
                 "--json",
                 "number,title,body",
             ],
@@ -143,7 +144,13 @@ def fetch_existing_boss_issues(repo: str) -> list[dict]:
             timeout=30,
         )
         if result.returncode == 0:
-            return json.loads(result.stdout or "[]")
+            payload = json.loads(result.stdout or "[]")
+            if isinstance(payload, list):
+                return [
+                    issue
+                    for issue in payload
+                    if isinstance(issue, dict) and "<!-- fingerprint:" in (issue.get("body") or "")
+                ]
     except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
         pass
     return []
@@ -483,6 +490,8 @@ def main() -> None:
     skipped_dup = 0
     skipped_pr = 0
     skipped_val = 0
+    skipped_priority = 0
+    priority_policy = load_roadmap_priority_policy(repo_root)
 
     for candidate in candidates:
         if len(filtered) >= args.max_issues * 2:
@@ -501,6 +510,21 @@ def main() -> None:
             continue
 
         body = format_boss_ready_body(candidate)
+        if args.label == "boss-ready":
+            decision = classify_proof_first_queue_issue(
+                candidate.title,
+                body,
+                repo_root=repo_root,
+                roadmap_policy=priority_policy,
+            )
+            if not decision.allowed:
+                skipped_priority += 1
+                if args.verbose:
+                    detail = (
+                        ", ".join(decision.blocked_codes or decision.roadmap_codes) or decision.lane
+                    )
+                    print(f"  SKIP (canonical priority): {candidate.title} [{detail}]")
+                continue
         ok, reason = validate_body(body)
         if not ok:
             skipped_val += 1
@@ -512,7 +536,11 @@ def main() -> None:
 
     print(f"\nFiltered to {len(filtered)} valid candidates")
     print(
-        f"  Skipped: {skipped_dup} duplicates, {skipped_pr} PR conflicts, {skipped_val} validation failures"
+        "  Skipped: "
+        f"{skipped_dup} duplicates, "
+        f"{skipped_pr} PR conflicts, "
+        f"{skipped_priority} canonical priority blocks, "
+        f"{skipped_val} validation failures"
     )
 
     # 5. Trim to max

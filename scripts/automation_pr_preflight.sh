@@ -42,10 +42,25 @@ if [[ -z "${changed_files}" ]]; then
     exit 1
 fi
 
+head_subject="$(git log -1 --pretty=%s "${HEAD_REF}")"
+normalized_subject="$(printf '%s' "${head_subject}" | tr '[:upper:]' '[:lower:]')"
+changed_file_count="$(printf '%s\n' "${changed_files}" | sed '/^$/d' | wc -l | tr -d ' ')"
+
+if [[ "${normalized_subject}" == "chore: preflight worker check" || "${normalized_subject}" == "[preflight] worker check" ]]; then
+    echo "preflight: synthetic preflight validation commits must not be published:" >&2
+    echo "  subject: ${head_subject}" >&2
+    exit 1
+fi
+
+if [[ "${changed_file_count}" == "1" && "${changed_files}" == "scratch/preflight_worker_check.txt" ]]; then
+    echo "preflight: synthetic preflight validation scratch diffs must not be published." >&2
+    exit 1
+fi
+
 echo "preflight: checking whitespace"
 git diff --check "${BASE_REF}...${HEAD_REF}"
 
-forbidden_regex='(^|/)(\.codex_session_active|\.claude-session-active|\.nomic-session-active|\.codex_session_meta\.json|\.swarm_worker_stdout\.log|\.swarm_worker_stderr\.log|\.swarm_worker_status\.json|\.swarm_repair_journal\.json)$|(^|/)(\.aragora_events|\.pytest_cache|__pycache__)/'
+forbidden_regex='(^|/)(\.codex_session_active|\.claude-session-active|\.nomic-session-active|\.codex_session_meta\.json|\.swarm_worker_stdout\.log|\.swarm_worker_stderr\.log|\.swarm_worker_status\.json|\.swarm_repair_journal\.json|\.operator_state\.json|\.operator_snapshot\.json)$|(^|/)(\.aragora_events|\.pytest_cache|__pycache__)/'
 forbidden_files="$(printf '%s\n' "${changed_files}" | grep -E "${forbidden_regex}" || true)"
 if [[ -n "${forbidden_files}" ]]; then
     echo "preflight: automation/session artifacts must not be committed:" >&2

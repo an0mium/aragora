@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
 from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics
 
 DEFAULT_METRICS_PATH = Path(".aragora") / "overnight" / "boss_metrics.jsonl"
@@ -76,6 +77,17 @@ def _load_metrics_rows(metrics_path: Path) -> list[dict[str, Any]]:
             if isinstance(payload, dict):
                 rows.append(payload)
     return rows
+
+
+def _load_ledger_status(repo_root: Path) -> dict[str, Any] | None:
+    ledger_path = repo_root / Path(DEFAULT_LEDGER_PATH)
+    if not ledger_path.exists():
+        return None
+    try:
+        payload = ShiftLedger(path=ledger_path).get_status_summary()
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) and payload else None
 
 
 def _resolve_terminal_class(row: dict[str, Any]) -> str:
@@ -155,7 +167,12 @@ def load_operator_status(
 ) -> dict[str, Any]:
     metrics_file = metrics_path or (repo_root / DEFAULT_METRICS_PATH)
     rows = _load_metrics_rows(metrics_file)
-    queue_depth = _boss_ready_queue_depth(repo_root, boss_repo=boss_repo)
+    ledger_status = _load_ledger_status(repo_root)
+    queue_depth = _optional_int(
+        ledger_status.get("current_queue_size") if isinstance(ledger_status, dict) else None
+    )
+    if queue_depth is None:
+        queue_depth = _boss_ready_queue_depth(repo_root, boss_repo=boss_repo)
 
     attempted_issues = {
         issue_number
@@ -221,8 +238,9 @@ def load_operator_status(
         )
 
     return {
-        "available": metrics_file.exists(),
+        "available": metrics_file.exists() or bool(ledger_status),
         "metrics_path": str(metrics_file),
+        "ledger_status": ledger_status or {},
         "summary": {
             "unique_issues_attempted": len(attempted_issues),
             "unique_issues_completed": len(completed_issues),
@@ -248,6 +266,27 @@ def render_operator_status(payload: dict[str, Any]) -> str:
             queue_depth=summary.get("queue_depth", "unknown"),
         )
     ]
+    ledger_status = (
+        payload.get("ledger_status", {}) if isinstance(payload.get("ledger_status"), dict) else {}
+    )
+    if ledger_status:
+        green_shift = (
+            ledger_status.get("green_shift", {})
+            if isinstance(ledger_status.get("green_shift"), dict)
+            else {}
+        )
+        lines.append(
+            "proof-first queue={queue} boss={boss} merge={merge} benchmark_fresh={benchmark} "
+            "merged_prs={merged} last_stop={stop} green_shift={green}".format(
+                queue=ledger_status.get("current_queue_size", "unknown"),
+                boss=ledger_status.get("current_boss_running"),
+                merge=ledger_status.get("current_merge_running"),
+                benchmark=ledger_status.get("current_benchmark_fresh"),
+                merged=ledger_status.get("prs_merged", 0),
+                stop=ledger_status.get("last_stop_reason") or "-",
+                green=green_shift.get("is_green"),
+            )
+        )
 
     iterations = [item for item in payload.get("last_iterations", []) if isinstance(item, dict)]
     if iterations:

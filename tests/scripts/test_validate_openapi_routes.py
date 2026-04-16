@@ -105,6 +105,54 @@ def test_get_handler_routes_resolves_deferred_imports(monkeypatch):
     assert "/api/v1/test/get" in routes
 
 
+def test_get_handler_routes_includes_api_endpoint_metadata(monkeypatch):
+    endpoint = types.SimpleNamespace(path="/api/v1/coordination/fleet/status")
+
+    class DummyHandler:
+        def handle(self):
+            return None
+
+    setattr(DummyHandler.handle, "_openapi", endpoint)
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+
+    routes = validate_openapi_routes.get_handler_routes()
+
+    assert "/api/v1/coordination/fleet/status" in routes
+
+
+def test_validate_coverage_treats_decorator_routes_as_implemented(monkeypatch, tmp_path: Path):
+    endpoint = types.SimpleNamespace(path="/api/v1/coordination/swarm/integrator")
+
+    class DummyHandler:
+        def handle(self):
+            return None
+
+    setattr(DummyHandler.handle, "_openapi", endpoint)
+
+    fake_registry = types.SimpleNamespace(HANDLER_REGISTRY=[("_dummy", DummyHandler)])
+    monkeypatch.setitem(sys.modules, "aragora.server.handler_registry", fake_registry)
+    monkeypatch.setattr(
+        validate_openapi_routes,
+        "get_openapi_routes",
+        lambda _spec: {"/api/v1/coordination/swarm/integrator"},
+    )
+
+    baseline = tmp_path / "baseline.json"
+    baseline.write_text('{"missing_in_spec": [], "orphaned_in_spec": []}\n', encoding="utf-8")
+
+    results = validate_openapi_routes.validate_coverage(
+        "ignored.json",
+        fail_on_missing=False,
+        output_json=True,
+        baseline_path=str(baseline),
+        include_internal=True,
+    )
+
+    assert "/api/v1/coordination/swarm/integrator" not in results["orphaned_in_spec"]
+
+
 def test_get_openapi_routes_includes_sibling_generated_snapshot(tmp_path: Path):
     spec = tmp_path / "openapi.json"
     generated = tmp_path / "openapi_generated.json"

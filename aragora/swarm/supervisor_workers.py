@@ -34,6 +34,274 @@ _strict_bool = _supervisor._strict_bool
 CHAIN_WAVE_SUMMARY_METADATA_KEY = "chain_wave_summary"
 
 
+def _coerce_int(value: Any) -> int | None:
+    if value in {None, ""}:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _latest_repair_entry(metadata: dict[str, Any]) -> dict[str, Any]:
+    raw_entries = metadata.get("repair_journal")
+    if not isinstance(raw_entries, list):
+        return {}
+    for entry in reversed(raw_entries):
+        if isinstance(entry, dict):
+            return dict(entry)
+    return {}
+
+
+def _session_phase_from_work_order(
+    work_order: dict[str, Any],
+    *,
+    requested_phase: str | None,
+    requested_status: str | None,
+    metadata: dict[str, Any],
+) -> str:
+    phase = str(requested_phase or "").strip().lower()
+    if phase == "fallback":
+        return "repair"
+    if phase and phase != "terminal":
+        return phase
+
+    has_pr = bool(str(work_order.get("pr_url", "") or work_order.get("adopted_pr", "")).strip())
+    review_status = str(
+        work_order.get("review_status", "") or metadata.get("review_status", "")
+    ).strip()
+    has_verification = bool(work_order.get("verification_results") or work_order.get("tests_run"))
+    has_repair_journal = bool(metadata.get("repair_journal"))
+    has_blocker = bool(
+        str(work_order.get("blocker_evidence", "") or metadata.get("blocker_evidence", "")).strip()
+    )
+    status = str(requested_status or work_order.get("status", "")).strip().lower()
+
+    if has_pr or review_status in {
+        "pending",
+        "pending_heterogeneous_review",
+        "changes_requested",
+        "approved",
+    }:
+        return "publish"
+    if status in {"retrying", "failed", "needs_human"} or has_blocker or has_repair_journal:
+        return "repair"
+    if has_verification:
+        return "verify"
+    return phase or "dispatch"
+
+
+def _record_attempt_from_work_order(
+    session: Any,
+    work_order: dict[str, Any],
+    *,
+    metadata: dict[str, Any],
+    exit_code: int | None,
+    worker_outcome: str | None,
+    changed_files: list[str] | None,
+    test_output: str | None,
+) -> None:
+    latest_repair = _latest_repair_entry(metadata)
+    effective_exit_code = exit_code
+    if effective_exit_code is None:
+        effective_exit_code = _coerce_int(latest_repair.get("exit_code"))
+    if effective_exit_code is None:
+        effective_exit_code = _coerce_int(work_order.get("exit_code"))
+
+    effective_worker_outcome = (
+        worker_outcome
+        or str(
+            latest_repair.get("worker_outcome", "") or work_order.get("worker_outcome", "")
+        ).strip()
+    )
+    effective_changed_files = changed_files or list(
+        latest_repair.get("changed_paths", []) or work_order.get("changed_paths", []) or []
+    )
+    failure_reason = (
+        str(
+            latest_repair.get("failure_reason", "")
+            or work_order.get("failure_reason", "")
+            or metadata.get("last_failure_reason", "")
+        ).strip()
+        or None
+    )
+    failing_verification = latest_repair.get("failing_verification")
+    stdout_tail = (
+        str(latest_repair.get("stdout_tail", "") or work_order.get("stdout_tail", "")).strip()
+        or None
+    )
+    stderr_tail = (
+        str(latest_repair.get("stderr_tail", "") or work_order.get("stderr_tail", "")).strip()
+        or None
+    )
+    effective_test_output = (
+        str(test_output or "").strip()
+        or str(
+            latest_repair.get("blocker_evidence", "")
+            or work_order.get("blocker_evidence", "")
+            or metadata.get("blocker_evidence", "")
+        ).strip()
+        or None
+    )
+
+    if not any(
+        [
+            effective_exit_code is not None,
+            effective_worker_outcome,
+            effective_changed_files,
+            effective_test_output,
+            failure_reason,
+            isinstance(failing_verification, dict),
+            stdout_tail,
+            stderr_tail,
+        ]
+    ):
+        return
+
+    session.record_attempt(
+        exit_code=effective_exit_code,
+        changed_files=effective_changed_files,
+        test_output=effective_test_output,
+        worker_outcome=effective_worker_outcome,
+        failure_reason=failure_reason,
+        failing_verification=failing_verification
+        if isinstance(failing_verification, dict)
+        else None,
+        stdout_tail=stdout_tail,
+        stderr_tail=stderr_tail,
+    )
+
+
+def _record_session_state(
+    work_order: dict[str, Any],
+    *,
+    status: str | None = None,
+    phase: str | None = None,
+    exit_code: int | None = None,
+    worker_outcome: str | None = None,
+    blocker_evidence: str | None = None,
+    changed_files: list[str] | None = None,
+    test_output: str | None = None,
+) -> None:
+    """Persist session state updates for a work order (BC-01).
+
+    Reads session_state from work_order metadata, updates it, and saves
+    to the durable SessionStateStore. Fails silently to avoid blocking
+    the dispatch path.
+    """
+    try:
+        from aragora.swarm.session_state import SessionState, SessionStateStore
+
+        metadata = work_order.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+            work_order["metadata"] = metadata
+        session_data = metadata.get("session_state")
+        if not isinstance(session_data, dict):
+            # Create a new session if one doesn't exist
+            wo_id = str(work_order.get("work_order_id", "")).strip()
+            if not wo_id:
+                return
+            session = SessionState(
+                session_id=f"swarm-{wo_id[:12]}",
+                issue_number=work_order.get("issue_number"),
+                target_agent=str(work_order.get("target_agent", "")).strip() or None,
+                runner_type=str(work_order.get("target_agent", "")).strip() or None,
+                worktree_path=str(work_order.get("worktree_path", "")).strip() or None,
+                branch_name=str(work_order.get("branch", "")).strip() or None,
+                pr_url=(
+                    str(
+                        work_order.get("pr_url", "")
+                        or work_order.get("adopted_pr", "")
+                        or metadata.get("pr_url", "")
+                    ).strip()
+                    or None
+                ),
+                phase=phase or "dispatch",
+                status=status or "created",
+            )
+        else:
+            session = SessionState.from_dict(session_data)
+
+        issue_number = work_order.get("issue_number")
+        if issue_number not in {None, ""}:
+            session.issue_number = issue_number
+        target_agent = str(work_order.get("target_agent", "")).strip()
+        if target_agent:
+            session.target_agent = target_agent
+            session.runner_type = target_agent
+        worktree_path = str(work_order.get("worktree_path", "")).strip()
+        if worktree_path:
+            session.worktree_path = worktree_path
+        branch_name = str(work_order.get("branch", "")).strip()
+        if branch_name:
+            session.branch_name = branch_name
+        pr_url = str(
+            work_order.get("pr_url", "")
+            or work_order.get("adopted_pr", "")
+            or metadata.get("pr_url", "")
+        ).strip()
+        if pr_url:
+            session.pr_url = pr_url
+        selected_metadata = {
+            "work_order_id": str(work_order.get("work_order_id", "")).strip() or None,
+            "supervisor_run_id": str(metadata.get("supervisor_run_id", "")).strip() or None,
+            "task_key": str(work_order.get("task_key", "") or metadata.get("task_key", "")).strip()
+            or None,
+            "lease_id": str(work_order.get("lease_id", "")).strip() or None,
+            "receipt_id": str(work_order.get("receipt_id", "")).strip() or None,
+            "review_status": str(work_order.get("review_status", "")).strip() or None,
+        }
+        session.metadata.update({key: value for key, value in selected_metadata.items() if value})
+        session.sync_repair_journal(metadata.get("repair_journal"))
+        if status:
+            session.status = status
+        session.phase = _session_phase_from_work_order(
+            work_order,
+            requested_phase=phase,
+            requested_status=status,
+            metadata=metadata,
+        )
+        effective_blocker_evidence = (
+            blocker_evidence
+            or str(
+                work_order.get("blocker_evidence", "") or metadata.get("blocker_evidence", "")
+            ).strip()
+        )
+        if effective_blocker_evidence:
+            session.set_blocker(effective_blocker_evidence)
+        _record_attempt_from_work_order(
+            session,
+            work_order,
+            metadata=metadata,
+            exit_code=exit_code,
+            worker_outcome=worker_outcome,
+            changed_files=changed_files or [],
+            test_output=(test_output or "")[-800:],
+        )
+
+        store = SessionStateStore()
+        store.save(session)
+        metadata["session_state"] = session.to_dict()
+    except Exception:
+        logger.debug("Session state update skipped", exc_info=True)
+
+
+def _persist_terminal_blocker_evidence(item: dict[str, Any]) -> str | None:
+    try:
+        from aragora.swarm.supervisor_probes import (
+            _derive_blocker_evidence,
+            _persist_blocker_evidence,
+        )
+
+        evidence = _derive_blocker_evidence(item)
+        _persist_blocker_evidence(item, evidence)
+        return evidence or None
+    except Exception:
+        logger.debug("Blocker evidence persistence skipped", exc_info=True)
+        return None
+
+
 def _enrich_chain_wave_summary(
     metadata: dict[str, Any],
     work_orders: list[dict[str, Any]],
@@ -222,6 +490,7 @@ def refresh_run(self, run_id: str) -> SupervisorRun:
                         str(exc),
                         failure_reason="work_order_leasing_failed",
                     )
+                    _persist_terminal_blocker_evidence(item)
                     continue
 
     derived_status = self._derive_status(work_orders)
@@ -785,6 +1054,7 @@ async def dispatch_workers(self, run_id: str) -> list[WorkerProcess]:
                 }
                 item["prompt_chars"] = int(worker.prompt_chars or 0)
                 item["enriched_context_chars"] = int(worker.enriched_context_chars or 0)
+                _record_session_state(item, status="dispatched", phase="edit")
                 # Persist worker PID in lease metadata so reap_stale_leases
                 # can detect dead processes even if this supervisor dies.
                 lease_id = str(item.get("lease_id", "")).strip()
@@ -951,6 +1221,10 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                 pid=item.get("pid"),
                 initial_head=str(item.get("initial_head", "")),
                 auto_commit=self.launcher.config.auto_commit,
+                admin_approved=WorkerLauncher._is_admin_approved(
+                    item,
+                    WorkerLauncher._metadata_dict(item),
+                ),
                 expected_tests=[
                     str(test).strip()
                     for test in item.get("expected_tests", [])
@@ -1050,6 +1324,10 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                         pid=item.get("pid"),
                         initial_head=str(item.get("initial_head", "")),
                         auto_commit=self.launcher.config.auto_commit,
+                        admin_approved=WorkerLauncher._is_admin_approved(
+                            item,
+                            WorkerLauncher._metadata_dict(item),
+                        ),
                         expected_tests=[
                             str(test).strip()
                             for test in item.get("expected_tests", [])
@@ -1124,6 +1402,10 @@ async def collect_finished_results(self, run_id: str) -> list[WorkerProcess]:
                         pid=item.get("pid"),
                         initial_head=str(item.get("initial_head", "")),
                         auto_commit=self.launcher.config.auto_commit,
+                        admin_approved=WorkerLauncher._is_admin_approved(
+                            item,
+                            WorkerLauncher._metadata_dict(item),
+                        ),
                         expected_tests=[
                             str(test).strip()
                             for test in item.get("expected_tests", [])
@@ -1250,6 +1532,7 @@ def _lease_work_order(
             "Work order has no declared file scope; declare scope before dispatch.",
             failure_reason="scope_violation",
         )
+        _persist_terminal_blocker_evidence(work_order)
         return False
     session = self.lifecycle.ensure_managed_worktree(
         managed_dir=managed_dir,
@@ -1269,6 +1552,7 @@ def _lease_work_order(
             "Declared file scope resolved to no valid in-repo paths; declare scope before dispatch.",
             failure_reason="scope_violation",
         )
+        _persist_terminal_blocker_evidence(work_order)
         return False
     dependency_base = self._dependency_base_reference(work_order, work_orders)
     if dependency_base is not None:
@@ -1328,13 +1612,29 @@ def _lease_work_order(
             "task_key": task_key,
         }
     )
+    _record_session_state(work_order, status="leased", phase="dispatch")
     return True
 
 
 def _release_terminal_lease(self, item: dict[str, Any]) -> None:
+    # BC-01: Record terminal session state
+    wo_status = str(item.get("status", "")).strip().lower()
+    terminal_status = "completed" if wo_status in {"completed", "merged"} else "failed"
+    blocker_evidence = None
+    if terminal_status == "failed" or wo_status == "needs_human":
+        blocker_evidence = _persist_terminal_blocker_evidence(item)
+    _record_session_state(
+        item,
+        status=terminal_status,
+        phase="terminal",
+        worker_outcome=str(item.get("worker_outcome", "")).strip() or None,
+        blocker_evidence=blocker_evidence,
+    )
+
     lease_id = str(item.get("lease_id", "")).strip()
     if not lease_id:
         return
+
     try:
         self.store.release_lease(lease_id, status=LeaseStatus.RELEASED)
     except KeyError:
@@ -1525,6 +1825,14 @@ def _requeue_with_fallback(
         }
     )
 
+    # BC-01: Record retry/fallback in session state before requeue
+    _record_session_state(
+        item,
+        status="retrying",
+        phase="fallback",
+        blocker_evidence=f"Fallback from {current_agent} to {fallback_agent}: {reason} — {detail[:200]}",
+    )
+
     item.update(
         {
             "status": "leased",
@@ -1555,6 +1863,7 @@ def _requeue_with_fallback(
         "failure_reason",
         "blocking_question",
         "blocker",
+        "blocker_evidence",
         "resource_error",
         "worker_outcome",
         "confidence",
@@ -1575,6 +1884,10 @@ def _requeue_with_fallback(
         "scope_violation",
     ):
         item.pop(key, None)
+    metadata = dict(item.get("metadata") or {})
+    if "blocker_evidence" in metadata:
+        metadata.pop("blocker_evidence", None)
+        item["metadata"] = metadata
     return True
 
 
@@ -1870,6 +2183,7 @@ def _mark_worker_type_blocked(
         f"worker dispatch blocked: {detail}",
         failure_reason="worker_type_blocked",
     )
+    _persist_terminal_blocker_evidence(item)
     self._release_terminal_lease(item)
     item.pop("lease_id", None)
     item.pop("owner_session_id", None)
@@ -1910,6 +2224,7 @@ def _mark_dispatch_failed(item: dict[str, Any], reason: str) -> None:
         "failure_reason",
         "blocking_question",
         "blocker",
+        "blocker_evidence",
         "last_observed_at",
         "last_progress_at",
         "first_output_at",
@@ -1919,6 +2234,10 @@ def _mark_dispatch_failed(item: dict[str, Any], reason: str) -> None:
     ):
         item.pop(key, None)
     item.pop("blockers", None)
+    metadata = dict(item.get("metadata") or {})
+    if "blocker_evidence" in metadata:
+        metadata.pop("blocker_evidence", None)
+        item["metadata"] = metadata
 
 
 def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
@@ -1929,6 +2248,7 @@ def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
         "failure_reason",
         "blocking_question",
         "blocker",
+        "blocker_evidence",
         "conflicts",
         "receipt_id",
         "confidence",
@@ -1952,6 +2272,10 @@ def _clear_stale_prelaunch_deliverable_state(item: dict[str, Any]) -> None:
     ):
         item.pop(key, None)
     item.pop("blockers", None)
+    metadata = dict(item.get("metadata") or {})
+    if "blocker_evidence" in metadata:
+        metadata.pop("blocker_evidence", None)
+        item["metadata"] = metadata
 
 
 def _clear_stale_runtime_deliverable_state(item: dict[str, Any]) -> None:
@@ -1976,9 +2300,14 @@ def _clear_stale_runtime_deliverable_state(item: dict[str, Any]) -> None:
         "resource_error",
         "conflicts",
         "blockers",
+        "blocker_evidence",
         "scope_violation",
     ):
         item.pop(key, None)
+    metadata = dict(item.get("metadata") or {})
+    if "blocker_evidence" in metadata:
+        metadata.pop("blocker_evidence", None)
+        item["metadata"] = metadata
 
 
 def _release_orphaned_conflict_leases(self, conflicts: list[dict[str, Any]]) -> int:

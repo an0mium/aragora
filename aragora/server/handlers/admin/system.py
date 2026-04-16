@@ -460,10 +460,12 @@ class SystemHandler(BaseHandler):
             return error_response("Invalid JSON body", 400)
 
         token = body.get("token")
-        if not token:
+        if not isinstance(token, str) or not token.strip():
             return error_response("Token is required", 400)
 
         reason = body.get("reason", "")
+        if not isinstance(reason, str):
+            return error_response("Reason must be a string", 400)
 
         # Revoke the token using both in-memory and persistent backends
         success = auth_config.revoke_token(token, reason)

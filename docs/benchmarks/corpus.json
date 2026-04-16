@@ -1,7 +1,7 @@
 {
   "corpus_id": "tw-01-bounded-execution-v1",
-  "revision": 1,
-  "recorded_on": "2026-04-13",
+  "revision": 2,
+  "recorded_on": "2026-04-15",
   "success_contract": "mergeable_pr_or_merged_pr",
   "run_cadence": "weekly_or_better",
   "change_control": "Issue membership stays fixed until an explicit corpus revision edits this file.",
@@ -32,12 +32,13 @@
       "source_reference": "tests/swarm/test_boss_loop.py"
     },
     {
-      "issue_id": 1733,
-      "title": "Tighten supervisor merge gate",
-      "execution_class": "single_file_fix",
-      "scope_hint": ["aragora/swarm/supervisor.py"],
-      "known_constraints": ["dispatch-relevant context only", "scope hints must stay narrow", "targeted pytest acceptance"],
-      "source_reference": "tests/swarm/test_boss_loop.py"
+      "issue_id": 5756,
+      "title": "Fail closed on 8 silent except-Exception-pass in boss_loop.py",
+      "execution_class": "fail_closed_hardening",
+      "scope_hint": ["aragora/swarm/boss_loop.py"],
+      "known_constraints": ["replace silent catches with logger.debug", "no behavioral changes beyond error visibility", "targeted pytest acceptance"],
+      "source_reference": "tests/swarm/test_boss_loop.py",
+      "revision_note": "Replaces #1733 (no_linked_pr) in corpus revision 2"
     },
     {
       "issue_id": 2712,

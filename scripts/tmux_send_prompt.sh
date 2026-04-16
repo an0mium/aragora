@@ -63,10 +63,11 @@ TARGET="${TMUX_SESSION}:${window_id}"
 
 # For multi-line prompts, use tmux paste buffer to avoid shell escaping issues
 if [[ "$(echo "${PROMPT}" | wc -l)" -gt 1 ]]; then
-    tmux set-buffer -b "aragora-prompt" "${PROMPT}"
-    tmux paste-buffer -b "aragora-prompt" -t "${TARGET}"
+    BUFFER_NAME="aragora-prompt-${NAME}-$$-$(date +%s%N)"
+    tmux set-buffer -b "${BUFFER_NAME}" "${PROMPT}"
+    tmux paste-buffer -b "${BUFFER_NAME}" -t "${TARGET}"
     tmux send-keys -t "${TARGET}" "" Enter
-    tmux delete-buffer -b "aragora-prompt" 2>/dev/null || true
+    tmux delete-buffer -b "${BUFFER_NAME}" 2>/dev/null || true
 else
     tmux send-keys -t "${TARGET}" "${PROMPT}" Enter
 fi

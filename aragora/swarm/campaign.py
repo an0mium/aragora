@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+from collections.abc import Generator
 from typing import Any
 
 from aragora.agents.base import create_agent
@@ -435,7 +436,7 @@ class CampaignManifest:
 
 
 @contextlib.contextmanager
-def locked_manifest_path(path: Path):
+def locked_manifest_path(path: Path) -> Generator[None, None, None]:
     """Hold an exclusive lock around manifest operations."""
     lock_path = path.with_suffix(path.suffix + ".lock")
     lock_path.parent.mkdir(parents=True, exist_ok=True)

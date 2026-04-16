@@ -1,0 +1,88 @@
+{
+  "corpus": {
+    "corpus_id": "tw-01-bounded-execution-v1",
+    "issue_count": 5,
+    "manifest_sha256": "01f5f941cb437675344d2e5c6292d3b31df3ea8041e623e32eb9f3f89b971804",
+    "membership_issue_numbers": [
+      873,
+      1064,
+      1641,
+      1733,
+      2712
+    ],
+    "membership_sha256": "04b6651df7d6f8b78c9c33709ea1379da8babec4417f01372a63374fa5c6103a",
+    "path": "docs/benchmarks/corpus.json",
+    "recorded_on": "2026-04-13",
+    "revision": 1,
+    "success_contract": "mergeable_pr_or_merged_pr"
+  },
+  "coverage": {
+    "attempted_issue_count": 5,
+    "is_complete": true,
+    "missing_issue_count": 0,
+    "missing_issue_numbers": [],
+    "status": "complete"
+  },
+  "deltas": {
+    "merged_only_rate": 0.2,
+    "no_rescue_truth_success_rate": 0.2,
+    "proxy_no_rescue_success_rate": 0.0,
+    "truth_success_rate": 0.2,
+    "unique_issues_attempted": 0.0
+  },
+  "failure_class_distribution": {
+    "blocked_auth_failure": 2
+  },
+  "generated_at": "2026-04-15T09:08:54Z",
+  "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+  "previous_artifact": {
+    "generated_at": "2026-04-15T04:43:03Z",
+    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-1/scorecard-20260415T044303Z.json"
+  },
+  "proxy_metrics": {
+    "corpus": {
+      "corpus_id": "tw-01-bounded-execution-v1",
+      "issue_count": 5,
+      "path": "docs/benchmarks/corpus.json",
+      "recorded_on": "2026-04-13",
+      "revision": 1,
+      "success_contract": "mergeable_pr_or_merged_pr"
+    },
+    "coverage": {
+      "attempted_issue_count": 5,
+      "is_complete": true,
+      "missing_issue_count": 0,
+      "missing_issue_numbers": [],
+      "status": "complete"
+    },
+    "failure_classes": {
+      "blocked_auth_failure": 2
+    },
+    "mean_elapsed_seconds": 17.3,
+    "median_elapsed_seconds": 22.4,
+    "neutral_classes": {
+      "issue_already_resolved": 4
+    },
+    "no_rescue_success_rate": 0.0,
+    "status": "active",
+    "success_classes": {},
+    "terminal_class_distribution": {
+      "blocked_auth_failure": 2,
+      "issue_already_resolved": 4
+    },
+    "tick_success_rate": 0.0,
+    "total_ticks": 6,
+    "unique_issues_attempted": 5,
+    "unique_issues_failed": 1,
+    "unique_issues_neutral": 4,
+    "unique_issues_succeeded": 0
+  },
+  "rescue_counts_by_type": {},
+  "truth_artifact_generated_at": "2026-04-15T09:07:45Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-1/truth-20260415T090745Z.json",
+  "truth_metrics": {
+    "merged_only_rate": 0.8,
+    "no_rescue_truth_success_rate": 0.8,
+    "truth_success_rate": 0.8
+  }
+}

@@ -170,6 +170,17 @@ class TestReadySteps:
         assert len(ready) == 1
         assert ready[0].step_id == "b"
 
+    def test_skipped_predecessor_does_not_make_successor_ready(self) -> None:
+        steps = [
+            ChainStep(step_id="a", work_order_id="wo-a", title="A"),
+            ChainStep(step_id="b", work_order_id="wo-b", title="B", depends_on=["a"]),
+        ]
+        chain = WorkChain(chain_id="test", title="Sequence", steps=steps)
+
+        chain.mark_step("a", StepStatus.SKIPPED)
+
+        assert chain.ready_steps() == []
+
 
 class TestChainStatus:
     def test_all_completed_makes_chain_completed(self) -> None:
@@ -182,13 +193,15 @@ class TestChainStatus:
         chain.mark_step("b", StepStatus.COMPLETED)
         assert chain.status == ChainStatus.COMPLETED
 
-    def test_any_failed_makes_chain_failed(self) -> None:
+    def test_any_failed_makes_chain_failed_once_all_steps_are_terminal(self) -> None:
         steps = [
             ChainStep(step_id="a", work_order_id="wo-a", title="A"),
             ChainStep(step_id="b", work_order_id="wo-b", title="B"),
         ]
         chain = WorkChain(chain_id="test", title="Test", steps=steps)
         chain.mark_step("a", StepStatus.FAILED)
+        assert chain.status == ChainStatus.RUNNING
+        chain.mark_step("b", StepStatus.COMPLETED)
         assert chain.status == ChainStatus.FAILED
 
     def test_skipped_counts_as_done(self) -> None:
@@ -262,6 +275,28 @@ class TestBuildFromWorkOrders:
         assert chain.topological_order[0] == "wo-1"
         assert chain.topological_order[1] == "wo-2"
 
+    def test_resolves_dependency_ids_via_pipeline_task_id(self) -> None:
+        work_orders = [
+            {
+                "work_order_id": "wo-1",
+                "pipeline_task_id": "task-1",
+                "title": "Create module",
+            },
+            {
+                "work_order_id": "wo-2",
+                "pipeline_task_id": "task-2",
+                "title": "Add tests",
+                "dependency_ids": ["task-1"],
+            },
+        ]
+
+        chain = build_chain_from_work_orders("Test chain", work_orders)
+
+        assert len(chain.steps) == 2
+        assert chain.step_by_id("wo-2") is not None
+        assert chain.step_by_id("wo-2").depends_on == ["wo-1"]
+        assert chain.topological_order == ["wo-1", "wo-2"]
+
     def test_skips_empty_work_order_ids(self) -> None:
         work_orders = [
             {"work_order_id": "", "title": "Empty"},
@@ -270,7 +305,7 @@ class TestBuildFromWorkOrders:
         chain = build_chain_from_work_orders("Test", work_orders)
         assert len(chain.steps) == 1
 
-    def test_ignores_dangling_dependency_ids(self) -> None:
+    def test_raises_on_dangling_dependency_ids(self) -> None:
         work_orders = [
             {
                 "work_order_id": "wo-1",
@@ -278,9 +313,131 @@ class TestBuildFromWorkOrders:
                 "dependency_ids": ["nonexistent"],
             },
         ]
-        chain = build_chain_from_work_orders("Test", work_orders)
-        assert len(chain.steps) == 1
-        assert chain.steps[0].depends_on == []
+        with pytest.raises(ValueError, match="Unknown dependency id"):
+            build_chain_from_work_orders("Test", work_orders)
+
+
+class TestComplexDAGPatterns:
+    def test_wide_fan_out(self) -> None:
+        """1 root with 10 parallel children."""
+        children = [
+            ChainStep(
+                step_id=f"c{i}",
+                work_order_id=f"wo-c{i}",
+                title=f"Child {i}",
+                depends_on=["root"],
+            )
+            for i in range(10)
+        ]
+        steps = [
+            ChainStep(step_id="root", work_order_id="wo-root", title="Root"),
+            *children,
+        ]
+        chain = WorkChain(chain_id="test", title="Wide fan-out", steps=steps)
+        assert chain.num_waves == 2
+        assert chain.waves[0].step_ids == ["root"]
+        assert sorted(chain.waves[1].step_ids) == [f"c{i}" for i in range(10)]
+        assert chain.topological_order[0] == "root"
+
+    def test_deep_chain(self) -> None:
+        """10 sequential steps forming a long chain."""
+        steps = [
+            ChainStep(
+                step_id=f"s{i}",
+                work_order_id=f"wo-s{i}",
+                title=f"Step {i}",
+                depends_on=[f"s{i - 1}"] if i > 0 else [],
+            )
+            for i in range(10)
+        ]
+        chain = WorkChain(chain_id="test", title="Deep chain", steps=steps)
+        assert chain.topological_order == [f"s{i}" for i in range(10)]
+        assert chain.num_waves == 10
+        for i, wave in enumerate(chain.waves):
+            assert wave.step_ids == [f"s{i}"]
+
+    def test_mixed_diamond_multiple_join_points(self) -> None:
+        """Diamond DAG with two join points: d joins b+c, g joins e+f."""
+        steps = [
+            ChainStep(step_id="a", work_order_id="wo-a", title="Root"),
+            ChainStep(step_id="b", work_order_id="wo-b", title="B", depends_on=["a"]),
+            ChainStep(step_id="c", work_order_id="wo-c", title="C", depends_on=["a"]),
+            ChainStep(step_id="d", work_order_id="wo-d", title="Join1", depends_on=["b", "c"]),
+            ChainStep(step_id="e", work_order_id="wo-e", title="E", depends_on=["d"]),
+            ChainStep(step_id="f", work_order_id="wo-f", title="F", depends_on=["d"]),
+            ChainStep(step_id="g", work_order_id="wo-g", title="Join2", depends_on=["e", "f"]),
+        ]
+        chain = WorkChain(chain_id="test", title="Multi-diamond", steps=steps)
+        topo = chain.topological_order
+        # Verify ordering constraints
+        assert topo.index("a") < topo.index("b")
+        assert topo.index("a") < topo.index("c")
+        assert topo.index("b") < topo.index("d")
+        assert topo.index("c") < topo.index("d")
+        assert topo.index("d") < topo.index("e")
+        assert topo.index("d") < topo.index("f")
+        assert topo.index("e") < topo.index("g")
+        assert topo.index("f") < topo.index("g")
+        # Waves: a | b,c | d | e,f | g
+        assert chain.num_waves == 5
+        assert chain.waves[0].step_ids == ["a"]
+        assert sorted(chain.waves[1].step_ids) == ["b", "c"]
+        assert chain.waves[2].step_ids == ["d"]
+        assert sorted(chain.waves[3].step_ids) == ["e", "f"]
+        assert chain.waves[4].step_ids == ["g"]
+
+    def test_all_steps_completed_chain_status(self) -> None:
+        """Chain with all steps completed should have COMPLETED status."""
+        steps = [
+            ChainStep(step_id="a", work_order_id="wo-a", title="A"),
+            ChainStep(step_id="b", work_order_id="wo-b", title="B", depends_on=["a"]),
+            ChainStep(step_id="c", work_order_id="wo-c", title="C", depends_on=["a"]),
+            ChainStep(step_id="d", work_order_id="wo-d", title="D", depends_on=["b", "c"]),
+        ]
+        chain = WorkChain(chain_id="test", title="Full completion", steps=steps)
+        assert chain.status == ChainStatus.PENDING
+
+        for step_id in chain.topological_order:
+            chain.mark_step(step_id, StepStatus.COMPLETED)
+
+        assert chain.status == ChainStatus.COMPLETED
+        assert chain.ready_steps() == []
+
+
+class TestBuildChainCircularDeps:
+    def test_self_referencing_dependency_ids_raises(self) -> None:
+        """build_chain_from_work_orders passes through self-references which cause a cycle."""
+        work_orders = [
+            {
+                "work_order_id": "wo-1",
+                "title": "Step 1",
+                "dependency_ids": ["wo-1"],  # self-reference
+            },
+            {
+                "work_order_id": "wo-2",
+                "title": "Step 2",
+                "dependency_ids": ["wo-1"],
+            },
+        ]
+        with pytest.raises(CycleDetectedError):
+            build_chain_from_work_orders("Circular test", work_orders)
+
+    def test_mutual_circular_dependency_ids_raises(self) -> None:
+        """Mutual circular deps that survive filtering should raise CycleDetectedError."""
+        work_orders = [
+            {
+                "work_order_id": "wo-1",
+                "title": "Step 1",
+                "dependency_ids": ["wo-2"],
+            },
+            {
+                "work_order_id": "wo-2",
+                "title": "Step 2",
+                "dependency_ids": ["wo-1"],
+            },
+        ]
+        with pytest.raises(CycleDetectedError):
+            build_chain_from_work_orders("Mutual circular", work_orders)
 
 
 class TestToDict:

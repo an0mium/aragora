@@ -437,7 +437,7 @@ class FeatureFlagRegistry:
                 }
                 return mappings.get(name)
         except ImportError:
-            pass
+            logger.debug("Tenancy module not available; skipping tenant flag lookup for %s", name)
         return None
 
     def _register_builtin_flags(self) -> None:
@@ -798,7 +798,15 @@ def is_enabled(name: str) -> bool:
     return get_flag_registry().is_enabled(name)
 
 
-def get_flag(name: str, default: T = None) -> T:
+@overload
+def get_flag(name: str, default: T) -> T: ...
+
+
+@overload
+def get_flag(name: str) -> Any: ...
+
+
+def get_flag(name: str, default: Any = None) -> Any:
     """Get a feature flag value.
 
     Convenience function for getting feature flag values.

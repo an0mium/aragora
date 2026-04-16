@@ -21,12 +21,12 @@ from aragora.connectors.chat.models import (
 
 import aragora.connectors.chat.teams._constants as _tc
 
+logger = logging.getLogger(__name__)
+
 try:
     import httpx
 except ImportError:
-    pass
-
-logger = logging.getLogger(__name__)
+    logger.debug("httpx not available; Teams channel API calls will be disabled")
 
 _MAX_PAGES = 1000  # Safety cap for pagination loops
 

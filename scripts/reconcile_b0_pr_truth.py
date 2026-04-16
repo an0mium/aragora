@@ -51,6 +51,9 @@ ISSUE_COMMENTS_PER_PAGE = 100
 ISSUE_COMMENTS_MAX_PAGES = 5
 CROSS_REFS_PER_PAGE = 100
 CROSS_REFS_MAX_PAGES = 5
+COMMENTS_LOOKUP_ERROR_KEY = "_comments_lookup_error"
+GITHUB_CONNECTION_ERROR_SNIPPET = "error connecting to api.github.com"
+GH_NETWORK_RETRY_ATTEMPTS = 3
 
 
 def _git_common_repo_root() -> Path | None:
@@ -128,7 +131,31 @@ class IssueTruthRecord:
     truth_state: str
     truth_success: bool
     no_rescue_truth_success: bool
+    issue_url: str = ""
+    issue_state: str = ""
+    issue_state_reason: str = ""
+    issue_closed_at: str | None = None
+    linkage_status: str = "verified"
+    linkage_error: str = ""
     linked_prs: list[LinkedPullRequest] = field(default_factory=list)
+
+    @property
+    def linkage_verification_incomplete(self) -> bool:
+        return self.linkage_status != "verified"
+
+    @property
+    def stale_corpus_issue(self) -> bool:
+        return (
+            self.issue_state == "CLOSED"
+            and self.truth_state == "no_linked_pr"
+            and not self.linkage_verification_incomplete
+        )
+
+    @property
+    def stale_corpus_reason(self) -> str | None:
+        if not self.stale_corpus_issue:
+            return None
+        return "closed_without_linked_pr"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -139,6 +166,15 @@ class IssueTruthRecord:
             "truth_state": self.truth_state,
             "truth_success": self.truth_success,
             "no_rescue_truth_success": self.no_rescue_truth_success,
+            "issue_url": self.issue_url,
+            "issue_state": self.issue_state,
+            "issue_state_reason": self.issue_state_reason,
+            "issue_closed_at": self.issue_closed_at,
+            "linkage_status": self.linkage_status,
+            "linkage_error": self.linkage_error,
+            "linkage_verification_incomplete": self.linkage_verification_incomplete,
+            "stale_corpus_issue": self.stale_corpus_issue,
+            "stale_corpus_reason": self.stale_corpus_reason,
             "linked_prs": [asdict(pr) | {"truth_state": pr.truth_state} for pr in self.linked_prs],
         }
 
@@ -179,32 +215,48 @@ class GitHubTruthClient:
     """Minimal GitHub reader backed by the gh CLI."""
 
     def _run_json_object(self, args: list[str]) -> dict[str, Any]:
-        proc = subprocess.run(
-            ["gh", *args],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh command failed")
-        payload = json.loads(proc.stdout or "{}")
-        if not isinstance(payload, dict):
-            raise RuntimeError("gh command did not return a JSON object")
-        return payload
+        last_error = "gh command failed"
+        for attempt in range(1, GH_NETWORK_RETRY_ATTEMPTS + 1):
+            proc = subprocess.run(
+                ["gh", *args],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode == 0:
+                payload = json.loads(proc.stdout or "{}")
+                if not isinstance(payload, dict):
+                    raise RuntimeError("gh command did not return a JSON object")
+                return payload
+            last_error = proc.stderr.strip() or proc.stdout.strip() or "gh command failed"
+            if (
+                GITHUB_CONNECTION_ERROR_SNIPPET not in last_error.lower()
+                or attempt >= GH_NETWORK_RETRY_ATTEMPTS
+            ):
+                raise RuntimeError(last_error)
+        raise RuntimeError(last_error)
 
     def _run_json_list(self, args: list[str]) -> list[dict[str, Any]]:
-        proc = subprocess.run(
-            ["gh", *args],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if proc.returncode != 0:
-            raise RuntimeError(proc.stderr.strip() or proc.stdout.strip() or "gh command failed")
-        payload = json.loads(proc.stdout or "[]")
-        if not isinstance(payload, list):
-            raise RuntimeError("gh command did not return a JSON array")
-        return [item for item in payload if isinstance(item, dict)]
+        last_error = "gh command failed"
+        for attempt in range(1, GH_NETWORK_RETRY_ATTEMPTS + 1):
+            proc = subprocess.run(
+                ["gh", *args],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if proc.returncode == 0:
+                payload = json.loads(proc.stdout or "[]")
+                if not isinstance(payload, list):
+                    raise RuntimeError("gh command did not return a JSON array")
+                return [item for item in payload if isinstance(item, dict)]
+            last_error = proc.stderr.strip() or proc.stdout.strip() or "gh command failed"
+            if (
+                GITHUB_CONNECTION_ERROR_SNIPPET not in last_error.lower()
+                or attempt >= GH_NETWORK_RETRY_ATTEMPTS
+            ):
+                raise RuntimeError(last_error)
+        raise RuntimeError(last_error)
 
     def get_issue(self, repo: str, number: int) -> dict[str, Any]:
         payload = self._run_json_object(
@@ -215,10 +267,14 @@ class GitHubTruthClient:
                 "--repo",
                 repo,
                 "--json",
-                "number,title,url",
+                "number,title,url,state,stateReason,closedAt,closedByPullRequestsReferences",
             ]
         )
-        payload["comments"] = self.get_issue_comments(repo, number)
+        try:
+            payload["comments"] = self.get_issue_comments(repo, number)
+        except RuntimeError as error:
+            payload["comments"] = []
+            payload[COMMENTS_LOOKUP_ERROR_KEY] = str(error)
         return payload
 
     def get_pr(self, repo: str, number: int) -> dict[str, Any]:
@@ -403,6 +459,19 @@ def aggregate_b0_issues(rows: list[dict[str, Any]]) -> list[IssueMetricsAggregat
 def extract_pr_numbers_from_issue(repo: str, issue_payload: dict[str, Any]) -> list[int]:
     expected_repo = repo.lower()
     found: set[int] = set()
+    for pr_payload in issue_payload.get("closedByPullRequestsReferences", []):
+        if not isinstance(pr_payload, dict):
+            continue
+        pr_repo = pr_payload.get("repository")
+        if isinstance(pr_repo, dict):
+            owner = pr_repo.get("owner")
+            owner_login = owner.get("login") if isinstance(owner, dict) else ""
+            repo_name = pr_repo.get("name")
+            if f"{owner_login}/{repo_name}".lower() != expected_repo:
+                continue
+        pr_number = pr_payload.get("number")
+        if isinstance(pr_number, int):
+            found.add(pr_number)
     for comment in issue_payload.get("comments", []):
         if not isinstance(comment, dict):
             continue
@@ -432,14 +501,57 @@ def reconcile_issue_truth(
     aggregate: IssueMetricsAggregate,
     client: GitHubTruthClient,
 ) -> IssueTruthRecord:
-    issue_payload = client.get_issue(repo, aggregate.issue_number)
+    try:
+        issue_payload = client.get_issue(repo, aggregate.issue_number)
+    except RuntimeError as error:
+        return IssueTruthRecord(
+            issue_number=aggregate.issue_number,
+            issue_title=aggregate.title,
+            proxy_pr_signal=aggregate.proxy_pr_signal,
+            had_rescue=aggregate.had_rescue,
+            truth_state="no_linked_pr",
+            truth_success=False,
+            no_rescue_truth_success=False,
+            linkage_status="issue_lookup_failed",
+            linkage_error=str(error),
+        )
+    comments_lookup_error = str(issue_payload.get(COMMENTS_LOOKUP_ERROR_KEY) or "").strip()
     issue_title = aggregate.title or str(issue_payload.get("title") or "").strip()
+    issue_url = str(issue_payload.get("url") or "").strip()
+    issue_state = str(issue_payload.get("state") or "").strip().upper()
+    issue_state_reason = str(issue_payload.get("stateReason") or "").strip().upper()
+    issue_closed_at = issue_payload.get("closedAt")
+    linkage_status = "verified"
+    linkage_error = ""
 
     pr_numbers = extract_pr_numbers_from_issue(repo, issue_payload)
     if not pr_numbers:
-        pr_numbers = sorted(
-            set(client.get_cross_referenced_pr_numbers(repo, aggregate.issue_number))
-        )
+        try:
+            pr_numbers = sorted(
+                set(client.get_cross_referenced_pr_numbers(repo, aggregate.issue_number))
+            )
+        except RuntimeError as error:
+            if issue_state != "CLOSED":
+                raise
+            linkage_status = "cross_reference_lookup_failed"
+            linkage_error = str(error)
+            pr_numbers = []
+    if not pr_numbers and comments_lookup_error:
+        if linkage_status == "verified":
+            linkage_status = "issue_comments_lookup_failed"
+            linkage_error = comments_lookup_error
+        else:
+            prior_status = linkage_status
+            prior_error = linkage_error
+            linkage_status = "linkage_lookup_failed"
+            linkage_error = "; ".join(
+                part
+                for part in (
+                    f"issue_comments_lookup_failed: {comments_lookup_error}",
+                    f"{prior_status}: {prior_error}" if prior_error else prior_status,
+                )
+                if part
+            )
 
     linked_prs: list[LinkedPullRequest] = []
     for pr_number in pr_numbers:
@@ -468,6 +580,12 @@ def reconcile_issue_truth(
         truth_state=truth_state,
         truth_success=truth_success,
         no_rescue_truth_success=no_rescue_truth_success,
+        issue_url=issue_url,
+        issue_state=issue_state,
+        issue_state_reason=issue_state_reason,
+        issue_closed_at=issue_closed_at if isinstance(issue_closed_at, str) else None,
+        linkage_status=linkage_status,
+        linkage_error=linkage_error,
         linked_prs=linked_prs,
     )
 

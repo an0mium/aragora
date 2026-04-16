@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import errno
 import getpass
 import hashlib
 import json
@@ -125,6 +126,11 @@ def _optional_int(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _optional_pid(value: Any) -> int | None:
+    pid = _optional_int(value, 0)
+    return pid if pid > 0 else None
 
 
 def _normalized_runner_type(value: str | None) -> str:
@@ -990,9 +996,9 @@ def _probe_next_action(
 def _inspection_payload(inspection: RunnerInspection) -> dict[str, Any]:
     to_dict = getattr(inspection, "to_dict", None)
     if callable(to_dict):
-        payload = to_dict()
-        if isinstance(payload, dict):
-            return dict(payload)
+        inspection_payload = to_dict()
+        if isinstance(inspection_payload, dict):
+            return dict(inspection_payload)
     payload: dict[str, Any] = {}
     for key in (
         "runner_id",
@@ -1157,6 +1163,9 @@ class LocalRunnerRegistry:
                 "updated_at": now,
             },
         )
+        if claimed_lanes <= 0:
+            updated_entry["claim_owner_host"] = None
+            updated_entry["claim_owner_pid"] = None
         records["registrations"] = [
             updated_entry if item.get("runner_id") == inspection.runner_id else item
             for item in registrations
@@ -1432,6 +1441,8 @@ class LocalRunnerRegistry:
             updated_entry = {
                 **item,
                 "claimed_lanes": claimed_lanes + 1,
+                "claim_owner_host": platform.node() or None,
+                "claim_owner_pid": os.getpid(),
                 "last_selected_at": _utcnow(),
                 "selection_count": _optional_int(item.get("selection_count")) + 1,
             }
@@ -1467,10 +1478,16 @@ class LocalRunnerRegistry:
                 owner_context=owner_context,
             ):
                 return None
+            next_claimed_lanes = max(0, _optional_int(item.get("claimed_lanes")) - 1)
             updated_entry = {
                 **item,
-                "claimed_lanes": max(0, _optional_int(item.get("claimed_lanes")) - 1),
+                "claimed_lanes": next_claimed_lanes,
+                "claim_owner_host": _text(item.get("claim_owner_host")) or None,
+                "claim_owner_pid": _optional_pid(item.get("claim_owner_pid")),
             }
+            if next_claimed_lanes <= 0:
+                updated_entry["claim_owner_host"] = None
+                updated_entry["claim_owner_pid"] = None
             break
         if updated_entry is None:
             return None
@@ -1502,6 +1519,8 @@ class LocalRunnerRegistry:
             "owner_binding": dict(runner.get("owner_binding") or {}),
             "capabilities": capabilities,
             "claimed_lanes": claimed_lanes,
+            "claim_owner_host": _text(runner.get("claim_owner_host")) or None,
+            "claim_owner_pid": _optional_pid(runner.get("claim_owner_pid")),
             "selection_count": _optional_int(runner.get("selection_count")),
             "last_selected_at": _text(runner.get("last_selected_at")) or None,
             "available_capacity": max(0, max_parallel - active_lanes),
@@ -1734,6 +1753,8 @@ class LocalRunnerRegistry:
         inspection_payload = inspection.to_dict() if inspection is not None else {}
         if self._effective_active_lanes(inspection_payload) > 0:
             return claimed_lanes
+        if claimed_lanes == 1 and self._claim_owner_process_is_dead(runner):
+            return 0
         last_selected_at = self._parse_timestamp(_text(runner.get("last_selected_at")))
         if last_selected_at is None:
             return claimed_lanes
@@ -1744,6 +1765,23 @@ class LocalRunnerRegistry:
         if age_seconds > claim_ttl_seconds:
             return 0
         return claimed_lanes
+
+    @staticmethod
+    def _claim_owner_process_is_dead(runner: dict[str, Any]) -> bool:
+        claim_owner_pid = _optional_pid(runner.get("claim_owner_pid"))
+        if claim_owner_pid is None:
+            return False
+        claim_owner_host = _text(runner.get("claim_owner_host"))
+        local_host = _text(platform.node())
+        if claim_owner_host and local_host and claim_owner_host != local_host:
+            return False
+        try:
+            os.kill(claim_owner_pid, 0)
+        except OSError as exc:
+            if exc.errno == errno.ESRCH:
+                return True
+            return False
+        return False
 
     def _probe_status(self, runner: dict[str, Any]) -> str | None:
         status = _text(runner.get("probe_status")).lower() or None

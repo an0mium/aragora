@@ -87,8 +87,8 @@ class DAGOperationsCoordinator:
                 for agent_name in agents:
                     try:
                         debate_agents.append(create_agent(agent_name))  # type: ignore[arg-type]
-                    except (RuntimeError, ImportError, ValueError):
-                        pass
+                    except (RuntimeError, ImportError, ValueError) as exc:
+                        logger.debug("Skipping agent %r: %s", agent_name, exc)
 
             if not debate_agents:
                 return DAGOperationResult(
@@ -309,8 +309,8 @@ class DAGOperationsCoordinator:
                 for name in ("claude", "gpt", "gemini", "mistral", "grok"):
                     try:
                         available_agents.append(create_agent(name))  # type: ignore[arg-type]
-                    except (RuntimeError, ImportError, ValueError):
-                        pass
+                    except (RuntimeError, ImportError, ValueError) as exc:
+                        logger.debug("Skipping agent %r: %s", name, exc)
             except ImportError:
                 return DAGOperationResult(
                     success=False,
@@ -645,7 +645,7 @@ class DAGOperationsCoordinator:
                 if task is None:
                     break
                 status_val = getattr(task, "status", None)
-                status_str = status_val.value if hasattr(status_val, "value") else str(status_val)
+                status_str = status_val.value if hasattr(status_val, "value") else str(status_val)  # type: ignore[union-attr]
                 if status_str in ("completed", "failed", "cancelled"):
                     node.metadata["execution_status"] = status_str
                     node.metadata["task_result"] = getattr(task, "result", None)

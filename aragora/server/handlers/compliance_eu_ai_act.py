@@ -163,10 +163,20 @@ class EUAIActComplianceHandler(BaseHandler):
         if path != "/api/v1/compliance/eu-ai-act/bundles":
             return None
 
-        body = self.read_json_body(handler) or {}
+        body, error = self.read_json_object_or_error(handler)
+        if error:
+            return error
+        if body is None:
+            return error_response("JSON object body is required", 400)
+
         debate_id = body.get("debate_id")
         scope = body.get("scope")
         articles = body.get("articles")
+
+        if debate_id is not None and not isinstance(debate_id, str):
+            return error_response("'debate_id' must be a string", 400)
+        if scope is not None and not isinstance(scope, str):
+            return error_response("'scope' must be a string", 400)
 
         # Validate articles parameter
         if articles is not None:

@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import Any, Mapping
 
 from aragora.pipeline.execution_mode import ExecutionMode
 from aragora.security.capability_gate import (
@@ -71,6 +71,45 @@ def _strip_github_tokens(env: dict[str, str]) -> None:
         "GITHUB_ENTERPRISE_TOKEN",
     ):
         env.pop(key, None)
+
+
+def build_worker_runtime_env(
+    *,
+    agent: str,
+    worker_env_overrides: Mapping[str, str] | None = None,
+    claude_profile: str | None = None,
+    base_env: Mapping[str, str] | None = None,
+    admin_approved: bool = False,
+) -> dict[str, str]:
+    """Build the worker runtime environment used for contract emission.
+
+    The dispatch preview path uses the same helper so contract checksums match
+    the environment the launcher will actually hand to the worker process.
+    """
+
+    overrides = {
+        str(key).strip(): str(value)
+        for key, value in dict(worker_env_overrides or {}).items()
+        if str(key).strip()
+    }
+    normalized_agent = str(agent or "").strip().lower()
+    if normalized_agent == "claude":
+        effective_profile = str(claude_profile or "").strip()
+        if effective_profile and "ARAGORA_CLAUDE_PROFILE" not in overrides:
+            overrides["ARAGORA_CLAUDE_PROFILE"] = effective_profile
+    if admin_approved and "ARAGORA_ADMIN_APPROVED" not in overrides:
+        overrides["ARAGORA_ADMIN_APPROVED"] = "1"
+
+    worker_env = dict(base_env or os.environ)
+    _strip_github_tokens(worker_env)
+    if normalized_agent == "codex":
+        codex_home = Path.home() / ".codex"
+        if (codex_home / "auth.json").exists():
+            worker_env["CODEX_HOME"] = str(codex_home)
+    if overrides:
+        worker_env.update(overrides)
+    _strip_github_tokens(worker_env)
+    return worker_env
 
 
 class WorkerLauncher:
@@ -142,29 +181,12 @@ class WorkerLauncher:
             worktree_path,
         )
         raw_worker_env = metadata.get("worker_env", {}) if isinstance(metadata, dict) else {}
-        worker_env_overrides = {
-            str(key).strip(): str(value)
-            for key, value in dict(raw_worker_env or {}).items()
-            if str(key).strip()
-        }
-        if agent == "claude":
-            effective_profile = profile_override or self.config.claude_profile
-            if effective_profile and "ARAGORA_CLAUDE_PROFILE" not in worker_env_overrides:
-                worker_env_overrides["ARAGORA_CLAUDE_PROFILE"] = effective_profile
-
-        # Codex CLI multi-agent mode creates isolated config dirs that lack
-        # auth credentials.  Pin CODEX_HOME to the user's main config so
-        # workers can authenticate.  Claude Code doesn't use this var.
-        worker_env = dict(os.environ)
-        _strip_github_tokens(worker_env)
-        if agent == "codex":
-            codex_home = Path.home() / ".codex"
-            if (codex_home / "auth.json").exists():
-                worker_env["CODEX_HOME"] = str(codex_home)
-        if worker_env_overrides:
-            worker_env.update(worker_env_overrides)
-        # Allow task-scoped overrides, but keep GitHub auth out of worker envs.
-        _strip_github_tokens(worker_env)
+        worker_env = build_worker_runtime_env(
+            agent=agent,
+            worker_env_overrides=raw_worker_env,
+            claude_profile=profile_override or self.config.claude_profile,
+            admin_approved=admin_approved,
+        )
 
         contract = build_worker_contract(
             agent=agent,
@@ -1410,6 +1432,7 @@ class WorkerLauncher:
         initial_head: str = "",
         auto_commit: bool = True,
         expected_tests: list[str] | None = None,
+        admin_approved: bool = False,
         allow_session_meta_pid_fallback: bool = True,
         preserve_incomplete_artifacts: bool = True,
     ) -> WorkerProcess | None:
@@ -1446,6 +1469,10 @@ class WorkerLauncher:
         ):
             return None
 
+        recovered_admin_approved = admin_approved or (
+            cls._strict_bool(session_meta.get("admin_approved")) is True
+        )
+
         worker = WorkerProcess(
             work_order_id=work_order_id,
             agent=agent,
@@ -1453,6 +1480,7 @@ class WorkerLauncher:
             branch=branch,
             pid=observed_pid,
             initial_head=initial_head,
+            admin_approved=recovered_admin_approved,
             expected_tests=[
                 str(item).strip() for item in expected_tests or [] if str(item).strip()
             ],

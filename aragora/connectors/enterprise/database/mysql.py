@@ -550,7 +550,7 @@ class MySQLConnector(EnterpriseConnector):
             try:
                 await self._cdc_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[MySQL CDC] Binlog CDC task cancelled")
 
         if self._binlog_stream:
             self._binlog_stream.close()

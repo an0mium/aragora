@@ -10,7 +10,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.observability import get_logger
+
 from .types import ControlPlanePolicy, EnforcementLevel
+
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -53,7 +57,7 @@ class PolicyConflictDetector:
         detector = PolicyConflictDetector()
         conflicts = detector.detect_conflicts(policies)
         for conflict in conflicts:
-            logger.warning(f"Policy conflict: {conflict.description}")
+            logger.warning("Policy conflict: %s", conflict.description)
     """
 
     def detect_conflicts(

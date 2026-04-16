@@ -281,14 +281,14 @@ class LeaderElection:
             try:
                 await self._election_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[leader] Election task cancelled for node %s", self._config.node_id)
 
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
             try:
                 await self._heartbeat_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[leader] Heartbeat task cancelled for node %s", self._config.node_id)
 
         self._state = LeaderState.DISCONNECTED
         logger.info("[leader] Election stopped for node %s", self._config.node_id)
@@ -339,7 +339,7 @@ class LeaderElection:
 
         try:
             # SET NX EX - only set if not exists, with expiry
-            result = await self._redis.set(
+            result = await self._redis.set(  # type: ignore
                 lock_key,
                 lock_value,
                 nx=True,
@@ -351,7 +351,7 @@ class LeaderElection:
 
                 # Store additional leader info
                 info_key = f"{self._config.key_prefix}info"
-                await self._redis.hset(
+                await self._redis.hset(  # type: ignore
                     info_key,
                     mapping={
                         "node_id": self._config.node_id,
@@ -375,17 +375,17 @@ class LeaderElection:
 
         try:
             # Check if we still hold the lock
-            current = await self._redis.get(lock_key)
+            current = await self._redis.get(lock_key)  # type: ignore
             if current != self._config.node_id:
                 logger.warning("[leader] Lock held by %s, not us", current)
                 return False
 
             # Refresh TTL
-            await self._redis.expire(lock_key, _redis_ttl_seconds(self._config.lock_ttl_seconds))
+            await self._redis.expire(lock_key, _redis_ttl_seconds(self._config.lock_ttl_seconds))  # type: ignore
 
             # Update heartbeat
             info_key = f"{self._config.key_prefix}info"
-            await self._redis.hset(info_key, "last_heartbeat", str(time.time()))
+            await self._redis.hset(info_key, "last_heartbeat", str(time.time()))  # type: ignore
 
             return True
 
@@ -399,9 +399,9 @@ class LeaderElection:
 
         try:
             # Only delete if we hold the lock (using Lua script for atomicity)
-            current = await self._redis.get(lock_key)
+            current = await self._redis.get(lock_key)  # type: ignore
             if current == self._config.node_id:
-                await self._redis.delete(lock_key)
+                await self._redis.delete(lock_key)  # type: ignore
                 logger.info("[leader] Node %s released leadership", self._config.node_id)
         except (ConnectionError, TimeoutError, OSError, RuntimeError) as e:
             logger.error("[leader] Failed to release lock: %s", e)
@@ -414,11 +414,11 @@ class LeaderElection:
         info_key = f"{self._config.key_prefix}info"
 
         try:
-            node_id = await self._redis.get(lock_key)
+            node_id = await self._redis.get(lock_key)  # type: ignore
             if not node_id:
                 return None
 
-            info = await self._redis.hgetall(info_key)
+            info = await self._redis.hgetall(info_key)  # type: ignore
             if not info:
                 return LeaderInfo(
                     node_id=node_id,
@@ -514,7 +514,9 @@ class _InMemoryRedis:
         self._data.pop(key, None)
 
     async def expire(self, key: str, seconds: int) -> None:
-        pass  # No-op for in-memory
+        # Intentional no-op: in-memory mock has no TTL expiration mechanism.
+        # Keys persist for the lifetime of the process (single-node only).
+        logger.debug("[leader] In-memory expire no-op for key %s (ttl=%ds)", key, seconds)
 
     async def hset(
         self,
@@ -528,7 +530,7 @@ class _InMemoryRedis:
         if mapping:
             self._hashes[key].update(mapping)
         elif field:
-            self._hashes[key][field] = value
+            self._hashes[key][field] = value  # type: ignore
 
     async def hgetall(self, key: str) -> dict[str, str]:
         return self._hashes.get(key, {})
@@ -828,7 +830,7 @@ class RegionalLeaderElection(LeaderElection):
 
         try:
             # Try to acquire global coordinator lock
-            result = await self._redis.set(
+            result = await self._redis.set(  # type: ignore
                 global_key,
                 self._config.node_id,
                 nx=True,
@@ -843,7 +845,7 @@ class RegionalLeaderElection(LeaderElection):
 
                 # Store coordinator info
                 info_key = f"{self._config.key_prefix}global:coordinator_info"
-                await self._redis.hset(
+                await self._redis.hset(  # type: ignore
                     info_key,
                     mapping={
                         "node_id": self._config.node_id,
@@ -875,9 +877,9 @@ class RegionalLeaderElection(LeaderElection):
         global_key = f"{self._config.key_prefix}global:coordinator"
 
         try:
-            current = await self._redis.get(global_key)
+            current = await self._redis.get(global_key)  # type: ignore
             if current == self._config.node_id:
-                await self._redis.delete(global_key)
+                await self._redis.delete(global_key)  # type: ignore
                 logger.info(
                     "[regional-leader] Node %s released global coordinator", self._config.node_id
                 )
@@ -894,11 +896,11 @@ class RegionalLeaderElection(LeaderElection):
         info_key = f"{self._config.key_prefix}global:coordinator_info"
 
         try:
-            node_id = await self._redis.get(global_key)
+            node_id = await self._redis.get(global_key)  # type: ignore
             if not node_id:
                 return None
 
-            info = await self._redis.hgetall(info_key)
+            info = await self._redis.hgetall(info_key)  # type: ignore
             return RegionalLeaderInfo(
                 node_id=info.get("node_id", node_id),
                 region_id=info.get("region_id", "unknown"),

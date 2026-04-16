@@ -1233,6 +1233,34 @@ class BaseHandler:
 
         return body, None
 
+    def read_json_object_or_error(
+        self,
+        handler: Any,
+        *,
+        allow_empty: bool = True,
+        max_size: int | None = None,
+        invalid_error: str = "Invalid JSON body",
+        empty_error: str = "Request body must be a non-empty JSON object",
+    ) -> tuple[dict[str, Any] | None, HandlerResult | None]:
+        """Read a JSON object body and convert parsing failures into 400 responses.
+
+        Args:
+            handler: The HTTP request handler with headers and rfile.
+            allow_empty: Whether an empty JSON object/no body is accepted.
+            max_size: Maximum body size to accept.
+            invalid_error: Error message when parsing fails.
+            empty_error: Error message when an empty object is disallowed.
+
+        Returns:
+            Tuple of (parsed_dict, None) on success or (None, HandlerResult) on failure.
+        """
+        body = self.read_json_body(handler, max_size)
+        if body is None:
+            return None, error_response(invalid_error, 400)
+        if not allow_empty and not body:
+            return None, error_response(empty_error, 400)
+        return body, None
+
     def handle(
         self, path: str, query_params: dict[str, Any], handler: Any
     ) -> MaybeAsyncHandlerResult:

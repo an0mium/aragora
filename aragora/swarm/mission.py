@@ -13,6 +13,8 @@ from typing import Any, Mapping
 
 
 class GateType(str, Enum):
+    """Gate checkpoint types in the mission lifecycle."""
+
     DRAFT_READY = "draft_ready"
     DISPATCH_READY = "dispatch_ready"
     MILESTONE_READY = "milestone_ready"
@@ -20,12 +22,16 @@ class GateType(str, Enum):
 
 
 class GateVerdict(str, Enum):
+    """Outcome of a gate evaluation: pass, blocked, or needs_human."""
+
     PASS = "pass"
     BLOCKED = "blocked"
     NEEDS_HUMAN = "needs_human"
 
 
 class TranscriptAllowance(str, Enum):
+    """How much worker transcript content a context policy permits."""
+
     NONE = "none"
     SUMMARY_ONLY = "summary_only"
     RAW_ALLOWED = "raw_allowed"
@@ -45,6 +51,8 @@ def _ordered_unique_strings(values: list[Any]) -> list[str]:
 
 @dataclass(slots=True)
 class MissionEnvelope:
+    """Top-level mission metadata linking roadmap refs to execution assertions."""
+
     mission_id: str = ""
     roadmap_refs: list[str] = field(default_factory=list)
     goal_summary: str = ""
@@ -76,6 +84,8 @@ class MissionEnvelope:
 
 @dataclass(slots=True)
 class RepairPolicy:
+    """Bounds on repair attempts and escalation for a mission stage."""
+
     max_repair_rounds: int = 2
     max_validator_rounds: int = 3
     max_stage_wall_time_minutes: int = 90
@@ -106,6 +116,8 @@ class RepairPolicy:
 
 @dataclass(slots=True)
 class MissionStage:
+    """A single execution stage within a mission, with file scope and validation."""
+
     stage_id: str = ""
     mission_id: str = ""
     title: str = ""
@@ -146,6 +158,8 @@ class MissionStage:
 
 @dataclass(slots=True)
 class MissionContextPolicy:
+    """Per-role policy controlling which artifacts and sources a worker may access."""
+
     role: str
     allowed_artifact_classes: list[str] = field(default_factory=list)
     max_source_count: int = 0
@@ -199,6 +213,8 @@ class MissionContextPolicy:
 
 @dataclass(slots=True)
 class GateEvaluation:
+    """Result of evaluating a gate checkpoint, including verdict and repair eligibility."""
+
     gate_type: str
     verdict: str
     mission_id: str = ""
@@ -244,6 +260,11 @@ def default_context_policy(
     file_scope: list[str] | None = None,
     evidence_expectations: list[str] | None = None,
 ) -> MissionContextPolicy:
+    """Return the default MissionContextPolicy for a given role.
+
+    Roles ``worker``, ``validator``, ``reviewer``, and ``auditor`` each get
+    tailored artifact-class and transcript permissions.
+    """
     normalized_role = str(role or "").strip().lower() or "worker"
     scope = _ordered_unique_strings(list(file_scope or []))
     evidence = _ordered_unique_strings(list(evidence_expectations or []))
@@ -297,6 +318,11 @@ def normalize_context_policies(
     file_scope: list[str] | None = None,
     evidence_expectations: list[str] | None = None,
 ) -> dict[str, dict[str, Any]]:
+    """Normalize raw context-policy dicts into validated per-role policies.
+
+    Returns a dict mapping role names to their serialized MissionContextPolicy.
+    Missing roles are filled with defaults.
+    """
     data = dict(payload or {})
     result: dict[str, dict[str, Any]] = {}
     for role in ("worker", "validator"):
@@ -321,6 +347,7 @@ def mission_lineage_payload(
     roadmap_refs: list[str] | None = None,
     evidence_expectations: list[str] | None = None,
 ) -> dict[str, Any]:
+    """Build a serializable lineage payload for embedding in receipts and metrics."""
     return {
         "mission_id": str(mission_id or "").strip(),
         "stage_id": str(stage_id or "").strip(),

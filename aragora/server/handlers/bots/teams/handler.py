@@ -902,6 +902,9 @@ class TeamsHandler(SecureEndpointMixin, BotHandlerMixin, SecureHandler):  # type
 
             if not activity:
                 return error_response("Empty activity", 400)
+            activity_type = activity.get("type")
+            if not isinstance(activity_type, str) or not activity_type.strip():
+                return error_response("Teams activity must include a non-empty 'type' field", 400)
 
             auth_header = handler.headers.get("Authorization", "")
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -13,7 +12,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.env_utils import git_safe_env
@@ -21,6 +20,7 @@ from aragora.swarm.mission import GateEvaluation, GateType, GateVerdict, Mission
 from aragora.swarm.terminal_truth import TerminalClass, classify_preflight_failure
 from aragora.swarm.worker_contract import WorkerContract, checksum_contract_payload
 from aragora.swarm.worker_launcher import LaunchConfig, WorkerLauncher, WorkerProcess
+from aragora.utils.async_utils import run_async
 
 _PREFLIGHT_RECEIPT_SCHEMA_VERSION = 1
 _PREFLIGHT_TTL_SECONDS = {
@@ -439,6 +439,7 @@ def _find_open_pr_by_branch(
     cwd: Path,
     branch: str,
     base_ref: str,
+    env: Mapping[str, str] | None = None,
 ) -> tuple[int | None, str]:
     result = subprocess.run(
         [
@@ -453,6 +454,7 @@ def _find_open_pr_by_branch(
             "number,url,isDraft,baseRefName",
         ],
         cwd=str(cwd),
+        env=dict(env) if env is not None else None,
         capture_output=True,
         text=True,
         timeout=60,
@@ -652,9 +654,11 @@ def run_scratch_validation_receipt(
     repo_root: Path,
     envelope: CredentialEnvelope,
     force_refresh: bool = False,
+    env: Mapping[str, str] | None = None,
 ) -> PreflightReceipt:
     resolved_repo_root = repo_root.resolve()
     normalized_base_ref = "main"
+    git_env = git_safe_env(env)
     if not force_refresh:
         cached = _load_cached_preflight_receipt(resolved_repo_root, envelope, "scratch")
         if cached is not None:
@@ -689,7 +693,7 @@ def run_scratch_validation_receipt(
                 normalized_base_ref,
             ],
             cwd=resolved_repo_root,
-            env=git_safe_env(),
+            env=git_env,
         )
         if worktree_result is not None and worktree_result.returncode == 0:
             worktree_created = True
@@ -706,7 +710,7 @@ def run_scratch_validation_receipt(
                 name="git_add",
                 cmd=["git", "add", str(scratch_file.relative_to(worktree_path))],
                 cwd=worktree_path,
-                env=git_safe_env(),
+                env=git_env,
             )
             if add_result is not None and add_result.returncode == 0:
                 _run_check(
@@ -714,7 +718,7 @@ def run_scratch_validation_receipt(
                     name="git_commit",
                     cmd=["git", "commit", "-m", "chore: preflight scratch validation"],
                     cwd=worktree_path,
-                    env=git_safe_env(),
+                    env=git_env,
                 )
     finally:
         if worktree_created:
@@ -723,12 +727,14 @@ def run_scratch_validation_receipt(
                 name="cleanup_worktree_remove",
                 cmd=["git", "worktree", "remove", "--force", str(worktree_path)],
                 cwd=resolved_repo_root,
+                env=git_env,
             )
             _run_check(
                 checks,
                 name="cleanup_branch_delete",
                 cmd=["git", "branch", "-D", branch],
                 cwd=resolved_repo_root,
+                env=git_env,
             )
 
     finished_at = _utc_now()
@@ -752,9 +758,12 @@ def run_remote_publish_validation_receipt(
     envelope: CredentialEnvelope,
     base_ref: str = "main",
     force_refresh: bool = False,
+    env: Mapping[str, str] | None = None,
 ) -> PreflightReceipt:
     resolved_repo_root = repo_root.resolve()
     normalized_base_ref = str(base_ref or "main").strip() or "main"
+    git_env = git_safe_env(env)
+    command_env = dict(env) if env is not None else None
     if not force_refresh:
         cached = _load_cached_preflight_receipt(
             resolved_repo_root,
@@ -790,7 +799,7 @@ def run_remote_publish_validation_receipt(
             name="git_worktree_add",
             cmd=["git", "worktree", "add", "-b", branch, str(worktree_path), "HEAD"],
             cwd=resolved_repo_root,
-            env=git_safe_env(),
+            env=git_env,
         )
         if worktree_result is not None and worktree_result.returncode == 0:
             worktree_created = True
@@ -807,7 +816,7 @@ def run_remote_publish_validation_receipt(
                 name="git_add",
                 cmd=["git", "add", str(scratch_file.relative_to(worktree_path))],
                 cwd=worktree_path,
-                env=git_safe_env(),
+                env=git_env,
             )
             if add_result is not None and add_result.returncode == 0:
                 commit_result = _run_check(
@@ -815,7 +824,7 @@ def run_remote_publish_validation_receipt(
                     name="git_commit",
                     cmd=["git", "commit", "-m", "chore: preflight remote publish validation"],
                     cwd=worktree_path,
-                    env=git_safe_env(),
+                    env=git_env,
                 )
                 if commit_result is not None and commit_result.returncode == 0:
                     push_result = _run_check(
@@ -823,7 +832,7 @@ def run_remote_publish_validation_receipt(
                         name="git_push",
                         cmd=["git", "push", "origin", "HEAD"],
                         cwd=worktree_path,
-                        env=git_safe_env(),
+                        env=git_env,
                     )
                     pushed = push_result is not None and push_result.returncode == 0
                     if pushed:
@@ -845,6 +854,7 @@ def run_remote_publish_validation_receipt(
                                 "--draft",
                             ],
                             cwd=worktree_path,
+                            env=command_env,
                         )
                         if pr_result is not None and pr_result.returncode == 0:
                             pr_number, pr_url = _parse_pr_create_output(
@@ -856,6 +866,7 @@ def run_remote_publish_validation_receipt(
                                     cwd=worktree_path if worktree_created else resolved_repo_root,
                                     branch=branch,
                                     base_ref=normalized_base_ref,
+                                    env=command_env,
                                 )
                             if pr_number is None or not pr_url:
                                 _append_check(
@@ -883,6 +894,7 @@ def run_remote_publish_validation_receipt(
                 cwd=worktree_path if worktree_created else resolved_repo_root,
                 branch=branch,
                 base_ref=normalized_base_ref,
+                env=command_env,
             )
             if pr_number is not None and pr_url:
                 draft_created = True
@@ -911,6 +923,7 @@ def run_remote_publish_validation_receipt(
                     "Preflight complete - closing.",
                 ],
                 cwd=worktree_path if worktree_created else resolved_repo_root,
+                env=command_env,
             )
             draft_close_succeeded = close_result is not None and close_result.returncode == 0
         elif pushed and unresolved_remote_pr_state:
@@ -941,7 +954,7 @@ def run_remote_publish_validation_receipt(
                 name="cleanup_remote_branch_delete",
                 cmd=["git", "push", "origin", "--delete", branch],
                 cwd=worktree_path if worktree_created else resolved_repo_root,
-                env=git_safe_env(),
+                env=git_env,
             )
         elif pushed and draft_created and not draft_close_succeeded:
             _append_check(
@@ -971,12 +984,14 @@ def run_remote_publish_validation_receipt(
                 name="cleanup_worktree_remove",
                 cmd=["git", "worktree", "remove", "--force", str(worktree_path)],
                 cwd=resolved_repo_root,
+                env=git_env,
             )
             _run_check(
                 checks,
                 name="cleanup_branch_delete",
                 cmd=["git", "branch", "-D", branch],
                 cwd=resolved_repo_root,
+                env=git_env,
             )
 
     finished_at = _utc_now()
@@ -994,6 +1009,376 @@ def run_remote_publish_validation_receipt(
     return receipt
 
 
+def _dispatch_gate_detail(dispatch_gate: dict[str, Any]) -> str:
+    gate = dict(dispatch_gate or {})
+    parts: list[str] = []
+    verdict = str(gate.get("verdict", "") or "").strip()
+    if verdict:
+        parts.append(f"verdict={verdict}")
+    failure_classes = [
+        str(item).strip() for item in list(gate.get("failure_classes") or []) if str(item).strip()
+    ]
+    if failure_classes:
+        parts.append(f"failure_classes={','.join(failure_classes)}")
+    notes = str(gate.get("notes", "") or "").strip()
+    if notes:
+        parts.append(notes)
+    return " | ".join(parts) or "dispatch gate unavailable"
+
+
+def _checks_from_contract_preflight_result(
+    result: PreflightResult,
+    *,
+    expected_contract_checksum: str,
+    skip_publication: bool,
+) -> list[dict[str, Any]]:
+    checks = [dict(item) for item in list(result.checks or [])]
+    worker = dict(result.worker or {})
+    worker_checksum = str(worker.get("worker_contract_checksum", "") or "").strip()
+    checks.append(
+        {
+            "name": "dispatch_gate",
+            "passed": str(result.dispatch_gate.get("verdict", "")).strip()
+            == GateVerdict.PASS.value,
+            "detail": _dispatch_gate_detail(result.dispatch_gate),
+        }
+    )
+    checks.append(
+        {
+            "name": "worker_contract_checksum",
+            "passed": bool(worker_checksum) and worker_checksum == expected_contract_checksum,
+            "detail": worker_checksum or "missing worker_contract_checksum",
+        }
+    )
+    commit_shas = [
+        str(item).strip() for item in list(worker.get("commit_shas") or []) if str(item).strip()
+    ]
+    checks.append(
+        {
+            "name": "worker_commit",
+            "passed": bool(commit_shas),
+            "detail": ",".join(commit_shas) if commit_shas else "worker produced no commit",
+        }
+    )
+    if not skip_publication:
+        checks.append(
+            {
+                "name": "publication_flow",
+                "passed": bool(result.published)
+                and bool(result.pull_request_created)
+                and bool(result.pull_request_closed),
+                "detail": (
+                    f"published={result.published} "
+                    f"pr_created={result.pull_request_created} "
+                    f"pr_closed={result.pull_request_closed}"
+                ),
+            }
+        )
+    return checks
+
+
+def _save_contract_preflight_receipt(
+    *,
+    result: PreflightResult,
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    base_ref: str,
+    skip_publication: bool,
+    contract_path: Path,
+    expected_contract_checksum: str,
+) -> PreflightReceipt:
+    resolved_repo_root = repo_root.resolve()
+    normalized_base_ref = str(base_ref or "main").strip() or "main"
+    normalized_contract_path = contract_path.expanduser().resolve()
+    normalized_check_type = "scratch" if skip_publication else "remote_publish"
+    finished_at = _utc_now()
+    started_at = finished_at - timedelta(seconds=max(float(result.duration_seconds or 0.0), 0.0))
+    checks = _checks_from_contract_preflight_result(
+        result,
+        expected_contract_checksum=expected_contract_checksum,
+        skip_publication=skip_publication,
+    )
+    artifacts: dict[str, Any] = {
+        "target_ref": normalized_base_ref,
+        "contract_path": str(normalized_contract_path),
+        "skip_publication": bool(skip_publication),
+        "expected_contract_checksum": expected_contract_checksum,
+        "branch": str(result.branch or "").strip(),
+        "worktree_path": str(result.worktree_path or "").strip(),
+        "agent": str(result.agent or "").strip(),
+        "published": bool(result.published),
+        "pull_request_created": bool(result.pull_request_created),
+        "pull_request_closed": bool(result.pull_request_closed),
+        "cleanup_worktree_removed": bool(result.cleanup_worktree_removed),
+        "cleanup_branch_removed": bool(result.cleanup_branch_removed),
+        "dispatch_gate": dict(result.dispatch_gate),
+        "worker_contract_checksum": str(
+            (result.worker or {}).get("worker_contract_checksum", "") or ""
+        ).strip(),
+        "commit_shas": [
+            str(item).strip()
+            for item in list((result.worker or {}).get("commit_shas") or [])
+            if str(item).strip()
+        ],
+    }
+    receipt = _finalize_preflight_receipt(
+        repo_root=resolved_repo_root,
+        envelope=envelope,
+        check_type=normalized_check_type,
+        base_ref=normalized_base_ref,
+        started_at=started_at,
+        finished_at=finished_at,
+        checks=checks,
+        artifacts=artifacts,
+    )
+    _save_preflight_receipt(resolved_repo_root, receipt)
+    return receipt
+
+
+def run_contract_preflight_receipt(
+    *,
+    repo_root: Path,
+    agent: str | None = None,
+    base_ref: str = "main",
+    skip_publication: bool = False,
+    contract_path: Path,
+    envelope: CredentialEnvelope | None = None,
+) -> PreflightReceipt:
+    resolved_repo_root = repo_root.resolve()
+    normalized_base_ref = str(base_ref or "main").strip() or "main"
+    normalized_contract_path = contract_path.expanduser().resolve()
+    normalized_check_type = "scratch" if skip_publication else "remote_publish"
+    resolved_envelope = envelope or CredentialEnvelope.from_environment(os.environ)
+    started_at = _utc_now()
+    checks: list[dict[str, Any]] = []
+    artifacts: dict[str, Any] = {
+        "target_ref": normalized_base_ref,
+        "contract_path": str(normalized_contract_path),
+        "skip_publication": bool(skip_publication),
+        "expected_contract_checksum": "",
+    }
+    try:
+        _, expected_contract_checksum = _load_contract_payload(normalized_contract_path)
+        artifacts["expected_contract_checksum"] = expected_contract_checksum
+    except Exception as exc:
+        checks.append({"name": "contract_payload", "passed": False, "detail": str(exc)})
+        finished_at = _utc_now()
+        receipt = _finalize_preflight_receipt(
+            repo_root=resolved_repo_root,
+            envelope=resolved_envelope,
+            check_type=normalized_check_type,
+            base_ref=normalized_base_ref,
+            started_at=started_at,
+            finished_at=finished_at,
+            checks=checks,
+            artifacts=artifacts,
+        )
+        _save_preflight_receipt(resolved_repo_root, receipt)
+        return receipt
+
+    try:
+        result = run_preflight(
+            repo_root=resolved_repo_root,
+            agent=agent,
+            base_ref=normalized_base_ref,
+            skip_publication=skip_publication,
+            contract_path=normalized_contract_path,
+        )
+    except Exception as exc:
+        checks.append({"name": "contract_preflight", "passed": False, "detail": str(exc)})
+    else:
+        checks.extend(
+            _checks_from_contract_preflight_result(
+                result,
+                expected_contract_checksum=expected_contract_checksum,
+                skip_publication=skip_publication,
+            )
+        )
+        artifacts.update(
+            {
+                "branch": str(result.branch or "").strip(),
+                "worktree_path": str(result.worktree_path or "").strip(),
+                "agent": str(result.agent or "").strip(),
+                "published": bool(result.published),
+                "pull_request_created": bool(result.pull_request_created),
+                "pull_request_closed": bool(result.pull_request_closed),
+                "cleanup_worktree_removed": bool(result.cleanup_worktree_removed),
+                "cleanup_branch_removed": bool(result.cleanup_branch_removed),
+                "dispatch_gate": dict(result.dispatch_gate),
+                "worker_contract_checksum": str(
+                    (result.worker or {}).get("worker_contract_checksum", "") or ""
+                ).strip(),
+                "commit_shas": [
+                    str(item).strip()
+                    for item in list((result.worker or {}).get("commit_shas") or [])
+                    if str(item).strip()
+                ],
+            }
+        )
+
+    if "branch" in artifacts:
+        receipt = _save_contract_preflight_receipt(
+            result=result,
+            repo_root=resolved_repo_root,
+            envelope=resolved_envelope,
+            base_ref=normalized_base_ref,
+            skip_publication=skip_publication,
+            contract_path=normalized_contract_path,
+            expected_contract_checksum=expected_contract_checksum,
+        )
+        return receipt
+
+    finished_at = _utc_now()
+    receipt = _finalize_preflight_receipt(
+        repo_root=resolved_repo_root,
+        envelope=resolved_envelope,
+        check_type=normalized_check_type,
+        base_ref=normalized_base_ref,
+        started_at=started_at,
+        finished_at=finished_at,
+        checks=checks,
+        artifacts=artifacts,
+    )
+    _save_preflight_receipt(resolved_repo_root, receipt)
+    return receipt
+
+
+def evaluate_preflight_receipt_gate(
+    receipt: PreflightReceipt | None,
+    *,
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    check_type: str,
+    base_ref: str = "main",
+    expected_contract_checksum: str = "",
+    now: datetime | None = None,
+) -> GateEvaluation:
+    normalized = _validate_check_type(check_type)
+    current_time = now or _utc_now()
+    normalized_base_ref = str(base_ref or "main").strip() or "main"
+    resolved_repo_root = repo_root.resolve()
+    required_evidence = ["preflight_receipt"]
+    if receipt is None:
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_missing"],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt missing.",
+        )
+    if str(receipt.check_type or "").strip() != normalized:
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_check_type_mismatch"],
+            required_evidence=required_evidence,
+            notes=(
+                "Preflight admission blocked: receipt check type "
+                f"`{receipt.check_type}` does not match expected `{normalized}`."
+            ),
+        )
+    if str(receipt.repo_root or "") != str(resolved_repo_root):
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_repo_root_mismatch"],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt repo root does not match the current repo.",
+        )
+    if str(receipt.envelope_seal or "").strip() != envelope.preflight_cache_seal():
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_envelope_mismatch"],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: credential envelope no longer matches the receipt.",
+        )
+    if _parse_isoformat_utc(receipt.expires_at) <= current_time:
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_expired"],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt expired.",
+        )
+    if normalized == "remote_publish":
+        target_ref = str(receipt.artifacts.get("target_ref", "") or "").strip() or "main"
+        if target_ref != normalized_base_ref:
+            return GateEvaluation(
+                gate_type=GateType.DISPATCH_READY.value,
+                verdict=GateVerdict.BLOCKED.value,
+                failure_classes=["receipt_target_ref_mismatch"],
+                required_evidence=required_evidence,
+                notes=(
+                    "Preflight admission blocked: receipt target ref "
+                    f"`{target_ref}` does not match expected `{normalized_base_ref}`."
+                ),
+            )
+    expected_cache_key = _preflight_cache_key(
+        resolved_repo_root,
+        envelope,
+        normalized,
+        base_ref=normalized_base_ref,
+    )
+    if str(receipt.cache_key or "").strip() != expected_cache_key:
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=["receipt_cache_key_mismatch"],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt cache key does not match the current repo state.",
+        )
+    if expected_contract_checksum:
+        actual_contract_checksum = str(
+            receipt.artifacts.get("expected_contract_checksum", "") or ""
+        ).strip()
+        if actual_contract_checksum != expected_contract_checksum:
+            return GateEvaluation(
+                gate_type=GateType.DISPATCH_READY.value,
+                verdict=GateVerdict.BLOCKED.value,
+                failure_classes=["receipt_contract_mismatch"],
+                required_evidence=required_evidence,
+                notes="Preflight admission blocked: receipt contract checksum mismatch.",
+            )
+    if not receipt.passed:
+        failure_class = receipt.failure_terminal_class
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=[
+                failure_class.value if failure_class is not None else "preflight_failed"
+            ],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt recorded a failed preflight.",
+        )
+    failed_checks = [
+        dict(item)
+        for item in list(receipt.checks)
+        if isinstance(item, dict) and not bool(item.get("passed", False))
+    ]
+    if failed_checks:
+        failure_class = classify_preflight_failure(
+            passed=False,
+            checks=failed_checks,
+            dispatch_gate=None,
+        )
+        return GateEvaluation(
+            gate_type=GateType.DISPATCH_READY.value,
+            verdict=GateVerdict.BLOCKED.value,
+            failure_classes=[
+                failure_class.value if failure_class is not None else "preflight_failed"
+            ],
+            required_evidence=required_evidence,
+            notes="Preflight admission blocked: receipt checks recorded a failed preflight.",
+        )
+    return GateEvaluation(
+        gate_type=GateType.DISPATCH_READY.value,
+        verdict=GateVerdict.PASS.value,
+        required_evidence=required_evidence,
+        notes=f"Preflight receipt verified: {receipt.receipt_id}",
+    )
+
+
 def _branch_name() -> str:
     stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
     return f"preflight/{stamp}"
@@ -1004,15 +1389,6 @@ def _worktree_path(repo_root: Path, branch: str) -> Path:
 
 
 def _preflight_filename(contract: WorkerContract | None = None) -> str:
-    if contract is not None:
-        policy = dict(contract.mission_context_policy or {})
-        required_sources = [
-            str(item).strip()
-            for item in list(policy.get("required_sources", []) or [])
-            if str(item).strip()
-        ]
-        if required_sources:
-            return required_sources[0]
     return "scratch/preflight_worker_check.txt"
 
 
@@ -1027,18 +1403,34 @@ def _work_order(agent: str, *, contract: WorkerContract | None = None) -> dict[s
         "receipt",
     ]
     if contract is not None:
-        mission_id = str(contract.mission_id or "").strip() or mission_id
-        stage_id = str(contract.stage_id or "").strip() or stage_id
+        policy = dict(contract.mission_context_policy or {})
+        required_sources = [
+            str(item).strip()
+            for item in list(policy.get("required_sources", []) or [])
+            if str(item).strip()
+        ]
+        mission_id = str(contract.mission_id or "").strip()
+        stage_id = str(contract.stage_id or "").strip()
         assertion_ids = [
             str(item).strip() for item in list(contract.assertion_ids or []) if str(item).strip()
         ]
-        if not assertion_ids:
-            assertion_ids = ["RS-PREFLIGHT-ASSERT-1"]
         evidence_expectations = [
             str(item).strip()
             for item in list(contract.evidence_expectations or [])
             if str(item).strip()
         ] or evidence_expectations
+    description = (
+        f"Create a file named `{filename}` with a single line "
+        "timestamp. Commit it with message `chore: preflight worker check`. "
+        "Do not modify any other files."
+    )
+    if contract is not None and required_sources:
+        quoted_sources = ", ".join(f"`{item}`" for item in required_sources)
+        description = (
+            f"Read the required source files {quoted_sources} to confirm access, then "
+            + description
+        )
+
     return {
         "work_order_id": f"preflight-{int(time.time())}",
         "target_agent": agent,
@@ -1054,11 +1446,7 @@ def _work_order(agent: str, *, contract: WorkerContract | None = None) -> dict[s
         "title": "Contract-aware preflight worker check"
         if contract is not None
         else "Preflight worker check",
-        "description": (
-            f"Create a file named `{filename}` with a single line "
-            "timestamp. Commit it with message `chore: preflight worker check`. "
-            "Do not modify any other files."
-        ),
+        "description": description,
         "file_scope": [filename],
         "expected_tests": [],
         "metadata": {"admin_approved": True},
@@ -1076,6 +1464,11 @@ async def _run_worker(
     config = LaunchConfig(
         allow_claude_dangerously_skip_permissions=True,
         allow_codex_full_auto=True,
+        # Preflight already provisions and owns the disposable worktree.
+        # Wrapping the worker in codex_session.sh tries to create another
+        # managed worktree on top of it and fails before any commit happens.
+        use_managed_session_script=False,
+        require_explicit_approval=False,
     )
     launcher = WorkerLauncher(config=config)
     work_order = _work_order(agent, contract=contract)
@@ -1243,8 +1636,12 @@ def run_preflight(
     resolved_repo_root = repo_root.resolve()
     expected_contract: WorkerContract | None = None
     expected_contract_checksum = ""
+    normalized_contract_path: Path | None = None
     if contract_path is not None:
-        expected_contract, expected_contract_checksum = _load_contract_payload(contract_path)
+        normalized_contract_path = contract_path.expanduser().resolve()
+        expected_contract, expected_contract_checksum = _load_contract_payload(
+            normalized_contract_path
+        )
     if expected_contract is not None and str(expected_contract.agent or "").strip():
         normalized_agent = str(expected_contract.agent).strip()
     else:
@@ -1270,14 +1667,15 @@ def run_preflight(
         )
         worktree_created = True
 
-        worker = asyncio.run(
+        worker = run_async(
             _run_worker(
                 repo_root=resolved_repo_root,
                 worktree_path=worktree_path,
                 branch=branch,
                 agent=normalized_agent,
                 contract=expected_contract,
-            )
+            ),
+            timeout=900.0,
         )
         dispatch_gate = _validate_worker_contract(worker)
         if expected_contract is not None:
@@ -1319,7 +1717,7 @@ def run_preflight(
     if dispatch_gate:
         passed = str(dispatch_gate.get("verdict", "")).strip() == GateVerdict.PASS.value
     duration = time.monotonic() - start
-    return PreflightResult(
+    result = PreflightResult(
         passed=passed,
         checks=[],
         duration_seconds=duration,
@@ -1337,6 +1735,29 @@ def run_preflight(
         dispatch_gate=dispatch_gate,
         worker=worker.to_dict() if worker is not None else {},
     )
+    if normalized_contract_path is not None:
+        envelope_for_receipt = CredentialEnvelope.from_environment(os.environ)
+        receipt = _save_contract_preflight_receipt(
+            result=result,
+            repo_root=resolved_repo_root,
+            envelope=envelope_for_receipt,
+            base_ref=normalized_base_ref,
+            skip_publication=skip_publication,
+            contract_path=normalized_contract_path,
+            expected_contract_checksum=expected_contract_checksum,
+        )
+        admission_gate = evaluate_preflight_receipt_gate(
+            receipt,
+            repo_root=resolved_repo_root,
+            envelope=envelope_for_receipt,
+            check_type="scratch" if skip_publication else "remote_publish",
+            base_ref=normalized_base_ref,
+            expected_contract_checksum=expected_contract_checksum,
+        )
+        result.dispatch_gate = admission_gate.to_dict()
+        result.passed = admission_gate.verdict == GateVerdict.PASS.value
+        result.checks = [dict(item) for item in receipt.checks]
+    return result
 
 
 def main() -> int:

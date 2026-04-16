@@ -490,6 +490,15 @@ class TestExecuteEndpoint:
         )
 
         mock = _make_mock_handler_with_body({})
+        mock_launch = {
+            "plan_id": "dp-exec",
+            "run_id": "run-test",
+            "execution_id": "exec-test",
+            "correlation_id": "corr-test",
+            "execution_mode": "workflow",
+            "safety_mode": "interactive",
+            "status": "queued",
+        }
 
         with (
             patch("aragora.server.handlers.plans._get_plan_store", return_value=tmp_store),
@@ -498,9 +507,13 @@ class TestExecuteEndpoint:
                 "require_permission_or_error",
                 return_value=(MagicMock(user_id="admin-1"), None),
             ),
-            patch("aragora.pipeline.execution_bridge.get_execution_bridge") as mock_bridge,
+            patch(
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                return_value=mock_launch,
+            ) as mock_queue,
+            patch("aragora.pipeline.canonical_execution.schedule_coroutine") as mock_schedule,
+            patch("aragora.pipeline.canonical_execution.execute_queued_plan") as mock_exec,
         ):
-            mock_bridge.return_value = MagicMock()
             result = handler.handle_post("/api/v1/plans/dp-exec/execute", {}, mock)
 
         assert result is not None
@@ -508,7 +521,8 @@ class TestExecuteEndpoint:
         data = json.loads(result.body)
         assert data["status"] == "executing"
         assert data["plan_id"] == "dp-exec"
-        mock_bridge.return_value.schedule_execution.assert_called_once()
+        mock_queue.assert_called_once()
+        mock_schedule.assert_called_once()
 
     def test_execute_nonexistent_plan(self, handler: PlansHandler, tmp_store: PlanStore) -> None:
         mock = _make_mock_handler_with_body({})
@@ -612,6 +626,15 @@ class TestExecuteEndpoint:
         )
 
         mock = _make_mock_handler_with_body({"execution_mode": "hybrid"})
+        mock_launch = {
+            "plan_id": "dp-hybrid",
+            "run_id": "run-test",
+            "execution_id": "exec-test",
+            "correlation_id": "corr-test",
+            "execution_mode": "hybrid",
+            "safety_mode": "interactive",
+            "status": "queued",
+        }
 
         with (
             patch("aragora.server.handlers.plans._get_plan_store", return_value=tmp_store),
@@ -620,17 +643,21 @@ class TestExecuteEndpoint:
                 "require_permission_or_error",
                 return_value=(MagicMock(user_id="admin-1"), None),
             ),
-            patch("aragora.pipeline.execution_bridge.get_execution_bridge") as mock_bridge,
+            patch(
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                return_value=mock_launch,
+            ) as mock_queue,
+            patch("aragora.pipeline.canonical_execution.schedule_coroutine") as mock_schedule,
+            patch("aragora.pipeline.canonical_execution.execute_queued_plan") as mock_exec,
         ):
-            mock_bridge.return_value = MagicMock()
             result = handler.handle_post("/api/v1/plans/dp-hybrid/execute", {}, mock)
 
         assert result is not None
         assert result.status_code == 202
-        mock_bridge.return_value.schedule_execution.assert_called_once_with(
-            "dp-hybrid",
-            execution_mode="hybrid",
-        )
+        # Verify queue_plan_execution was called with the custom execution mode
+        call_kwargs = mock_queue.call_args
+        assert call_kwargs is not None
+        assert call_kwargs.kwargs.get("execution_mode") == "hybrid"
 
     def test_execute_requires_permission(self, handler: PlansHandler, tmp_store: PlanStore) -> None:
         from aragora.server.handlers.base import error_response
@@ -662,6 +689,15 @@ class TestApproveAutoExecute:
         )
 
         mock = _make_mock_handler_with_body({"auto_execute": True})
+        mock_launch = {
+            "plan_id": "dp-auto-exec",
+            "run_id": "run-test",
+            "execution_id": "exec-test",
+            "correlation_id": "corr-test",
+            "execution_mode": "workflow",
+            "safety_mode": "interactive",
+            "status": "queued",
+        }
 
         with (
             patch("aragora.server.handlers.plans._get_plan_store", return_value=tmp_store),
@@ -670,16 +706,21 @@ class TestApproveAutoExecute:
                 "require_permission_or_error",
                 return_value=(MagicMock(user_id="admin-1"), None),
             ),
-            patch("aragora.pipeline.execution_bridge.get_execution_bridge") as mock_bridge,
+            patch(
+                "aragora.pipeline.canonical_execution.queue_plan_execution",
+                return_value=mock_launch,
+            ) as mock_queue,
+            patch("aragora.pipeline.canonical_execution.schedule_coroutine") as mock_schedule,
+            patch("aragora.pipeline.canonical_execution.execute_queued_plan") as mock_exec,
         ):
-            mock_bridge.return_value = MagicMock()
             result = handler.handle_post("/api/v1/plans/dp-auto-exec/approve", {}, mock)
 
         assert result is not None
         assert result.status_code == 200
         data = json.loads(result.body)
         assert data["execution_scheduled"] is True
-        mock_bridge.return_value.schedule_execution.assert_called_once_with("dp-auto-exec")
+        mock_queue.assert_called_once()
+        mock_schedule.assert_called_once()
 
     def test_approve_without_auto_execute(
         self, handler: PlansHandler, tmp_store: PlanStore

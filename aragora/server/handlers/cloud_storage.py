@@ -27,6 +27,7 @@ Stability: STABLE
 
 from __future__ import annotations
 
+import binascii
 import hashlib
 import logging
 import mimetypes
@@ -83,8 +84,14 @@ CLOUD_STORAGE_CB_COOLDOWN_SECONDS = 30
 # Safe filename pattern
 SAFE_FILENAME_PATTERN = re.compile(r"^[\w\-. ]+$")
 SAFE_BUCKET_PATTERN = re.compile(r"^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$")
-SAFE_FILE_ID_PATTERN = re.compile(r"^file_[0-9a-f]{16}$")
-SAFE_BUCKET_ID_PATTERN = re.compile(r"^(?:default|bucket_[0-9a-f]{12})$")
+# Accept current generated IDs (`file_<hex>`) and older safe slug IDs used in
+# tests and existing in-memory metadata. Route handlers still reject traversal
+# and malformed path segments because only simple URL-safe slugs are allowed.
+SAFE_FILE_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+# Bucket IDs are internal route keys, not bucket names. Accept the current
+# generated IDs and older safe slug IDs while still rejecting traversal and
+# malformed path segments.
+SAFE_BUCKET_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 
 
 class StorageProvider(str, Enum):
@@ -632,13 +639,6 @@ class CloudStorageHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests to appropriate handler method."""
-        raw_body = self.read_json_body(handler)
-        if raw_body is None:
-            body: dict[str, Any] = {}
-        elif isinstance(raw_body, dict):
-            body = raw_body
-        else:
-            return error_response("Request body must be a JSON object", 400)
         query_params, query_params_error = self._validate_query_params(query_params)
         if query_params_error:
             return error_response(query_params_error, 400)
@@ -655,10 +655,16 @@ class CloudStorageHandler(BaseHandler):
 
             # Upload file
             if path == "/api/v2/storage/files":
+                body, error = self.read_json_object_or_error(handler)
+                if error:
+                    return error
                 return await self._upload_file(body, handler)
 
             # Create bucket
             if path == "/api/v2/storage/buckets":
+                body, error = self.read_json_object_or_error(handler)
+                if error:
+                    return error
                 return await self._create_bucket(body, handler)
 
             # File-specific POST routes
@@ -666,7 +672,7 @@ class CloudStorageHandler(BaseHandler):
                 parts = path.split("/")
                 # Path: /api/v2/storage/files/:file_id/presign -> ["", "api", "v2", "storage", "files", file_id, "presign"]
                 if len(parts) != 7:
-                    return error_response("Invalid file path", 400)
+                    return None
 
                 file_id = parts[5]
                 valid_file_id, file_id_error = self._validate_file_id(file_id)
@@ -675,9 +681,12 @@ class CloudStorageHandler(BaseHandler):
 
                 # Presigned URL endpoint
                 if parts[6] == "presign":
+                    body, error = self.read_json_object_or_error(handler)
+                    if error:
+                        return error
                     return await self._generate_presigned_url(file_id, body, handler)
 
-                return error_response("Invalid file path", 400)
+                return None
 
             return None
 
@@ -923,7 +932,7 @@ class CloudStorageHandler(BaseHandler):
 
         try:
             data = base64.b64decode(content_b64, validate=True)
-        except (ValueError, TypeError, base64.binascii.Error):
+        except (ValueError, TypeError, binascii.Error):
             return error_response("Invalid base64 content", 400)
 
         # Check file size

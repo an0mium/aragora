@@ -1,0 +1,356 @@
+name: Benchmark Truth Publication
+
+on:
+  schedule:
+    - cron: "20 13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: benchmark-truth-publication
+  cancel-in-progress: false
+
+jobs:
+  publish-benchmark-truth:
+    runs-on: mac-studio
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          clean: false
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Verify checkout integrity
+        shell: bash
+        run: |
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::pyproject.toml missing after checkout; attempting recovery"
+            git sparse-checkout disable || true
+            git fetch --no-tags origin "${GITHUB_SHA:-HEAD}"
+            git reset --hard FETCH_HEAD
+            git clean -ffd || true
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::warning::Standard recovery failed; attempting archive restore"
+            find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+            git archive "${GITHUB_SHA:-HEAD}" | tar -x || git archive HEAD | tar -x
+          fi
+          if [[ ! -f pyproject.toml ]]; then
+            echo "::error::Repository checkout is incomplete (pyproject.toml missing)"
+            echo "PWD=$(pwd)"
+            ls -la
+            exit 1
+          fi
+
+      - name: Ensure local toolchain on PATH
+        shell: bash
+        run: |
+          # Must run BEFORE setup-python so its fallback finds pyenv python3.11
+          for dir in /opt/homebrew/bin "$HOME/.pyenv/shims"; do
+            if [[ -d "$dir" ]]; then
+              echo "$dir" >> "$GITHUB_PATH"
+              export PATH="$dir:$PATH"
+            fi
+          done
+          python3 --version
+          node --version || true
+          npm --version || true
+
+      - name: Setup Python
+        uses: ./.github/actions/setup-python-safe
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          # Upgrade pip/setuptools first (Homebrew's may be too old for pyproject.toml)
+          python3 -m pip install --upgrade pip setuptools --quiet
+          python3 -m pip install -e ".[dev]" --quiet 2>/dev/null || python3 -m pip install -e . --quiet
+
+      - name: Install GitHub CLI
+        env:
+          GH_CLI_VERSION: "2.89.0"
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh_version="$GH_CLI_VERSION"
+          if command -v gh &>/dev/null; then
+            installed_version="$(gh --version | awk 'NR==1 {print $3}')"
+            if [[ "$installed_version" == "$gh_version" ]]; then
+              echo "gh already available: $(gh --version | head -1)"
+              exit 0
+            fi
+            echo "::notice::Replacing preinstalled gh $installed_version with pinned $gh_version"
+          fi
+
+          os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+          arch="$(uname -m)"
+          case "$arch" in
+            x86_64|amd64) gh_arch="amd64" ;;
+            aarch64|arm64) gh_arch="arm64" ;;
+            *) echo "::error::Unsupported arch: $arch"; exit 1 ;;
+          esac
+
+          gh_root="$RUNNER_TEMP/gh-cli"
+          api_json="$gh_root/release.json"
+          archive="gh_${gh_version}_${os}_${gh_arch}.tar.gz"
+          archive_path="$gh_root/$archive"
+          mkdir -p "$gh_root"
+
+          curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -o "$api_json" \
+            "https://api.github.com/repos/cli/cli/releases/tags/v${gh_version}"
+
+          mapfile -t gh_asset < <(
+            python3 - "$api_json" "$archive" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          release = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          archive_name = sys.argv[2]
+          asset = next(
+              (
+                  item
+                  for item in release.get("assets", [])
+                  if isinstance(item, dict) and item.get("name") == archive_name
+              ),
+              None,
+          )
+          if asset is None:
+              raise SystemExit(f"Missing release asset: {archive_name}")
+
+          digest = str(asset.get("digest") or "").strip()
+          if digest.startswith("sha256:"):
+              digest = digest.split(":", 1)[1]
+          if not digest:
+              raise SystemExit(f"Missing digest for release asset: {archive_name}")
+
+          print(str(asset.get("browser_download_url") or "").strip())
+          print(digest)
+          PY
+          )
+          gh_url="${gh_asset[0]:-}"
+          gh_sha256="${gh_asset[1]:-}"
+          if [[ -z "$gh_url" || -z "$gh_sha256" ]]; then
+            echo "::error::Unable to resolve pinned gh asset metadata"
+            exit 1
+          fi
+
+          curl -fsSL -o "$archive_path" "$gh_url"
+          python3 - "$archive_path" "$gh_sha256" <<'PY'
+          import hashlib
+          import sys
+          from pathlib import Path
+
+          archive_path = Path(sys.argv[1])
+          expected = sys.argv[2].strip().lower()
+          actual = hashlib.sha256(archive_path.read_bytes()).hexdigest().lower()
+          if actual != expected:
+              raise SystemExit(
+                  f"gh checksum mismatch for {archive_path.name}: expected {expected}, got {actual}"
+              )
+          PY
+
+          tar -xzf "$archive_path" -C "$gh_root"
+          echo "$gh_root/gh_${gh_version}_${os}_${gh_arch}/bin" >> "$GITHUB_PATH"
+
+      - name: Install Codex CLI
+        shell: bash
+        run: |
+          # Skip install if codex is already on PATH (e.g. macOS via Homebrew)
+          if command -v codex &>/dev/null; then
+            echo "codex already available: $(codex --version 2>&1 | head -1)"
+            exit 0
+          fi
+          codex_root="$RUNNER_TEMP/codex-cli"
+          mkdir -p "$codex_root"
+          npm install --global --prefix "$codex_root" @openai/codex
+          echo "$codex_root/bin" >> "$GITHUB_PATH"
+
+      - name: Verify runtime prerequisites
+        shell: bash
+        run: |
+          command -v codex >/dev/null
+          command -v gh >/dev/null
+          METRICS_PATH=".aragora/overnight/boss_metrics.jsonl"
+          mkdir -p "$(dirname "$METRICS_PATH")"
+          if [[ ! -f "$METRICS_PATH" ]]; then
+            echo "::notice::No repo-local benchmark metrics snapshot found; recurrence will generate a fresh window"
+          fi
+
+      - name: Resolve Codex runner auth paths
+        shell: bash
+        run: |
+          RUNNER_USER="${ARAGORA_USER_ID:-${USER:-$(id -un)}}"
+          RUNNER_HOME="$(python3 -c 'import os, pathlib, pwd, sys; user = sys.argv[1].strip() if len(sys.argv) > 1 else ""; print(pwd.getpwnam(user).pw_dir if user and user in {entry.pw_name for entry in pwd.getpwall()} else pathlib.Path.home())' "$RUNNER_USER")"
+          mkdir -p "$RUNNER_HOME/.codex" "$RUNNER_HOME/.aragora"
+          echo "HOME=$RUNNER_HOME" >> "$GITHUB_ENV"
+          echo "CODEX_HOME=$RUNNER_HOME/.codex" >> "$GITHUB_ENV"
+          echo "ARAGORA_RUNNER_REGISTRY_PATH=$RUNNER_HOME/.aragora/swarm_runners.json" >> "$GITHUB_ENV"
+
+      - name: Refresh execution-verified Codex runner
+        shell: bash
+        run: |
+          RUNNER_REPORT="$RUNNER_TEMP/codex-runner-maintain.json"
+          python3 -m aragora.cli.main swarm runner maintain \
+            --runner-type codex \
+            --probe-limit 1 \
+            --json > "$RUNNER_REPORT"
+          python3 - "$RUNNER_REPORT" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          payload = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          summary = payload.get("summary") or {}
+          runners = [item for item in payload.get("runners", []) if isinstance(item, dict)]
+          routing = payload.get("routing_after") or {}
+
+          def _snapshot(item):
+              return {
+                  "runner_id": item.get("runner_id"),
+                  "runner_type": item.get("runner_type"),
+                  "auth_mode": item.get("auth_mode"),
+                  "status_summary": item.get("status_summary"),
+                  "probe_status": item.get("probe_status"),
+                  "probe_detail": item.get("probe_detail"),
+                  "next_action": item.get("next_action"),
+              }
+
+          diagnostic = {
+              "summary": summary,
+              "routing_after": {
+                  "blocked_reason": routing.get("blocked_reason"),
+                  "selected_runner_ids": routing.get("selected_runner_ids"),
+                  "next_action": routing.get("next_action"),
+              },
+              "runners": [_snapshot(item) for item in runners],
+              "discovered_runners": [
+                  _snapshot(item)
+                  for item in payload.get("discovered_runners", [])
+                  if isinstance(item, dict)
+              ],
+          }
+
+          failed_runner = next(
+              (
+                  item
+                  for item in runners
+                  if str(item.get("probe_status", "")).strip() == "failed"
+              ),
+              None,
+          )
+          failure_parts = ["No Codex runner probe passed during benchmark publication setup."]
+          if failed_runner:
+              probe_detail = str(failed_runner.get("probe_detail") or "").strip()
+              next_action = str(failed_runner.get("next_action") or "").strip()
+              if probe_detail:
+                  failure_parts.append(probe_detail)
+              if next_action and next_action not in failure_parts:
+                  failure_parts.append(next_action)
+          blocked_reason = str(routing.get("blocked_reason") or "").strip()
+          if blocked_reason:
+              failure_parts.append(f"routing blocked_reason={blocked_reason}")
+
+          if int(summary.get("passed", 0) or 0) < 1:
+              print(json.dumps(diagnostic, indent=2))
+              raise SystemExit(" ".join(part for part in failure_parts if part))
+
+          selected = [
+              item
+              for item in routing.get("selected_runners", [])
+              if isinstance(item, dict)
+          ]
+          verified = [
+              item
+              for item in selected
+              if str(item.get("runner_type", "")).strip() == "codex"
+              and str(item.get("probe_status", "")).strip() == "passed"
+          ]
+          if not verified:
+              print(json.dumps(diagnostic, indent=2))
+              raise SystemExit(
+                  "No execution-verified Codex runner selected after refresh."
+              )
+          PY
+
+      - name: Refresh recurring benchmark corpus metrics
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/run_benchmark_corpus_recurrence.py \
+            --repo synaptent/aragora
+
+      - name: Publish tracked trust-loop surfaces
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/measure_b0_scorecard.py \
+            --publish \
+            --publish-dir docs/status/generated/benchmark_scorecards \
+            --truth-publish-dir docs/status/generated/benchmark_truth_artifacts \
+            --freshness-map docs/benchmarks/benchmark_corpus_freshness.json \
+            --ensure-issues \
+            --fail-incomplete
+
+          python3 scripts/render_benchmark_truth_status.py \
+            --output docs/status/B0_BENCHMARK_TRUTH_STATUS.md
+
+          python3 scripts/publish_rescue_productization_report.py \
+            --publish-dir docs/status/generated/rescue_productization \
+            --productization-map docs/benchmarks/rescue_productization.json \
+            --ensure-issues \
+            --repo synaptent/aragora
+
+          python3 scripts/render_rescue_productization_status.py \
+            --report-root docs/status/generated/rescue_productization \
+            --output docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md
+
+      - name: Publish workflow summary
+        run: |
+          cat docs/status/B0_BENCHMARK_TRUTH_STATUS.md >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          cat docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit and publish refreshed trust-loop surfaces branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            docs/benchmarks/benchmark_corpus_freshness.json \
+            docs/benchmarks/rescue_productization.json \
+            docs/status/B0_BENCHMARK_TRUTH_STATUS.md \
+            docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md \
+            docs/status/generated/benchmark_scorecards \
+            docs/status/generated/benchmark_truth_artifacts \
+            docs/status/generated/rescue_productization
+
+          if git diff --cached --quiet; then
+            echo "No recurring trust-loop surface changes to commit."
+            exit 0
+          fi
+
+          branch="benchmark-truth-publication/${GITHUB_RUN_ID}"
+          title="docs(status): refresh recurring trust-loop surfaces"
+
+          git checkout -b "$branch"
+          git commit -m "${title}"
+          git push origin "$branch"
+          {
+            echo "Published automation branch: \`$branch\`"
+            echo ""
+            echo "Auto PR Publisher will open the draft PR if repository policy allows it."
+          } >> "$GITHUB_STEP_SUMMARY"

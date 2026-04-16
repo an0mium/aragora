@@ -544,12 +544,12 @@ class TestSwarmParser:
         assert config.auto_continue_on_needs_human is True
         assert '"mode": "boss-loop"' in capsys.readouterr().out
 
-    def test_cmd_swarm_preflight_routes_to_module(self, capsys):
+    def test_cmd_swarm_preflight_routes_to_module_without_contract(self, capsys):
         args = _swarm_args(
             swarm_action_or_goal="preflight",
             worker_model="codex",
             target_branch="origin/main",
-            contract="/tmp/worker-contract.json",
+            contract=None,
             skip_publication=True,
             json=True,
         )
@@ -578,11 +578,109 @@ class TestSwarmParser:
         assert kwargs["agent"] == "codex"
         assert kwargs["base_ref"] == "origin/main"
         assert kwargs["skip_publication"] is True
-        assert kwargs["contract_path"] == Path("/tmp/worker-contract.json")
+        assert kwargs["contract_path"] is None
         assert isinstance(kwargs["repo_root"], Path)
         out = capsys.readouterr().out
         assert '"mode": "swarm-preflight"' in out
         assert '"worker_contract_checksum": "abc123"' in out
+
+    def test_cmd_swarm_preflight_contract_path_emits_receipt_and_gate(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="preflight",
+            worker_model="codex",
+            target_branch="origin/main",
+            contract="/tmp/worker-contract.json",
+            skip_publication=True,
+            json=True,
+        )
+        fake_receipt = SimpleNamespace(
+            to_dict=lambda: {
+                "receipt_id": "preflight-scratch-1234",
+                "check_type": "scratch",
+                "passed": True,
+                "expires_at": "2026-04-14T03:00:00Z",
+                "artifacts": {"expected_contract_checksum": "abc123"},
+            },
+            failure_terminal_class=None,
+            artifacts={"expected_contract_checksum": "abc123"},
+        )
+        fake_gate = SimpleNamespace(
+            to_dict=lambda: {
+                "gate_type": "dispatch_ready",
+                "verdict": "pass",
+                "failure_classes": [],
+                "notes": "receipt verified",
+            }
+        )
+
+        with (
+            patch(
+                "aragora.swarm.preflight.run_contract_preflight_receipt",
+                return_value=fake_receipt,
+            ) as run_contract_preflight_receipt,
+            patch(
+                "aragora.swarm.preflight.evaluate_preflight_receipt_gate",
+                return_value=fake_gate,
+            ) as evaluate_preflight_receipt_gate,
+        ):
+            cmd_swarm(args)
+
+        kwargs = run_contract_preflight_receipt.call_args.kwargs
+        assert kwargs["agent"] == "codex"
+        assert kwargs["base_ref"] == "origin/main"
+        assert kwargs["skip_publication"] is True
+        assert kwargs["contract_path"] == Path("/tmp/worker-contract.json")
+        assert isinstance(kwargs["repo_root"], Path)
+        gate_kwargs = evaluate_preflight_receipt_gate.call_args.kwargs
+        assert gate_kwargs["check_type"] == "scratch"
+        out = capsys.readouterr().out
+        assert '"receipt_id": "preflight-scratch-1234"' in out
+        assert '"verdict": "pass"' in out
+
+    def test_cmd_swarm_preflight_contract_path_fails_closed(self, capsys):
+        args = _swarm_args(
+            swarm_action_or_goal="preflight",
+            worker_model="codex",
+            target_branch="main",
+            contract="/tmp/worker-contract.json",
+            skip_publication=True,
+            json=True,
+        )
+        fake_receipt = SimpleNamespace(
+            to_dict=lambda: {
+                "receipt_id": "preflight-scratch-1234",
+                "check_type": "scratch",
+                "passed": False,
+                "expires_at": "2026-04-14T03:00:00Z",
+                "artifacts": {"expected_contract_checksum": "abc123"},
+            },
+            failure_terminal_class=SimpleNamespace(value="blocked_not_dispatch_bounded"),
+            artifacts={"expected_contract_checksum": "abc123"},
+        )
+        fake_gate = SimpleNamespace(
+            to_dict=lambda: {
+                "gate_type": "dispatch_ready",
+                "verdict": "blocked",
+                "failure_classes": ["blocked_not_dispatch_bounded"],
+                "notes": "receipt failed",
+            }
+        )
+
+        with (
+            patch(
+                "aragora.swarm.preflight.run_contract_preflight_receipt",
+                return_value=fake_receipt,
+            ),
+            patch(
+                "aragora.swarm.preflight.evaluate_preflight_receipt_gate",
+                return_value=fake_gate,
+            ),
+            pytest.raises(SystemExit, match="2"),
+        ):
+            cmd_swarm(args)
+
+        out = capsys.readouterr().out
+        assert '"failure_terminal_class": "blocked_not_dispatch_bounded"' in out
 
     def test_swarm_integrator_parser(self):
         from aragora.cli.parser import build_parser

@@ -213,7 +213,7 @@ class HealthWatchdog:
             try:
                 await self._task
             except asyncio.CancelledError:
-                pass
+                pass  # noqa: PERF203 — expected: task was explicitly cancelled above
             self._task = None
         logger.info("watchdog_stopped")
 

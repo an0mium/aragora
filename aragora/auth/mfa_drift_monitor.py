@@ -301,7 +301,7 @@ class MFADriftMonitor:
             try:
                 await self._task
             except asyncio.CancelledError:
-                pass
+                pass  # Expected: we just cancelled the task above
             self._task = None
         logger.info("MFADriftMonitor stopped")
 

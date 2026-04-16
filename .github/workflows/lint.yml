@@ -148,6 +148,9 @@ jobs:
       - name: Enforce workflow pip install policy
         run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_workflow_pip_install_policy.py
 
+      - name: Enforce self-hosted checkout integrity policy
+        run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_workflow_checkout_integrity_policy.py
+
       - name: Enforce execution-gate default hardening policy
         run: ${{ steps.lint_python.outputs.python_bin }} scripts/check_execution_gate_defaults.py
 

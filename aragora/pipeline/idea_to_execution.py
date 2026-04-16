@@ -667,7 +667,7 @@ class IdeaToExecutionPipeline:
             description = getattr(goal, "description", str(goal))
             rationale = getattr(goal, "rationale", "")
             track = getattr(goal, "track", None)
-            track_str = track.value if hasattr(track, "value") else str(track or "core")
+            track_str = track.value if hasattr(track, "value") else str(track or "core")  # type: ignore[union-attr]
 
             parts = [f"[{impact}]"]
             if track_str:
@@ -1397,7 +1397,7 @@ class IdeaToExecutionPipeline:
 
             provenance_chain = ReasoningProvenanceChain()
         except ImportError:
-            pass
+            logger.debug("ReasoningProvenanceChain not available; skipping provenance tracking")
 
         # MetaLearner self-tuning: adjust debate rounds based on past performance
         if cfg.enable_meta_tuning:
@@ -1533,8 +1533,8 @@ class IdeaToExecutionPipeline:
                             try:
                                 introspection_data = tracker.get_all_summaries()
                                 cfg._introspection_data = introspection_data
-                            except (AttributeError, TypeError):
-                                pass
+                            except (AttributeError, TypeError) as exc:
+                                logger.debug("Introspection data unavailable: %s", exc)
                 elif sr.status == "failed":
                     result.stage_status[PipelineStage.IDEAS.value] = "failed"
 
@@ -1547,8 +1547,8 @@ class IdeaToExecutionPipeline:
                             source_type=SourceType.SYNTHESIS,
                             source_id=getattr(link, "id", "pipeline"),
                         )
-                except (AttributeError, TypeError, ValueError):
-                    pass
+                except (AttributeError, TypeError, ValueError) as exc:
+                    logger.debug("Provenance record failed (ideation): %s", exc)
 
             # Stage 1.5: Principles extraction (opt-in)
             if cfg.enable_principles and "principles" in cfg.stages_to_run:
@@ -1618,8 +1618,8 @@ class IdeaToExecutionPipeline:
                             source_type=SourceType.SYNTHESIS,
                             source_id=getattr(link, "id", "pipeline"),
                         )
-                except (AttributeError, TypeError, ValueError):
-                    pass
+                except (AttributeError, TypeError, ValueError) as exc:
+                    logger.debug("Provenance record failed (goals): %s", exc)
 
             # Stage 3: Workflow generation
             if "workflow" in cfg.stages_to_run:
@@ -1733,8 +1733,8 @@ class IdeaToExecutionPipeline:
                         if result.receipt is None:
                             result.receipt = {}
                         result.receipt["provenance_chain_valid"] = chain_valid
-                    except (AttributeError, TypeError, ValueError):
-                        pass
+                    except (AttributeError, TypeError, ValueError) as exc:
+                        logger.debug("Provenance chain verification failed: %s", exc)
 
             # Feed pipeline metrics back to MetaLearner
             if cfg.enable_meta_tuning:
@@ -2485,8 +2485,10 @@ class IdeaToExecutionPipeline:
                             await ws_mgr.fail_bead(
                                 task["id"], error=task_result.get("error", "failed")
                             )
-                    except (AttributeError, KeyError, TypeError, RuntimeError):
-                        pass
+                    except (AttributeError, KeyError, TypeError, RuntimeError) as exc:
+                        logger.debug(
+                            "Bead lifecycle update failed for task %r: %s", task.get("id"), exc
+                        )
 
                 self._emit(
                     cfg,
@@ -2524,8 +2526,8 @@ class IdeaToExecutionPipeline:
                     merge_result = {"completed": completed, "failed": total - completed}
                     await ws_mgr.complete_convoy(convoy_id, merge_result)
                     logger.info("convoy_completed convoy_id=%s tasks=%d", convoy_id, completed)
-                except (AttributeError, KeyError, TypeError, RuntimeError):
-                    pass
+                except (AttributeError, KeyError, TypeError, RuntimeError) as exc:
+                    logger.debug("Convoy lifecycle finalization failed: %s", exc)
 
             orch_result: dict[str, Any] = {
                 "status": "executed",
@@ -2691,8 +2693,8 @@ class IdeaToExecutionPipeline:
                 top_agents = [name for name, _ in ranked[:3]]
                 if top_agents:
                     instruction += f"\n\nPreferred agents: {', '.join(top_agents)}"
-            except (AttributeError, TypeError, ValueError):
-                pass
+            except (AttributeError, TypeError, ValueError) as exc:
+                logger.debug("Could not rank preferred agents from introspection data: %s", exc)
 
         # Backend 1: HardenedOrchestrator (worktree isolation + gauntlet)
         if cfg.use_hardened_orchestrator:

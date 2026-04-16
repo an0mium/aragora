@@ -34,7 +34,14 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! gh auth status >/dev/null 2>&1; then
+gh_auth_available() {
+  if gh auth status >/dev/null 2>&1; then
+    return 0
+  fi
+  gh auth token >/dev/null 2>&1
+}
+
+if ! gh_auth_available; then
   echo "Error: gh is not authenticated. Run: gh auth login" >&2
   exit 1
 fi

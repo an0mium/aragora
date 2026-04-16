@@ -157,16 +157,13 @@ def scan_boss_metrics() -> dict:
     if not v2_rows:
         return {"available": False, "reason": "no v2 prompt data"}
 
-    # Per-issue best outcome
+    # Per-issue latest outcome
     by_issue: dict[int, str] = {}
     for r in v2_rows:
         num = r.get("issue_number")
         if not num:
             continue
-        if r["worker_status"] == "completed":
-            by_issue[num] = "completed"
-        elif num not in by_issue:
-            by_issue[num] = r["worker_status"]
+        by_issue[num] = str(r.get("worker_status") or "")
 
     total = len(by_issue)
     completed = sum(1 for s in by_issue.values() if s == "completed")

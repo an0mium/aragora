@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from aragora.swarm.issue_scanner import BossIssueCandidate
+from aragora.swarm.roadmap_priority import RoadmapPriorityPolicy
 from scripts import generate_boss_issues as mod
 
 
@@ -81,6 +82,7 @@ def test_main_dry_run_fetches_and_filters_like_real_mode(
         "create_github_issue",
         lambda repo, title, body, label: (create_calls.append((repo, title, body, label)) or True),
     )
+    monkeypatch.setattr(mod, "load_roadmap_priority_policy", lambda repo_root: None)
     monkeypatch.setattr(
         sys,
         "argv",
@@ -91,6 +93,8 @@ def test_main_dry_run_fetches_and_filters_like_real_mode(
             "--dry-run",
             "--max-issues",
             "5",
+            "--label",
+            "lane:test",
         ],
     )
 
@@ -103,7 +107,10 @@ def test_main_dry_run_fetches_and_filters_like_real_mode(
     assert fetch_pr_calls == ["org/repo"]
     assert "DRY RUN — would create 1 issues" in out
     assert eligible.title in out
-    assert "Skipped: 1 duplicates, 1 PR conflicts, 0 validation failures" in out
+    assert (
+        "Skipped: 1 duplicates, 1 PR conflicts, 0 canonical priority blocks, "
+        "0 validation failures" in out
+    )
     assert not create_calls
 
 
@@ -123,6 +130,195 @@ def test_main_create_mode_trims_to_max_and_writes_fingerprint(
     monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
     monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
     monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(mod, "load_roadmap_priority_policy", lambda repo_root: None)
+    monkeypatch.setattr(
+        mod,
+        "create_github_issue",
+        lambda repo, title, body, label: (created.append((repo, title, body, label)) or True),
+    )
+    monkeypatch.setattr(mod.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_boss_issues.py",
+            "--repo",
+            "org/repo",
+            "--max-issues",
+            "1",
+            "--label",
+            "lane:test",
+        ],
+    )
+
+    mod.main()
+
+    out = capsys.readouterr().out
+    assert "Done: 1 created, 0 failed" in out
+    assert len(created) == 1
+    repo, title, body, label = created[0]
+    assert repo == "org/repo"
+    assert title == first.title
+    assert label == "lane:test"
+    assert f"<!-- fingerprint:{first.fingerprint} -->" in body
+
+
+def test_main_passes_explicit_min_success_rate(monkeypatch, capsys) -> None:
+    eligible = _candidate("eligible_module", file_scope=["aragora/eligible_module.py"])
+    scan_calls: list[tuple[object, object, object]] = []
+
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: (
+            scan_calls.append((repo_root, categories, min_success_rate)) or [eligible]
+        ),
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(mod, "load_roadmap_priority_policy", lambda repo_root: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_boss_issues.py",
+            "--dry-run",
+            "--min-success-rate",
+            "0.5",
+        ],
+    )
+
+    mod.main()
+
+    _ = capsys.readouterr()
+    assert scan_calls
+    assert scan_calls[0][2] == 0.5
+
+
+def test_main_boss_ready_requires_explicit_do_now_priority(monkeypatch, capsys) -> None:
+    unknown = _candidate("eligible_module", file_scope=["aragora/eligible_module.py"])
+
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: [unknown],
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(
+        mod,
+        "load_roadmap_priority_policy",
+        lambda repo_root: RoadmapPriorityPolicy(
+            do_now=frozenset({"TW-01"}),
+            delay=frozenset({"BC-07"}),
+            avoid=frozenset({"CS-04"}),
+        ),
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_boss_issues.py",
+            "--dry-run",
+            "--label",
+            "boss-ready",
+        ],
+    )
+
+    mod.main()
+
+    out = capsys.readouterr().out
+    assert "DRY RUN — would create 0 issues" in out
+    assert "1 canonical priority blocks" in out
+
+
+def test_main_non_boss_ready_label_allows_unknown_priority(monkeypatch, capsys) -> None:
+    unknown = _candidate("eligible_module", file_scope=["aragora/eligible_module.py"])
+    created: list[tuple[str, str, str, str]] = []
+
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: [unknown],
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(
+        mod,
+        "load_roadmap_priority_policy",
+        lambda repo_root: RoadmapPriorityPolicy(
+            do_now=frozenset({"TW-01"}),
+            delay=frozenset({"BC-07"}),
+            avoid=frozenset({"CS-04"}),
+        ),
+    )
+    monkeypatch.setattr(
+        mod,
+        "create_github_issue",
+        lambda repo, title, body, label: (created.append((repo, title, body, label)) or True),
+    )
+    monkeypatch.setattr(mod.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_boss_issues.py",
+            "--repo",
+            "org/repo",
+            "--max-issues",
+            "1",
+            "--label",
+            "lane:test",
+        ],
+    )
+
+    mod.main()
+
+    out = capsys.readouterr().out
+    assert "Done: 1 created, 0 failed" in out
+    assert created[0][3] == "lane:test"
+
+
+def test_main_boss_ready_allows_tw02_benchmark_follow_up_without_do_now_code(
+    monkeypatch,
+    capsys,
+) -> None:
+    candidate = BossIssueCandidate(
+        category="test_coverage",
+        title="[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-1",
+        description=(
+            "Refresh benchmark corpus freshness by updating docs/benchmarks/corpus.json "
+            "after stale closed issues were detected."
+        ),
+        file_scope=["docs/benchmarks/corpus.json"],
+        new_files=[],
+        validation_command="python3 scripts/measure_b0_scorecard.py --json",
+        acceptance_criteria=[
+            "Recurring benchmark truth publication reports fresh corpus membership."
+        ],
+    )
+    created: list[tuple[str, str, str, str]] = []
+
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: [candidate],
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(
+        mod,
+        "load_roadmap_priority_policy",
+        lambda repo_root: RoadmapPriorityPolicy(
+            do_now=frozenset({"CS-01", "CS-02", "CS-03"}),
+            delay=frozenset({"BC-07"}),
+            avoid=frozenset({"CS-04"}),
+        ),
+    )
     monkeypatch.setattr(
         mod,
         "create_github_issue",
@@ -147,44 +343,71 @@ def test_main_create_mode_trims_to_max_and_writes_fingerprint(
 
     out = capsys.readouterr().out
     assert "Done: 1 created, 0 failed" in out
-    assert len(created) == 1
-    repo, title, body, label = created[0]
-    assert repo == "org/repo"
-    assert title == first.title
-    assert label == "boss-ready"
-    assert f"<!-- fingerprint:{first.fingerprint} -->" in body
+    assert created[0][1] == candidate.title
 
 
-def test_main_passes_explicit_min_success_rate(monkeypatch, capsys) -> None:
-    eligible = _candidate("eligible_module", file_scope=["aragora/eligible_module.py"])
-    scan_calls: list[tuple[object, object, object]] = []
+def test_fetch_existing_boss_issues_includes_fingerprinted_open_issues_without_label_filter(
+    monkeypatch,
+) -> None:
+    seen_cmds: list[list[str]] = []
 
-    monkeypatch.setattr(
-        mod,
-        "scan_all",
-        lambda repo_root, categories=None, min_success_rate=0.3: (
-            scan_calls.append((repo_root, categories, min_success_rate)) or [eligible]
-        ),
-    )
-    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
-    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
-    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
-    monkeypatch.setattr(
-        sys,
-        "argv",
+    def fake_run(cmd: list[str], **_: object) -> SimpleNamespace:
+        seen_cmds.append(cmd)
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(
+                [
+                    {
+                        "number": 5529,
+                        "title": "Duplicate fingerprint issue",
+                        "body": "Task body\n\n<!-- fingerprint:abc123 -->",
+                    },
+                    {
+                        "number": 5574,
+                        "title": "Open issue without fingerprint",
+                        "body": "Task body without dedupe marker",
+                    },
+                ]
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    issues = mod.fetch_existing_boss_issues("org/repo")
+
+    assert issues == [
+        {
+            "number": 5529,
+            "title": "Duplicate fingerprint issue",
+            "body": "Task body\n\n<!-- fingerprint:abc123 -->",
+        }
+    ]
+    assert seen_cmds == [
         [
-            "generate_boss_issues.py",
-            "--dry-run",
-            "--min-success-rate",
-            "0.5",
-        ],
+            "gh",
+            "issue",
+            "list",
+            "--repo",
+            "org/repo",
+            "--state",
+            "open",
+            "--limit",
+            str(mod._OPEN_ISSUE_LIMIT),
+            "--json",
+            "number,title,body",
+        ]
+    ]
+
+
+def test_fetch_existing_boss_issues_returns_empty_on_invalid_payload(monkeypatch) -> None:
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda cmd, **_: SimpleNamespace(returncode=0, stdout=json.dumps({"items": []}), stderr=""),
     )
 
-    mod.main()
-
-    _ = capsys.readouterr()
-    assert scan_calls
-    assert scan_calls[0][2] == 0.5
+    assert mod.fetch_existing_boss_issues("org/repo") == []
 
 
 @pytest.mark.parametrize(

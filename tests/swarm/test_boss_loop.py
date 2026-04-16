@@ -17,6 +17,8 @@ import argparse
 import asyncio
 import json
 import os
+import socket
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -25,8 +27,10 @@ from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import pytest
 
+from aragora.swarm import preflight as preflight_mod
 from aragora.swarm.boss_loop import (
     _should_replace_with_focused_tests,
+    _ISSUE_CLAIM_TTL_SECONDS,
     build_issue_eligibility_report,
     BossIterationStatus,
     BossLoop,
@@ -50,7 +54,9 @@ from aragora.swarm.boss_loop import (
     sanitize_issue_body_for_dispatch,
     select_eligible_issue,
 )
+from aragora.swarm.roadmap_priority import RoadmapPriorityPolicy
 from aragora.swarm.task_sanitizer import SanitizationOutcome
+from aragora.swarm.terminal_truth import qualify_work_order_terminal_state
 
 UTC = timezone.utc
 
@@ -106,6 +112,35 @@ def _boss_config(**overrides: Any) -> BossLoopConfig:
     }
     defaults.update(overrides)
     return BossLoopConfig(**defaults)
+
+
+def _preflight_receipt(
+    *,
+    check_type: str = "scratch",
+    passed: bool = True,
+    checks: list[dict[str, Any]] | None = None,
+) -> preflight_mod.PreflightReceipt:
+    return preflight_mod.PreflightReceipt(
+        receipt_id=f"preflight-{check_type}-20260414T001900Z-test",
+        envelope_seal="seal",
+        repo_root="/tmp/repo",
+        check_type=check_type,
+        started_at="2026-04-14T00:19:00Z",
+        finished_at="2026-04-14T00:19:05Z",
+        passed=passed,
+        checks=checks
+        or [
+            {
+                "name": "receipt_check",
+                "passed": passed,
+                "detail": "ok" if passed else "failed",
+            }
+        ],
+        cache_key=f"{check_type}-cache",
+        ttl_seconds=3600,
+        expires_at="2026-04-14T01:19:05Z",
+        artifacts={"target_ref": "main"},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -438,6 +473,111 @@ class TestBatchIssueSelection:
 
         assert seen["numbers"] == [2]
         assert [issue.number for issue in selected] == [2]
+
+    @pytest.mark.asyncio
+    async def test_run_iteration_filters_active_foreign_issue_claim(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        claim_dir = tmp_path / ".aragora" / "issue_claims"
+        claim_dir.mkdir(parents=True)
+        (claim_dir / "1.lock").write_text(
+            json.dumps(
+                {
+                    "issue_number": 1,
+                    "run_id": "boss-other",
+                    "pid": os.getpid(),
+                    "host": socket.gethostname(),
+                    "claimed_at": datetime.now(UTC).isoformat(),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        issue_one = _make_issue(1, "Claimed elsewhere")
+        issue_two = _make_issue(2, "Dispatch me instead")
+        feed = MagicMock()
+        feed.fetch.return_value = [issue_one, issue_two]
+        loop = BossLoop(
+            _boss_config(max_iterations=1),
+            issue_feed=feed,
+            freshness_checker=lambda **_: _fresh_result(fresh=True),
+        )
+        loop._existing_open_pr_skip_status = lambda **_: None
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        status = await loop._run_iteration(1)
+
+        assert status.worker_status == "completed"
+        assert status.selected_issue["number"] == 2
+        loop._dispatch_issue.assert_awaited_once_with(issue_two, ANY)
+
+    @pytest.mark.asyncio
+    async def test_run_iteration_skips_issue_when_claim_taken_before_dispatch(self):
+        issue = _make_issue(1, "Race on issue claim")
+        feed = MagicMock()
+        feed.fetch.return_value = [issue]
+        loop = BossLoop(
+            _boss_config(max_iterations=1),
+            issue_feed=feed,
+            freshness_checker=lambda **_: _fresh_result(fresh=True),
+        )
+        loop._existing_open_pr_skip_status = lambda **_: None
+        loop._claim_issue_dispatch = lambda issue_number: (
+            False,
+            f"Issue #{issue_number} is already claimed by boss-other.",
+        )
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        status = await loop._run_iteration(1)
+
+        assert status.worker_status == "skipped"
+        assert status.worker_outcome == "issue_claimed"
+        assert status.selected_issue["number"] == 1
+        loop._dispatch_issue.assert_not_awaited()
+
+    def test_claim_issue_dispatch_reaps_expired_claim(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        claim_dir = tmp_path / ".aragora" / "issue_claims"
+        claim_dir.mkdir(parents=True)
+        claim_path = claim_dir / "42.lock"
+        claim_path.write_text(
+            json.dumps(
+                {
+                    "issue_number": 42,
+                    "run_id": "boss-old",
+                    "pid": 999999,
+                    "host": socket.gethostname(),
+                }
+            ),
+            encoding="utf-8",
+        )
+        expired = time.time() - (_ISSUE_CLAIM_TTL_SECONDS + 5)
+        os.utime(claim_path, (expired, expired))
+
+        loop = BossLoop(_boss_config(max_iterations=1))
+
+        claimed, reason = loop._claim_issue_dispatch(42)
+
+        assert claimed is True
+        assert reason is None
+        payload = json.loads(claim_path.read_text(encoding="utf-8"))
+        assert payload["run_id"] == loop.run_id
+        assert payload["pid"] == os.getpid()
+
+    @pytest.mark.asyncio
+    async def test_dispatch_issue_under_claim_releases_issue_lock(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        loop = BossLoop(_boss_config(max_iterations=1))
+        issue = _make_issue(77, "Release claim after dispatch")
+        claimed, reason = loop._claim_issue_dispatch(issue.number)
+        assert claimed is True
+        assert reason is None
+
+        loop._dispatch_issue = AsyncMock(return_value={"status": "completed"})
+
+        result = await loop._dispatch_issue_under_claim(issue, _fresh_result(fresh=True))
+
+        assert result["status"] == "completed"
+        assert not loop._issue_claim_path(issue.number).exists()
 
     def test_skips_issues_with_skip_labels(self):
         issues = [
@@ -1485,6 +1625,49 @@ class TestBossLoop:
         assert result.iterations_completed == 1
         assert result.issues_attempted[0]["number"] == 873
 
+    def test_specific_issue_number_seeds_explicit_feed_issue_numbers(self):
+        loop = BossLoop(config=_boss_config(max_iterations=1, issue_number=873))
+
+        assert isinstance(loop._feed, GitHubIssueFeed)
+        assert loop._feed.issue_numbers == [873]
+
+    def test_specific_issue_number_scope_conflict_reports_overlap_reason(self):
+        issue = _make_issue(
+            873,
+            "Publish recurring scorecard",
+            body=(
+                "Update `scripts/measure_b0_scorecard.py`.\n\n"
+                "Acceptance Criteria:\n"
+                "- python3 scripts/measure_b0_scorecard.py --help\n"
+            ),
+            labels=["boss-ready", "priority:critical", "autonomous"],
+        )
+        feed = MagicMock(spec=GitHubIssueFeed)
+        feed.fetch.return_value = [issue]
+        feed._fetch_issue.return_value = issue
+
+        loop = BossLoop(
+            config=_boss_config(
+                max_iterations=1,
+                issue_number=873,
+                label_filter="boss-ready",
+                require_labels={"boss-ready", "priority:critical", "autonomous"},
+            ),
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._blocked_issue_scopes = lambda: {"scripts/measure_b0_scorecard.py"}
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.NO_SUITABLE_ISSUE.value
+        assert (
+            "overlaps files already owned by open PR or in-flight work"
+            in result.needs_human_reasons[0]
+        )
+        assert "scripts/measure_b0_scorecard.py" in result.needs_human_reasons[0]
+        assert "Merge, close, or retarget" in result.next_actions[0]
+
     def test_specific_issue_number_missing_stops_truthfully(self):
         feed = MagicMock(spec=GitHubIssueFeed)
         feed.fetch.return_value = [_make_issue(909, "Meta benchmark issue")]
@@ -1597,6 +1780,11 @@ class TestBossLoop:
             issue_feed=feed,
             freshness_checker=lambda **kw: _fresh_result(fresh=True),
         )
+        loop._blocked_issue_scopes = lambda: set()
+        loop._filter_issues_with_active_claims = lambda issues: issues
+        loop._has_open_pr_for_issue = lambda issue_number: None
+        loop._claim_issue_dispatch = lambda issue_number: (True, None)
+        loop._release_issue_dispatch_claim = lambda issue_number: None
         loop._dispatch_issue = _needs_human_dispatch
 
         result = asyncio.run(loop.run())
@@ -1631,6 +1819,50 @@ class TestBossLoop:
             "Skipping to next issue (auto-continue mode)."
         ]
         assert "Approval required for merge." in result.iteration_statuses[0]["needs_human_reasons"]
+
+    def test_auto_continue_needs_human_no_typed_deliverable_stops_at_threshold(self):
+        feed = MagicMock(spec=GitHubIssueFeed)
+        call_count = 0
+
+        def _fetch():
+            nonlocal call_count
+            call_count += 1
+            return [_make_issue(call_count, f"Needs human review {call_count}")]
+
+        feed.fetch.side_effect = _fetch
+
+        config = _boss_config(
+            auto_continue_on_needs_human=True,
+            max_consecutive_failures=2,
+            max_iterations=10,
+        )
+
+        async def _needs_human_dispatch(issue, freshness):
+            return {
+                "status": "needs_human",
+                "reasons": ["Worker produced no typed deliverable."],
+            }
+
+        loop = BossLoop(
+            config=config,
+            issue_feed=feed,
+            freshness_checker=lambda **kw: _fresh_result(fresh=True),
+        )
+        loop._dispatch_issue = _needs_human_dispatch
+
+        result = asyncio.run(loop.run())
+
+        assert result.stop_reason == BossStopReason.CONSECUTIVE_FAILURES.value
+        assert result.iterations_completed == 2
+        assert len(result.issues_failed) == 2
+        assert result.next_actions == [
+            "Repeated rescue outcomes without a typed deliverable reached threshold (2).",
+            "Investigate the rescue streak before resuming the boss loop.",
+        ]
+        assert any(
+            "without a typed deliverable reached threshold (2)" in reason
+            for reason in result.needs_human_reasons
+        )
 
     def test_retry_rotation_switches_target_agent_after_needs_human(self):
         feed = MagicMock(spec=GitHubIssueFeed)
@@ -2284,7 +2516,62 @@ class TestBossLoop:
             result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
         assert result["status"] == "needs_human"
+        assert result["outcome"] == "blocked"
         assert "lacks an explicit validation contract" in result["reasons"][0]
+        assert result["dispatch_gate"]["failure_classes"] == ["contract_missing"]
+        assert result["receipt_metadata"]["dispatch_gate"]["failure_classes"] == [
+            "contract_missing"
+        ]
+        qualification = qualify_work_order_terminal_state(result)
+        assert qualification.failure_classes == ["contract_missing", "needs_human"]
+
+    @pytest.mark.asyncio
+    async def test_dispatch_bounded_gate_emits_contract_missing_evidence(self) -> None:
+        issue = _make_issue(2467, "Issue missing bounded dispatch contract")
+        loop = BossLoop(config=_boss_config(max_iterations=1))
+        loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (
+            None,
+            None,
+        )
+        loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+            "runner_id": "codex-runner-1",
+            "runner_type": "codex",
+        }
+
+        with (
+            patch(
+                "aragora.swarm.prompt_refiner.refine_worker_prompt",
+                new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+            ),
+            patch(
+                "aragora.swarm.boss_loop.TaskSanitizer.sanitize",
+                return_value=SimpleNamespace(
+                    outcome=SanitizationOutcome.ACCEPTED,
+                    sanitized_text=issue.body,
+                    checks_failed=[],
+                    reason="",
+                ),
+            ),
+            patch("aragora.swarm.spec.SwarmSpec.is_dispatch_bounded", return_value=False),
+            patch(
+                "aragora.swarm.spec.SwarmSpec.dispatch_gate_reason",
+                return_value="under-specified dispatch contract",
+            ),
+            patch(
+                "aragora.swarm.dispatch_contract_gate._preview_env",
+                side_effect=AssertionError(
+                    "contract gate should not run after bounded gate failure"
+                ),
+            ),
+        ):
+            result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+        assert result["status"] == "needs_human"
+        assert result["outcome"] == "blocked"
+        assert "under-specified dispatch contract" in result["reasons"][0]
+        assert result["dispatch_gate"]["failure_classes"] == ["contract_missing"]
+        qualification = qualify_work_order_terminal_state(result)
+        assert qualification.failure_classes == ["contract_missing", "needs_human"]
 
     def test_bold_markdown_validation_contract_allows_dispatch(self):
         feed = MagicMock(spec=GitHubIssueFeed)
@@ -2796,48 +3083,84 @@ class TestBossLoopCLI:
         parsed = json.loads(out)
         assert parsed["stop_reason"] == "no_suitable_issue"
 
-    def test_boss_loop_label_filter_passes_with_all_labels(self, capsys):
-        """Issues carrying ALL required labels pass the filter."""
-        from aragora.cli.commands.swarm import cmd_swarm
 
-        fixture_issues = [
-            _make_issue(
-                1,
-                "Full match",
-                labels=["P0", "queue-eligible", "enhancement"],
-                body=(
-                    "Fix the thing\n\n"
-                    "Acceptance Criteria:\n"
-                    "- pytest -q tests/swarm/test_boss_loop.py\n"
-                ),
+def test_boss_loop_label_filter_passes_with_all_labels(self, capsys):
+    """Issues carrying ALL required labels pass the filter."""
+    from aragora.cli.commands.swarm import cmd_swarm
+
+    fixture_issues = [
+        _make_issue(
+            1,
+            "Full match",
+            labels=["P0", "queue-eligible", "enhancement"],
+            body=(
+                "Fix the thing\n\nAcceptance Criteria:\n- pytest -q tests/swarm/test_boss_loop.py\n"
             ),
-        ]
-        feed = MagicMock(spec=GitHubIssueFeed)
-        feed.fetch.return_value = fixture_issues
+        ),
+    ]
+    feed = MagicMock(spec=GitHubIssueFeed)
+    feed.fetch.return_value = fixture_issues
 
-        args = self._swarm_args(
-            json=True,
-            max_ticks=1,
-            labels=["P0", "queue-eligible"],
-            no_dispatch=True,
-        )
+    args = self._swarm_args(
+        json=True,
+        max_ticks=1,
+        labels=["P0", "queue-eligible"],
+        no_dispatch=True,
+    )
 
-        with (
-            patch(
-                "aragora.swarm.boss_loop.check_runner_freshness",
-                return_value=_fresh_result(fresh=True),
-            ),
-            patch(
-                "aragora.swarm.boss_loop.GitHubIssueFeed",
-                return_value=feed,
-            ),
-        ):
-            cmd_swarm(args)
+    with (
+        patch(
+            "aragora.swarm.boss_loop.check_runner_freshness",
+            return_value=_fresh_result(fresh=True),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.GitHubIssueFeed",
+            return_value=feed,
+        ),
+    ):
+        cmd_swarm(args)
 
-        out = capsys.readouterr().out
-        parsed = json.loads(out)
-        # The issue was selected (didn't stop with no_suitable_issue)
-        assert parsed["stop_reason"] != "no_suitable_issue"
+    out = capsys.readouterr().out
+    parsed = json.loads(out)
+    # The issue was selected (didn't stop with no_suitable_issue)
+    assert parsed["stop_reason"] != "no_suitable_issue"
+
+
+def test_filter_noncanonical_boss_ready_issues_strips_label_and_excludes_issue() -> None:
+    generic = _make_issue(
+        901,
+        "Replace silent exception swallowing in postgres_store.py",
+        body="Generic cleanup only.",
+        labels=["boss-ready"],
+    )
+    canonical = _make_issue(
+        902,
+        "[TW-02] Restock stale issues in tw-01-bounded-execution-v1 rev-1",
+        body="Refresh benchmark corpus freshness after stale closed issues were detected.",
+        labels=["boss-ready"],
+    )
+    loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+    commands: list[list[str]] = []
+    comments: list[str] = []
+
+    def _run(cmd, **kwargs):
+        result = MagicMock()
+        result.returncode = 0
+        result.stdout = ""
+        result.stderr = ""
+        commands.append(list(cmd))
+        if cmd[:3] == ["gh", "issue", "comment"]:
+            comments.append(cmd[cmd.index("--body") + 1])
+        return result
+
+    with patch("aragora.swarm.boss_loop.subprocess.run", side_effect=_run):
+        kept = loop._filter_noncanonical_boss_ready_issues([generic, canonical])
+
+    assert kept == [canonical]
+    assert "boss-ready" not in generic.labels
+    assert comments
+    assert "outside the canonical proof-first queue" in comments[-1]
+    assert any(cmd[:3] == ["gh", "issue", "edit"] for cmd in commands)
 
 
 @pytest.mark.asyncio
@@ -3319,6 +3642,14 @@ async def test_dispatch_issue_contract_gate_allows_complete_cli_dispatch() -> No
             ),
         ),
         patch(
+            "aragora.swarm.dispatch_contract_gate._persist_preview_contract",
+            return_value=Path("/tmp/issue-2464-contract.json"),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt",
+            return_value=_preflight_receipt(),
+        ) as contract_receipt,
+        patch(
             "aragora.swarm.boss_loop.dispatch_bounded_spec",
             new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
         ) as dispatch_mock,
@@ -3326,6 +3657,8 @@ async def test_dispatch_issue_contract_gate_allows_complete_cli_dispatch() -> No
         result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
 
     assert result["status"] == "completed"
+    contract_receipt.assert_called_once()
+    assert contract_receipt.call_args.kwargs["skip_publication"] is True
     dispatch_mock.assert_awaited_once()
 
 
@@ -3379,6 +3712,69 @@ async def test_dispatch_issue_contract_gate_blocks_missing_publish_auth_slices()
 
 
 @pytest.mark.asyncio
+async def test_dispatch_issue_contract_gate_blocks_failed_scratch_preflight_receipt() -> None:
+    issue = _make_issue(2467, "Dispatch requires receipt-backed admission")
+    loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="codex"))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+    failed_receipt = _preflight_receipt(
+        passed=False,
+        checks=[
+            {
+                "name": "git_commit",
+                "passed": False,
+                "detail": "worktree has uncommitted changes",
+            }
+        ],
+    )
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate._preview_env",
+            return_value=(
+                "codex",
+                {
+                    "ARAGORA_RUNNER_AUTH_MODE": "command",
+                    "CODEX_COMMAND": "/usr/local/bin/codex",
+                    "PYTEST_PATH": "/usr/local/bin/pytest",
+                    "RUFF_PATH": "/usr/local/bin/ruff",
+                },
+            ),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate._persist_preview_contract",
+            return_value=Path("/tmp/issue-2467-contract.json"),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt",
+            return_value=failed_receipt,
+        ) as contract_receipt,
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "blocked"
+    assert "failed `scratch` preflight receipt admission" in result["reasons"][0]
+    assert result["dispatch_contract"]["required_receipts"] == ["scratch"]
+    assert result["dispatch_contract"]["preflight_receipts"][0]["failure_terminal_class"] == (
+        "blocked_not_dispatch_bounded"
+    )
+    contract_receipt.assert_called_once()
+    dispatch_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_dispatch_issue_contract_gate_blocks_missing_provider_for_api_agent() -> None:
     issue = _make_issue(2466, "Dispatch requires provider auth")
     loop = BossLoop(config=_boss_config(max_iterations=1, default_target_agent="openai-api"))
@@ -3416,6 +3812,82 @@ async def test_dispatch_issue_contract_gate_blocks_missing_provider_for_api_agen
     assert result["outcome"] == "blocked_auth_failure"
     assert result["dispatch_contract"]["missing_slices"] == ["provider"]
     assert "missing provider credentials" in result["reasons"][0]
+    dispatch_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_contract_gate_blocks_failed_remote_publish_receipt() -> None:
+    issue = _make_issue(2468, "Dispatch requires publish receipt")
+    loop = BossLoop(
+        config=_boss_config(
+            max_iterations=1,
+            default_target_agent="codex",
+            auto_publish_deliverables=True,
+        )
+    )
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+    remote_failure = _preflight_receipt(
+        check_type="remote_publish",
+        passed=False,
+        checks=[
+            {
+                "name": "gh_pr_create_draft",
+                "passed": False,
+                "detail": "requires authentication",
+            }
+        ],
+    )
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate._preview_env",
+            return_value=(
+                "codex",
+                {
+                    "ARAGORA_RUNNER_AUTH_MODE": "command",
+                    "CODEX_COMMAND": "/usr/local/bin/codex",
+                    "PYTEST_PATH": "/usr/local/bin/pytest",
+                    "RUFF_PATH": "/usr/local/bin/ruff",
+                    "SSH_AUTH_SOCK": "/tmp/agent.sock",
+                    "GITHUB_TOKEN": "token",
+                },
+            ),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate._persist_preview_contract",
+            return_value=Path("/tmp/issue-2468-contract.json"),
+        ),
+        patch(
+            "aragora.swarm.dispatch_contract_gate.run_contract_preflight_receipt",
+            side_effect=[_preflight_receipt(), remote_failure],
+        ) as contract_receipt,
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "needs_human"
+    assert result["outcome"] == "blocked_auth_failure"
+    assert result["dispatch_contract"]["required_receipts"] == ["scratch", "remote_publish"]
+    assert result["dispatch_contract"]["preflight_receipts"][1]["check_type"] == "remote_publish"
+    assert result["dispatch_contract"]["preflight_receipts"][1]["failure_terminal_class"] == (
+        "blocked_auth_failure"
+    )
+    assert contract_receipt.call_count == 2
+    assert [call.kwargs["skip_publication"] for call in contract_receipt.call_args_list] == [
+        True,
+        False,
+    ]
     dispatch_mock.assert_not_awaited()
 
 
@@ -3536,6 +4008,83 @@ async def test_dispatch_issue_preserves_pending_handoff_on_pre_run_failure() -> 
         "## Goal\nRetry with preserved context\n\n## Context (from claude, round 1)\nStill relevant.",
         "codex",
     )
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_uses_followup_upgrade_before_blocking_unbounded_spec() -> None:
+    issue = _make_issue(
+        1704,
+        "Narrow broad except in helper",
+        body="Narrow broad except usage in helper without additional scope.",
+    )
+    loop = BossLoop(config=_boss_config(max_iterations=1, require_validation_contract=False))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    def _upgrade(*, issue, spec, sanitized_issue_body, repo_root):
+        spec.file_scope_hints = ["aragora/swarm/helper.py"]
+        return spec
+
+    with (
+        patch(
+            "aragora.swarm.boss_loop.dispatch_contract_gate",
+            return_value=None,
+        ),
+        patch(
+            "aragora.swarm.dispatch_followups.maybe_upgrade_dispatch_spec",
+            side_effect=_upgrade,
+        ) as upgrade_mock,
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "completed", "run": {"work_orders": []}}),
+        ) as dispatch_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["status"] == "completed"
+    upgrade_mock.assert_called_once()
+    dispatch_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_dispatch_issue_attaches_conductor_followup_to_failed_result() -> None:
+    issue = _make_issue(1705, "Dispatch failed")
+    loop = BossLoop(config=_boss_config(max_iterations=1))
+    loop._claim_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: (None, None)
+    loop._selected_runner_for_dispatch = lambda freshness, *, requested_target_agent=None: {
+        "runner_id": "codex-runner-1",
+        "runner_type": "codex",
+    }
+
+    with (
+        patch(
+            "aragora.swarm.prompt_refiner.refine_worker_prompt",
+            new=AsyncMock(side_effect=RuntimeError("skip refinement")),
+        ),
+        patch(
+            "aragora.swarm.boss_loop.dispatch_bounded_spec",
+            new=AsyncMock(return_value={"status": "failed", "error": "boom"}),
+        ),
+        patch(
+            "aragora.swarm.dispatch_followups.annotate_result_with_conductor",
+            return_value={
+                "status": "failed",
+                "error": "boom",
+                "conductor_next_action": "retry_same",
+            },
+        ) as annotate_mock,
+    ):
+        result = await loop._dispatch_issue(issue, _fresh_result(fresh=True))
+
+    assert result["conductor_next_action"] == "retry_same"
+    annotate_mock.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -4482,6 +5031,39 @@ def test_auto_decompose_stops_at_body_lineage_depth_limit() -> None:
         loop._auto_decompose_stuck_issue(4475, [issue])
 
     mock_label_stuck.assert_called_once()
+    mock_decomposer.assert_not_called()
+
+
+def test_auto_decompose_skips_delayed_root_issue_lineage() -> None:
+    issue = _make_issue(
+        5400,
+        "[from #5390] Define operator state model",
+        body=("## Decomposition Lineage\n- Root issue: #5331\n- Parent issue: #5390\n- Depth: 2\n"),
+        labels=["boss-ready"],
+    )
+    root_issue = _make_issue(
+        5331,
+        "BC-07 Unify lane, host, runner, and publication state into one operator model",
+        body="Refs: docs/status/NEXT_STEPS_CANONICAL.md (`BC-07`)",
+        labels=[],
+    )
+    loop = BossLoop(config=_boss_config(repo="synaptent/aragora"))
+    policy = RoadmapPriorityPolicy(
+        do_now=frozenset({"RS-07"}),
+        delay=frozenset({"BC-07", "BC-08", "BC-09"}),
+        avoid=frozenset(),
+    )
+
+    with (
+        patch("aragora.swarm.boss_loop.load_roadmap_priority_policy", return_value=policy),
+        patch.object(loop, "_fetch_issue_by_number", return_value=root_issue),
+        patch.object(loop, "_label_boss_stuck") as mock_label_stuck,
+        patch("aragora.nomic.task_decomposer.TaskDecomposer") as mock_decomposer,
+    ):
+        loop._auto_decompose_stuck_issue(5400, [issue])
+
+    mock_label_stuck.assert_called_once()
+    assert "BC-07" in mock_label_stuck.call_args.args[2]
     mock_decomposer.assert_not_called()
 
 

@@ -130,7 +130,9 @@ class AutonomousImproveHandler(SecureEndpointMixin, SecureHandler):  # type: ign
         path = strip_version_prefix(path)
 
         if path == "/api/autonomous/improve":
-            body = self.read_json_body(handler) or {}
+            body, error = self.read_json_object_or_error(handler)
+            if error:
+                return error
             return await self._start_run(body)
 
         return None

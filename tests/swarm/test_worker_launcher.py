@@ -2184,6 +2184,47 @@ class TestCollectDetachedResult:
         mock_commit.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_collect_detached_result_recovers_admin_approval_from_session_meta(self):
+        session_meta = {
+            "pid": 24680,
+            "exit_code": 0,
+            "ended_at": "2026-04-15T17:00:00+00:00",
+            "admin_approved": True,
+        }
+        with (
+            patch.object(WorkerLauncher, "_read_session_meta", return_value=session_meta),
+            patch.object(WorkerLauncher, "_is_pid_running", return_value=False),
+            patch.object(WorkerLauncher, "_collect_diff", return_value=""),
+            patch.object(
+                WorkerLauncher,
+                "_has_working_tree_changes",
+                new=AsyncMock(return_value=True),
+            ),
+            patch.object(WorkerLauncher, "_auto_commit", new_callable=AsyncMock) as mock_commit,
+            patch.object(WorkerLauncher, "_git_output", return_value="abc123"),
+            patch.object(WorkerLauncher, "_read_log_file", return_value="some output"),
+            patch.object(WorkerLauncher, "_collect_commit_shas", return_value=["abc123"]),
+            patch.object(WorkerLauncher, "_collect_changed_paths", return_value=["file.py"]),
+            patch.object(WorkerLauncher, "_cleanup_session_artifacts"),
+        ):
+            result = await WorkerLauncher.collect_detached_result(
+                work_order_id="wo-admin-approved-detached",
+                agent="codex",
+                worktree_path="/tmp/wt",
+                branch="main",
+                pid=24680,
+                initial_head="def456",
+                auto_commit=True,
+            )
+
+        assert result is not None
+        assert result.admin_approved is True
+        assert result.exit_code == 0
+        assert result.commit_shas == ["abc123"]
+        assert result.changed_paths == ["file.py"]
+        mock_commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_collect_detached_result_skips_auto_push_and_verification_without_terminal_marker(
         self,
     ):

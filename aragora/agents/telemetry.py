@@ -153,7 +153,7 @@ def _default_prometheus_collector(telemetry: AgentTelemetry) -> None:
                 error_type=telemetry.error_type,
             )
     except ImportError:
-        pass  # Prometheus not available
+        logger.debug("prometheus_client unavailable, skipping agent telemetry metrics")
 
 
 def _default_immune_system_collector(telemetry: AgentTelemetry) -> None:
@@ -183,7 +183,7 @@ def _default_immune_system_collector(telemetry: AgentTelemetry) -> None:
                     recoverable=True,
                 )
     except ImportError:
-        pass  # Immune system not available
+        logger.debug("immune_system unavailable, skipping agent telemetry collector")
 
 
 def _default_blackbox_collector(telemetry: AgentTelemetry) -> None:
@@ -209,7 +209,7 @@ def _default_blackbox_collector(telemetry: AgentTelemetry) -> None:
             },
         )
     except ImportError:
-        pass  # Blackbox not available
+        logger.debug("blackbox unavailable, skipping agent telemetry collector")
 
 
 def setup_default_collectors() -> None:

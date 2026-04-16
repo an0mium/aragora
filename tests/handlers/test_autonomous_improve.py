@@ -265,6 +265,16 @@ class TestCreateRun:
         assert _status(result) == 400
 
     @pytest.mark.asyncio
+    async def test_invalid_json_returns_400(self, handler_with_store, mock_http_handler):
+        """Malformed JSON should fail before semantic validation."""
+        http = mock_http_handler(method="POST")
+        http.rfile.read.return_value = b"not-json"
+        http.headers = {"Content-Length": "8"}
+        result = await handler_with_store.handle_post("/api/v1/autonomous/improve", {}, http)
+        assert _status(result) == 400
+        assert "json" in _body(result).get("error", "").lower()
+
+    @pytest.mark.asyncio
     async def test_budget_limit_accepted(self, handler_with_store, mock_store, mock_http_handler):
         """POST with valid budget_limit succeeds."""
         mock_run = SelfImproveRun(run_id="budg-1", goal="test", budget_limit_usd=5.0)

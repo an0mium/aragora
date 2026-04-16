@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -9,8 +10,14 @@ from typing import Any, Mapping
 from aragora.swarm.boss_feed import GitHubIssue
 from aragora.swarm.credential_envelope import CredentialEnvelope
 from aragora.swarm.env_utils import git_safe_env
-from aragora.swarm.worker_contract import build_worker_contract
+from aragora.swarm.preflight import (
+    PreflightReceipt,
+    run_contract_preflight_receipt,
+)
+from aragora.swarm.terminal_truth import TerminalClass, classify_preflight_failure
+from aragora.swarm.worker_contract import WorkerContract, build_worker_contract
 from aragora.swarm.worker_process import LaunchConfig
+from aragora.swarm.worker_launcher import build_worker_runtime_env
 
 
 def _target_agent(
@@ -123,6 +130,18 @@ def _preview_work_orders(spec: Any) -> list[dict[str, Any]]:
                 for path in getattr(spec, "file_scope_hints", [])
                 if str(path).strip()
             ],
+            "mission_id": str(getattr(spec, "mission_id", "") or "").strip(),
+            "stage_id": str(getattr(spec, "stage_id", "") or "").strip(),
+            "assertion_ids": [
+                str(entry).strip()
+                for entry in getattr(spec, "assertion_ids", [])
+                if str(entry).strip()
+            ],
+            "evidence_expectations": [
+                str(entry).strip()
+                for entry in getattr(spec, "evidence_expectations", [])
+                if str(entry).strip()
+            ],
             "expected_tests": [],
             "mission_context_policies": dict(getattr(spec, "mission_context_policies", {}) or {}),
         }
@@ -203,6 +222,153 @@ def _gate_reason(
     return reasons, list(dict.fromkeys(next_actions))
 
 
+def _required_preflight_receipts(loop: Any) -> list[str]:
+    required = ["scratch"]
+    if bool(loop.config.auto_publish_deliverables):
+        required.append("remote_publish")
+    return required
+
+
+def _persist_preview_contract(
+    *,
+    repo_root: Path,
+    issue_number: int,
+    contract: WorkerContract,
+) -> Path:
+    checksum = contract.checksum()
+    contract_dir = repo_root / ".aragora" / "dispatch_contracts"
+    contract_dir.mkdir(parents=True, exist_ok=True)
+    contract_path = contract_dir / f"issue-{issue_number}-{checksum[:12]}.json"
+    contract_path.write_text(
+        json.dumps(
+            {
+                "worker_contract": contract.to_dict(),
+                "worker_contract_checksum": checksum,
+            },
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    return contract_path
+
+
+def _preflight_receipt_summary(receipt: PreflightReceipt) -> dict[str, Any]:
+    terminal_class = receipt.failure_terminal_class
+    return {
+        "check_type": receipt.check_type,
+        "receipt_id": receipt.receipt_id,
+        "passed": receipt.passed,
+        "expires_at": receipt.expires_at,
+        "failure_terminal_class": terminal_class.value if terminal_class else None,
+        "failed_checks": [
+            {
+                "name": str(item.get("name", "")).strip(),
+                "detail": str(item.get("detail", "")).strip(),
+            }
+            for item in receipt.checks
+            if isinstance(item, dict) and not bool(item.get("passed", False))
+        ],
+    }
+
+
+def _synthetic_preflight_summary(check_type: str, detail: str) -> dict[str, Any]:
+    terminal_class = classify_preflight_failure(
+        passed=False,
+        checks=[{"name": "preflight_receipt", "passed": False, "detail": detail}],
+        dispatch_gate=None,
+    )
+    return {
+        "check_type": check_type,
+        "receipt_id": "",
+        "passed": False,
+        "expires_at": "",
+        "failure_terminal_class": (
+            terminal_class.value
+            if terminal_class
+            else TerminalClass.BLOCKED_NOT_DISPATCH_BOUNDED.value
+        ),
+        "failed_checks": [{"name": "preflight_receipt", "detail": detail}],
+    }
+
+
+def _preflight_failure_outcome(summary: Mapping[str, Any]) -> str:
+    terminal_class = str(summary.get("failure_terminal_class", "") or "").strip()
+    if terminal_class == TerminalClass.BLOCKED_AUTH_FAILURE.value:
+        return "blocked_auth_failure"
+    if terminal_class == TerminalClass.BLOCKED_NO_RUNNER.value:
+        return "blocked_no_runner"
+    return "blocked"
+
+
+def _preflight_failure_reason(issue_number: int, summary: Mapping[str, Any]) -> str:
+    check_type = str(summary.get("check_type", "") or "").strip() or "scratch"
+    terminal_class = str(summary.get("failure_terminal_class", "") or "").strip() or "blocked"
+    failed_checks = [
+        item for item in list(summary.get("failed_checks", []) or []) if isinstance(item, Mapping)
+    ]
+    detail = "; ".join(
+        f"{str(item.get('name', '') or 'check').strip()}: "
+        f"{str(item.get('detail', '') or 'failed').strip()}"
+        for item in failed_checks[:2]
+    ).strip("; ")
+    if detail:
+        return (
+            f"Issue #{issue_number} failed `{check_type}` preflight receipt admission "
+            f"({terminal_class}): {detail}"
+        )
+    return f"Issue #{issue_number} failed `{check_type}` preflight receipt admission ({terminal_class})."
+
+
+def _preflight_next_action(summary: Mapping[str, Any]) -> str:
+    check_type = str(summary.get("check_type", "") or "").strip() or "scratch"
+    terminal_class = str(summary.get("failure_terminal_class", "") or "").strip()
+    if terminal_class == TerminalClass.BLOCKED_AUTH_FAILURE.value:
+        if check_type == "remote_publish":
+            return (
+                "Restore git/GitHub publish authentication and refresh the remote publish "
+                "preflight receipt before redispatch."
+            )
+        return "Restore the required runner/git credentials and refresh the scratch preflight receipt before redispatch."
+    if terminal_class == TerminalClass.BLOCKED_NO_RUNNER.value:
+        return "Ensure the selected runner CLI is installed and discoverable, then refresh the preflight receipt before redispatch."
+    if check_type == "remote_publish":
+        return "Fix the branch push or draft-PR path and refresh the remote publish preflight receipt before redispatch."
+    return "Fix the repo write/commit path and refresh the scratch preflight receipt before redispatch."
+
+
+def _run_dispatch_preflight_receipts(
+    loop: Any,
+    *,
+    repo_root: Path,
+    envelope: CredentialEnvelope,
+    target_agent: str,
+    contract_path: Path,
+) -> list[PreflightReceipt]:
+    receipts = [
+        run_contract_preflight_receipt(
+            repo_root=repo_root,
+            agent=target_agent,
+            base_ref=str(loop.config.target_branch or "main"),
+            skip_publication=True,
+            contract_path=contract_path,
+            envelope=envelope,
+        )
+    ]
+    if bool(loop.config.auto_publish_deliverables):
+        receipts.append(
+            run_contract_preflight_receipt(
+                repo_root=repo_root,
+                agent=target_agent,
+                base_ref=str(loop.config.target_branch or "main"),
+                skip_publication=False,
+                contract_path=contract_path,
+                envelope=envelope,
+            )
+        )
+    return receipts
+
+
 def dispatch_contract_gate(
     loop: Any,
     issue: GitHubIssue,
@@ -220,6 +386,17 @@ def dispatch_contract_gate(
     )
     envelope = CredentialEnvelope.from_environment(preview_env)
     missing_slices = _missing_slices(loop, envelope=envelope, target_agent=target_agent)
+    required_receipts: list[str] = []
+    preflight_receipts: list[dict[str, Any]] = []
+    preview_contract_env = build_worker_runtime_env(
+        agent=target_agent,
+        worker_env_overrides=worker_env,
+        claude_profile=(
+            str((selected_runner or {}).get("profile", "")).strip() or None
+            if target_agent == "claude"
+            else None
+        ),
+    )
     launch_config = LaunchConfig(
         base_branch=loop.config.target_branch,
         execution_mode=loop.config.execution_mode,
@@ -234,25 +411,52 @@ def dispatch_contract_gate(
         allow_codex_full_auto=loop.config.allow_codex_full_auto,
     )
     contract_valid = True
+    preview_contract: WorkerContract | None = None
     for work_order in _preview_work_orders(spec):
         try:
             contract = build_worker_contract(
                 agent=target_agent,
                 config=launch_config,
                 worktree_path=str(Path.cwd()),
-                env=preview_env,
+                env=preview_contract_env,
                 work_order=work_order,
             )
             contract.validate()
             if not contract.admission_check():
                 contract_valid = False
                 break
+            if preview_contract is None:
+                preview_contract = contract
         except ValueError:
             contract_valid = False
             break
 
     if contract_valid and not missing_slices:
-        return None
+        required_receipts = _required_preflight_receipts(loop)
+        try:
+            if preview_contract is None:
+                raise RuntimeError("dispatch preview contract missing")
+            contract_path = _persist_preview_contract(
+                repo_root=Path.cwd(),
+                issue_number=issue.number,
+                contract=preview_contract,
+            )
+            receipt_payloads = _run_dispatch_preflight_receipts(
+                loop,
+                repo_root=Path.cwd(),
+                envelope=envelope,
+                target_agent=target_agent,
+                contract_path=contract_path,
+            )
+        except Exception as exc:  # noqa: BLE001 - fail closed on receipt routing issues
+            detail = str(exc or "").strip() or "preflight receipt generation failed"
+            preflight_receipts = [_synthetic_preflight_summary(required_receipts[0], detail)]
+        else:
+            preflight_receipts = [
+                _preflight_receipt_summary(receipt) for receipt in receipt_payloads
+            ]
+            if all(bool(item.get("passed", False)) for item in preflight_receipts):
+                return None
 
     reasons, next_actions = _gate_reason(
         issue_number=issue.number,
@@ -260,17 +464,30 @@ def dispatch_contract_gate(
         missing_slices=missing_slices,
         contract_valid=contract_valid,
     )
+    failed_receipts = [
+        summary for summary in preflight_receipts if not bool(summary.get("passed", False))
+    ]
+    if failed_receipts:
+        reasons.extend(
+            _preflight_failure_reason(issue.number, summary) for summary in failed_receipts
+        )
+        next_actions.extend(_preflight_next_action(summary) for summary in failed_receipts)
+    outcome = "blocked_auth_failure" if missing_slices else "blocked"
+    if failed_receipts:
+        outcome = _preflight_failure_outcome(failed_receipts[0])
     if claimed_runner_id:
         loop._release_runner_claim(claimed_runner_id)
     return {
         "status": "needs_human",
-        "outcome": "blocked_auth_failure" if missing_slices else "blocked",
+        "outcome": outcome,
         "reasons": reasons,
-        "next_actions": next_actions,
+        "next_actions": list(dict.fromkeys(next_actions)),
         "dispatch_contract": {
             "target_agent": target_agent,
             "contract_valid": contract_valid,
             "missing_slices": missing_slices,
             "credential_envelope": envelope.preflight_cache_payload(),
+            "required_receipts": required_receipts,
+            "preflight_receipts": preflight_receipts,
         },
     }

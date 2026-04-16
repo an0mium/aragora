@@ -9,6 +9,7 @@ from aragora.swarm.session_state import (
     SessionStateStore,
     classify_session_blocker,
 )
+from aragora.swarm.supervisor_workers import _record_session_state
 
 
 def _dt(text: str) -> datetime:
@@ -208,6 +209,34 @@ def test_resume_context_summarizes_prior_attempts() -> None:
     assert "AssertionError: blocker evidence missing" in text
 
 
+def test_resume_context_includes_repair_journal_details() -> None:
+    state = SessionState(
+        session_id="resume-journal-details",
+        phase="repair",
+        repair_journal=[
+            {
+                "at": "2026-04-13T11:00:00+00:00",
+                "worker_outcome": "merge_gate_failed",
+                "failure_reason": "merge_gate_failed",
+                "changed_paths": ["aragora/swarm/supervisor_workers.py"],
+                "blocker_evidence": "Quality Gates failed on lint-run",
+                "failing_verification": {
+                    "command": "python -m pytest tests/swarm/test_supervisor.py -q",
+                    "exit_code": 1,
+                    "stderr_tail": "AssertionError: boom",
+                },
+            }
+        ],
+    )
+
+    text = state.resume_context()
+
+    assert "Repair journal entries available: 1" in text
+    assert "merge_gate_failed" in text
+    assert "python -m pytest tests/swarm/test_supervisor.py -q" in text
+    assert "Quality Gates failed on lint-run" in text
+
+
 def test_blocker_evidence_roundtrips_through_serialization() -> None:
     state = SessionState(
         session_id="blocker-roundtrip", blocker_evidence="pytest timed out on lane"
@@ -226,6 +255,134 @@ def test_set_blocker_and_clear_blocker() -> None:
 
     state.clear_blocker()
     assert state.blocker_evidence is None
+
+
+def test_record_session_state_creates_session_from_leased_work_order(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    work_order = {
+        "work_order_id": "wo-lease",
+        "issue_number": 5502,
+        "target_agent": "codex",
+        "branch": "codex/issue-5502-session-lifecycle",
+        "worktree_path": "/tmp/codex-session-lifecycle",
+        "metadata": {"supervisor_run_id": "run-lease"},
+    }
+
+    _record_session_state(work_order, status="leased", phase="dispatch")
+
+    session_data = work_order["metadata"]["session_state"]
+    assert session_data["status"] == "leased"
+    assert session_data["phase"] == "dispatch"
+    assert session_data["branch_name"] == "codex/issue-5502-session-lifecycle"
+    assert session_data["worktree_path"] == "/tmp/codex-session-lifecycle"
+    assert session_data["target_agent"] == "codex"
+    assert session_data["runner_type"] == "codex"
+    assert session_data["metadata"]["supervisor_run_id"] == "run-lease"
+
+
+def test_record_session_state_syncs_branch_pr_and_blocker_metadata(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    work_order = {
+        "work_order_id": "wo-dispatch",
+        "issue_number": 5502,
+        "target_agent": "claude",
+        "branch": "claude/bc01-lifecycle",
+        "worktree_path": "/tmp/claude-bc01-lifecycle",
+        "pr_url": "https://github.com/synaptent/aragora/pull/12345",
+        "receipt_id": "rcpt-123",
+        "review_status": "pending_heterogeneous_review",
+        "lease_id": "lease-123",
+        "metadata": {
+            "supervisor_run_id": "run-dispatch",
+            "session_state": {
+                "session_id": "resume-dispatch",
+                "phase": "dispatch",
+                "status": "created",
+            },
+        },
+    }
+
+    _record_session_state(
+        work_order,
+        status="dispatched",
+        phase="edit",
+        blocker_evidence="pytest timed out in tests/swarm/test_supervisor.py",
+    )
+
+    session_data = work_order["metadata"]["session_state"]
+    assert session_data["session_id"] == "resume-dispatch"
+    assert session_data["status"] == "dispatched"
+    assert session_data["phase"] == "edit"
+    assert session_data["branch_name"] == "claude/bc01-lifecycle"
+    assert session_data["pr_url"] == "https://github.com/synaptent/aragora/pull/12345"
+    assert session_data["blocker_evidence"] == "pytest timed out in tests/swarm/test_supervisor.py"
+    assert session_data["metadata"]["receipt_id"] == "rcpt-123"
+    assert session_data["metadata"]["review_status"] == "pending_heterogeneous_review"
+    store = SessionStateStore()
+    restored = store.load("resume-dispatch")
+    assert restored is not None
+    assert restored.pr_url == "https://github.com/synaptent/aragora/pull/12345"
+    assert restored.branch_name == "claude/bc01-lifecycle"
+
+
+def test_record_session_state_persists_terminal_attempt_and_publish_phase(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    work_order = {
+        "work_order_id": "wo-publish",
+        "issue_number": 5515,
+        "target_agent": "codex",
+        "branch": "codex/bc01-publish-phase",
+        "worktree_path": "/tmp/codex-bc01-publish-phase",
+        "status": "completed",
+        "worker_outcome": "completed",
+        "exit_code": 0,
+        "changed_paths": ["aragora/swarm/session_state.py"],
+        "stdout_tail": "worker output",
+        "stderr_tail": "",
+        "pr_url": "https://github.com/synaptent/aragora/pull/5515",
+        "review_status": "pending_heterogeneous_review",
+        "metadata": {
+            "supervisor_run_id": "run-publish",
+            "repair_journal": [
+                {
+                    "at": "2026-04-13T12:00:00+00:00",
+                    "worker_outcome": "completed",
+                    "failure_reason": "merge_gate_failed",
+                    "changed_paths": ["aragora/swarm/session_state.py"],
+                    "blocker_evidence": "Previous merge gate failure",
+                    "failing_verification": {
+                        "command": "python -m pytest tests/swarm/test_session_state.py -q",
+                        "exit_code": 1,
+                        "stderr_tail": "AssertionError: before retry",
+                    },
+                }
+            ],
+        },
+    }
+
+    _record_session_state(work_order, status="completed", phase="terminal")
+
+    session_data = work_order["metadata"]["session_state"]
+    assert session_data["phase"] == "publish"
+    assert session_data["repair_journal"][0]["failure_reason"] == "merge_gate_failed"
+    assert session_data["attempts"][-1]["worker_outcome"] == "completed"
+    assert session_data["attempts"][-1]["changed_files"] == ["aragora/swarm/session_state.py"]
+    assert session_data["attempts"][-1]["failing_verification"]["command"] == (
+        "python -m pytest tests/swarm/test_session_state.py -q"
+    )
+
+    store = SessionStateStore()
+    restored = store.load("swarm-wo-publish")
+    assert restored is not None
+    assert restored.phase == "publish"
+    assert restored.repair_journal[0]["blocker_evidence"] == "Previous merge gate failure"
+    assert restored.attempts[-1]["stdout_tail"] == "worker output"
 
 
 def test_classify_session_blocker_import_error() -> None:

@@ -66,10 +66,33 @@ def test_features_guide_points_to_current_state_docs_site_pages() -> None:
         assert link not in content
 
 
+def test_commercial_overview_rewrites_current_proof_status_links() -> None:
+    content = _read_docs_site("enterprise/commercial-overview.md")
+
+    expected_links = [
+        "[status/NEXT_STEPS_CANONICAL.md](../contributing/next-steps-canonical)",
+        "[status/ACTIVE_EXECUTION_ISSUES.md](../contributing/active-execution-issues)",
+        "[status/B0_BENCHMARK_TRUTH_STATUS.md](../contributing/b0-benchmark-truth-status)",
+        "[status/TW03_RESCUE_PRODUCTIZATION_STATUS.md](../contributing/tw03-rescue-productization-status)",
+    ]
+    for link in expected_links:
+        assert link in content
+
+    unresolved_source_links = [
+        "[status/NEXT_STEPS_CANONICAL.md](status/NEXT_STEPS_CANONICAL.md)",
+        "[status/ACTIVE_EXECUTION_ISSUES.md](status/ACTIVE_EXECUTION_ISSUES.md)",
+        "[status/B0_BENCHMARK_TRUTH_STATUS.md](status/B0_BENCHMARK_TRUTH_STATUS.md)",
+        "[status/TW03_RESCUE_PRODUCTIZATION_STATUS.md](status/TW03_RESCUE_PRODUCTIZATION_STATUS.md)",
+    ]
+    for link in unresolved_source_links:
+        assert link not in content
+
+
 def test_docs_site_sync_creates_linked_status_and_planning_pages() -> None:
     expected_pages = [
         DOCS_SITE_ROOT / "contributing" / "2026-03-26-pmf-14-day-execution-plan.md",
         DOCS_SITE_ROOT / "contributing" / "active-execution-issues.md",
+        DOCS_SITE_ROOT / "contributing" / "b0-benchmark-truth-status.md",
         DOCS_SITE_ROOT / "contributing" / "aragora-evolution-roadmap.md",
         DOCS_SITE_ROOT / "contributing" / "canonical-goals.md",
         DOCS_SITE_ROOT / "contributing" / "claude.md",
@@ -84,6 +107,7 @@ def test_docs_site_sync_creates_linked_status_and_planning_pages() -> None:
         DOCS_SITE_ROOT / "contributing" / "pmf-dogfood-execution-plan.md",
         DOCS_SITE_ROOT / "contributing" / "pmf-scorecard.md",
         DOCS_SITE_ROOT / "contributing" / "roadmap.md",
+        DOCS_SITE_ROOT / "contributing" / "tw03-rescue-productization-status.md",
         DOCS_SITE_ROOT / "guides" / "conductor-workflow.md",
         DOCS_SITE_ROOT / "guides" / "marketplace.md",
         DOCS_SITE_ROOT / "guides" / "swarm-dogfood-operator.md",

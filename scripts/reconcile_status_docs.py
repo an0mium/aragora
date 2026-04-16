@@ -45,6 +45,7 @@ FEATURE_DISCOVERY_STATUS = REPO_ROOT / "docs" / "status" / "FEATURE_DISCOVERY.md
 COMMERCIAL_OVERVIEW_STATUS = REPO_ROOT / "docs" / "status" / "COMMERCIAL_OVERVIEW.md"
 OPENAPI_GENERATED = REPO_ROOT / "docs" / "api" / "openapi_generated.json"
 CONNECTOR_ROOT = REPO_ROOT / "aragora" / "connectors"
+DEFAULT_GITHUB_REPO = "synaptent/aragora"
 LICENSED_PLACEHOLDER_PATTERN = re.compile(
     r"This connector is a placeholder for licensed",
     re.IGNORECASE,
@@ -78,6 +79,12 @@ REQUIRED_EXECUTION_ISSUES = [
     818,
     819,
     820,
+]
+
+CURRENT_EXECUTION_EPIC_ISSUES = (804, 805, 806)
+CURRENT_EXECUTION_EPIC_DOCS = [
+    (NEXT_STEPS_CANONICAL, "status/NEXT_STEPS_CANONICAL.md"),
+    (ACTIVE_EXECUTION_ISSUES, "status/ACTIVE_EXECUTION_ISSUES.md"),
 ]
 
 API_METRIC_DOCS = [
@@ -509,6 +516,109 @@ def _check_staleness() -> list[dict]:
     return findings
 
 
+def _load_github_issue_metadata(
+    issue_number: int, *, repo: str = DEFAULT_GITHUB_REPO
+) -> dict | None:
+    """Fetch lightweight GitHub issue state for current-lane reconciliation."""
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "issue",
+                "view",
+                str(issue_number),
+                "--repo",
+                repo,
+                "--json",
+                "number,state,stateReason,title,url",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+    except (FileNotFoundError, OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    resolved_issue_number = int(payload.get("number", 0) or 0)
+    if resolved_issue_number <= 0:
+        return None
+    return {
+        "number": resolved_issue_number,
+        "state": str(payload.get("state") or "").strip().upper(),
+        "state_reason": str(payload.get("stateReason") or "").strip().upper(),
+        "title": str(payload.get("title") or "").strip(),
+        "url": str(payload.get("url") or "").strip(),
+    }
+
+
+def _closed_current_execution_epic_findings() -> list[dict]:
+    findings = []
+    closed_epics: list[dict] = []
+    for issue_number in CURRENT_EXECUTION_EPIC_ISSUES:
+        metadata = _load_github_issue_metadata(issue_number)
+        if metadata is None:
+            continue
+        if metadata["state"] == "OPEN":
+            continue
+        closed_epics.append(metadata)
+
+    if not closed_epics:
+        return findings
+
+    completed_context_markers = (
+        "completed",
+        "closed",
+        "foundation",
+        "foundational",
+        "historical",
+        "already completed",
+    )
+    for path, label in CURRENT_EXECUTION_EPIC_DOCS:
+        if not path.exists():
+            continue
+        content = path.read_text(encoding="utf-8", errors="replace")
+        referenced: list[dict] = []
+        lines = content.splitlines()
+        for epic in closed_epics:
+            issue_token = f"/issues/{int(epic['number'])}"
+            epic_lines = [line for line in lines if issue_token in line]
+            if not epic_lines:
+                continue
+            if any(
+                marker in line.lower()
+                for line in epic_lines
+                for marker in completed_context_markers
+            ):
+                continue
+            referenced.append(epic)
+        if not referenced:
+            continue
+        refs = ", ".join(
+            f"#{int(epic['number'])} ({str(epic['state_reason']).lower() or str(epic['state']).lower()})"
+            for epic in referenced
+        )
+        findings.append(
+            {
+                "severity": "critical",
+                "source": label,
+                "message": (
+                    "Current execution docs still reference closed execution epics as active: "
+                    f"{refs}. Replace them with live follow-up issue links or update the current "
+                    "gate text."
+                ),
+            }
+        )
+    return findings
+
+
 def _check_execution_issue_tracking() -> list[dict]:
     """Ensure canonical execution docs point to the live GitHub backlog."""
     findings = []
@@ -571,6 +681,8 @@ def _check_execution_issue_tracking() -> list[dict]:
                         "message": f"Canonical execution order is missing epic issue link #{issue}",
                     }
                 )
+
+    findings.extend(_closed_current_execution_epic_findings())
 
     findings.append(
         {

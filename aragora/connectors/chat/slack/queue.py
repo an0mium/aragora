@@ -540,13 +540,14 @@ class SlackMessageQueue:
 
         logger.info("Slack message queue processor stopped")
 
-    async def start_processor(self) -> asyncio.Task:
+    async def start_processor(self) -> asyncio.Task[Any]:
         """Start the background processor."""
-        if self._running:
+        if self._running and self._processor_task is not None:
             return self._processor_task
 
         self._running = True
-        self._processor_task = asyncio.create_task(self._processor_loop())
+        if self._processor_task is None or self._processor_task.done():
+            self._processor_task = asyncio.create_task(self._processor_loop())
         return self._processor_task
 
     async def stop_processor(self):
@@ -557,7 +558,7 @@ class SlackMessageQueue:
             try:
                 await self._processor_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("Queue processor task cancelled")
             self._processor_task = None
 
     def get_stats(self) -> dict[str, Any]:

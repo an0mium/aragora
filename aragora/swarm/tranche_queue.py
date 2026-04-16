@@ -387,6 +387,11 @@ def _dump_structured_object(data: dict[str, Any]) -> str:
 
 
 def queue_state_path_for_queue(queue_path: str | Path) -> Path:
+    """Return the state file path for a given queue manifest.
+
+    Derives the path by replacing or appending ``.queue_state.yaml`` to the
+    resolved *queue_path*.
+    """
     path = Path(queue_path).resolve()
     if path.suffix:
         return path.with_suffix(".queue_state.yaml")
@@ -1503,6 +1508,12 @@ def compile_tranche_queue(
     output_path: str | Path,
     repo_root: str | Path,
 ) -> dict[str, Any]:
+    """Compile source manifests into a single tranche queue bundle.
+
+    Reads *sources_path*, merges all referenced sources in priority order, and
+    writes the compiled queue manifest to *output_path*.  Returns a summary
+    dict with ``item_count``, ``source_count``, and the resolved output path.
+    """
     repo = Path(repo_root).resolve()
     resolved_sources_path = Path(sources_path).resolve()
     resolved_output_path = Path(output_path).resolve()
@@ -2218,7 +2229,7 @@ class TrancheQueueExecutor:
             item_state.recommended_action = "plan-queue"
             item_state.set_blocker(
                 reason=f"design_review_{design_review_recommendation or 'awaiting_confirmation'}",
-                question=_design_review_blocking_question(design_review_payload),
+                question=_design_review_blocking_question(design_review_payload or {}),  # type: ignore[arg-type]
             )
             item_state.finished_at = _utcnow()
             self._append_finding(
@@ -2364,7 +2375,7 @@ class TrancheQueueExecutor:
         if not ready_to_execute or not _queue_item_is_execution_ready(item_state):
             return None
 
-        manifest_path = Path(item_state.manifest_path).resolve()
+        manifest_path = Path(item_state.manifest_path or "").resolve()
         tranche_manifest = load_tranche_manifest(manifest_path)
         self._persist_item_progress(
             manifest=manifest,
@@ -2906,6 +2917,12 @@ async def run_tranche_queue(
     max_parallel_lanes: int = 1,
     allow_claude_dangerously_skip_permissions: bool = False,
 ) -> dict[str, Any]:
+    """Run the tranche queue event loop until completion or timeout.
+
+    Dispatches queue items to workers, reconciles results, and retries
+    failures up to *max_consecutive_failures*.  Returns a summary dict
+    with execution stats.
+    """
     executor = TrancheQueueExecutor(
         queue_path=queue_path,
         repo_root=repo_root,
@@ -2935,6 +2952,11 @@ async def explore_tranche_queue(
     enforce_cross_model_review: bool = True,
     max_parallel_lanes: int = 1,
 ) -> dict[str, Any]:
+    """Read-only status exploration of a tranche queue.
+
+    Loads the queue manifest and run state, then returns a dict describing
+    pending items, completed items, and current execution progress.
+    """
     executor = TrancheQueueExecutor(
         queue_path=queue_path,
         repo_root=repo_root,
@@ -2961,6 +2983,11 @@ async def plan_tranche_queue(
     enforce_cross_model_review: bool = True,
     max_parallel_lanes: int = 1,
 ) -> dict[str, Any]:
+    """Produce a dry-run execution plan for a tranche queue.
+
+    Resolves which items would be dispatched and in what order without
+    actually executing any work.  Returns a plan dict.
+    """
     executor = TrancheQueueExecutor(
         queue_path=queue_path,
         repo_root=repo_root,
@@ -2981,6 +3008,11 @@ def tranche_queue_status(
     queue_path: str | Path,
     repo_root: str | Path,
 ) -> dict[str, Any]:
+    """Return the current status of a tranche queue as a dict.
+
+    Loads the manifest and run state, then computes item counts, terminal
+    states, and elapsed time for the queue.
+    """
     resolved_queue_path = Path(queue_path).resolve()
     resolved_repo_root = Path(repo_root).resolve()
     manifest = TrancheQueueManifest.load(resolved_queue_path)
@@ -3038,6 +3070,11 @@ def reconcile_tranche_queue(
     queue_path: str | Path,
     repo_root: str | Path,
 ) -> dict[str, Any]:
+    """Run a single reconciliation pass on the tranche queue.
+
+    Checks running workers for completion, collects results, and updates
+    run state.  Returns a reconciliation summary dict.
+    """
     executor = TrancheQueueExecutor(
         queue_path=queue_path,
         repo_root=repo_root,
@@ -3092,6 +3129,12 @@ def harvest_tranche_queue(
     execute_merge: bool = False,
     allow_admin: bool = False,
 ) -> dict[str, Any]:
+    """Collect completed queue items into a harvest report.
+
+    Reconciles first, then evaluates each completed item's PR state.
+    When *execute_merge* is True, mergeable PRs are squash-merged
+    (with admin override if *allow_admin*).  Returns a harvest dict.
+    """
     resolved_queue_path = Path(queue_path).resolve()
     resolved_repo_root = Path(repo_root).resolve()
     reconciled = reconcile_tranche_queue(

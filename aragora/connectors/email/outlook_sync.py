@@ -394,7 +394,7 @@ class OutlookSyncService:
             try:
                 await self._renewal_task
             except asyncio.CancelledError:
-                pass
+                logger.debug("[OutlookSync] Renewal task cancelled during stop")
 
         # Delete subscription
         if self._state and self._state.subscription_id:

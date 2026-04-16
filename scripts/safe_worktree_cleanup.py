@@ -22,6 +22,9 @@ class WorktreeInspection:
     branch: str | None
     active_session: bool
     lock_files: list[str]
+    dirty: bool
+    unique_commits_ahead: int
+    ahead_lookup_failed: bool
     open_prs: list[dict[str, Any]]
     pr_lookup_failed: bool
     blockers: list[str]
@@ -97,6 +100,36 @@ def _lookup_open_prs(repo_root: Path, branch: str | None) -> tuple[list[dict[str
     return payload, False
 
 
+def _worktree_is_dirty(path: Path) -> bool:
+    if not path.exists():
+        return False
+    proc = subprocess.run(
+        ["git", "status", "--short"],
+        cwd=path,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return False
+    return bool(proc.stdout.strip())
+
+
+def _unique_commits_ahead_of_main(
+    repo_root: Path,
+    branch: str | None,
+) -> tuple[int, bool]:
+    if not branch:
+        return 0, False
+    proc = autopilot._run_git(repo_root, "rev-list", "--count", f"origin/main..{branch}")
+    if proc.returncode != 0:
+        return 0, True
+    try:
+        return int(proc.stdout.strip() or "0"), False
+    except ValueError:
+        return 0, True
+
+
 def inspect_worktree(
     repo_root: Path, path: Path, *, branch_override: str | None = None
 ) -> WorktreeInspection:
@@ -107,6 +140,8 @@ def inspect_worktree(
     branch = branch_override or _branch_for_path(path, entry)
     active_session = exists and autopilot._has_active_session(path)
     lock_files = _active_lock_files(path) if exists else []
+    dirty = _worktree_is_dirty(path) if exists else False
+    unique_commits_ahead, ahead_lookup_failed = _unique_commits_ahead_of_main(repo_root, branch)
     open_prs, pr_lookup_failed = _lookup_open_prs(repo_root, branch)
 
     blockers: list[str] = []
@@ -114,8 +149,16 @@ def inspect_worktree(
         blockers.append("missing_path")
     if active_session:
         blockers.append("active_session")
+    if lock_files:
+        blockers.append("session_lock_present")
+    if dirty:
+        blockers.append("dirty_worktree")
+    if unique_commits_ahead > 0:
+        blockers.append("branch_ahead_of_origin_main")
     if open_prs:
         blockers.append("open_pr")
+    if branch and ahead_lookup_failed:
+        blockers.append("ahead_lookup_failed")
     if branch and pr_lookup_failed:
         blockers.append("pr_lookup_failed")
 
@@ -126,6 +169,9 @@ def inspect_worktree(
         branch=branch,
         active_session=active_session,
         lock_files=lock_files,
+        dirty=dirty,
+        unique_commits_ahead=unique_commits_ahead,
+        ahead_lookup_failed=ahead_lookup_failed,
         open_prs=open_prs,
         pr_lookup_failed=pr_lookup_failed,
         blockers=blockers,
@@ -146,6 +192,10 @@ def _print_inspection(inspection: WorktreeInspection, *, as_json: bool) -> None:
     print(f"active_session: {inspection.active_session}")
     if inspection.lock_files:
         print(f"lock_files: {', '.join(inspection.lock_files)}")
+    print(f"dirty: {inspection.dirty}")
+    if inspection.branch:
+        print(f"unique_commits_ahead: {inspection.unique_commits_ahead}")
+        print(f"ahead_lookup_failed: {inspection.ahead_lookup_failed}")
     print(f"open_prs: {len(inspection.open_prs)}")
     if inspection.open_prs:
         for pr in inspection.open_prs:

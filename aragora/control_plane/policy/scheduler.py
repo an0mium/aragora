@@ -112,7 +112,8 @@ class PolicySyncScheduler:
             try:
                 await self._task
             except asyncio.CancelledError:
-                pass
+                # Expected: task.cancel() raises CancelledError on await — this is normal shutdown
+                logger.debug("policy_sync_task_cancelled")
             self._task = None
         logger.info("policy_sync_scheduler_stopped")
 

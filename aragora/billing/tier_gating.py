@@ -111,9 +111,9 @@ def _resolve_org_tier(context: Any) -> str | None:
                     if isinstance(tier_val, str) and tier_val in TIER_ORDER:
                         return tier_val
             except (ImportError, AttributeError, RuntimeError, TypeError):
-                pass
+                logger.debug("Org repository unavailable for org_id=%s; falling back", org_id)
         except ImportError:
-            pass
+            logger.debug("Billing models unavailable; skipping org tier lookup")
 
     # Fallback: check if context itself carries tier metadata, even without org_id
     tier = getattr(context, "subscription_tier", None)
@@ -136,6 +136,7 @@ def _resolve_org(org_id: str) -> Any | None:
         repo = get_org_repository()
         return repo.get(org_id)
     except (ImportError, AttributeError, RuntimeError, TypeError):
+        logger.debug("Org repository unavailable for org_id=%s; returning None", org_id)
         return None
 
 
@@ -262,7 +263,9 @@ def require_tier(
                 if isinstance(obj, AuthorizationContext):
                     return True
             except ImportError:
-                pass
+                logger.debug(
+                    "RBAC models unavailable; falling back to duck-typing for auth context"
+                )
             # Duck-type: must have user_id (str) and optionally org_id (str or None)
             user_id = getattr(obj, "user_id", None)
             if not isinstance(user_id, str):

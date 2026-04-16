@@ -263,6 +263,23 @@ class TestPostBundle:
 
         assert result is None
 
+    def test_invalid_json_returns_400(self, handler, _tmp_db):
+        """Malformed JSON should fail before bundle generation logic."""
+        from aragora.compliance.eu_ai_act import EUAIActBundleGenerator
+
+        gen = EUAIActBundleGenerator(db_path=_tmp_db)
+        with patch(
+            "aragora.server.handlers.compliance_eu_ai_act._get_bundle_generator",
+            return_value=gen,
+        ):
+            mock_http = _MockHTTPHandler("POST")
+            mock_http.rfile.read.return_value = b"not-json"
+            mock_http.headers = {"Content-Length": "8"}
+            result = handler.handle_post("/api/v1/compliance/eu-ai-act/bundles", {}, mock_http)
+
+        assert _status(result) == 400
+        assert "json" in _body(result).get("error", "").lower()
+
 
 # ---------------------------------------------------------------------------
 # Test: GET /api/v1/compliance/eu-ai-act/bundles/{bundle_id}

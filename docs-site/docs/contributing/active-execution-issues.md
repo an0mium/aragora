@@ -5,7 +5,7 @@ description: Active Execution Issues
 
 # Active Execution Issues
 
-Last updated: 2026-04-12
+Last updated: 2026-04-14
 
 This document is the canonical epic, milestone, and execution-issue tree for the current roadmap tranche.
 
@@ -41,27 +41,40 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 | **B3 — Repair** | Productize retry, salvage, quarantine, and session reuse | `BC-01..03`, `RS-10..11` |
 | **B4 — Multi** | Extend proven loops across hosts with truthful state | `BC-07..12`, `UDW-01..03` |
 
+Status note: B0 is above target at 86.7% no-rescue success on the tracked cohort as of 2026-04-13. The remaining near-term gate is keeping the recurring truth/productization surfaces boring and keeping claims narrower than proof, not reopening already-landed guard work.
+
+## Current 30-Day Execution Set
+
+Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
+
+- Do now: `CS-01..03`
+- Delay: `BC-07..09`, `RS-10..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
+- Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
+- Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
+- Live boss-ready queue: no dedicated open trust-loop issue right now; `TW-01`, `TW-02`, and `TW-03` now publish through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`, and the recurring surfaces should restock the queue only when they expose a fresh bounded regression or repeated rescue class
+- `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; the live queue should not recycle them as active blockers unless a concrete regression appears
+
 ## Epic 1 — Reliability Substrate
 
 **Outcome:** make bounded unattended execution trustworthy on real multi-host backlogs.
 
 ### Milestone 1.1 — Failure Taxonomy & Benchmark Corpus `[30d]`
 
-- [x] **RS-01** Define canonical terminal-truth classes for auth, publication, validation, runtime, and task-shape failures
-- [x] **RS-02** Harvest benchmark fixtures from real `needs_human` and publication-failure receipts
-- [x] **RS-03** Add a benchmark scoring lane and regression guardrails in CI
+- [x] **RS-01** Define canonical terminal-truth classes for auth, publication, validation, runtime, and task-shape failures _(Done 2026-04-10)_
+- [x] **RS-02** Harvest benchmark fixtures from real `needs_human` and publication-failure receipts _(Done 2026-04-10)_
+- [x] **RS-03** Add a benchmark scoring lane and regression guardrails in CI _(Done 2026-04-11)_
 
 ### Milestone 1.2 — Worker Contracts & Credential Envelopes `[30-90d]`
 
-- [x] **RS-04** Introduce persisted `WorkerContract` objects with checksum and admission rules
-- [x] **RS-05** Introduce `CredentialEnvelope` slices for runner, git, GitHub API, provider, and verification auth
-- [ ] **RS-06** Require launcher, supervisor, and tranche queue to dispatch only from complete contracts
+- [x] **RS-04** Introduce persisted `WorkerContract` objects with checksum and admission rules _(Done 2026-04-11)_
+- [x] **RS-05** Introduce `CredentialEnvelope` slices for runner, git, GitHub API, provider, and verification auth _(Done 2026-04-12)_
+- [x] **RS-06** Require launcher, supervisor, and tranche queue to dispatch only from complete contracts _(Done 2026-04-13)_
 
 ### Milestone 1.3 — Contract-Aware Preflight `[30-90d]`
 
-- [ ] **RS-07** Build `aragora swarm preflight run --contract ...`
-- [ ] **RS-08** Validate scratch read/write/commit/push/draft-PR flow through the production code path
-- [ ] **RS-09** Replace shell-only host checks with receipt-backed preflight wrappers
+- [x] **RS-07** Build `aragora swarm preflight run --contract ...` _(Done 2026-04-14 via [#5514](https://github.com/synaptent/aragora/pull/5514))_
+- [x] **RS-08** Validate scratch read/write/commit/push/draft-PR flow through the production code path _(Done 2026-04-13 via [#5261](https://github.com/synaptent/aragora/pull/5261))_
+- [x] **RS-09** Replace shell-only host checks with receipt-backed preflight wrappers _(Done 2026-04-13 via [#5261](https://github.com/synaptent/aragora/pull/5261))_
 
 ### Milestone 1.4 — Ledger & Self-Heal `[90d]`
 
@@ -75,15 +88,15 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 
 ### Milestone 2.1 — Interactive Sessions & Repair Journal `[90d]`
 
-- [ ] **BC-01** Persist session state across `explore -> plan -> edit -> verify -> repair -> publish`
-- [ ] **BC-02** Resume retries from prior session state instead of fresh prompts
-- [ ] **BC-03** Emit precise blocker evidence and repair transcripts for failed runs
+- [x] **BC-01** Persist session state across `explore -> plan -> edit -> verify -> repair -> publish` _(Done 2026-04-14 via [#5503](https://github.com/synaptent/aragora/pull/5503))_
+- [x] **BC-02** Resume retries from prior session state instead of fresh prompts _(Done 2026-04-13 via [#5384](https://github.com/synaptent/aragora/pull/5384))_
+- [x] **BC-03** Emit precise blocker evidence and repair transcripts for failed runs _(Done 2026-04-14 via [#5512](https://github.com/synaptent/aragora/pull/5512))_
 
 ### Milestone 2.2 — Task Sanitizer & Admission Gate `[30-90d]`
 
-- [x] **BC-04** Add sanitizer outcomes: accepted, rewritten, dropped, quarantined
-- [x] **BC-05** Detect truncated, contradictory, or impossible tasks before dispatch
-- [ ] **BC-06** Preserve original versus sanitized task text for audit
+- [x] **BC-04** Add sanitizer outcomes: accepted, rewritten, dropped, quarantined _(Done 2026-04-12)_
+- [x] **BC-05** Detect truncated, contradictory, or impossible tasks before dispatch _(Done 2026-04-13)_
+- [x] **BC-06** Preserve original versus sanitized task text for audit _(Done 2026-04-13 via [#5113](https://github.com/synaptent/aragora/pull/5113), [#5190](https://github.com/synaptent/aragora/pull/5190), and [#5305](https://github.com/synaptent/aragora/pull/5305))_
 
 ### Milestone 2.3 — Truthful Lane / Integrator State `[90d]`
 
@@ -103,9 +116,9 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 
 ### Milestone 3.1 — Autonomous Software Execution Benchmark `[30d]`
 
-- [ ] **TW-01** Prove `prompt -> spec -> code -> verify -> PR` loops on a fixed benchmark corpus of bounded repos/issues
-- [ ] **TW-02** Measure rescue rate, verification pass rate, wall-clock throughput, and no-rescue completion rate
-- [ ] **TW-03** Convert human rescues into benchmark fixtures and product requirements
+- [x] **TW-01** Prove `prompt -> spec -> code -> verify -> PR` loops on a fixed benchmark corpus of bounded repos/issues _(Done 2026-04-14 via [#5582](https://github.com/synaptent/aragora/pull/5582) and [#5583](https://github.com/synaptent/aragora/pull/5583))_
+- [x] **TW-02** Measure rescue rate, verification pass rate, wall-clock throughput, and no-rescue completion rate _(Done 2026-04-14: recurring publication now writes repo-tracked outputs under `docs/status/generated/benchmark_truth_artifacts/` and `docs/status/generated/benchmark_scorecards/`, with the stable status summary at `docs/status/B0_BENCHMARK_TRUTH_STATUS.md`.)_
+- [x] **TW-03** Convert human rescues into benchmark fixtures and product requirements _(Done 2026-04-14: recurring publication now writes repo-tracked outputs under `docs/status/generated/rescue_productization/`, the stable status summary lives at `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`, and the recurring harvest can relink or auto-create bounded follow-on issues through `docs/benchmarks/rescue_productization.json`.)_
 
 ### Milestone 3.2 — Inbox / Operator Action Loops `[30-90d]`
 

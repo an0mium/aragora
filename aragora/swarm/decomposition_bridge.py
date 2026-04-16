@@ -32,6 +32,7 @@ from aragora.swarm.boss_validation import (
 from aragora.swarm.issue_scanner import BossIssueCandidate, infer_issue_category_from_title
 from aragora.swarm.micro_decomposer import build_micro_work_orders
 from aragora.swarm.prompt_refiner import refine_worker_prompt
+from aragora.swarm.roadmap_priority import load_roadmap_priority_policy
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.task_sanitizer import SanitizationOutcome, TaskSanitizer
 
@@ -129,6 +130,7 @@ class DecompositionBridge:
         self.repo_root = Path(repo_root).resolve()
         self._task_decomposer = TaskDecomposer()
         self._task_sanitizer = TaskSanitizer(repo_root=self.repo_root)
+        self._priority_policy = load_roadmap_priority_policy(self.repo_root)
 
     async def decompose_issue(
         self,
@@ -150,6 +152,14 @@ class DecompositionBridge:
     ) -> DecompositionOutcome:
         if max_children <= 0:
             return DecompositionOutcome(children=[], stats=DecompositionStats())
+        if self._priority_policy is not None:
+            priority = self._priority_policy.priority_for_text(title, body)
+            if priority.priority.blocks_boss_ready:
+                logger.info(
+                    "Skipping decomposition for delayed/avoided roadmap refs: %s",
+                    ", ".join(priority.blocked_codes),
+                )
+                return DecompositionOutcome(children=[], stats=DecompositionStats())
 
         spec = self._build_parent_spec(title, body)
         parent_category = infer_issue_category_from_title(title) or "decomposed_issue"

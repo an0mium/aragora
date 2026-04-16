@@ -78,6 +78,49 @@ async def test_generate_review_response_fails_over_to_next_candidate() -> None:
 
 
 @pytest.mark.asyncio
+async def test_generate_review_response_records_unexpected_exception_detail() -> None:
+    with (
+        patch(
+            "aragora.swarm.review_routing.resolve_review_candidates",
+            return_value=[
+                ReviewCandidate(provider="codex", label="codex"),
+                ReviewCandidate(provider="openrouter", label="openrouter"),
+            ],
+        ),
+        patch(
+            "aragora.swarm.review_routing.preflight_review_candidate",
+            side_effect=[
+                {"ok": True, "detail": "codex available"},
+                {"ok": True, "detail": "openrouter available"},
+            ],
+        ),
+        patch(
+            "aragora.swarm.review_routing._run_review_candidate",
+            new=AsyncMock(
+                side_effect=[
+                    RuntimeError("backend misconfigured"),
+                    '{"status":"passed","findings":[]}',
+                ]
+            ),
+        ),
+    ):
+        result = await generate_review_response(
+            "review this",
+            worker_model="claude",
+            preferred_review_model="codex",
+            repo_root=Path("/tmp/repo"),
+        )
+
+    assert result["candidate"]["label"] == "openrouter"
+    assert result["attempts"][0] == {
+        "candidate": "codex",
+        "stage": "generate",
+        "kind": "RuntimeError",
+        "detail": "RuntimeError: backend misconfigured",
+    }
+
+
+@pytest.mark.asyncio
 async def test_generate_review_response_raises_with_attempt_history() -> None:
     with (
         patch(

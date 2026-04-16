@@ -570,7 +570,6 @@ class AutonomousLearningHandler(BaseHandler):
         handler: Any,
     ) -> HandlerResult | None:
         """Route POST requests to appropriate handler method."""
-        body = self.read_json_body(handler) or {}
         query_params = query_params or {}
 
         try:
@@ -585,18 +584,30 @@ class AutonomousLearningHandler(BaseHandler):
 
             # Create session
             if path == "/api/v2/learning/sessions":
+                body, error = self.read_json_object_or_error(handler)
+                if error:
+                    return error
                 return await self._create_session(body, handler)
 
             # Submit feedback
             if path == "/api/v2/learning/feedback":
+                body, error = self.read_json_object_or_error(handler)
+                if error:
+                    return error
                 return await self._submit_feedback(body, handler)
 
             # Trigger knowledge extraction
             if path == "/api/v2/learning/knowledge/extract":
+                body, error = self.read_json_object_or_error(handler)
+                if error:
+                    return error
                 return await self._extract_knowledge(body, handler)
 
             # Trigger calibration
             if path == "/api/v2/learning/calibrate":
+                body, error = self.read_json_object_or_error(handler)
+                if error:
+                    return error
                 return await self._calibrate(body, handler)
 
             # Session-specific POST routes
@@ -622,6 +633,9 @@ class AutonomousLearningHandler(BaseHandler):
                 pattern_id = parts[5]
 
                 if parts[6] == "validate":
+                    body, error = self.read_json_object_or_error(handler)
+                    if error:
+                        return error
                     return await self._validate_pattern(pattern_id, body, handler)
 
             return None
@@ -708,10 +722,20 @@ class AutonomousLearningHandler(BaseHandler):
             return error_response("Session name is required", 400)
 
         mode_str = body.get("mode", "supervised")
+        if not isinstance(mode_str, str):
+            return error_response("mode must be a string", 400)
         try:
             mode = LearningMode(mode_str)
         except ValueError:
             return error_response(f"Invalid learning mode: {mode_str}", 400)
+
+        config = body.get("config", {})
+        if not isinstance(config, dict):
+            return error_response("config must be a JSON object", 400)
+
+        total_epochs = body.get("total_epochs", 100)
+        if isinstance(total_epochs, bool) or not isinstance(total_epochs, int) or total_epochs <= 0:
+            return error_response("total_epochs must be a positive integer", 400)
 
         # Check max active sessions
         active_sessions = sum(
@@ -738,8 +762,8 @@ class AutonomousLearningHandler(BaseHandler):
             status=SessionStatus.PENDING,
             created_at=now,
             owner_id=owner_id,
-            config=body.get("config", {}),
-            total_epochs=body.get("total_epochs", 100),
+            config=config,
+            total_epochs=total_epochs,
         )
 
         # Automatically start the session
@@ -997,8 +1021,16 @@ class AutonomousLearningHandler(BaseHandler):
     ) -> HandlerResult:
         """Trigger knowledge extraction from debates."""
         debate_ids = body.get("debate_ids", [])
+        if not isinstance(debate_ids, list) or not all(
+            isinstance(debate_id, str) and debate_id.strip() for debate_id in debate_ids
+        ):
+            return error_response("debate_ids is required and must be a list of strings", 400)
         if not debate_ids:
             return error_response("debate_ids is required", 400)
+
+        topics = body.get("topics", ["general"])
+        if not isinstance(topics, list) or not all(isinstance(topic, str) for topic in topics):
+            return error_response("topics must be a list of strings", 400)
 
         # Simulate knowledge extraction
         knowledge_id = self._generate_knowledge_id()
@@ -1012,7 +1044,7 @@ class AutonomousLearningHandler(BaseHandler):
             source_debates=debate_ids,
             confidence=random.uniform(0.7, 0.95),  # noqa: S311 -- simulated metric
             extracted_at=now,
-            topics=body.get("topics", ["general"]),
+            topics=topics,
         )
 
         self._knowledge[knowledge_id] = knowledge
@@ -1051,6 +1083,11 @@ class AutonomousLearningHandler(BaseHandler):
         if target_type not in ("session", "pattern", "knowledge"):
             return error_response(f"Invalid target_type: {target_type}", 400)
 
+        rating = body.get("rating")
+        if rating is not None:
+            if isinstance(rating, bool) or not isinstance(rating, int):
+                return error_response("rating must be an integer", 400)
+
         user = self.get_current_user(handler)
         submitted_by = user.user_id if user else "anonymous"
 
@@ -1065,7 +1102,7 @@ class AutonomousLearningHandler(BaseHandler):
             comment=comment,
             submitted_by=submitted_by,
             submitted_at=now,
-            rating=body.get("rating"),
+            rating=rating,
         )
 
         self._feedback.append(feedback)
@@ -1215,6 +1252,12 @@ class AutonomousLearningHandler(BaseHandler):
         """Trigger model calibration."""
         agent_ids = body.get("agent_ids", [])
         force = body.get("force", False)
+        if not isinstance(agent_ids, list) or not all(
+            isinstance(agent_id, str) for agent_id in agent_ids
+        ):
+            return error_response("agent_ids must be a list of strings", 400)
+        if not isinstance(force, bool):
+            return error_response("force must be a boolean", 400)
 
         # Simulate calibration
         now = datetime.now(timezone.utc)

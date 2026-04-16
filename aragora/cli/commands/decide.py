@@ -747,8 +747,10 @@ def cmd_decide(args: argparse.Namespace) -> None:
                 print("\nWHY THIS DECISION:")
                 print("-" * 40)
                 print(summary)
-            except (ImportError, AttributeError, TypeError):
+            except ImportError:
                 pass
+            except (AttributeError, TypeError) as exc:
+                logger.debug("explain_summary_failed: %s", exc)
 
     # Send notification if --notify flag set
     if getattr(args, "notify", False) and debate_result:

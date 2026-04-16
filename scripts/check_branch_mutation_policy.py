@@ -41,6 +41,7 @@ REQUIRED_MATCH_COUNTS: dict[str, int] = {
 }
 
 WORKFLOW_MUTATION_ALLOWLIST = {
+    "benchmark-truth-publication.yml",
     "openapi.yml",
     "release-notes.yml",
     "testfixer-auto.yml",
@@ -120,6 +121,41 @@ def find_mutating_workflow_violations(workflows: dict[str, str]) -> list[Violati
                     Violation(
                         path=f".github/workflows/{name}",
                         message="must push only to testfixer/* branch namespace",
+                    )
+                )
+
+        if name == "benchmark-truth-publication.yml":
+            if re.search(r"^\s*pull_request(_target)?\s*:", text, flags=re.MULTILINE):
+                violations.append(
+                    Violation(
+                        path=f".github/workflows/{name}",
+                        message="must not be triggered by pull_request/pull_request_target",
+                    )
+                )
+            if not re.search(r'branch="benchmark-truth-publication/', text):
+                violations.append(
+                    Violation(
+                        path=f".github/workflows/{name}",
+                        message=(
+                            "must push only to benchmark-truth-publication/* branch namespace"
+                        ),
+                    )
+                )
+            if re.search(r"git push\s+origin\s+(?:HEAD:)?main\b", text):
+                violations.append(
+                    Violation(
+                        path=f".github/workflows/{name}",
+                        message="must not push directly to main",
+                    )
+                )
+            if "gh pr create" in text:
+                violations.append(
+                    Violation(
+                        path=f".github/workflows/{name}",
+                        message=(
+                            "must delegate pull request creation to Auto PR Publisher "
+                            "instead of invoking gh pr create"
+                        ),
                     )
                 )
     return violations

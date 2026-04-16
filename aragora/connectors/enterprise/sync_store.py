@@ -53,14 +53,14 @@ EncryptionError: Any = Exception
 CRYPTO_AVAILABLE = False
 
 try:
-    from aragora.security.encryption import (
+    from aragora.security.encryption import (  # type: ignore[no-redef]
         get_encryption_service,
         is_encryption_required,
         EncryptionError,
         CRYPTO_AVAILABLE,
     )
 except ImportError:
-    CRYPTO_AVAILABLE = False
+    # CRYPTO_AVAILABLE stays False from line 53
 
     def _fallback_get_encryption_service() -> Any:
         raise RuntimeError("Encryption not available")
@@ -122,7 +122,7 @@ try:
     METRICS_AVAILABLE = True
 except (ImportError, AttributeError):
     # Metrics functions are optional and may not be exported in all configurations
-    pass
+    logger.debug("encryption metrics unavailable, running without instrumentation")
 
 
 # Credential fields that should be encrypted

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import errno
 import json
 import os
 from pathlib import Path
@@ -1079,6 +1080,8 @@ class TestLocalRunnerRegistry:
 
         assert claimed is not None
         assert claimed["claimed_lanes"] == 1
+        assert claimed["claim_owner_pid"] == os.getpid()
+        assert claimed["claim_owner_host"]
         blocked = registry.resolve_boss_routing(
             owner_context=owner_context,
             requested_runner_type="claude",
@@ -1229,6 +1232,144 @@ class TestLocalRunnerRegistry:
         )
         assert decision.is_blocked is False
         assert decision.selected_runner_ids == ["codex-runner-stale-claim"]
+
+    def test_refresh_clears_fresh_orphaned_claim_for_dead_owner_process(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        now = datetime.now(UTC)
+        monkeypatch.setattr(
+            "aragora.swarm.runner_registry.LocalRunnerRegistry._command_path_exists",
+            staticmethod(lambda _value: True),
+        )
+        monkeypatch.setattr("aragora.swarm.runner_registry.platform.node", lambda: "host-1")
+
+        def _kill(_pid: int, _sig: int) -> None:
+            raise ProcessLookupError(errno.ESRCH, "missing")
+
+        monkeypatch.setattr("aragora.swarm.runner_registry.os.kill", _kill)
+        registry_path = tmp_path / "swarm-runners.json"
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "claude-runner-orphaned",
+                            "runner_type": "claude",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now.isoformat(),
+                            "last_selected_at": now.isoformat(),
+                            "claimed_lanes": 1,
+                            "claim_owner_host": "host-1",
+                            "claim_owner_pid": 424242,
+                            "stale_after_seconds": 3600,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        owner_context = authorization_context_from_env(
+            {"ARAGORA_USER_ID": "user-123", "ARAGORA_WORKSPACE_ID": "ws-456"}
+        )
+        registry = LocalRunnerRegistry(path=registry_path)
+        inspection = CodexRunnerInspection(
+            runner_id="claude-runner-orphaned",
+            runner_type="claude",
+            availability="available",
+            available=True,
+            auth_mode="subscription",
+            command_path="/usr/local/bin/claude",
+            capabilities={"supports_exec": True, "max_parallel_lanes": 1, "active_lanes": 0},
+            owner_binding={"user_id": "user-123", "workspace_id": "ws-456", "org_id": None},
+            freshness_status="fresh",
+            stale_after_seconds=3600,
+            cost_class="subscription",
+            priority_weight=100,
+        )
+
+        registry.refresh(inspection, owner_context=owner_context)
+
+        stored = registry.list_registrations()[0]
+        assert stored["claimed_lanes"] == 0
+        assert stored["claim_owner_host"] is None
+        assert stored["claim_owner_pid"] is None
+        decision = registry.resolve_boss_routing(
+            owner_context=owner_context,
+            requested_runner_type="claude",
+        )
+        assert decision.is_blocked is False
+        assert decision.selected_runner_ids == ["claude-runner-orphaned"]
+
+    def test_refresh_preserves_fresh_claim_when_owner_process_is_alive(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        now = datetime.now(UTC)
+        monkeypatch.setattr(
+            "aragora.swarm.runner_registry.LocalRunnerRegistry._command_path_exists",
+            staticmethod(lambda _value: True),
+        )
+        monkeypatch.setattr("aragora.swarm.runner_registry.platform.node", lambda: "host-1")
+        monkeypatch.setattr("aragora.swarm.runner_registry.os.kill", lambda _pid, _sig: None)
+        registry_path = tmp_path / "swarm-runners.json"
+        registry_path.write_text(
+            json.dumps(
+                {
+                    "registrations": [
+                        {
+                            "runner_id": "claude-runner-live-claim",
+                            "runner_type": "claude",
+                            "registered": True,
+                            "availability": "available",
+                            "available": True,
+                            "auth_mode": "subscription",
+                            "cost_class": "subscription",
+                            "priority_weight": 100,
+                            "owner_binding": {"user_id": "user-123", "workspace_id": "ws-456"},
+                            "heartbeat_at": now.isoformat(),
+                            "last_selected_at": now.isoformat(),
+                            "claimed_lanes": 1,
+                            "claim_owner_host": "host-1",
+                            "claim_owner_pid": 777777,
+                            "stale_after_seconds": 3600,
+                            "capabilities": {"max_parallel_lanes": 1, "active_lanes": 0},
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        owner_context = authorization_context_from_env(
+            {"ARAGORA_USER_ID": "user-123", "ARAGORA_WORKSPACE_ID": "ws-456"}
+        )
+        registry = LocalRunnerRegistry(path=registry_path)
+        inspection = CodexRunnerInspection(
+            runner_id="claude-runner-live-claim",
+            runner_type="claude",
+            availability="available",
+            available=True,
+            auth_mode="subscription",
+            command_path="/usr/local/bin/claude",
+            capabilities={"supports_exec": True, "max_parallel_lanes": 1, "active_lanes": 0},
+            owner_binding={"user_id": "user-123", "workspace_id": "ws-456", "org_id": None},
+            freshness_status="fresh",
+            stale_after_seconds=3600,
+            cost_class="subscription",
+            priority_weight=100,
+        )
+
+        registry.refresh(inspection, owner_context=owner_context)
+
+        stored = registry.list_registrations()[0]
+        assert stored["claimed_lanes"] == 1
+        assert stored["claim_owner_host"] == "host-1"
+        assert stored["claim_owner_pid"] == 777777
 
     def test_resolve_boss_routing_honors_allowed_claude_profiles(self, tmp_path: Path) -> None:
         now = datetime.now(UTC).isoformat()

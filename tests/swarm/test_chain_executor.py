@@ -63,6 +63,18 @@ def _parallel_chain() -> WorkChain:
     )
 
 
+def _wide_wave_chain() -> WorkChain:
+    return WorkChain(
+        chain_id="wide-wave",
+        title="Wide wave chain",
+        steps=[
+            ChainStep(step_id="a", work_order_id="wo-a", title="A"),
+            ChainStep(step_id="b", work_order_id="wo-b", title="B"),
+            ChainStep(step_id="c", work_order_id="wo-c", title="C", depends_on=["a"]),
+        ],
+    )
+
+
 class TestChainExecutorPlan:
     def test_plan_linear_chain(self) -> None:
         executor = ChainExecutor(_linear_chain())
@@ -150,6 +162,22 @@ class TestNextWave:
         assert executor.next_wave() is None
         assert executor.is_complete()
 
+    def test_next_wave_waits_for_all_steps_in_current_wave(self) -> None:
+        executor = ChainExecutor(_wide_wave_chain())
+        wave = executor.next_wave()
+        assert wave is not None
+        assert sorted(d.step_id for d in wave.dispatches) == ["a", "b"]
+
+        executor.record_outcome(StepOutcome(step_id="a", status=StepStatus.COMPLETED))
+
+        assert executor.next_wave() is None
+        assert executor.is_complete() is False
+
+        executor.record_outcome(StepOutcome(step_id="b", status=StepStatus.COMPLETED))
+        next_wave = executor.next_wave()
+        assert next_wave is not None
+        assert [d.step_id for d in next_wave.dispatches] == ["c"]
+
 
 class TestFailurePropagation:
     def test_failed_step_skips_dependents(self) -> None:
@@ -186,6 +214,22 @@ class TestFailurePropagation:
         assert step_join is not None
         assert step_join.status == StepStatus.SKIPPED
 
+    def test_failure_does_not_make_chain_complete_while_peer_is_still_running(self) -> None:
+        executor = ChainExecutor(_parallel_chain())
+        wave = executor.next_wave()
+        assert wave is not None
+
+        executor.record_outcome(StepOutcome(step_id="a", status=StepStatus.FAILED))
+
+        assert executor.is_complete() is False
+        assert executor.chain.status == ChainStatus.RUNNING
+
+        executor.record_outcome(StepOutcome(step_id="b", status=StepStatus.COMPLETED))
+        executor.record_outcome(StepOutcome(step_id="c", status=StepStatus.COMPLETED))
+
+        assert executor.is_complete() is True
+        assert executor.chain.status == ChainStatus.FAILED
+
 
 class TestSummary:
     def test_summary_after_full_execution(self) -> None:
@@ -211,8 +255,132 @@ class TestSummary:
         executor.record_outcome(StepOutcome(step_id="a", status=StepStatus.COMPLETED))
 
         summary = executor.summary()
+        assert summary["chain_status"] == "running"
         assert summary["completed"] == 1
         assert summary["remaining"] == 2
+
+
+class TestSingleStepChain:
+    """Edge case: chain with only one step."""
+
+    def test_single_step_plan(self) -> None:
+        chain = WorkChain(
+            chain_id="single",
+            title="Single step",
+            steps=[ChainStep(step_id="only", work_order_id="wo-only", title="Only")],
+        )
+        executor = ChainExecutor(chain)
+        plan = executor.plan()
+        assert plan.total_steps == 1
+        assert plan.max_parallelism == 1
+        assert len(plan.waves) == 1
+
+    def test_single_step_execution(self) -> None:
+        chain = WorkChain(
+            chain_id="single",
+            title="Single step",
+            steps=[ChainStep(step_id="only", work_order_id="wo-only", title="Only")],
+        )
+        executor = ChainExecutor(chain)
+        wave = executor.next_wave()
+        assert wave is not None
+        assert len(wave.dispatches) == 1
+        assert wave.dispatches[0].step_id == "only"
+
+        executor.record_outcome(StepOutcome(step_id="only", status=StepStatus.COMPLETED))
+        assert executor.next_wave() is None
+        assert executor.is_complete()
+        assert executor.chain.status == ChainStatus.COMPLETED
+
+
+class TestAllStepsFail:
+    """Edge case: every step in the chain fails."""
+
+    def test_all_parallel_steps_fail(self) -> None:
+        executor = ChainExecutor(_parallel_chain())
+        wave = executor.next_wave()
+        assert wave is not None
+
+        for d in wave.dispatches:
+            executor.record_outcome(
+                StepOutcome(step_id=d.step_id, status=StepStatus.FAILED, error="boom")
+            )
+
+        assert executor.next_wave() is None
+        assert executor.is_complete()
+        assert executor.chain.status == ChainStatus.FAILED
+
+        summary = executor.summary()
+        assert summary["completed"] == 0
+        assert summary["failed"] == 3
+        assert summary["skipped"] == 0
+
+    def test_first_linear_step_fails_skips_rest(self) -> None:
+        executor = ChainExecutor(_linear_chain())
+        wave = executor.next_wave()
+        assert wave is not None
+
+        executor.record_outcome(StepOutcome(step_id="a", status=StepStatus.FAILED, error="fail"))
+
+        assert executor.next_wave() is None
+        assert executor.chain.status == ChainStatus.FAILED
+
+        summary = executor.summary()
+        assert summary["failed"] == 1
+        assert summary["skipped"] == 2
+        assert summary["completed"] == 0
+
+
+class TestUnknownStepOutcome:
+    """Edge case: recording outcome for a step_id that doesn't exist."""
+
+    def test_record_outcome_unknown_step_raises(self) -> None:
+        executor = ChainExecutor(_parallel_chain())
+        with pytest.raises(KeyError, match="Unknown step"):
+            executor.record_outcome(StepOutcome(step_id="nonexistent", status=StepStatus.COMPLETED))
+
+
+class TestPlanSerializationRoundtrip:
+    """Edge case: plan to_dict produces consistent, complete output."""
+
+    def test_plan_to_dict_roundtrip_fields(self) -> None:
+        executor = ChainExecutor(_diamond_chain())
+        plan = executor.plan()
+        d = plan.to_dict()
+
+        assert d["chain_id"] == "diamond"
+        assert d["total_steps"] == 4
+        assert d["max_parallelism"] == 2
+        assert len(d["waves"]) == 3
+
+        # Verify each wave has correct structure
+        for i, wave_dict in enumerate(d["waves"]):
+            assert wave_dict["wave_index"] == i
+            assert "dispatches" in wave_dict
+            for dispatch_dict in wave_dict["dispatches"]:
+                assert "step_id" in dispatch_dict
+                assert "work_order_id" in dispatch_dict
+                assert "title" in dispatch_dict
+                assert "wave_index" in dispatch_dict
+                assert "predecessor_outputs" in dispatch_dict
+
+    def test_plan_to_dict_idempotent(self) -> None:
+        """Calling to_dict twice produces identical output."""
+        executor = ChainExecutor(_linear_chain())
+        plan = executor.plan()
+        assert plan.to_dict() == plan.to_dict()
+
+    def test_plan_to_dict_all_steps_present(self) -> None:
+        """Every step in the chain appears in exactly one wave dispatch."""
+        executor = ChainExecutor(_diamond_chain())
+        d = executor.plan().to_dict()
+
+        all_step_ids = []
+        for wave_dict in d["waves"]:
+            for dispatch_dict in wave_dict["dispatches"]:
+                all_step_ids.append(dispatch_dict["step_id"])
+
+        assert sorted(all_step_ids) == ["join", "left", "right", "root"]
 
 
 class TestStepDispatchSerialization:

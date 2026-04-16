@@ -30,7 +30,12 @@ from aragora.resilience.retry import (
 if TYPE_CHECKING:
     from aragora.control_plane.coordinator.state_manager import StateManager, ControlPlaneConfig
     from aragora.control_plane.coordinator.policy_enforcer import PolicyEnforcer
+    from aragora.control_plane.policy import EnforcementLevel as EnforcementLevelType
     from aragora.control_plane.policy import ControlPlanePolicyManager
+else:
+    EnforcementLevelType = Any
+
+logger = get_logger(__name__)
 
 # Optional KM integration
 HAS_KM_ADAPTER = False
@@ -40,18 +45,18 @@ try:
     HAS_KM_ADAPTER = True
 except ImportError:
     _km_adapter = None
+    logger.debug("KM control_plane_adapter not available; KM task outcome storage disabled")
 
 # Optional Policy
 HAS_POLICY = False
-EnforcementLevelType: Any = None
-try:
-    from aragora.control_plane.policy import EnforcementLevel as EnforcementLevelType
+if not TYPE_CHECKING:
+    try:
+        from aragora.control_plane.policy import EnforcementLevel as _EnforcementLevelType
 
-    HAS_POLICY = True
-except ImportError:
-    pass
-
-logger = get_logger(__name__)
+        EnforcementLevelType = _EnforcementLevelType
+        HAS_POLICY = True
+    except ImportError:
+        logger.debug("aragora.control_plane.policy not available; SLA policy enforcement disabled")
 
 # Retry configuration for control plane operations
 _CP_RETRY_CONFIG = PROVIDER_RETRY_POLICIES["control_plane"]

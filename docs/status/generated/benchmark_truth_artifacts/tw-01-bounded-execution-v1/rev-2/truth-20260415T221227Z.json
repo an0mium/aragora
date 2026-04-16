@@ -1,0 +1,187 @@
+{
+  "corpus": {
+    "corpus_id": "tw-01-bounded-execution-v1",
+    "issue_count": 5,
+    "manifest_sha256": "8736e98e0f135aef45ffed1bdd8a9b362a93a32cfc310129d14c0541a17a791f",
+    "membership_issue_numbers": [
+      873,
+      1064,
+      1641,
+      2712,
+      5756
+    ],
+    "membership_sha256": "6d47b506d6714d156bff3956b5e6a36ba36172780b24a4724588fe7b2a97c0c6",
+    "path": "docs/benchmarks/corpus.json",
+    "recorded_on": "2026-04-15",
+    "revision": 2,
+    "success_contract": "mergeable_pr_or_merged_pr"
+  },
+  "corpus_freshness": {
+    "issue_drafts": [],
+    "issue_linkage_results": [],
+    "issue_map_path": "docs/benchmarks/benchmark_corpus_freshness.json",
+    "linkage_error_count": 2,
+    "linkage_errors": [
+      {
+        "issue_closed_at": null,
+        "issue_number": 873,
+        "issue_state": "",
+        "issue_state_reason": "",
+        "issue_title": "Bump @eslint/eslintrc from 3.2.0 to 3.3.0 in /aragora/live",
+        "issue_url": "",
+        "linkage_error": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com",
+        "linkage_status": "issue_lookup_failed",
+        "truth_state": "no_linked_pr"
+      },
+      {
+        "issue_closed_at": null,
+        "issue_number": 5756,
+        "issue_state": "",
+        "issue_state_reason": "",
+        "issue_title": "Fail closed on 8 silent except-Exception-pass in boss_loop.py",
+        "issue_url": "",
+        "linkage_error": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com",
+        "linkage_status": "issue_lookup_failed",
+        "truth_state": "no_linked_pr"
+      }
+    ],
+    "linked_issue_count": 0,
+    "linked_issues": [],
+    "stale_closed_issue_count": 0,
+    "stale_closed_issue_numbers": [],
+    "stale_closed_issues": [],
+    "status": "linkage_verification_incomplete",
+    "unlinked_issue_count": 0
+  },
+  "coverage": {
+    "attempted_issue_count": 2,
+    "is_complete": false,
+    "missing_issue_count": 3,
+    "missing_issue_numbers": [
+      1064,
+      1641,
+      2712
+    ],
+    "status": "incomplete"
+  },
+  "failure_class_distribution": {
+    "blocked_auth_failure": 1,
+    "blocked_sanitation_failed": 1,
+    "rescue_no_deliverable": 3
+  },
+  "generated_at": "2026-04-15T22:12:27Z",
+  "issues": [
+    {
+      "had_rescue": true,
+      "issue_closed_at": null,
+      "issue_number": 873,
+      "issue_state": "",
+      "issue_state_reason": "",
+      "issue_title": "Bump @eslint/eslintrc from 3.2.0 to 3.3.0 in /aragora/live",
+      "issue_url": "",
+      "linkage_error": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com",
+      "linkage_status": "issue_lookup_failed",
+      "linkage_verification_incomplete": true,
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
+      "proxy_pr_signal": false,
+      "stale_corpus_issue": false,
+      "stale_corpus_reason": null,
+      "truth_state": "no_linked_pr",
+      "truth_success": false
+    },
+    {
+      "had_rescue": false,
+      "issue_closed_at": null,
+      "issue_number": 1064,
+      "issue_state": "",
+      "issue_state_reason": "",
+      "issue_title": "Boss-loop execution: bump @supabase/supabase-js from 2.99.1 to 2.99.3 in /aragora/live",
+      "issue_url": "",
+      "linkage_error": "",
+      "linkage_status": "verified",
+      "linkage_verification_incomplete": false,
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
+      "proxy_pr_signal": false,
+      "stale_corpus_issue": false,
+      "stale_corpus_reason": null,
+      "truth_state": "not_attempted",
+      "truth_success": false
+    },
+    {
+      "had_rescue": false,
+      "issue_closed_at": null,
+      "issue_number": 1641,
+      "issue_state": "",
+      "issue_state_reason": "",
+      "issue_title": "Wire prompt refiner env",
+      "issue_url": "",
+      "linkage_error": "",
+      "linkage_status": "verified",
+      "linkage_verification_incomplete": false,
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
+      "proxy_pr_signal": false,
+      "stale_corpus_issue": false,
+      "stale_corpus_reason": null,
+      "truth_state": "not_attempted",
+      "truth_success": false
+    },
+    {
+      "had_rescue": false,
+      "issue_closed_at": null,
+      "issue_number": 2712,
+      "issue_state": "",
+      "issue_state_reason": "",
+      "issue_title": "Fail closed on string booleans in QualityPipelineConfig.from_dict",
+      "issue_url": "",
+      "linkage_error": "",
+      "linkage_status": "verified",
+      "linkage_verification_incomplete": false,
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
+      "proxy_pr_signal": false,
+      "stale_corpus_issue": false,
+      "stale_corpus_reason": null,
+      "truth_state": "not_attempted",
+      "truth_success": false
+    },
+    {
+      "had_rescue": false,
+      "issue_closed_at": null,
+      "issue_number": 5756,
+      "issue_state": "",
+      "issue_state_reason": "",
+      "issue_title": "Fail closed on 8 silent except-Exception-pass in boss_loop.py",
+      "issue_url": "",
+      "linkage_error": "error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com",
+      "linkage_status": "issue_lookup_failed",
+      "linkage_verification_incomplete": true,
+      "linked_prs": [],
+      "no_rescue_truth_success": false,
+      "proxy_pr_signal": false,
+      "stale_corpus_issue": false,
+      "stale_corpus_reason": null,
+      "truth_state": "no_linked_pr",
+      "truth_success": false
+    }
+  ],
+  "metrics_file": "/Users/armand/Development/aragora/.aragora/overnight/boss_metrics.jsonl",
+  "primary_metrics": {
+    "merged_only_rate": 0.0,
+    "no_rescue_truth_success_rate": 0.0,
+    "truth_success_rate": 0.0
+  },
+  "proxy_metrics": {
+    "attempted_issue_count": 2,
+    "note": "Proxy metrics are secondary. Truth metrics remain mergeable_pr OR merged_pr.",
+    "proxy_pr_signal_issue_count": 0,
+    "proxy_pr_signal_issue_rate": 0.0
+  },
+  "repo": "synaptent/aragora",
+  "rescue_counts_by_type": {
+    "rescue_no_deliverable": 3
+  },
+  "run_status": "incomplete"
+}

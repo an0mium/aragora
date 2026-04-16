@@ -58,8 +58,8 @@ def sync_canvas_to_workflow(graph: Any) -> dict[str, Any]:
         from aragora.canvas.stages import PipelineStage
 
         pipeline_stage_orchestration = PipelineStage.ORCHESTRATION
-    except ImportError:
-        pass
+    except ImportError as exc:
+        logger.debug("aragora.canvas.stages unavailable, stage filtering degraded: %s", exc)
 
     # Get orchestration nodes
     orch_nodes: dict[str, Any] = {}

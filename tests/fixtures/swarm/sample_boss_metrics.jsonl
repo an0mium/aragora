@@ -1,0 +1,2 @@
+{"issue_number": 1064, "issue_title": "Dependency bump", "terminal_class": "deliverable_pr_created", "publish_action": "pr_created", "worker_outcome": "pr_adopted"}
+{"issue_number": 2712, "issue_title": "Boolean parsing fix", "terminal_class": "rescue_worker_crash", "worker_outcome": "crash"}

@@ -359,6 +359,30 @@ class TestUtilityMethods:
         ids = {handler._generate_file_id() for _ in range(100)}
         assert len(ids) == 100
 
+    def test_validate_file_id_accepts_generated_and_legacy_safe_ids(self, handler):
+        for file_id in ("file_del", "file_berr", "nonexistent", handler._generate_file_id()):
+            valid, err = handler._validate_file_id(file_id)
+            assert valid is True
+            assert err == ""
+
+    def test_validate_file_id_rejects_malformed_or_traversal_ids(self, handler):
+        for file_id in ("", "../etc/passwd", "file bad", "file/segment", ".hidden"):
+            valid, err = handler._validate_file_id(file_id)
+            assert valid is False
+            assert err == "Invalid file ID"
+
+    def test_validate_bucket_id_accepts_default_generated_and_legacy_safe_ids(self, handler):
+        for bucket_id in ("default", "b123", "b_del", handler._generate_bucket_id()):
+            valid, err = handler._validate_bucket_id(bucket_id)
+            assert valid is True
+            assert err == ""
+
+    def test_validate_bucket_id_rejects_malformed_or_traversal_ids(self, handler):
+        for bucket_id in ("", "../etc/passwd", "bucket bad", "bucket/segment", ".hidden"):
+            valid, err = handler._validate_bucket_id(bucket_id)
+            assert valid is False
+            assert err == "Invalid bucket ID"
+
     def test_generate_bucket_id(self, handler):
         bid = handler._generate_bucket_id()
         assert bid.startswith("bucket_")
@@ -619,6 +643,15 @@ class TestUploadFile:
         result = await handler.handle_post("/api/v2/storage/files", {}, h)
         assert _status(result) == 400
         assert "required" in _body(result).get("error", "").lower()
+
+    @pytest.mark.asyncio
+    async def test_upload_invalid_json_returns_400(self, handler):
+        h = _make_handler(method="POST")
+        h.rfile.read.return_value = b"not-json"
+        h.headers = {"Content-Length": "8"}
+        result = await handler.handle_post("/api/v2/storage/files", {}, h)
+        assert _status(result) == 400
+        assert "json" in _body(result).get("error", "").lower()
 
     @pytest.mark.asyncio
     async def test_upload_empty_filename(self, handler):

@@ -265,7 +265,7 @@ class GmailWatchMixin(GmailBaseMethods):
                     if inspect.isawaitable(self._watch_task):
                         await self._watch_task
                 except asyncio.CancelledError:
-                    pass
+                    logger.debug("[Gmail] Watch renewal task cancelled during stop_watch")
                 self._watch_task = None
 
         try:

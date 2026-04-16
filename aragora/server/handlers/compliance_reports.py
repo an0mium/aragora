@@ -64,13 +64,22 @@ class ComplianceReportHandler(BaseHandler):
         if path != "/api/v1/compliance/reports/generate":
             return None
 
-        body = self.read_json_body(handler) or {}
+        body, error = self.read_json_object_or_error(handler)
+        if error:
+            return error
+        if body is None:
+            return error_response("JSON object body is required", 400)
+
         framework = body.get("framework", "general")
         debate_id = body.get("debate_id")
         scope = body.get("scope", {})
 
-        if not debate_id:
+        if not isinstance(debate_id, str) or not debate_id.strip():
             return error_response("debate_id is required", 400)
+        if not isinstance(framework, str):
+            return error_response("framework must be a string", 400)
+        if not isinstance(scope, dict):
+            return error_response("scope must be a JSON object", 400)
 
         valid_frameworks = {"soc2", "gdpr", "hipaa", "iso27001", "general", "custom"}
         if framework not in valid_frameworks:
@@ -92,7 +101,7 @@ class ComplianceReportHandler(BaseHandler):
             storage = self.ctx.get("storage")
             debate_data = None
             if storage:
-                debate_data = storage.get_debate(debate_id)
+                debate_data = storage.get_debate(debate_id.strip())
 
             if debate_data is None:
                 return error_response(f"Debate '{debate_id}' not found", 404)
@@ -110,7 +119,7 @@ class ComplianceReportHandler(BaseHandler):
 
             report = generator.generate(
                 debate_result=debate_result,
-                debate_id=debate_id,
+                debate_id=debate_id.strip(),
                 framework=framework_enum,
                 include_evidence=scope.get("include_evidence", True),
                 include_chain=scope.get("include_chain", True),

@@ -295,14 +295,14 @@ class RegionalEventBus:
             try:
                 await self._listener_task
             except asyncio.CancelledError:
-                pass
+                pass  # noqa: ASYNC100 - expected: CancelledError is the normal outcome after explicit .cancel()
 
         if self._heartbeat_task:
             self._heartbeat_task.cancel()
             try:
                 await self._heartbeat_task
             except asyncio.CancelledError:
-                pass
+                pass  # noqa: ASYNC100 - expected: CancelledError is the normal outcome after explicit .cancel()
 
         # Close pubsub
         if self._pubsub:
@@ -391,7 +391,7 @@ class RegionalEventBus:
                 if target_region
                 else self._config.get_global_channel()
             )
-            await self._redis.publish(channel, json.dumps(event.to_dict()))
+            await self._redis.publish(channel, json.dumps(event.to_dict()))  # type: ignore[union-attr]
             return True
 
         except (OSError, ConnectionError, RuntimeError) as e:
@@ -462,7 +462,7 @@ class RegionalEventBus:
         """Background task to listen for events from other regions."""
         while self._running:
             try:
-                message = await self._pubsub.get_message(
+                message = await self._pubsub.get_message(  # type: ignore[union-attr]
                     ignore_subscribe_messages=True, timeout=1.0
                 )
                 if message and message["type"] == "message":

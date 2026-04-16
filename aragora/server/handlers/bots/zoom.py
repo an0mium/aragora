@@ -204,8 +204,12 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
             event, err = self._parse_json_body(body, "Zoom event")
             if err:
                 return err
+            if event is None:
+                return error_response("Zoom event body must be a JSON object", 400)
 
             event_type = event.get("event", "")
+            if not isinstance(event_type, str) or not event_type.strip():
+                return error_response("Zoom event body must include a non-empty 'event' field", 400)
             logger.info("Zoom event received: %s", event_type)
 
             # Handle URL validation - requires ZOOM_SECRET_TOKEN
@@ -218,6 +222,8 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
                 import hmac
 
                 payload = event.get("payload", {})
+                if not isinstance(payload, dict):
+                    return error_response("Zoom URL validation payload must be a JSON object", 400)
                 plain_token = payload.get("plainToken", "")
 
                 encrypted = hmac.new(
@@ -260,6 +266,10 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
             # RBAC: check permission for chat-related events
             if event_type == "bot_notification":
                 payload = event.get("payload", {})
+                if not isinstance(payload, dict):
+                    return error_response(
+                        "Zoom bot notification payload must be a JSON object", 400
+                    )
                 user_jid = payload.get("userJid", "")
                 try:
                     self._check_bot_permission(

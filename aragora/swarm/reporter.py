@@ -33,6 +33,15 @@ _CLI_TRANSCRIPT_MARKERS: tuple[str, ...] = (
     "\nuser\n# task:",
     "\nexec\n",
 )
+_SENSITIVE_OUTPUT_MARKERS: tuple[str, ...] = (
+    "api_key=",
+    "api key=",
+    "authorization:",
+    "bearer ",
+    "token=",
+    "secret=",
+    "password=",
+)
 
 
 def _parse_iso_timestamp(value: Any) -> datetime | None:
@@ -100,9 +109,7 @@ def _normalize_blocker_text(value: Any) -> str:
     if not text or lowered in _PLACEHOLDER_BLOCKERS:
         return ""
     if len(text) >= 500 and any(marker in lowered for marker in _CLI_TRANSCRIPT_MARKERS):
-        if "timeout" in lowered or "timed out" in lowered:
-            return "worker_timeout_transcript_captured"
-        return "worker_cli_transcript_captured"
+        return _cli_transcript_placeholder(text)
     return text
 
 
@@ -122,6 +129,123 @@ def _first_dict_list(*values: Any) -> list[dict[str, Any]]:
         if items:
             return items
     return []
+
+
+def _compact_text(value: Any, *, max_chars: int = 180) -> str:
+    text = _single_line_text(value)
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 3].rstrip() + "..."
+
+
+def _single_line_text(value: Any) -> str:
+    return " ".join(_text(value).split())
+
+
+def _cli_transcript_placeholder(value: Any) -> str:
+    lowered = _text(value).lower()
+    if "timeout" in lowered or "timed out" in lowered:
+        return "worker_timeout_transcript_captured"
+    return "worker_cli_transcript_captured"
+
+
+def _looks_like_sensitive_cli_output(value: Any) -> bool:
+    text = _single_line_text(value)
+    if not text:
+        return False
+    lowered = text.lower()
+    transcript_markers = sum(1 for marker in _CLI_TRANSCRIPT_MARKERS if marker in lowered)
+    sensitive_markers = sum(1 for marker in _SENSITIVE_OUTPUT_MARKERS if marker in lowered)
+    if transcript_markers >= 2:
+        return True
+    if transcript_markers >= 1 and (sensitive_markers >= 1 or len(text) >= 120):
+        return True
+    if sensitive_markers >= 2:
+        return True
+    return False
+
+
+def _sanitize_boss_evidence_text(value: Any, *, max_chars: int = 180) -> str:
+    if _looks_like_sensitive_cli_output(value):
+        return _cli_transcript_placeholder(value)
+    return _compact_text(value, max_chars=max_chars)
+
+
+def _optional_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    text = _text(value)
+    if text.startswith("-"):
+        digits = text[1:]
+        return int(text) if digits.isdigit() else None
+    return int(text) if text.isdigit() else None
+
+
+def _repair_journal_entries(*sources: dict[str, Any] | None) -> list[dict[str, Any]]:
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        raw = source.get("repair_journal")
+        if isinstance(raw, list):
+            entries = [dict(item) for item in raw if isinstance(item, dict)]
+            if entries:
+                return entries
+        meta = _metadata(source)
+        raw = meta.get("repair_journal")
+        if isinstance(raw, list):
+            entries = [dict(item) for item in raw if isinstance(item, dict)]
+            if entries:
+                return entries
+    return []
+
+
+def _latest_repair_summary(*sources: dict[str, Any] | None) -> dict[str, Any] | None:
+    entries = _repair_journal_entries(*sources)
+    if not entries:
+        return None
+
+    latest = entries[-1]
+    failing = latest.get("failing_verification")
+    failing = dict(failing) if isinstance(failing, dict) else {}
+    evidence = _first_text(
+        _sanitize_boss_evidence_text(failing.get("stderr_tail")),
+        _sanitize_boss_evidence_text(failing.get("stdout_tail")),
+        _sanitize_boss_evidence_text(latest.get("stderr_tail")),
+        _sanitize_boss_evidence_text(latest.get("stdout_tail")),
+    )
+    summary = {
+        "failure_reason": _first_text(latest.get("failure_reason")) or None,
+        "worker_outcome": _first_text(latest.get("worker_outcome")) or None,
+        "exit_code": _optional_int(latest.get("exit_code")),
+        "verification_command": _compact_text(failing.get("command")) or None,
+        "verification_exit_code": _optional_int(failing.get("exit_code")),
+        "evidence": evidence or None,
+    }
+    return {key: value for key, value in summary.items() if value not in (None, "")}
+
+
+def _render_repair_summary(summary: dict[str, Any] | None) -> str:
+    if not isinstance(summary, dict):
+        return ""
+    parts: list[str] = []
+    reason = _text(summary.get("failure_reason"))
+    if reason:
+        parts.append(f"reason={reason}")
+    command = _text(summary.get("verification_command"))
+    if command:
+        parts.append(f"cmd={command}")
+    verification_exit = _optional_int(summary.get("verification_exit_code"))
+    if verification_exit is not None:
+        parts.append(f"verify_exit={verification_exit}")
+    exit_code = _optional_int(summary.get("exit_code"))
+    if exit_code is not None:
+        parts.append(f"worker_exit={exit_code}")
+    evidence = _text(summary.get("evidence"))
+    if evidence:
+        parts.append(f"evidence={evidence}")
+    return "; ".join(parts)
 
 
 def _extract_receipt_id(*sources: dict[str, Any] | None) -> str:
@@ -2036,7 +2160,7 @@ def build_integrator_view(
     lanes.sort(key=lane_sort_key)
     _sync_lane_telemetry_from_lanes(lanes)
 
-    alerts = {
+    alerts: dict[str, list[Any]] = {
         "collisions": [],
         "stalled_lanes": [],
         "expired_lanes": [],
@@ -2081,13 +2205,13 @@ def build_integrator_view(
         action = _text(lane.get("next_action"))
         if not action:
             continue
-        summary = f"{lane['title']}: {action}"
-        if summary not in next_actions:
-            next_actions.append(summary)
+        action_summary = f"{lane['title']}: {action}"
+        if action_summary not in next_actions:
+            next_actions.append(action_summary)
         if len(next_actions) >= 5:
             break
 
-    summary = {
+    status_summary: dict[str, Any] = {
         "total_lanes": len(lanes),
         "ready_lanes": sum(1 for lane in lanes if lane["merge_readiness"] == "ready"),
         "blocked_lanes": sum(1 for lane in lanes if lane["merge_readiness"] == "blocked"),
@@ -2109,7 +2233,7 @@ def build_integrator_view(
     }
     telemetry = _telemetry_summary()
     return {
-        "summary": summary,
+        "summary": status_summary,
         "telemetry": telemetry,
         "next_actions": next_actions,
         "alerts": alerts,
@@ -2203,6 +2327,17 @@ def build_boss_payload(
     for item in work_orders:
         work_order_id = _text(item.get("work_order_id"))
         lane = lane_by_work_order.get(work_order_id, {})
+        failure_classes = _first_list(
+            lane.get("failure_classes"),
+            item.get("failure_classes"),
+            _metadata(item).get("failure_classes"),
+        )
+        repair_summary = _latest_repair_summary(item, lane)
+        blocker_evidence = _first_text(
+            _sanitize_boss_evidence_text(item.get("blocker_evidence")),
+            _sanitize_boss_evidence_text(_metadata(item).get("blocker_evidence")),
+            _text(repair_summary.get("evidence")) if isinstance(repair_summary, dict) else "",
+        )
         lane_summary = {
             "work_order_id": work_order_id or None,
             "title": _first_text(item.get("title"), lane.get("title")) or None,
@@ -2214,21 +2349,31 @@ def build_boss_payload(
             "lease_id": _first_text(item.get("lease_id"), lane.get("lease_id")) or None,
             "receipt_id": _extract_receipt_id(item, lane) or None,
             "review_status": _first_text(item.get("review_status")) or None,
+            "failure_classes": failure_classes,
+            "blocker_evidence": blocker_evidence or None,
+            "repair_summary": repair_summary,
             "next_action": _first_text(lane.get("next_action")) or None,
         }
         lane_summaries.append(lane_summary)
 
-        escalation_reasons = [_text(reason) for reason in lane.get("blockers", []) if _text(reason)]
-        for key in ("dispatch_error", "resource_error"):
-            reason = _text(item.get(key))
+        escalation_reasons = _blocker_list(lane.get("blockers"))
+        escalation_reasons.extend(_blocker_list(item.get("needs_human_reasons")))
+        escalation_reasons.extend(_blocker_list(item.get("reasons")))
+        for key in ("failure_reason", "dispatch_error", "resource_error"):
+            reason = _normalize_blocker_text(item.get(key))
             if reason:
                 escalation_reasons.append(reason)
+        escalation_reasons = sorted(set(escalation_reasons))
         if lane_summary["status"] == "needs_human" or escalation_reasons:
             needs_human.append(
                 {
                     "work_order_id": lane_summary["work_order_id"],
                     "title": lane_summary["title"],
-                    "reasons": sorted(set(escalation_reasons)),
+                    "reasons": escalation_reasons,
+                    "failure_classes": failure_classes,
+                    "blocker_evidence": blocker_evidence or None,
+                    "repair_summary": repair_summary,
+                    "next_action": lane_summary["next_action"],
                 }
             )
 
@@ -2330,14 +2475,24 @@ def render_boss_text(payload: dict[str, Any]) -> str:
         for item in needs_human[:3]:
             if not isinstance(item, dict):
                 continue
+            label = _first_text(item.get("title"), item.get("work_order_id"), "lane")
             reasons = [_text(reason) for reason in item.get("reasons", []) if _text(reason)]
-            if not reasons:
-                continue
-            lines.append(
-                "needs_human: "
-                f"{_first_text(item.get('title'), item.get('work_order_id'), 'lane')} -> "
-                + "; ".join(reasons)
-            )
+            summary = "; ".join(reasons) if reasons else "manual review required"
+            lines.append(f"needs_human: {label} -> {summary}")
+            failure_classes = [
+                _text(reason) for reason in item.get("failure_classes", []) if _text(reason)
+            ]
+            if failure_classes:
+                lines.append(f"needs_human_classes: {label} -> {','.join(failure_classes)}")
+            blocker_evidence = _text(item.get("blocker_evidence"))
+            if blocker_evidence:
+                lines.append(f"needs_human_evidence: {label} -> {blocker_evidence}")
+            repair_summary = _render_repair_summary(item.get("repair_summary"))
+            if repair_summary:
+                lines.append(f"needs_human_repair: {label} -> {repair_summary}")
+            next_action = _text(item.get("next_action"))
+            if next_action:
+                lines.append(f"needs_human_next: {label} -> {next_action}")
 
     return "\n".join(lines)
 

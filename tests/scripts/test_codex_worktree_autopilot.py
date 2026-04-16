@@ -1012,6 +1012,121 @@ def test_cmd_ensure_replaces_ahead_reusable_session_with_fresh_worktree(
     assert saved_state["sessions"][1]["path"] == str(created_path)
 
 
+def test_cmd_ensure_preserves_explicit_session_id_when_replacing_drifted_session(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import codex_worktree_autopilot as mod
+
+    now = datetime(2026, 4, 13, 16, 30, tzinfo=timezone.utc)
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    drifted_path = tmp_path / "managed" / "session-1"
+    created_path = tmp_path / "managed" / "session-1-replaced"
+    drifted_path.mkdir(parents=True)
+    created_path.mkdir(parents=True)
+    state = {
+        "sessions": [
+            {
+                "session_id": "session-1",
+                "agent": "codex",
+                "branch": "codex/session-1",
+                "path": str(drifted_path),
+                "base_branch": "main",
+                "created_at": now.isoformat(),
+                "last_seen_at": now.isoformat(),
+            }
+        ]
+    }
+    saved_state: dict[str, object] = {}
+    create_calls: list[str | None] = []
+
+    entries_iter = iter(
+        [
+            [mod.WorktreeEntry(path=drifted_path, branch="codex/session-1")],
+            [
+                mod.WorktreeEntry(path=drifted_path, branch="codex/session-1"),
+                mod.WorktreeEntry(path=created_path, branch="codex/session-1"),
+            ],
+        ]
+    )
+
+    def _worktree_status(_repo: Path, path: Path, _base: str) -> dict[str, int | bool]:
+        if path == drifted_path:
+            return {"dirty": False, "ahead": 1, "behind": 0}
+        if path == created_path:
+            return {"dirty": False, "ahead": 0, "behind": 0}
+        raise AssertionError(f"unexpected worktree path: {path}")
+
+    def _create_managed_worktree(
+        *_args: object,
+        session_id: str | None,
+        **_kwargs: object,
+    ) -> dict[str, object]:
+        create_calls.append(session_id)
+        return {
+            "session_id": session_id or "unexpected-generated-session",
+            "agent": "codex",
+            "branch": "codex/session-1",
+            "path": str(created_path),
+            "base_branch": "main",
+            "created_at": now.isoformat(),
+            "last_seen_at": now.isoformat(),
+        }
+
+    monkeypatch.setattr(mod, "_repo_root_from", lambda _path: repo_root)
+    monkeypatch.setattr(mod, "_get_worktree_entries", lambda _repo: next(entries_iter))
+    monkeypatch.setattr(mod, "_load_state", lambda _state_file: state)
+    monkeypatch.setattr(mod, "_create_managed_worktree", _create_managed_worktree)
+    monkeypatch.setattr(mod, "_has_active_session", lambda _path: False)
+    monkeypatch.setattr(
+        mod,
+        "_lease_snapshot",
+        lambda _repo_root, _path: {
+            "lease_id": None,
+            "lease_status": None,
+            "last_heartbeat_at": None,
+            "lease_expires_at": None,
+            "owner_agent": None,
+            "owner_session_id": None,
+            "branch": None,
+            "title": None,
+            "has_live_lease": False,
+            "lookup_failed": False,
+        },
+    )
+    monkeypatch.setattr(mod, "_worktree_status", _worktree_status)
+    monkeypatch.setattr(mod, "_resolve_ref_sha", lambda *_args, **_kwargs: "abc123")
+    monkeypatch.setattr(mod, "_branch_ahead_count", lambda *_args, **_kwargs: 0)
+    monkeypatch.setattr(mod, "_utc_now", lambda: now)
+    monkeypatch.setattr(
+        mod, "_save_state", lambda _state_file, payload: saved_state.update(payload)
+    )
+
+    args = argparse.Namespace(
+        repo=".",
+        managed_dir=".worktrees/codex-auto",
+        agent="codex",
+        base="main",
+        session_id="session-1",
+        force_new=False,
+        reconcile=True,
+        strategy="ff-only",
+        print_path=False,
+        json=True,
+    )
+    rc = mod.cmd_ensure(args)
+
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["created"] is True
+    assert payload["session"]["session_id"] == "session-1"
+    assert payload["session"]["branch"] == "codex/session-1"
+    assert create_calls == ["session-1"]
+    assert len(saved_state["sessions"]) == 1
+    assert saved_state["sessions"][0]["reconcile_status"] == "rejected_drifted_reusable_session"
+    assert saved_state["sessions"][0]["session_id"] == "session-1"
+
+
 def test_create_managed_worktree_retries_when_branch_is_created_concurrently(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -328,6 +328,20 @@ def test_explicit_terminal_class_string_is_respected(tmp_path: Path) -> None:
     assert step.next_action == "escalate"
 
 
+def test_invalid_terminal_class_logs_and_falls_back(caplog, tmp_path: Path) -> None:
+    conductor = Conductor(tmp_path)
+
+    with caplog.at_level("WARNING"):
+        step = conductor.evaluate_worker_output(
+            116,
+            _result(terminal_class="not-a-real-terminal-class", worker_outcome="timeout"),
+        )
+
+    assert step.terminal_class == TerminalClass.RESCUE_TIMEOUT
+    assert "invalid terminal_class" in caplog.text
+    assert "not-a-real-terminal-class" in caplog.text
+
+
 def test_extracts_changed_files_from_run_work_orders(tmp_path: Path) -> None:
     conductor = Conductor(tmp_path)
 

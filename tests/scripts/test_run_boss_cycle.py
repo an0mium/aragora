@@ -43,6 +43,10 @@ def _read_calls(log_path: Path) -> list[list[str]]:
     return [line.split("\t") for line in log_path.read_text(encoding="utf-8").splitlines() if line]
 
 
+def _runtime_calls(log_path: Path) -> list[list[str]]:
+    return [call for call in _read_calls(log_path) if call[:2] != ["-c", "import pydantic"]]
+
+
 def test_run_boss_cycle_runs_post_loop_refill_after_success(tmp_path: Path) -> None:
     _fake_python3, log_path = _write_fake_python3(tmp_path)
     env = os.environ.copy()
@@ -73,7 +77,7 @@ def test_run_boss_cycle_runs_post_loop_refill_after_success(tmp_path: Path) -> N
     )
 
     assert result.returncode == 0
-    calls = _read_calls(log_path)
+    calls = _runtime_calls(log_path)
     assert len(calls) == 2
     assert calls[0][:5] == ["-u", "-m", "aragora.cli.main", "swarm", "boss-loop"]
     assert "--boss-repo" in calls[0]
@@ -116,7 +120,7 @@ def test_run_boss_cycle_skips_post_loop_refill_after_failure(tmp_path: Path) -> 
     )
 
     assert result.returncode == 9
-    calls = _read_calls(log_path)
+    calls = _runtime_calls(log_path)
     assert len(calls) == 1
     assert calls[0][:5] == ["-u", "-m", "aragora.cli.main", "swarm", "boss-loop"]
     assert "Skipping post-loop issue refill because boss loop exited non-zero." in result.stderr
