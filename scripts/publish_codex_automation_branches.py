@@ -36,6 +36,7 @@ STOPWORDS = {
     "autonomy",
     "branches",
     "chore",
+    "codex",
     "covered",
     "docs",
     "feat",
@@ -330,6 +331,8 @@ def _ordered_subject_tokens(subject: str) -> list[str]:
     tokens: list[str] = []
     seen: set[str] = set()
     for token in re.findall(r"[a-z0-9]+", subject.lower()):
+        if len(token) > 4 and token.endswith("s"):
+            token = token[:-1]
         if len(token) < 3 or token in STOPWORDS or token in seen:
             continue
         seen.add(token)

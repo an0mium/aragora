@@ -156,6 +156,10 @@ def test_related_subjects_match_resolved_github_items() -> None:
         "fix(playground): preserve mock debate receipts",
         "Support multiline GitHub App keys in automation env",
     )
+    assert mod._looks_related_subject(
+        "[codex] Restore prompt engine SDK contract",
+        "fix(sdk): restore prompt engine contracts",
+    )
 
 
 def test_related_search_queries_include_stable_nouns() -> None:
