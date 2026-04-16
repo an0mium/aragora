@@ -68,9 +68,9 @@ class CostHandler:
         "/api/v1/costs/timeline",
         "/api/v1/costs/usage",
         # Debate session cost endpoints (v1 canonical)
-        "/api/v1/costs/debates/*",
-        "/api/v1/costs/debates/*/line-items",
-        "/api/v1/costs/debates/*/performance",
+        "/api/v1/costs/debates/{debate_id}",
+        "/api/v1/costs/debates/{debate_id}/line-items",
+        "/api/v1/costs/debates/{debate_id}/performance",
         # Legacy paths (unversioned)
         "/api/costs",
         "/api/costs/alerts",
@@ -98,9 +98,9 @@ class CostHandler:
         "/api/costs/timeline",
         "/api/costs/usage",
         # Debate session cost endpoints (legacy)
-        "/api/costs/debates/*",
-        "/api/costs/debates/*/line-items",
-        "/api/costs/debates/*/performance",
+        "/api/costs/debates/{debate_id}",
+        "/api/costs/debates/{debate_id}/line-items",
+        "/api/costs/debates/{debate_id}/performance",
     ]
 
     def __init__(self, ctx: dict | None = None):
