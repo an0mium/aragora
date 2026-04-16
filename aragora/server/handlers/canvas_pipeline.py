@@ -789,51 +789,62 @@ class CanvasPipelineHandler:
     @staticmethod
     def _get_request_body(handler: Any) -> dict[str, Any]:
         """Extract JSON body from the request handler."""
+        request = getattr(handler, "request", None)
+        if request is not None:
+            raw = getattr(request, "body", None)
+            if raw and not callable(raw):
+                return CanvasPipelineHandler._decode_request_body(raw)
 
-        def parse_raw(raw: Any) -> dict[str, Any]:
-            if not raw:
-                return {}
-            if isinstance(raw, bytes | bytearray):
-                raw = bytes(raw).decode("utf-8")
-            parsed = json.loads(raw) if isinstance(raw, str) else raw
-            return parsed if isinstance(parsed, dict) else {}
+        if hasattr(handler, "_body"):
+            return CanvasPipelineHandler._decode_request_body(getattr(handler, "_body", None))
 
-        def header_value(name: str) -> str | None:
-            headers = getattr(handler, "headers", None)
-            if not headers or not hasattr(headers, "get"):
-                return None
-            return headers.get(name) or headers.get(name.lower()) or headers.get(name.title())
+        content_length = CanvasPipelineHandler._get_content_length(handler)
+        if content_length <= 0:
+            return {}
 
-        try:
-            if hasattr(handler, "request") and hasattr(handler.request, "body"):
-                raw = handler.request.body
-                if raw is not None:
-                    return parse_raw(raw)
-        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
-            pass
+        rfile = getattr(handler, "rfile", None)
+        if rfile is None:
+            return {}
 
         try:
-            if hasattr(handler, "_body"):
-                raw = handler._body
-                if raw is not None:
-                    return parse_raw(raw)
-        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
-            pass
+            return CanvasPipelineHandler._decode_request_body(rfile.read(content_length))
+        except (OSError, ValueError):
+            return {}
+
+    @staticmethod
+    def _decode_request_body(raw: Any) -> dict[str, Any]:
+        if not raw:
+            return {}
 
         try:
-            length = int(header_value("Content-Length") or "0")
-            if length <= 0 or not hasattr(handler, "rfile"):
-                return {}
-            return parse_raw(handler.rfile.read(length))
-        except (
-            ValueError,
-            TypeError,
-            json.JSONDecodeError,
-            UnicodeDecodeError,
-            AttributeError,
-        ):
-            pass
-        return {}
+            if isinstance(raw, bytearray):
+                raw = bytes(raw)
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8")
+            if isinstance(raw, dict):
+                return raw
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError, UnicodeDecodeError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+
+    @staticmethod
+    def _get_content_length(handler: Any) -> int:
+        raw_length: Any = None
+        get_header = getattr(handler, "get_header", None)
+        if callable(get_header):
+            raw_length = get_header("Content-Length")
+
+        headers = getattr(handler, "headers", None)
+        if raw_length is None and headers is not None:
+            get = getattr(headers, "get", None)
+            if callable(get):
+                raw_length = get("Content-Length") or get("content-length")
+
+        try:
+            return int(raw_length or 0)
+        except (TypeError, ValueError):
+            return 0
 
     async def handle_from_debate(self, request_data: dict[str, Any]) -> HandlerResult:
         """POST /api/v1/canvas/pipeline/from-debate

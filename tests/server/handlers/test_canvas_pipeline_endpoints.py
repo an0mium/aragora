@@ -596,6 +596,13 @@ class TestRequestBodyParsing:
 
         assert handler._get_request_body(http) == {"source": "request"}
 
+    def test_get_request_body_ignores_callable_request_body(self, handler):
+        http = _CompatFakeHandler({"source": "cached"})
+        http.request = SimpleNamespace(body=lambda: b'{"source": "callable"}')
+        http.rfile = _UnreadableRfile()
+
+        assert handler._get_request_body(http) == {"source": "cached"}
+
     def test_get_request_body_reads_fastapi_cached_body(self, handler):
         http = _CompatFakeHandler({"source": "cached"})
         http.rfile = _UnreadableRfile()
