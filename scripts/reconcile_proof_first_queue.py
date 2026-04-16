@@ -39,8 +39,14 @@ def github_read_env() -> dict[str, str]:
 
 def github_write_env() -> dict[str, str]:
     # The installation token is intentionally read-optimized for quota isolation.
-    # Label mutation and issue creation still need the user's gh credentials.
-    return github_cli_env(prefer_app=False)
+    # Label mutation and issue creation must fall back to the user's gh
+    # credentials, even when this process inherited an app-token gh env.
+    env = github_cli_env(prefer_app=False)
+    if str(env.get("ARAGORA_GITHUB_AUTH_SOURCE") or "").strip() == "github_app_installation":
+        env.pop("GH_TOKEN", None)
+        env.pop("GITHUB_TOKEN", None)
+        env.pop("ARAGORA_GITHUB_AUTH_SOURCE", None)
+    return env
 
 
 def list_open_queue_issues(*, repo: str, label: str) -> list[dict[str, Any]]:

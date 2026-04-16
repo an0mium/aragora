@@ -219,6 +219,45 @@ def test_queue_reads_prefer_app_env_and_label_removal_uses_user_env(monkeypatch)
     assert calls[1]["env"] == {"AUTH_SOURCE": "user"}
 
 
+def test_github_write_env_strips_inherited_app_token_env(monkeypatch) -> None:
+    monkeypatch.setenv("GH_TOKEN", "app-token")
+    monkeypatch.setenv("GITHUB_TOKEN", "app-token")
+    monkeypatch.setenv("ARAGORA_GITHUB_AUTH_SOURCE", "github_app_installation")
+    monkeypatch.setenv("KEEP_ME", "value")
+
+    env = mod.github_write_env()
+
+    assert "GH_TOKEN" not in env
+    assert "GITHUB_TOKEN" not in env
+    assert "ARAGORA_GITHUB_AUTH_SOURCE" not in env
+    assert env["KEEP_ME"] == "value"
+
+
+def test_write_subprocesses_strip_inherited_app_token_env(monkeypatch) -> None:
+    monkeypatch.setenv("GH_TOKEN", "app-token")
+    monkeypatch.setenv("GITHUB_TOKEN", "app-token")
+    monkeypatch.setenv("ARAGORA_GITHUB_AUTH_SOURCE", "github_app_installation")
+    monkeypatch.setenv("KEEP_ME", "value")
+    calls: list[dict[str, Any]] = []
+
+    def fake_run(cmd: list[str], **kwargs: Any):
+        calls.append({"cmd": cmd, "env": kwargs.get("env")})
+        return mod.subprocess.CompletedProcess(cmd, 0, "https://github.com/org/repo/issues/1\n", "")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+
+    mod.remove_queue_label(repo="org/repo", issue_number=1, label="boss-ready")
+    mod.create_issue(repo="org/repo", title="Title", body="Body", labels=["boss-ready"])
+
+    assert len(calls) == 2
+    for call in calls:
+        env = call["env"]
+        assert "GH_TOKEN" not in env
+        assert "GITHUB_TOKEN" not in env
+        assert "ARAGORA_GITHUB_AUTH_SOURCE" not in env
+        assert env["KEEP_ME"] == "value"
+
+
 def test_create_issue_uses_user_env(monkeypatch) -> None:
     calls: list[dict[str, Any]] = []
 
