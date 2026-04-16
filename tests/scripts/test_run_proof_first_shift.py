@@ -152,6 +152,55 @@ def test_kickstart_launchd_returns_timeout_detail_instead_of_raising() -> None:
     assert detail == "launchctl timed out"
 
 
+def test_bind_runtime_state_to_shift_resets_recovery_budgets_for_new_shift() -> None:
+    state = mod.ProofFirstRuntimeState(
+        recovery_shift_id="old-shift",
+        boss_restart_count=1,
+        merge_restart_count=1,
+        auth_failure_count=1,
+        publication_failure_count=1,
+        rate_limit_failure_count=1,
+        permission_mismatch_count=1,
+        runtime_failure_count=1,
+        github_outage_count=1,
+        recovery_attempt_counts={
+            mod.BOSS_RESTART_FAILURE: 1,
+            mod.MERGE_RESTART_FAILURE: 1,
+            mod.RATE_LIMIT_FAILURE: 1,
+        },
+        last_benchmark_run_id=123,
+        last_triggered_benchmark_run_id=456,
+    )
+
+    mod.bind_runtime_state_to_shift(state, "new-shift")
+
+    assert state.recovery_shift_id == "new-shift"
+    assert state.boss_restart_count == 0
+    assert state.merge_restart_count == 0
+    assert state.auth_failure_count == 0
+    assert state.publication_failure_count == 0
+    assert state.rate_limit_failure_count == 0
+    assert state.permission_mismatch_count == 0
+    assert state.runtime_failure_count == 0
+    assert state.github_outage_count == 0
+    assert all(count == 0 for count in state.recovery_attempt_counts.values())
+    assert state.last_benchmark_run_id == 123
+    assert state.last_triggered_benchmark_run_id == 456
+
+
+def test_bind_runtime_state_to_shift_preserves_recovery_budgets_for_same_shift() -> None:
+    state = mod.ProofFirstRuntimeState(
+        recovery_shift_id="same-shift",
+        boss_restart_count=1,
+        recovery_attempt_counts={mod.BOSS_RESTART_FAILURE: 1},
+    )
+
+    mod.bind_runtime_state_to_shift(state, "same-shift")
+
+    assert state.boss_restart_count == 1
+    assert state.recovery_attempt_counts[mod.BOSS_RESTART_FAILURE] == 1
+
+
 def test_restart_service_treats_kickstart_timeout_as_success_when_process_appears() -> None:
     with (
         patch(

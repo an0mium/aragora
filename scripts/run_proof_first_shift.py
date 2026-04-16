@@ -107,6 +107,7 @@ RECOVERY_STOP_REASONS = {
 
 @dataclass
 class ProofFirstRuntimeState:
+    recovery_shift_id: str | None = None
     boss_restart_count: int = 0
     merge_restart_count: int = 0
     auth_failure_count: int = 0
@@ -151,6 +152,9 @@ def load_runtime_state(path: Path) -> ProofFirstRuntimeState:
     if not isinstance(payload, dict):
         return ProofFirstRuntimeState()
     return ProofFirstRuntimeState(
+        recovery_shift_id=(
+            str(payload["recovery_shift_id"]) if payload.get("recovery_shift_id") else None
+        ),
         boss_restart_count=int(payload.get("boss_restart_count", 0) or 0),
         merge_restart_count=int(payload.get("merge_restart_count", 0) or 0),
         auth_failure_count=int(payload.get("auth_failure_count", 0) or 0),
@@ -176,6 +180,25 @@ def load_runtime_state(path: Path) -> ProofFirstRuntimeState:
 def save_runtime_state(path: Path, state: ProofFirstRuntimeState) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(asdict(state), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def reset_recovery_budget_state(state: ProofFirstRuntimeState) -> None:
+    state.boss_restart_count = 0
+    state.merge_restart_count = 0
+    state.auth_failure_count = 0
+    state.publication_failure_count = 0
+    state.rate_limit_failure_count = 0
+    state.permission_mismatch_count = 0
+    state.runtime_failure_count = 0
+    state.github_outage_count = 0
+    state.recovery_attempt_counts = _default_recovery_attempt_counts()
+
+
+def bind_runtime_state_to_shift(state: ProofFirstRuntimeState, shift_id: str) -> None:
+    if state.recovery_shift_id == shift_id:
+        return
+    reset_recovery_budget_state(state)
+    state.recovery_shift_id = shift_id
 
 
 def recovery_budget_remaining(runtime_state: ProofFirstRuntimeState, failure_class: str) -> int:
@@ -1061,6 +1084,10 @@ async def _run_shift(args: argparse.Namespace) -> dict[str, Any]:
         await controller.resume_after_refresh(shift_id)
     elif restored.status != "running":
         await controller.start_shift(assessment_id=shift_id)
+
+    active_shift_id = controller.state.shift_id if controller.state is not None else shift_id
+    bind_runtime_state_to_shift(runtime_state, active_shift_id)
+    save_runtime_state(runtime_state_path, runtime_state)
 
     # Record shift start in ledger
     ledger.record_shift_start(
