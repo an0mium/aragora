@@ -729,6 +729,55 @@ real-time debate progress (proposals, critiques, votes, consensus events).""",
             },
         },
     },
+    "/api/v1/debates/active": {
+        "get": {
+            "tags": ["Debates"],
+            "summary": "List active debates",
+            "description": (
+                "Return debates that are currently running or paused in the live server state. "
+                "This endpoint backs the live debate readiness UI."
+            ),
+            "operationId": "listActiveDebatesV1",
+            "responses": {
+                "200": _ok_response(
+                    "Active debates returned",
+                    {
+                        "type": "object",
+                        "properties": {
+                            "debates": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {"type": "string"},
+                                        "topic": {"type": "string"},
+                                        "status": {
+                                            "type": "string",
+                                            "enum": ["running", "paused"],
+                                        },
+                                        "started_at": {
+                                            "type": "string",
+                                            "format": "date-time",
+                                        },
+                                        "agents": {
+                                            "type": "array",
+                                            "items": {"type": "string"},
+                                        },
+                                        "round": {"type": "integer"},
+                                        "total_rounds": {"type": "integer"},
+                                        "elapsed_seconds": {"type": "number"},
+                                    },
+                                    "additionalProperties": True,
+                                },
+                            },
+                        },
+                        "required": ["debates"],
+                    },
+                ),
+                "500": STANDARD_ERRORS["500"],
+            },
+        },
+    },
     "/api/v1/debates/{id}": {
         "get": {
             "tags": ["Debates"],
