@@ -507,4 +507,53 @@ describe('usePipelineCanvas', () => {
       expect(result.current.error).toBe('Failed to run pipeline');
     });
   });
+
+  // ---- transition approval --------------------------------------------
+
+  describe('transition approval', () => {
+    it('sends transition_id for approve-transition', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true });
+
+      const { result } = renderHook(() => usePipelineCanvas('test-1', MOCK_API_RESPONSE));
+
+      await act(async () => {
+        await result.current.approveTransition('trans-ideas-goals');
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://backend.test/api/v1/canvas/pipeline/test-1/approve-transition',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+        transition_id: 'trans-ideas-goals',
+        approved: true,
+      });
+    });
+
+    it('sends transition_id and reason for rejected transitions', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true });
+
+      const { result } = renderHook(() => usePipelineCanvas('test-1', MOCK_API_RESPONSE));
+
+      await act(async () => {
+        await result.current.rejectTransition('trans-ideas-goals', 'Needs clearer goals');
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://backend.test/api/v1/canvas/pipeline/test-1/approve-transition',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+        transition_id: 'trans-ideas-goals',
+        approved: false,
+        reason: 'Needs clearer goals',
+      });
+    });
+  });
 });

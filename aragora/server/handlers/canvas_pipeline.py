@@ -2042,22 +2042,42 @@ class CanvasPipelineHandler:
 
         from_stage = request_data.get("from_stage", "")
         to_stage = request_data.get("to_stage", "")
+        transition_id = str(request_data.get("transition_id") or "")
         # Default to True when "approved" is not explicitly provided --
         # the frontend calls approve-transition without this field to
         # approve, and sets approved=false to reject.
         approved = request_data.get("approved", True)
-        comment = request_data.get("comment", "")
+        comment = request_data.get("comment", request_data.get("reason", ""))
+
+        transitions = existing.get("transitions", [])
+        if not isinstance(transitions, list):
+            transitions = []
+
+        if transition_id and (not from_stage or not to_stage):
+            for transition in transitions:
+                if not isinstance(transition, dict):
+                    continue
+                if str(transition.get("id") or "") == transition_id:
+                    from_stage = transition.get("from_stage", "")
+                    to_stage = transition.get("to_stage", "")
+                    break
+            else:
+                return error_response(f"Transition {transition_id} not found", 404)
 
         if not from_stage or not to_stage:
             return error_response("Missing required fields: from_stage, to_stage", 400)
 
         # Find and update the matching transition
-        transitions = existing.get("transitions", [])
         updated = False
         for transition in transitions:
+            if not isinstance(transition, dict):
+                continue
             t_from = transition.get("from_stage", "")
             t_to = transition.get("to_stage", "")
-            if t_from == from_stage and t_to == to_stage:
+            t_id = str(transition.get("id") or "")
+            if (transition_id and t_id == transition_id) or (
+                t_from == from_stage and t_to == to_stage
+            ):
                 transition["status"] = "approved" if approved else "rejected"
                 transition["human_comment"] = comment
                 transition["reviewed_at"] = time.time()

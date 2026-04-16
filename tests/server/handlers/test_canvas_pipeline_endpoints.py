@@ -564,6 +564,24 @@ class TestHandleListOrLatest:
 
 
 class TestHandleApproveTransitionRootPath:
+    def _save_pipeline_with_transition(self, pipeline_id: str = "pipe-transition-id") -> str:
+        _get_store().save(
+            pipeline_id,
+            {
+                "pipeline_id": pipeline_id,
+                "stage_status": {"ideas": "complete", "goals": "pending"},
+                "transitions": [
+                    {
+                        "id": "trans-ideas-goals",
+                        "from_stage": "ideas",
+                        "to_stage": "goals",
+                        "status": "pending",
+                    }
+                ],
+            },
+        )
+        return pipeline_id
+
     @pytest.mark.asyncio
     async def test_approve_transition_defaults_to_approved(self, handler, sample_cartographer_data):
         """Calling approve-transition without 'approved' field should default to True."""
@@ -602,6 +620,42 @@ class TestHandleApproveTransitionRootPath:
         body = _body(result)
         assert body["status"] == "rejected"
         assert body["comment"] == "Not ready"
+
+    @pytest.mark.asyncio
+    async def test_approve_transition_accepts_transition_id_payload(self, handler):
+        pipeline_id = self._save_pipeline_with_transition("pipe-approve-transition-id")
+
+        result = await handler.handle_approve_transition(
+            pipeline_id,
+            {
+                "transition_id": "trans-ideas-goals",
+                "approved": True,
+            },
+        )
+        body = _body(result)
+        assert body["status"] == "approved"
+        assert body["from_stage"] == "ideas"
+        assert body["to_stage"] == "goals"
+        assert body["result"]["transitions"][0]["status"] == "approved"
+
+    @pytest.mark.asyncio
+    async def test_reject_transition_accepts_transition_id_and_reason(self, handler):
+        pipeline_id = self._save_pipeline_with_transition("pipe-reject-transition-id")
+
+        result = await handler.handle_approve_transition(
+            pipeline_id,
+            {
+                "transition_id": "trans-ideas-goals",
+                "approved": False,
+                "reason": "Needs clearer goals",
+            },
+        )
+        body = _body(result)
+        assert body["status"] == "rejected"
+        assert body["comment"] == "Needs clearer goals"
+        transition = body["result"]["transitions"][0]
+        assert transition["status"] == "rejected"
+        assert transition["human_comment"] == "Needs clearer goals"
 
     @pytest.mark.asyncio
     async def test_approve_transition_returns_updated_pipeline(
