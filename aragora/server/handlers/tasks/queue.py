@@ -34,9 +34,14 @@ class TaskQueueHandler(BaseHandler):
 
     ROUTES = [
         "/api/v1/tasks/queue",
-        "/api/v1/tasks/queue/*",
+        "/api/v1/tasks/queue/stats",
+        "/api/v1/tasks/queue/sync",
+        "/api/v1/tasks/queue/{task_id}",
+        "/api/v1/tasks/queue/{task_id}/claim",
         "/api/v1/tasks/leases",
-        "/api/v1/tasks/leases/*",
+        "/api/v1/tasks/leases/{lease_id}/heartbeat",
+        "/api/v1/tasks/leases/{lease_id}/release",
+        "/api/v1/tasks/leases/{lease_id}/complete",
         "/api/v1/tasks/salvage",
     ]
 
