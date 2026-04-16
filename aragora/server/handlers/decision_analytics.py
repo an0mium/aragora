@@ -144,7 +144,9 @@ class DecisionAnalyticsHandler:
         headers = dict(getattr(response, "headers", {}) or {})
         status_code = getattr(response, "status_code", None)
         if status_code is None:
-            status_code = getattr(response, "status", 200)
+            status_code = getattr(response, "status", None)
+        if status_code is None:
+            status_code = 200
         return HandlerResult(
             status_code=int(status_code),
             content_type=str(content_type),
