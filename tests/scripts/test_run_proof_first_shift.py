@@ -231,6 +231,26 @@ def test_restart_service_treats_kickstart_timeout_as_success_when_process_appear
     assert detail == "launchctl timed out"
 
 
+def test_restart_service_waits_through_launchd_spawn_schedule() -> None:
+    status = mod.LaunchdServiceStatus(state="spawn scheduled", minimum_runtime_seconds=300)
+    with (
+        patch("scripts.run_proof_first_shift.inspect_launchd_service", return_value=status),
+        patch(
+            "scripts.run_proof_first_shift.kickstart_launchd",
+            return_value=(False, "launchctl timed out"),
+        ),
+        patch("scripts.run_proof_first_shift.wait_for_process", return_value=True) as wait_mock,
+    ):
+        ok, detail = mod.restart_service_via_launchd(
+            label="com.aragora.swarm-boss-loop",
+            process_pattern="boss-loop",
+        )
+
+    assert ok is True
+    assert detail == "launchctl timed out"
+    assert wait_mock.call_args.kwargs["timeout_seconds"] >= 360
+
+
 def test_restart_service_waits_for_successful_kickstart_process_start() -> None:
     with (
         patch("scripts.run_proof_first_shift.kickstart_launchd", return_value=(True, "")),
@@ -245,6 +265,38 @@ def test_restart_service_waits_for_successful_kickstart_process_start() -> None:
 
     assert ok is True
     assert detail == ""
+
+
+def test_launchd_start_timeout_uses_default_for_non_throttled_state() -> None:
+    assert (
+        mod.launchd_start_timeout_seconds(mod.LaunchdServiceStatus(state="running"))
+        == mod.DEFAULT_LAUNCHD_START_TIMEOUT_SECONDS
+    )
+
+
+def test_inspect_launchd_service_keeps_top_level_state() -> None:
+    output = """
+gui/501/com.aragora.swarm-boss-loop = {
+    state = spawn scheduled
+    minimum runtime = 300
+    resource coalition = {
+        state = active
+    }
+}
+"""
+    with patch(
+        "scripts.run_proof_first_shift.subprocess.run",
+        return_value=subprocess.CompletedProcess(
+            args=["launchctl", "print", "gui/501/com.aragora.swarm-boss-loop"],
+            returncode=0,
+            stdout=output,
+            stderr="",
+        ),
+    ):
+        status = mod.inspect_launchd_service("com.aragora.swarm-boss-loop")
+
+    assert status.state == "spawn scheduled"
+    assert status.minimum_runtime_seconds == 300
 
 
 def test_run_shift_cycle_exhausts_restart_budget_within_shift_window() -> None:

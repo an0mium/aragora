@@ -35,6 +35,8 @@ DEFAULT_BOSS_LABEL = "com.aragora.swarm-boss-loop"
 DEFAULT_MERGE_LABEL = "com.aragora.swarm-merge-arbiter"
 DEFAULT_BOSS_PROCESS_PATTERN = r"aragora\.cli\.main swarm boss-loop|run_boss_cycle\.sh"
 DEFAULT_MERGE_PROCESS_PATTERN = r"aragora\.cli\.main swarm merge-arbiter"
+DEFAULT_LAUNCHD_START_TIMEOUT_SECONDS = 45.0
+LAUNCHD_THROTTLE_GRACE_SECONDS = 60.0
 AUTH_FAILURE_STOP_AFTER = 2
 PUBLICATION_FAILURE_STOP_AFTER = 2
 RUNTIME_FAILURE_STOP_AFTER = 1
@@ -119,6 +121,13 @@ class ProofFirstRuntimeState:
     recovery_attempt_counts: dict[str, int] = field(default_factory=dict)
     last_benchmark_run_id: int | None = None
     last_triggered_benchmark_run_id: int | None = None
+
+
+@dataclass(frozen=True)
+class LaunchdServiceStatus:
+    state: str = ""
+    minimum_runtime_seconds: int | None = None
+    detail: str = ""
 
 
 def _utc_now() -> datetime:
@@ -526,6 +535,54 @@ def process_running(pattern: str) -> bool:
     return proc.returncode == 0 and bool(proc.stdout.strip())
 
 
+def inspect_launchd_service(label: str) -> LaunchdServiceStatus:
+    """Inspect launchd state without failing the shift when launchctl is unavailable."""
+    uid = os.getuid()
+    try:
+        proc = subprocess.run(
+            ["launchctl", "print", f"gui/{uid}/{label}"],
+            text=True,
+            capture_output=True,
+            timeout=5,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return LaunchdServiceStatus(detail=f"launchctl print timed out for {label}")
+    detail = "\n".join(part.strip() for part in (proc.stdout, proc.stderr) if part.strip())
+    if proc.returncode != 0:
+        return LaunchdServiceStatus(detail=detail or f"launchctl print failed for {label}")
+
+    state = ""
+    minimum_runtime_seconds: int | None = None
+    for raw_line in detail.splitlines():
+        line = raw_line.strip()
+        if line.startswith("state = ") and not state:
+            state = line.removeprefix("state = ").strip()
+        elif line.startswith("minimum runtime = "):
+            value = line.removeprefix("minimum runtime = ").strip()
+            if value.isdigit():
+                minimum_runtime_seconds = int(value)
+    return LaunchdServiceStatus(
+        state=state,
+        minimum_runtime_seconds=minimum_runtime_seconds,
+        detail=detail,
+    )
+
+
+def launchd_start_timeout_seconds(
+    status: LaunchdServiceStatus,
+    *,
+    fallback_seconds: float = DEFAULT_LAUNCHD_START_TIMEOUT_SECONDS,
+) -> float:
+    """Return a process wait long enough for launchd throttle-backed spawns."""
+    if status.state == "spawn scheduled" and status.minimum_runtime_seconds:
+        return max(
+            fallback_seconds,
+            float(status.minimum_runtime_seconds) + LAUNCHD_THROTTLE_GRACE_SECONDS,
+        )
+    return fallback_seconds
+
+
 def wait_for_process(
     pattern: str, *, timeout_seconds: float = 45.0, interval_seconds: float = 1.0
 ) -> bool:
@@ -575,10 +632,24 @@ def restart_service_via_launchd(
     *,
     label: str,
     process_pattern: str,
-    start_timeout_seconds: float = 45.0,
+    start_timeout_seconds: float | None = None,
 ) -> tuple[bool, str]:
+    initial_status = (
+        inspect_launchd_service(label) if start_timeout_seconds is None else LaunchdServiceStatus()
+    )
+    wait_timeout_seconds = (
+        launchd_start_timeout_seconds(initial_status)
+        if start_timeout_seconds is None
+        else start_timeout_seconds
+    )
     kicked, detail = kickstart_launchd(label)
-    if wait_for_process(process_pattern, timeout_seconds=start_timeout_seconds):
+    if start_timeout_seconds is None:
+        current_status = inspect_launchd_service(label)
+        wait_timeout_seconds = max(
+            wait_timeout_seconds,
+            launchd_start_timeout_seconds(current_status),
+        )
+    if wait_for_process(process_pattern, timeout_seconds=wait_timeout_seconds):
         return True, "" if kicked else detail
     if kicked:
         return (
