@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
@@ -17,6 +18,7 @@ from aragora.swarm.reporter import (
     render_boss_text,
 )
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
+from aragora.swarm.shift_ledger import ShiftLedger
 from aragora.swarm.spec import SwarmSpec
 
 UTC = timezone.utc
@@ -2336,6 +2338,85 @@ class TestIntegratorView:
 
 
 class TestBossPayload:
+    def test_build_boss_payload_uses_shift_ledger_operator_truth(self, tmp_path: Path) -> None:
+        ledger = ShiftLedger(
+            path=tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl"
+        )
+        ledger.record_shift_start(
+            shift_id="shift-1",
+            max_hours=12.0,
+            benchmark_mode="hybrid",
+            queue_size=9,
+        )
+        ledger.record_cycle_tick(
+            queue_size=1,
+            open_prs=4,
+            boss_running=False,
+            merge_running=True,
+            benchmark_fresh=True,
+            actions=["steady_state"],
+            stop_reason="completed",
+        )
+        ledger.record_pr_merged(pr_number=5857)
+
+        integrator_view = build_integrator_view(ledger_path=ledger.path)
+        payload = build_boss_payload(
+            run={
+                "run_id": "run-ledger",
+                "status": "active",
+                "goal": "Continue proof-first shift",
+                "target_branch": "main",
+                "work_orders": [
+                    {"work_order_id": "wo-stale", "status": "queued"},
+                    {"work_order_id": "wo-stale-2", "status": "queued"},
+                ],
+            },
+            integrator_view=integrator_view,
+            coordination={"counts": {"fleet_merge_queue": 99}},
+            ledger_path=tmp_path / "missing-ledger.jsonl",
+        )
+
+        assert integrator_view["summary"]["proof_first"]["queue_depth"] == 1
+        assert payload["ledger_status"]["current_queue_size"] == 1
+        assert payload["operator_status"]["source"] == "shift_ledger"
+        assert payload["operator_status"]["queue_depth"] == 1
+        assert payload["operator_status"]["open_prs"] == 4
+
+        text = render_boss_text(payload)
+
+        assert "proof-first queue=1 open_prs=4 boss=False merge=True" in text
+        assert "benchmark_fresh=True" in text
+        assert "merged_prs=1 merged=5857" in text
+        assert "reporter-fallback" not in text
+
+    def test_build_boss_payload_falls_back_when_shift_ledger_absent(self, tmp_path: Path) -> None:
+        payload = build_boss_payload(
+            run={
+                "run_id": "run-fallback",
+                "status": "active",
+                "goal": "Continue proof-first shift",
+                "target_branch": "main",
+                "work_orders": [
+                    {"work_order_id": "wo-queued", "status": "queued"},
+                    {"work_order_id": "wo-done", "status": "completed"},
+                ],
+            },
+            coordination={"counts": {"fleet_merge_queue": 3}},
+            ledger_path=tmp_path / ".aragora" / "proof_first_shift" / "shift_ledger.jsonl",
+        )
+
+        assert payload["ledger_status"] == {}
+        assert payload["operator_status"] == {
+            "source": "legacy_reporter_fallback",
+            "queue_depth": 3,
+            "work_order_counts": {"completed": 1, "queued": 1},
+        }
+
+        text = render_boss_text(payload)
+
+        assert "reporter-fallback queue=3" in text
+        assert "proof-first queue=" not in text
+
     def test_build_boss_payload_redacts_transcript_shaped_blocker_evidence(self) -> None:
         transcript = """OpenAI Codex v0.1
 workdir: /tmp/secret

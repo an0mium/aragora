@@ -13,6 +13,7 @@ from pathlib import Path
 
 from aragora.harnesses.base import AnalysisType
 from aragora.swarm.lane_telemetry import LaneTelemetryCollector, LaneTelemetryRecord
+from aragora.swarm.shift_ledger import DEFAULT_LEDGER_PATH, ShiftLedger
 from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.terminal_truth import (
     qualify_work_order_terminal_state,
@@ -559,6 +560,72 @@ def _telemetry_summary() -> dict[str, Any]:
         return {}
 
 
+def _resolve_shift_ledger_status(
+    *,
+    ledger_status: dict[str, Any] | None = None,
+    repo_root: Path | None = None,
+    ledger_path: Path | None = None,
+    max_age_hours: float = 24.0,
+) -> dict[str, Any]:
+    """Return ledger-backed proof-first status, if a ledger is available."""
+    if isinstance(ledger_status, dict) and ledger_status:
+        return dict(ledger_status)
+
+    root = repo_root or Path.cwd()
+    if not root.is_absolute():
+        root = Path.cwd() / root
+    path = ledger_path if ledger_path is not None else root / Path(DEFAULT_LEDGER_PATH)
+    if not path.is_absolute():
+        path = root / path
+    if not path.exists():
+        return {}
+
+    try:
+        payload = ShiftLedger(path=path).get_status_summary(max_age_hours=max_age_hours)
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:
+        logger.debug("shift_ledger_status_fetch_failed: %s: %s", type(exc).__name__, exc)
+        return {}
+    return dict(payload) if isinstance(payload, dict) and payload else {}
+
+
+def _operator_status_from_ledger(ledger_status: dict[str, Any]) -> dict[str, Any]:
+    green_shift = ledger_status.get("green_shift", {})
+    green_shift = green_shift if isinstance(green_shift, dict) else {}
+    return {
+        "source": "shift_ledger",
+        "queue_depth": ledger_status.get("current_queue_size"),
+        "open_prs": ledger_status.get("current_open_prs"),
+        "boss_running": ledger_status.get("current_boss_running"),
+        "merge_running": ledger_status.get("current_merge_running"),
+        "benchmark_fresh": ledger_status.get("current_benchmark_fresh"),
+        "prs_merged_recent": ledger_status.get("prs_merged", 0),
+        "merged_pr_numbers": [
+            item for item in ledger_status.get("pr_numbers_merged", []) if item is not None
+        ]
+        if isinstance(ledger_status.get("pr_numbers_merged"), list)
+        else [],
+        "last_stop_reason": ledger_status.get("last_stop_reason") or "",
+        "green_shift": green_shift,
+    }
+
+
+def _operator_status_fallback(
+    *,
+    work_order_counts: dict[str, int],
+    coordination: dict[str, Any],
+) -> dict[str, Any]:
+    counts = coordination.get("counts", {}) if isinstance(coordination, dict) else {}
+    counts = counts if isinstance(counts, dict) else {}
+    queue_depth = counts.get("fleet_merge_queue")
+    if queue_depth is None:
+        queue_depth = work_order_counts.get("queued", 0)
+    return {
+        "source": "legacy_reporter_fallback",
+        "queue_depth": queue_depth,
+        "work_order_counts": dict(work_order_counts),
+    }
+
+
 def _sync_lane_telemetry_from_lanes(lanes: list[dict[str, Any]]) -> None:
     """Backfill merge outcomes into existing supervisor telemetry rows."""
     for lane in lanes:
@@ -710,6 +777,10 @@ def build_integrator_view(
     claims: list[dict[str, Any]] | None = None,
     merge_queue: list[dict[str, Any]] | None = None,
     coordination: dict[str, Any] | None = None,
+    repo_root: Path | None = None,
+    ledger_status: dict[str, Any] | None = None,
+    ledger_path: Path | None = None,
+    ledger_max_age_hours: float = 24.0,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Normalize coordination state into an integrator-facing lane view."""
@@ -718,6 +789,15 @@ def build_integrator_view(
     claims = [item for item in (claims or []) if isinstance(item, dict)]
     merge_queue = [item for item in (merge_queue or []) if isinstance(item, dict)]
     coordination = coordination if isinstance(coordination, dict) else {}
+    resolved_ledger_status = _resolve_shift_ledger_status(
+        ledger_status=ledger_status,
+        repo_root=repo_root,
+        ledger_path=ledger_path,
+        max_age_hours=ledger_max_age_hours,
+    )
+    operator_status = (
+        _operator_status_from_ledger(resolved_ledger_status) if resolved_ledger_status else {}
+    )
     now = now or datetime.now(timezone.utc)
     integrator = coordination.get("integrator", {})
     integrator = integrator if isinstance(integrator, dict) else {}
@@ -2231,10 +2311,14 @@ def build_integrator_view(
         "merge_ready_lanes": len(alerts["merge_ready"]),
         "coordination_counts": coordination.get("counts", {}),
     }
+    if operator_status:
+        status_summary["proof_first"] = operator_status
     telemetry = _telemetry_summary()
     return {
         "summary": status_summary,
         "telemetry": telemetry,
+        "ledger_status": resolved_ledger_status,
+        "operator_status": operator_status,
         "next_actions": next_actions,
         "alerts": alerts,
         "lanes": lanes,
@@ -2307,12 +2391,36 @@ def build_boss_payload(
     integrator_view: dict[str, Any] | None = None,
     coordination: dict[str, Any] | None = None,
     routing: dict[str, Any] | None = None,
+    repo_root: Path | None = None,
+    ledger_status: dict[str, Any] | None = None,
+    ledger_path: Path | None = None,
+    ledger_max_age_hours: float = 24.0,
 ) -> dict[str, Any]:
     """Build a stable boss-facing payload for supervised swarm runs."""
     integrator_view = integrator_view if isinstance(integrator_view, dict) else {}
     coordination = coordination if isinstance(coordination, dict) else {}
     routing = routing if isinstance(routing, dict) else {}
+    resolved_ledger_status = _resolve_shift_ledger_status(
+        ledger_status=ledger_status
+        or (
+            integrator_view.get("ledger_status")
+            if isinstance(integrator_view.get("ledger_status"), dict)
+            else None
+        ),
+        repo_root=repo_root,
+        ledger_path=ledger_path,
+        max_age_hours=ledger_max_age_hours,
+    )
     work_orders = [dict(item) for item in run.get("work_orders", []) if isinstance(item, dict)]
+    work_order_counts = _work_order_status_counts(work_orders)
+    operator_status = (
+        _operator_status_from_ledger(resolved_ledger_status)
+        if resolved_ledger_status
+        else _operator_status_fallback(
+            work_order_counts=work_order_counts,
+            coordination=coordination,
+        )
+    )
     lanes_from_integrator = [
         dict(item) for item in integrator_view.get("lanes", []) if isinstance(item, dict)
     ]
@@ -2383,7 +2491,9 @@ def build_boss_payload(
         "status": _text(run.get("status")),
         "goal": _text(run.get("goal")),
         "target_branch": _text(run.get("target_branch")),
-        "work_order_counts": _work_order_status_counts(work_orders),
+        "work_order_counts": work_order_counts,
+        "ledger_status": resolved_ledger_status,
+        "operator_status": operator_status,
         "lanes": lane_summaries,
         "integrator_next_actions": [
             _text(item) for item in integrator_view.get("next_actions", []) if _text(item)
@@ -2394,6 +2504,31 @@ def build_boss_payload(
         "integrator_telemetry": integrator_view.get("telemetry", {}),
         "routing": routing,
     }
+
+
+def _render_operator_status_line(operator_status: dict[str, Any]) -> str:
+    source = _text(operator_status.get("source"))
+    if source == "shift_ledger":
+        green_shift = operator_status.get("green_shift", {})
+        green_shift = green_shift if isinstance(green_shift, dict) else {}
+        merged_numbers = operator_status.get("merged_pr_numbers", [])
+        merged_numbers = merged_numbers if isinstance(merged_numbers, list) else []
+        merged_text = ",".join(str(item) for item in merged_numbers) or "-"
+        return (
+            "proof-first "
+            f"queue={operator_status.get('queue_depth')} "
+            f"open_prs={operator_status.get('open_prs')} "
+            f"boss={operator_status.get('boss_running')} "
+            f"merge={operator_status.get('merge_running')} "
+            f"benchmark_fresh={operator_status.get('benchmark_fresh')} "
+            f"merged_prs={operator_status.get('prs_merged_recent', 0)} "
+            f"merged={merged_text} "
+            f"last_stop={operator_status.get('last_stop_reason') or '-'} "
+            f"green_shift={green_shift.get('is_green')}"
+        )
+    if source == "legacy_reporter_fallback":
+        return f"reporter-fallback queue={operator_status.get('queue_depth', 'unknown')}"
+    return ""
 
 
 def render_boss_text(payload: dict[str, Any]) -> str:
@@ -2410,6 +2545,11 @@ def render_boss_text(payload: dict[str, Any]) -> str:
         f"goal={_text(payload.get('goal'))}",
         f"work_orders=[{counts_text}]",
     ]
+    operator_status = payload.get("operator_status", {})
+    if isinstance(operator_status, dict):
+        operator_line = _render_operator_status_line(operator_status)
+        if operator_line:
+            lines.append(operator_line)
 
     lanes = payload.get("lanes", [])
     if isinstance(lanes, list):
