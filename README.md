@@ -380,7 +380,7 @@ aragora/
 └── workflow/       # DAG-based automation engine
 ```
 
-**Scale:** 3,000+ Python modules | 154,000+ tests across 5,000+ test files
+**Scale:** 3,000+ Python modules | 155,000+ tests across 5,000+ test files
 
 ### Performance and Costs
 

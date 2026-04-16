@@ -5,7 +5,7 @@ description: B0 Benchmark Truth Status
 
 # B0 Benchmark Truth Status
 
-Last updated: 2026-04-14T18:12:28Z
+Last updated: 2026-04-15T23:05:41Z
 
 This is the repo-tracked recurring `TW-02` publication surface for the fixed benchmark corpus.
 
@@ -13,43 +13,61 @@ This is the repo-tracked recurring `TW-02` publication surface for the fixed ben
 
 - Corpus manifest: `docs/benchmarks/corpus.json`
 - Corpus id: `tw-01-bounded-execution-v1`
-- Revision: `1`
-- Recorded on: `2026-04-13`
+- Revision: `2`
+- Recorded on: `2026-04-15`
 - Success contract: `mergeable_pr_or_merged_pr`
-- Coverage status: `incomplete`
-- Coverage: `1`/`5` issues attempted
-- Missing corpus issues: `1064`, `1641`, `1733`, `2712`
+- Coverage status: `complete`
+- Coverage: `5`/`5` issues attempted
 
 ## Published Paths
 
 - Latest truth artifact: `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/latest.json`
 - Latest scorecard: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/latest.json`
-- Revision-scoped truth pointer: `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-1/latest.json`
-- Revision-scoped scorecard pointer: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-1/latest.json`
+- Revision-scoped truth pointer: `docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-2/latest.json`
+- Revision-scoped scorecard pointer: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-2/latest.json`
 
 ## Truth Metrics
 
 | Metric | Value |
 | --- | --- |
-| Truth success rate | 60.0% |
-| No-rescue truth success rate | 40.0% |
-| Merged-only rate | 60.0% |
+| Truth success rate | 100.0% |
+| No-rescue truth success rate | 100.0% |
+| Merged-only rate | 100.0% |
 
 ## Proxy Metrics
 
 | Metric | Value |
 | --- | --- |
-| No-rescue success rate | 0.0% |
-| Unique issues attempted | 1 |
+| Proxy no-rescue success rate | 0.0% |
+| Unique issues attempted | 5 |
 | Unique issues succeeded | 0 |
-| Unique issues failed | 1 |
-| Total ticks | 4 |
+| Unique issues failed | 0 |
+| Unique issues neutral | 5 |
+| Total ticks | 5 |
+
+Proxy note: neutral issue outcomes are current-corpus rows that were neither fresh success nor failure, such as `issue_already_resolved`.
+
+## Proxy Neutral Class Distribution
+
+- `issue_already_resolved`: 5
 
 ## Failure Class Distribution
 
-- `blocked_sanitation_failed`: 1
-- `rescue_no_deliverable`: 3
+- none
 
 ## Rescue Counts By Type
 
-- `rescue_no_deliverable`: 3
+- none
+
+## Previous Published Artifact
+
+- Previous artifact path: `docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-2/scorecard-20260415T221228Z.json`
+- Previous generated_at: `2026-04-15T22:12:28Z`
+
+## Deltas
+
+- `merged_only_rate`: 1.0000
+- `no_rescue_truth_success_rate`: 1.0000
+- `proxy_no_rescue_success_rate`: 0.0000
+- `truth_success_rate`: 1.0000
+- `unique_issues_attempted`: 3.0000

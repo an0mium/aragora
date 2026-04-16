@@ -5,13 +5,15 @@ description: Aragora Evolution Roadmap
 
 # Aragora Evolution Roadmap
 
-> **Last updated:** 2026-04-09
+> **Last updated:** 2026-04-16
 > **Current transition:** early `Teammate` -> reliable `Foreman`
 > **Planning rule:** preserve the maximalist vision; sequence through a narrow reliability wedge first.
 
 ## Executive Thesis
 
 Aragora is trying to become an autonomous chief of staff, an engineering organization substrate, and a decision-integrity control plane — not just a better coding agent.
+
+The distinctive long-horizon direction is **organizational epistemic infrastructure**: debates should surface load-bearing cruxes, receipts should preserve claim evidence, and important organizational claims should become executable objects with freshness, verification, provenance, and bounded repair paths. This expands the decision-integrity core without replacing the current proof-first autonomy wedge.
 
 The efficient path is not to build every ambitious surface at once. The wedge is reliable autonomous software execution on bounded backlogs, with receipts, human-control surfaces, and a truthful operator view. The unified DAG GUI remains a parallel second track, but it must reflect live runtime truth rather than speculative mock state.
 
@@ -207,6 +209,17 @@ This track preserves Aragora's core differentiation from generic agent platforms
 - show idea -> receipt -> later-settlement lineage
 - produce board- and regulator-ready exports without losing technical depth
 
+#### E5. Crux Engine and Epistemic CI
+
+- define a `CruxSet` output for the 3-5 load-bearing disagreements that would change a decision if resolved differently
+- define executable claim manifests for organizational claims with owner, evidence, freshness SLA, verifier, receipt links, and failure behavior
+- verify explicit claims before inferring claims automatically from docs, Slack, issues, or receipts
+- persist claim and crux provenance through receipts and Knowledge Mound
+- bridge failed claims and unresolved high-load-bearing cruxes into exactly one bounded follow-up issue only when queue governance permits it
+- expose a read-only organizational truth map showing what Aragora believes, why, how fresh the evidence is, and what is decaying
+
+Design brief: [Epistemic CI and Crux Engine Plan](EPISTEMIC_CI_AND_CRUX_ENGINE.md).
+
 ### Track F — Trust-Wedge Productization and GTM
 
 This track converts technical proof into market proof.
@@ -242,6 +255,8 @@ This track converts technical proof into market proof.
 - If humans intervene twice for the same failure class, the next change should productize that rescue.
 - Memory without provenance is out of scope.
 - GUI surfaces must read ledger-backed truth.
+- Claims that matter should become executable, evidence-linked objects before they become product claims or queue work.
+- Cruxes should identify load-bearing disagreement, not merely summarize dissent.
 - Broad vertical and enterprise expansion follows wedge proof; it does not replace it.
 - External claims should always lag measured internal proof.
 

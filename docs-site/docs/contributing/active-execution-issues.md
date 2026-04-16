@@ -5,7 +5,7 @@ description: Active Execution Issues
 
 # Active Execution Issues
 
-Last updated: 2026-04-14
+Last updated: 2026-04-16
 
 This document is the canonical epic, milestone, and execution-issue tree for the current roadmap tranche.
 
@@ -26,8 +26,9 @@ Use it to create or reconcile GitHub issues. Keep issue titles stable when possi
 The strict status reconciler requires this canonical map to link the live execution backlog directly.
 
 - Enterprise assurance carryover: [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509)
-- Current execution epics: [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), [#806](https://github.com/synaptent/aragora/issues/806)
+- Execution epics (closed): [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), [#806](https://github.com/synaptent/aragora/issues/806) — all closed as of April 2026; current obligation is operationalizing the proof-first loop
 - Current execution lanes: [#807](https://github.com/synaptent/aragora/issues/807), [#808](https://github.com/synaptent/aragora/issues/808), [#809](https://github.com/synaptent/aragora/issues/809), [#810](https://github.com/synaptent/aragora/issues/810), [#811](https://github.com/synaptent/aragora/issues/811), [#812](https://github.com/synaptent/aragora/issues/812), [#813](https://github.com/synaptent/aragora/issues/813), [#814](https://github.com/synaptent/aragora/issues/814), [#815](https://github.com/synaptent/aragora/issues/815), [#816](https://github.com/synaptent/aragora/issues/816), [#817](https://github.com/synaptent/aragora/issues/817), [#818](https://github.com/synaptent/aragora/issues/818), [#819](https://github.com/synaptent/aragora/issues/819), [#820](https://github.com/synaptent/aragora/issues/820)
+- Future decision-integrity tranche: [#6023](https://github.com/synaptent/aragora/issues/6023), [#6024](https://github.com/synaptent/aragora/issues/6024), [#6025](https://github.com/synaptent/aragora/issues/6025), [#6026](https://github.com/synaptent/aragora/issues/6026), [#6027](https://github.com/synaptent/aragora/issues/6027), [#6028](https://github.com/synaptent/aragora/issues/6028) — Epistemic CI and Crux Engine planning; not live `boss-ready` work
 
 ## Reverse-Staged Rocket Bootstrap
 
@@ -38,20 +39,21 @@ This is the near-term sequencing layer across the full task tree. Do not treat a
 | **B0 — Corpus** | Prove `>=50%` no-rescue success on a fixed benchmark corpus | `RS-01..03`, `TW-02..03` |
 | **B1 — Assist** | Auto-draft safe work orders and validation plans | `BC-04..06`, `TW-07..09` |
 | **B2 — Guard** | Require contracts and production-like preflight before auto-run | `RS-04..09` |
-| **B3 — Repair** | Productize retry, salvage, quarantine, and session reuse | `BC-01..03`, `RS-10..11` |
+| **B3 — Repair** | Productize retry, salvage, quarantine, and session reuse | `BC-01..03`, `RS-10..12` |
 | **B4 — Multi** | Extend proven loops across hosts with truthful state | `BC-07..12`, `UDW-01..03` |
 
-Status note: B0 is above target at 86.7% no-rescue success on the tracked cohort as of 2026-04-13. The remaining near-term gate is keeping the recurring truth/productization surfaces boring and keeping claims narrower than proof, not reopening already-landed guard work.
+Status note: use `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md` as the live recurring proof surfaces instead of hardcoded percentages here. When the B0 surface is stale, incomplete, or otherwise untrustworthy, restoring benchmark publication completeness becomes the immediate gate again.
 
 ## Current 30-Day Execution Set
 
 Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 
 - Do now: `CS-01..03`
-- Delay: `BC-07..09`, `RS-10..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
+- Delay: `BC-07..09`, `RS-11..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
+- Future decision-integrity planning: `DIC-13..18` is tracked but delayed until proof-first Foreman reliability is stable; these issues must not be added to `boss-ready` during the current tranche
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
 - Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
-- Live boss-ready queue: no dedicated open trust-loop issue right now; `TW-01`, `TW-02`, and `TW-03` now publish through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`, and the recurring surfaces should restock the queue only when they expose a fresh bounded regression or repeated rescue class
+- Live boss-ready queue: no dedicated open trust-loop issue right now; `TW-01`, `TW-02`, and `TW-03` now publish through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`, and the recurring surfaces should keep the queue empty unless they expose a fresh bounded regression or repeated rescue class
 - `RS-07`, `BC-01`, `BC-02`, and `BC-03` are already on `main`; the live queue should not recycle them as active blockers unless a concrete regression appears
 
 ## Epic 1 — Reliability Substrate
@@ -78,9 +80,9 @@ Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 
 ### Milestone 1.4 — Ledger & Self-Heal `[90d]`
 
-- [ ] **RS-10** Mirror probes, queue state, contracts, and receipts into `AutonomyLedger`
-- [ ] **RS-11** Add quarantine and fallback rules for auth drift, rate limits, permission mismatch, and publication failures
-- [ ] **RS-12** Cut `studio-health`, reporter, and status surfaces to ledger-backed truth
+- [x] **RS-10** Mirror probes, queue state, contracts, and receipts into `AutonomyLedger` _(Done 2026-04-15 via [#5857](https://github.com/synaptent/aragora/pull/5857))_
+- [ ] **RS-11** Add quarantine and fallback rules for auth drift, rate limits, permission mismatch, and publication failures _(Partial 2026-04-15: one-shot recovery budgets and fail-closed handling landed for auth drift, GitHub outage, publication failure, and boss/merge restart failures via [#5867](https://github.com/synaptent/aragora/pull/5867); rate-limit and permission-mismatch coverage still need explicit policy.)_
+- [ ] **RS-12** Cut `studio-health`, reporter, and status surfaces to ledger-backed truth _(Partial 2026-04-15: `swarm status`, FastAPI swarm-status routes, and `studio-health.sh` now prefer ledger-backed truth via [#5861](https://github.com/synaptent/aragora/pull/5861) and [#5868](https://github.com/synaptent/aragora/pull/5868); reporter and remaining status surfaces are still incomplete.)_
 
 ## Epic 2 — Bounded Autonomy Control Plane
 
@@ -108,7 +110,7 @@ Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 
 - [ ] **BC-10** Run repeated multi-host soak tests on the bounded backlog
 - [ ] **BC-11** Route Nomic-generated work through the same substrate as operator work
-- [ ] **BC-12** Define explicit stop/go criteria for unattended 12-hour runs
+- [ ] **BC-12** Define explicit stop/go criteria for unattended 12-hour runs _(Partial 2026-04-15: proof-first shifts now emit machine-readable `green_shift_evaluation` via [#5867](https://github.com/synaptent/aragora/pull/5867), but the 12-hour unattended gate is not yet proven by repeated green runs.)_
 
 ## Epic 3 — Trust-Wedge Product Loops
 
@@ -221,6 +223,19 @@ Source of truth: [Next Steps (Canonical)](./next-steps-canonical).
 - [ ] **DIC-10** Add side-by-side debate and execution comparison surfaces
 - [ ] **DIC-11** Show idea -> receipt -> later settlement lineage end-to-end
 - [ ] **DIC-12** Produce board- and regulator-ready exports with dissent summaries
+
+### Milestone 6.5 — Crux Engine & Epistemic CI `[365d]`
+
+Design brief: [Epistemic CI and Crux Engine Plan](../plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md).
+
+- [ ] **DIC-13** Define executable claim manifest schema ([#6023](https://github.com/synaptent/aragora/issues/6023))
+- [ ] **DIC-14** Add executable claim verification runner ([#6024](https://github.com/synaptent/aragora/issues/6024))
+- [ ] **DIC-15** Add `CruxSet` contract and crux-finder consensus mode ([#6025](https://github.com/synaptent/aragora/issues/6025))
+- [ ] **DIC-16** Extend receipts and Knowledge Mound for claim/crux provenance ([#6026](https://github.com/synaptent/aragora/issues/6026))
+- [ ] **DIC-17** Bridge failed claims and unresolved cruxes into bounded follow-up work ([#6027](https://github.com/synaptent/aragora/issues/6027))
+- [ ] **DIC-18** Add organizational truth map operator report ([#6028](https://github.com/synaptent/aragora/issues/6028))
+
+Queue rule: this milestone is not part of the current live dispatch lane. Its issues remain planning/future-tranche work until the proof-first Foreman gate permits decision-integrity expansion.
 
 ## Epic 7 — Commercialization & Scale-Out
 
