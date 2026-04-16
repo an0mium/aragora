@@ -28,6 +28,9 @@ if cmd[:3] == ["has-session", "-t", "aragora"]:
 if cmd[:3] == ["list-windows", "-t", "aragora"]:
     print("0 {window_name}")
     raise SystemExit(0)
+if cmd[:2] == ["list-panes", "-t"]:
+    print("0")
+    raise SystemExit(0)
 if cmd[:2] == ["new-window", "-P"]:
     print("@17")
     raise SystemExit(0)
@@ -102,6 +105,7 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     _write_fake_tmux(tmp_path)
     env = _fake_tmux_env(tmp_path)
     env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
 
     log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
     log_dir.mkdir(parents=True)
@@ -133,12 +137,24 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
         call[:2] == ["send-keys", "-t"] and call[2] == "@17" and "hello from launcher" in call
         for call in calls
     )
+    assert any(
+        call[:2] == ["send-keys", "-t"]
+        and call[2] == "@17"
+        and "./scripts/codex_session.sh --agent 'testpane'" in call[3]
+        for call in calls
+    )
+    registry_payload = json.loads(
+        (tmp_path / ".aragora" / "session_mux" / "registry.json").read_text()
+    )
+    assert "testpane" in registry_payload["sessions"]
+    assert registry_payload["sessions"]["testpane"]["tmux_window"] == "@17"
 
 
 def test_tmux_session_launcher_accepts_new_codex_readiness_markers(tmp_path: Path) -> None:
     _write_fake_tmux(tmp_path)
     env = _fake_tmux_env(tmp_path)
     env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
 
     log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
     log_dir.mkdir(parents=True)
@@ -174,6 +190,7 @@ def test_tmux_session_launcher_does_not_send_prompt_before_readiness_by_default(
     _write_fake_tmux(tmp_path)
     env = _fake_tmux_env(tmp_path)
     env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+    env["ARAGORA_TMUX_REGISTRY_REPO_ROOT"] = str(tmp_path)
 
     log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
     log_dir.mkdir(parents=True)

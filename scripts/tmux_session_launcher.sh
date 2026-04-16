@@ -159,6 +159,7 @@ fi
 
 LOG_FILE="${LOG_DIR}/${NAME}.log"
 META_FILE="${LOG_DIR}/${NAME}.meta.json"
+REGISTRY_REPO_ROOT="${ARAGORA_TMUX_REGISTRY_REPO_ROOT:-${REPO_ROOT}}"
 
 # Ensure tmux session exists
 if ! tmux has-session -t "${TMUX_SESSION}" 2>/dev/null; then
@@ -172,9 +173,9 @@ fi
 #   - Codex gets --full-auto approval mode
 if [[ "${AGENT}" == "codex" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
-        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent codex --base main --full-auto"
+        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent '${NAME}' --base main --full-auto"
     else
-        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent codex --base main"
+        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent '${NAME}' --base main"
     fi
 elif [[ "${AGENT}" == "claude" ]]; then
     if [[ "${AUTONOMOUS}" == "1" ]]; then
@@ -194,27 +195,58 @@ fi
 
 # Create new tmux window with logging
 WINDOW_TARGET="$(tmux new-window -P -F '#{window_id}' -t "${TMUX_SESSION}" -n "${NAME}")"
+PANE_INDEX="$(tmux list-panes -t "${WINDOW_TARGET}" -F '#{pane_index}' | head -1)"
 tmux pipe-pane -t "${WINDOW_TARGET}" -o "cat >> '${LOG_FILE}'"
 
 # Send the launch command
 tmux send-keys -t "${WINDOW_TARGET}" "${LAUNCH_CMD}" Enter
 
 # Write metadata (avoid embedding prompt content in Python literal)
-python3 - "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" "${WINDOW_TARGET}" <<'PYEOF'
-import json, datetime, sys
-name, agent, log_file, repo_root, prompt_file, meta_file, has_prompt, window_target = sys.argv[1:9]
+python3 - "${NAME}" "${AGENT}" "${LOG_FILE}" "${REPO_ROOT}" "${PROMPT_FILE}" "${META_FILE}" "${PROMPT:+yes}" "${WINDOW_TARGET}" "${TMUX_SESSION}" "${PANE_INDEX}" "${LAUNCH_CMD}" "${REGISTRY_REPO_ROOT}" <<'PYEOF'
+import datetime
+import importlib.util
+import json
+from pathlib import Path
+import sys
+
+name, agent, log_file, repo_root, prompt_file, meta_file, has_prompt, window_target, tmux_session, pane_index, launch_cmd, registry_repo_root = sys.argv[1:13]
+started_at = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 meta = {
     "name": name,
     "agent": agent,
-    "started": datetime.datetime.now().isoformat(),
+    "started": started_at,
     "log_file": log_file,
     "repo_root": repo_root,
+    "tmux_session": tmux_session,
     "tmux_window_target": window_target,
+    "tmux_pane_index": pane_index,
     "prompt_file": prompt_file or None,
     "has_prompt": bool(has_prompt),
 }
-with open(meta_file, "w") as f:
-    json.dump(meta, f, indent=2)
+Path(meta_file).write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+
+try:
+    module_path = Path(repo_root) / "aragora" / "swarm" / "session_mux.py"
+    spec = importlib.util.spec_from_file_location("aragora_swarm_session_mux", module_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"unable to load session_mux module from {module_path}")
+    session_mux = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = session_mux
+    spec.loader.exec_module(session_mux)
+
+    record = session_mux.SessionRecord(
+        name=name,
+        tmux_session=tmux_session,
+        tmux_window=window_target,
+        tmux_pane=pane_index or "0",
+        launcher_command=launch_cmd,
+        started_at=started_at,
+        log_path=log_file,
+        meta_path=meta_file,
+    )
+    session_mux.SessionMuxRegistry(Path(registry_repo_root)).upsert(record)
+except Exception as exc:  # pragma: no cover - launcher should still succeed if registry sync fails
+    print(f"warning: failed to register launcher session: {exc}", file=sys.stderr)
 PYEOF
 
 echo "Launched '${NAME}' (${AGENT}) in tmux session '${TMUX_SESSION}'"
