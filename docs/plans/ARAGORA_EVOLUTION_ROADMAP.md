@@ -204,7 +204,7 @@ This track preserves Aragora's core differentiation from generic agent platforms
 - show idea -> receipt -> later-settlement lineage
 - produce board- and regulator-ready exports without losing technical depth
 
-#### E5. Crux Engine and Epistemic CI
+#### E5. Crux Engine, Epistemic CI, and Epistemic Runtime
 
 - define a `CruxSet` output for the 3-5 load-bearing disagreements that would change a decision if resolved differently
 - define executable claim manifests for organizational claims with owner, evidence, freshness SLA, verifier, receipt links, and failure behavior
@@ -212,8 +212,12 @@ This track preserves Aragora's core differentiation from generic agent platforms
 - persist claim and crux provenance through receipts and Knowledge Mound
 - bridge failed claims and unresolved high-load-bearing cruxes into exactly one bounded follow-up issue only when queue governance permits it
 - expose a read-only organizational truth map showing what Aragora believes, why, how fresh the evidence is, and what is decaying
+- define proof-carrying code units that link routes, functions, scripts, and policies to their assumptions, claims, receipts, verifiers, decay policy, and fallback policy
+- detect epistemic decay when proof-carrying code assumptions become stale, contradicted, or unsupported by fresh evidence
+- fail closed through report-only, degrade, fallback, quarantine, or repair-required policies before any live runtime mutation
+- route decayed proof into verified replacement candidates through Arena debate, receipt capture, formal-verifier hooks where available, and PR or shadow output before considering opt-in hot-swap classes
 
-Design brief: [Epistemic CI and Crux Engine Plan](EPISTEMIC_CI_AND_CRUX_ENGINE.md).
+Design brief: [Epistemic CI, Crux Engine, and Epistemic Runtime Plan](EPISTEMIC_CI_AND_CRUX_ENGINE.md).
 
 ### Track F — Trust-Wedge Productization and GTM
 

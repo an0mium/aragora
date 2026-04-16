@@ -23,7 +23,7 @@ The strict status reconciler requires this canonical map to link the live execut
 - Enterprise assurance carryover: [#273](https://github.com/synaptent/aragora/issues/273), [#274](https://github.com/synaptent/aragora/issues/274), [#509](https://github.com/synaptent/aragora/issues/509)
 - Execution epics (closed): [#804](https://github.com/synaptent/aragora/issues/804), [#805](https://github.com/synaptent/aragora/issues/805), [#806](https://github.com/synaptent/aragora/issues/806) — all closed as of April 2026; current obligation is operationalizing the proof-first loop
 - Current execution lanes: [#807](https://github.com/synaptent/aragora/issues/807), [#808](https://github.com/synaptent/aragora/issues/808), [#809](https://github.com/synaptent/aragora/issues/809), [#810](https://github.com/synaptent/aragora/issues/810), [#811](https://github.com/synaptent/aragora/issues/811), [#812](https://github.com/synaptent/aragora/issues/812), [#813](https://github.com/synaptent/aragora/issues/813), [#814](https://github.com/synaptent/aragora/issues/814), [#815](https://github.com/synaptent/aragora/issues/815), [#816](https://github.com/synaptent/aragora/issues/816), [#817](https://github.com/synaptent/aragora/issues/817), [#818](https://github.com/synaptent/aragora/issues/818), [#819](https://github.com/synaptent/aragora/issues/819), [#820](https://github.com/synaptent/aragora/issues/820)
-- Future decision-integrity tranche: [#6023](https://github.com/synaptent/aragora/issues/6023), [#6024](https://github.com/synaptent/aragora/issues/6024), [#6025](https://github.com/synaptent/aragora/issues/6025), [#6026](https://github.com/synaptent/aragora/issues/6026), [#6027](https://github.com/synaptent/aragora/issues/6027), [#6028](https://github.com/synaptent/aragora/issues/6028) — Epistemic CI and Crux Engine planning; not live `boss-ready` work
+- Future decision-integrity tranche: [#6023](https://github.com/synaptent/aragora/issues/6023), [#6024](https://github.com/synaptent/aragora/issues/6024), [#6025](https://github.com/synaptent/aragora/issues/6025), [#6026](https://github.com/synaptent/aragora/issues/6026), [#6027](https://github.com/synaptent/aragora/issues/6027), [#6028](https://github.com/synaptent/aragora/issues/6028), [#6030](https://github.com/synaptent/aragora/issues/6030), [#6031](https://github.com/synaptent/aragora/issues/6031), [#6032](https://github.com/synaptent/aragora/issues/6032), [#6033](https://github.com/synaptent/aragora/issues/6033) — Epistemic CI, Crux Engine, and Epistemic Runtime planning; not live `boss-ready` work
 
 ## Reverse-Staged Rocket Bootstrap
 
@@ -45,7 +45,7 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 
 - Do now: `CS-01..03`
 - Delay: `BC-07..09`, `RS-11..12`, `TW-07..09`, `UDW-01..06`, `MCF-01..03`
-- Future decision-integrity planning: `DIC-13..18` is tracked but delayed until proof-first Foreman reliability is stable; these issues must not be added to `boss-ready` during the current tranche
+- Future decision-integrity planning: `DIC-13..22` is tracked but delayed until proof-first Foreman reliability is stable; these issues must not be added to `boss-ready` during the current tranche
 - Avoid in this tranche: `UDW-07..12`, `MCF-04..12`, `CS-04..12`, broad provider-surface expansion, heavy DAG workbench work that is not backed by live runtime truth
 - Queue rule: only **Do now** roadmap codes may be created or preserved as `boss-ready`; delayed-track issues may remain open, but restock and decomposition must keep them out of the live boss queue
 - Live boss-ready queue: no dedicated open trust-loop issue right now; `TW-01`, `TW-02`, and `TW-03` now publish through `docs/status/B0_BENCHMARK_TRUTH_STATUS.md` and `docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md`, and the recurring surfaces should keep the queue empty unless they expose a fresh bounded regression or repeated rescue class
@@ -219,9 +219,9 @@ Source of truth: [Next Steps (Canonical)](NEXT_STEPS_CANONICAL.md).
 - [ ] **DIC-11** Show idea -> receipt -> later settlement lineage end-to-end
 - [ ] **DIC-12** Produce board- and regulator-ready exports with dissent summaries
 
-### Milestone 6.5 — Crux Engine & Epistemic CI `[365d]`
+### Milestone 6.5 — Crux Engine, Epistemic CI & Epistemic Runtime `[365d]`
 
-Design brief: [Epistemic CI and Crux Engine Plan](../plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md).
+Design brief: [Epistemic CI, Crux Engine, and Epistemic Runtime Plan](../plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md).
 
 - [ ] **DIC-13** Define executable claim manifest schema ([#6023](https://github.com/synaptent/aragora/issues/6023))
 - [ ] **DIC-14** Add executable claim verification runner ([#6024](https://github.com/synaptent/aragora/issues/6024))
@@ -229,6 +229,10 @@ Design brief: [Epistemic CI and Crux Engine Plan](../plans/EPISTEMIC_CI_AND_CRUX
 - [ ] **DIC-16** Extend receipts and Knowledge Mound for claim/crux provenance ([#6026](https://github.com/synaptent/aragora/issues/6026))
 - [ ] **DIC-17** Bridge failed claims and unresolved cruxes into bounded follow-up work ([#6027](https://github.com/synaptent/aragora/issues/6027))
 - [ ] **DIC-18** Add organizational truth map operator report ([#6028](https://github.com/synaptent/aragora/issues/6028))
+- [ ] **DIC-19** Define proof-carrying code unit constraint graph ([#6030](https://github.com/synaptent/aragora/issues/6030))
+- [ ] **DIC-20** Add epistemic decay monitor for proof-carrying code ([#6031](https://github.com/synaptent/aragora/issues/6031))
+- [ ] **DIC-21** Add fail-closed quarantine policy for decayed code proofs ([#6032](https://github.com/synaptent/aragora/issues/6032))
+- [ ] **DIC-22** Add verified replacement pipeline for decayed proof-carrying code ([#6033](https://github.com/synaptent/aragora/issues/6033))
 
 Queue rule: this milestone is not part of the current live dispatch lane. Its issues remain planning/future-tranche work until the proof-first Foreman gate permits decision-integrity expansion.
 

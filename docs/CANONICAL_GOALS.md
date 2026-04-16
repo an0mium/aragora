@@ -79,6 +79,8 @@ Every consequential decision or execution step should be inspectable. Receipts, 
 
 Important organizational claims should also become executable, evidence-linked objects with freshness, verification, provenance, and bounded repair behavior. This is the Epistemic CI direction: what Aragora believes should be testable, not just written down.
 
+The same trust model should eventually apply to code paths themselves. Proof-carrying code units should link functions, routes, scripts, and policies to the claims, assumptions, receipts, verifiers, and fallback rules that justify them. When the evidence behind a code path decays, Aragora should detect that decay, fail safely, and produce a verified repair candidate before any opt-in runtime replacement is considered.
+
 ### 6. SMB Operator Leverage
 
 Aragora must be useful to founders, operators, and small teams with limited time, uneven specs, and real consequences. The product should not require elite prompt discipline to be valuable. That constraint shapes UX, packaging, and scope decisions.
