@@ -35,7 +35,7 @@ wait_for_agent_ready() {
 
     case "${agent}" in
         codex)
-            pattern='OpenAI Codex|Use /skills to list available skills|Improve documentation in @filename'
+            pattern='OpenAI Codex|Use /skills to list available skills|Improve documentation in @filename|Find and fix a bug in @filename|Explain this codebase|Use /rename to rename your threads'
             ;;
         claude)
             pattern='Claude Code|ctrl\+g to edit in VS Code|don'"'"'t ask on'
@@ -55,6 +55,21 @@ wait_for_agent_ready() {
     done
 
     return 1
+}
+
+default_init_wait_seconds() {
+    local agent="$1"
+    case "${agent}" in
+        codex)
+            echo "60"
+            ;;
+        claude)
+            echo "30"
+            ;;
+        *)
+            echo "30"
+            ;;
+    esac
 }
 
 # --- argument parsing ---
@@ -192,7 +207,7 @@ echo "  Meta: ${META_FILE}"
 
 # If there's a prompt to send, wait for the session to initialize then send it
 if [[ -n "${PROMPT}" ]]; then
-    INIT_WAIT_SECONDS="${ARAGORA_TMUX_INIT_WAIT_SECONDS:-30}"
+    INIT_WAIT_SECONDS="${ARAGORA_TMUX_INIT_WAIT_SECONDS:-$(default_init_wait_seconds "${AGENT}")}"
     echo "Waiting up to ${INIT_WAIT_SECONDS}s for ${AGENT} readiness before sending prompt..."
     if wait_for_agent_ready "${AGENT}" "${LOG_FILE}" "${INIT_WAIT_SECONDS}"; then
         echo "Readiness markers detected for ${NAME}."

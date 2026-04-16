@@ -138,3 +138,31 @@ def test_capture_output_uses_last_prompt_marker(tmp_path: Path) -> None:
     captured = mod.capture_output(tmp_path, name="codex-1", tail_lines=1)
 
     assert captured == "recent line 2"
+
+
+def test_readiness_state_reports_booting_ready_and_prompt_accepted() -> None:
+    booting = mod._readiness_state_from_log(agent_name="codex-1", log_text="starting...\n")
+    ready = mod._readiness_state_from_log(
+        agent_name="codex-1",
+        log_text="OpenAI Codex\nUse /skills to list available skills\n",
+    )
+    accepted = mod._readiness_state_from_log(
+        agent_name="codex-1",
+        log_text="OpenAI Codex\n[Pasted Content 123 chars]\n",
+    )
+
+    assert booting == {
+        "ready": False,
+        "prompt_accepted": False,
+        "phase": "booting",
+    }
+    assert ready == {
+        "ready": True,
+        "prompt_accepted": False,
+        "phase": "ready",
+    }
+    assert accepted == {
+        "ready": True,
+        "prompt_accepted": True,
+        "phase": "prompt_accepted",
+    }

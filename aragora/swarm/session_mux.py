@@ -11,6 +11,22 @@ import uuid
 
 _REGISTRY_SCHEMA_VERSION = 1
 _PROMPT_MARKER_PREFIX = "=== ARAGORA_SESSION_MUX_PROMPT "
+_CODEX_READY_MARKERS = (
+    "openai codex",
+    "use /skills to list available skills",
+    "find and fix a bug in @filename",
+    "explain this codebase",
+    "use /rename to rename your threads",
+)
+_CLAUDE_READY_MARKERS = (
+    "claude code",
+    "don't ask on",
+    "ctrl+g to edit in vs code",
+)
+_PROMPT_ACCEPTED_MARKERS = (
+    "[pasted content",
+    "[pasted text",
+)
 
 
 def resolve_repo_root(path_hint: Path | None = None) -> Path:
@@ -66,6 +82,32 @@ def _tail_text(text: str, line_count: int) -> str:
         return text
     lines = text.splitlines()
     return "\n".join(lines[-line_count:])
+
+
+def _agent_ready_markers(agent_name: str) -> tuple[str, ...]:
+    lowered = agent_name.lower()
+    if "claude" in lowered:
+        return _CLAUDE_READY_MARKERS
+    return _CODEX_READY_MARKERS
+
+
+def _readiness_state_from_log(*, agent_name: str, log_text: str) -> dict[str, Any]:
+    lowered = log_text.lower()
+    ready = any(marker in lowered for marker in _agent_ready_markers(agent_name))
+    prompt_accepted = any(marker in lowered for marker in _PROMPT_ACCEPTED_MARKERS)
+    if prompt_accepted:
+        phase = "prompt_accepted"
+    elif ready:
+        phase = "ready"
+    elif log_text.strip():
+        phase = "booting"
+    else:
+        phase = "no_output"
+    return {
+        "ready": ready,
+        "prompt_accepted": prompt_accepted,
+        "phase": phase,
+    }
 
 
 def prompt_marker(prompt_id: str, *, at: datetime | None = None) -> str:
@@ -353,6 +395,10 @@ def session_status(repo_root: Path, *, name: str) -> dict[str, Any]:
     payload = record.to_dict()
     payload["running"] = running
     payload["tmux_target"] = record.tmux_target
+    log_text = (
+        Path(record.log_path).read_text(encoding="utf-8") if Path(record.log_path).exists() else ""
+    )
+    payload["readiness"] = _readiness_state_from_log(agent_name=record.name, log_text=log_text)
     return payload
 
 
@@ -365,6 +411,15 @@ def list_sessions(repo_root: Path) -> list[dict[str, Any]]:
         status = refreshed.to_dict()
         status["running"] = _tmux_session_exists(refreshed.tmux_session)
         status["tmux_target"] = refreshed.tmux_target
+        log_text = (
+            Path(refreshed.log_path).read_text(encoding="utf-8")
+            if Path(refreshed.log_path).exists()
+            else ""
+        )
+        status["readiness"] = _readiness_state_from_log(
+            agent_name=refreshed.name,
+            log_text=log_text,
+        )
         statuses.append(status)
     return statuses
 

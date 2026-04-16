@@ -126,3 +126,36 @@ def test_tmux_session_launcher_waits_for_readiness_marker_before_prompt_send(
     calls = _load_tmux_calls(env)
     assert any(call[:2] == ["new-window", "-t"] for call in calls)
     assert any("hello from launcher" in call for call in calls if call[:2] == ["send-keys", "-t"])
+
+
+def test_tmux_session_launcher_accepts_new_codex_readiness_markers(tmp_path: Path) -> None:
+    _write_fake_tmux(tmp_path)
+    env = _fake_tmux_env(tmp_path)
+    env["ARAGORA_TMUX_INIT_WAIT_SECONDS"] = "1"
+
+    log_dir = Path(env["HOME"]) / ".aragora" / "tmux-sessions"
+    log_dir.mkdir(parents=True)
+    (log_dir / "testpane.log").write_text(
+        "boot\nFind and fix a bug in @filename\n",
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(REPO_ROOT / "scripts" / "tmux_session_launcher.sh"),
+            "--name",
+            "testpane",
+            "--agent",
+            "codex",
+            "--prompt",
+            "hello from launcher",
+        ],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert "Readiness markers detected for testpane." in result.stdout
