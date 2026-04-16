@@ -3,10 +3,14 @@
 #
 # Usage:
 #   ./scripts/tmux_session_launcher.sh --name codex-conductor --agent codex --prompt-file /tmp/prompt.md
-#   ./scripts/tmux_session_launcher.sh --name claude-review --agent claude
-#   ./scripts/tmux_session_launcher.sh --name codex-qa --agent codex --prompt "Fix the tests in aragora/swarm/"
+#   ./scripts/tmux_session_launcher.sh --name claude-worker --agent claude --autonomous --prompt "Fix tests"
+#   ./scripts/tmux_session_launcher.sh --name codex-qa --agent codex --autonomous --prompt "Fix the tests"
 #   ./scripts/tmux_session_launcher.sh --list
 #   ./scripts/tmux_session_launcher.sh --kill codex-conductor
+#
+# Flags:
+#   --autonomous   Grant full permissions (Claude: --dangerously-skip-permissions, Codex: --full-auto)
+#                  Required for agents to run Bash, edit files, etc. in tmux lanes.
 #
 # Each session gets:
 #   - a dedicated tmux window in the "aragora" session
@@ -59,6 +63,7 @@ AGENT="codex"
 PROMPT=""
 PROMPT_FILE=""
 ACTION="launch"
+AUTONOMOUS="0"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -66,6 +71,7 @@ while [[ $# -gt 0 ]]; do
         --agent)    AGENT="$2"; shift 2 ;;
         --prompt)   PROMPT="$2"; shift 2 ;;
         --prompt-file) PROMPT_FILE="$2"; shift 2 ;;
+        --autonomous) AUTONOMOUS="1"; shift ;;
         --list)     ACTION="list"; shift ;;
         --kill)     ACTION="kill"; NAME="$2"; shift 2 ;;
         --status)   ACTION="status"; shift ;;
@@ -131,10 +137,21 @@ if ! tmux has-session -t "${TMUX_SESSION}" 2>/dev/null; then
 fi
 
 # Build the launch command
+# When --autonomous is set:
+#   - Claude gets ARAGORA_ADMIN_APPROVED=1 → --dangerously-skip-permissions (can run Bash)
+#   - Codex gets --full-auto approval mode
 if [[ "${AGENT}" == "codex" ]]; then
-    LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent codex --base main"
+    if [[ "${AUTONOMOUS}" == "1" ]]; then
+        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent codex --base main --full-auto"
+    else
+        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/codex_session.sh --agent codex --base main"
+    fi
 elif [[ "${AGENT}" == "claude" ]]; then
-    LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/claude-wt"
+    if [[ "${AUTONOMOUS}" == "1" ]]; then
+        LAUNCH_CMD="cd '${REPO_ROOT}' && ARAGORA_ADMIN_APPROVED=1 ./scripts/claude-wt"
+    else
+        LAUNCH_CMD="cd '${REPO_ROOT}' && ./scripts/claude-wt"
+    fi
 else
     echo "Unknown agent: ${AGENT}. Use 'codex' or 'claude'." >&2
     exit 1
