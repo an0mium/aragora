@@ -392,6 +392,35 @@ def _persist_pipeline_to_km(result: Any) -> None:
         logger.debug("KM persistence skipped: %s", e)
 
 
+def _transition_identifier_candidates(transition: dict[str, Any]) -> set[str]:
+    from_stage = str(transition.get("from_stage") or "")
+    to_stage = str(transition.get("to_stage") or "")
+    candidates = {
+        str(value)
+        for value in (
+            transition.get("id"),
+            transition.get("transition_id"),
+        )
+        if value
+    }
+    if from_stage and to_stage:
+        candidates.add(f"transition-{from_stage}-{to_stage}")
+        candidates.add(f"{from_stage}-{to_stage}")
+    return candidates
+
+
+def _find_transition_by_id(
+    transitions: list[Any],
+    transition_id: str,
+) -> dict[str, Any] | None:
+    for transition in transitions:
+        if not isinstance(transition, dict):
+            continue
+        if transition_id in _transition_identifier_candidates(transition):
+            return transition
+    return None
+
+
 class CanvasPipelineHandler:
     """HTTP handler for the idea-to-execution canvas pipeline."""
 
@@ -2088,29 +2117,25 @@ class CanvasPipelineHandler:
         if not existing:
             return error_response(f"Pipeline {pipeline_id} not found", 404)
 
-        from_stage = request_data.get("from_stage", "")
-        to_stage = request_data.get("to_stage", "")
-        transition_id = str(request_data.get("transition_id") or "")
-        # Default to True when "approved" is not explicitly provided --
-        # the frontend calls approve-transition without this field to
-        # approve, and sets approved=false to reject.
-        approved = request_data.get("approved", True)
-        comment = request_data.get("comment", request_data.get("reason", ""))
-
         transitions = existing.get("transitions", [])
         if not isinstance(transitions, list):
             transitions = []
 
+        from_stage = str(request_data.get("from_stage") or "")
+        to_stage = str(request_data.get("to_stage") or "")
+        transition_id = str(request_data.get("transition_id") or "")
         if transition_id and (not from_stage or not to_stage):
-            for transition in transitions:
-                if not isinstance(transition, dict):
-                    continue
-                if str(transition.get("id") or "") == transition_id:
-                    from_stage = transition.get("from_stage", "")
-                    to_stage = transition.get("to_stage", "")
-                    break
-            else:
+            transition = _find_transition_by_id(transitions, transition_id)
+            if transition is None:
                 return error_response(f"Transition {transition_id} not found", 404)
+            from_stage = str(transition.get("from_stage") or "")
+            to_stage = str(transition.get("to_stage") or "")
+
+        # Default to True when "approved" is not explicitly provided --
+        # the frontend calls approve-transition without this field to
+        # approve, and sets approved=false to reject.
+        approved = request_data.get("approved", True)
+        comment = str(request_data.get("comment") or request_data.get("reason") or "")
 
         if not from_stage or not to_stage:
             return error_response("Missing required fields: from_stage, to_stage", 400)
@@ -2122,10 +2147,9 @@ class CanvasPipelineHandler:
                 continue
             t_from = transition.get("from_stage", "")
             t_to = transition.get("to_stage", "")
-            t_id = str(transition.get("id") or "")
-            if (transition_id and t_id == transition_id) or (
-                t_from == from_stage and t_to == to_stage
-            ):
+            if (
+                transition_id and transition_id in _transition_identifier_candidates(transition)
+            ) or (t_from == from_stage and t_to == to_stage):
                 transition["status"] = "approved" if approved else "rejected"
                 transition["human_comment"] = comment
                 transition["reviewed_at"] = time.time()
