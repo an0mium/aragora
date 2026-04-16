@@ -36,8 +36,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any
 from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from aragora.connectors.chat import (
     ChatPlatformConnector,
@@ -47,16 +47,8 @@ from aragora.connectors.chat import (
     get_registry,
 )
 
-# DecisionRouter for unified routing
-DecisionRequest: Any
-DecisionRouter: Any
-DecisionType: Any
-InputSource: Any
-ResponseChannel: Any
-RequestContext: Any
-DecisionConfig: Any
-get_decision_router: Any
-try:
+DECISION_ROUTER_AVAILABLE: bool
+if TYPE_CHECKING:
     from aragora.core.decision import (
         DecisionConfig,
         DecisionRequest,
@@ -67,18 +59,30 @@ try:
         RequestContext,
         get_decision_router,
     )
+else:
+    try:
+        from aragora.core.decision import (
+            DecisionConfig,
+            DecisionRequest,
+            DecisionRouter,
+            DecisionType,
+            InputSource,
+            ResponseChannel,
+            RequestContext,
+            get_decision_router,
+        )
 
-    DECISION_ROUTER_AVAILABLE = True
-except ImportError:
-    DECISION_ROUTER_AVAILABLE = False
-    DecisionRequest = None
-    DecisionRouter = None
-    DecisionType = None
-    InputSource = None
-    ResponseChannel = None
-    RequestContext = None
-    DecisionConfig = None
-    get_decision_router = None
+        DECISION_ROUTER_AVAILABLE = True
+    except ImportError:
+        DECISION_ROUTER_AVAILABLE = False
+        DecisionRequest = None
+        DecisionRouter = None
+        DecisionType = None
+        InputSource = None
+        ResponseChannel = None
+        RequestContext = None
+        DecisionConfig = None
+        get_decision_router = None
 
 logger = logging.getLogger(__name__)
 
@@ -859,6 +863,7 @@ if HANDLER_BASE_AVAILABLE:
                 raw_body = json.dumps(body).encode()
 
             # Determine platform
+            platform: str | None
             if "/slack/" in path:
                 platform = "slack"
             elif "/teams/" in path:
