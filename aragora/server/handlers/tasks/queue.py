@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import logging
 import sqlite3
+from collections.abc import Coroutine
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from aragora.server.http_utils import run_async as _run_async
 from aragora.server.handlers.base import (
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 def _await_if_needed(result: Any) -> Any:
     if inspect.isawaitable(result):
-        return asyncio.run(result)
+        return _run_async(cast(Coroutine[Any, Any, Any], result))
     return result
 
 
