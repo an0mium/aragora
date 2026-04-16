@@ -31,6 +31,10 @@ from aragora.utils.async_utils import run_async
 logger = logging.getLogger(__name__)
 
 _SQLITE_BUSY_TIMEOUT_SECONDS = 30.0
+_SQLITE_SCHEMA_RETRY_BASE_SECONDS = 0.05
+_SQLITE_SCHEMA_RETRY_MAX_SECONDS = 0.5
+_SQLITE_SCHEMA_LOCKS: dict[Path, threading.RLock] = {}
+_SQLITE_SCHEMA_LOCKS_GUARD = threading.Lock()
 _REDIS_BACKEND_ERRORS: tuple[type[Exception], ...]
 
 
@@ -77,6 +81,21 @@ class BlacklistBackend(ABC):
 
 
 MAX_BLACKLIST_SIZE = 100000  # Prevent unbounded memory growth
+
+
+def _sqlite_schema_lock(db_path: Path) -> threading.RLock:
+    """Return the process-wide schema init lock for a SQLite db path."""
+    key = db_path.resolve()
+    with _SQLITE_SCHEMA_LOCKS_GUARD:
+        lock = _SQLITE_SCHEMA_LOCKS.get(key)
+        if lock is None:
+            lock = threading.RLock()
+            _SQLITE_SCHEMA_LOCKS[key] = lock
+        return lock
+
+
+def _is_sqlite_locked_error(exc: sqlite3.OperationalError) -> bool:
+    return "locked" in str(exc).lower()
 
 
 class InMemoryBlacklist(BlacklistBackend):
@@ -206,22 +225,47 @@ class SQLiteBlacklist(BlacklistBackend):
 
     def _init_schema(self) -> None:
         """Initialize database schema."""
+        lock = _sqlite_schema_lock(self.db_path)
+        deadline = time.monotonic() + _SQLITE_BUSY_TIMEOUT_SECONDS
+        delay = _SQLITE_SCHEMA_RETRY_BASE_SECONDS
+        with lock:
+            while True:
+                try:
+                    self._init_schema_once()
+                    return
+                except sqlite3.OperationalError as exc:
+                    if not _is_sqlite_locked_error(exc):
+                        raise
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise
+                    logger.debug(
+                        "SQLiteBlacklist schema init hit lock for %s; retrying",
+                        self.db_path,
+                        exc_info=True,
+                    )
+                    time.sleep(min(delay, remaining))
+                    delay = min(delay * 2, _SQLITE_SCHEMA_RETRY_MAX_SECONDS)
+
+    def _init_schema_once(self) -> None:
         conn = sqlite3.connect(str(self.db_path), timeout=_SQLITE_BUSY_TIMEOUT_SECONDS)
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute(f"PRAGMA busy_timeout={int(_SQLITE_BUSY_TIMEOUT_SECONDS * 1000)}")
-        conn.execute("PRAGMA synchronous=NORMAL")
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS token_blacklist (
-                jti TEXT PRIMARY KEY,
-                expires_at REAL NOT NULL,
-                revoked_at REAL NOT NULL
+        try:
+            conn.execute(f"PRAGMA busy_timeout={int(_SQLITE_BUSY_TIMEOUT_SECONDS * 1000)}")
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS token_blacklist (
+                    jti TEXT PRIMARY KEY,
+                    expires_at REAL NOT NULL,
+                    revoked_at REAL NOT NULL
+                )
+            """)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_blacklist_expires ON token_blacklist(expires_at)"
             )
-        """)
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_blacklist_expires ON token_blacklist(expires_at)"
-        )
-        conn.commit()
-        conn.close()
+            conn.commit()
+        finally:
+            conn.close()
 
     def add(self, token_jti: str, expires_at: float) -> None:
         """Add token to blacklist."""

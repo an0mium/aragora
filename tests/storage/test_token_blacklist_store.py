@@ -431,6 +431,66 @@ class TestSQLiteBlacklist:
 
         blacklist.close()
 
+    def test_concurrent_fresh_initialization_serializes_wal_setup(self, tmp_path, monkeypatch):
+        """Concurrent fresh store construction should not overlap WAL setup."""
+        import aragora.storage.token_blacklist_store as module
+
+        db_path = tmp_path / "fresh_init_test.db"
+        real_connect = module.sqlite3.connect
+        active_wal = 0
+        max_active_wal = 0
+        active_lock = threading.Lock()
+        errors = []
+        errors_lock = threading.Lock()
+
+        class TrackedConnection:
+            def __init__(self, conn):
+                self._conn = conn
+
+            def execute(self, sql, *args, **kwargs):
+                nonlocal active_wal, max_active_wal
+                is_wal_setup = str(sql).strip().upper().startswith("PRAGMA JOURNAL_MODE")
+                if is_wal_setup:
+                    with active_lock:
+                        active_wal += 1
+                        max_active_wal = max(max_active_wal, active_wal)
+                    try:
+                        time.sleep(0.02)
+                        return self._conn.execute(sql, *args, **kwargs)
+                    finally:
+                        with active_lock:
+                            active_wal -= 1
+                return self._conn.execute(sql, *args, **kwargs)
+
+            def __getattr__(self, name):
+                return getattr(self._conn, name)
+
+        def tracked_connect(*args, **kwargs):
+            return TrackedConnection(real_connect(*args, **kwargs))
+
+        monkeypatch.setattr(module.sqlite3, "connect", tracked_connect)
+
+        worker_count = 12
+        barrier = threading.Barrier(worker_count)
+
+        def construct_store():
+            try:
+                barrier.wait()
+                blacklist = SQLiteBlacklist(db_path=db_path)
+                blacklist.close()
+            except Exception as exc:
+                with errors_lock:
+                    errors.append(repr(exc))
+
+        threads = [threading.Thread(target=construct_store) for _ in range(worker_count)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert errors == []
+        assert max_active_wal == 1
+
     def test_persistence_across_instances(self, tmp_path):
         """Data should persist across store instances."""
         db_path = tmp_path / "persist_test.db"

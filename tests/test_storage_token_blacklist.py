@@ -210,10 +210,12 @@ class TestSQLiteBlacklist:
         errors = []
         success_count = 0
         lock = threading.Lock()
+        start = threading.Barrier(20)
 
         def add_token(thread_id):
             nonlocal success_count
             # Each thread gets its own connection via thread-local storage
+            start.wait()
             bl = SQLiteBlacklist(db_path)
             try:
                 token_jti = f"concurrent_token_{thread_id}"
@@ -227,7 +229,7 @@ class TestSQLiteBlacklist:
             finally:
                 bl.close()
 
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=20) as executor:
             futures = [executor.submit(add_token, i) for i in range(20)]
             for f in futures:
                 f.result()
