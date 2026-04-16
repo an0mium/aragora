@@ -496,6 +496,18 @@ def process_running(pattern: str) -> bool:
     return proc.returncode == 0 and bool(proc.stdout.strip())
 
 
+def wait_for_process(
+    pattern: str, *, timeout_seconds: float = 45.0, interval_seconds: float = 1.0
+) -> bool:
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        if process_running(pattern):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(interval_seconds)
+
+
 def should_restart_service(
     *,
     is_running: bool,
@@ -533,9 +545,10 @@ def restart_service_via_launchd(
     *,
     label: str,
     process_pattern: str,
+    start_timeout_seconds: float = 45.0,
 ) -> tuple[bool, str]:
     kicked, detail = kickstart_launchd(label)
-    if process_running(process_pattern):
+    if wait_for_process(process_pattern, timeout_seconds=start_timeout_seconds):
         return True, "" if kicked else detail
     if kicked:
         return (

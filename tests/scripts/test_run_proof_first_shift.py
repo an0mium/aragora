@@ -152,6 +152,41 @@ def test_kickstart_launchd_returns_timeout_detail_instead_of_raising() -> None:
     assert detail == "launchctl timed out"
 
 
+def test_restart_service_treats_kickstart_timeout_as_success_when_process_appears() -> None:
+    with (
+        patch(
+            "scripts.run_proof_first_shift.kickstart_launchd",
+            return_value=(False, "launchctl timed out"),
+        ),
+        patch("scripts.run_proof_first_shift.process_running", side_effect=[False, True]),
+        patch("scripts.run_proof_first_shift.time.sleep"),
+    ):
+        ok, detail = mod.restart_service_via_launchd(
+            label="com.aragora.swarm-boss-loop",
+            process_pattern="boss-loop",
+            start_timeout_seconds=5,
+        )
+
+    assert ok is True
+    assert detail == "launchctl timed out"
+
+
+def test_restart_service_waits_for_successful_kickstart_process_start() -> None:
+    with (
+        patch("scripts.run_proof_first_shift.kickstart_launchd", return_value=(True, "")),
+        patch("scripts.run_proof_first_shift.process_running", side_effect=[False, True]),
+        patch("scripts.run_proof_first_shift.time.sleep"),
+    ):
+        ok, detail = mod.restart_service_via_launchd(
+            label="com.aragora.swarm-boss-loop",
+            process_pattern="boss-loop",
+            start_timeout_seconds=5,
+        )
+
+    assert ok is True
+    assert detail == ""
+
+
 def test_run_shift_cycle_exhausts_restart_budget_within_shift_window() -> None:
     state = mod.ProofFirstRuntimeState(boss_restart_count=1, merge_restart_count=1)
 
