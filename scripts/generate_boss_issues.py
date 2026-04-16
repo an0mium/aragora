@@ -388,23 +388,40 @@ def maybe_decompose_candidates(
     return expanded
 
 
-def create_github_issue(repo: str, title: str, body: str, label: str) -> bool:
-    """Create a GitHub issue and return success."""
+def create_github_issue(
+    repo: str,
+    title: str,
+    body: str,
+    label: str,
+    *,
+    extra_labels: list[str] | None = None,
+) -> bool:
+    """Create a GitHub issue and return success.
+
+    ``extra_labels`` lets callers pass additional labels (e.g. ``autonomous``)
+    so issues meet the boss-loop dispatch contract that requires both
+    ``boss-ready`` and ``autonomous`` labels (#5997 followup).
+    """
+    cmd = [
+        "gh",
+        "issue",
+        "create",
+        "--repo",
+        repo,
+        "--title",
+        title,
+        "--body",
+        body,
+        "--label",
+        label,
+    ]
+    for extra in extra_labels or []:
+        extra = extra.strip()
+        if extra and extra != label:
+            cmd.extend(["--label", extra])
     try:
         result = subprocess.run(
-            [
-                "gh",
-                "issue",
-                "create",
-                "--repo",
-                repo,
-                "--title",
-                title,
-                "--body",
-                body,
-                "--label",
-                label,
-            ],
+            cmd,
             capture_output=True,
             text=True,
             timeout=30,
@@ -422,7 +439,16 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true", help="Preview without creating")
     parser.add_argument("--max-issues", type=int, default=20, help="Max issues to create")
     parser.add_argument("--categories", nargs="*", help="Filter to specific categories")
-    parser.add_argument("--label", default="boss-ready", help="Label for created issues")
+    parser.add_argument("--label", default="boss-ready", help="Primary label for created issues")
+    parser.add_argument(
+        "--extra-labels",
+        default="autonomous",
+        help=(
+            "Comma-separated additional labels appended to each created issue. "
+            "Default 'autonomous' satisfies the boss-loop dispatch contract that "
+            "requires both 'boss-ready' and 'autonomous'. Pass empty string to disable."
+        ),
+    )
     parser.add_argument(
         "--min-success-rate",
         type=float,
@@ -565,7 +591,16 @@ def main() -> None:
         failed = 0
         for i, (candidate, body) in enumerate(to_create, 1):
             print(f"  [{i}/{len(to_create)}] Creating: {candidate.title}...", end=" ")
-            if create_github_issue(args.repo, candidate.title, body, args.label):
+            extra_labels = [
+                label.strip() for label in (args.extra_labels or "").split(",") if label.strip()
+            ]
+            if create_github_issue(
+                args.repo,
+                candidate.title,
+                body,
+                args.label,
+                extra_labels=extra_labels,
+            ):
                 print("OK")
                 created += 1
             else:

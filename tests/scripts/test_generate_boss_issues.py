@@ -80,7 +80,9 @@ def test_main_dry_run_fetches_and_filters_like_real_mode(
     monkeypatch.setattr(
         mod,
         "create_github_issue",
-        lambda repo, title, body, label: (create_calls.append((repo, title, body, label)) or True),
+        lambda repo, title, body, label, **kwargs: (
+            create_calls.append((repo, title, body, label, kwargs.get("extra_labels", []))) or True
+        ),
     )
     monkeypatch.setattr(mod, "load_roadmap_priority_policy", lambda repo_root: None)
     monkeypatch.setattr(
@@ -134,7 +136,9 @@ def test_main_create_mode_trims_to_max_and_writes_fingerprint(
     monkeypatch.setattr(
         mod,
         "create_github_issue",
-        lambda repo, title, body, label: (created.append((repo, title, body, label)) or True),
+        lambda repo, title, body, label, **kwargs: (
+            created.append((repo, title, body, label, kwargs.get("extra_labels", []))) or True
+        ),
     )
     monkeypatch.setattr(mod.time, "sleep", lambda seconds: None)
     monkeypatch.setattr(
@@ -156,10 +160,11 @@ def test_main_create_mode_trims_to_max_and_writes_fingerprint(
     out = capsys.readouterr().out
     assert "Done: 1 created, 0 failed" in out
     assert len(created) == 1
-    repo, title, body, label = created[0]
+    repo, title, body, label, extra_labels = created[0]
     assert repo == "org/repo"
     assert title == first.title
     assert label == "lane:test"
+    assert extra_labels == ["autonomous"]
     assert f"<!-- fingerprint:{first.fingerprint} -->" in body
 
 
@@ -258,7 +263,9 @@ def test_main_non_boss_ready_label_allows_unknown_priority(monkeypatch, capsys) 
     monkeypatch.setattr(
         mod,
         "create_github_issue",
-        lambda repo, title, body, label: (created.append((repo, title, body, label)) or True),
+        lambda repo, title, body, label, **kwargs: (
+            created.append((repo, title, body, label, kwargs.get("extra_labels", []))) or True
+        ),
     )
     monkeypatch.setattr(mod.time, "sleep", lambda seconds: None)
     monkeypatch.setattr(
@@ -322,7 +329,9 @@ def test_main_boss_ready_allows_tw02_benchmark_follow_up_without_do_now_code(
     monkeypatch.setattr(
         mod,
         "create_github_issue",
-        lambda repo, title, body, label: (created.append((repo, title, body, label)) or True),
+        lambda repo, title, body, label, **kwargs: (
+            created.append((repo, title, body, label, kwargs.get("extra_labels", []))) or True
+        ),
     )
     monkeypatch.setattr(mod.time, "sleep", lambda seconds: None)
     monkeypatch.setattr(
@@ -827,3 +836,79 @@ def test_main_returns_error_when_open_pr_pagination_exhausted(monkeypatch, capsy
     assert mod.main() == 1
     out = capsys.readouterr().out
     assert "Error: open PR pagination exceeded configured cap (10 pages) for org/repo" in out
+
+
+def test_create_github_issue_passes_extra_labels_as_repeated_flags(monkeypatch) -> None:
+    """create_github_issue must add each extra label as its own --label flag.
+
+    Without this, issues created by generate_boss_issues.py only carry the
+    primary label and are skipped by the boss-loop dispatcher, which requires
+    both `boss-ready` and `autonomous` (#5997 followup).
+    """
+    captured: list[list[str]] = []
+
+    class _Result:
+        returncode = 0
+
+    def fake_run(cmd, **kwargs):
+        captured.append(list(cmd))
+        return _Result()
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    ok = mod.create_github_issue(
+        "org/repo",
+        "title",
+        "body",
+        "boss-ready",
+        extra_labels=["autonomous", "boss-ready", "  "],
+    )
+    assert ok is True
+    assert len(captured) == 1
+    cmd = captured[0]
+    assert cmd[:3] == ["gh", "issue", "create"]
+    label_flags = [cmd[i + 1] for i, token in enumerate(cmd) if token == "--label"]
+    assert label_flags == ["boss-ready", "autonomous"]
+
+
+def test_main_omits_extra_labels_when_disabled(monkeypatch, capsys) -> None:
+    """Passing --extra-labels='' yields a single primary label only."""
+
+    eligible = _candidate("eligible_module", file_scope=["aragora/eligible_module.py"])
+    created: list[tuple] = []
+    monkeypatch.setattr(
+        mod,
+        "scan_all",
+        lambda repo_root, categories=None, min_success_rate=0.3: [eligible],
+    )
+    monkeypatch.setattr(mod, "fetch_existing_boss_issues", lambda repo: [])
+    monkeypatch.setattr(mod, "fetch_open_pr_files", lambda repo: set())
+    monkeypatch.setattr(mod, "validate_body", lambda body: (True, ""))
+    monkeypatch.setattr(mod, "load_roadmap_priority_policy", lambda repo_root: None)
+    monkeypatch.setattr(
+        mod,
+        "create_github_issue",
+        lambda repo, title, body, label, **kwargs: (
+            created.append((repo, title, body, label, kwargs.get("extra_labels", []))) or True
+        ),
+    )
+    monkeypatch.setattr(mod.time, "sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "generate_boss_issues.py",
+            "--repo",
+            "org/repo",
+            "--max-issues",
+            "1",
+            "--label",
+            "lane:test",
+            "--extra-labels",
+            "",
+        ],
+    )
+
+    mod.main()
+
+    assert len(created) == 1
+    assert created[0][4] == []
