@@ -292,3 +292,34 @@ def test_publish_handoffs_creates_issue_with_labels(monkeypatch: Any, tmp_path: 
         "--add-label",
         "boss-ready,autonomous",
     ]
+
+
+def test_create_issue_truncates_oversized_body(monkeypatch: Any, tmp_path: Path) -> None:
+    bodies: list[str] = []
+
+    def fake_run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        if args[:3] == ["gh", "issue", "create"]:
+            bodies.append(args[args.index("--body") + 1])
+            return subprocess.CompletedProcess(
+                args, 0, "https://github.com/synaptent/aragora/issues/6000\n", ""
+            )
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(mod, "_run", fake_run)
+
+    mod._create_issue(
+        tmp_path,
+        "synaptent/aragora",
+        Handoff(
+            source_file=str(tmp_path / "memory.md"),
+            task_title="Long issue body",
+            priority="HIGH",
+            body="x" * (mod.MAX_ISSUE_BODY_CHARS + 1000),
+            labels={},
+            expires_at=None,
+        ),
+        labels=["boss-ready"],
+    )
+
+    assert len(bodies[0]) <= mod.MAX_ISSUE_BODY_CHARS
+    assert "truncated this issue body" in bodies[0]

@@ -26,6 +26,7 @@ DEFAULT_LABELS = ("boss-ready",)
 DEFAULT_LIMIT = 2
 DEFAULT_MAX_OPEN_ISSUES = 12
 DEFAULT_COMMAND_TIMEOUT_SECONDS = 45
+MAX_ISSUE_BODY_CHARS = 60_000
 DEFAULT_AUTOMATION_IDS = (
     "founder-review",
     "founder-triage",
@@ -433,7 +434,7 @@ def _create_issue(
         "--title",
         handoff.task_title,
         "--body",
-        handoff.body,
+        _fit_issue_body(handoff.body),
     ]
     for label in labels:
         args.extend(["--label", label])
@@ -443,6 +444,17 @@ def _create_issue(
     url = str(proc.stdout or "").strip().splitlines()[-1].strip()
     _add_issue_labels(repo_root, repo, url, labels)
     return url
+
+
+def _fit_issue_body(body: str) -> str:
+    if len(body) <= MAX_ISSUE_BODY_CHARS:
+        return body
+    suffix = (
+        "\n\n---\n"
+        "Automation publisher truncated this issue body because it exceeded "
+        "GitHub's size limit. See the source automation memory path above for full evidence."
+    )
+    return body[: MAX_ISSUE_BODY_CHARS - len(suffix)].rstrip() + suffix
 
 
 def _issue_number_from_url(url: str) -> str | None:
