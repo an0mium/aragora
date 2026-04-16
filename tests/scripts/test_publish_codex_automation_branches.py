@@ -82,6 +82,7 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
             _branch("codex/old", hours_ago=200),
             _branch("codex/merged"),
             _branch("codex/cherry-picked"),
+            _branch("codex/related-resolved"),
             _branch("codex/no-unique", unique_commit_count=0),
         ],
         [],
@@ -93,10 +94,12 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
             "codex/old": False,
             "codex/merged": True,
             "codex/cherry-picked": False,
+            "codex/related-resolved": False,
             "codex/no-unique": False,
         },
         is_patch_equivalent={"codex/cherry-picked": True},
         historical_pr_branches=set(),
+        resolved_related_branches={"codex/related-resolved"},
     )
 
     by_branch = {decision.branch: decision for decision in decisions}
@@ -104,6 +107,7 @@ def test_select_publishable_branches_skips_open_pr_and_old_or_merged_branches() 
     assert by_branch["codex/old"].reason == "older_than_cutoff"
     assert by_branch["codex/merged"].reason == "already_merged"
     assert by_branch["codex/cherry-picked"].reason == "patch_equivalent_to_base"
+    assert by_branch["codex/related-resolved"].reason == "related_resolved_work_exists"
     assert by_branch["codex/no-unique"].reason == "no_unique_commits"
 
 
@@ -141,6 +145,17 @@ def test_select_publishable_branches_skips_branches_with_historical_prs() -> Non
     )
 
     assert decisions[0].reason == "historical_pr_exists"
+
+
+def test_related_subjects_match_resolved_github_items() -> None:
+    assert mod._looks_related_subject(
+        "fix(autonomy): parse multiline github app keys",
+        "Support multiline GitHub App keys in automation env",
+    )
+    assert not mod._looks_related_subject(
+        "fix(playground): preserve mock debate receipts",
+        "Support multiline GitHub App keys in automation env",
+    )
 
 
 def test_open_pr_heads_counts_only_codex_branches(monkeypatch: Any, tmp_path: Path) -> None:

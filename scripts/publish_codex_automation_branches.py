@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -28,6 +29,15 @@ DEFAULT_GIT_TIMEOUT_SECONDS = 15
 DEFAULT_SCAN_LIMIT = 12
 CODEX_BRANCH_PREFIX = "codex/"
 DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
+STOPWORDS = {
+    "and",
+    "are",
+    "for",
+    "from",
+    "the",
+    "to",
+    "with",
+}
 ACTIVE_SESSION_FILES = (
     ".claude-session-active",
     ".codex_session_active",
@@ -297,6 +307,84 @@ def _branches_with_pr_history(repo_root: Path, repo: str, branches: list[str]) -
     return historical
 
 
+def _subject_tokens(subject: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", subject.lower())
+        if len(token) >= 3 and token not in STOPWORDS
+    }
+
+
+def _looks_related_subject(candidate: str, existing: str) -> bool:
+    candidate_tokens = _subject_tokens(candidate)
+    existing_tokens = _subject_tokens(existing)
+    if not candidate_tokens or not existing_tokens:
+        return candidate.strip().lower() == existing.strip().lower()
+    overlap = candidate_tokens & existing_tokens
+    return len(overlap) >= min(3, len(candidate_tokens))
+
+
+def _branches_with_resolved_related_work(
+    repo_root: Path,
+    repo: str,
+    branches: list[BranchSnapshot],
+) -> set[str]:
+    resolved: set[str] = set()
+    for branch in branches:
+        for command in (
+            [
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "all",
+                "--search",
+                branch.subject,
+                "--json",
+                "title,state",
+                "--limit",
+                "20",
+            ],
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "all",
+                "--search",
+                branch.subject,
+                "--json",
+                "title,state",
+                "--limit",
+                "20",
+            ],
+        ):
+            proc = _run(command, cwd=repo_root)
+            if proc.returncode != 0:
+                continue
+            payload = json.loads(proc.stdout or "[]")
+            if not isinstance(payload, list):
+                continue
+            for item in payload:
+                if not isinstance(item, dict):
+                    continue
+                state = str(item.get("state") or "").upper()
+                title = str(item.get("title") or "")
+                if state in {"MERGED", "CLOSED"} and _looks_related_subject(
+                    branch.subject,
+                    title,
+                ):
+                    resolved.add(branch.branch)
+                    break
+            if branch.branch in resolved:
+                break
+    return resolved
+
+
 def select_publishable_branches(
     branches: list[BranchSnapshot],
     worktrees: list[WorktreeSnapshot],
@@ -307,6 +395,7 @@ def select_publishable_branches(
     is_merged: dict[str, bool] | None = None,
     is_patch_equivalent: dict[str, bool] | None = None,
     historical_pr_branches: set[str] | None = None,
+    resolved_related_branches: set[str] | None = None,
 ) -> list[PublishDecision]:
     worktrees_by_branch: dict[str, list[WorktreeSnapshot]] = {}
     for worktree in worktrees:
@@ -316,6 +405,7 @@ def select_publishable_branches(
     merged_lookup = is_merged or {}
     patch_equivalent_lookup = is_patch_equivalent or {}
     historical_lookup = historical_pr_branches or set()
+    resolved_related_lookup = resolved_related_branches or set()
     decisions: list[PublishDecision] = []
 
     for branch in sorted(branches, key=lambda item: item.committed_at, reverse=True):
@@ -326,6 +416,8 @@ def select_publishable_branches(
             reason = "already_merged"
         elif patch_equivalent_lookup.get(branch.branch, False):
             reason = "patch_equivalent_to_base"
+        elif branch.branch in resolved_related_lookup:
+            reason = "related_resolved_work_exists"
         elif branch.unique_commit_count <= 0:
             reason = "no_unique_commits"
         elif branch.committed_at < cutoff:
@@ -641,6 +733,11 @@ def main(argv: list[str] | None = None) -> int:
         args.github_repo,
         [branch.branch for branch in hydrated_branches if branch.branch not in open_pr_heads],
     )
+    resolved_related_branches = _branches_with_resolved_related_work(
+        repo_root,
+        args.github_repo,
+        [branch for branch in hydrated_branches if branch.branch not in historical_pr_branches],
+    )
     decisions = select_publishable_branches(
         hydrated_branches,
         worktrees,
@@ -650,6 +747,7 @@ def main(argv: list[str] | None = None) -> int:
         is_merged=merged_lookup,
         is_patch_equivalent=patch_equivalent_lookup,
         historical_pr_branches=historical_pr_branches,
+        resolved_related_branches=resolved_related_branches,
     )
 
     payload: dict[str, Any] = {
