@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import io
 import json
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from aragora.server.handlers.costs import CostHandler, CostSummary
+from aragora.server.handlers.decision_analytics import DecisionAnalyticsHandler
 from aragora.server.handler_registry import (
     HANDLER_REGISTRY,
     HANDLERS_AVAILABLE,
@@ -364,6 +366,90 @@ class TestTryModularHandler:
         payload = json.loads(instance.wfile.getvalue())
         assert payload["data"]["total_cost_usd"] == 42.5
         assert payload["data"]["budget_usd"] == 100.0
+
+    @patch("aragora.server.auth.auth_config.enabled", False)
+    @patch("aragora.server.handler_registry.HANDLERS_AVAILABLE", True)
+    @patch("aragora.server.handler_registry.get_route_index")
+    @patch("aragora.server.handler_registry.version_response_headers", return_value={})
+    def test_dispatch_get_decision_analytics_uses_modular_contract(
+        self, mock_vrh, mock_gri
+    ) -> None:
+        handler = DecisionAnalyticsHandler()
+        analytics = MagicMock()
+        analytics.get_consensus_rate = AsyncMock(return_value=0.75)
+        analytics.get_average_rounds = AsyncMock(return_value=2.5)
+        debate_analytics = MagicMock()
+        debate_analytics.get_debate_stats = AsyncMock(
+            return_value=SimpleNamespace(total_debates=8, consensus_reached=6)
+        )
+        analytics._get_debate_analytics = MagicMock(return_value=debate_analytics)
+
+        mock_index = MagicMock()
+
+        def route_lookup(candidate: str) -> tuple[str, DecisionAnalyticsHandler] | None:
+            if candidate in DecisionAnalyticsHandler.ROUTES:
+                return "_decision_analytics_handler", handler
+            return None
+
+        mock_index.get_handler.side_effect = route_lookup
+        mock_gri.return_value = mock_index
+
+        for path in (
+            "/api/v1/decision-analytics/overview",
+            "/api/decision-analytics/overview",
+        ):
+            instance = _make_mixin_instance(
+                handler=handler,
+                handler_attr="_decision_analytics_handler",
+                method="GET",
+            )
+            instance.path = f"{path}?period=30d"
+            with (
+                patch(
+                    "aragora.server.middleware.rate_limit.should_apply_default_rate_limit",
+                    return_value=False,
+                ),
+                patch(
+                    "aragora.server.handlers.decision_analytics._get_outcome_analytics",
+                    return_value=analytics,
+                ),
+            ):
+                result = instance._try_modular_handler(path, {"period": ["30d"]})
+
+            assert result is True
+            instance.send_response.assert_called_once_with(200)
+            payload = json.loads(instance.wfile.getvalue())
+            assert payload["data"]["total_decisions"] == 8
+            assert payload["data"]["consensus_reached"] == 6
+            assert payload["data"]["period"] == "30d"
+
+    @patch("aragora.server.auth.auth_config.enabled", False)
+    @patch("aragora.server.handler_registry.HANDLERS_AVAILABLE", True)
+    @patch("aragora.server.handler_registry.get_route_index")
+    @patch("aragora.server.handler_registry.version_response_headers", return_value={})
+    def test_dispatch_post_decision_analytics_returns_method_not_allowed(
+        self, mock_vrh, mock_gri
+    ) -> None:
+        handler = DecisionAnalyticsHandler()
+        instance = _make_mixin_instance(
+            handler=handler,
+            handler_attr="_decision_analytics_handler",
+            method="POST",
+        )
+        mock_index = MagicMock()
+        mock_index.get_handler = MagicMock(return_value=("_decision_analytics_handler", handler))
+        mock_gri.return_value = mock_index
+
+        with patch(
+            "aragora.server.middleware.rate_limit.should_apply_default_rate_limit",
+            return_value=False,
+        ):
+            result = instance._try_modular_handler("/api/v1/decision-analytics/overview", {})
+
+        assert result is True
+        instance.send_response.assert_called_once_with(405)
+        payload = json.loads(instance.wfile.getvalue())
+        assert payload["error"] == "Method not allowed"
 
     @patch("aragora.server.auth.auth_config.enabled", False)
     @patch("aragora.server.handler_registry.HANDLERS_AVAILABLE", True)

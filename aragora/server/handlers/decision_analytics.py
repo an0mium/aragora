@@ -15,12 +15,14 @@ Issue: #281
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
 from aiohttp import web
 
 from aragora.server.handlers.utils.aiohttp_responses import web_error_response
+from aragora.server.handlers.utils.responses import HandlerResult
 from aragora.server.handlers.utils.rate_limit import rate_limit
 from aragora.server.handlers.api_decorators import api_endpoint
 from aragora.server.validation.query_params import safe_query_int
@@ -70,9 +72,104 @@ class DecisionAnalyticsHandler:
         "/api/decision-analytics/domains",
     ]
 
+    _GET_ROUTE_HANDLERS = {
+        "/api/v1/decision-analytics/overview": "handle_get_overview",
+        "/api/v1/decision-analytics/trends": "handle_get_trends",
+        "/api/v1/decision-analytics/outcomes": "handle_get_outcomes",
+        "/api/v1/decision-analytics/agents": "handle_get_agents",
+        "/api/v1/decision-analytics/domains": "handle_get_domains",
+        "/api/decision-analytics/overview": "handle_get_overview",
+        "/api/decision-analytics/trends": "handle_get_trends",
+        "/api/decision-analytics/outcomes": "handle_get_outcomes",
+        "/api/decision-analytics/agents": "handle_get_agents",
+        "/api/decision-analytics/domains": "handle_get_domains",
+    }
+
     def __init__(self, ctx: dict | None = None):
         """Initialize handler with optional context."""
         self.ctx = ctx or {}
+
+    def can_handle(self, path: str, method: str = "GET") -> bool:
+        """Return whether modular dispatch should route this analytics path here."""
+        return method == "GET" and path in self._GET_ROUTE_HANDLERS
+
+    def handle(self, path: str, query_params: dict[str, Any], handler: Any) -> HandlerResult | None:
+        """Route modular GET dispatch through the aiohttp-style handlers."""
+        if getattr(handler, "command", "GET") != "GET":
+            return HandlerResult(
+                status_code=405,
+                content_type="application/json",
+                body=json.dumps({"error": "Method not allowed"}).encode("utf-8"),
+                headers={"Allow": "GET"},
+            )
+        return self._run_async(self._dispatch_registry_request(path, query_params, handler))
+
+    @staticmethod
+    def _run_async(coro: Any) -> HandlerResult | None:
+        """Synchronously resolve async route helpers inside modular dispatch."""
+        from aragora.server.handler_registry.core import _run_handler_coroutine
+
+        return _run_handler_coroutine(coro)
+
+    @staticmethod
+    def _build_registry_request(
+        handler: Any,
+        *,
+        query_params: dict[str, Any],
+    ) -> Any:
+        """Build the minimal aiohttp-like request object expected by these routes."""
+
+        class _RequestAdapter:
+            def __init__(self) -> None:
+                self.query = query_params
+                self.match_info: dict[str, str] = {}
+                self.headers = getattr(handler, "headers", {}) or {}
+                self.method = getattr(handler, "command", "GET")
+                self._auth_context = getattr(handler, "_auth_context", None)
+
+        return _RequestAdapter()
+
+    @staticmethod
+    def _to_handler_result(response: Any) -> HandlerResult:
+        """Normalize aiohttp and handler responses to the modular HandlerResult type."""
+        if isinstance(response, HandlerResult):
+            return response
+        body = getattr(response, "body", b"")
+        if isinstance(body, bytearray):
+            body = bytes(body)
+        elif body is None:
+            text = getattr(response, "text", "") or ""
+            body = text.encode("utf-8")
+        content_type = getattr(response, "content_type", "application/json") or "application/json"
+        headers = dict(getattr(response, "headers", {}) or {})
+        status_code = getattr(response, "status_code", None)
+        if status_code is None:
+            status_code = getattr(response, "status", 200)
+        return HandlerResult(
+            status_code=int(status_code),
+            content_type=str(content_type),
+            body=body if isinstance(body, bytes) else json.dumps(body).encode("utf-8"),
+            headers=headers,
+        )
+
+    async def _dispatch_registry_request(
+        self,
+        path: str,
+        query_params: dict[str, Any],
+        handler: Any,
+    ) -> HandlerResult:
+        """Adapt modular-dispatch calls to the aiohttp-style route handlers."""
+        handler_name = self._GET_ROUTE_HANDLERS.get(path)
+        if handler_name is None:
+            return HandlerResult(
+                status_code=404,
+                content_type="application/json",
+                body=json.dumps({"error": "Not found"}).encode("utf-8"),
+                headers={},
+            )
+        route_handler = getattr(self, handler_name)
+        request = self._build_registry_request(handler, query_params=query_params)
+        return self._to_handler_result(await route_handler(request))
 
     # =========================================================================
     # GET /api/v1/decision-analytics/overview
