@@ -158,6 +158,13 @@ def test_related_subjects_match_resolved_github_items() -> None:
     )
 
 
+def test_related_search_queries_include_stable_nouns() -> None:
+    assert mod._related_search_queries("fix(autonomy): parse multiline github app keys") == [
+        "fix(autonomy): parse multiline github app keys",
+        "multiline github app keys",
+    ]
+
+
 def test_open_pr_heads_counts_only_codex_branches(monkeypatch: Any, tmp_path: Path) -> None:
     payload = """
     [

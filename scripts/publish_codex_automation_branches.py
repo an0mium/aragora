@@ -32,11 +32,26 @@ DEFAULT_PREFLIGHT_SCRIPT = "scripts/automation_pr_preflight.sh"
 STOPWORDS = {
     "and",
     "are",
+    "automation",
+    "autonomy",
+    "branches",
+    "chore",
+    "covered",
+    "docs",
+    "feat",
     "for",
     "from",
+    "fix",
+    "parse",
+    "publish",
+    "restore",
+    "resolved",
+    "skip",
+    "test",
     "the",
     "to",
     "with",
+    "work",
 }
 ACTIVE_SESSION_FILES = (
     ".claude-session-active",
@@ -308,11 +323,18 @@ def _branches_with_pr_history(repo_root: Path, repo: str, branches: list[str]) -
 
 
 def _subject_tokens(subject: str) -> set[str]:
-    return {
-        token
-        for token in re.findall(r"[a-z0-9]+", subject.lower())
-        if len(token) >= 3 and token not in STOPWORDS
-    }
+    return set(_ordered_subject_tokens(subject))
+
+
+def _ordered_subject_tokens(subject: str) -> list[str]:
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for token in re.findall(r"[a-z0-9]+", subject.lower()):
+        if len(token) < 3 or token in STOPWORDS or token in seen:
+            continue
+        seen.add(token)
+        tokens.append(token)
+    return tokens
 
 
 def _looks_related_subject(candidate: str, existing: str) -> bool:
@@ -324,6 +346,14 @@ def _looks_related_subject(candidate: str, existing: str) -> bool:
     return len(overlap) >= min(3, len(candidate_tokens))
 
 
+def _related_search_queries(subject: str) -> list[str]:
+    stable_tokens = _ordered_subject_tokens(subject)
+    queries = [subject]
+    if len(stable_tokens) >= 3:
+        queries.append(" ".join(stable_tokens))
+    return list(dict.fromkeys(query for query in queries if query.strip()))
+
+
 def _branches_with_resolved_related_work(
     repo_root: Path,
     repo: str,
@@ -331,54 +361,57 @@ def _branches_with_resolved_related_work(
 ) -> set[str]:
     resolved: set[str] = set()
     for branch in branches:
-        for command in (
-            [
-                "gh",
-                "pr",
-                "list",
-                "--repo",
-                repo,
-                "--state",
-                "all",
-                "--search",
-                branch.subject,
-                "--json",
-                "title,state",
-                "--limit",
-                "20",
-            ],
-            [
-                "gh",
-                "issue",
-                "list",
-                "--repo",
-                repo,
-                "--state",
-                "all",
-                "--search",
-                branch.subject,
-                "--json",
-                "title,state",
-                "--limit",
-                "20",
-            ],
-        ):
-            proc = _run(command, cwd=repo_root)
-            if proc.returncode != 0:
-                continue
-            payload = json.loads(proc.stdout or "[]")
-            if not isinstance(payload, list):
-                continue
-            for item in payload:
-                if not isinstance(item, dict):
+        for query in _related_search_queries(branch.subject):
+            for command in (
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--repo",
+                    repo,
+                    "--state",
+                    "all",
+                    "--search",
+                    query,
+                    "--json",
+                    "title,state",
+                    "--limit",
+                    "20",
+                ],
+                [
+                    "gh",
+                    "issue",
+                    "list",
+                    "--repo",
+                    repo,
+                    "--state",
+                    "all",
+                    "--search",
+                    query,
+                    "--json",
+                    "title,state",
+                    "--limit",
+                    "20",
+                ],
+            ):
+                proc = _run(command, cwd=repo_root)
+                if proc.returncode != 0:
                     continue
-                state = str(item.get("state") or "").upper()
-                title = str(item.get("title") or "")
-                if state in {"MERGED", "CLOSED"} and _looks_related_subject(
-                    branch.subject,
-                    title,
-                ):
-                    resolved.add(branch.branch)
+                payload = json.loads(proc.stdout or "[]")
+                if not isinstance(payload, list):
+                    continue
+                for item in payload:
+                    if not isinstance(item, dict):
+                        continue
+                    state = str(item.get("state") or "").upper()
+                    title = str(item.get("title") or "")
+                    if state in {"MERGED", "CLOSED"} and _looks_related_subject(
+                        branch.subject,
+                        title,
+                    ):
+                        resolved.add(branch.branch)
+                        break
+                if branch.branch in resolved:
                     break
             if branch.branch in resolved:
                 break
