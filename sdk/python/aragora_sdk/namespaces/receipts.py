@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import builtins
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from ..client import AragoraAsyncClient, AragoraClient
@@ -253,9 +254,10 @@ class ReceiptsAPI:
         Returns:
             Anchor verification status.
         """
+        encoded_receipt_id = quote(receipt_id, safe="")
         return self._client.request(
             "GET",
-            f"/api/v1/receipts/{receipt_id}/anchor-status",
+            f"/api/v1/receipts/{encoded_receipt_id}/anchor-status",
         )
 
     def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:
@@ -745,9 +747,10 @@ class AsyncReceiptsAPI:
 
     async def get_anchor_status(self, receipt_id: str) -> dict[str, Any]:
         """Get blockchain anchor status for a receipt."""
+        encoded_receipt_id = quote(receipt_id, safe="")
         return await self._client.request(
             "GET",
-            f"/api/v1/receipts/{receipt_id}/anchor-status",
+            f"/api/v1/receipts/{encoded_receipt_id}/anchor-status",
         )
 
     async def share(self, receipt_id: str, **kwargs: Any) -> dict[str, Any]:

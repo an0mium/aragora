@@ -194,17 +194,31 @@ class TestReceiptsDeliveryBridge:
             )
             client.close()
 
-    @pytest.mark.asyncio
-    async def test_async_get_anchor_status(self) -> None:
-        """Get receipt anchor status."""
-        with patch.object(AragoraAsyncClient, "request") as mock_request:
-            mock_request.return_value = {"receipt_id": "r_123", "anchored": True}
+    def test_get_anchor_status_encodes_receipt_id(self) -> None:
+        """Get receipt anchor status for IDs that contain path separators."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"receipt_id": "r/123", "anchored": True}
 
-            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
-            await client.receipts.get_anchor_status("r_123")
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            client.receipts.get_anchor_status("r/123")
 
             mock_request.assert_called_once_with(
                 "GET",
-                "/api/v1/receipts/r_123/anchor-status",
+                "/api/v1/receipts/r%2F123/anchor-status",
+            )
+            client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_get_anchor_status_encodes_receipt_id(self) -> None:
+        """Get receipt anchor status for IDs that contain path separators."""
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"receipt_id": "r/123", "anchored": True}
+
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai")
+            await client.receipts.get_anchor_status("r/123")
+
+            mock_request.assert_called_once_with(
+                "GET",
+                "/api/v1/receipts/r%2F123/anchor-status",
             )
             await client.close()
