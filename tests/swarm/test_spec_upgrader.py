@@ -474,3 +474,71 @@ def test_escalator_comment_failure_is_fail_closed():
             failure_context_summary="summary",
         )
     assert success is False
+
+
+import json
+
+from aragora.swarm.spec_upgrader import emit_upgrade_telemetry
+
+
+def test_emit_upgrade_telemetry_writes_jsonl(tmp_path):
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    upgrade_id = emit_upgrade_telemetry(
+        metrics_path=metrics_path,
+        issue_number=5898,
+        seam="A",
+        attempt_count=1,
+        status="upgraded",
+        upgrade_path="deterministic",
+        wall_clock_ms=432,
+        audit_failed=False,
+        escalation_failed=False,
+        llm_tokens_in=0,
+        llm_tokens_out=0,
+        failure_reasons=["acceptance criterion"],
+    )
+    assert metrics_path.exists()
+    line = metrics_path.read_text().strip()
+    record = json.loads(line)
+    assert record["event"] == "spec_upgrade"
+    assert record["upgrade_id"] == upgrade_id
+    assert record["issue_number"] == 5898
+    assert record["seam"] == "A"
+    assert record["status"] == "upgraded"
+
+
+def test_emit_upgrade_telemetry_appends(tmp_path):
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    emit_upgrade_telemetry(
+        metrics_path=metrics_path,
+        issue_number=1,
+        seam="A",
+        attempt_count=1,
+        status="upgraded",
+        upgrade_path="deterministic",
+        wall_clock_ms=1,
+        audit_failed=False,
+        escalation_failed=False,
+        llm_tokens_in=0,
+        llm_tokens_out=0,
+        failure_reasons=[],
+    )
+    emit_upgrade_telemetry(
+        metrics_path=metrics_path,
+        issue_number=2,
+        seam="B",
+        attempt_count=2,
+        status="escalated",
+        upgrade_path="deterministic+llm",
+        wall_clock_ms=2,
+        audit_failed=False,
+        escalation_failed=False,
+        llm_tokens_in=10,
+        llm_tokens_out=20,
+        failure_reasons=["constraint"],
+    )
+    lines = metrics_path.read_text().strip().splitlines()
+    assert len(lines) == 2
+    recs = [json.loads(lin) for lin in lines]
+    assert recs[0]["issue_number"] == 1
+    assert recs[1]["issue_number"] == 2

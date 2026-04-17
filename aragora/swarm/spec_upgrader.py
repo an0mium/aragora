@@ -10,6 +10,7 @@ import json
 import re
 import subprocess
 import time
+import uuid
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
@@ -404,6 +405,48 @@ class AuditPersistence:
                 body,
             ]
         )
+
+
+def emit_upgrade_telemetry(
+    *,
+    metrics_path: Path,
+    issue_number: int,
+    seam: Literal["A", "B"],
+    attempt_count: int,
+    status: UpgradeStatus,
+    upgrade_path: UpgradePath | None,
+    wall_clock_ms: int,
+    audit_failed: bool,
+    escalation_failed: bool,
+    llm_tokens_in: int,
+    llm_tokens_out: int,
+    failure_reasons: list[str],
+) -> str:
+    """Append a per-upgrade row to ``boss_metrics.jsonl``.
+
+    Returns the generated ``upgrade_id`` so callers can reference it from
+    dispatch records (see design doc ``upgrade_refs``).
+    """
+    upgrade_id = str(uuid.uuid4())
+    record = {
+        "event": "spec_upgrade",
+        "upgrade_id": upgrade_id,
+        "issue_number": issue_number,
+        "seam": seam,
+        "attempt_count": attempt_count,
+        "status": status,
+        "upgrade_path": upgrade_path,
+        "wall_clock_ms": wall_clock_ms,
+        "audit_failed": audit_failed,
+        "escalation_failed": escalation_failed,
+        "llm_tokens_in": llm_tokens_in,
+        "llm_tokens_out": llm_tokens_out,
+        "failure_reasons": failure_reasons,
+    }
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    with metrics_path.open("a") as f:
+        f.write(json.dumps(record) + "\n")
+    return upgrade_id
 
     def _gh_update_comment(self, *, comment_id: int, body: str) -> None:
         # gh does not expose direct comment edit; use gh api
