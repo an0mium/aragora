@@ -456,6 +456,18 @@ def aggregate_b0_issues(rows: list[dict[str, Any]]) -> list[IssueMetricsAggregat
     return [issues[number] for number in sorted(issues)]
 
 
+def _payload_dict_items(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    if isinstance(value, tuple):
+        return [item for item in value if isinstance(item, dict)]
+    if isinstance(value, dict):
+        nodes = value.get("nodes")
+        if isinstance(nodes, list):
+            return [item for item in nodes if isinstance(item, dict)]
+    return []
+
+
 def extract_pr_numbers_from_issue(
     repo: str, issue_payload: dict[str, Any], *, strict: bool = False
 ) -> list[int]:
@@ -474,9 +486,7 @@ def extract_pr_numbers_from_issue(
 
     expected_repo = repo.lower()
     found: set[int] = set()
-    for pr_payload in issue_payload.get("closedByPullRequestsReferences", []):
-        if not isinstance(pr_payload, dict):
-            continue
+    for pr_payload in _payload_dict_items(issue_payload.get("closedByPullRequestsReferences")):
         pr_repo = pr_payload.get("repository")
         if isinstance(pr_repo, dict):
             owner = pr_repo.get("owner")
@@ -489,9 +499,7 @@ def extract_pr_numbers_from_issue(
             found.add(pr_number)
     if strict:
         return sorted(found)
-    for comment in issue_payload.get("comments", []):
-        if not isinstance(comment, dict):
-            continue
+    for comment in _payload_dict_items(issue_payload.get("comments")):
         body = str(comment.get("body") or "")
         for match in PR_URL_RE.finditer(body):
             if match.group(1).lower() != expected_repo:
