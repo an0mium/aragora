@@ -1,0 +1,48 @@
+{
+  "baseline": {
+    "consensus_reached": true,
+    "duration_s": 0.001,
+    "final_answer_len": 269,
+    "has_receipt": true,
+    "num_messages": 12,
+    "receipt_md_len": 510,
+    "rounds_completed": 0
+  },
+  "diffs": {
+    "convergence_vs_baseline": {
+      "receipt_md_len": [
+        510,
+        520
+      ]
+    },
+    "trickster_vs_baseline": {
+      "duration_s": [
+        0.001,
+        0.003
+      ],
+      "final_answer_len": [
+        269,
+        216
+      ]
+    }
+  },
+  "enable_convergence": {
+    "consensus_reached": true,
+    "duration_s": 0.001,
+    "final_answer_len": 269,
+    "has_receipt": true,
+    "num_messages": 12,
+    "receipt_md_len": 520,
+    "rounds_completed": 0
+  },
+  "enable_trickster": {
+    "consensus_reached": true,
+    "duration_s": 0.003,
+    "final_answer_len": 216,
+    "has_receipt": true,
+    "num_messages": 12,
+    "receipt_md_len": 510,
+    "rounds_completed": 0
+  },
+  "outcome": "ok"
+}

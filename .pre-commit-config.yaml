@@ -48,13 +48,15 @@ repos:
         # Run on pre-push to catch type errors before they hit CI
         stages: [pre-push]
 
-  # Secret detection with gitleaks
+  # Secret detection with gitleaks - also runs at commit-time (not just pre-push)
+  # so credentials are caught before they reach history, not just before push.
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.18.4
+    rev: v8.30.0
     hooks:
       - id: gitleaks
         name: Detect secrets with gitleaks
         description: Prevent secrets from being committed
+        stages: [pre-commit, pre-push]
 
   # RBAC coverage check - prevent regression in permission coverage
   - repo: local

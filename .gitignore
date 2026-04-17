@@ -222,3 +222,8 @@ shoggoth/
 fire-alarm-essay-v3.md
 unified-outline.md
 MagicMock/
+
+# Forensic scan outputs that contain real exposed secrets (would re-expose if committed)
+benchmarks/bench_readiness/incident_scans/raw/
+benchmarks/bench_readiness/incident_scans/RingRift_gitleaks.json
+benchmarks/bench_readiness/incident_scans/aragora_gitleaks.json

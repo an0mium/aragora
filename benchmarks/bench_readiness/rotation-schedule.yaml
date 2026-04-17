@@ -1,0 +1,111 @@
+# Aragora secret rotation schedule
+# Generated: 2026-04-17
+# Source: scripts/secrets_manager.py (SECRETS_REGISTRY)
+#
+# This file is a HUMAN-READABLE SNAPSHOT of the rotation policy baked into
+# secrets_manager.py. It is NOT the source of truth; it is a derived view
+# used for calendar reminders and incident tracking.
+#
+# To rotate any single key:   python scripts/secrets_manager.py rotate <NAME>
+# To check live status:        python scripts/secrets_manager.py status
+
+meta:
+  generated: "2026-04-17"
+  project: aragora
+  # Rotations completed during incident response this session:
+  session_rotations:
+    - env_var: OPENAI_API_KEY
+      rotated_at: "2026-04-17"
+      trigger: "proactive rotation after HIGH-GRAVITY incident"
+    - env_var: OPENROUTER_API_KEY
+      rotated_at: "2026-04-17"
+      trigger: "proactive rotation after HIGH-GRAVITY incident"
+
+rotation_policy:
+
+  # CRITICAL (P0) — rotate every 90 days
+  llm_api_keys:
+    rotation_days: 90
+    owners: [armand@synaptent.com]
+    keys:
+      - env_var: ANTHROPIC_API_KEY
+        last_rotated: null      # Disabled after 2026-04-07 leak to HIGH-GRAVITY
+        status: DISABLED
+        next_action: "Regain account access, issue new key, distribute"
+        priority: P0-BLOCKED
+
+      - env_var: OPENAI_API_KEY
+        last_rotated: "2026-04-17"
+        next_due: "2026-07-16"
+        status: ACTIVE
+        priority: P1
+
+      - env_var: OPENROUTER_API_KEY
+        last_rotated: "2026-04-17"
+        next_due: "2026-07-16"
+        status: ACTIVE
+        priority: P1  # also serves as universal frontier fallback
+
+      - env_var: GEMINI_API_KEY
+        last_rotated: null
+        next_due: "unknown - oldest key"
+        status: ACTIVE
+        priority: P2
+        notes: "Not in HIGH-GRAVITY dump (tail QuOglZ6zuc not present)"
+
+      - env_var: MISTRAL_API_KEY
+        last_rotated: null
+        next_due: "unknown"
+        status: UNUSED_401
+      - env_var: XAI_API_KEY
+        status: ACTIVE
+      - env_var: DEEPSEEK_API_KEY
+        status: ACTIVE
+
+  # INTERNAL (signing/encryption) — long-lived
+  internal_secrets:
+    keys:
+      - env_var: ARAGORA_JWT_SECRET
+        rotation_days: 30
+        priority: P1
+      - env_var: ARAGORA_ENCRYPTION_KEY
+        rotation_days: 365
+        priority: P0  # data-at-rest; rotate with data migration
+      - env_var: ARAGORA_AUDIT_SIGNING_KEY
+        rotation_days: 90
+      - env_var: ARAGORA_RECEIPT_SIGNING_KEY
+        rotation_days: 90
+
+  # OAUTH
+  oauth_secrets:
+    rotation_days: 90
+    keys:
+      - env_var: GOOGLE_OAUTH_CLIENT_SECRET
+      - env_var: GITHUB_OAUTH_CLIENT_SECRET
+      - env_var: SLACK_CLIENT_SECRET
+      - env_var: SLACK_SIGNING_SECRET
+
+  # INFRASTRUCTURE
+  infrastructure:
+    rotation_days: 365
+    keys:
+      - env_var: DATABASE_URL
+      - env_var: SUPABASE_KEY
+      - env_var: REDIS_URL
+
+  # BILLING
+  billing:
+    rotation_days: 90
+    keys:
+      - env_var: STRIPE_SECRET_KEY
+        priority: P0
+      - env_var: STRIPE_WEBHOOK_SECRET
+        priority: P0
+
+# Next scheduled rotation calendar (90-day cadence from 2026-04-17)
+calendar:
+  2026-07-16:
+    - OPENAI_API_KEY
+    - OPENROUTER_API_KEY
+  ROTATE_NOW:
+    - ANTHROPIC_API_KEY  # blocked on account access

@@ -1,0 +1,137 @@
+{
+  "bench_readiness_verdict": {
+    "blockers": [
+      "aragora gauntlet --local exits 1 at 25% progress with no user-visible error - still needs a fix to surface the failure path",
+      "Full Arena orchestrator cannot run offline with demo agents - Tier-1 ablation still uses standalone aragora-debate"
+    ],
+    "recommended_next_steps": [
+      "Tier-2: run SWE-bench-lite harness on full Arena using the rotated OpenAI key + OpenRouter Opus 4.7 fallback",
+      "Pin DECLARED_MODEL_PINS in harness config; record actual routed model in each debate receipt",
+      "Add --mock-agents to gauntlet so offline smoke tests cover that code path",
+      "Regain Anthropic account access and rotate ANTHROPIC_API_KEY to enable direct-provider path (currently routed through OpenRouter)"
+    ],
+    "resolved_2026-04-17": [
+      "ANTHROPIC_API_KEY 401: now auto-falls-back to anthropic/claude-opus-4.7 via OpenRouter at every call site",
+      "OPENAI_API_KEY 429: rotated via scripts/secrets_manager.py rotate OPENAI_API_KEY",
+      "OPENROUTER_API_KEY: rotated proactively alongside the OpenAI key",
+      "google-generativeai missing: no longer required; Gemini agent routes to google/gemini-3.1-pro via OpenRouter",
+      "aragora demo without --offline: still times out, but is now a UX bug not a capability gap - all providers resolve to frontier pins via OpenRouter"
+    ],
+    "security_posture_2026-04-17": {
+      "actions_log_scan_last_30_runs": "0 key-shaped patterns in 30k log lines",
+      "anthropic_key_leaked_to_high-gravity": "auto-revoked by Anthropic 2026-04-07; no active exposure",
+      "github_secret_scanning_alerts": "all 9 false-positives dismissed",
+      "gitleaks_pre_commit": "installed at pre-commit AND pre-push stages",
+      "incident_report": "benchmarks/bench_readiness/incident_2026-04-07_high-gravity.md",
+      "public_repo_gitleaks_scan": "19 repos scanned, 0 real credential leaks",
+      "rotation_schedule_snapshot": "benchmarks/bench_readiness/rotation-schedule.yaml"
+    },
+    "tier1_standalone_ablation": "ready",
+    "tier2_full_platform_e2e": "ready_via_openrouter"
+  },
+  "declared_model_pins": {
+    "anthropic": "claude-opus-4-7",
+    "built-in.demo": "demo",
+    "gemini": "gemini-3.1-pro-preview",
+    "mistral": "mistral-large-2512",
+    "openai": "gpt-4.1",
+    "openrouter.deepseek": "deepseek/deepseek-reasoner",
+    "openrouter.kimi": "moonshotai/kimi-k2-0905",
+    "openrouter.llama": "meta-llama/llama-3.3-70b-instruct",
+    "openrouter.qwen": "qwen/qwen3-max",
+    "xai": "grok-4-latest"
+  },
+  "generated_at_utc": "2026-04-17T22:39:02.207491+00:00",
+  "manifest_version": 1,
+  "phase_b_flag_ablation": {
+    "note": "10/10 flags timed out; full aragora Arena cannot run a deterministic 3-demo-agent 1-round debate within 30s. Use aragora-debate standalone for Tier-1 ablation.",
+    "status": "run",
+    "summary": {
+      "timeout_off": 9,
+      "timeout_on": 1
+    },
+    "total_flags": 10
+  },
+  "phase_b_standalone_ablation": {
+    "baseline_duration_s": 0.001,
+    "baseline_messages": 12,
+    "convergence_changed_keys": [
+      "receipt_md_len"
+    ],
+    "status": "ok",
+    "trickster_changed_keys": [
+      "duration_s",
+      "final_answer_len"
+    ]
+  },
+  "phase_c_cli_e2e": {
+    "api_keys": {
+      "ANTHROPIC_API_KEY": {
+        "error": "401 authentication_error, invalid x-api-key",
+        "status": "invalid"
+      },
+      "GEMINI_API_KEY": {
+        "error": "google-generativeai package not in venv",
+        "status": "unusable"
+      },
+      "OPENAI_API_KEY": {
+        "error": "429 rate limit / quota exceeded",
+        "status": "quota_exceeded"
+      },
+      "OPENROUTER_API_KEY": {
+        "status": "ok"
+      }
+    },
+    "commands": {
+      "aragora demo": {
+        "error": "Debate timed out after 30s; README advertises this as the one-line demo but it silently tries real LLMs and hits stale keys",
+        "outcome": "fail",
+        "remediation": "README should document `--offline` as the no-key path; `aragora demo --offline` works and produces a receipt in ~1s"
+      },
+      "aragora demo --offline": {
+        "duration_s": "<1",
+        "notes": "Produces DR-MOCK-* receipt with SHA-256 hash, 4 mock agents, 2 rounds, 74% confidence. Receipt saved to ./aragora-demo-receipt.json",
+        "outcome": "ok"
+      },
+      "aragora gauntlet --local --profile quick": {
+        "exit_code": 1,
+        "outcome": "fail",
+        "remediation": "Either (a) document that gauntlet requires a valid Anthropic/OpenAI key even with --local, or (b) add a --mock-agents option that mirrors `demo --offline` for gauntlet",
+        "symptom": "Stops at 25% progress (Stress Testing); no receipt written to --output path; exits 1 with no user-visible error"
+      },
+      "aragora quickstart --demo": {
+        "duration_s": "<1",
+        "notes": "Produces quickstart-demo-* receipt in 0.0s; opens HTML preview in browser",
+        "outcome": "ok"
+      }
+    },
+    "implications_for_benchmark": [
+      "Tier-1 ablation harness must run against the standalone aragora-debate package (Debate class). Full Arena orchestrator drags in network calls, pipeline stages, and an execution gate even for pure demo agents, blocking offline ablation.",
+      "Tier-2 end-to-end harness requires (a) rotating Anthropic and OpenAI keys in .env, (b) installing google-generativeai, and (c) either fixing the silent-failure path in `aragora gauntlet --local` or routing through OPENROUTER_API_KEY as the sole functional provider.",
+      "The README's 'pip install aragora && aragora demo' headline is factually incorrect on the current build; demo falls back to real LLMs and times out without --offline. This should be fixed before any commercial measurement because it's the first command a new user runs."
+    ],
+    "timestamp": "2026-04-17"
+  },
+  "platform": {
+    "machine": "arm64",
+    "python_implementation": "CPython",
+    "python_version": "3.11.11",
+    "release": "25.2.0",
+    "system": "Darwin"
+  },
+  "repo": {
+    "clean_working_tree": false,
+    "git_branch": "main",
+    "git_sha": "dda5581b2717b9df6f5abb194caac08d6b900c38",
+    "git_short_sha": "dda5581b2",
+    "head_committer_date": "2026-04-17T11:50:50-05:00",
+    "head_subject": "fix(preflight): structured field-level drift diagnostics (#6148)",
+    "root": "/Users/armand/Development/aragora"
+  },
+  "venv": {
+    "packages_count": 324,
+    "pip_freeze_hash": "sha256:cb799f467ce146638eba22d5b590e931bfee0f5d1162197c3ba26ed82b9a4204",
+    "python_bin": "/Users/armand/Development/aragora/.venv/bin/python",
+    "python_bin_exists": true
+  }
+}
