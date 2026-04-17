@@ -1,7 +1,5 @@
 # Crux Finder Mode — Design
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
-
 **Goal:** Elevate aragora's existing crux-detection machinery into a first-class, user-facing debate goal with distinct positioning: *"aragora can give you an answer, or aragora can show you where reasonable people diverge."* Ship a thin-wiring MVP (Approach A) that exposes the latent `CruxDetector` via a new consensus mode, a dedicated signed receipt, and a `aragora crux` CLI verb. Gate the deeper protocol-shaping work (Approach B) on dogfood signal from A.
 
 **Architecture:** Additive only. No new subsystems; no breaking changes to existing debate/consensus/receipt code. One new consensus mode string (`crux_finder`), one new proof-builder function (mirrors `build_proof_from_prover_estimator`), one new dataclass (`CruxReceipt`), one new CLI command module. All leverage existing `aragora.reasoning.crux_detector.CruxDetector`, existing `BeliefNetwork` population in `aragora.debate.phases.belief_analysis`, and existing SHA-256 signing pattern from `aragora.gauntlet.receipt_models.ConsensusProof.checksum`.
