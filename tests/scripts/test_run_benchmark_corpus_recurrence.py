@@ -169,6 +169,104 @@ def test_run_recurrence_rotates_metrics_appends_closed_rows_and_dispatches_open_
     assert payloads[1]["terminal_class"] == "deliverable_pr_created"
 
 
+def test_run_recurrence_records_open_issues_skipped_by_dispatch_label(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 9,
+            "recorded_on": "2026-04-17",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [{"issue_id": 5818, "title": "Open stuck issue"}],
+        },
+    )
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text("", encoding="utf-8")
+
+    def fake_append_iteration_metrics(
+        *,
+        metrics_jsonl_path: str | None,
+        outcome_learner_window: int,
+        deferred_queue_depth: int,
+        iteration: int,
+        issue_number: int | None,
+        worker_result: dict[str, object],
+        elapsed_seconds: float,
+        files_changed: int,
+        tests_run: int,
+        tests_passed: int,
+    ) -> None:
+        del outcome_learner_window, deferred_queue_depth, iteration, elapsed_seconds
+        del files_changed, tests_run, tests_passed
+        assert metrics_jsonl_path is not None
+        payload = {
+            "issue_number": issue_number,
+            "issue_title": worker_result.get("issue_title"),
+            "worker_status": worker_result.get("status"),
+            "worker_outcome": worker_result.get("outcome"),
+            "failure_reason": list(worker_result.get("reasons") or [""])[0],
+            "terminal_class": "blocked_not_dispatch_bounded",
+        }
+        with Path(metrics_jsonl_path).open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload) + "\n")
+
+    monkeypatch.setattr(mod, "append_iteration_metrics", fake_append_iteration_metrics)
+
+    def runner(
+        cmd: list[str],
+        *,
+        capture_output: bool = False,
+        text: bool = False,
+        check: bool = False,
+        cwd: str | None = None,
+    ) -> SimpleNamespace:
+        del capture_output, text, check, cwd
+        if cmd[:3] == ["gh", "issue", "view"]:
+            return SimpleNamespace(
+                returncode=0,
+                stdout=json.dumps(
+                    {
+                        "number": 5818,
+                        "state": "OPEN",
+                        "title": "Open stuck issue",
+                        "labels": [{"name": "boss-stuck"}],
+                    }
+                ),
+                stderr="",
+            )
+        raise AssertionError("boss loop should not run for dispatch-skipped issue")
+
+    summary = mod.run_recurrence(
+        corpus_path=corpus_path,
+        repo="synaptent/aragora",
+        metrics_file=metrics_path,
+        runner=runner,
+    )
+
+    assert summary["open_issue_numbers"] == [5818]
+    assert summary["dispatchable_open_issue_numbers"] == []
+    assert summary["skipped_open_issue_numbers"] == [5818]
+    assert summary["synthetic_skipped_issue_numbers"] == [5818]
+    assert summary["boss_loop_command"] is None
+    assert summary["recorded_issue_numbers"] == [5818]
+    assert summary["missing_issue_numbers"] == []
+
+    payloads = _load_metrics(metrics_path)
+    assert payloads == [
+        {
+            "issue_number": 5818,
+            "issue_title": "Open stuck issue",
+            "worker_status": "needs_human",
+            "worker_outcome": "blocked",
+            "failure_reason": "Skipped by dispatch label: boss-stuck",
+            "terminal_class": "blocked_not_dispatch_bounded",
+        }
+    ]
+
+
 def test_run_recurrence_raises_when_open_issue_still_missing_from_metrics(
     tmp_path: Path,
     monkeypatch,

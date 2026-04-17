@@ -20,6 +20,7 @@ from rotate_boss_metrics import DEFAULT_METRICS_PATH, rotate_metrics_file
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_OUTCOME_LEARNER_WINDOW = 500
 DEFAULT_TICKS_PER_OPEN_ISSUE = 3
+DEFAULT_DISPATCH_SKIP_LABELS = frozenset({"boss-stuck", "boss-invalid", "boss-quarantined"})
 
 
 def corpus_issue_numbers(corpus: dict[str, Any]) -> list[int]:
@@ -57,13 +58,13 @@ def _run_json_object(
     return payload
 
 
-def filter_open_issue_numbers(
+def fetch_issue_metadata(
     repo: str,
     issue_numbers: list[int],
     *,
     runner: Any = subprocess.run,
-) -> list[int]:
-    open_numbers: list[int] = []
+) -> dict[int, dict[str, Any]]:
+    metadata: dict[int, dict[str, Any]] = {}
     for issue_number in issue_numbers:
         payload = _run_json_object(
             [
@@ -74,13 +75,39 @@ def filter_open_issue_numbers(
                 "--repo",
                 repo,
                 "--json",
-                "number,state",
+                "number,state,labels,title",
             ],
             runner=runner,
         )
-        if str(payload.get("state") or "").strip().upper() == "OPEN":
-            open_numbers.append(issue_number)
-    return open_numbers
+        labels: list[str] = []
+        for label in list(payload.get("labels") or []):
+            if isinstance(label, dict):
+                label_name = str(label.get("name") or "").strip()
+            else:
+                label_name = str(label or "").strip()
+            if label_name:
+                labels.append(label_name)
+        metadata[issue_number] = {
+            "number": int(payload.get("number") or issue_number),
+            "state": str(payload.get("state") or "").strip().upper(),
+            "labels": labels,
+            "title": str(payload.get("title") or "").strip(),
+        }
+    return metadata
+
+
+def filter_open_issue_numbers(
+    repo: str,
+    issue_numbers: list[int],
+    *,
+    runner: Any = subprocess.run,
+) -> list[int]:
+    metadata = fetch_issue_metadata(repo, issue_numbers, runner=runner)
+    return [
+        issue_number
+        for issue_number in issue_numbers
+        if metadata.get(issue_number, {}).get("state") == "OPEN"
+    ]
 
 
 def append_closed_issue_rows(
@@ -107,6 +134,50 @@ def append_closed_issue_rows(
                 "outcome": "issue_already_resolved",
                 "issue_title": title,
                 "receipt_metadata": {"issue_title": title},
+            },
+            elapsed_seconds=0.0,
+            files_changed=0,
+            tests_run=0,
+            tests_passed=0,
+        )
+        appended.append(issue_number)
+    return appended
+
+
+def append_skipped_open_issue_rows(
+    *,
+    metrics_file: Path,
+    skipped_issue_numbers: list[int],
+    issue_titles: dict[int, str],
+    skip_label_map: dict[int, list[str]],
+    start_iteration: int = 1,
+    dry_run: bool = False,
+) -> list[int]:
+    if dry_run:
+        return list(skipped_issue_numbers)
+
+    appended: list[int] = []
+    for offset, issue_number in enumerate(skipped_issue_numbers):
+        title = issue_titles.get(issue_number, "")
+        labels = skip_label_map.get(issue_number) or []
+        label_text = ", ".join(labels) or "dispatch skip label"
+        append_iteration_metrics(
+            metrics_jsonl_path=str(metrics_file),
+            outcome_learner_window=DEFAULT_OUTCOME_LEARNER_WINDOW,
+            deferred_queue_depth=0,
+            iteration=start_iteration + offset,
+            issue_number=issue_number,
+            worker_result={
+                "status": "needs_human",
+                "outcome": "blocked",
+                "issue_title": title,
+                "receipt_metadata": {
+                    "issue_title": title,
+                    "blocker_evidence": {"skip_labels": labels},
+                },
+                "reasons": [f"Skipped by dispatch label: {label_text}"],
+                "blocker_kind": "dispatch_skip_label",
+                "blocker_evidence": {"skip_labels": labels},
             },
             elapsed_seconds=0.0,
             files_changed=0,
@@ -193,7 +264,30 @@ def run_recurrence(
     corpus = load_corpus(corpus_path)
     issue_numbers = corpus_issue_numbers(corpus)
     issue_titles = corpus_issue_titles(corpus)
-    open_issue_numbers = filter_open_issue_numbers(repo, issue_numbers, runner=runner)
+    issue_metadata = fetch_issue_metadata(repo, issue_numbers, runner=runner)
+    open_issue_numbers = [
+        issue_number
+        for issue_number in issue_numbers
+        if issue_metadata.get(issue_number, {}).get("state") == "OPEN"
+    ]
+    skip_label_map = {
+        issue_number: sorted(
+            {
+                label
+                for label in list(issue_metadata.get(issue_number, {}).get("labels") or [])
+                if label in DEFAULT_DISPATCH_SKIP_LABELS
+            }
+        )
+        for issue_number in open_issue_numbers
+    }
+    skipped_open_issue_numbers = [
+        issue_number for issue_number in open_issue_numbers if skip_label_map.get(issue_number)
+    ]
+    dispatchable_open_issue_numbers = [
+        issue_number
+        for issue_number in open_issue_numbers
+        if issue_number not in set(skipped_open_issue_numbers)
+    ]
     closed_issue_numbers = sorted(set(issue_numbers) - set(open_issue_numbers))
     rotate_summary = rotate_metrics_file(metrics_file, dry_run=dry_run)
     synthetic_resolved_issue_numbers = append_closed_issue_rows(
@@ -202,17 +296,25 @@ def run_recurrence(
         issue_titles=issue_titles,
         dry_run=dry_run,
     )
+    synthetic_skipped_issue_numbers = append_skipped_open_issue_rows(
+        metrics_file=metrics_file,
+        skipped_issue_numbers=skipped_open_issue_numbers,
+        issue_titles=issue_titles,
+        skip_label_map=skip_label_map,
+        start_iteration=len(closed_issue_numbers) + 1,
+        dry_run=dry_run,
+    )
     command = (
         build_boss_loop_command(
             repo=repo,
-            issue_numbers=open_issue_numbers,
+            issue_numbers=dispatchable_open_issue_numbers,
             max_ticks=max_ticks,
             interval_seconds=interval_seconds,
             max_consecutive_failures=max_consecutive_failures,
             autonomy=autonomy,
             max_hours=max_hours,
         )
-        if open_issue_numbers
+        if dispatchable_open_issue_numbers
         else None
     )
     boss_loop_exit_code: int | None = None
@@ -234,8 +336,11 @@ def run_recurrence(
         "metrics_file": str(metrics_file),
         "issue_numbers": issue_numbers,
         "open_issue_numbers": open_issue_numbers,
+        "dispatchable_open_issue_numbers": dispatchable_open_issue_numbers,
+        "skipped_open_issue_numbers": skipped_open_issue_numbers,
         "closed_issue_numbers": closed_issue_numbers,
         "synthetic_resolved_issue_numbers": synthetic_resolved_issue_numbers,
+        "synthetic_skipped_issue_numbers": synthetic_skipped_issue_numbers,
         "recorded_issue_numbers": recorded_numbers,
         "missing_issue_numbers": missing_issue_numbers,
         "rotated_metrics": rotate_summary,
