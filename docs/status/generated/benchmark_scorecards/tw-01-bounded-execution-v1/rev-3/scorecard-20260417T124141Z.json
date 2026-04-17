@@ -1,0 +1,92 @@
+{
+  "corpus": {
+    "corpus_id": "tw-01-bounded-execution-v1",
+    "issue_count": 8,
+    "manifest_sha256": "1a4fa12b63a496a87deb567a77b6cf1d64916a493c239991d059a735840b7696",
+    "membership_issue_numbers": [
+      873,
+      1064,
+      1641,
+      2712,
+      5756,
+      5814,
+      5818,
+      5820
+    ],
+    "membership_sha256": "7c72e3045e4ea945318789c8ef62211c46aedd489adde64fc58584b403803030",
+    "path": "docs/benchmarks/corpus.json",
+    "recorded_on": "2026-04-17",
+    "revision": 3,
+    "success_contract": "mergeable_pr_or_merged_pr"
+  },
+  "coverage": {
+    "attempted_issue_count": 8,
+    "is_complete": true,
+    "missing_issue_count": 0,
+    "missing_issue_numbers": [],
+    "status": "complete"
+  },
+  "deltas": {
+    "merged_only_rate": 0.375,
+    "no_rescue_truth_success_rate": 0.375,
+    "proxy_no_rescue_success_rate": 0.0,
+    "truth_success_rate": 0.375,
+    "unique_issues_attempted": 2.0
+  },
+  "failure_class_distribution": {
+    "blocked_not_dispatch_bounded": 3
+  },
+  "generated_at": "2026-04-17T12:41:41Z",
+  "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+  "previous_artifact": {
+    "generated_at": "2026-04-17T06:04:51Z",
+    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/scorecard-20260417T060451Z.json"
+  },
+  "proxy_metrics": {
+    "corpus": {
+      "corpus_id": "tw-01-bounded-execution-v1",
+      "issue_count": 8,
+      "path": "docs/benchmarks/corpus.json",
+      "recorded_on": "2026-04-17",
+      "revision": 3,
+      "success_contract": "mergeable_pr_or_merged_pr"
+    },
+    "coverage": {
+      "attempted_issue_count": 8,
+      "is_complete": true,
+      "missing_issue_count": 0,
+      "missing_issue_numbers": [],
+      "status": "complete"
+    },
+    "failure_classes": {
+      "blocked_not_dispatch_bounded": 3
+    },
+    "mean_elapsed_seconds": 0.0,
+    "median_elapsed_seconds": 0.0,
+    "neutral_classes": {
+      "issue_already_resolved": 5
+    },
+    "no_rescue_success_rate": 0.0,
+    "status": "active",
+    "success_classes": {},
+    "terminal_class_distribution": {
+      "blocked_not_dispatch_bounded": 3,
+      "issue_already_resolved": 5
+    },
+    "tick_success_rate": 0.0,
+    "total_ticks": 8,
+    "unique_issues_attempted": 8,
+    "unique_issues_failed": 3,
+    "unique_issues_neutral": 5,
+    "unique_issues_succeeded": 0
+  },
+  "rescue_counts_by_type": {},
+  "truth_artifact_generated_at": "2026-04-17T12:41:28Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260417T124128Z.json",
+  "truth_metrics": {
+    "merged_only_rate": 1.0,
+    "no_rescue_truth_success_rate": 1.0,
+    "truth_success_rate": 1.0,
+    "truth_success_rate_verified": 1.0
+  }
+}
