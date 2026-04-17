@@ -399,6 +399,75 @@ describe('AdminAPI Namespace', () => {
   });
 
   // ===========================================================================
+  // Feature Flags
+  // ===========================================================================
+
+  describe('Feature Flags', () => {
+    it('should list feature flags', async () => {
+      const mockFlags = { flags: [{ name: 'enable_checkpointing', value: true }] };
+      mockClient.request.mockResolvedValue(mockFlags);
+
+      const result = await api.listFeatureFlags();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/admin/feature-flags');
+      expect(result).toEqual(mockFlags);
+    });
+
+    it('should update feature flags through the detail route', async () => {
+      mockClient.request
+        .mockResolvedValueOnce({ name: 'enable_checkpointing', updated: true })
+        .mockResolvedValueOnce({ name: 'max_agent_retries', updated: true });
+
+      const result = await api.updateFeatureFlags({
+        enable_checkpointing: true,
+        max_agent_retries: 7,
+      });
+
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        1,
+        'PUT',
+        '/api/v1/admin/feature-flags/enable_checkpointing',
+        { body: { value: true } },
+      );
+      expect(mockClient.request).toHaveBeenNthCalledWith(
+        2,
+        'PUT',
+        '/api/v1/admin/feature-flags/max_agent_retries',
+        { body: { value: 7 } },
+      );
+      expect(result).toEqual({
+        enable_checkpointing: { name: 'enable_checkpointing', updated: true },
+        max_agent_retries: { name: 'max_agent_retries', updated: true },
+      });
+    });
+
+    it('should get a feature flag by name', async () => {
+      mockClient.request.mockResolvedValue({ name: 'enable_checkpointing', value: true });
+
+      const result = await api.getFeatureFlag('enable_checkpointing');
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/admin/feature-flags/enable_checkpointing',
+      );
+      expect(result.value).toBe(true);
+    });
+
+    it('should set a feature flag by name', async () => {
+      mockClient.request.mockResolvedValue({ name: 'enable_checkpointing', updated: true });
+
+      const result = await api.setFeatureFlag('enable_checkpointing', false);
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'PUT',
+        '/api/v1/admin/feature-flags/enable_checkpointing',
+        { body: { value: false } },
+      );
+      expect(result.updated).toBe(true);
+    });
+  });
+
+  // ===========================================================================
   // Credit Management
   // ===========================================================================
 

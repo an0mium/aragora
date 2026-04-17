@@ -265,6 +265,10 @@ class AdminAPI:
     # Feature Flags
     # ===========================================================================
 
+    def list_feature_flags(self) -> dict[str, Any]:
+        """List admin feature flags."""
+        return self._client.request("GET", "/api/v1/admin/feature-flags")
+
     def update_feature_flags(self, flags: dict[str, Any]) -> dict[str, Any]:
         """Update admin feature flags.
 
@@ -272,9 +276,11 @@ class AdminAPI:
             flags: Feature flag key-value pairs to update.
 
         Returns:
-            Dict with updated flags.
+            Dict keyed by flag name with individual update results.
         """
-        return self._client.request("PUT", "/api/v1/admin/feature-flags", json=flags)
+        return {
+            flag_name: self.set_feature_flag(flag_name, value) for flag_name, value in flags.items()
+        }
 
     def get_feature_flag(self, flag_name: str) -> dict[str, Any]:
         """Get a specific feature flag by name.
@@ -598,9 +604,16 @@ class AsyncAdminAPI:
     # Feature Flags
     # ===========================================================================
 
+    async def list_feature_flags(self) -> dict[str, Any]:
+        """List admin feature flags."""
+        return await self._client.request("GET", "/api/v1/admin/feature-flags")
+
     async def update_feature_flags(self, flags: dict[str, Any]) -> dict[str, Any]:
         """Update admin feature flags."""
-        return await self._client.request("PUT", "/api/v1/admin/feature-flags", json=flags)
+        return {
+            flag_name: await self.set_feature_flag(flag_name, value)
+            for flag_name, value in flags.items()
+        }
 
     async def get_feature_flag(self, flag_name: str) -> dict[str, Any]:
         """Get a specific feature flag by name."""

@@ -53,6 +53,7 @@ class FeatureFlagAdminHandler(BaseHandler):
         "/api/v1/admin/feature-flags",
         "/api/v1/admin/feature-flags/*",
     ]
+    ROUTE_PREFIXES: list[str] = ["/api/admin/feature-flags"]
 
     def __init__(self, ctx: dict[str, Any] | None = None):
         """Initialize handler with optional context."""

@@ -6,6 +6,8 @@ and the Nomic self-improvement loop.
 
 from typing import Any
 
+from aragora.server.openapi.helpers import STANDARD_ERRORS
+
 
 def _org_schema() -> dict[str, Any]:
     """Organization object schema."""
@@ -121,6 +123,174 @@ def _system_health_operation(
             },
             "401": {"description": "Authentication required"},
             "403": {"description": "Admin privileges required"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
+def _feature_flag_value_schema() -> dict[str, Any]:
+    """Flexible schema for feature-flag values/defaults."""
+    return {
+        "anyOf": [
+            {"type": "boolean"},
+            {"type": "integer"},
+            {"type": "number"},
+            {"type": "string"},
+            {"type": "array"},
+            {"type": "object", "additionalProperties": True},
+            {"type": "null"},
+        ]
+    }
+
+
+def _feature_flag_schema() -> dict[str, Any]:
+    """Admin feature-flag payload schema."""
+    return {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "value": _feature_flag_value_schema(),
+            "default": _feature_flag_value_schema(),
+            "type": {"type": "string"},
+            "description": {"type": "string"},
+            "category": {"type": "string"},
+            "status": {"type": "string"},
+            "env_var": {"type": ["string", "null"]},
+            "deprecated_since": {"type": ["string", "null"]},
+            "removed_in": {"type": ["string", "null"]},
+            "replacement": {"type": ["string", "null"]},
+            "usage": {
+                "type": "object",
+                "properties": {
+                    "access_count": {"type": "integer"},
+                    "last_accessed": {"type": ["string", "null"]},
+                    "access_locations": {
+                        "type": "object",
+                        "additionalProperties": {"type": "integer"},
+                    },
+                },
+            },
+        },
+    }
+
+
+def _feature_flag_list_response_schema() -> dict[str, Any]:
+    """List feature flags response schema."""
+    return {
+        "type": "object",
+        "properties": {
+            "flags": {"type": "array", "items": _feature_flag_schema()},
+            "total": {"type": "integer"},
+            "stats": {"type": "object", "additionalProperties": True},
+        },
+    }
+
+
+def _feature_flag_name_parameter() -> dict[str, Any]:
+    """Shared feature-flag name path parameter."""
+    return {
+        "name": "name",
+        "in": "path",
+        "required": True,
+        "description": "Feature flag name",
+        "schema": {"type": "string"},
+    }
+
+
+def _feature_flag_list_operation(*, operation_id: str) -> dict[str, Any]:
+    """OpenAPI operation for listing admin feature flags."""
+    return {
+        "tags": ["Admin"],
+        "summary": "List admin feature flags",
+        "operationId": operation_id,
+        "description": "Returns all admin-manageable feature flags with their current values.",
+        "responses": {
+            "200": {
+                "description": "Feature flags",
+                "content": {
+                    "application/json": {
+                        "schema": _feature_flag_list_response_schema(),
+                    }
+                },
+            },
+            "401": STANDARD_ERRORS["401"],
+            "403": STANDARD_ERRORS["403"],
+            "503": {"description": "Feature flag system not available"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
+def _feature_flag_detail_operation(*, operation_id: str) -> dict[str, Any]:
+    """OpenAPI operation for fetching one admin feature flag."""
+    return {
+        "tags": ["Admin"],
+        "summary": "Get admin feature flag",
+        "operationId": operation_id,
+        "description": "Returns one admin-manageable feature flag and its usage metadata.",
+        "parameters": [_feature_flag_name_parameter()],
+        "responses": {
+            "200": {
+                "description": "Feature flag",
+                "content": {
+                    "application/json": {
+                        "schema": _feature_flag_schema(),
+                    }
+                },
+            },
+            "401": STANDARD_ERRORS["401"],
+            "403": STANDARD_ERRORS["403"],
+            "404": STANDARD_ERRORS["404"],
+            "503": {"description": "Feature flag system not available"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
+def _feature_flag_update_operation(*, operation_id: str) -> dict[str, Any]:
+    """OpenAPI operation for updating one admin feature flag."""
+    return {
+        "tags": ["Admin"],
+        "summary": "Set admin feature flag",
+        "operationId": operation_id,
+        "description": "Sets one admin-manageable feature flag to a new value.",
+        "parameters": [_feature_flag_name_parameter()],
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["value"],
+                        "properties": {
+                            "value": _feature_flag_value_schema(),
+                        },
+                    }
+                }
+            },
+        },
+        "responses": {
+            "200": {
+                "description": "Feature flag updated",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "value": _feature_flag_value_schema(),
+                                "previous_default": _feature_flag_value_schema(),
+                                "updated": {"type": "boolean"},
+                            },
+                        }
+                    }
+                },
+            },
+            "400": STANDARD_ERRORS["400"],
+            "401": STANDARD_ERRORS["401"],
+            "403": STANDARD_ERRORS["403"],
+            "404": STANDARD_ERRORS["404"],
+            "503": {"description": "Feature flag system not available"},
         },
         "security": [{"bearerAuth": []}],
     }
@@ -250,6 +420,35 @@ ADMIN_ENDPOINTS = {
             "deprecated": True,
             "x-preserve-legacy-operation-id": True,
         }
+    },
+    # =========================================================================
+    # Admin Feature Flags
+    # =========================================================================
+    "/api/v1/admin/feature-flags": {
+        "get": _feature_flag_list_operation(operation_id="adminListFeatureFlags")
+    },
+    "/api/admin/feature-flags": {
+        "get": {
+            **_feature_flag_list_operation(operation_id="adminListFeatureFlagsLegacy"),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        }
+    },
+    "/api/v1/admin/feature-flags/{name}": {
+        "get": _feature_flag_detail_operation(operation_id="adminGetFeatureFlag"),
+        "put": _feature_flag_update_operation(operation_id="adminSetFeatureFlag"),
+    },
+    "/api/admin/feature-flags/{name}": {
+        "get": {
+            **_feature_flag_detail_operation(operation_id="adminGetFeatureFlagLegacy"),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        },
+        "put": {
+            **_feature_flag_update_operation(operation_id="adminSetFeatureFlagLegacy"),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        },
     },
     # =========================================================================
     # Organization Management

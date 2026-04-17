@@ -374,9 +374,20 @@ export class AdminAPI {
     return this.client.request('GET', '/api/v1/admin/emergency/status');
   }
 
+  /** List admin feature flags. */
+  async listFeatureFlags(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/feature-flags');
+  }
+
   /** Update feature flags. */
   async updateFeatureFlags(data: Record<string, unknown>): Promise<Record<string, unknown>> {
-    return this.client.request('PUT', '/api/v1/admin/feature-flags', { body: data });
+    const results = await Promise.all(
+      Object.entries(data).map(async ([name, value]) => [
+        name,
+        await this.setFeatureFlag(name, value),
+      ] as const),
+    );
+    return Object.fromEntries(results);
   }
 
   /** Get a specific feature flag by name. */
