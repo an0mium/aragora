@@ -89,3 +89,29 @@ def _extract_file_paths(issue_body: str, *, repo_root: Path) -> list[str]:
         if "/" in candidate and (repo_root / candidate).is_file():
             candidates.add(candidate)
     return sorted(candidates)
+
+
+# Low-confidence candidate scopes per track-tag prefix. Must be validated against
+# the current repo before merging into a spec.
+_TRACK_SCOPE_CANDIDATES: dict[str, list[str]] = {
+    "TW": ["aragora/swarm/"],
+    "CS": ["aragora/swarm/", "docs/status/"],
+    "RS": ["aragora/swarm/"],
+}
+
+# Design-heavy tracks must NOT use path inference; fall through to LLM or escalate.
+_DESIGN_HEAVY_PREFIXES = frozenset({"AGT", "DIC"})
+
+
+def _infer_track_scope(track_tag: str | None, *, issue_body: str, repo_root: Path) -> list[str]:
+    """Return validated candidate scope hints for ``track_tag``, or ``[]`` to fall through."""
+    if not track_tag:
+        return []
+    prefix = track_tag.split("-", 1)[0].upper()
+    if prefix in _DESIGN_HEAVY_PREFIXES:
+        return []
+    candidates = _TRACK_SCOPE_CANDIDATES.get(prefix)
+    if not candidates:
+        return []
+    validated = [c for c in candidates if (repo_root / c.rstrip("/")).is_dir()]
+    return validated

@@ -150,3 +150,33 @@ def test_extract_file_paths_empty_body(tmp_path):
 def test_extract_file_paths_no_matches(tmp_path):
     body = "This issue has no file references, just prose."
     assert _extract_file_paths(body, repo_root=Path(tmp_path)) == []
+
+
+from aragora.swarm.spec_upgrader import _infer_track_scope
+
+
+def test_infer_track_scope_tw_validates_repo(tmp_path, monkeypatch):
+    (tmp_path / "aragora" / "swarm").mkdir(parents=True)
+    (tmp_path / "aragora" / "swarm" / "__init__.py").write_text("")
+
+    hints = _infer_track_scope(
+        "TW-02", issue_body="refactor boss_loop logic", repo_root=Path(tmp_path)
+    )
+    assert hints == ["aragora/swarm/"]
+
+
+def test_infer_track_scope_unknown_tag_returns_empty(tmp_path):
+    hints = _infer_track_scope("XYZ-99", issue_body="", repo_root=Path(tmp_path))
+    assert hints == []
+
+
+def test_infer_track_scope_design_heavy_returns_empty(tmp_path):
+    # AGT-*/DIC-* are vision-layer; must not guess paths
+    assert _infer_track_scope("AGT-01", issue_body="", repo_root=Path(tmp_path)) == []
+    assert _infer_track_scope("DIC-15", issue_body="", repo_root=Path(tmp_path)) == []
+
+
+def test_infer_track_scope_missing_directory_drops_hint(tmp_path):
+    # Repo doesn't have aragora/swarm/ - hint is not validated, returns empty
+    hints = _infer_track_scope("TW-02", issue_body="", repo_root=Path(tmp_path))
+    assert hints == []
