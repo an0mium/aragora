@@ -99,9 +99,17 @@ class TestSerialization:
     def test_to_dict_has_expected_keys(self) -> None:
         d = load_proof_unit(_unit()).to_dict()
         assert {
-            "code_unit_id", "symbol", "source_path", "owner",
-            "decision_receipts", "claims", "assumptions", "verifiers",
-            "freshness_sla_hours", "decay_policy", "fallback_policy",
+            "code_unit_id",
+            "symbol",
+            "source_path",
+            "owner",
+            "decision_receipts",
+            "claims",
+            "assumptions",
+            "verifiers",
+            "freshness_sla_hours",
+            "decay_policy",
+            "fallback_policy",
             "linked_crux_ids",
         } == set(d)
 
