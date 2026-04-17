@@ -1600,9 +1600,40 @@ def _enforce_expected_contract(
 ) -> None:
     actual_contract = WorkerContract.from_dict(worker.worker_contract or {})
     actual_checksum = str(worker.worker_contract_checksum or "").strip()
-    if actual_contract.to_dict() != expected_contract.to_dict():
+    expected_dict = expected_contract.to_dict()
+    actual_dict = actual_contract.to_dict()
+    if actual_dict != expected_dict:
+        # v1.2.1: surface field-level diff to structured log and error message.
+        # v1.2 closed profile + admin_approved divergences for claude workers;
+        # this diagnostic exposes any remaining drift sources.
+        drifted = {
+            k: {"expected": expected_dict.get(k), "actual": actual_dict.get(k)}
+            for k in set(expected_dict) | set(actual_dict)
+            if expected_dict.get(k) != actual_dict.get(k)
+        }
+        try:
+            import json as _json
+            from datetime import datetime as _dt
+
+            log_path = Path.cwd() / ".aragora/overnight/contract_drift_diagnostics.jsonl"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("a") as _f:
+                _f.write(
+                    _json.dumps(
+                        {
+                            "recorded_at": _dt.utcnow().isoformat() + "Z",
+                            "agent": expected_contract.agent,
+                            "drifted_fields": sorted(drifted.keys()),
+                            "diff": drifted,
+                        }
+                    )
+                    + "\n"
+                )
+        except Exception:  # noqa: BLE001 — diagnostic-only, never mask the drift error
+            pass
         raise RuntimeError(
-            "Preflight worker emitted a contract that drifted from the expected contract."
+            "Preflight worker emitted a contract that drifted from the expected contract. "
+            f"Drifted fields: {sorted(drifted.keys())}."
         )
     if actual_checksum != expected_checksum:
         raise RuntimeError(
