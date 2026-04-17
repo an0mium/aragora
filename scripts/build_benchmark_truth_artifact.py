@@ -11,6 +11,7 @@ import re
 import subprocess
 import sys
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -226,6 +227,23 @@ def _corpus_freshness(
         "linkage_error_count": len(linkage_errors),
         "linkage_errors": linkage_errors,
     }
+
+
+def _normalize_in_progress_truth_record(
+    record: IssueTruthRecord,
+    *,
+    expected_status: str,
+) -> IssueTruthRecord:
+    if expected_status != EXPECTED_STATUS_IN_PROGRESS:
+        return record
+    if record.issue_state == "CLOSED":
+        return record
+    return replace(
+        record,
+        truth_state="in_progress_open",
+        truth_success=False,
+        no_rescue_truth_success=False,
+    )
 
 
 def load_corpus_freshness_map_payload(path: Path) -> dict[str, Any]:
@@ -789,7 +807,15 @@ def build_benchmark_truth_artifact(
                 )
             )
             continue
-        records.append(reconcile_issue_truth(repo, aggregate, truth_client))
+        records.append(
+            _normalize_in_progress_truth_record(
+                reconcile_issue_truth(repo, aggregate, truth_client),
+                expected_status=expected_by_number.get(
+                    aggregate.issue_number,
+                    EXPECTED_STATUS_VERIFIED,
+                ),
+            )
+        )
 
     def _is_verified_number(issue_number: int) -> bool:
         return (

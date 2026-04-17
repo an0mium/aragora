@@ -160,7 +160,16 @@ class ClaimVerifier:
         freshness_sla: int = claim.get("freshness_sla_hours", 24)
         evidence: list[dict[str, Any]] = claim.get("evidence", [])
 
-        stale = self._check_stale_evidence(evidence, freshness_sla)
+        evidence_paths = self._check_path_evidence(evidence, freshness_sla)
+        missing = evidence_paths["missing"]
+        if missing:
+            return {
+                "status": ClaimStatus.ERROR,
+                "message": f"evidence path missing: {missing}",
+                "detail": {"missing_paths": missing},
+            }
+
+        stale = evidence_paths["stale"]
         if stale:
             return {
                 "status": ClaimStatus.STALE,
@@ -211,12 +220,13 @@ class ClaimVerifier:
             "detail": {"stdout": stdout[:500], "stderr": stderr[:200]},
         }
 
-    def _check_stale_evidence(
+    def _check_path_evidence(
         self,
         evidence: list[dict[str, Any]],
         freshness_sla_hours: int,
-    ) -> list[str]:
-        """Return list of path-type evidence items that exceed the SLA age."""
+    ) -> dict[str, list[str]]:
+        """Return missing and stale path-type evidence items."""
+        missing: list[str] = []
         stale: list[str] = []
         threshold_s = freshness_sla_hours * 3600
         now = time.time()
@@ -228,8 +238,9 @@ class ClaimVerifier:
             if not p.is_absolute():
                 p = self._repo_root / p
             if not p.exists():
+                missing.append(str(item["path"]))
                 continue
             age_s = now - p.stat().st_mtime
             if age_s > threshold_s:
                 stale.append(str(item["path"]))
-        return stale
+        return {"missing": missing, "stale": stale}

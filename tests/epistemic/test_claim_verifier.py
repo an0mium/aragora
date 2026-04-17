@@ -146,15 +146,34 @@ class TestFreshnessCheck:
         result = verifier.verify_claim(claim)
         assert result.status == ClaimStatus.PASS
 
-    def test_missing_evidence_path_skipped(self) -> None:
+    def test_missing_evidence_path_errors_before_command(self) -> None:
         claim = _make_claim(
             freshness_sla_hours=1,
             evidence=[{"path": "/nonexistent/path/that/does/not/exist.json"}],
         )
-        verifier = ClaimVerifier(command_runner=_stub_pass)
+
+        ran: list[list[str]] = []
+
+        def tracking_runner(args: list[str]) -> tuple[int, str, str]:
+            ran.append(args)
+            return _stub_pass(args)
+
+        verifier = ClaimVerifier(command_runner=tracking_runner)
         result = verifier.verify_claim(claim)
-        # Missing file is not treated as stale — caller has no mtime to compare
-        assert result.status == ClaimStatus.PASS
+        assert result.status == ClaimStatus.ERROR
+        assert "evidence path missing" in result.message
+        assert result.detail["missing_paths"] == ["/nonexistent/path/that/does/not/exist.json"]
+        assert not ran, "runner should not execute when path evidence is missing"
+
+    def test_missing_relative_evidence_path_reports_manifest_path(self, tmp_path: Path) -> None:
+        claim = _make_claim(
+            freshness_sla_hours=1,
+            evidence=[{"path": "missing/claim-evidence.json"}],
+        )
+        verifier = ClaimVerifier(repo_root=tmp_path, command_runner=_stub_pass)
+        result = verifier.verify_claim(claim)
+        assert result.status == ClaimStatus.ERROR
+        assert result.detail["missing_paths"] == ["missing/claim-evidence.json"]
 
     def test_non_path_evidence_skipped(self) -> None:
         claim = _make_claim(
