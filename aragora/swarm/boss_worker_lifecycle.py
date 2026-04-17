@@ -151,6 +151,7 @@ def finalize_worker_result(
             needs_human_reasons=[],
             next_actions=[next_action],
             elapsed_seconds=elapsed_seconds,
+            worker_outcome=str(worker_result.get("outcome", "")).strip() or None,
         )
 
     if worker_result.get("status") == "needs_human":
