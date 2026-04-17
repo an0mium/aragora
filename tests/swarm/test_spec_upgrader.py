@@ -180,3 +180,27 @@ def test_infer_track_scope_missing_directory_drops_hint(tmp_path):
     # Repo doesn't have aragora/swarm/ - hint is not validated, returns empty
     hints = _infer_track_scope("TW-02", issue_body="", repo_root=Path(tmp_path))
     assert hints == []
+
+
+from aragora.swarm.spec_upgrader import _drift_to_acceptance_criterion
+
+
+def test_drift_files_mismatch_generates_scoping_criterion():
+    drift = {
+        "expected": {"files": ["aragora/swarm/a.py"]},
+        "actual": {"files": ["aragora/swarm/a.py", "unrelated/b.py"]},
+    }
+    crit = _drift_to_acceptance_criterion(drift)
+    assert crit is not None
+    assert "aragora/swarm/a.py" in crit
+    assert "unrelated/b.py" not in crit  # Don't name disallowed paths positively
+    assert "scope" in crit.lower() or "restrict" in crit.lower()
+
+
+def test_drift_none_returns_none():
+    assert _drift_to_acceptance_criterion(None) is None
+
+
+def test_drift_identical_returns_none():
+    drift = {"expected": {"files": ["a"]}, "actual": {"files": ["a"]}}
+    assert _drift_to_acceptance_criterion(drift) is None

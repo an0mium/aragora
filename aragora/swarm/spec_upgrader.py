@@ -115,3 +115,23 @@ def _infer_track_scope(track_tag: str | None, *, issue_body: str, repo_root: Pat
         return []
     validated = [c for c in candidates if (repo_root / c.rstrip("/")).is_dir()]
     return validated
+
+
+def _drift_to_acceptance_criterion(drift: dict | None) -> str | None:
+    """Translate preflight contract drift into an actionable acceptance criterion.
+
+    Returns ``None`` if drift is absent or the expected and actual files match.
+    """
+    if not drift:
+        return None
+    expected = drift.get("expected", {}) or {}
+    actual = drift.get("actual", {}) or {}
+    expected_files = list(expected.get("files", []))
+    actual_files = set(actual.get("files", []))
+    if not expected_files or set(expected_files) == actual_files:
+        return None
+    files_str = ", ".join(f"`{f}`" for f in expected_files)
+    return (
+        f"Worker must scope changes strictly to: {files_str}. "
+        "Reject any edits to files outside this list during preflight."
+    )
