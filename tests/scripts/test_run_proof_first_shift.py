@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+from aragora.nomic.shift_controller import ShiftConfig, ShiftController, ShiftState
 from aragora.swarm.shift_ledger import ShiftLedger
 from scripts import run_proof_first_shift as mod
 
@@ -63,6 +65,17 @@ def _run_shift_cycle(
             runtime_state=runtime_state,
             ledger=ledger,
         )
+
+
+def _make_shift_controller(repo_root: Path) -> ShiftController:
+    checkpoint_dir = repo_root / ".aragora_shifts"
+    return ShiftController(
+        ShiftConfig(
+            repo_path=str(repo_root),
+            checkpoint_dir=str(checkpoint_dir),
+            require_fresh_assessment=False,
+        )
+    )
 
 
 def test_should_trigger_benchmark_rerun_when_latest_run_is_stale() -> None:
@@ -281,6 +294,128 @@ def test_bind_runtime_state_to_shift_preserves_recovery_budgets_for_same_shift()
 
     assert state.boss_restart_count == 1
     assert state.recovery_attempt_counts[mod.BOSS_RESTART_FAILURE] == 1
+
+
+def test_save_and_load_runtime_state_roundtrip(tmp_path: Path) -> None:
+    path = tmp_path / "runtime_state.json"
+    expected_recovery_attempt_counts = dict.fromkeys(mod.RECOVERY_FAILURE_CLASSES, 0)
+    expected_recovery_attempt_counts[mod.BOSS_RESTART_FAILURE] = 1
+    expected_recovery_attempt_counts[mod.PERMISSION_MISMATCH_FAILURE] = 2
+    state = mod.ProofFirstRuntimeState(
+        recovery_shift_id="shift-123",
+        boss_restart_count=1,
+        merge_restart_count=2,
+        auth_failure_count=3,
+        publication_failure_count=4,
+        rate_limit_failure_count=5,
+        permission_mismatch_count=6,
+        runtime_failure_count=7,
+        github_outage_count=8,
+        recovery_attempt_counts={
+            mod.BOSS_RESTART_FAILURE: 1,
+            mod.PERMISSION_MISMATCH_FAILURE: 2,
+        },
+        last_benchmark_run_id=987,
+        last_triggered_benchmark_run_id=654,
+    )
+
+    mod.save_runtime_state(path, state)
+    loaded = mod.load_runtime_state(path)
+
+    assert loaded == mod.ProofFirstRuntimeState(
+        recovery_shift_id="shift-123",
+        boss_restart_count=1,
+        merge_restart_count=2,
+        auth_failure_count=3,
+        publication_failure_count=4,
+        rate_limit_failure_count=5,
+        permission_mismatch_count=6,
+        runtime_failure_count=7,
+        github_outage_count=8,
+        recovery_attempt_counts=expected_recovery_attempt_counts,
+        last_benchmark_run_id=987,
+        last_triggered_benchmark_run_id=654,
+    )
+
+
+def test_load_runtime_state_returns_fresh_state_for_missing_file(tmp_path: Path) -> None:
+    missing_path = tmp_path / "missing.json"
+
+    assert mod.load_runtime_state(missing_path) == mod.ProofFirstRuntimeState()
+
+
+def test_load_runtime_state_returns_fresh_state_for_invalid_payloads(tmp_path: Path) -> None:
+    cases = {
+        "empty": "",
+        "corrupt": "{not json}",
+        "non_dict": "[]",
+        "invalid_counts": json.dumps({"boss_restart_count": "oops"}),
+    }
+
+    for name, payload in cases.items():
+        path = tmp_path / f"{name}.json"
+        path.write_text(payload, encoding="utf-8")
+        assert mod.load_runtime_state(path) == mod.ProofFirstRuntimeState()
+
+
+def test_restore_shift_controller_restores_saved_shift_state(tmp_path: Path) -> None:
+    controller = _make_shift_controller(tmp_path)
+    checkpoint_dir = Path(controller.config.checkpoint_dir)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    saved_state = ShiftState(
+        shift_id="shift-test",
+        started_at=1.0,
+        config={"checkpoint_dir": str(checkpoint_dir)},
+        current_cycle=3,
+        assessment_id="assessment-123",
+    )
+    (checkpoint_dir / "latest.json").write_text(
+        json.dumps({"shift_state": saved_state.to_dict()}),
+        encoding="utf-8",
+    )
+    controller._state = ShiftState(
+        shift_id="stale-shift",
+        started_at=2.0,
+        config={"checkpoint_dir": str(checkpoint_dir)},
+        current_cycle=0,
+    )
+
+    restored = mod.restore_shift_controller(controller, checkpoint_dir=checkpoint_dir)
+
+    assert restored == saved_state
+    assert controller.state == saved_state
+
+
+def test_restore_shift_controller_ignores_invalid_checkpoints_without_mutating_state(
+    tmp_path: Path,
+) -> None:
+    cases = {
+        "missing": None,
+        "empty": "",
+        "corrupt": "{not json}",
+        "non_dict": "[]",
+        "missing_shift_state": json.dumps({"not_shift_state": {}}),
+    }
+
+    for name, payload in cases.items():
+        repo_root = tmp_path / name
+        controller = _make_shift_controller(repo_root)
+        checkpoint_dir = Path(controller.config.checkpoint_dir)
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        original_state = ShiftState(
+            shift_id=f"original-{name}",
+            started_at=2.0,
+            config={"checkpoint_dir": str(checkpoint_dir)},
+            current_cycle=1,
+        )
+        controller._state = original_state
+        if payload is not None:
+            (checkpoint_dir / "latest.json").write_text(payload, encoding="utf-8")
+
+        restored = mod.restore_shift_controller(controller, checkpoint_dir=checkpoint_dir)
+
+        assert restored is None
+        assert controller.state == original_state
 
 
 def test_restart_service_treats_kickstart_timeout_as_success_when_process_appears() -> None:

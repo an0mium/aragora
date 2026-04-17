@@ -157,33 +157,41 @@ def _normalize_recovery_attempt_counts(payload: Any) -> dict[str, int]:
 def load_runtime_state(path: Path) -> ProofFirstRuntimeState:
     if not path.exists():
         return ProofFirstRuntimeState()
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        return ProofFirstRuntimeState()
     if not isinstance(payload, dict):
         return ProofFirstRuntimeState()
-    return ProofFirstRuntimeState(
-        recovery_shift_id=(
-            str(payload["recovery_shift_id"]) if payload.get("recovery_shift_id") else None
-        ),
-        boss_restart_count=int(payload.get("boss_restart_count", 0) or 0),
-        merge_restart_count=int(payload.get("merge_restart_count", 0) or 0),
-        auth_failure_count=int(payload.get("auth_failure_count", 0) or 0),
-        publication_failure_count=int(payload.get("publication_failure_count", 0) or 0),
-        rate_limit_failure_count=int(payload.get("rate_limit_failure_count", 0) or 0),
-        permission_mismatch_count=int(payload.get("permission_mismatch_count", 0) or 0),
-        runtime_failure_count=int(payload.get("runtime_failure_count", 0) or 0),
-        github_outage_count=int(payload.get("github_outage_count", 0) or 0),
-        recovery_attempt_counts=_normalize_recovery_attempt_counts(
-            payload.get("recovery_attempt_counts")
-        ),
-        last_benchmark_run_id=(
-            int(payload["last_benchmark_run_id"]) if payload.get("last_benchmark_run_id") else None
-        ),
-        last_triggered_benchmark_run_id=(
-            int(payload["last_triggered_benchmark_run_id"])
-            if payload.get("last_triggered_benchmark_run_id")
-            else None
-        ),
-    )
+    try:
+        return ProofFirstRuntimeState(
+            recovery_shift_id=(
+                str(payload["recovery_shift_id"]) if payload.get("recovery_shift_id") else None
+            ),
+            boss_restart_count=int(payload.get("boss_restart_count", 0) or 0),
+            merge_restart_count=int(payload.get("merge_restart_count", 0) or 0),
+            auth_failure_count=int(payload.get("auth_failure_count", 0) or 0),
+            publication_failure_count=int(payload.get("publication_failure_count", 0) or 0),
+            rate_limit_failure_count=int(payload.get("rate_limit_failure_count", 0) or 0),
+            permission_mismatch_count=int(payload.get("permission_mismatch_count", 0) or 0),
+            runtime_failure_count=int(payload.get("runtime_failure_count", 0) or 0),
+            github_outage_count=int(payload.get("github_outage_count", 0) or 0),
+            recovery_attempt_counts=_normalize_recovery_attempt_counts(
+                payload.get("recovery_attempt_counts")
+            ),
+            last_benchmark_run_id=(
+                int(payload["last_benchmark_run_id"])
+                if payload.get("last_benchmark_run_id")
+                else None
+            ),
+            last_triggered_benchmark_run_id=(
+                int(payload["last_triggered_benchmark_run_id"])
+                if payload.get("last_triggered_benchmark_run_id")
+                else None
+            ),
+        )
+    except (TypeError, ValueError):
+        return ProofFirstRuntimeState()
 
 
 def save_runtime_state(path: Path, state: ProofFirstRuntimeState) -> None:
