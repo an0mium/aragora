@@ -1,0 +1,128 @@
+manifest_version: 1
+queue_id: decision-quality-delta-benchmark-2026-04-17
+
+sources:
+  - id: dqb01-bench-readiness
+    kind: plan
+    code: DQB-01
+    url: https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+    section: phase-0-bench-readiness
+    mode: execute
+    priority: 10
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Freeze the benchmark environment, artifact contract, and roster recording
+      needed to make review and gauntlet runs reproducible.
+    allowed_write_scope:
+      - docs/plans/**
+      - docs/examples/**
+      - docs/templates/**
+      - scripts/**
+      - tests/scripts/**
+
+  - id: dqb02-review-corpus
+    kind: plan
+    code: DQB-02
+    url: https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+    section: review-corpus-primary
+    mode: execute
+    priority: 20
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Build the primary 12-task review corpus, including answer keys and
+      clean-task expectations, without changing tasks after outputs are seen.
+    allowed_write_scope:
+      - docs/benchmarks/**
+      - docs/plans/**
+      - docs/examples/**
+      - scripts/**
+      - tests/benchmarks/**
+
+  - id: dqb03-gauntlet-corpus
+    kind: plan
+    code: DQB-03
+    url: https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+    section: gauntlet-corpus-secondary
+    mode: execute
+    priority: 30
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Build the smaller secondary gauntlet corpus and answer keys so the same
+      delta contract can be tested on non-code artifacts.
+    allowed_write_scope:
+      - docs/benchmarks/**
+      - docs/plans/**
+      - docs/examples/**
+      - scripts/**
+      - tests/benchmarks/**
+
+  - id: dqb04-runner
+    kind: plan
+    code: DQB-04
+    url: https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+    section: cost-and-latency-capture
+    mode: execute
+    priority: 40
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Run the single-model and Aragora-team legs against the frozen corpus and
+      record raw outputs, normalized outputs, cost, and latency without making
+      final quality claims yet.
+    allowed_write_scope:
+      - scripts/**
+      - tests/scripts/**
+      - docs/plans/**
+      - docs/examples/**
+      - docs/templates/**
+      - docs/benchmarks/**
+
+  - id: dqb05-adjudication
+    kind: plan
+    code: DQB-05
+    url: https://github.com/synaptent/aragora/blob/main/docs/plans/DECISION_QUALITY_DELTA_BENCHMARK_SPEC.md
+    section: blind-adjudication-contract
+    mode: execute
+    priority: 50
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Build the blind adjudication and metric-calculation path, including
+      identity stripping, disagreement resolution, and answer-key scoring.
+    allowed_write_scope:
+      - scripts/**
+      - tests/scripts/**
+      - docs/plans/**
+      - docs/templates/**
+      - docs/examples/**
+      - docs/benchmarks/**
+
+  - id: dqb06-proof-pack
+    kind: plan
+    code: DQB-06
+    url: https://github.com/synaptent/aragora/blob/main/docs/templates/DECISION_QUALITY_DELTA_BENCHMARK_REPORT_TEMPLATE.md
+    section: report-template
+    mode: execute
+    priority: 60
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Publish the compact benchmark proof pack and explicit gate decision
+      without widening the claim beyond what the adjudicated data supports.
+    allowed_write_scope:
+      - docs/benchmarks/**
+      - docs/status/**
+      - docs/plans/**
+      - docs/templates/**
+      - docs/examples/**
+      - scripts/**
+      - tests/scripts/**
