@@ -191,16 +191,20 @@ MARKETPLACE_ENDPOINTS = {
         "get": _marketplace_listing_operation(
             operation_id="marketplaceListListings",
             summary="List marketplace listings",
-            description="Browse marketplace listings with optional filters and pagination.",
+            description=(
+                "Browse marketplace listings with optional filters and pagination. "
+                "Requires `marketplace:read`."
+            ),
             response_schema=_marketplace_list_response_schema(),
             parameters=_MARKETPLACE_LISTINGS_QUERY_PARAMETERS,
+            security=AUTH_REQUIREMENTS["required"]["security"],
         )
     },
     "/api/v1/marketplace/listings/featured": {
         "get": _marketplace_listing_operation(
             operation_id="marketplaceListFeaturedListings",
             summary="List featured marketplace listings",
-            description="Return featured marketplace listings.",
+            description="Return featured marketplace listings. Requires `marketplace:read`.",
             response_schema=_marketplace_list_response_schema(),
             parameters=[
                 {
@@ -210,25 +214,31 @@ MARKETPLACE_ENDPOINTS = {
                     "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
                 }
             ],
+            security=AUTH_REQUIREMENTS["required"]["security"],
         )
     },
     "/api/v1/marketplace/listings/stats": {
         "get": _marketplace_listing_operation(
             operation_id="marketplaceGetListingStats",
             summary="Get marketplace listing stats",
-            description="Return marketplace listing counts grouped by type.",
+            description="Return marketplace listing counts grouped by type. Requires `marketplace:read`.",
             response_schema=_marketplace_stats_response_schema(),
+            security=AUTH_REQUIREMENTS["required"]["security"],
         )
     },
     "/api/v1/marketplace/listings/{listing_id}": {
         "get": _marketplace_listing_operation(
             operation_id="marketplaceGetListing",
             summary="Get marketplace listing",
-            description="Return marketplace listing details for the given listing ID.",
+            description=(
+                "Return marketplace listing details for the given listing ID. "
+                "Requires `marketplace:read`."
+            ),
             response_schema=_marketplace_data_schema(
                 {"item": _marketplace_listing_summary_schema()}
             ),
             parameters=[_LISTING_ID_PARAM],
+            security=AUTH_REQUIREMENTS["required"]["security"],
             include_404=True,
         )
     },
@@ -299,9 +309,10 @@ MARKETPLACE_ENDPOINTS = {
         "get": _marketplace_listing_operation(
             operation_id="marketplaceListListingsLegacy",
             summary="List marketplace listings",
-            description="Legacy alias for listing marketplace listings.",
+            description="Legacy alias for listing marketplace listings. Requires `marketplace:read`.",
             response_schema=_marketplace_list_response_schema(),
             parameters=_MARKETPLACE_LISTINGS_QUERY_PARAMETERS,
+            security=AUTH_REQUIREMENTS["required"]["security"],
             deprecated=True,
         )
     },
@@ -309,7 +320,7 @@ MARKETPLACE_ENDPOINTS = {
         "get": _marketplace_listing_operation(
             operation_id="marketplaceListFeaturedListingsLegacy",
             summary="List featured marketplace listings",
-            description="Legacy alias for featured marketplace listings.",
+            description="Legacy alias for featured marketplace listings. Requires `marketplace:read`.",
             response_schema=_marketplace_list_response_schema(),
             parameters=[
                 {
@@ -319,6 +330,7 @@ MARKETPLACE_ENDPOINTS = {
                     "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
                 }
             ],
+            security=AUTH_REQUIREMENTS["required"]["security"],
             deprecated=True,
         )
     },
@@ -326,8 +338,9 @@ MARKETPLACE_ENDPOINTS = {
         "get": _marketplace_listing_operation(
             operation_id="marketplaceGetListingStatsLegacy",
             summary="Get marketplace listing stats",
-            description="Legacy alias for marketplace listing stats.",
+            description="Legacy alias for marketplace listing stats. Requires `marketplace:read`.",
             response_schema=_marketplace_stats_response_schema(),
+            security=AUTH_REQUIREMENTS["required"]["security"],
             deprecated=True,
         )
     },
@@ -335,11 +348,12 @@ MARKETPLACE_ENDPOINTS = {
         "get": _marketplace_listing_operation(
             operation_id="marketplaceGetListingLegacy",
             summary="Get marketplace listing",
-            description="Legacy alias for marketplace listing details.",
+            description="Legacy alias for marketplace listing details. Requires `marketplace:read`.",
             response_schema=_marketplace_data_schema(
                 {"item": _marketplace_listing_summary_schema()}
             ),
             parameters=[_LISTING_ID_PARAM],
+            security=AUTH_REQUIREMENTS["required"]["security"],
             deprecated=True,
             include_404=True,
         )
