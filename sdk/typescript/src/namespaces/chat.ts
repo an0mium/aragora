@@ -263,6 +263,41 @@ export class ChatAPI {
     return this.client.post('/api/v1/chat/knowledge/store', body);
   }
 
+  async getStatus(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/chat/status', { params });
+  }
+
+  async receiveWebhook(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/chat/webhook', { body, params });
+  }
+
+  async receiveSlackWebhook(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/chat/slack/webhook', { body, params });
+  }
+
+  async receiveTeamsWebhook(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/chat/teams/webhook', { body, params });
+  }
+
+  async receiveDiscordWebhook(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/chat/discord/webhook', { body, params });
+  }
+
+  async receiveGoogleChatWebhook(
+    body?: unknown,
+    params?: Record<string, unknown>
+  ): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/chat/google_chat/webhook', { body, params });
+  }
+
+  async receiveTelegramWebhook(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/chat/telegram/webhook', { body, params });
+  }
+
+  async receiveWhatsAppWebhook(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/chat/whatsapp/webhook', { body, params });
+  }
+
   /**
    * Get a summary of knowledge related to a channel.
    *

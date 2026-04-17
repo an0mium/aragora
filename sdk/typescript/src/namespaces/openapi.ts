@@ -2086,6 +2086,14 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/docs', { params });
   }
 
+  async requestGetApiV1DocsRoutes(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/docs/routes', { params });
+  }
+
+  async requestGetApiV1DocsStats(params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('GET', '/api/v1/docs/stats', { params });
+  }
+
   async requestGetApiV1Documents(params?: Record<string, unknown>): Promise<unknown> {
     return this.client.request('GET', '/api/v1/documents', { params });
   }

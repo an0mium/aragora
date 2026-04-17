@@ -412,9 +412,40 @@ class AdminAPI:
         """Get system health overview."""
         return self._client.request("GET", "/api/v1/admin/system-health")
 
+    def get_system_health_circuit_breakers(self) -> dict[str, Any]:
+        """Get admin system health circuit breakers."""
+        return self._client.request("GET", "/api/v1/admin/system-health/circuit-breakers")
+
+    def get_system_health_slos(self) -> dict[str, Any]:
+        """Get admin system health SLOs."""
+        return self._client.request("GET", "/api/v1/admin/system-health/slos")
+
+    def get_system_health_adapters(self) -> dict[str, Any]:
+        """Get admin system health adapters."""
+        return self._client.request("GET", "/api/v1/admin/system-health/adapters")
+
+    def get_system_health_agents(self) -> dict[str, Any]:
+        """Get admin system health agents."""
+        return self._client.request("GET", "/api/v1/admin/system-health/agents")
+
+    def get_system_health_budget(self) -> dict[str, Any]:
+        """Get admin system health budget."""
+        return self._client.request("GET", "/api/v1/admin/system-health/budget")
+
     def get_system_health_component(self, component: str) -> dict[str, Any]:
-        """Get health status for a specific component."""
-        return self._client.request("GET", f"/api/v1/admin/system-health/{component}")
+        """Get health status for a specific supported component."""
+        normalized = component.strip().lower().replace("_", "-")
+        handlers = {
+            "circuit-breakers": self.get_system_health_circuit_breakers,
+            "slos": self.get_system_health_slos,
+            "adapters": self.get_system_health_adapters,
+            "agents": self.get_system_health_agents,
+            "budget": self.get_system_health_budget,
+        }
+        handler = handlers.get(normalized)
+        if handler is None:
+            raise ValueError(f"Unsupported system health component: {component}")
+        return handler()
 
     def get_mfa_compliance(self) -> dict[str, Any]:
         """Get MFA compliance status."""
@@ -702,9 +733,40 @@ class AsyncAdminAPI:
         """Get system health overview."""
         return await self._client.request("GET", "/api/v1/admin/system-health")
 
+    async def get_system_health_circuit_breakers(self) -> dict[str, Any]:
+        """Get admin system health circuit breakers."""
+        return await self._client.request("GET", "/api/v1/admin/system-health/circuit-breakers")
+
+    async def get_system_health_slos(self) -> dict[str, Any]:
+        """Get admin system health SLOs."""
+        return await self._client.request("GET", "/api/v1/admin/system-health/slos")
+
+    async def get_system_health_adapters(self) -> dict[str, Any]:
+        """Get admin system health adapters."""
+        return await self._client.request("GET", "/api/v1/admin/system-health/adapters")
+
+    async def get_system_health_agents(self) -> dict[str, Any]:
+        """Get admin system health agents."""
+        return await self._client.request("GET", "/api/v1/admin/system-health/agents")
+
+    async def get_system_health_budget(self) -> dict[str, Any]:
+        """Get admin system health budget."""
+        return await self._client.request("GET", "/api/v1/admin/system-health/budget")
+
     async def get_system_health_component(self, component: str) -> dict[str, Any]:
-        """Get health status for a specific component."""
-        return await self._client.request("GET", f"/api/v1/admin/system-health/{component}")
+        """Get health status for a specific supported component."""
+        normalized = component.strip().lower().replace("_", "-")
+        handlers = {
+            "circuit-breakers": self.get_system_health_circuit_breakers,
+            "slos": self.get_system_health_slos,
+            "adapters": self.get_system_health_adapters,
+            "agents": self.get_system_health_agents,
+            "budget": self.get_system_health_budget,
+        }
+        handler = handlers.get(normalized)
+        if handler is None:
+            raise ValueError(f"Unsupported system health component: {component}")
+        return await handler()
 
     async def get_mfa_compliance(self) -> dict[str, Any]:
         """Get MFA compliance status."""

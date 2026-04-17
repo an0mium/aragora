@@ -409,9 +409,46 @@ export class AdminAPI {
     return this.client.request('GET', '/api/v1/admin/system-health');
   }
 
-  /** Get health status for a specific component. */
+  /** Get admin system health circuit breakers. */
+  async getSystemHealthCircuitBreakers(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/system-health/circuit-breakers');
+  }
+
+  /** Get admin system health SLOs. */
+  async getSystemHealthSlos(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/system-health/slos');
+  }
+
+  /** Get admin system health adapters. */
+  async getSystemHealthAdapters(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/system-health/adapters');
+  }
+
+  /** Get admin system health agents. */
+  async getSystemHealthAgents(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/system-health/agents');
+  }
+
+  /** Get admin system health budget. */
+  async getSystemHealthBudget(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/admin/system-health/budget');
+  }
+
+  /** Get health status for a specific supported component. */
   async getSystemHealthComponent(component: string): Promise<Record<string, unknown>> {
-    return this.client.request('GET', `/api/v1/admin/system-health/${encodeURIComponent(component)}`);
+    const normalized = component.trim().toLowerCase().replace(/_/g, '-');
+    const handlers: Record<string, () => Promise<Record<string, unknown>>> = {
+      'circuit-breakers': () => this.getSystemHealthCircuitBreakers(),
+      slos: () => this.getSystemHealthSlos(),
+      adapters: () => this.getSystemHealthAdapters(),
+      agents: () => this.getSystemHealthAgents(),
+      budget: () => this.getSystemHealthBudget(),
+    };
+    const handler = handlers[normalized];
+    if (!handler) {
+      throw new Error(`Unsupported system health component: ${component}`);
+    }
+    return handler();
   }
 
   /** Get MFA compliance status. */

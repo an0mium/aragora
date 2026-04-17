@@ -81,6 +81,54 @@ class ChatAPI:
             body["metadata"] = metadata
         return self._client.request("POST", "/api/v1/chat/knowledge/store", json=body)
 
+    def get_status(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Get chat integration status."""
+        return self._client.request("GET", "/api/v1/chat/status", params=params)
+
+    def receive_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Submit an auto-detected chat webhook event."""
+        return self._client.request("POST", "/api/v1/chat/webhook", json=body, params=params)
+
+    def receive_slack_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self._client.request("POST", "/api/v1/chat/slack/webhook", json=body, params=params)
+
+    def receive_teams_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self._client.request("POST", "/api/v1/chat/teams/webhook", json=body, params=params)
+
+    def receive_discord_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self._client.request(
+            "POST", "/api/v1/chat/discord/webhook", json=body, params=params
+        )
+
+    def receive_google_chat_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self._client.request(
+            "POST", "/api/v1/chat/google_chat/webhook", json=body, params=params
+        )
+
+    def receive_telegram_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self._client.request(
+            "POST", "/api/v1/chat/telegram/webhook", json=body, params=params
+        )
+
+    def receive_whatsapp_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self._client.request(
+            "POST", "/api/v1/chat/whatsapp/webhook", json=body, params=params
+        )
+
 
 class AsyncChatAPI:
     """Asynchronous Chat API for knowledge operations."""
@@ -150,3 +198,55 @@ class AsyncChatAPI:
         if metadata:
             body["metadata"] = metadata
         return await self._client.request("POST", "/api/v1/chat/knowledge/store", json=body)
+
+    async def get_status(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Get chat integration status."""
+        return await self._client.request("GET", "/api/v1/chat/status", params=params)
+
+    async def receive_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Submit an auto-detected chat webhook event."""
+        return await self._client.request("POST", "/api/v1/chat/webhook", json=body, params=params)
+
+    async def receive_slack_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request(
+            "POST", "/api/v1/chat/slack/webhook", json=body, params=params
+        )
+
+    async def receive_teams_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request(
+            "POST", "/api/v1/chat/teams/webhook", json=body, params=params
+        )
+
+    async def receive_discord_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request(
+            "POST", "/api/v1/chat/discord/webhook", json=body, params=params
+        )
+
+    async def receive_google_chat_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request(
+            "POST", "/api/v1/chat/google_chat/webhook", json=body, params=params
+        )
+
+    async def receive_telegram_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request(
+            "POST", "/api/v1/chat/telegram/webhook", json=body, params=params
+        )
+
+    async def receive_whatsapp_webhook(
+        self, body: dict[str, Any] | None = None, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request(
+            "POST", "/api/v1/chat/whatsapp/webhook", json=body, params=params
+        )

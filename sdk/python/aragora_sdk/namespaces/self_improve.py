@@ -301,6 +301,55 @@ class SelfImproveAPI:
         )
 
     # ===========================================================================
+    # Transparency dashboard detail surfaces
+    # ===========================================================================
+
+    def get_meta_planner_goals(self) -> dict[str, Any]:
+        """Get MetaPlanner goals and improvement queue summary."""
+        return self._client.request("GET", "/api/v1/self-improve/meta-planner/goals")
+
+    def get_execution_timeline(self) -> dict[str, Any]:
+        """Get self-improvement branch execution timeline."""
+        return self._client.request("GET", "/api/v1/self-improve/execution/timeline")
+
+    def get_learning_insights(self) -> dict[str, Any]:
+        """Get cross-cycle self-improvement learning insights."""
+        return self._client.request("GET", "/api/v1/self-improve/learning/insights")
+
+    def get_metrics_comparison(self) -> dict[str, Any]:
+        """Get before/after self-improvement metrics comparison."""
+        return self._client.request("GET", "/api/v1/self-improve/metrics/comparison")
+
+    def get_cycle_trends(self) -> dict[str, Any]:
+        """Get self-improvement cycle trends."""
+        return self._client.request("GET", "/api/v1/self-improve/trends/cycles")
+
+    def add_improvement_queue_item(
+        self, goal: str, *, priority: int = 50, source: str = "user"
+    ) -> dict[str, Any]:
+        """Add a user-submitted goal to the improvement queue."""
+        return self._client.request(
+            "POST",
+            "/api/v1/self-improve/improvement-queue",
+            json={"goal": goal, "priority": priority, "source": source},
+        )
+
+    def update_improvement_queue_priority(self, item_id: str, priority: int) -> dict[str, Any]:
+        """Update an improvement queue item's priority."""
+        return self._client.request(
+            "PUT",
+            f"/api/v1/self-improve/improvement-queue/{item_id}/priority",
+            json={"priority": priority},
+        )
+
+    def delete_improvement_queue_item(self, item_id: str) -> dict[str, Any]:
+        """Remove an item from the improvement queue."""
+        return self._client.request(
+            "DELETE",
+            f"/api/v1/self-improve/improvement-queue/{item_id}",
+        )
+
+    # ===========================================================================
     # Autopilot Worktree Management
     # ===========================================================================
 
@@ -531,14 +580,63 @@ class AsyncSelfImproveAPI:
         )
 
     # ===========================================================================
+    # Transparency dashboard detail surfaces
+    # ===========================================================================
+
+    async def get_meta_planner_goals(self) -> dict[str, Any]:
+        """Get MetaPlanner goals and improvement queue summary."""
+        return await self._client.request("GET", "/api/v1/self-improve/meta-planner/goals")
+
+    async def get_execution_timeline(self) -> dict[str, Any]:
+        """Get self-improvement branch execution timeline."""
+        return await self._client.request("GET", "/api/v1/self-improve/execution/timeline")
+
+    async def get_learning_insights(self) -> dict[str, Any]:
+        """Get cross-cycle self-improvement learning insights."""
+        return await self._client.request("GET", "/api/v1/self-improve/learning/insights")
+
+    async def get_metrics_comparison(self) -> dict[str, Any]:
+        """Get before/after self-improvement metrics comparison."""
+        return await self._client.request("GET", "/api/v1/self-improve/metrics/comparison")
+
+    async def get_cycle_trends(self) -> dict[str, Any]:
+        """Get self-improvement cycle trends."""
+        return await self._client.request("GET", "/api/v1/self-improve/trends/cycles")
+
+    async def add_improvement_queue_item(
+        self, goal: str, *, priority: int = 50, source: str = "user"
+    ) -> dict[str, Any]:
+        """Add a user-submitted goal to the improvement queue."""
+        return await self._client.request(
+            "POST",
+            "/api/v1/self-improve/improvement-queue",
+            json={"goal": goal, "priority": priority, "source": source},
+        )
+
+    async def update_improvement_queue_priority(
+        self, item_id: str, priority: int
+    ) -> dict[str, Any]:
+        """Update an improvement queue item's priority."""
+        return await self._client.request(
+            "PUT",
+            f"/api/v1/self-improve/improvement-queue/{item_id}/priority",
+            json={"priority": priority},
+        )
+
+    async def delete_improvement_queue_item(self, item_id: str) -> dict[str, Any]:
+        """Remove an item from the improvement queue."""
+        return await self._client.request(
+            "DELETE",
+            f"/api/v1/self-improve/improvement-queue/{item_id}",
+        )
+
+    # ===========================================================================
     # Autopilot Worktree Management
     # ===========================================================================
 
     async def get_autopilot_status(self) -> dict[str, Any]:
         """Get managed autopilot session status. GET /api/self-improve/worktrees/autopilot/status"""
-        return await self._client.request(
-            "GET", "/api/v1/self-improve/worktrees/autopilot/status"
-        )
+        return await self._client.request("GET", "/api/v1/self-improve/worktrees/autopilot/status")
 
     async def ensure_autopilot_worktree(self, data: dict[str, Any] | None = None) -> dict[str, Any]:
         """Ensure a managed autopilot worktree exists. POST /api/self-improve/worktrees/autopilot/ensure"""

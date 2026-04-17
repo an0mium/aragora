@@ -82,6 +82,9 @@ from aragora.server.openapi.endpoints.orchestration import ORCHESTRATION_ENDPOIN
 from aragora.server.openapi.endpoints.observability import OBSERVABILITY_ENDPOINTS
 from aragora.server.openapi.endpoints.prompt_engine import PROMPT_ENGINE_ENDPOINTS
 from aragora.server.openapi.endpoints.ralph import RALPH_ENDPOINTS
+from aragora.server.openapi.endpoints.self_improve_details import (
+    SELF_IMPROVE_DETAILS_ENDPOINTS,
+)
 from aragora.server.openapi.endpoints.status import STATUS_ENDPOINTS
 
 
@@ -183,6 +186,7 @@ ALL_ENDPOINTS = {
     **OBSERVABILITY_ENDPOINTS,
     **PROMPT_ENGINE_ENDPOINTS,
     **RALPH_ENDPOINTS,
+    **SELF_IMPROVE_DETAILS_ENDPOINTS,
     **STATUS_ENDPOINTS,
 }
 
@@ -270,6 +274,7 @@ __all__ = [
     "OBSERVABILITY_ENDPOINTS",
     "PROMPT_ENGINE_ENDPOINTS",
     "RALPH_ENDPOINTS",
+    "SELF_IMPROVE_DETAILS_ENDPOINTS",
     "STATUS_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

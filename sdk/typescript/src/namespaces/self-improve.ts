@@ -70,6 +70,16 @@ export interface StartRunRequest {
   dry_run?: boolean;
 }
 
+export interface ImprovementQueueItemRequest extends Record<string, unknown> {
+  goal: string;
+  priority?: number;
+  source?: string;
+}
+
+export interface ImprovementQueuePriorityRequest extends Record<string, unknown> {
+  priority: number;
+}
+
 /**
  * Client interface for self-improve operations.
  */
@@ -289,6 +299,80 @@ export class SelfImproveAPI {
     return this.client.request('POST', '/api/v1/self-improve/regression-history', {
       json: query ?? {},
     });
+  }
+
+  // =========================================================================
+  // Transparency Dashboard Detail Surfaces
+  // =========================================================================
+
+  /**
+   * Get MetaPlanner goals and improvement queue summary.
+   */
+  async getMetaPlannerGoals(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/self-improve/meta-planner/goals');
+  }
+
+  /**
+   * Get self-improvement branch execution timeline.
+   */
+  async getExecutionTimeline(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/self-improve/execution/timeline');
+  }
+
+  /**
+   * Get cross-cycle self-improvement learning insights.
+   */
+  async getLearningInsights(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/self-improve/learning/insights');
+  }
+
+  /**
+   * Get before/after self-improvement metrics comparison.
+   */
+  async getMetricsComparison(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/self-improve/metrics/comparison');
+  }
+
+  /**
+   * Get self-improvement cycle trends.
+   */
+  async getCycleTrends(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/self-improve/trends/cycles');
+  }
+
+  /**
+   * Add a user-submitted goal to the improvement queue.
+   */
+  async addImprovementQueueItem(
+    request: ImprovementQueueItemRequest
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('POST', '/api/v1/self-improve/improvement-queue', {
+      json: request,
+    });
+  }
+
+  /**
+   * Update an improvement queue item's priority.
+   */
+  async updateImprovementQueuePriority(
+    itemId: string,
+    request: ImprovementQueuePriorityRequest
+  ): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'PUT',
+      `/api/v1/self-improve/improvement-queue/${encodeURIComponent(itemId)}/priority`,
+      { json: request }
+    );
+  }
+
+  /**
+   * Remove an item from the improvement queue.
+   */
+  async deleteImprovementQueueItem(itemId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'DELETE',
+      `/api/v1/self-improve/improvement-queue/${encodeURIComponent(itemId)}`
+    );
   }
 
   // =========================================================================

@@ -2309,6 +2309,14 @@ class OpenApiAPI:
     def request_get_api_v1_docs(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/docs", params=params)
 
+    def request_get_api_v1_docs_routes(
+        self, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return self._client.request("GET", "/api/v1/docs/routes", params=params)
+
+    def request_get_api_v1_docs_stats(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
+        return self._client.request("GET", "/api/v1/docs/stats", params=params)
+
     def request_get_api_v1_documents(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/documents", params=params)
 
@@ -7772,6 +7780,16 @@ class AsyncOpenApiAPI:
 
     async def request_get_api_v1_docs(self, params: dict[str, Any] | None = None) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/docs", params=params)
+
+    async def request_get_api_v1_docs_routes(
+        self, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request("GET", "/api/v1/docs/routes", params=params)
+
+    async def request_get_api_v1_docs_stats(
+        self, params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await self._client.request("GET", "/api/v1/docs/stats", params=params)
 
     async def request_get_api_v1_documents(
         self, params: dict[str, Any] | None = None

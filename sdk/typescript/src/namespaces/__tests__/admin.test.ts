@@ -527,6 +527,40 @@ describe('AdminAPI Namespace', () => {
       expect(result.compliance_pct).toBe(50);
     });
 
+    it.each([
+      ['getSystemHealthCircuitBreakers', '/api/v1/admin/system-health/circuit-breakers'],
+      ['getSystemHealthSlos', '/api/v1/admin/system-health/slos'],
+      ['getSystemHealthAdapters', '/api/v1/admin/system-health/adapters'],
+      ['getSystemHealthAgents', '/api/v1/admin/system-health/agents'],
+      ['getSystemHealthBudget', '/api/v1/admin/system-health/budget'],
+    ] as const)('should use runtime route for %s', async (methodName, expectedPath) => {
+      mockClient.request.mockResolvedValue({ ok: true });
+
+      const result = await (api as any)[methodName]();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', expectedPath);
+      expect(result.ok).toBe(true);
+    });
+
+    it('should dispatch component lookups to documented system-health routes', async () => {
+      mockClient.request.mockResolvedValue({ component: 'circuit-breakers' });
+
+      const result = await api.getSystemHealthComponent('circuit_breakers');
+
+      expect(mockClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/admin/system-health/circuit-breakers'
+      );
+      expect(result.component).toBe('circuit-breakers');
+    });
+
+    it('should reject unsupported system-health components', async () => {
+      await expect(api.getSystemHealthComponent('overview')).rejects.toThrow(
+        'Unsupported system health component: overview'
+      );
+      expect(mockClient.request).not.toHaveBeenCalled();
+    });
+
     it('should rotate security key', async () => {
       const mockResult = { success: true, new_key_id: 'key_new_123' };
       mockClient.rotateSecurityKey.mockResolvedValue(mockResult);

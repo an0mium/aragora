@@ -15,6 +15,19 @@ DIRECT_RE = re.compile(
 )
 
 NAMESPACE_CONTRACTS = {
+    "chat": {
+        "file": "sdk/typescript/src/namespaces/chat.ts",
+        "endpoints": [
+            ("get", "/api/v1/chat/status"),
+            ("post", "/api/v1/chat/webhook"),
+            ("post", "/api/v1/chat/slack/webhook"),
+            ("post", "/api/v1/chat/teams/webhook"),
+            ("post", "/api/v1/chat/discord/webhook"),
+            ("post", "/api/v1/chat/google_chat/webhook"),
+            ("post", "/api/v1/chat/telegram/webhook"),
+            ("post", "/api/v1/chat/whatsapp/webhook"),
+        ],
+    },
     "decisions": {
         "file": "sdk/typescript/src/namespaces/decisions.ts",
         "endpoints": [
@@ -30,6 +43,13 @@ NAMESPACE_CONTRACTS = {
         "endpoints": [
             ("get", "/api/v1/integrations/teams/status"),
             ("post", "/api/v1/integrations/teams/notify"),
+        ],
+    },
+    "openapi": {
+        "file": "sdk/typescript/src/namespaces/openapi.ts",
+        "endpoints": [
+            ("get", "/api/v1/docs/routes"),
+            ("get", "/api/v1/docs/stats"),
         ],
     },
     "receipts": {
