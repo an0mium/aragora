@@ -10,7 +10,7 @@ def test_create_debate_request_accepts_structured_agents() -> None:
     req = CreateDebateRequest(
         question="Should we adopt microservices?",
         agents=[
-            {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+            {"provider": "anthropic-api", "model": "claude-opus-4-7"},
             {"provider": "openai-api", "model": "gpt-4.1"},
         ],
     )
@@ -23,5 +23,5 @@ def test_create_debate_request_rejects_invalid_structured_agents() -> None:
     with pytest.raises(ValidationError):
         CreateDebateRequest(
             question="Should we adopt microservices?",
-            agents=[{"model": "claude-opus-4-6"}],
+            agents=[{"model": "claude-opus-4-7"}],
         )

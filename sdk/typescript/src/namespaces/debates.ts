@@ -121,6 +121,28 @@ export interface DebateFilters {
 }
 
 /**
+ * Debate currently running or paused in live server state.
+ */
+export interface ActiveDebate {
+  id: string;
+  topic?: string;
+  status: 'running' | 'paused' | string;
+  started_at?: string;
+  agents?: string[];
+  round?: number;
+  total_rounds?: number;
+  elapsed_seconds?: number;
+  [key: string]: unknown;
+}
+
+/**
+ * Active debate list response.
+ */
+export interface ActiveDebatesResponse {
+  debates: ActiveDebate[];
+}
+
+/**
  * Debate statistics
  */
 export interface DebateStatistics {
@@ -513,6 +535,13 @@ export class DebatesAPI {
    */
   async list(params?: PaginationParams & { status?: string }): Promise<{ debates: Debate[] }> {
     return this.client.listDebates(params);
+  }
+
+  /**
+   * List debates currently running or paused in live server state.
+   */
+  async listActive(): Promise<ActiveDebatesResponse> {
+    return this.client.request('GET', '/api/v1/debates/active');
   }
 
   /**

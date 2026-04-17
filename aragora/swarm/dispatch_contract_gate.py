@@ -388,6 +388,15 @@ def dispatch_contract_gate(
     missing_slices = _missing_slices(loop, envelope=envelope, target_agent=target_agent)
     required_receipts: list[str] = []
     preflight_receipts: list[dict[str, Any]] = []
+    # The preview env must model what the preflight worker launcher will
+    # actually build. The preflight work-order always carries
+    # ``metadata.admin_approved=True`` (preflight is an admin-owned
+    # scratch dispatch), so ``build_worker_runtime_env`` on the launcher
+    # side stamps ``ARAGORA_ADMIN_APPROVED=1`` into the env and that flows
+    # into ``env_checksum``. Mirror that here so the preview-persisted
+    # contract's ``env_checksum`` matches the launcher's rebuilt contract
+    # and ``preflight._enforce_expected_contract()`` doesn't trip.
+    # See ``docs/plans/2026-04-17-worker-drift-diagnosis.md``.
     preview_contract_env = build_worker_runtime_env(
         agent=target_agent,
         worker_env_overrides=worker_env,
@@ -396,6 +405,7 @@ def dispatch_contract_gate(
             if target_agent == "claude"
             else None
         ),
+        admin_approved=True,
     )
     launch_config = LaunchConfig(
         base_branch=loop.config.target_branch,

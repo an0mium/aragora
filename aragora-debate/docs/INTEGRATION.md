@@ -227,7 +227,7 @@ Force agents to argue specific positions:
 agents = [
     ClaudeAgent("proponent", stance="affirmative"),
     OpenAIAgent("opponent", stance="negative"),
-    ClaudeAgent("judge", stance="neutral", model="claude-opus-4-6"),
+    ClaudeAgent("judge", stance="neutral", model="claude-opus-4-7"),
 ]
 ```
 

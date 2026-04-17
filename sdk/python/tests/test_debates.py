@@ -117,6 +117,18 @@ class TestDebatesList:
             assert call_args[1]["params"]["status"] == "completed"
             client.close()
 
+    def test_list_active_debates(self) -> None:
+        """List currently active debates."""
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"debates": [{"id": "deb_active", "status": "running"}]}
+
+            client = AragoraClient(base_url="https://api.aragora.ai")
+            result = client.debates.list_active()
+
+            mock_request.assert_called_once_with("GET", "/api/v1/debates/active")
+            assert result["debates"][0]["id"] == "deb_active"
+            client.close()
+
 
 class TestDebatesMessages:
     """Tests for debate message operations."""
@@ -231,6 +243,18 @@ class TestAsyncDebates:
                 mock_request.assert_called_once_with(
                     "GET", "/api/v1/debates", params={"limit": 10, "offset": 5}
                 )
+
+    @pytest.mark.asyncio
+    async def test_async_list_active_debates(self) -> None:
+        """List active debates asynchronously."""
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {"debates": [{"id": "deb_active", "status": "paused"}]}
+
+            async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+                result = await client.debates.list_active()
+
+                mock_request.assert_called_once_with("GET", "/api/v1/debates/active")
+                assert result["debates"][0]["status"] == "paused"
 
 
 class TestDebatesAdvancedFeatures:

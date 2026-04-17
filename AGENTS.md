@@ -49,7 +49,7 @@ Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, l
 
 | Agent Type | CLI Tool | Default Model | Notes |
 |------------|----------|---------------|-------|
-| `claude` | `claude` (claude-code) | claude-opus-4-6 | Opus 4.6, 200K context, 128K output |
+| `claude` | `claude` (claude-code) | claude-opus-4-7 | Opus 4.6, 200K context, 128K output |
 | `codex` | `codex` | gpt-4.1-codex | GPT-4.1 Codex, 1M context |
 | `openai` | `openai` | gpt-4.1 | GPT-4.1, 1M context |
 | `gemini-cli` | `gemini` | gemini-3.1-pro-preview | Gemini 3.1 Pro, 1M context |
@@ -62,7 +62,7 @@ Aragora currently registers 43 agent types across CLI, direct API, OpenRouter, l
 
 | Agent Type | Provider | Default Model | Env Var | Allowlist |
 |------------|----------|---------------|---------|-----------|
-| `anthropic-api` | Anthropic | claude-opus-4-6 | `ANTHROPIC_API_KEY` | allowlisted |
+| `anthropic-api` | Anthropic | claude-opus-4-7 | `ANTHROPIC_API_KEY` | allowlisted |
 | `openai-api` | OpenAI | gpt-4.1 | `OPENAI_API_KEY` | allowlisted |
 | `gemini` | Google | gemini-3.1-pro-preview | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | allowlisted |
 | `grok` | xAI | grok-4-latest | `XAI_API_KEY` or `GROK_API_KEY` | allowlisted |

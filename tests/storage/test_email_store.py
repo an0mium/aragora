@@ -655,6 +655,44 @@ class TestPrioritizationDecisions:
         )
         assert row[0] == 0  # False -> 0
 
+    def test_record_user_feedback_latest_matching_decision(self, store):
+        """Record feedback on only the latest matching decision."""
+        store.record_prioritization_decision(
+            "dec_old", "user_1", "ws_1", "email_1", 1, "high", 0.9, 8.0
+        )
+        store.record_prioritization_decision(
+            "dec_new", "user_1", "ws_1", "email_1", 2, "normal", 0.6, 5.0
+        )
+        store.execute_write(
+            "UPDATE prioritization_decisions SET created_at = ? WHERE id = ?",
+            ("2026-01-01T00:00:00+00:00", "dec_old"),
+        )
+        store.execute_write(
+            "UPDATE prioritization_decisions SET created_at = ? WHERE id = ?",
+            ("2026-01-02T00:00:00+00:00", "dec_new"),
+        )
+
+        result = store.record_user_feedback("email_1", "user_1", "ws_1", is_correct=True)
+        assert result is True
+
+        rows = store.fetch_all("SELECT id, user_feedback FROM prioritization_decisions ORDER BY id")
+        assert [tuple(row) for row in rows] == [("dec_new", 1), ("dec_old", None)]
+
+    def test_record_user_feedback_no_matching_decision(self, store):
+        """Missing decisions return False."""
+        store.record_prioritization_decision(
+            "dec_fb", "user_1", "ws_1", "email_1", 1, "high", 0.9, 8.0
+        )
+
+        result = store.record_user_feedback("missing", "user_1", "ws_1", is_correct=True)
+        assert result is False
+
+        row = store.fetch_one(
+            "SELECT user_feedback FROM prioritization_decisions WHERE id = ?",
+            ("dec_fb",),
+        )
+        assert row[0] is None
+
     def test_feedback_stats_empty(self, store):
         """Feedback stats for a user with no feedback returns zeros."""
         stats = store.get_feedback_stats("user_1", "ws_1")

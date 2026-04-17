@@ -462,6 +462,29 @@ class TestSignatureVerification:
         assert _status(result) == 200
 
     @pytest.mark.asyncio
+    async def test_configured_bot_without_secret_rejects_signed_event(self, handler):
+        """A real bot without ZOOM_SECRET_TOKEN must not accept arbitrary signatures."""
+        from aragora.bots.zoom_bot import AragoraZoomBot
+
+        event = _bot_notification_event()
+        http_handler = _make_event_handler(event, signature="v0=anything", timestamp="123")
+        bot = AragoraZoomBot(
+            client_id="cid",
+            client_secret="csec",
+            secret_token=None,
+        )
+        bot.handle_event = AsyncMock(return_value={"ok": True})
+
+        handler._bot_initialized = True
+        handler._bot = bot
+        result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
+
+        assert _status(result) == 401
+        body = _body(result)
+        assert "Invalid signature" in body.get("error", "")
+        bot.handle_event.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_signature_present_but_no_bot_returns_503(self, handler, handler_module):
         """Signature present but bot not configured returns 503."""
         event = _bot_notification_event()
@@ -619,6 +642,25 @@ class TestOtherEventTypes:
         # No signature => 401 for non-url_validation
         result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
         assert _status(result) == 401
+
+    @pytest.mark.asyncio
+    async def test_signed_no_event_field_returns_validation_error(self, handler, handler_module):
+        """Authenticated events still validate the required event field."""
+        event = {"payload": {}}
+        http_handler = _make_event_handler(event, signature="sig", timestamp="123")
+        mock_bot = MagicMock()
+        mock_bot.verify_webhook.return_value = True
+
+        with (
+            patch.object(handler_module, "ZOOM_CLIENT_ID", "cid"),
+            patch.object(handler_module, "ZOOM_CLIENT_SECRET", "csec"),
+        ):
+            handler._bot_initialized = True
+            handler._bot = mock_bot
+            result = await handler.handle_post("/api/v1/bots/zoom/events", {}, http_handler)
+        assert _status(result) == 400
+        body = _body(result)
+        assert "non-empty 'event' field" in body.get("error", "")
 
     @pytest.mark.asyncio
     async def test_event_without_bot_returns_503(self, handler, handler_module):

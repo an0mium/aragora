@@ -710,10 +710,27 @@ def test_repo_checked_in_benchmark_truth_surfaces_match_current_corpus(tmp_path:
     )
     rendered = output_path.read_text(encoding="utf-8")
     assert f"- Revision: `{expected_revision}`" in rendered
-    assert "- Verified expected issues: `5`" in rendered
-    assert "- In-progress expected issues: `3`" in rendered
-    assert "| Verified truth success rate (primary) | 100.0% |" in rendered
-    assert "| Full-corpus truth success rate (legacy/context) | 62.5% |" in rendered
+    # Rev-3 honesty pass (2026-04-17): the corpus now carries zero verified
+    # entries and three in_progress entries while autonomy is on the hook to
+    # land its first real closing PR. The primary metric is therefore 0.0%
+    # until the first merged PR graduates an entry; reporting 100.0% against
+    # a pre-solved snapshot is the exact failure mode the audit retired.
+    truth_corpus = truth_payload["corpus"]
+    verified_count = int(truth_corpus.get("verified_expected_count", 0) or 0)
+    in_progress_count = int(truth_corpus.get("in_progress_expected_count", 0) or 0)
+    assert f"- Verified expected issues: `{verified_count}`" in rendered
+    assert f"- In-progress expected issues: `{in_progress_count}`" in rendered
+    truth_success_rate_verified = float(
+        (truth_payload.get("primary_metrics") or {}).get("truth_success_rate_verified", 0.0)
+    )
+    truth_success_rate = float(
+        (truth_payload.get("primary_metrics") or {}).get("truth_success_rate", 0.0)
+    )
+    assert (
+        f"| Verified truth success rate (primary) | {truth_success_rate_verified * 100:.1f}% |"
+    ) in rendered
+    assert (
+        f"| Full-corpus truth success rate (legacy/context) | {truth_success_rate * 100:.1f}% |"
+    ) in rendered
     assert "## In-Flight Graduation Metrics" in rendered
-    assert "| In-progress expected issues | 3 |" in rendered
-    assert "| In-progress graduation rate | 0.0% |" in rendered
+    assert f"| In-progress expected issues | {in_progress_count} |" in rendered

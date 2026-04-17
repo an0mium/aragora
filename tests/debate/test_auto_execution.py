@@ -138,7 +138,7 @@ def _make_arena(**overrides) -> MagicMock:
     arena.agents = overrides.get(
         "agents",
         [
-            MagicMock(model="claude-opus-4-6", agent_type="anthropic-api"),
+            MagicMock(model="claude-opus-4-7", agent_type="anthropic-api"),
             MagicMock(model="gpt-4.1", agent_type="openai-api"),
         ],
     )

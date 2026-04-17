@@ -57,7 +57,7 @@ class TestAnthropicThinking:
                     "text": "Here is my answer.",
                 },
             ],
-            "model": "claude-opus-4-6",
+            "model": "claude-opus-4-7",
             "stop_reason": "end_turn",
             "usage": {"input_tokens": 200, "output_tokens": 100},
         }
@@ -93,7 +93,7 @@ class TestAnthropicThinking:
                     "text": "A simple response without thinking.",
                 },
             ],
-            "model": "claude-opus-4-6",
+            "model": "claude-opus-4-7",
             "stop_reason": "end_turn",
             "usage": {"input_tokens": 50, "output_tokens": 30},
         }
@@ -136,7 +136,7 @@ class TestAnthropicThinking:
                     "text": "My final answer.",
                 },
             ],
-            "model": "claude-opus-4-6",
+            "model": "claude-opus-4-7",
             "stop_reason": "end_turn",
             "usage": {"input_tokens": 300, "output_tokens": 150},
         }

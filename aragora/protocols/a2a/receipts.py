@@ -7,7 +7,7 @@ verify, parse, and act on without HTML scraping. See
 
 The :class:`AgentReceipt` is a thin envelope that wraps any decision
 artifact (decision text, CruxSet, claim, prediction outcome, debate
-result) in a versioned, content-addressed, signature-verifiable
+result) in a versioned, content-addressed, identity- and signature-verifiable
 container. The wrapped artifact lives in ``subject``; the optional
 :class:`aragora.reasoning.cruxset.CruxSet` (when AGT-01 emission is
 enabled) lives in ``cruxset``; reputation deltas applied as a
@@ -354,6 +354,14 @@ class AgentReceipt:
             "provenance": self.provenance,
         }
 
+    def expected_receipt_id(self) -> str:
+        """Return the deterministic content address for this receipt payload."""
+        return "rcpt_a_" + _sha256_hex(_canonical(self._canonical_payload()))[:16]
+
+    def verify_receipt_id(self) -> bool:
+        """Return True when receipt_id matches the canonical payload address."""
+        return self.receipt_id == self.expected_receipt_id()
+
     def _signed_payload(self) -> dict[str, Any]:
         return {
             **self._canonical_payload(),
@@ -368,7 +376,9 @@ class AgentReceipt:
         verification_key: SignaturePublicKey | None = None,
         key_resolver: SignatureKeyResolver | None = None,
     ) -> bool:
-        """Verify this receipt with an issuer public key or key resolver."""
+        """Verify this receipt's identity and Ed25519 signature."""
+        if not self.verify_receipt_id():
+            return False
         if self.signature_algorithm != DEFAULT_SIGNATURE_ALGORITHM:
             return False
         key = verification_key
@@ -377,6 +387,15 @@ class AgentReceipt:
         if key is None:
             return False
         return _verify_ed25519_signature(_canonical(self._signed_payload()), self.signature, key)
+
+    def verify(
+        self,
+        *,
+        verification_key: SignaturePublicKey | None = None,
+        key_resolver: SignatureKeyResolver | None = None,
+    ) -> bool:
+        """Verify this receipt using the public A2A trust contract."""
+        return self.verify_signature(verification_key=verification_key, key_resolver=key_resolver)
 
     def is_fresh(self, *, now: datetime | None = None) -> bool:
         """Return True if the receipt is within its freshness SLA."""

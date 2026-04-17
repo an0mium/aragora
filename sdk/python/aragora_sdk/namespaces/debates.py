@@ -81,6 +81,10 @@ class DebatesAPI:
 
         return self._client.request("GET", "/api/v1/debates", params=params)
 
+    def list_active(self) -> dict[str, Any]:
+        """List debates currently running or paused in live server state."""
+        return self._client.request("GET", "/api/v1/debates/active")
+
     def list_all(
         self,
         status: str | None = None,
@@ -1060,6 +1064,10 @@ class AsyncDebatesAPI:
             params["status"] = status
 
         return await self._client.request("GET", "/api/v1/debates", params=params)
+
+    async def list_active(self) -> dict[str, Any]:
+        """List debates currently running or paused in live server state."""
+        return await self._client.request("GET", "/api/v1/debates/active")
 
     def list_all(
         self,

@@ -181,7 +181,7 @@ class TestCostBreakdownEndpoint:
         mock_breakdown = MagicMock(
             total_cost=Decimal("12.3400"),
             by_model=[
-                {"model": "anthropic/claude-opus-4-6", "cost": "7.3400"},
+                {"model": "anthropic/claude-opus-4-7", "cost": "7.3400"},
                 {"model": "openai/gpt-4.1", "cost": "5.0000"},
             ],
             by_provider=[],
@@ -196,7 +196,7 @@ class TestCostBreakdownEndpoint:
 
         assert body["total_spend_usd"] == "12.34"
         assert body["agent_costs"] == {
-            "anthropic/claude-opus-4-6": "7.34",
+            "anthropic/claude-opus-4-7": "7.34",
             "openai/gpt-4.1": "5.00",
         }
         mock_meter.get_usage_breakdown.assert_awaited_once_with(org_id="ws_123")

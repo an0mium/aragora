@@ -1,7 +1,7 @@
 # OpenClaw Gateway Security Audit
 
 **Date:** 2026-02-12
-**Auditor:** Automated OWASP Top 10 audit (Claude Opus 4.6)
+**Auditor:** Automated OWASP Top 10 audit (Claude Opus 4.7)
 **Scope:** `aragora/compat/openclaw/`, `aragora/server/handlers/openclaw/`, `aragora/gateway/`
 **Standard:** OWASP Top 10 (2021)
 **Prior audit:** 2026-02-12 (initial)
