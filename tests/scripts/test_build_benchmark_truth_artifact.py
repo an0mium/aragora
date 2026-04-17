@@ -277,6 +277,117 @@ def test_build_benchmark_truth_artifact_does_not_count_historical_truth_for_unat
     ]
 
 
+def test_build_benchmark_truth_artifact_does_not_graduate_open_in_progress_issue_from_corpus_pr(
+    tmp_path: Path,
+) -> None:
+    metrics_path = tmp_path / "boss_metrics.jsonl"
+    metrics_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "issue_number": 1064,
+                        "issue_title": "Verified dependency bump",
+                        "terminal_class": "issue_already_resolved",
+                        "worker_outcome": "issue_already_resolved",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "issue_number": 5814,
+                        "issue_title": "Open in-progress test task",
+                        "terminal_class": "blocked_not_dispatch_bounded",
+                        "worker_outcome": "blocked",
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 3,
+            "recorded_on": "2026-04-17",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [
+                {
+                    "issue_id": 1064,
+                    "title": "Verified dependency bump",
+                    "expected_status": "verified",
+                },
+                {
+                    "issue_id": 5814,
+                    "title": "Open in-progress test task",
+                    "expected_status": "in_progress",
+                },
+            ],
+        },
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            1064: {
+                "title": "Verified dependency bump",
+                "state": "CLOSED",
+                "closedAt": "2026-04-16T12:00:00Z",
+                "comments": [{"body": "PR: https://github.com/synaptent/aragora/pull/6001"}],
+            },
+            5814: {
+                "title": "Open in-progress test task",
+                "state": "OPEN",
+                "comments": [{"body": "Seeded by https://github.com/synaptent/aragora/pull/6079"}],
+            },
+        },
+        prs={
+            6001: {
+                "number": 6001,
+                "title": "merged fix",
+                "url": "https://github.com/synaptent/aragora/pull/6001",
+                "state": "MERGED",
+                "mergeable": "MERGEABLE",
+                "mergeStateStatus": "CLEAN",
+                "mergedAt": "2026-04-16T12:00:00Z",
+                "isDraft": False,
+            },
+            6079: {
+                "number": 6079,
+                "title": "corpus v3",
+                "url": "https://github.com/synaptent/aragora/pull/6079",
+                "state": "MERGED",
+                "mergeable": "UNKNOWN",
+                "mergeStateStatus": "UNKNOWN",
+                "mergedAt": "2026-04-17T12:07:40Z",
+                "isDraft": False,
+            },
+        },
+    )
+
+    artifact = mod.build_benchmark_truth_artifact(
+        repo="synaptent/aragora",
+        metrics_file=metrics_path,
+        corpus_path=corpus_path,
+        client=client,
+        generated_at="2026-04-17T13:00:00Z",
+    )
+
+    assert artifact["run_status"] == "complete"
+    assert artifact["coverage"]["attempted_issue_count"] == 2
+    assert artifact["primary_metrics"]["truth_success_rate_verified"] == 1.0
+    assert artifact["primary_metrics"]["truth_success_rate"] == 0.5
+    assert artifact["primary_metrics"]["no_rescue_truth_success_rate"] == 0.5
+    assert artifact["primary_metrics"]["merged_only_rate"] == 0.5
+    assert artifact["in_flight_metrics"]["in_progress_attempted_count"] == 1
+    assert artifact["in_flight_metrics"]["in_progress_success_count"] == 0
+    assert artifact["in_flight_metrics"]["in_progress_graduation_rate"] == 0.0
+    assert [issue["truth_state"] for issue in artifact["issues"]] == [
+        "merged_pr",
+        "in_progress_open",
+    ]
+    assert artifact["issues"][1]["truth_success"] is False
+
+
 def test_build_benchmark_truth_artifact_reports_stale_closed_corpus_issues(
     tmp_path: Path,
 ) -> None:

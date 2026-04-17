@@ -1002,6 +1002,22 @@ class TestModalSubmit:
 class TestUnknownInteractionType:
     """Tests for unknown interaction types."""
 
+    async def _assert_invalid_type_field(
+        self,
+        handler,
+        handler_module,
+        interaction: dict[str, Any],
+    ) -> None:
+        http_handler = _make_interaction_handler(interaction)
+        with patch.object(handler_module, "_verify_discord_signature", return_value=True):
+            result = await handler.handle_post(
+                "/api/v1/bots/discord/interactions", {}, http_handler
+            )
+
+        assert _status(result) == 400
+        body = _body(result)
+        assert body["error"] == "Discord interaction body must include an integer 'type' field"
+
     @pytest.mark.asyncio
     async def test_unknown_type_returns_message(self, handler, handler_module):
         interaction = {"type": 99, "id": "unknown-001"}
@@ -1018,16 +1034,29 @@ class TestUnknownInteractionType:
     @pytest.mark.asyncio
     async def test_missing_type_field(self, handler, handler_module):
         """Interaction without type field."""
-        interaction = {"id": "no-type-001"}
-        http_handler = _make_interaction_handler(interaction)
-        with patch.object(handler_module, "_verify_discord_signature", return_value=True):
-            result = await handler.handle_post(
-                "/api/v1/bots/discord/interactions", {}, http_handler
-            )
-        body = _body(result)
-        # type is None which doesn't match any known type
-        assert body["type"] == 4
-        assert "Unknown interaction type" in body["data"]["content"]
+        await self._assert_invalid_type_field(
+            handler,
+            handler_module,
+            {"id": "no-type-001"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_non_integer_type_field(self, handler, handler_module):
+        """Interaction with non-integer type field."""
+        await self._assert_invalid_type_field(
+            handler,
+            handler_module,
+            {"type": "2", "id": "string-type-001"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_boolean_type_field(self, handler, handler_module):
+        """Interaction with boolean type field."""
+        await self._assert_invalid_type_field(
+            handler,
+            handler_module,
+            {"type": True, "id": "bool-type-001"},
+        )
 
 
 # ===========================================================================

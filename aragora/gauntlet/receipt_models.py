@@ -5,6 +5,7 @@ Contains the core dataclass definitions for receipt components:
 - ProvenanceRecord: A single provenance record in the chain
 - ConsensusProof: Proof of agent consensus
 - DecisionReceipt: The main audit-ready receipt dataclass
+- CruxReceipt: The signed map of load-bearing disagreement (crux-finder mode)
 
 These are extracted from receipt.py for modularity.
 The main receipt.py re-exports all models for backward compatibility.
@@ -23,6 +24,8 @@ from typing import TYPE_CHECKING, Any
 from aragora.core_types import Verdict  # noqa: F401 - re-exported for receipt consumers
 
 if TYPE_CHECKING:
+    from aragora.debate.crux_mode import CruxFinderResult
+
     from .result import GauntletResult
     from .signing import ReceiptSigner
 
@@ -273,6 +276,184 @@ class AgentResponseRecord:
             "model": self.model,
             "llm_label": self.llm_label,
         }
+
+
+@dataclass
+class CruxReceipt:
+    """A signed map of load-bearing disagreement (crux-finder mode, DIC-16).
+
+    Distinct from ``DecisionReceipt``: this artifact is explicitly NOT a
+    verdict. It says "here is where reasonable people diverge", with
+    counterfactual evidence that each listed claim is load-bearing on the
+    debate outcome. Mirrors the SHA-256 checksum pattern used elsewhere
+    (``aragora.debate.consensus.ConsensusProof.checksum``).
+    """
+
+    receipt_id: str
+    debate_id: str
+    question: str
+    timestamp: str  # ISO-8601 UTC
+    agents: list[str]
+    rounds: int
+
+    # The map of disagreement.
+    cruxes: list[dict[str, Any]] = field(default_factory=list)
+    convergence_barrier: float = 0.0
+    counterfactuals: list[dict[str, Any]] = field(default_factory=list)
+    recommended_focus: list[str] = field(default_factory=list)
+
+    # Optional — only populated when a resolution-strategy pass has run.
+    resolution_strategies: list[dict[str, Any]] = field(default_factory=list)
+
+    # Provenance: SHA-256 of sorted-keys raw_claims JSON, plus free metadata.
+    raw_claims_hash: str = ""
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def checksum(self) -> str:
+        """SHA-256 over canonical JSON, truncated to 16 hex chars.
+
+        Matches the ``ConsensusProof.checksum`` pattern so downstream
+        verifiers can treat the two receipts interchangeably for signing.
+        """
+        content = json.dumps(
+            {
+                "receipt_id": self.receipt_id,
+                "debate_id": self.debate_id,
+                "question": self.question,
+                "timestamp": self.timestamp,
+                "cruxes": self.cruxes,
+                "convergence_barrier": self.convergence_barrier,
+                "counterfactuals": self.counterfactuals,
+                "recommended_focus": self.recommended_focus,
+                "resolution_strategies": self.resolution_strategies,
+                "raw_claims_hash": self.raw_claims_hash,
+            },
+            sort_keys=True,
+            default=str,
+        )
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "receipt_id": self.receipt_id,
+            "debate_id": self.debate_id,
+            "question": self.question,
+            "timestamp": self.timestamp,
+            "agents": list(self.agents),
+            "rounds": self.rounds,
+            "cruxes": list(self.cruxes),
+            "convergence_barrier": self.convergence_barrier,
+            "counterfactuals": list(self.counterfactuals),
+            "recommended_focus": list(self.recommended_focus),
+            "resolution_strategies": list(self.resolution_strategies),
+            "raw_claims_hash": self.raw_claims_hash,
+            "metadata": dict(self.metadata),
+            "checksum": self.checksum,
+        }
+
+
+def build_crux_receipt(
+    result: CruxFinderResult,
+    resolution_strategies: list[dict[str, Any]] | None = None,
+) -> CruxReceipt:
+    """Build a signed ``CruxReceipt`` from a ``CruxFinderResult``."""
+    receipt_id = f"crux-{uuid.uuid4().hex[:8]}"
+    raw_claims = list(getattr(result, "raw_claims", []) or [])
+    raw_claims_hash = hashlib.sha256(
+        json.dumps(raw_claims, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+    analysis = result.analysis
+    return CruxReceipt(
+        receipt_id=receipt_id,
+        debate_id=result.debate_id,
+        question=result.question,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        agents=list(result.agents),
+        rounds=result.rounds,
+        cruxes=[crux.to_dict() for crux in analysis.cruxes],
+        convergence_barrier=float(analysis.convergence_barrier),
+        counterfactuals=list(result.counterfactuals),
+        recommended_focus=list(analysis.recommended_focus),
+        resolution_strategies=list(resolution_strategies or []),
+        raw_claims_hash=raw_claims_hash,
+        metadata=dict(result.metadata),
+    )
+
+
+def build_crux_receipt_from_proof(
+    proof: Any,
+    *,
+    question: str,
+    agents: list[str] | None = None,
+    rounds: int = 0,
+    raw_claims: list[dict[str, Any]] | None = None,
+    resolution_strategies: list[dict[str, Any]] | None = None,
+) -> CruxReceipt:
+    """Build a ``CruxReceipt`` from a crux-finder ``ConsensusProof``.
+
+    The A1 consensus-phase handler stores the cruxes, counterfactuals, and
+    convergence barrier on ``proof.metadata`` (see ``build_proof_from_crux_finder``
+    in ``aragora.debate.consensus``). The CLI surface can go straight from
+    ``result.consensus_proof`` to a receipt without re-detecting cruxes.
+
+    Args:
+        proof: A ``aragora.debate.consensus.ConsensusProof`` produced by the
+            crux-finder consensus mode. Duck-typed; must expose
+            ``debate_id`` and a ``metadata`` dict with the crux-finder fields.
+        question: The debate question. (The proof's ``task`` is the
+            underlying debate task; the receipt question is the same in
+            practice but is passed explicitly to avoid assumptions.)
+        agents: Ordered agent roster. Defaults to empty.
+        rounds: Number of rounds the debate ran for.
+        raw_claims: Optional raw-claims log for the provenance hash.
+        resolution_strategies: Optional suggested strategies.
+
+    Raises:
+        ValueError: if the proof was not produced by crux-finder mode.
+    """
+    metadata = getattr(proof, "metadata", None) or {}
+    mode = str(metadata.get("consensus_mode") or "").strip()
+    if mode != "crux_finder":
+        raise ValueError(
+            "build_crux_receipt_from_proof requires a ConsensusProof produced "
+            f"by crux-finder mode (consensus_mode={mode!r}, expected 'crux_finder')."
+        )
+
+    receipt_id = f"crux-{uuid.uuid4().hex[:8]}"
+    normalized_claims = list(raw_claims or [])
+    raw_claims_hash = hashlib.sha256(
+        json.dumps(normalized_claims, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+    cruxes = list(metadata.get("cruxes") or [])
+    counterfactuals = list(metadata.get("counterfactuals") or [])
+    recommended_focus = list(metadata.get("recommended_focus") or [])
+    convergence_barrier = float(metadata.get("convergence_barrier") or 0.0)
+
+    # Preserve any extra metadata keys the proof carried (e.g. "approach").
+    receipt_metadata = {
+        k: v
+        for k, v in metadata.items()
+        if k not in {"cruxes", "counterfactuals", "recommended_focus", "convergence_barrier"}
+    }
+
+    return CruxReceipt(
+        receipt_id=receipt_id,
+        debate_id=str(getattr(proof, "debate_id", "") or ""),
+        question=question,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        agents=list(agents or []),
+        rounds=int(rounds),
+        cruxes=cruxes,
+        convergence_barrier=convergence_barrier,
+        counterfactuals=counterfactuals,
+        recommended_focus=recommended_focus,
+        resolution_strategies=list(resolution_strategies or []),
+        raw_claims_hash=raw_claims_hash,
+        metadata=receipt_metadata,
+    )
 
 
 def _compute_risk_summary_from_critiques(
@@ -1024,14 +1205,21 @@ class DecisionReceipt:
         raw_cost_summary = getattr(result, "cost_summary", None)
         cost_summary = raw_cost_summary if isinstance(raw_cost_summary, dict) else None
 
+        resolved_input_hash = (
+            input_hash
+            or getattr(result, "input_hash", None)
+            or getattr(result, "checksum", None)
+            or ""
+        )
+        if not isinstance(resolved_input_hash, str):
+            resolved_input_hash = str(resolved_input_hash)
+
         return cls(
             receipt_id=receipt_id,
             gauntlet_id=result.gauntlet_id,
             timestamp=getattr(result, "created_at", ""),
             input_summary=result.input_summary,
-            input_hash=input_hash
-            or getattr(result, "input_hash", "")
-            or getattr(result, "checksum", ""),
+            input_hash=resolved_input_hash,
             risk_summary={
                 "critical": critical,
                 "high": high,

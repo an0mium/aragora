@@ -204,7 +204,7 @@ business development leaders, and recruiting-heavy operators who already feel th
 
 ## Supporting Facts, Not Opening Claims
 
-- **216,000+ tests** across 4,700+ test files
+- **210,000+ tests** across 4,700+ test files
 - **Receipt-gated repo improvement** validated on the benchmark path
 - **Inbox trust wedge** shipped from debate to signed receipt to action
 - **Heterogeneous provider support** across CLI, API, and local-model workers

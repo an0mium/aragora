@@ -21,6 +21,7 @@ DEFAULT_AUTOMATION_ENV_FILE = Path.home() / ".aragora" / ".env.automation"
 GITHUB_API_VERSION = "2022-11-28"
 GITHUB_API_HOST = "api.github.com"
 _TOKEN_CACHE: dict[tuple[str, str, str], "GitHubAppToken"] = {}
+_PRIVATE_KEY_ENV_KEYS = ("GITHUB_APP_PRIVATE_KEY", "ARAGORA_GITHUB_APP_KEY")
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,36 @@ def clear_github_app_token_cache() -> None:
     _TOKEN_CACHE.clear()
 
 
+def _strip_matching_quotes(value: str) -> str:
+    stripped = value.strip()
+    if len(stripped) >= 2 and stripped[0] == stripped[-1] and stripped[0] in {"'", '"'}:
+        return stripped[1:-1]
+    return stripped
+
+
+def _parse_env_value(lines: list[str], start_index: int, raw_value: str) -> tuple[str, int]:
+    value = raw_value.strip()
+    if not value:
+        return "", start_index
+
+    quote = value[0]
+    if quote not in {"'", '"'}:
+        return _strip_matching_quotes(value), start_index
+
+    current = value[1:]
+    parts: list[str] = []
+    index = start_index
+    while True:
+        if current.endswith(quote):
+            parts.append(current[:-1])
+            return "\n".join(parts), index
+        parts.append(current)
+        index += 1
+        if index >= len(lines):
+            return "\n".join(parts), index - 1
+        current = lines[index].rstrip()
+
+
 def _read_env_file(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
@@ -55,43 +86,35 @@ def _read_env_file(path: Path) -> dict[str, str]:
             continue
         key, value = line.split("=", 1)
         key = key.strip()
-        value = value.strip()
-        if not key:
-            index += 1
-            continue
-
-        if value.startswith(("'", '"')):
-            quote = value[0]
-            value = value[1:]
-            if value.endswith(quote):
-                values[key] = value[:-1]
-                index += 1
-                continue
-
-            parts = [value]
-            index += 1
-            while index < len(lines):
-                next_line = lines[index]
-                if next_line.endswith(quote):
-                    parts.append(next_line[:-1])
-                    index += 1
-                    break
-                parts.append(next_line)
-                index += 1
-            values[key] = "\n".join(parts)
-            continue
-
-        values[key] = value
+        if key:
+            values[key], index = _parse_env_value(lines, index, value)
         index += 1
     return values
 
 
-def _first_value(values: Mapping[str, str], keys: tuple[str, ...]) -> str:
+def _first_named_value(values: Mapping[str, str], keys: tuple[str, ...]) -> tuple[str, str]:
     for key in keys:
         value = str(values.get(key) or "").strip()
         if value:
-            return value
-    return ""
+            return key, value
+    return "", ""
+
+
+def _first_value(values: Mapping[str, str], keys: tuple[str, ...]) -> str:
+    _, value = _first_named_value(values, keys)
+    return value
+
+
+def _normalize_private_key(value: str) -> str:
+    stripped = _strip_matching_quotes(value)
+    return stripped.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n").strip()
+
+
+def _first_private_key(values: Mapping[str, str]) -> tuple[str, str]:
+    key, value = _first_named_value(values, _PRIVATE_KEY_ENV_KEYS)
+    if not value:
+        return "", ""
+    return key, _normalize_private_key(value)
 
 
 def _automation_env_file(env: Mapping[str, str]) -> Path:
@@ -104,12 +127,6 @@ def _automation_env_file(env: Mapping[str, str]) -> Path:
         ),
     )
     return Path(configured).expanduser() if configured else DEFAULT_AUTOMATION_ENV_FILE
-
-
-def _normalize_private_key(value: str) -> str:
-    if "\\n" in value:
-        return value.replace("\\n", "\n")
-    return value
 
 
 def load_github_app_config(env: Mapping[str, str] | None = None) -> GitHubAppConfig | None:
@@ -126,10 +143,8 @@ def load_github_app_config(env: Mapping[str, str] | None = None) -> GitHubAppCon
             "ARAGORA_GITHUB_INSTALLATION_ID",
         ),
     )
-    private_key = _first_value(values, ("GITHUB_APP_PRIVATE_KEY", "ARAGORA_GITHUB_APP_KEY"))
-    private_key_source = "env:GITHUB_APP_PRIVATE_KEY" if private_key else ""
-    if private_key:
-        private_key = _normalize_private_key(private_key)
+    private_key_name, private_key = _first_private_key(values)
+    private_key_source = f"env:{private_key_name}" if private_key else ""
     if not private_key:
         key_path = _first_value(
             values,
