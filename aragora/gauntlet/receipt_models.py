@@ -382,6 +382,80 @@ def build_crux_receipt(
     )
 
 
+def build_crux_receipt_from_proof(
+    proof: Any,
+    *,
+    question: str,
+    agents: list[str] | None = None,
+    rounds: int = 0,
+    raw_claims: list[dict[str, Any]] | None = None,
+    resolution_strategies: list[dict[str, Any]] | None = None,
+) -> CruxReceipt:
+    """Build a ``CruxReceipt`` from a crux-finder ``ConsensusProof``.
+
+    The A1 consensus-phase handler stores the cruxes, counterfactuals, and
+    convergence barrier on ``proof.metadata`` (see ``build_proof_from_crux_finder``
+    in ``aragora.debate.consensus``). The CLI surface can go straight from
+    ``result.consensus_proof`` to a receipt without re-detecting cruxes.
+
+    Args:
+        proof: A ``aragora.debate.consensus.ConsensusProof`` produced by the
+            crux-finder consensus mode. Duck-typed; must expose
+            ``debate_id`` and a ``metadata`` dict with the crux-finder fields.
+        question: The debate question. (The proof's ``task`` is the
+            underlying debate task; the receipt question is the same in
+            practice but is passed explicitly to avoid assumptions.)
+        agents: Ordered agent roster. Defaults to empty.
+        rounds: Number of rounds the debate ran for.
+        raw_claims: Optional raw-claims log for the provenance hash.
+        resolution_strategies: Optional suggested strategies.
+
+    Raises:
+        ValueError: if the proof was not produced by crux-finder mode.
+    """
+    metadata = getattr(proof, "metadata", None) or {}
+    mode = str(metadata.get("consensus_mode") or "").strip()
+    if mode != "crux_finder":
+        raise ValueError(
+            "build_crux_receipt_from_proof requires a ConsensusProof produced "
+            f"by crux-finder mode (consensus_mode={mode!r}, expected 'crux_finder')."
+        )
+
+    receipt_id = f"crux-{uuid.uuid4().hex[:8]}"
+    normalized_claims = list(raw_claims or [])
+    raw_claims_hash = hashlib.sha256(
+        json.dumps(normalized_claims, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()
+
+    cruxes = list(metadata.get("cruxes") or [])
+    counterfactuals = list(metadata.get("counterfactuals") or [])
+    recommended_focus = list(metadata.get("recommended_focus") or [])
+    convergence_barrier = float(metadata.get("convergence_barrier") or 0.0)
+
+    # Preserve any extra metadata keys the proof carried (e.g. "approach").
+    receipt_metadata = {
+        k: v
+        for k, v in metadata.items()
+        if k not in {"cruxes", "counterfactuals", "recommended_focus", "convergence_barrier"}
+    }
+
+    return CruxReceipt(
+        receipt_id=receipt_id,
+        debate_id=str(getattr(proof, "debate_id", "") or ""),
+        question=question,
+        timestamp=datetime.now(timezone.utc).isoformat(),
+        agents=list(agents or []),
+        rounds=int(rounds),
+        cruxes=cruxes,
+        convergence_barrier=convergence_barrier,
+        counterfactuals=counterfactuals,
+        recommended_focus=recommended_focus,
+        resolution_strategies=list(resolution_strategies or []),
+        raw_claims_hash=raw_claims_hash,
+        metadata=receipt_metadata,
+    )
+
+
 def _compute_risk_summary_from_critiques(
     critiques: list,
     dissenting_views: list,

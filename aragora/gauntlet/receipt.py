@@ -20,6 +20,7 @@ from .receipt_models import (
     DecisionReceipt,
     ProvenanceRecord,
     build_crux_receipt,
+    build_crux_receipt_from_proof,
 )
 
 # Re-export export functions
@@ -38,6 +39,7 @@ __all__ = [
     "DecisionReceipt",
     "ProvenanceRecord",
     "build_crux_receipt",
+    "build_crux_receipt_from_proof",
     "crux_receipt_to_markdown",
     "receipt_to_csv",
     "receipt_to_html",
