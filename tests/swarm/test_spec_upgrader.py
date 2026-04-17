@@ -321,3 +321,41 @@ def test_tier2_enrich_transient_raises_unavailable(tmp_path):
     mock_client.complete.side_effect = ConnectionError("api 503")
     with pytest.raises(SpecUpgraderUnavailable):
         _tier2_enrich(spec, ctx, client=mock_client, repo_root=Path(tmp_path))
+
+
+from aragora.swarm.spec_upgrader import _parse_audit_marker
+
+
+def test_parse_audit_marker_valid():
+    comment = "<!-- spec-upgraded:v1 attempt=1 -->\n\n## Upgrade audit\nblah blah"
+    attempt, valid = _parse_audit_marker(comment)
+    assert attempt == 1
+    assert valid is True
+
+
+def test_parse_audit_marker_attempt_2():
+    comment = "<!-- spec-upgraded:v1 attempt=2 -->\ncontent"
+    attempt, valid = _parse_audit_marker(comment)
+    assert attempt == 2
+    assert valid is True
+
+
+def test_parse_audit_marker_corrupted_returns_max():
+    comment = "<!-- spec-upgraded:v1 attempt=garbage -->\ncontent"
+    attempt, valid = _parse_audit_marker(comment)
+    assert attempt == 2  # max_attempts sentinel
+    assert valid is False
+
+
+def test_parse_audit_marker_wrong_version():
+    comment = "<!-- spec-upgraded:v2 attempt=1 -->\ncontent"
+    attempt, valid = _parse_audit_marker(comment)
+    assert attempt == 2
+    assert valid is False
+
+
+def test_parse_audit_marker_no_marker():
+    comment = "Some unrelated comment"
+    attempt, valid = _parse_audit_marker(comment)
+    assert attempt == 0
+    assert valid is True

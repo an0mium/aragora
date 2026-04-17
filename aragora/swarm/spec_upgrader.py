@@ -304,3 +304,29 @@ def _tier2_enrich(
         return None
 
     raise _LLMLogicFailure(f"Exhausted LLM attempts: {last_err}")
+
+
+_AUDIT_MARKER_RE = re.compile(
+    r"<!--\s*spec-upgraded:v(?P<version>\d+)\s+attempt=(?P<attempt>\d+)\s*-->"
+)
+_AUDIT_MARKER_PRESENT_RE = re.compile(r"<!--\s*spec-upgraded:")
+MAX_ATTEMPTS = 2
+
+
+def _parse_audit_marker(comment_body: str) -> tuple[int, bool]:
+    """Parse the attempt count from an audit comment.
+
+    Returns ``(attempt_count, valid)``. When a marker is present but unparseable
+    (corrupted or unknown version), returns ``(MAX_ATTEMPTS, False)`` to
+    conservatively trigger escalation rather than reset the counter.
+    """
+    match = _AUDIT_MARKER_RE.search(comment_body)
+    if match is not None and match.group("version") == "1":
+        try:
+            return int(match.group("attempt")), True
+        except ValueError:  # pragma: no cover - regex guarantees digits
+            return MAX_ATTEMPTS, False
+    if _AUDIT_MARKER_PRESENT_RE.search(comment_body):
+        # Marker-ish present but didn't parse -- treat as corrupted.
+        return MAX_ATTEMPTS, False
+    return 0, True
