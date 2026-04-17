@@ -53,6 +53,7 @@ def _scorecard_payload(
         },
         "truth_metrics": {
             "truth_success_rate": 0.0,
+            "truth_success_rate_verified": 0.0,
             "no_rescue_truth_success_rate": 0.0,
             "merged_only_rate": 0.0,
         },
@@ -99,6 +100,8 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
                 "recorded_on": "2026-04-14",
                 "success_contract": "mergeable_pr_or_merged_pr",
                 "issue_count": 1,
+                "verified_expected_count": 1,
+                "in_progress_expected_count": 0,
             },
         },
         scorecard_payload={
@@ -109,6 +112,8 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
                 "recorded_on": "2026-04-14",
                 "success_contract": "mergeable_pr_or_merged_pr",
                 "issue_count": 1,
+                "verified_expected_count": 1,
+                "in_progress_expected_count": 0,
             },
             "coverage": {
                 "status": "complete",
@@ -117,6 +122,7 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
             },
             "truth_metrics": {
                 "truth_success_rate": 1.0,
+                "truth_success_rate_verified": 1.0,
                 "no_rescue_truth_success_rate": 1.0,
                 "merged_only_rate": 0.0,
             },
@@ -145,11 +151,110 @@ def test_render_status_markdown_includes_metrics_and_paths(tmp_path: Path) -> No
     assert "B0 Benchmark Truth Status" in markdown
     assert f"`{latest_paths['truth_corpus_latest']}`" in markdown
     assert f"`{latest_paths['scorecard_corpus_latest']}`" in markdown
-    assert "| Truth success rate | 100.0% |" in markdown
+    assert "Verified expected issues: `1`" in markdown
+    assert "In-progress expected issues: `0`" in markdown
+    assert "| Verified truth success rate (primary) | 100.0% |" in markdown
+    assert "| Full-corpus truth success rate (legacy/context) | 100.0% |" in markdown
     assert "## Proxy Metrics" in markdown
     assert "| Proxy no-rescue success rate | 100.0% |" in markdown
     assert "## Deltas" in markdown
     assert "`truth_success_rate`: 0.2500" in markdown
+
+
+def test_render_status_markdown_headlines_verified_rate_and_in_flight_metrics(
+    tmp_path: Path,
+) -> None:
+    corpus_path = _write_json(
+        tmp_path / "corpus.json",
+        {
+            "corpus_id": "tw-01-bounded-execution-v1",
+            "revision": 3,
+            "recorded_on": "2026-04-17",
+            "success_contract": "mergeable_pr_or_merged_pr",
+            "issues": [
+                {"issue_id": 1001, "title": "Verified A", "expected_status": "verified"},
+                {"issue_id": 1002, "title": "Verified B", "expected_status": "verified"},
+                {
+                    "issue_id": 5814,
+                    "title": "In-progress liveness coverage",
+                    "expected_status": "in_progress",
+                },
+            ],
+        },
+    )
+    latest_paths = mod.resolve_latest_paths(
+        corpus_path=corpus_path,
+        truth_root=tmp_path / "truth",
+        scorecard_root=tmp_path / "scorecards",
+    )
+    corpus = {
+        "corpus_id": "tw-01-bounded-execution-v1",
+        "revision": 3,
+        "recorded_on": "2026-04-17",
+        "success_contract": "mergeable_pr_or_merged_pr",
+        "issue_count": 3,
+        "verified_expected_count": 2,
+        "in_progress_expected_count": 1,
+    }
+    markdown = mod.render_status_markdown(
+        corpus_path=corpus_path,
+        truth_path=latest_paths["truth_corpus_latest"],
+        scorecard_path=latest_paths["scorecard_corpus_latest"],
+        latest_paths=latest_paths,
+        truth_payload={
+            "generated_at": "2026-04-17T06:00:00Z",
+            "corpus": corpus,
+            "primary_metrics": {
+                "truth_success_rate": 0.667,
+                "truth_success_rate_verified": 1.0,
+                "no_rescue_truth_success_rate": 0.667,
+                "merged_only_rate": 0.667,
+            },
+            "in_flight_metrics": {
+                "in_progress_expected_count": 1,
+                "in_progress_attempted_count": 0,
+                "in_progress_success_count": 0,
+                "in_progress_graduation_rate": 0.0,
+                "in_progress_issue_numbers": [5814],
+            },
+        },
+        scorecard_payload={
+            "generated_at": "2026-04-17T06:05:00Z",
+            "corpus": corpus,
+            "coverage": {
+                "status": "complete",
+                "attempted_issue_count": 2,
+                "missing_issue_numbers": [],
+            },
+            "truth_metrics": {
+                "truth_success_rate": 0.667,
+                "truth_success_rate_verified": 1.0,
+                "no_rescue_truth_success_rate": 0.667,
+                "merged_only_rate": 0.667,
+            },
+            "proxy_metrics": {
+                "no_rescue_success_rate": 0.0,
+                "unique_issues_attempted": 2,
+                "unique_issues_succeeded": 0,
+                "unique_issues_failed": 0,
+                "unique_issues_neutral": 2,
+                "total_ticks": 2,
+                "neutral_classes": {"issue_already_resolved": 2},
+            },
+        },
+    )
+
+    assert "Revision: `3`" in markdown
+    assert "Verified expected issues: `2`" in markdown
+    assert "In-progress expected issues: `1`" in markdown
+    assert "| Verified truth success rate (primary) | 100.0% |" in markdown
+    assert "| Full-corpus truth success rate (legacy/context) | 66.7% |" in markdown
+    assert "## In-Flight Graduation Metrics" in markdown
+    assert "| In-progress expected issues | 1 |" in markdown
+    assert "| In-progress attempted issues | 0 |" in markdown
+    assert "| In-progress successful issues | 0 |" in markdown
+    assert "| In-progress graduation rate | 0.0% |" in markdown
+    assert "| In-progress issue numbers | `#5814` |" in markdown
 
 
 def test_render_status_markdown_surfaces_proxy_neutral_issue_classes(tmp_path: Path) -> None:
@@ -605,3 +710,10 @@ def test_repo_checked_in_benchmark_truth_surfaces_match_current_corpus(tmp_path:
     )
     rendered = output_path.read_text(encoding="utf-8")
     assert f"- Revision: `{expected_revision}`" in rendered
+    assert "- Verified expected issues: `5`" in rendered
+    assert "- In-progress expected issues: `3`" in rendered
+    assert "| Verified truth success rate (primary) | 100.0% |" in rendered
+    assert "| Full-corpus truth success rate (legacy/context) | 62.5% |" in rendered
+    assert "## In-Flight Graduation Metrics" in rendered
+    assert "| In-progress expected issues | 3 |" in rendered
+    assert "| In-progress graduation rate | 0.0% |" in rendered

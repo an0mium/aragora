@@ -225,6 +225,7 @@ class DebateProtocol:
         "any",
         "byzantine",
         "prover_estimator",
+        "crux_finder",
     ] = "judge"
     consensus_threshold: float = 0.6  # fraction needed for majority
     allow_abstain: bool = True
@@ -233,6 +234,12 @@ class DebateProtocol:
     # Prover-Estimator protocol settings
     prover_estimator_max_rounds: int = 2
     prover_estimator_context: str = ""
+
+    # Crux-finder mode settings (see docs/plans/2026-04-16-crux-mode-design.md).
+    # Defaults mirror CruxDetector.detect_cruxes + the KM-sync threshold.
+    crux_finder_top_k: int = 5
+    crux_finder_min_score: float = 0.3
+    crux_finder_counterfactual_validation: bool = True
     # Participation quorum: minimum fraction/count of agents that must vote
     min_participation_ratio: float = 0.5
     min_participation_count: int = 2
