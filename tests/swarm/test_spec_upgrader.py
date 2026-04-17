@@ -204,3 +204,59 @@ def test_drift_none_returns_none():
 def test_drift_identical_returns_none():
     drift = {"expected": {"files": ["a"]}, "actual": {"files": ["a"]}}
     assert _drift_to_acceptance_criterion(drift) is None
+
+
+from aragora.swarm.spec import SwarmSpec
+from aragora.swarm.spec_upgrader import _tier1_enrich
+
+
+def _make_unbounded_spec():
+    """Build a minimally-underspecified SwarmSpec for testing."""
+    return SwarmSpec(
+        raw_goal="Improve boss_loop",
+        refined_goal="Improve boss_loop",
+        acceptance_criteria=[],
+        constraints=[],
+        file_scope_hints=[],
+        work_orders=[],
+    )
+
+
+def test_tier1_enriches_from_body_and_track_tag(tmp_path, monkeypatch):
+    (tmp_path / "aragora" / "swarm").mkdir(parents=True)
+    (tmp_path / "aragora" / "swarm" / "boss_loop.py").write_text("")
+    (tmp_path / "aragora" / "swarm" / "__init__.py").write_text("")
+
+    spec = _make_unbounded_spec()
+    ctx = UpgradeFailureContext(
+        missing_bounds=["acceptance criterion", "file-scope hint"],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="Fix bugs in `aragora/swarm/boss_loop.py`.",
+        issue_title="[TW-02] Fix boss loop bugs",
+        track_tag="TW-02",
+    )
+    upgraded = _tier1_enrich(spec, ctx, repo_root=Path(tmp_path))
+    assert upgraded is not None
+    assert "aragora/swarm/boss_loop.py" in upgraded.file_scope_hints
+    assert upgraded.acceptance_criteria  # non-empty after enrichment
+
+
+def test_tier1_returns_none_when_cannot_bound(tmp_path):
+    # No body content, no track tag scope (AGT is design-heavy), no drift
+    spec = _make_unbounded_spec()
+    ctx = UpgradeFailureContext(
+        missing_bounds=[
+            "acceptance criterion",
+            "file-scope hint",
+            "constraint",
+            "explicit work order",
+        ],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="",
+        issue_title="[AGT-01] Design-heavy ambiguous",
+        track_tag="AGT-01",
+    )
+    result = _tier1_enrich(spec, ctx, repo_root=Path(tmp_path))
+    assert result is None

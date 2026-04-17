@@ -7,9 +7,9 @@ Public entry point: ``upgrade_spec()``. See
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from aragora.swarm.spec import SwarmSpec
 
@@ -135,3 +135,64 @@ def _drift_to_acceptance_criterion(drift: dict | None) -> str | None:
         f"Worker must scope changes strictly to: {files_str}. "
         "Reject any edits to files outside this list during preflight."
     )
+
+
+def _tier1_enrich(
+    spec: SwarmSpec,
+    ctx: UpgradeFailureContext,
+    *,
+    repo_root: Path,
+) -> SwarmSpec | None:
+    """Deterministic enrichment from static signals (no LLM).
+
+    Returns the upgraded spec if the enrichment bounds it, otherwise ``None``
+    to signal that Tier 2 (LLM) is needed.
+    """
+    flags = _classify_missing_bounds(ctx.missing_bounds)
+    extracted_paths = _extract_file_paths(ctx.original_issue_body, repo_root=repo_root)
+    track_hints = _infer_track_scope(
+        ctx.track_tag, issue_body=ctx.original_issue_body, repo_root=repo_root
+    )
+    drift_crit = _drift_to_acceptance_criterion(ctx.preflight_diff)
+
+    new_file_scope = list(spec.file_scope_hints)
+    if flags["needs_file_scope"]:
+        for path in extracted_paths:
+            if path not in new_file_scope:
+                new_file_scope.append(path)
+        for hint in track_hints:
+            if hint not in new_file_scope:
+                new_file_scope.append(hint)
+
+    # Always add drift criterion when drift is present -- it conveys a
+    # scoping constraint beyond whatever ``missing_bounds`` flags imply.
+    new_acceptance = list(spec.acceptance_criteria)
+    if drift_crit and drift_crit not in new_acceptance:
+        new_acceptance.append(drift_crit)
+    if flags["needs_acceptance"] and not new_acceptance and ctx.issue_title and new_file_scope:
+        new_acceptance.append(f"Implement the behavior described by: {ctx.issue_title.strip()}")
+
+    new_constraints = list(spec.constraints)
+    if flags["needs_constraint"] and new_file_scope:
+        constraint = (
+            f"Limit modifications to the listed file-scope hints: {', '.join(new_file_scope)}."
+        )
+        if constraint not in new_constraints:
+            new_constraints.append(constraint)
+
+    new_work_orders: list[dict[str, Any]] = list(spec.work_orders)
+    if flags["needs_work_order"] and new_acceptance:
+        seed_order = {"description": f"Satisfy: {new_acceptance[0]}"}
+        if seed_order not in new_work_orders:
+            new_work_orders.append(seed_order)
+
+    candidate = replace(
+        spec,
+        file_scope_hints=new_file_scope,
+        acceptance_criteria=new_acceptance,
+        constraints=new_constraints,
+        work_orders=new_work_orders,
+    )
+    if candidate.is_dispatch_bounded():
+        return candidate
+    return None
