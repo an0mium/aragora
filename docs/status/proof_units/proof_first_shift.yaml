@@ -1,0 +1,35 @@
+code_unit_id: proof_first.shift.green_criteria
+symbol: scripts.run_proof_first_shift.evaluate_green_shift
+source_path: scripts/run_proof_first_shift.py
+owner: proof-first-runtime
+
+decision_receipts:
+  - decision.bc12.green_shift_criteria
+
+claims:
+  - b0.benchmark_truth.complete_current_corpus
+  - docs.proof_first_queue_policy.current
+
+assumptions:
+  - "Benchmark freshness can be determined from the published proof surface."
+  - "Queue can be considered intentionally idle only when no canonical work is eligible."
+
+verifiers:
+  - kind: command
+    command: "python3 -m pytest tests/scripts/test_run_proof_first_shift.py -q"
+
+freshness_sla_hours: 24
+
+decay_policy:
+  failed_claim: repair_required
+  stale_evidence: report_only
+  unresolved_crux: report_only
+
+fallback_policy:
+  default: fail_closed
+  operator_message: >-
+    Green-shift criteria are stale or unsupported; do not widen guard scope
+    until the benchmark truth surface is restored and the queue policy claim
+    is confirmed.
+
+linked_crux_ids: []
