@@ -207,11 +207,9 @@ class TestFixtureExists:
         and commit the updated JSON.
         """
         fixture_path = REPO_ROOT / "docs" / "status" / "generated" / "agt_e2e_trace.json"
-        if not fixture_path.exists():
-            pytest.skip(
-                "committed fixture not present; run scripts/agt_pipeline_dry_run.py "
-                "--pin-timestamp to generate"
-            )
+        assert fixture_path.exists(), (
+            "committed fixture missing; run python3 scripts/agt_pipeline_dry_run.py --pin-timestamp"
+        )
         committed = json.loads(fixture_path.read_text(encoding="utf-8"))
         # Structural equality; precise-float ok because of deterministic inputs
         assert committed == trace
