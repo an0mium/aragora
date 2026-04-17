@@ -6,7 +6,9 @@ Public entry point: ``upgrade_spec()``. See
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal
 
 from aragora.swarm.spec import SwarmSpec
@@ -68,3 +70,22 @@ def _classify_missing_bounds(missing_bounds: list[str]) -> dict[str, bool]:
         if flag is not None:
             classified[flag] = True
     return classified
+
+
+# Matches common Python/TS/MD file references. Intentionally narrow to avoid false
+# positives.
+_PATH_RE = re.compile(r"(?P<path>[a-zA-Z0-9_\-./]+\.(?:py|ts|tsx|js|jsx|md|yaml|yml|json|sh))")
+
+
+def _extract_file_paths(issue_body: str, *, repo_root: Path) -> list[str]:
+    """Extract file paths mentioned in the issue body and validate existence.
+
+    Only paths that actually exist (relative to ``repo_root``) are returned. Paths
+    that are hallucinated or merely aspirational are dropped.
+    """
+    candidates: set[str] = set()
+    for match in _PATH_RE.finditer(issue_body):
+        candidate = match.group("path").strip("./")
+        if "/" in candidate and (repo_root / candidate).is_file():
+            candidates.add(candidate)
+    return sorted(candidates)

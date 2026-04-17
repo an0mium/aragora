@@ -119,3 +119,34 @@ def test_classify_missing_bounds_partial():
 def test_classify_missing_bounds_empty():
     result = _classify_missing_bounds([])
     assert all(v is False for v in result.values())
+
+
+from pathlib import Path
+
+from aragora.swarm.spec_upgrader import _extract_file_paths
+
+
+def test_extract_file_paths_from_body(tmp_path, monkeypatch):
+    # Create fake repo files
+    (tmp_path / "aragora" / "swarm").mkdir(parents=True)
+    (tmp_path / "aragora" / "swarm" / "boss_loop.py").write_text("")
+    (tmp_path / "aragora" / "swarm" / "spec.py").write_text("")
+    monkeypatch.chdir(tmp_path)
+
+    body = (
+        "Fix the thing in `aragora/swarm/boss_loop.py` and also "
+        "the parser at aragora/swarm/spec.py. This imaginary/path.py does not exist."
+    )
+    paths = _extract_file_paths(body, repo_root=Path(tmp_path))
+    assert "aragora/swarm/boss_loop.py" in paths
+    assert "aragora/swarm/spec.py" in paths
+    assert "imaginary/path.py" not in paths
+
+
+def test_extract_file_paths_empty_body(tmp_path):
+    assert _extract_file_paths("", repo_root=Path(tmp_path)) == []
+
+
+def test_extract_file_paths_no_matches(tmp_path):
+    body = "This issue has no file references, just prose."
+    assert _extract_file_paths(body, repo_root=Path(tmp_path)) == []
