@@ -71,6 +71,16 @@ class TestLowercase:
         assert normalize_sdk_path("/API/V1/Foo") == "/api/foo"
 
 
+class TestApiKeyAliases:
+    def test_settings_alias_maps_to_auth_api_keys(self):
+        assert normalize_sdk_path("/api/v1/api-keys") == "/api/auth/api-keys"
+        assert normalize_sdk_path("/api/api-keys") == "/api/auth/api-keys"
+
+    def test_settings_alias_prefix_maps_to_auth_api_keys(self):
+        result = normalize_sdk_path("/api/v1/api-keys/{prefix}")
+        assert result == "/api/auth/api-keys/{param}"
+
+
 class TestEdgeCases:
     def test_empty_string(self):
         assert normalize_sdk_path("") == ""

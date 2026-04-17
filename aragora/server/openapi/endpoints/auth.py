@@ -38,6 +38,153 @@ def _session_schema() -> dict[str, Any]:
     }
 
 
+def _api_key_metadata_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "prefix": {
+                "type": "string",
+                "description": "API key prefix used for display and revocation.",
+            },
+            "name": {"type": "string"},
+            "created_at": {"type": ["string", "null"], "format": "date-time"},
+            "expires_at": {"type": ["string", "null"], "format": "date-time"},
+            "last_used": {"type": ["string", "null"], "format": "date-time"},
+        },
+    }
+
+
+def _api_key_list_operation(operation_id: str, summary: str, description: str) -> dict[str, Any]:
+    return {
+        "tags": ["Authentication", "API Keys"],
+        "summary": summary,
+        "operationId": operation_id,
+        "description": description,
+        "responses": {
+            "200": {
+                "description": "List of API keys returned",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "keys": {
+                                    "type": "array",
+                                    "items": _api_key_metadata_schema(),
+                                },
+                                "count": {"type": "integer"},
+                            },
+                        }
+                    }
+                },
+            },
+            "401": STANDARD_ERRORS["401"],
+            "404": STANDARD_ERRORS["404"],
+            "503": {"description": "Service unavailable"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
+def _api_key_create_operation(operation_id: str, summary: str, description: str) -> dict[str, Any]:
+    return {
+        "tags": ["Authentication", "API Keys"],
+        "summary": summary,
+        "operationId": operation_id,
+        "description": description,
+        "requestBody": {
+            "required": False,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Optional display name for the generated key.",
+                            }
+                        },
+                    }
+                }
+            },
+        },
+        "responses": {
+            "200": {
+                "description": "API key generated successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "api_key": {"type": "string"},
+                                "prefix": {"type": "string"},
+                                "name": {"type": "string"},
+                                "created_at": {
+                                    "type": ["string", "null"],
+                                    "format": "date-time",
+                                },
+                                "expires_at": {
+                                    "type": ["string", "null"],
+                                    "format": "date-time",
+                                },
+                                "message": {"type": "string"},
+                            },
+                        }
+                    }
+                },
+            },
+            "401": STANDARD_ERRORS["401"],
+            "403": STANDARD_ERRORS["403"],
+            "404": STANDARD_ERRORS["404"],
+            "503": {"description": "Service unavailable"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
+def _api_key_revoke_operation(operation_id: str, summary: str, description: str) -> dict[str, Any]:
+    return {
+        "tags": ["Authentication", "API Keys"],
+        "summary": summary,
+        "operationId": operation_id,
+        "description": description,
+        "responses": {
+            "200": {
+                "description": "API key revoked successfully",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"message": {"type": "string"}},
+                        }
+                    }
+                },
+            },
+            "401": STANDARD_ERRORS["401"],
+            "404": STANDARD_ERRORS["404"],
+            "503": {"description": "Service unavailable"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
+def _api_key_revoke_prefix_operation(
+    operation_id: str, summary: str, description: str
+) -> dict[str, Any]:
+    operation = _api_key_revoke_operation(operation_id, summary, description)
+    operation["parameters"] = [
+        {
+            "name": "prefix",
+            "in": "path",
+            "required": True,
+            "description": "API key prefix to revoke.",
+            "schema": {"type": "string"},
+        }
+    ]
+    operation["responses"]["404"] = {"description": "API key not found"}
+    return operation
+
+
 AUTH_ENDPOINTS = {
     # =========================================================================
     # Registration and Login
@@ -473,97 +620,6 @@ AUTH_ENDPOINTS = {
                                 "type": "object",
                                 "properties": {
                                     "deleted": {"type": "boolean"},
-                                },
-                            }
-                        }
-                    },
-                },
-                "401": {"description": "Not authenticated"},
-                "404": {"description": "API key not found"},
-            },
-            "security": [{"bearerAuth": []}],
-        },
-    },
-    "/api/v1/auth/api-keys/{key_id}": {
-        "get": {
-            "tags": ["Authentication"],
-            "summary": "Get API key details",
-            "operationId": "getApiKey",
-            "description": "Get details of a specific API key by ID. Does not return the full key value.",
-            "parameters": [
-                {
-                    "name": "key_id",
-                    "in": "path",
-                    "required": True,
-                    "description": "API key ID",
-                    "schema": {"type": "string"},
-                }
-            ],
-            "responses": {
-                "200": {
-                    "description": "API key details",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "id": {"type": "string"},
-                                    "name": {"type": "string"},
-                                    "prefix": {
-                                        "type": "string",
-                                        "description": "Key prefix for identification",
-                                    },
-                                    "scopes": {
-                                        "type": "array",
-                                        "items": {"type": "string"},
-                                        "description": "Assigned permission scopes",
-                                    },
-                                    "created_at": {
-                                        "type": "string",
-                                        "format": "date-time",
-                                    },
-                                    "expires_at": {
-                                        "type": ["string", "null"],
-                                        "format": "date-time",
-                                    },
-                                    "last_used": {
-                                        "type": ["string", "null"],
-                                        "format": "date-time",
-                                    },
-                                },
-                            }
-                        }
-                    },
-                },
-                "401": {"description": "Not authenticated"},
-                "404": {"description": "API key not found"},
-            },
-            "security": [{"bearerAuth": []}],
-        },
-        "delete": {
-            "tags": ["Authentication"],
-            "summary": "Delete API key by ID",
-            "operationId": "deleteApiKeyById",
-            "description": "Permanently delete a specific API key. This action cannot be undone.",
-            "parameters": [
-                {
-                    "name": "key_id",
-                    "in": "path",
-                    "required": True,
-                    "description": "API key ID",
-                    "schema": {"type": "string"},
-                }
-            ],
-            "responses": {
-                "200": {
-                    "description": "API key deleted",
-                    "content": {
-                        "application/json": {
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "deleted": {"type": "boolean"},
-                                    "key_id": {"type": "string"},
                                 },
                             }
                         }
@@ -1421,6 +1477,131 @@ AUTH_ENDPOINTS = {
         },
     },
 }
+
+AUTH_ENDPOINTS.update(
+    {
+        "/api/auth/api-key": {
+            "post": _api_key_create_operation(
+                "createAuthApiKeyLegacy",
+                "Create API key",
+                "Create a new API key through the legacy singular auth route.",
+            ),
+            "delete": _api_key_revoke_operation(
+                "revokeAuthApiKeyLegacy",
+                "Revoke API key",
+                "Revoke the current user's API key through the legacy singular auth route.",
+            ),
+        },
+        "/api/v1/auth/api-key": {
+            "post": _api_key_create_operation(
+                "createAuthApiKeyLegacyV1",
+                "Create API key",
+                "Create a new API key through the versioned legacy singular auth route.",
+            ),
+            "delete": _api_key_revoke_operation(
+                "revokeAuthApiKeyLegacyV1",
+                "Revoke API key",
+                "Revoke the current user's API key through the versioned legacy singular auth route.",
+            ),
+        },
+        "/api/auth/api-keys": {
+            "get": _api_key_list_operation(
+                "listAuthApiKeys",
+                "List API keys",
+                "List API keys for the current user. Only prefix and metadata are shown.",
+            ),
+            "post": _api_key_create_operation(
+                "createAuthApiKey",
+                "Create API key",
+                "Create a new API key for programmatic access. The full key is shown only once.",
+            ),
+            "delete": _api_key_revoke_operation(
+                "revokeAuthApiKey",
+                "Revoke API key",
+                "Revoke the current user's active API key.",
+            ),
+        },
+        "/api/v1/auth/api-keys": {
+            "get": _api_key_list_operation(
+                "listAuthApiKeysV1",
+                "List API keys",
+                "List API keys for the current user. Only prefix and metadata are shown.",
+            ),
+            "post": _api_key_create_operation(
+                "createAuthApiKeyV1",
+                "Create API key",
+                "Create a new API key for programmatic access. The full key is shown only once.",
+            ),
+            "delete": _api_key_revoke_operation(
+                "revokeAuthApiKeyV1",
+                "Revoke API key",
+                "Revoke the current user's active API key.",
+            ),
+        },
+        "/api/auth/api-keys/{prefix}": {
+            "delete": _api_key_revoke_prefix_operation(
+                "revokeAuthApiKeyByPrefix",
+                "Revoke API key by prefix",
+                "Revoke the current user's API key by prefix.",
+            )
+        },
+        "/api/v1/auth/api-keys/{prefix}": {
+            "delete": _api_key_revoke_prefix_operation(
+                "revokeAuthApiKeyByPrefixV1",
+                "Revoke API key by prefix",
+                "Revoke the current user's API key by prefix.",
+            )
+        },
+        "/api/api-keys": {
+            "get": _api_key_list_operation(
+                "listSettingsApiKeys",
+                "List settings API keys",
+                "List API keys through the settings-panel alias.",
+            ),
+            "post": _api_key_create_operation(
+                "createSettingsApiKey",
+                "Create settings API key",
+                "Create a new API key through the settings-panel alias.",
+            ),
+            "delete": _api_key_revoke_operation(
+                "revokeSettingsApiKey",
+                "Revoke settings API key",
+                "Revoke the current user's active API key through the settings-panel alias.",
+            ),
+        },
+        "/api/v1/api-keys": {
+            "get": _api_key_list_operation(
+                "listSettingsApiKeysV1",
+                "List settings API keys",
+                "List API keys through the versioned settings-panel alias.",
+            ),
+            "post": _api_key_create_operation(
+                "createSettingsApiKeyV1",
+                "Create settings API key",
+                "Create a new API key through the versioned settings-panel alias.",
+            ),
+            "delete": _api_key_revoke_operation(
+                "revokeSettingsApiKeyV1",
+                "Revoke settings API key",
+                "Revoke the current user's active API key through the versioned settings-panel alias.",
+            ),
+        },
+        "/api/api-keys/{prefix}": {
+            "delete": _api_key_revoke_prefix_operation(
+                "revokeSettingsApiKeyByPrefix",
+                "Revoke settings API key by prefix",
+                "Revoke an API key by prefix through the settings-panel alias.",
+            )
+        },
+        "/api/v1/api-keys/{prefix}": {
+            "delete": _api_key_revoke_prefix_operation(
+                "revokeSettingsApiKeyByPrefixV1",
+                "Revoke settings API key by prefix",
+                "Revoke an API key by prefix through the versioned settings-panel alias.",
+            )
+        },
+    }
+)
 
 AUTH_ENDPOINTS.update(
     {

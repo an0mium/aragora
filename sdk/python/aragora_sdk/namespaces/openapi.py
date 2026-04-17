@@ -947,11 +947,6 @@ class OpenApiAPI:
     ) -> dict[str, Any]:
         return self._client.request("GET", "/api/v1/audit/workflow/states", params=params)
 
-    def request_get_api_v1_auth_api_key(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return self._client.request("GET", "/api/v1/auth/api-key", params=params)
-
     def request_post_api_v1_auth_api_key(
         self, body: Any | None = None, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -6325,11 +6320,6 @@ class AsyncOpenApiAPI:
         self, params: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         return await self._client.request("GET", "/api/v1/audit/workflow/states", params=params)
-
-    async def request_get_api_v1_auth_api_key(
-        self, params: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        return await self._client.request("GET", "/api/v1/auth/api-key", params=params)
 
     async def request_post_api_v1_auth_api_key(
         self, body: Any | None = None, params: dict[str, Any] | None = None
