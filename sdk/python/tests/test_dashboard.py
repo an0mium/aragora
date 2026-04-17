@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, call, patch
 
 import pytest
 
@@ -218,6 +218,47 @@ class TestDashboardEmailAnalytics:
             mock_request.assert_called_once_with("GET", "/api/v1/dashboard/labels")
             assert result["labels"][0]["name"] == "inbox"
             client.close()
+
+
+class TestRalphDashboard:
+    """Tests for Ralph campaign dashboard route mappings."""
+
+    def test_ralph_dashboard_routes(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {"data": {}}
+            client = AragoraClient(base_url="https://api.aragora.ai")
+
+            client.dashboard.list_ralph_campaigns()
+            client.dashboard.get_ralph_overview()
+            client.dashboard.get_ralph_blockers()
+
+            mock_request.assert_has_calls(
+                [
+                    call("GET", "/api/v1/ralph/campaigns"),
+                    call("GET", "/api/v1/ralph/overview"),
+                    call("GET", "/api/v1/ralph/blockers"),
+                ]
+            )
+            assert mock_request.call_count == 3
+            client.close()
+
+    @pytest.mark.asyncio
+    async def test_async_ralph_dashboard_routes(self) -> None:
+        with patch.object(AragoraAsyncClient, "request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": {}}
+            async with AragoraAsyncClient(base_url="https://api.aragora.ai") as client:
+                await client.dashboard.list_ralph_campaigns()
+                await client.dashboard.get_ralph_overview()
+                await client.dashboard.get_ralph_blockers()
+
+            mock_request.assert_has_awaits(
+                [
+                    call("GET", "/api/v1/ralph/campaigns"),
+                    call("GET", "/api/v1/ralph/overview"),
+                    call("GET", "/api/v1/ralph/blockers"),
+                ]
+            )
+            assert mock_request.await_count == 3
 
 
 class TestDashboardUrgentItems:

@@ -608,6 +608,23 @@ export class DashboardAPI {
     return this.client.request('GET', '/api/v1/dashboard/gastown/metrics');
   }
 
+  // --- Ralph Campaign Dashboard ---
+
+  /** List Ralph campaign supervisor states. */
+  async listRalphCampaigns(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/ralph/campaigns');
+  }
+
+  /** Get aggregate Ralph campaign dashboard metrics. */
+  async getRalphOverview(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/ralph/overview');
+  }
+
+  /** Get aggregate Ralph blocker breakdown. */
+  async getRalphBlockers(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/ralph/blockers');
+  }
+
   // ---------------------------------------------------------------------------
   // Outcome Dashboard
   // ---------------------------------------------------------------------------
