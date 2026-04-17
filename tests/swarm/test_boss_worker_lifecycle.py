@@ -306,6 +306,18 @@ class TestFinalizeWorkerResultCompleted:
 
         assert "Proceeding" in result.next_actions[0]
 
+    def test_completed_with_outcome_field(self):
+        loop = _make_loop()
+        result = _call_finalize(loop, {"status": "completed", "outcome": "merged"})
+
+        assert result.worker_outcome == "merged"
+
+    def test_completed_with_blank_outcome_returns_none(self):
+        loop = _make_loop()
+        result = _call_finalize(loop, {"status": "completed", "outcome": "  "})
+
+        assert result.worker_outcome is None
+
 
 # ---------------------------------------------------------------------------
 # finalize_worker_result — decomposed issue tracking
@@ -754,6 +766,15 @@ class TestFinalizeWorkerResultFailed:
 
         combined = " ".join(result.next_actions)
         assert "retry" in combined.lower() or "attempt" in combined.lower()
+
+    def test_failed_without_attempt_count_defaults_retry_message_to_zero(self):
+        issue = _make_issue(number=21)
+        loop = _make_loop(max_consecutive_failures=5, max_retries_per_issue=3)
+
+        result = _call_finalize(loop, {"status": "failed", "error": "timeout"}, issue=issue)
+
+        assert result.worker_status == "failed"
+        assert "attempt 0/3" in result.next_actions[0]
 
 
 # ---------------------------------------------------------------------------
