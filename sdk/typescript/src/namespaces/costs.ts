@@ -257,6 +257,29 @@ export class CostsNamespace {
     return this.client.request('GET', '/api/v1/costs/analytics/by-debate', { params });
   }
 
+  /** Get cost summary for one debate session. */
+  async getDebateSessionCosts(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/costs/debates/${encodeURIComponent(debateId)}`);
+  }
+
+  /** List individual API call cost line items for one debate session. */
+  async listDebateCostLineItems(
+    debateId: string,
+    params?: {
+      sort_by?: 'cost' | 'timestamp' | 'tokens';
+      order?: 'asc' | 'desc';
+      limit?: number;
+      offset?: number;
+    }
+  ): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/costs/debates/${encodeURIComponent(debateId)}/line-items`, { params });
+  }
+
+  /** Get performance and cost-efficiency metrics for one debate session. */
+  async getDebateCostPerformance(debateId: string): Promise<Record<string, unknown>> {
+    return this.client.request('GET', `/api/v1/costs/debates/${encodeURIComponent(debateId)}/performance`);
+  }
+
   /** Get budget utilization analytics. */
   async getAnalyticsBudgetUtilization(params?: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.client.request('GET', '/api/v1/costs/analytics/budget-utilization', { params });
