@@ -52,6 +52,17 @@ class TestSyncParityRoutes:
             client.marketplace.star_template("tpl_123")
             client.marketplace.export_template("tpl_123")
             client.marketplace.get_marketplace_status()
+            client.marketplace.list_listings(
+                item_type="template",
+                tag="ops",
+                category="analysis",
+                search="risk",
+                limit=4,
+                offset=1,
+            )
+            client.marketplace.list_featured_listings(limit=3)
+            client.marketplace.get_listing_stats()
+            client.marketplace.get_listing("listing_123")
 
             expected_calls = [
                 call(
@@ -114,6 +125,21 @@ class TestSyncParityRoutes:
                 call("POST", "/api/v2/marketplace/templates/tpl_123/star"),
                 call("GET", "/api/v2/marketplace/templates/tpl_123/export"),
                 call("GET", "/api/v2/marketplace/status"),
+                call(
+                    "GET",
+                    "/api/v1/marketplace/listings",
+                    params={
+                        "limit": 4,
+                        "offset": 1,
+                        "type": "template",
+                        "tag": "ops",
+                        "category": "analysis",
+                        "search": "risk",
+                    },
+                ),
+                call("GET", "/api/v1/marketplace/listings/featured", params={"limit": 3}),
+                call("GET", "/api/v1/marketplace/listings/stats"),
+                call("GET", "/api/v1/marketplace/listings/listing_123"),
             ]
             mock_request.assert_has_calls(expected_calls)
             client.close()
@@ -165,6 +191,17 @@ class TestAsyncParityRoutes:
                 await marketplace.star_template("tpl_123")
                 await marketplace.export_template("tpl_123")
                 await marketplace.get_marketplace_status()
+                await marketplace.list_listings(
+                    item_type="template",
+                    tag="ops",
+                    category="analysis",
+                    search="risk",
+                    limit=4,
+                    offset=1,
+                )
+                await marketplace.list_featured_listings(limit=3)
+                await marketplace.get_listing_stats()
+                await marketplace.get_listing("listing_123")
 
                 expected_calls = [
                     call(
@@ -231,5 +268,20 @@ class TestAsyncParityRoutes:
                     call("POST", "/api/v2/marketplace/templates/tpl_123/star"),
                     call("GET", "/api/v2/marketplace/templates/tpl_123/export"),
                     call("GET", "/api/v2/marketplace/status"),
+                    call(
+                        "GET",
+                        "/api/v1/marketplace/listings",
+                        params={
+                            "limit": 4,
+                            "offset": 1,
+                            "type": "template",
+                            "tag": "ops",
+                            "category": "analysis",
+                            "search": "risk",
+                        },
+                    ),
+                    call("GET", "/api/v1/marketplace/listings/featured", params={"limit": 3}),
+                    call("GET", "/api/v1/marketplace/listings/stats"),
+                    call("GET", "/api/v1/marketplace/listings/listing_123"),
                 ]
                 mock_request.assert_has_calls(expected_calls)
