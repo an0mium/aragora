@@ -81,6 +81,7 @@ from aragora.server.openapi.endpoints.orchestration import ORCHESTRATION_ENDPOIN
 from aragora.server.openapi.endpoints.observability import OBSERVABILITY_ENDPOINTS
 from aragora.server.openapi.endpoints.prompt_engine import PROMPT_ENGINE_ENDPOINTS
 from aragora.server.openapi.endpoints.ralph import RALPH_ENDPOINTS
+from aragora.server.openapi.endpoints.status import STATUS_ENDPOINTS
 
 
 import logging
@@ -180,6 +181,7 @@ ALL_ENDPOINTS = {
     **OBSERVABILITY_ENDPOINTS,
     **PROMPT_ENGINE_ENDPOINTS,
     **RALPH_ENDPOINTS,
+    **STATUS_ENDPOINTS,
 }
 
 # Deep merge decorator endpoints: manual specs take precedence over decorator
@@ -265,5 +267,6 @@ __all__ = [
     "OBSERVABILITY_ENDPOINTS",
     "PROMPT_ENGINE_ENDPOINTS",
     "RALPH_ENDPOINTS",
+    "STATUS_ENDPOINTS",
     "ALL_ENDPOINTS",
 ]

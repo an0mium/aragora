@@ -21,6 +21,20 @@ class TestStatus:
             assert result["data"]["current"]["status"] == "operational"
             client.close()
 
+    def test_get_public_surfaces(self) -> None:
+        with patch.object(AragoraClient, "request") as mock_request:
+            mock_request.return_value = {
+                "data": {
+                    "surfaces": [{"id": "status_page", "readiness": "live"}],
+                    "summary": {"total": 1, "live": 1, "partial": 0},
+                }
+            }
+            client = AragoraClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = client.status.get_public_surfaces()
+            mock_request.assert_called_once_with("GET", "/api/v1/public/surfaces")
+            assert result["data"]["summary"]["live"] == 1
+            client.close()
+
 
 class TestAsyncStatus:
     """Tests for async status methods."""
@@ -33,4 +47,19 @@ class TestAsyncStatus:
             result = await client.status.get_uptime()
             mock_request.assert_called_once_with("GET", "/api/v1/status/uptime")
             assert "24h" in result["data"]["periods"]
+            await client.close()
+
+    @pytest.mark.asyncio
+    async def test_get_public_surfaces(self) -> None:
+        with patch.object(AragoraAsyncClient, "request") as mock_request:
+            mock_request.return_value = {
+                "data": {
+                    "surfaces": [{"id": "openapi", "readiness": "partial"}],
+                    "summary": {"total": 1, "live": 0, "partial": 1},
+                }
+            }
+            client = AragoraAsyncClient(base_url="https://api.aragora.ai", api_key="test-key")
+            result = await client.status.get_public_surfaces()
+            mock_request.assert_called_once_with("GET", "/api/v1/public/surfaces")
+            assert result["data"]["surfaces"][0]["id"] == "openapi"
             await client.close()
