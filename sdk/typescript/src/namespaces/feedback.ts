@@ -86,6 +86,31 @@ export interface FeedbackPrompt {
 }
 
 /**
+ * Feedback hub routing statistics.
+ */
+export interface FeedbackHubStats {
+  total_routed: number;
+  total_failures: number;
+  by_source: Record<string, number>;
+  by_target: Record<string, number>;
+  history_size: number;
+  known_sources: string[];
+}
+
+/**
+ * Feedback hub routing history entry.
+ */
+export interface FeedbackHubHistoryEntry {
+  source: string;
+  targets_hit: string[];
+  targets_failed: string[];
+  errors: string[];
+  routed_at: number;
+  success: boolean;
+  [key: string]: unknown;
+}
+
+/**
  * Client interface for making HTTP requests.
  */
 interface FeedbackClientInterface {
@@ -202,6 +227,23 @@ export class FeedbackAPI {
    */
   async getPrompts(): Promise<{ prompts: FeedbackPrompt[] }> {
     return this.client.request('GET', '/api/v1/feedback/prompts');
+  }
+
+  /**
+   * Get unified feedback-hub routing statistics.
+   * @route GET /api/v1/feedback-hub/stats
+   */
+  async getHubStats(): Promise<{ data: FeedbackHubStats }> {
+    return this.client.request('GET', '/api/v1/feedback-hub/stats');
+  }
+
+  /**
+   * List recent feedback-hub routing history.
+   * @route GET /api/v1/feedback-hub/history
+   */
+  async listHubHistory(limit?: number): Promise<{ data: FeedbackHubHistoryEntry[] }> {
+    const options = limit === undefined ? undefined : { params: { limit } };
+    return this.client.request('GET', '/api/v1/feedback-hub/history', options);
   }
 
   /**

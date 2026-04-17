@@ -351,4 +351,52 @@ describe('FeedbackAPI Namespace', () => {
       expect(result.prompts[0].type).toBe('nps');
     });
   });
+
+  // ===========================================================================
+  // Feedback Hub
+  // ===========================================================================
+
+  describe('Feedback Hub', () => {
+    it('should get routing stats', async () => {
+      const mockStats = {
+        data: {
+          total_routed: 3,
+          total_failures: 0,
+          by_source: { user_feedback: 2 },
+          by_target: { improvement_queue: 2 },
+          history_size: 3,
+          known_sources: ['user_feedback'],
+        },
+      };
+      mockClient.request.mockResolvedValue(mockStats);
+
+      const result = await api.getHubStats();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/feedback-hub/stats');
+      expect(result.data.total_routed).toBe(3);
+    });
+
+    it('should list routing history with limit query', async () => {
+      const mockHistory = {
+        data: [
+          {
+            source: 'user_feedback',
+            targets_hit: ['improvement_queue'],
+            targets_failed: [],
+            errors: [],
+            routed_at: 1776380090,
+            success: true,
+          },
+        ],
+      };
+      mockClient.request.mockResolvedValue(mockHistory);
+
+      const result = await api.listHubHistory(25);
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/feedback-hub/history', {
+        params: { limit: 25 },
+      });
+      expect(result.data[0].source).toBe('user_feedback');
+    });
+  });
 });

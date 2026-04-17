@@ -45,6 +45,10 @@ class StatusAPI:
         """Get uptime percentages and current uptime details."""
         return self._client.request("GET", "/api/v1/status/uptime")
 
+    def get_public_surfaces(self) -> dict[str, Any]:
+        """Get public surface readiness inventory."""
+        return self._client.request("GET", "/api/v1/public/surfaces")
+
 
 class AsyncStatusAPI:
     """Asynchronous Status API."""
@@ -75,3 +79,7 @@ class AsyncStatusAPI:
     async def get_uptime(self) -> dict[str, Any]:
         """Get uptime percentages and current uptime details."""
         return await self._client.request("GET", "/api/v1/status/uptime")
+
+    async def get_public_surfaces(self) -> dict[str, Any]:
+        """Get public surface readiness inventory."""
+        return await self._client.request("GET", "/api/v1/public/surfaces")
