@@ -38,6 +38,71 @@ def _session_schema() -> dict[str, Any]:
     }
 
 
+def _mfa_compliance_schema() -> dict[str, Any]:
+    """Admin MFA compliance report schema."""
+    return {
+        "type": "object",
+        "properties": {
+            "total_admins": {
+                "type": "integer",
+                "description": "Number of users with roles requiring MFA.",
+            },
+            "mfa_enabled_count": {
+                "type": "integer",
+                "description": "Number of required users with MFA enabled.",
+            },
+            "mfa_disabled_count": {
+                "type": "integer",
+                "description": "Number of required users without MFA enabled.",
+            },
+            "in_grace_period": {
+                "type": "integer",
+                "description": "Number of non-compliant users still in a grace period.",
+            },
+            "compliance_pct": {
+                "type": "number",
+                "description": "Percentage of required users that are compliant.",
+            },
+            "non_compliant_users": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": True,
+                },
+                "description": "Users that require MFA but are not yet compliant.",
+            },
+        },
+        "additionalProperties": True,
+    }
+
+
+def _mfa_compliance_operation(operation_id: str) -> dict[str, Any]:
+    """OpenAPI operation for admin MFA compliance reports."""
+    return {
+        "tags": ["Admin", "MFA", "Compliance"],
+        "summary": "Get admin MFA compliance report",
+        "operationId": operation_id,
+        "description": (
+            "Returns a compliance report showing how many admin and owner users "
+            "have MFA enabled, are in a grace period, or remain non-compliant."
+        ),
+        "responses": {
+            "200": {
+                "description": "MFA compliance report",
+                "content": {
+                    "application/json": {
+                        "schema": _mfa_compliance_schema(),
+                    }
+                },
+            },
+            "401": {"description": "Unauthorized"},
+            "403": {"description": "Permission denied"},
+            "503": {"description": "User service unavailable"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
 AUTH_ENDPOINTS = {
     # =========================================================================
     # Registration and Login
@@ -876,6 +941,12 @@ AUTH_ENDPOINTS = {
             },
             "security": [{"bearerAuth": []}],
         }
+    },
+    "/api/admin/mfa/compliance": {
+        "get": _mfa_compliance_operation("getAdminMfaComplianceLegacy"),
+    },
+    "/api/v1/admin/mfa/compliance": {
+        "get": _mfa_compliance_operation("getAdminMfaCompliance"),
     },
     # =========================================================================
     # Session Management

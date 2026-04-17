@@ -541,6 +541,20 @@ describe('AdminAPI Namespace', () => {
       expect(result.healthy).toBe(true);
     });
 
+    it('should get MFA compliance from runtime slash route', async () => {
+      const mockCompliance = {
+        total_admins: 4,
+        mfa_enabled_count: 3,
+        mfa_disabled_count: 1,
+      };
+      mockClient.request.mockResolvedValue(mockCompliance);
+
+      const result = await api.getMfaCompliance();
+
+      expect(mockClient.request).toHaveBeenCalledWith('GET', '/api/v1/admin/mfa/compliance');
+      expect(result.total_admins).toBe(4);
+    });
+
     it('should list security keys', async () => {
       const mockKeys = {
         keys: [
