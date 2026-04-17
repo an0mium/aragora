@@ -50,6 +50,9 @@ NAMESPACE_CONTRACTS = {
         "endpoints": [
             ("get", "/api/v1/docs/routes"),
             ("get", "/api/v1/docs/stats"),
+            ("post", "/api/v1/inbox/bulk-action"),
+            ("post", "/api/v1/inbox/connect"),
+            ("post", "/api/v1/inbox/triage"),
         ],
     },
     "receipts": {

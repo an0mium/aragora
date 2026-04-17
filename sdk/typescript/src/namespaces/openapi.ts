@@ -2810,12 +2810,20 @@ export class OpenApiAPI {
     return this.client.request('GET', `/api/v1/inbox/accounts/${encodeURIComponent(account_id)}`, { params });
   }
 
+  async requestPostApiV1InboxBulkAction(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/inbox/bulk-action', { body, params });
+  }
+
   async requestGetApiV1InboxBulkAction(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/inbox/bulk-action', { params });
+    return this.requestPostApiV1InboxBulkAction(undefined, params);
+  }
+
+  async requestPostApiV1InboxConnect(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/inbox/connect', { body, params });
   }
 
   async requestGetApiV1InboxConnect(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/inbox/connect', { params });
+    return this.requestPostApiV1InboxConnect(undefined, params);
   }
 
   async requestGetApiV1InboxMessages(params?: Record<string, unknown>): Promise<unknown> {
@@ -2842,8 +2850,12 @@ export class OpenApiAPI {
     return this.client.request('GET', '/api/v1/inbox/trends', { params });
   }
 
+  async requestPostApiV1InboxTriage(body?: unknown, params?: Record<string, unknown>): Promise<unknown> {
+    return this.client.request('POST', '/api/v1/inbox/triage', { body, params });
+  }
+
   async requestGetApiV1InboxTriage(params?: Record<string, unknown>): Promise<unknown> {
-    return this.client.request('GET', '/api/v1/inbox/triage', { params });
+    return this.requestPostApiV1InboxTriage(undefined, params);
   }
 
   async requestGetApiV1Incidents(params?: Record<string, unknown>): Promise<unknown> {
