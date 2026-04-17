@@ -90,6 +90,8 @@ class MarketplacePilotHandler(BaseHandler):
 
     ROUTES: list[str] = [
         "/api/v1/marketplace/listings",
+        "/api/v1/marketplace/listings/featured",
+        "/api/v1/marketplace/listings/stats",
         "/api/v1/marketplace/listings/*",
     ]
 

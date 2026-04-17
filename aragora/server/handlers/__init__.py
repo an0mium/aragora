@@ -319,6 +319,7 @@ if TYPE_CHECKING:
     from .knowledge_chat import KnowledgeChatHandler
     from .laboratory import LaboratoryHandler
     from .marketplace_browse import MarketplaceBrowseHandler
+    from .marketplace_pilot import MarketplacePilotHandler
     from .memory import (
         CoordinatorHandler,
         InsightsHandler,
@@ -869,6 +870,7 @@ __all__ = [
     "GasTownDashboardHandler",
     "GDPRDeletionHandler",
     "MarketplaceBrowseHandler",
+    "MarketplacePilotHandler",
     "ModerationHandler",
     "ModerationAnalyticsHandler",
     "PartnerHandler",

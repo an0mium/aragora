@@ -1,5 +1,7 @@
 """OpenAPI endpoint definitions for FastAPI v2 marketplace routes."""
 
+from typing import Any
+
 from aragora.server.openapi.helpers import _ok_response, AUTH_REQUIREMENTS, STANDARD_ERRORS
 
 _TEMPLATE_ID_PARAM = {
@@ -8,6 +10,15 @@ _TEMPLATE_ID_PARAM = {
     "required": True,
     "schema": {"type": "string"},
     "description": "Marketplace template ID.",
+}
+
+
+_LISTING_ID_PARAM = {
+    "name": "listing_id",
+    "in": "path",
+    "required": True,
+    "schema": {"type": "string", "maxLength": 128},
+    "description": "Marketplace listing ID.",
 }
 
 _CREATE_TEMPLATE_BODY = {
@@ -31,7 +42,374 @@ _CREATE_TEMPLATE_BODY = {
     },
 }
 
+_MARKETPLACE_LISTINGS_QUERY_PARAMETERS = [
+    {
+        "name": "type",
+        "in": "query",
+        "description": "Filter by listing type.",
+        "schema": {"type": "string"},
+    },
+    {
+        "name": "tag",
+        "in": "query",
+        "description": "Filter by tag.",
+        "schema": {"type": "string"},
+    },
+    {
+        "name": "category",
+        "in": "query",
+        "description": "Filter by category.",
+        "schema": {"type": "string"},
+    },
+    {
+        "name": "search",
+        "in": "query",
+        "description": "Search query.",
+        "schema": {"type": "string", "maxLength": 500},
+    },
+    {
+        "name": "q",
+        "in": "query",
+        "description": "Alias for the search query.",
+        "schema": {"type": "string", "maxLength": 500},
+    },
+    {
+        "name": "limit",
+        "in": "query",
+        "description": "Maximum number of listings to return.",
+        "schema": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50},
+    },
+    {
+        "name": "offset",
+        "in": "query",
+        "description": "Pagination offset.",
+        "schema": {"type": "integer", "minimum": 0, "maximum": 10000, "default": 0},
+    },
+]
+
+
+def _marketplace_data_schema(data_properties: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Wrap a marketplace response in the handler's ``{"data": ...}`` envelope."""
+    data_schema: dict[str, Any] = {"type": "object", "additionalProperties": True}
+    if data_properties:
+        data_schema["properties"] = data_properties
+    return {
+        "type": "object",
+        "properties": {
+            "data": data_schema,
+        },
+    }
+
+
+def _marketplace_listing_summary_schema() -> dict[str, Any]:
+    """Schema for a marketplace listing summary object."""
+    return {
+        "type": "object",
+        "additionalProperties": True,
+        "properties": {
+            "id": {"type": "string"},
+            "name": {"type": "string"},
+            "type": {"type": "string"},
+            "category": {"type": "string"},
+            "description": {"type": "string"},
+            "featured": {"type": "boolean"},
+            "tags": {"type": "array", "items": {"type": "string"}},
+        },
+    }
+
+
+def _marketplace_list_response_schema() -> dict[str, Any]:
+    """Schema for listing and featured responses."""
+    return _marketplace_data_schema(
+        {
+            "items": {
+                "type": "array",
+                "items": _marketplace_listing_summary_schema(),
+            },
+            "total": {"type": "integer"},
+            "limit": {"type": "integer"},
+            "offset": {"type": "integer"},
+        }
+    )
+
+
+def _marketplace_stats_response_schema() -> dict[str, Any]:
+    """Schema for marketplace stats payloads."""
+    return _marketplace_data_schema(
+        {
+            "total_items": {"type": "integer"},
+            "types": {
+                "type": "object",
+                "additionalProperties": {"type": "integer"},
+            },
+        }
+    )
+
+
+def _marketplace_listing_operation(
+    *,
+    operation_id: str,
+    summary: str,
+    description: str,
+    response_schema: dict[str, Any],
+    parameters: list[dict[str, Any]] | None = None,
+    request_body: dict[str, Any] | None = None,
+    security: list[dict[str, list[str]]] | None = None,
+    deprecated: bool = False,
+    include_404: bool = False,
+) -> dict[str, Any]:
+    """Build a curated marketplace listing operation."""
+    operation: dict[str, Any] = {
+        "tags": ["Marketplace"],
+        "summary": summary,
+        "operationId": operation_id,
+        "description": description,
+        "responses": {
+            "200": _ok_response("Marketplace listing response.", response_schema),
+            "400": STANDARD_ERRORS["400"],
+            "500": STANDARD_ERRORS["500"],
+        },
+        "security": security or AUTH_REQUIREMENTS["none"]["security"],
+    }
+    if parameters:
+        operation["parameters"] = parameters
+    if request_body:
+        operation["requestBody"] = request_body
+    if include_404:
+        operation["responses"]["404"] = STANDARD_ERRORS["404"]
+    if security == AUTH_REQUIREMENTS["required"]["security"]:
+        operation["responses"]["401"] = STANDARD_ERRORS["401"]
+        operation["responses"]["403"] = STANDARD_ERRORS["403"]
+    if deprecated:
+        operation["deprecated"] = True
+        operation["x-preserve-legacy-operation-id"] = True
+    return operation
+
+
 MARKETPLACE_ENDPOINTS = {
+    "/api/v1/marketplace/listings": {
+        "get": _marketplace_listing_operation(
+            operation_id="marketplaceListListings",
+            summary="List marketplace listings",
+            description="Browse marketplace listings with optional filters and pagination.",
+            response_schema=_marketplace_list_response_schema(),
+            parameters=_MARKETPLACE_LISTINGS_QUERY_PARAMETERS,
+        )
+    },
+    "/api/v1/marketplace/listings/featured": {
+        "get": _marketplace_listing_operation(
+            operation_id="marketplaceListFeaturedListings",
+            summary="List featured marketplace listings",
+            description="Return featured marketplace listings.",
+            response_schema=_marketplace_list_response_schema(),
+            parameters=[
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "description": "Maximum number of featured listings to return.",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
+                }
+            ],
+        )
+    },
+    "/api/v1/marketplace/listings/stats": {
+        "get": _marketplace_listing_operation(
+            operation_id="marketplaceGetListingStats",
+            summary="Get marketplace listing stats",
+            description="Return marketplace listing counts grouped by type.",
+            response_schema=_marketplace_stats_response_schema(),
+        )
+    },
+    "/api/v1/marketplace/listings/{listing_id}": {
+        "get": _marketplace_listing_operation(
+            operation_id="marketplaceGetListing",
+            summary="Get marketplace listing",
+            description="Return marketplace listing details for the given listing ID.",
+            response_schema=_marketplace_data_schema(
+                {"item": _marketplace_listing_summary_schema()}
+            ),
+            parameters=[_LISTING_ID_PARAM],
+            include_404=True,
+        )
+    },
+    "/api/v1/marketplace/listings/{listing_id}/install": {
+        "post": _marketplace_listing_operation(
+            operation_id="marketplaceInstallListing",
+            summary="Install marketplace listing",
+            description="Install a marketplace listing for the authenticated user.",
+            response_schema=_marketplace_data_schema(),
+            parameters=[_LISTING_ID_PARAM],
+            security=AUTH_REQUIREMENTS["required"]["security"],
+            include_404=True,
+        )
+    },
+    "/api/v1/marketplace/listings/{listing_id}/rate": {
+        "post": _marketplace_listing_operation(
+            operation_id="marketplaceRateListing",
+            summary="Rate marketplace listing",
+            description="Submit a rating and optional review for a marketplace listing.",
+            response_schema=_marketplace_data_schema(),
+            parameters=[_LISTING_ID_PARAM],
+            request_body={
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["score"],
+                            "properties": {
+                                "score": {"type": "integer", "minimum": 1, "maximum": 5},
+                                "review": {"type": "string", "maxLength": 2000},
+                            },
+                        }
+                    }
+                },
+            },
+            security=AUTH_REQUIREMENTS["required"]["security"],
+            include_404=True,
+        )
+    },
+    "/api/v1/marketplace/listings/{listing_id}/launch-debate": {
+        "post": _marketplace_listing_operation(
+            operation_id="marketplaceLaunchDebateFromListing",
+            summary="Launch debate from marketplace listing",
+            description="Build a debate configuration from a marketplace listing for the authenticated user.",
+            response_schema=_marketplace_data_schema(),
+            parameters=[_LISTING_ID_PARAM],
+            request_body={
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["question"],
+                            "properties": {
+                                "question": {"type": "string", "maxLength": 5000},
+                                "rounds": {"type": "integer", "minimum": 1, "maximum": 20},
+                            },
+                        }
+                    }
+                },
+            },
+            security=AUTH_REQUIREMENTS["required"]["security"],
+            include_404=True,
+        )
+    },
+    "/api/marketplace/listings": {
+        "get": _marketplace_listing_operation(
+            operation_id="marketplaceListListingsLegacy",
+            summary="List marketplace listings",
+            description="Legacy alias for listing marketplace listings.",
+            response_schema=_marketplace_list_response_schema(),
+            parameters=_MARKETPLACE_LISTINGS_QUERY_PARAMETERS,
+            deprecated=True,
+        )
+    },
+    "/api/marketplace/listings/featured": {
+        "get": _marketplace_listing_operation(
+            operation_id="marketplaceListFeaturedListingsLegacy",
+            summary="List featured marketplace listings",
+            description="Legacy alias for featured marketplace listings.",
+            response_schema=_marketplace_list_response_schema(),
+            parameters=[
+                {
+                    "name": "limit",
+                    "in": "query",
+                    "description": "Maximum number of featured listings to return.",
+                    "schema": {"type": "integer", "minimum": 1, "maximum": 50, "default": 10},
+                }
+            ],
+            deprecated=True,
+        )
+    },
+    "/api/marketplace/listings/stats": {
+        "get": _marketplace_listing_operation(
+            operation_id="marketplaceGetListingStatsLegacy",
+            summary="Get marketplace listing stats",
+            description="Legacy alias for marketplace listing stats.",
+            response_schema=_marketplace_stats_response_schema(),
+            deprecated=True,
+        )
+    },
+    "/api/marketplace/listings/{listing_id}": {
+        "get": _marketplace_listing_operation(
+            operation_id="marketplaceGetListingLegacy",
+            summary="Get marketplace listing",
+            description="Legacy alias for marketplace listing details.",
+            response_schema=_marketplace_data_schema(
+                {"item": _marketplace_listing_summary_schema()}
+            ),
+            parameters=[_LISTING_ID_PARAM],
+            deprecated=True,
+            include_404=True,
+        )
+    },
+    "/api/marketplace/listings/{listing_id}/install": {
+        "post": _marketplace_listing_operation(
+            operation_id="marketplaceInstallListingLegacy",
+            summary="Install marketplace listing",
+            description="Legacy alias for installing a marketplace listing.",
+            response_schema=_marketplace_data_schema(),
+            parameters=[_LISTING_ID_PARAM],
+            security=AUTH_REQUIREMENTS["required"]["security"],
+            deprecated=True,
+            include_404=True,
+        )
+    },
+    "/api/marketplace/listings/{listing_id}/rate": {
+        "post": _marketplace_listing_operation(
+            operation_id="marketplaceRateListingLegacy",
+            summary="Rate marketplace listing",
+            description="Legacy alias for rating a marketplace listing.",
+            response_schema=_marketplace_data_schema(),
+            parameters=[_LISTING_ID_PARAM],
+            request_body={
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["score"],
+                            "properties": {
+                                "score": {"type": "integer", "minimum": 1, "maximum": 5},
+                                "review": {"type": "string", "maxLength": 2000},
+                            },
+                        }
+                    }
+                },
+            },
+            security=AUTH_REQUIREMENTS["required"]["security"],
+            deprecated=True,
+            include_404=True,
+        )
+    },
+    "/api/marketplace/listings/{listing_id}/launch-debate": {
+        "post": _marketplace_listing_operation(
+            operation_id="marketplaceLaunchDebateFromListingLegacy",
+            summary="Launch debate from marketplace listing",
+            description="Legacy alias for launching a debate from a marketplace listing.",
+            response_schema=_marketplace_data_schema(),
+            parameters=[_LISTING_ID_PARAM],
+            request_body={
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "required": ["question"],
+                            "properties": {
+                                "question": {"type": "string", "maxLength": 5000},
+                                "rounds": {"type": "integer", "minimum": 1, "maximum": 20},
+                            },
+                        }
+                    }
+                },
+            },
+            security=AUTH_REQUIREMENTS["required"]["security"],
+            deprecated=True,
+            include_404=True,
+        )
+    },
     "/api/v2/marketplace/templates": {
         "get": {
             "tags": ["Marketplace"],

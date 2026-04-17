@@ -549,6 +549,11 @@ class TestMarketplaceService:
 class TestRouting:
     """Tests for handler routing / can_handle logic."""
 
+    def test_routes_include_static_marketplace_subpaths(self, handler):
+        """Static listing subpaths stay declared for contract validation."""
+        assert "/api/v1/marketplace/listings/featured" in handler.ROUTES
+        assert "/api/v1/marketplace/listings/stats" in handler.ROUTES
+
     def test_can_handle_listings_path(self, handler):
         """Handler accepts marketplace/listings paths."""
         assert handler.can_handle("/api/v1/marketplace/listings") is True
