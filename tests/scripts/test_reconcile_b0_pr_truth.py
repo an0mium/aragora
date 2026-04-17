@@ -181,6 +181,95 @@ def test_extract_pr_numbers_from_issue_includes_closed_by_pull_references() -> N
     assert result == [5763]
 
 
+def test_extract_pr_numbers_strict_excludes_forensic_reference_prs() -> None:
+    # 2026-04-17 honesty audit: forensic-reference PRs (unrelated merged PRs
+    # that merely cite the issue in comments) must not count as closure
+    # evidence. Strict linkage returns PRs from closedByPullRequestsReferences
+    # only — in this fixture, that edge is empty (the classic #873 pattern
+    # where the issue was closed manually as stale).
+    issue_payload = {
+        "closedByPullRequestsReferences": [],
+        "comments": [
+            {"body": "Forensic case study: https://github.com/synaptent/aragora/pull/880"},
+            {"body": "Also see https://github.com/synaptent/aragora/pull/881 and #882"},
+        ],
+    }
+
+    strict = extract_pr_numbers_from_issue("synaptent/aragora", issue_payload, strict=True)
+    lenient = extract_pr_numbers_from_issue("synaptent/aragora", issue_payload)
+
+    assert strict == []
+    # The lenient (default) path still returns the comment-derived PRs so the
+    # B0 cohort reconciliation flow keeps its current behaviour.
+    assert lenient == [880, 881]
+
+
+def test_extract_pr_numbers_strict_keeps_closed_by_references() -> None:
+    issue_payload = {
+        "closedByPullRequestsReferences": [
+            {
+                "number": 5763,
+                "repository": {"name": "aragora", "owner": {"login": "synaptent"}},
+            }
+        ],
+        "comments": [
+            {"body": "Forensic ref: https://github.com/synaptent/aragora/pull/880"},
+        ],
+    }
+
+    result = extract_pr_numbers_from_issue("synaptent/aragora", issue_payload, strict=True)
+
+    assert result == [5763]
+
+
+def test_reconcile_issue_truth_strict_linkage_ignores_forensic_references() -> None:
+    # End-to-end: a CLOSED issue with no closedByPullRequestsReferences but
+    # a comment forensically referencing a merged PR. Under strict linkage
+    # (benchmark truth path), truth_state resolves to no_linked_pr even
+    # though a non-strict pass would have falsely reported merged_pr.
+    aggregate = IssueMetricsAggregate(
+        issue_number=873,
+        title="closed as stale",
+        row_count=1,
+        proxy_pr_signal=False,
+        had_rescue=False,
+    )
+    client = FakeGitHubTruthClient(
+        issues={
+            873: {
+                "title": aggregate.title,
+                "state": "CLOSED",
+                "stateReason": "COMPLETED",
+                "closedAt": "2026-03-19T15:24:06Z",
+                "closedByPullRequestsReferences": [],
+                "comments": [
+                    {"body": "Forensic case study: https://github.com/synaptent/aragora/pull/880"},
+                ],
+            }
+        },
+        prs={
+            880: {
+                "number": 880,
+                "title": "unrelated swarm hardening",
+                "url": "https://github.com/synaptent/aragora/pull/880",
+                "state": "MERGED",
+                "mergeable": "UNKNOWN",
+                "mergeStateStatus": "UNKNOWN",
+                "mergedAt": "2026-03-09T17:12:37Z",
+                "isDraft": False,
+            }
+        },
+    )
+
+    record = reconcile_issue_truth("synaptent/aragora", aggregate, client, strict_linkage=True)
+
+    assert record.truth_state == "no_linked_pr"
+    assert record.truth_success is False
+    assert record.linked_prs == []
+    assert record.stale_corpus_issue is True
+    assert record.stale_corpus_reason == "closed_without_linked_pr"
+
+
 def test_reconcile_issue_truth_prefers_merged_pr() -> None:
     aggregate = IssueMetricsAggregate(
         issue_number=5102,

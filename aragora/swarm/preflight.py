@@ -1453,6 +1453,43 @@ def _work_order(agent: str, *, contract: WorkerContract | None = None) -> dict[s
     }
 
 
+def _preflight_launch_config(
+    *,
+    agent: str,
+    contract: WorkerContract | None,
+) -> LaunchConfig:
+    """Build the preflight-owned ``LaunchConfig``.
+
+    Threads ``expected_contract.profile`` (when non-default, for claude
+    workers) into ``LaunchConfig.claude_profile`` so that the launcher's
+    rebuilt worker-contract matches the preview-persisted contract.
+
+    Pre-v1.2 this inheritance was missing, which caused two drift sources
+    that together tripped ``_enforce_expected_contract()``:
+
+    * ``profile`` field: preview "max-07" vs launcher "default"
+    * ``env_checksum`` field: preview env has ``ARAGORA_CLAUDE_PROFILE``,
+      launcher env did not.
+
+    See ``docs/plans/2026-04-17-worker-drift-diagnosis.md``.
+    """
+    launcher_profile: str | None = None
+    if contract is not None and str(agent or "").strip().lower() == "claude":
+        raw_profile = str(contract.profile or "").strip()
+        if raw_profile and raw_profile.lower() != "default":
+            launcher_profile = raw_profile
+    return LaunchConfig(
+        allow_claude_dangerously_skip_permissions=True,
+        allow_codex_full_auto=True,
+        # Preflight already provisions and owns the disposable worktree.
+        # Wrapping the worker in codex_session.sh tries to create another
+        # managed worktree on top of it and fails before any commit happens.
+        use_managed_session_script=False,
+        require_explicit_approval=False,
+        claude_profile=launcher_profile,
+    )
+
+
 async def _run_worker(
     *,
     repo_root: Path,
@@ -1461,15 +1498,7 @@ async def _run_worker(
     agent: str,
     contract: WorkerContract | None = None,
 ) -> WorkerProcess:
-    config = LaunchConfig(
-        allow_claude_dangerously_skip_permissions=True,
-        allow_codex_full_auto=True,
-        # Preflight already provisions and owns the disposable worktree.
-        # Wrapping the worker in codex_session.sh tries to create another
-        # managed worktree on top of it and fails before any commit happens.
-        use_managed_session_script=False,
-        require_explicit_approval=False,
-    )
+    config = _preflight_launch_config(agent=agent, contract=contract)
     launcher = WorkerLauncher(config=config)
     work_order = _work_order(agent, contract=contract)
     return await launcher.launch_and_wait(

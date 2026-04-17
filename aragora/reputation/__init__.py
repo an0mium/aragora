@@ -20,6 +20,14 @@ from __future__ import annotations
 
 import os
 
+from aragora.reputation.anchor import (
+    AnchorError,
+    AnchorReceipt,
+    anchor_delta,
+    anchoring_enabled,
+    delta_to_feedback_args,
+    enable_anchoring,
+)
 from aragora.reputation.bridge import bridge_from_market_position
 from aragora.reputation.settlement import settle_claim
 from aragora.reputation.types import (
@@ -39,10 +47,16 @@ __all__ = [
     "DOMAIN_DEBATE_POSITION",
     "DOMAIN_KM_CONTRIBUTION",
     "DOMAIN_PREDICTION_MARKET",
+    "AnchorError",
+    "AnchorReceipt",
     "ReputationDelta",
     "ResolvedClaim",
     "StakeableClaim",
+    "anchor_delta",
+    "anchoring_enabled",
     "bridge_from_market_position",
+    "delta_to_feedback_args",
+    "enable_anchoring",
     "enable_reputation_flow",
     "reputation_flow_enabled",
     "settle_claim",

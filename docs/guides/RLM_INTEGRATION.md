@@ -125,7 +125,7 @@ The `KnowledgeMoundAdapter` in `bridge.py` wraps these for direct use:
 ```python
 from aragora.rlm import KnowledgeMoundAdapter, AragoraRLM
 
-rlm = AragoraRLM(backend="anthropic", model="claude-opus-4-6")
+rlm = AragoraRLM(backend="anthropic", model="claude-opus-4-7")
 km_adapter = KnowledgeMoundAdapter(rlm, mound=knowledge_mound)
 result = await km_adapter.query("Summarize findings on auth module security")
 ```

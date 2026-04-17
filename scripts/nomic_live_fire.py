@@ -16,12 +16,12 @@ REPO = Path(__file__).resolve().parent.parent
 
 
 async def call_claude(prompt: str, system: str = "") -> str:
-    """Direct Anthropic API call — Claude Opus 4.6."""
+    """Direct Anthropic API call — Claude Opus 4.7."""
     import anthropic
 
     client = anthropic.AsyncAnthropic()
     msgs = [{"role": "user", "content": prompt}]
-    kwargs = {"model": "claude-opus-4-6", "max_tokens": 16000, "messages": msgs}
+    kwargs = {"model": "claude-opus-4-7", "max_tokens": 16000, "messages": msgs}
     if system:
         kwargs["system"] = system
     resp = await client.messages.create(**kwargs)
@@ -92,8 +92,8 @@ async def phase_debate(task: str) -> str:
 
     system = "You are a senior software architect. Be concrete: specify exact files and changes."
 
-    # Call three proposers in parallel: Claude Opus 4.6, GPT-5.2, Gemini 3.1 Pro
-    print("  Calling Claude Opus 4.6, GPT-5.2, and Gemini 3.1 Pro...")
+    # Call three proposers in parallel: Claude Opus 4.7, GPT-5.2, Gemini 3.1 Pro
+    print("  Calling Claude Opus 4.7, GPT-5.2, and Gemini 3.1 Pro...")
     claude_resp, gpt_resp, gemini_resp = await asyncio.gather(
         call_claude(task, system),
         call_openrouter(task, system, model="openai/gpt-5.3"),
@@ -103,7 +103,7 @@ async def phase_debate(task: str) -> str:
 
     proposals = []
     for name, resp in [
-        ("Claude Opus 4.6", claude_resp),
+        ("Claude Opus 4.7", claude_resp),
         ("GPT-5.2", gpt_resp),
         ("Gemini 3.1", gemini_resp),
     ]:
@@ -117,7 +117,7 @@ async def phase_debate(task: str) -> str:
         raise RuntimeError("All agents failed!")
 
     # Synthesize
-    print("  Calling Claude Opus 4.6 (synthesizer)...")
+    print("  Calling Claude Opus 4.7 (synthesizer)...")
     proposals_text = "\n\n".join(f"PROPOSAL ({name}):\n{text}" for name, text in proposals)
     synthesis_prompt = f"""{len(proposals)} software architects proposed improvements. Synthesize the best plan.
 

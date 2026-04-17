@@ -232,7 +232,7 @@ class TestBuildCommand:
         monkeypatch.setattr("aragora.swarm.worker_launcher.os.geteuid", lambda: 501)
         launcher = WorkerLauncher(
             LaunchConfig(
-                claude_model="claude-opus-4-6",
+                claude_model="claude-opus-4-7",
                 allow_claude_dangerously_skip_permissions=True,
             )
         )
@@ -247,17 +247,17 @@ class TestBuildCommand:
         assert "fix bug" in cmd
         assert "--dangerously-skip-permissions" in cmd
         assert "--model" in cmd
-        assert "claude-opus-4-6" in cmd
+        assert "claude-opus-4-7" in cmd
 
     def test_claude_command_omits_dangerous_flag_as_root(self, monkeypatch):
         monkeypatch.setattr("aragora.swarm.worker_launcher.os.geteuid", lambda: 0)
-        launcher = WorkerLauncher(LaunchConfig(claude_model="claude-opus-4-6"))
+        launcher = WorkerLauncher(LaunchConfig(claude_model="claude-opus-4-7"))
         cmd = launcher._build_command("claude", "fix bug", "/tmp/wt", admin_approved=True)
         assert "--dangerously-skip-permissions" not in cmd
 
     def test_claude_command_fails_closed_when_geteuid_is_unavailable(self, monkeypatch):
         monkeypatch.delattr("aragora.swarm.worker_launcher.os.geteuid", raising=False)
-        launcher = WorkerLauncher(LaunchConfig(claude_model="claude-opus-4-6"))
+        launcher = WorkerLauncher(LaunchConfig(claude_model="claude-opus-4-7"))
         cmd = launcher._build_command("claude", "fix bug", "/tmp/wt", admin_approved=True)
         assert "--dangerously-skip-permissions" not in cmd
 

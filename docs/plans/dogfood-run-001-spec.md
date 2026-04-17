@@ -70,7 +70,7 @@ All four frontier models participate in every debate. Roles are **suggested, not
 
 | Model | Suggested Focus | Why |
 |-------|----------------|-----|
-| Claude Opus 4.6 | Synthesis + specification quality | Strongest at structured output, long-context coherence |
+| Claude Opus 4.7 | Synthesis + specification quality | Strongest at structured output, long-context coherence |
 | GPT-5.3 Codex | Implementation feasibility + code architecture | Strongest at code generation and execution planning |
 | Gemini 3.1 Pro | Adversarial challenge + edge cases | Strongest at expansive exploration and finding failure modes |
 | Grok 4.20 | Empirical grounding + contrarian pressure | Strongest at unfiltered assessment and questioning assumptions |
@@ -140,7 +140,7 @@ The dogfood run spec passes if:
 ## Evaluation Harness
 
 ### Baseline Measurement
-1. **Single-model baseline**: Give Claude Opus 4.6 alone the same input documents and prompt. Record: time to completion, number of tasks produced, quality score per task.
+1. **Single-model baseline**: Give Claude Opus 4.7 alone the same input documents and prompt. Record: time to completion, number of tasks produced, quality score per task.
 2. **Heterogeneous team run**: Run the full debate protocol above. Record: time to completion, number of tasks produced, quality score per task.
 
 ### Quality Scoring (per task)
@@ -168,7 +168,7 @@ Each model reports confidence (0-1) for each task recommendation. Post-execution
 Report format:
 ```json
 {
-  "model": "claude-opus-4-6",
+  "model": "claude-opus-4-7",
   "task_id": "T1",
   "confidence": 0.85,
   "actual_pass": true,
@@ -285,7 +285,7 @@ Report format:
 5. Human review and approval
 
 ### Phase 2: Baseline Measurement
-1. Run single-model (Claude Opus 4.6) against same input
+1. Run single-model (Claude Opus 4.7) against same input
 2. Score output on 5-dimension rubric
 3. Record as baseline
 

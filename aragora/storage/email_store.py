@@ -1127,9 +1127,13 @@ class EmailStore(SQLiteStore):
                 """
                 UPDATE prioritization_decisions
                 SET user_feedback = ?
-                WHERE email_id = ? AND user_id = ? AND workspace_id = ?
-                ORDER BY created_at DESC
-                LIMIT 1
+                WHERE id = (
+                    SELECT id
+                    FROM prioritization_decisions
+                    WHERE email_id = ? AND user_id = ? AND workspace_id = ?
+                    ORDER BY created_at DESC, id DESC
+                    LIMIT 1
+                )
                 """,
                 (1 if is_correct else 0, email_id, user_id, workspace_id),
             )

@@ -119,7 +119,7 @@ class TestDebateRequestModel:
         req = DebateRequest(
             question="Should we use microservices instead of monoliths?",
             agents=[
-                {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+                {"provider": "anthropic-api", "model": "claude-opus-4-7"},
                 {"agent_type": "openai-api", "model": "gpt-4.1"},
             ],
         )
@@ -133,7 +133,7 @@ class TestDebateRequestModel:
         with pytest.raises(ValidationError):
             DebateRequest(
                 question="Should we use microservices instead of monoliths?",
-                agents=[{"model": "claude-opus-4-6"}],
+                agents=[{"model": "claude-opus-4-7"}],
             )
 
     def test_to_handler_dict_contains_question(self):
@@ -204,7 +204,7 @@ class TestValidateDebateRequest:
         req, err = validate_debate_request(
             {
                 "question": "Should we adopt microservices architecture?",
-                "agents": [{"provider": "anthropic-api", "model": "claude-opus-4-6"}],
+                "agents": [{"provider": "anthropic-api", "model": "claude-opus-4-7"}],
             }
         )
         assert req is not None
@@ -217,7 +217,7 @@ class TestValidateDebateRequest:
         req, err = validate_debate_request(
             {
                 "question": "Should we adopt microservices architecture?",
-                "agents": [{"model": "claude-opus-4-6"}],
+                "agents": [{"model": "claude-opus-4-7"}],
             }
         )
         assert req is None

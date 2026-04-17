@@ -646,6 +646,18 @@ class TestZoomBot:
         # Test invalid signature
         assert bot.verify_webhook(payload, timestamp, "v0=invalid") is False
 
+    def test_zoom_webhook_verification_fails_without_secret(self):
+        """Zoom webhook verification fails closed when no signing secret is configured."""
+        from aragora.bots.zoom_bot import AragoraZoomBot
+
+        bot = AragoraZoomBot(
+            client_id="test",
+            client_secret="test",
+            secret_token=None,
+        )
+
+        assert bot.verify_webhook(b'{"event": "test"}', "1234567890", "v0=anything") is False
+
     def test_zoom_oauth_manager_init(self):
         """Test Zoom OAuth manager initialization."""
         from aragora.bots.zoom_bot import ZoomOAuthManager

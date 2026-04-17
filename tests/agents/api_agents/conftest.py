@@ -118,7 +118,7 @@ def mock_anthropic_response():
         "type": "message",
         "role": "assistant",
         "content": [{"type": "text", "text": "This is a test response from Claude."}],
-        "model": "claude-opus-4-6",
+        "model": "claude-opus-4-7",
         "stop_reason": "end_turn",
         "stop_sequence": None,
         "usage": {"input_tokens": 100, "output_tokens": 50},
@@ -145,7 +145,7 @@ def mock_anthropic_web_search_response():
                 ],
             },
         ],
-        "model": "claude-opus-4-6",
+        "model": "claude-opus-4-7",
         "usage": {"input_tokens": 150, "output_tokens": 75},
     }
 

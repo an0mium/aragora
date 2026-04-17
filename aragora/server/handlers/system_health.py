@@ -20,6 +20,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+from aragora.server.versioning.compat import strip_version_prefix
+
 from aragora.server.handlers.base import (
     BaseHandler,
     HandlerResult,
@@ -51,16 +53,19 @@ class SystemHealthDashboardHandler(BaseHandler):
 
     ROUTES = [
         "/api/admin/system-health",
-        "/api/admin/system-health/*",
+        "/api/admin/system-health/circuit-breakers",
+        "/api/admin/system-health/slos",
+        "/api/admin/system-health/adapters",
+        "/api/admin/system-health/agents",
+        "/api/admin/system-health/budget",
     ]
 
     def __init__(self, server_context: dict[str, Any]) -> None:
         super().__init__(server_context)
 
     def can_handle(self, path: str, method: str = "GET") -> bool:
-        if path == "/api/admin/system-health" or path.startswith("/api/admin/system-health/"):
-            return method == "GET"
-        return False
+        normalized = strip_version_prefix(path)
+        return method == "GET" and normalized in self.ROUTES
 
     @require_permission("system:read")
     @rate_limit(requests_per_minute=30)
@@ -70,6 +75,7 @@ class SystemHealthDashboardHandler(BaseHandler):
         query_params: dict[str, Any],
         handler: Any,
     ) -> HandlerResult:
+        path = strip_version_prefix(path)
         if path == "/api/admin/system-health":
             return self._get_overview()
         if path == "/api/admin/system-health/circuit-breakers":

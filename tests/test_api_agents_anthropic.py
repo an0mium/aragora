@@ -144,7 +144,7 @@ class TestAnthropicAgentInit:
     def test_default_model(self, api_key):
         """Should use default model."""
         agent = AnthropicAPIAgent(api_key=api_key)
-        assert agent.model == "claude-opus-4-6"
+        assert agent.model == "claude-opus-4-7"
 
     def test_custom_model(self, agent):
         """Should accept custom model."""
@@ -211,10 +211,10 @@ class TestOpenRouterModelMapping:
     """Tests for OpenRouter model mapping."""
 
     def test_opus_46_mapping(self):
-        """Should map claude-opus-4-6 to OpenRouter format."""
+        """Should map claude-opus-4-7 to OpenRouter format."""
         mapping = AnthropicAPIAgent.OPENROUTER_MODEL_MAP
-        assert "claude-opus-4-6" in mapping
-        assert mapping["claude-opus-4-6"] == "anthropic/claude-opus-4.6"
+        assert "claude-opus-4-7" in mapping
+        assert mapping["claude-opus-4-7"] == "anthropic/claude-opus-4.7"
 
     def test_sonnet_46_mapping(self):
         """Should map claude-sonnet-4-6 to OpenRouter format."""

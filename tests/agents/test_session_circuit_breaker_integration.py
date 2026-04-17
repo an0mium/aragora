@@ -32,7 +32,7 @@ class _StubAgent:
             {},
         )
         self.name = name
-        self.model = "claude-opus-4-6"
+        self.model = "claude-opus-4-7"
         self.role = "proposer"
         self.timeout = 30
         self.enable_fallback = True

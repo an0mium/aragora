@@ -53,7 +53,7 @@ ZOOM_SECRET_TOKEN = os.environ.get("ZOOM_SECRET_TOKEN")
 
 # Log at debug level for unconfigured optional integrations
 if not ZOOM_SECRET_TOKEN:
-    logger.debug("ZOOM_SECRET_TOKEN not configured - webhook signature verification disabled")
+    logger.debug("ZOOM_SECRET_TOKEN not configured - webhook signature verification will fail")
 
 
 class ZoomHandler(BotHandlerMixin, SecureHandler):
@@ -208,9 +208,6 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
                 return error_response("Zoom event body must be a JSON object", 400)
 
             event_type = event.get("event", "")
-            if not isinstance(event_type, str) or not event_type.strip():
-                return error_response("Zoom event body must include a non-empty 'event' field", 400)
-            logger.info("Zoom event received: %s", event_type)
 
             # Handle URL validation - requires ZOOM_SECRET_TOKEN
             if event_type == "endpoint.url_validation":
@@ -252,6 +249,10 @@ class ZoomHandler(BotHandlerMixin, SecureHandler):
                 logger.warning("Zoom webhook request missing signature")
                 self._audit_webhook_auth_failure("signature", "missing")
                 return error_response("Missing signature header", 401)
+
+            if not isinstance(event_type, str) or not event_type.strip():
+                return error_response("Zoom event body must include a non-empty 'event' field", 400)
+            logger.info("Zoom event received: %s", event_type)
 
             # For other events, require bot
             if not bot:

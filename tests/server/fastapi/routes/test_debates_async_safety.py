@@ -126,7 +126,7 @@ async def test_create_debate_forwards_model_combinations(
             model_combinations=[
                 [
                     {"provider": "openai-api", "model": "gpt-4.1"},
-                    {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+                    {"provider": "anthropic-api", "model": "claude-opus-4-7"},
                 ],
                 [
                     {"provider": "openai-api", "model": "gpt-4.1-mini"},

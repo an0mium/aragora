@@ -1,92 +1,87 @@
 {
   "corpus": {
     "corpus_id": "tw-01-bounded-execution-v1",
-    "issue_count": 8,
-    "manifest_sha256": "1a4fa12b63a496a87deb567a77b6cf1d64916a493c239991d059a735840b7696",
+    "issue_count": 3,
+    "manifest_sha256": "eda0cfeabb89bfa7c4508d0668ab56e0791588f2fdaf10091f15f65ae2df30a0",
     "membership_issue_numbers": [
-      873,
-      1064,
-      1641,
-      2712,
-      5756,
-      5814,
-      5818,
-      5820
+      5844,
+      5887,
+      5903
     ],
-    "membership_sha256": "7c72e3045e4ea945318789c8ef62211c46aedd489adde64fc58584b403803030",
+    "membership_sha256": "fbbaff7914634e644e78a8cd6019c39faf524bae75ad914715e05efa3f02e58f",
     "path": "docs/benchmarks/corpus.json",
     "recorded_on": "2026-04-17",
     "revision": 3,
     "success_contract": "mergeable_pr_or_merged_pr"
   },
   "coverage": {
-    "attempted_issue_count": 8,
+    "attempted_issue_count": 3,
     "is_complete": true,
     "missing_issue_count": 0,
     "missing_issue_numbers": [],
     "status": "complete"
   },
   "deltas": {
-    "merged_only_rate": -0.375,
-    "no_rescue_truth_success_rate": -0.375,
+    "merged_only_rate": -0.625,
+    "no_rescue_truth_success_rate": -0.625,
     "proxy_no_rescue_success_rate": 0.0,
-    "truth_success_rate": -0.375,
-    "unique_issues_attempted": 0.0
+    "truth_success_rate": -0.625,
+    "unique_issues_attempted": -5.0
   },
   "failure_class_distribution": {
-    "blocked_not_dispatch_bounded": 3
+    "blocked_auth_failure": 2,
+    "blocked_not_dispatch_bounded": 7
   },
-  "generated_at": "2026-04-17T12:57:27Z",
+  "generated_at": "2026-04-17T14:33:09Z",
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "previous_artifact": {
-    "generated_at": "2026-04-17T12:41:41Z",
-    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/scorecard-20260417T124141Z.json"
+    "generated_at": "2026-04-17T12:57:27Z",
+    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/scorecard-20260417T125727Z.json"
   },
   "proxy_metrics": {
     "corpus": {
       "corpus_id": "tw-01-bounded-execution-v1",
-      "issue_count": 8,
+      "issue_count": 3,
       "path": "docs/benchmarks/corpus.json",
       "recorded_on": "2026-04-17",
       "revision": 3,
       "success_contract": "mergeable_pr_or_merged_pr"
     },
     "coverage": {
-      "attempted_issue_count": 8,
+      "attempted_issue_count": 3,
       "is_complete": true,
       "missing_issue_count": 0,
       "missing_issue_numbers": [],
       "status": "complete"
     },
     "failure_classes": {
-      "blocked_not_dispatch_bounded": 3
+      "blocked_auth_failure": 2,
+      "blocked_not_dispatch_bounded": 7
     },
-    "mean_elapsed_seconds": 0.0,
-    "median_elapsed_seconds": 0.0,
-    "neutral_classes": {
-      "issue_already_resolved": 5
-    },
+    "mean_elapsed_seconds": 136.9,
+    "median_elapsed_seconds": 159.0,
+    "neutral_classes": {},
     "no_rescue_success_rate": 0.0,
     "status": "active",
     "success_classes": {},
     "terminal_class_distribution": {
-      "blocked_not_dispatch_bounded": 3,
-      "issue_already_resolved": 5
+      "blocked_auth_failure": 2,
+      "blocked_not_dispatch_bounded": 7
     },
     "tick_success_rate": 0.0,
-    "total_ticks": 8,
-    "unique_issues_attempted": 8,
+    "total_ticks": 9,
+    "unique_issues_attempted": 3,
     "unique_issues_failed": 3,
-    "unique_issues_neutral": 5,
+    "unique_issues_neutral": 0,
     "unique_issues_succeeded": 0
   },
   "rescue_counts_by_type": {},
-  "truth_artifact_generated_at": "2026-04-17T12:57:13Z",
-  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260417T125713Z.json",
+  "truth_artifact_generated_at": "2026-04-17T14:33:07Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260417T143307Z.json",
   "truth_metrics": {
-    "merged_only_rate": 0.625,
-    "no_rescue_truth_success_rate": 0.625,
-    "truth_success_rate": 0.625,
-    "truth_success_rate_verified": 1.0
+    "merged_only_rate": 0.0,
+    "no_rescue_truth_success_rate": 0.0,
+    "truth_success_rate": 0.0,
+    "truth_success_rate_verified": 0.0
   }
 }

@@ -203,14 +203,14 @@ class TestResolvePlaygroundAgents:
         assert result == "anthropic-api,openrouter|openai/gpt-4o,openrouter|deepseek/deepseek-chat"
 
     def test_resolved_agents_parse_with_agent_spec(self):
-        tags = ["anthropic-api", "openrouter:anthropic/claude-opus-4.6", "openai-api"]
+        tags = ["anthropic-api", "openrouter:anthropic/claude-opus-4.7", "openai-api"]
         result = _resolve_playground_agents(tags)
 
         specs = AgentSpec.coerce_list(result, warn=False)
 
         assert [(spec.provider, spec.model) for spec in specs] == [
             ("anthropic-api", None),
-            ("openrouter", "anthropic/claude-opus-4.6"),
+            ("openrouter", "anthropic/claude-opus-4.7"),
             ("openai-api", None),
         ]
 

@@ -148,6 +148,11 @@ class TestAgentReceiptBuild:
 
 
 class TestContentAddressing:
+    def test_expected_receipt_id_matches_built_id(self) -> None:
+        receipt = _build_basic_receipt()
+        assert receipt.expected_receipt_id() == receipt.receipt_id
+        assert receipt.verify_receipt_id() is True
+
     def test_identical_inputs_yield_identical_receipt_id(self) -> None:
         a = _build_basic_receipt()
         b = _build_basic_receipt()
@@ -176,6 +181,7 @@ class TestContentAddressing:
         a = _build_basic_receipt(signing_key=ISSUER_PRIVATE_KEY)
         b = _build_basic_receipt(signing_key=ATTACKER_PRIVATE_KEY)
         assert a.receipt_id == b.receipt_id
+        assert a.expected_receipt_id() == b.expected_receipt_id()
         assert a.signature != b.signature
         assert a.verification_key_sha256 != b.verification_key_sha256
 
@@ -209,7 +215,27 @@ class TestSignatureVerification:
             receipt,
             subject={"decision": "TAMPERED", "rationale": "tests pass"},
         )
+        assert tampered.verify_receipt_id() is False
         assert tampered.verify_signature(verification_key=ISSUER_PUBLIC_KEY) is False
+
+    def test_verify_signature_fails_when_receipt_id_mutated(self) -> None:
+        receipt = _build_basic_receipt()
+        tampered = replace(receipt, receipt_id="rcpt_a_forged_alias")
+
+        assert tampered.expected_receipt_id() == receipt.receipt_id
+        assert tampered.verify_receipt_id() is False
+        assert tampered.verify_signature(verification_key=ISSUER_PUBLIC_KEY) is False
+        assert tampered.verify(verification_key=ISSUER_PUBLIC_KEY) is False
+
+    def test_verify_signature_fails_when_json_receipt_id_mutated(self) -> None:
+        receipt = _build_basic_receipt()
+        payload = receipt.to_json()
+        payload["receipt_id"] = "rcpt_a_forged_alias"
+        tampered = AgentReceipt.from_json(payload)
+
+        assert tampered.verify_receipt_id() is False
+        assert tampered.verify_signature(verification_key=ISSUER_PUBLIC_KEY) is False
+        assert tampered.verify(verification_key=ISSUER_PUBLIC_KEY) is False
 
     def test_verify_signature_fails_when_dissent_mutated(self) -> None:
         receipt = _build_basic_receipt(

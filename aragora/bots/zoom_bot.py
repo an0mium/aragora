@@ -151,8 +151,8 @@ class AragoraZoomBot:
         Zoom uses HMAC-SHA256 for webhook verification.
         """
         if not self.secret_token:
-            logger.warning("ZOOM_SECRET_TOKEN not configured, skipping verification")
-            return True
+            logger.warning("ZOOM_SECRET_TOKEN not configured, rejecting webhook")
+            return False
 
         try:
             message = f"v0:{timestamp}:{payload.decode('utf-8')}"
