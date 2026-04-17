@@ -665,9 +665,12 @@ class TestHandleCompress:
     def test_compress_content_too_large(self, handler):
         """Compress returns 413 when content exceeds 10MB."""
         big_content = "x" * (10_000_001)
-        # Mock read_json_body to bypass the body-size limit in read_json_body itself
-        # so the handler's own content-length check can run
-        with patch.object(handler, "read_json_body", return_value={"content": big_content}):
+        # Bypass request parsing so the handler's own content-size check runs.
+        with patch.object(
+            handler,
+            "_read_json_object_body",
+            return_value=({"content": big_content}, None),
+        ):
             result = handler.handle_compress(
                 "/api/v1/rlm/compress",
                 {},
