@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # key is present.  We intentionally do NOT import agent modules here to keep
 # the handler lightweight and free of heavy dependencies.
 _PROVIDER_CONFIG: dict[str, tuple[tuple[str, ...], str]] = {
-    "anthropic": (("ANTHROPIC_API_KEY",), "claude-opus-4-6"),
+    "anthropic": (("ANTHROPIC_API_KEY",), "claude-opus-4-7"),
     "openai": (("OPENAI_API_KEY",), "gpt-5.3"),
     "openrouter": (("OPENROUTER_API_KEY",), "deepseek/deepseek-chat"),
     "mistral": (("MISTRAL_API_KEY",), "mistral-large-2512"),

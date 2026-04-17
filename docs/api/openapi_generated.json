@@ -3236,6 +3236,264 @@
         "operationId": "listAdminSecurityStatus"
       }
     },
+    "/api/admin/system-health": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health overview",
+        "operationId": "adminGetSystemHealthOverviewLegacy",
+        "description": "Returns the aggregated admin system-health overview.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/admin/system-health/adapters": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health adapters",
+        "operationId": "adminGetSystemHealthAdaptersLegacy",
+        "description": "Returns adapter health for admin system-health views.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/admin/system-health/agents": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health agents",
+        "operationId": "adminGetSystemHealthAgentsLegacy",
+        "description": "Returns agent-pool health for admin system-health views.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/admin/system-health/budget": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health budget",
+        "operationId": "adminGetSystemHealthBudgetLegacy",
+        "description": "Returns budget health for admin system-health views.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/admin/system-health/circuit-breakers": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health circuit breakers",
+        "operationId": "adminGetSystemHealthCircuitBreakersLegacy",
+        "description": "Returns circuit-breaker health for admin system-health views.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
+        "x-aragora-stability": "deprecated"
+      }
+    },
+    "/api/admin/system-health/slos": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health SLOs",
+        "operationId": "adminGetSystemHealthSlosLegacy",
+        "description": "Returns SLO compliance health for admin system-health views.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "deprecated": true,
+        "x-preserve-legacy-operation-id": true,
+        "x-aragora-stability": "deprecated"
+      }
+    },
     "/api/agent/compare": {
       "get": {
         "tags": [
@@ -58928,6 +59186,252 @@
           }
         ],
         "x-aragora-stability": "stable"
+      }
+    },
+    "/api/v1/admin/system-health": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health overview",
+        "operationId": "adminGetSystemHealthOverview",
+        "description": "Returns the aggregated admin system-health overview.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/admin/system-health/adapters": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health adapters",
+        "operationId": "adminGetSystemHealthAdapters",
+        "description": "Returns adapter health for admin system-health views.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/admin/system-health/agents": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health agents",
+        "operationId": "adminGetSystemHealthAgents",
+        "description": "Returns agent-pool health for admin system-health views.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/admin/system-health/budget": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health budget",
+        "operationId": "adminGetSystemHealthBudget",
+        "description": "Returns budget health for admin system-health views.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/admin/system-health/circuit-breakers": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health circuit breakers",
+        "operationId": "adminGetSystemHealthCircuitBreakers",
+        "description": "Returns circuit-breaker health for admin system-health views.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
+      }
+    },
+    "/api/v1/admin/system-health/slos": {
+      "get": {
+        "tags": [
+          "Admin",
+          "System"
+        ],
+        "summary": "Get admin system health SLOs",
+        "operationId": "adminGetSystemHealthSlos",
+        "description": "Returns SLO compliance health for admin system-health views.",
+        "responses": {
+          "200": {
+            "description": "System health payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/admin/system/metrics": {
@@ -118521,104 +119025,31 @@
       }
     },
     "/api/v1/debates/active": {
-      "delete": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "deleted": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental",
-        "operationId": "deleteDebatesActive",
-        "description": "Autogenerated placeholder (spec pending)"
-      },
-      "patch": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental",
-        "operationId": "patchDebatesActive",
-        "description": "Autogenerated placeholder (spec pending)"
-      },
-      "post": {
-        "summary": "Autogenerated placeholder (spec pending)",
-        "tags": [
-          "Debates"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                      "description": "Created resource ID"
-                    },
-                    "success": {
-                      "type": "boolean"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-autogenerated": true,
-        "x-method-inferred": true,
-        "x-aragora-stability": "experimental",
-        "operationId": "createDebatesActive",
-        "description": "Autogenerated placeholder (spec pending)"
-      },
       "get": {
-        "summary": "List currently running debates",
         "tags": [
           "Debates"
         ],
-        "description": "Returns debates that are currently in-progress (running or paused).",
-        "operationId": "_get_active_debates",
+        "summary": "List active debates",
+        "description": "Return debates that are currently running or paused in the live server state. This endpoint backs the live debate readiness UI.",
+        "operationId": "listActiveDebatesV1",
         "responses": {
           "200": {
             "description": "Active debates returned",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -118636,7 +119067,11 @@
                             "type": "string"
                           },
                           "status": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "running",
+                              "paused"
+                            ]
                           },
                           "started_at": {
                             "type": "string",
@@ -118657,8 +119092,48 @@
                           "elapsed_seconds": {
                             "type": "number"
                           }
-                        }
+                        },
+                        "additionalProperties": true
                       }
+                    }
+                  },
+                  "required": [
+                    "debates"
+                  ]
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error - Unexpected error occurred",
+            "headers": {
+              "X-Request-ID": {
+                "description": "Unique request identifier for tracing and debugging",
+                "schema": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "X-Response-Time": {
+                "description": "Server processing time in milliseconds",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "internal_error": {
+                    "summary": "Internal server error",
+                    "value": {
+                      "error": "An unexpected error occurred",
+                      "code": "INTERNAL_ERROR",
+                      "trace_id": "req_abc123xyz",
+                      "support_url": "https://github.com/synaptent/aragora/issues"
                     }
                   }
                 }
@@ -118666,11 +119141,7 @@
             }
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
+        "x-aragora-stability": "experimental"
       }
     },
     "/api/v1/debates/analytics/consensus": {
@@ -201645,7 +202116,7 @@
                     "providers": {
                       "anthropic": {
                         "available": true,
-                        "model": "claude-opus-4-6"
+                        "model": "claude-opus-4-7"
                       },
                       "openai": {
                         "available": true,

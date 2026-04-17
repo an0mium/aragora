@@ -23,6 +23,7 @@ HANDLER_MODULES: dict[str, str] = {
     "StorageHealthHandler": "aragora.server.handlers.admin.health.storage_health",
     "SystemHandler": "aragora.server.handlers.admin",
     "SystemIntelligenceHandler": "aragora.server.handlers.system_intelligence",
+    "SystemHealthDashboardHandler": "aragora.server.handlers.system_health",
     # agents/ directory
     "AgentConfigHandler": "aragora.server.handlers.agents",
     "AgentRecommendationHandler": "aragora.server.handlers.agents.recommendations",
@@ -382,6 +383,7 @@ ALL_HANDLER_NAMES: list[str] = [
     "ApiDocsHandler",
     "SystemHandler",
     "SystemIntelligenceHandler",
+    "SystemHealthDashboardHandler",
     "PulseHandler",
     "AnalyticsHandler",
     "AnalyticsDashboardHandler",

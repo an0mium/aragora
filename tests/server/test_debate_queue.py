@@ -157,11 +157,11 @@ class TestBatchItemFromDict:
         """from_dict serializes a structured agent spec into pipe format."""
         data = {
             "question": "Test",
-            "agents": {"provider": "anthropic-api", "model": "claude-opus-4-6"},
+            "agents": {"provider": "anthropic-api", "model": "claude-opus-4-7"},
         }
         item = BatchItem.from_dict(data)
 
-        assert item.agents == "anthropic-api|claude-opus-4-6||"
+        assert item.agents == "anthropic-api|claude-opus-4-7||"
 
     def test_agents_as_mixed_list(self):
         """from_dict preserves legacy strings and serializes structured specs."""
@@ -179,7 +179,7 @@ class TestBatchItemFromDict:
     def test_agents_object_missing_provider_raises(self):
         """Structured agent specs without a provider-like field are rejected."""
         with pytest.raises(ValueError, match="provider"):
-            BatchItem.from_dict({"question": "Test", "agents": {"model": "claude-opus-4-6"}})
+            BatchItem.from_dict({"question": "Test", "agents": {"model": "claude-opus-4-7"}})
 
     def test_missing_question_raises(self):
         """from_dict raises ValueError for missing question."""

@@ -616,7 +616,7 @@ def seed_analytics(clear: bool) -> int:
 
     agent_names = [a[0] for a in AGENTS]
     providers = {
-        "claude-opus": ("anthropic", "claude-opus-4-6"),
+        "claude-opus": ("anthropic", "claude-opus-4-7"),
         "gpt-4o": ("openai", "gpt-4o"),
         "gemini-pro": ("google", "gemini-2.5-pro"),
         "mistral-large": ("mistral", "mistral-large-latest"),

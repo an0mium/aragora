@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+from aragora.nomic.shift_controller import ShiftConfig, ShiftController, ShiftState
 from aragora.swarm.shift_ledger import ShiftLedger
 from scripts import run_proof_first_shift as mod
 
@@ -20,15 +22,17 @@ def _run_shift_cycle(
     trigger_benchmark_side_effect: Exception | None = None,
     ledger: ShiftLedger | None = None,
 ) -> dict[str, object]:
-    restart_patch = (
+    boss_restart_patch = (
         patch(
-            "scripts.run_proof_first_shift.restart_service_via_launchd",
-            side_effect=restart_service_side_effect,
+            "scripts.run_proof_first_shift.restart_boss_service",
+            side_effect=[
+                (ok, detail, "restart_boss_loop") for ok, detail in restart_service_side_effect
+            ],
         )
         if restart_service_side_effect is not None
         else patch(
-            "scripts.run_proof_first_shift.restart_service_via_launchd",
-            return_value=(True, ""),
+            "scripts.run_proof_first_shift.restart_boss_service",
+            return_value=(True, "", "restart_boss_loop"),
         )
     )
     with (
@@ -44,7 +48,8 @@ def _run_shift_cycle(
             "scripts.run_proof_first_shift.process_running",
             side_effect=process_running_side_effect,
         ),
-        restart_patch,
+        boss_restart_patch,
+        patch("scripts.run_proof_first_shift.restart_service_via_launchd", return_value=(True, "")),
         patch("scripts.run_proof_first_shift.run_merge_arbiter_apply", return_value={"merged": []}),
         patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=latest_run),
         patch(
@@ -63,6 +68,17 @@ def _run_shift_cycle(
             runtime_state=runtime_state,
             ledger=ledger,
         )
+
+
+def _make_shift_controller(repo_root: Path) -> ShiftController:
+    checkpoint_dir = repo_root / ".aragora_shifts"
+    return ShiftController(
+        ShiftConfig(
+            repo_path=str(repo_root),
+            checkpoint_dir=str(checkpoint_dir),
+            require_fresh_assessment=False,
+        )
+    )
 
 
 def test_should_trigger_benchmark_rerun_when_latest_run_is_stale() -> None:
@@ -283,6 +299,128 @@ def test_bind_runtime_state_to_shift_preserves_recovery_budgets_for_same_shift()
     assert state.recovery_attempt_counts[mod.BOSS_RESTART_FAILURE] == 1
 
 
+def test_save_and_load_runtime_state_roundtrip(tmp_path: Path) -> None:
+    path = tmp_path / "runtime_state.json"
+    expected_recovery_attempt_counts = dict.fromkeys(mod.RECOVERY_FAILURE_CLASSES, 0)
+    expected_recovery_attempt_counts[mod.BOSS_RESTART_FAILURE] = 1
+    expected_recovery_attempt_counts[mod.PERMISSION_MISMATCH_FAILURE] = 2
+    state = mod.ProofFirstRuntimeState(
+        recovery_shift_id="shift-123",
+        boss_restart_count=1,
+        merge_restart_count=2,
+        auth_failure_count=3,
+        publication_failure_count=4,
+        rate_limit_failure_count=5,
+        permission_mismatch_count=6,
+        runtime_failure_count=7,
+        github_outage_count=8,
+        recovery_attempt_counts={
+            mod.BOSS_RESTART_FAILURE: 1,
+            mod.PERMISSION_MISMATCH_FAILURE: 2,
+        },
+        last_benchmark_run_id=987,
+        last_triggered_benchmark_run_id=654,
+    )
+
+    mod.save_runtime_state(path, state)
+    loaded = mod.load_runtime_state(path)
+
+    assert loaded == mod.ProofFirstRuntimeState(
+        recovery_shift_id="shift-123",
+        boss_restart_count=1,
+        merge_restart_count=2,
+        auth_failure_count=3,
+        publication_failure_count=4,
+        rate_limit_failure_count=5,
+        permission_mismatch_count=6,
+        runtime_failure_count=7,
+        github_outage_count=8,
+        recovery_attempt_counts=expected_recovery_attempt_counts,
+        last_benchmark_run_id=987,
+        last_triggered_benchmark_run_id=654,
+    )
+
+
+def test_load_runtime_state_returns_fresh_state_for_missing_file(tmp_path: Path) -> None:
+    missing_path = tmp_path / "missing.json"
+
+    assert mod.load_runtime_state(missing_path) == mod.ProofFirstRuntimeState()
+
+
+def test_load_runtime_state_returns_fresh_state_for_invalid_payloads(tmp_path: Path) -> None:
+    cases = {
+        "empty": "",
+        "corrupt": "{not json}",
+        "non_dict": "[]",
+        "invalid_counts": json.dumps({"boss_restart_count": "oops"}),
+    }
+
+    for name, payload in cases.items():
+        path = tmp_path / f"{name}.json"
+        path.write_text(payload, encoding="utf-8")
+        assert mod.load_runtime_state(path) == mod.ProofFirstRuntimeState()
+
+
+def test_restore_shift_controller_restores_saved_shift_state(tmp_path: Path) -> None:
+    controller = _make_shift_controller(tmp_path)
+    checkpoint_dir = Path(controller.config.checkpoint_dir)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    saved_state = ShiftState(
+        shift_id="shift-test",
+        started_at=1.0,
+        config={"checkpoint_dir": str(checkpoint_dir)},
+        current_cycle=3,
+        assessment_id="assessment-123",
+    )
+    (checkpoint_dir / "latest.json").write_text(
+        json.dumps({"shift_state": saved_state.to_dict()}),
+        encoding="utf-8",
+    )
+    controller._state = ShiftState(
+        shift_id="stale-shift",
+        started_at=2.0,
+        config={"checkpoint_dir": str(checkpoint_dir)},
+        current_cycle=0,
+    )
+
+    restored = mod.restore_shift_controller(controller, checkpoint_dir=checkpoint_dir)
+
+    assert restored == saved_state
+    assert controller.state == saved_state
+
+
+def test_restore_shift_controller_ignores_invalid_checkpoints_without_mutating_state(
+    tmp_path: Path,
+) -> None:
+    cases = {
+        "missing": None,
+        "empty": "",
+        "corrupt": "{not json}",
+        "non_dict": "[]",
+        "missing_shift_state": json.dumps({"not_shift_state": {}}),
+    }
+
+    for name, payload in cases.items():
+        repo_root = tmp_path / name
+        controller = _make_shift_controller(repo_root)
+        checkpoint_dir = Path(controller.config.checkpoint_dir)
+        checkpoint_dir.mkdir(parents=True, exist_ok=True)
+        original_state = ShiftState(
+            shift_id=f"original-{name}",
+            started_at=2.0,
+            config={"checkpoint_dir": str(checkpoint_dir)},
+            current_cycle=1,
+        )
+        controller._state = original_state
+        if payload is not None:
+            (checkpoint_dir / "latest.json").write_text(payload, encoding="utf-8")
+
+        restored = mod.restore_shift_controller(controller, checkpoint_dir=checkpoint_dir)
+
+        assert restored is None
+        assert controller.state == original_state
+
+
 def test_restart_service_treats_kickstart_timeout_as_success_when_process_appears() -> None:
     with (
         patch(
@@ -336,6 +474,72 @@ def test_restart_service_waits_for_successful_kickstart_process_start() -> None:
 
     assert ok is True
     assert detail == ""
+
+
+def test_restart_boss_service_uses_direct_bootstrap_when_launchd_service_is_missing() -> None:
+    missing = mod.LaunchdServiceStatus(
+        detail='Could not find service "com.aragora.swarm-boss-loop" in domain for user gui: 501'
+    )
+    with (
+        patch("scripts.run_proof_first_shift.inspect_launchd_service", return_value=missing),
+        patch(
+            "scripts.run_proof_first_shift.start_detached_boss_loop",
+            return_value=(True, "bootstrapped direct boss loop"),
+        ) as bootstrap_mock,
+        patch(
+            "scripts.run_proof_first_shift.restart_service_via_launchd",
+            side_effect=AssertionError(
+                "launchd restart should not run when the service is missing"
+            ),
+        ),
+    ):
+        ok, detail, action = mod.restart_boss_service(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            process_pattern="boss-loop",
+        )
+
+    assert ok is True
+    assert detail == "bootstrapped direct boss loop"
+    assert action == "bootstrap_boss_loop_direct"
+    assert bootstrap_mock.called
+
+
+def test_build_direct_boss_loop_command_uses_env_configuration() -> None:
+    with patch.dict(
+        "os.environ",
+        {
+            "BOSS_REPO": "synaptent/aragora",
+            "TARGET_BRANCH": "release",
+            "WORKER_MODEL": "claude",
+            "REVIEW_MODEL": "codex",
+            "BOSS_LABELS": "boss-ready,autonomous",
+            "BOSS_MAX_TICKS": "17",
+            "BOSS_INTERVAL_SECONDS": "45",
+            "BOSS_MAX_CONSECUTIVE_FAILURES": "9",
+            "BOSS_AUTONOMY_MODE": "guided",
+            "BOSS_MAX_HOURS": "6",
+            "BOSS_MAX_PARALLEL_DISPATCHES": "2",
+        },
+        clear=False,
+    ):
+        command = mod.build_direct_boss_loop_command(repo="ignored/repo")
+
+    assert command[:6] == [command[0], "-u", "-m", "aragora.cli.main", "swarm", "boss-loop"]
+    assert (
+        "--boss-repo" in command
+        and command[command.index("--boss-repo") + 1] == "synaptent/aragora"
+    )
+    assert (
+        "--target-branch" in command and command[command.index("--target-branch") + 1] == "release"
+    )
+    assert command.count("--label") == 2
+    assert command[command.index("--max-ticks") + 1] == "17"
+    assert command[command.index("--interval") + 1] == "45"
+    assert command[command.index("--max-consecutive-failures") + 1] == "9"
+    assert command[command.index("--autonomy") + 1] == "guided"
+    assert command[command.index("--max-hours") + 1] == "6"
+    assert command[command.index("--boss-max-parallel-dispatches") + 1] == "2"
 
 
 def test_launchd_start_timeout_uses_default_for_non_throttled_state() -> None:
@@ -550,6 +754,45 @@ def test_run_shift_cycle_reports_restart_failure_instead_of_crashing() -> None:
     assert report["actions"] == ["restart_boss_loop_failed"]
     assert report["stop_reason"] == "BossRestartFailed: launchctl kickstart timed out for boss loop"
     assert report["failure_policy"]["service_failure"]["will_stop"] is True
+
+
+def test_run_shift_cycle_records_direct_bootstrap_when_launchd_service_is_missing() -> None:
+    state = mod.ProofFirstRuntimeState()
+    with (
+        patch(
+            "scripts.run_proof_first_shift.restart_boss_service",
+            return_value=(
+                True,
+                "launchd service missing; bootstrapped direct boss loop pid=123",
+                "bootstrap_boss_loop_direct",
+            ),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [{"id": 1}], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch("scripts.run_proof_first_shift.list_open_prs", return_value=[]),
+        patch("scripts.run_proof_first_shift.process_running", side_effect=[False, True]),
+        patch("scripts.run_proof_first_shift.restart_service_via_launchd", return_value=(True, "")),
+        patch("scripts.run_proof_first_shift.run_merge_arbiter_apply", return_value={"merged": []}),
+        patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=None),
+        patch("scripts.run_proof_first_shift.fetch_benchmark_failure_log", return_value=""),
+        patch("scripts.run_proof_first_shift.trigger_benchmark_workflow", return_value=None),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            benchmark_mode="disabled",
+            automation_backlog_limit=12,
+            runtime_state=state,
+            ledger=None,
+        )
+
+    assert report["actions"] == ["bootstrap_boss_loop_direct"]
+    assert report["stop_reason"] == ""
 
 
 def test_run_shift_cycle_stops_cleanly_when_github_is_unavailable(tmp_path: Path) -> None:

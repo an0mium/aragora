@@ -82,7 +82,7 @@ const RECORDED_SAMPLE: RecordedDebate = {
     {
       type: "proposal",
       agent: "claude-opus",
-      model: "Claude Opus 4.6",
+      model: "Claude Opus 4.7",
       content:
         "Yes, adopt it as mandatory. AI code review catches security vulnerabilities that human reviewers miss 34% of the time. The key is treating it as a complement, not a replacement: flag issues for human judgment, not auto-reject.",
       round: 1,
@@ -127,7 +127,7 @@ const RECORDED_SAMPLE: RecordedDebate = {
     {
       type: "vote",
       agent: "claude-opus",
-      model: "Claude Opus 4.6",
+      model: "Claude Opus 4.7",
       content:
         "I revise my position. Path-based mandatory review is the pragmatic middle ground.",
       round: 2,
@@ -176,7 +176,7 @@ function accentForAgent(agent: string): string {
 function formatAgentName(agent: string): string {
   const replacements: Record<string, string> = {
     claude: "Claude",
-    "claude-opus": "Claude Opus 4.6",
+    "claude-opus": "Claude Opus 4.7",
     "claude-sonnet": "Claude Sonnet 4.6",
     gpt: "GPT",
     "gpt-5": "GPT-5.4",

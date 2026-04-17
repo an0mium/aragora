@@ -24,7 +24,7 @@ class TestThinkingFlowsToReceiptMetadata:
         # 1. Create agent with thinking enabled
         agent = AnthropicAPIAgent(
             name="claude-thinking-test",
-            model="claude-opus-4-6",
+            model="claude-opus-4-7",
             thinking_budget=5000,
             api_key="test-key-not-used",
             enable_fallback=False,

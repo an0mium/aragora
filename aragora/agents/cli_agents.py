@@ -201,7 +201,7 @@ class CLIAgent(CritiqueMixin, Agent):
     OPENROUTER_MODEL_MAP: dict[str, str] = {
         # Claude models
         "claude": "anthropic/claude-sonnet-4.6",  # Default claude CLI
-        "claude-opus-4-6": "anthropic/claude-opus-4.6",
+        "claude-opus-4-7": "anthropic/claude-opus-4.7",
         "claude-sonnet-4-6": "anthropic/claude-sonnet-4.6",
         "claude-opus-4-5-20251101": "anthropic/claude-opus-4.5",
         "claude-sonnet-4-20250514": "anthropic/claude-sonnet-4",
@@ -767,7 +767,7 @@ Be constructive but thorough. Identify both technical and conceptual issues."""
 
 @AgentRegistry.register(
     "claude",
-    default_model="claude-opus-4-6",
+    default_model="claude-opus-4-7",
     agent_type="CLI",
     requires="claude CLI (npm install -g @anthropic-ai/claude-code)",
 )

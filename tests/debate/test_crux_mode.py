@@ -314,3 +314,66 @@ async def test_consensus_phase_dispatches_to_crux_finder(
     crux_summary = result.formal_verification["crux_finder"]
     assert crux_summary["crux_count"] >= 1
     assert "convergence_barrier" in crux_summary
+
+
+@pytest.mark.asyncio
+async def test_consensus_phase_seeds_current_debate_claims_for_crux_finder() -> None:
+    """A real contested debate must not sign an empty crux map."""
+    from types import SimpleNamespace
+
+    from aragora.core import Message
+    from aragora.debate.phases.consensus_phase import ConsensusPhase
+
+    protocol = DebateProtocol(consensus="crux_finder")
+    result = SimpleNamespace(
+        debate_id="d-current",
+        rounds_used=1,
+        consensus_proof=None,
+        consensus_reached=None,
+        final_answer=None,
+        consensus_strength=None,
+        formal_verification=None,
+        messages=[
+            Message(
+                role="proposer",
+                agent="agent-alpha",
+                content=(
+                    "We should approve Project Atlas because it clearly reduces "
+                    "support cost and improves reliability."
+                ),
+            ),
+            Message(
+                role="critic",
+                agent="agent-beta",
+                content=(
+                    "We should reject Project Atlas because it increases migration "
+                    "risk and could degrade reliability."
+                ),
+            ),
+        ],
+    )
+    ctx = SimpleNamespace(
+        env=SimpleNamespace(task="Should we approve Project Atlas?"),
+        agents=[SimpleNamespace(name="agent-alpha"), SimpleNamespace(name="agent-beta")],
+        result=result,
+        debate_id="d-current",
+        belief_network=BeliefNetwork(debate_id="d-current"),
+        proposals={
+            "agent-alpha": result.messages[0].content,
+            "agent-beta": result.messages[1].content,
+        },
+        context_messages=result.messages,
+    )
+
+    phase = ConsensusPhase.__new__(ConsensusPhase)
+    phase.protocol = protocol
+    phase._notify_spectator = None
+    phase.hooks = {}
+
+    await phase._execute_consensus(ctx, "crux_finder")
+
+    crux_summary = result.formal_verification["crux_finder"]
+    assert crux_summary["crux_count"] >= 1
+    assert result.consensus_proof.metadata["current_debate_claim_count"] >= 2
+    assert result.consensus_proof.metadata["belief_network_claim_count"] >= 3
+    assert result.consensus_proof.metadata["recommended_focus"]

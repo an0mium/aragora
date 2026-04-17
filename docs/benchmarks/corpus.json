@@ -5,123 +5,122 @@
   "success_contract": "mergeable_pr_or_merged_pr",
   "run_cadence": "weekly_or_better",
   "change_control": "Issue membership stays fixed until an explicit corpus revision edits this file.",
-  "membership_criteria": ["bounded", "single_pr_resolution", "no_external_dependency_chain"],
+  "membership_criteria": [
+    "bounded",
+    "single_pr_resolution",
+    "no_external_dependency_chain",
+    "in_progress_entries_must_have_dispatch_history_in_boss_metrics_jsonl"
+  ],
   "expected_status_legend": {
-    "verified": "Autonomy has already landed a merged PR closing this issue. Primary proof surface.",
-    "in_progress": "Issue is open and bounded; autonomy is on the hook to resolve it. Excluded from the verified-success rate until it graduates."
+    "verified": "Autonomy has already landed a merged PR closing this issue, attested by the `closedByPullRequestsReferences` GraphQL edge. Primary proof surface; gates `truth_success_rate_verified`.",
+    "in_progress": "Issue is OPEN at corpus authoring time, bounded, and has been dispatched at least once to the autonomous boss loop (a recorded `worker_outcome` in .aragora/overnight/boss_metrics.jsonl). Autonomy is on the hook to resolve it. Excluded from `truth_success_rate_verified` until it graduates."
   },
   "revision_log": [
     {
       "revision": 3,
       "recorded_on": "2026-04-17",
-      "change": "Introduce expected_status bucketing; seed 3 open test-authoring issues so the primary metric measures real autonomy, not an already-resolved snapshot."
+      "change": "Honesty pass: retire all five rev-2 entries (#873, #1064, #1641, #2712, #5756) — each was closed by a founder-driven Claude Code / Codex CLI PR or manually as stale, and none represent autonomous execution. The rev-2 headline `truth_success_rate: 1.0` was an artifact of lenient PR-linkage bookkeeping. Seed rev-3 with OPEN bounded issues that have been recorded as dispatched to the boss loop (at least one `worker_outcome` in .aragora/overnight/boss_metrics.jsonl). See docs/benchmarks/corpus_honesty_audit_2026-04-17.md for the full per-entry review."
     },
     {
       "revision": 2,
       "recorded_on": "2026-04-15",
-      "change": "Replace #1733 (no_linked_pr) with #5756 (fail_closed_hardening) to keep every entry verifiable."
+      "change": "Replace #1733 (no_linked_pr) with #5756 (fail_closed_hardening) to keep every entry verifiable. (Revision retired in rev-3 honesty pass.)"
+    }
+  ],
+  "retired_in_revision_3": [
+    {
+      "issue_id": 1064,
+      "reason": "Closed by founder PR #1066 (Claude Code session, @an0mium) with zero autonomous dispatch ticks in boss_metrics.jsonl. Credit was pure PR-linkage bookkeeping."
+    },
+    {
+      "issue_id": 873,
+      "reason": "Closed manually as stale after Dependabot PR #857. Four recorded autonomous attempts (3 rescue_no_deliverable, 1 blocked_sanitation_failed); zero mergeable deliverables. Nine of ten `linked_prs` in rev-2 truth artifact were forensic references, not closure evidence."
+    },
+    {
+      "issue_id": 1641,
+      "reason": "Closed by founder PR #1714 (Codex CLI session, @an0mium) with zero autonomous dispatch ticks."
+    },
+    {
+      "issue_id": 2712,
+      "reason": "Closed by founder PR #5763 (Claude Code session, @an0mium); labeled `overnight-founder` (founder tranche, not autonomous tranche) and added to the autonomous corpus after closure."
+    },
+    {
+      "issue_id": 5756,
+      "reason": "Closed by founder PR #5766 (Claude Code session, @an0mium). Sole autonomous attempt terminated as `blocked_auth_failure`; added to rev-2 as a replacement for #1733 the same day the founder closed it."
     }
   ],
   "issues": [
     {
-      "issue_id": 1064,
-      "title": "Boss-loop execution: bump @supabase/supabase-js from 2.99.1 to 2.99.3 in /aragora/live",
-      "execution_class": "dependency_bump",
-      "expected_status": "verified",
-      "scope_hint": ["aragora/live/package.json", "aragora/live/package-lock.json"],
-      "known_constraints": ["single package bump", "bounded to aragora/live", "validation contract required"],
-      "source_reference": "docs/examples/boss-lane-manifest-2026-03-19.yaml"
+      "issue_id": 5844,
+      "title": "[CS-01..03] Reconcile docs/status surfaces to current proof",
+      "execution_class": "docs_reconciliation",
+      "expected_status": "in_progress",
+      "scope_hint": [
+        "docs/status/NEXT_STEPS_CANONICAL.md",
+        "docs/status/ACTIVE_EXECUTION_ISSUES.md",
+        "docs/status/B0_BENCHMARK_TRUTH_STATUS.md",
+        "docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md"
+      ],
+      "known_constraints": [
+        "docs-only surface reconciliation",
+        "scripts/reconcile_status_docs.py must report no critical findings"
+      ],
+      "source_reference": "github.com/synaptent/aragora/issues/5844",
+      "added_in_revision": 3,
+      "github_labels": ["autonomous", "boss-stuck"],
+      "dispatch_provenance": {
+        "boss_metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+        "tick_count": 5,
+        "terminal_classes": ["blocked_not_dispatch_bounded", "blocked_auth_failure"]
+      },
+      "honesty_note": "OPEN and bounded; labeled `boss-stuck` — the autonomy loop has provably attempted this 5 times and hit retry ceiling. Ideal benchmark member per the audit's Short-term recommendation."
     },
     {
-      "issue_id": 873,
-      "title": "Bump @eslint/eslintrc from 3.2.0 to 3.3.0 in /aragora/live",
-      "execution_class": "version_upgrade",
-      "expected_status": "verified",
-      "scope_hint": ["aragora/live", "@eslint/eslintrc"],
-      "known_constraints": ["semver-minor update", "single package only", "scope hints must stay inside aragora/live"],
-      "source_reference": "tests/nomic/test_decomposer_bounded_issues.py"
-    },
-    {
-      "issue_id": 1641,
-      "title": "Wire prompt refiner env",
-      "execution_class": "single_config_change",
-      "expected_status": "verified",
-      "scope_hint": ["aragora/swarm/boss_loop.py", "tests/swarm/test_boss_loop.py"],
-      "known_constraints": ["env wiring only", "preserve issue header in worker goal", "targeted pytest acceptance"],
-      "source_reference": "tests/swarm/test_boss_loop.py"
-    },
-    {
-      "issue_id": 5756,
-      "title": "Fail closed on 8 silent except-Exception-pass in boss_loop.py",
-      "execution_class": "fail_closed_hardening",
-      "expected_status": "verified",
-      "scope_hint": ["aragora/swarm/boss_loop.py"],
-      "known_constraints": ["replace silent catches with logger.debug", "no behavioral changes beyond error visibility", "targeted pytest acceptance"],
-      "source_reference": "tests/swarm/test_boss_loop.py",
-      "revision_note": "Replaces #1733 (no_linked_pr) in corpus revision 2"
-    },
-    {
-      "issue_id": 2712,
-      "title": "Fail closed on string booleans in QualityPipelineConfig.from_dict",
-      "execution_class": "single_file_fix",
-      "expected_status": "verified",
-      "scope_hint": ["aragora/debate/quality_pipeline.py", "tests/debate/test_quality_pipeline.py"],
-      "known_constraints": ["core fix centered on one source file", "paired regression test allowed", "fail-closed boolean parsing"],
-      "source_reference": "tests/swarm/test_supervisor.py"
-    },
-    {
-      "issue_id": 5814,
-      "title": "Add unit tests for server/handlers/admin/health/liveness.py",
+      "issue_id": 5903,
+      "title": "[CS-01] Add roadmap priority policy classification tests",
       "execution_class": "test_authoring",
       "expected_status": "in_progress",
       "scope_hint": [
-        "aragora/server/handlers/admin/health/liveness.py",
-        "tests/server/handlers/admin/health/test_liveness.py"
+        "aragora/swarm/roadmap_priority.py",
+        "tests/swarm/test_roadmap_priority.py"
       ],
       "known_constraints": [
-        "target module exists",
-        "no paired test file yet",
-        "pytest acceptance on the new test file",
-        "single-file deliverable"
+        "single test file deliverable",
+        "pytest tests/swarm/test_roadmap_priority.py -v must pass",
+        "coverage for extract_roadmap_codes, priority_for_text, blocks_boss_ready"
       ],
-      "source_reference": "github.com/synaptent/aragora/issues/5814",
-      "added_in_revision": 3
+      "source_reference": "github.com/synaptent/aragora/issues/5903",
+      "added_in_revision": 3,
+      "github_labels": ["autonomous", "boss-stuck"],
+      "dispatch_provenance": {
+        "boss_metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+        "tick_count": 3,
+        "terminal_classes": ["blocked_not_dispatch_bounded"]
+      },
+      "honesty_note": "OPEN and bounded; labeled `boss-stuck`. Three autonomous dispatch attempts in boss_metrics, all blocked. The benchmark exists precisely to measure whether substrate improvements move this from blocked to merged."
     },
     {
-      "issue_id": 5818,
-      "title": "Add unit tests for utils/error_sanitizer.py",
-      "execution_class": "test_authoring",
+      "issue_id": 5887,
+      "title": "Add explicit B2 guard expansion criteria to NEXT_STEPS_CANONICAL.md",
+      "execution_class": "docs_hardening",
       "expected_status": "in_progress",
       "scope_hint": [
-        "aragora/utils/error_sanitizer.py",
-        "tests/utils/test_error_sanitizer.py"
+        "docs/status/NEXT_STEPS_CANONICAL.md"
       ],
       "known_constraints": [
-        "target module exists",
-        "no paired test file yet",
-        "pytest acceptance on the new test file",
-        "single-file deliverable"
+        "docs-only single-file deliverable",
+        "scripts/reconcile_status_docs.py --json must pass",
+        "claims must stay narrower than measured proof"
       ],
-      "source_reference": "github.com/synaptent/aragora/issues/5818",
-      "added_in_revision": 3
-    },
-    {
-      "issue_id": 5820,
-      "title": "Add unit tests for billing/jwt_auth.py",
-      "execution_class": "test_authoring",
-      "expected_status": "in_progress",
-      "scope_hint": [
-        "aragora/billing/jwt_auth.py",
-        "tests/billing/test_jwt_auth.py"
-      ],
-      "known_constraints": [
-        "target module exists",
-        "no paired test file yet",
-        "pytest acceptance on the new test file",
-        "single-file deliverable"
-      ],
-      "source_reference": "github.com/synaptent/aragora/issues/5820",
-      "added_in_revision": 3
+      "source_reference": "github.com/synaptent/aragora/issues/5887",
+      "added_in_revision": 3,
+      "github_labels": [],
+      "dispatch_provenance": {
+        "boss_metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+        "tick_count": 1,
+        "terminal_classes": ["blocked_not_dispatch_bounded"]
+      },
+      "honesty_note": "OPEN and bounded to a single docs file. One autonomous dispatch tick recorded (blocked). Included to give the rev-3 corpus at least one non-boss-stuck open attempt so the benchmark surface isn't exclusively retry-ceiling entries."
     }
   ]
 }

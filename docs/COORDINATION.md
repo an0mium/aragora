@@ -32,11 +32,11 @@
 
 | Date | Agent | Task | Issue | Commit |
 |------|-------|------|-------|--------|
-| 2026-02-16 | Claude Opus 4.6 | Working tree cleanup + worktree consolidation | - | db54711..fa10308 |
-| 2026-02-16 | Claude Opus 4.6 | Exception handler narrowing (debate, server, workflow) | - | 93edccef..47c7f89 |
-| 2026-02-16 | Claude Opus 4.6 | SDK cost estimation + TS features namespace | - | b301d86 |
-| 2026-02-16 | Claude Opus 4.6 | CI: TypeScript SDK type check job | - | 13efc0c |
-| 2026-02-16 | Claude Opus 4.6 | Frontend: debate export UX + cost error handling | - | (in b301d86) |
+| 2026-02-16 | Claude Opus 4.7 | Working tree cleanup + worktree consolidation | - | db54711..fa10308 |
+| 2026-02-16 | Claude Opus 4.7 | Exception handler narrowing (debate, server, workflow) | - | 93edccef..47c7f89 |
+| 2026-02-16 | Claude Opus 4.7 | SDK cost estimation + TS features namespace | - | b301d86 |
+| 2026-02-16 | Claude Opus 4.7 | CI: TypeScript SDK type check job | - | 13efc0c |
+| 2026-02-16 | Claude Opus 4.7 | Frontend: debate export UX + cost error handling | - | (in b301d86) |
 | 2026-02-15 | Claude | Worktree sessions script + dogfood tests (14 tests) | - | 52c7203..9225a99 |
 | 2026-02-14 | Claude | Handler routing bug class fixes (10 handlers) | - | various |
 | 2026-02-13 | Claude | Handler test suite: 19,776 tests, 0 failures | - | various |
@@ -234,6 +234,6 @@ See `aragora/nomic/autonomous_orchestrator.py` for full API.
 Based on recent commits, follow these patterns:
 
 - **Commit messages:** `type(scope): description` (e.g., `fix(tests): add mock`)
-- **Co-author:** Add `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`
+- **Co-author:** Add `Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>`
 - **Test before commit:** Always run tests
 - **Small commits:** One logical change per commit

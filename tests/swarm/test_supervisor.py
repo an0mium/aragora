@@ -301,7 +301,7 @@ async def test_dispatch_workers_reuses_persisted_launcher_profile(
 def test_apply_launcher_snapshot_preserves_null_optional_fields(repo: Path) -> None:
     supervisor = SwarmSupervisor(repo_root=repo)
     supervisor.launcher.config = LaunchConfig(
-        claude_model="claude-opus-4-6",
+        claude_model="claude-opus-4-7",
         codex_model="gpt-4.1-codex",
         claude_profile="existing-profile",
         claude_profile_script="/tmp/profile.sh",

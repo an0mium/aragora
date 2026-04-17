@@ -144,6 +144,33 @@ describe('Debates Namespace', () => {
       expect(result.debates[0].status).toBe('completed');
     });
 
+    it('should list active debates', async () => {
+      const mockResponse = {
+        debates: [
+          {
+            id: 'debate-active',
+            topic: 'Live operator readiness',
+            status: 'running',
+            agents: ['codex'],
+          },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify(mockResponse)),
+      });
+
+      const result = await client.debates.listActive();
+
+      expect(result.debates).toHaveLength(1);
+      expect(result.debates[0].id).toBe('debate-active');
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/debates/active'),
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
     it('should update a debate', async () => {
       const mockUpdated = {
         id: 'debate-123',
