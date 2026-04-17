@@ -171,12 +171,18 @@ PYEOF
 fi
 
 # --- Actual dispatch ---
+# For multi-line prompts, match the proven pattern used by
+# aragora/swarm/session_mux.py send_prompt():
+#   load-buffer -  (stdin)  → paste-buffer -d (auto-delete)  → send-keys Enter
+# An earlier version of this script used `set-buffer -b <name>` + `paste-buffer
+# -b <name>`, which appears to have a timing issue where the paste completes
+# before the terminal has settled, so the immediately-following Enter is
+# consumed as part of the input buffer rather than registered as a submit.
+# The session_mux.py pattern is battle-tested across the live agent fleet.
 if [[ "${LINE_COUNT}" -gt 1 ]]; then
-    BUFFER_NAME="aragora-prompt-${NAME}-$$-$(date +%s%N)"
-    tmux set-buffer -b "${BUFFER_NAME}" "${PROMPT}"
-    tmux paste-buffer -b "${BUFFER_NAME}" -t "${TARGET}"
-    tmux send-keys -t "${TARGET}" "" Enter
-    tmux delete-buffer -b "${BUFFER_NAME}" 2>/dev/null || true
+    printf '%s' "${PROMPT}" | tmux load-buffer -
+    tmux paste-buffer -d -t "${TARGET}"
+    tmux send-keys -t "${TARGET}" Enter
     DISPATCH_METHOD="paste-buffer"
 else
     tmux send-keys -t "${TARGET}" "${PROMPT}" Enter

@@ -31,12 +31,18 @@ send_prompt_to_target() {
     local prompt="$2"
     local line_count method
     line_count="$(echo "${prompt}" | wc -l | tr -d ' ')"
+    # For multi-line prompts, match the proven pattern used by
+    # aragora/swarm/session_mux.py send_prompt():
+    #   load-buffer -  (stdin)  → paste-buffer -d (auto-delete)  → send-keys Enter
+    # An earlier version used `set-buffer -b <name>` + `paste-buffer -b <name>`
+    # which had a timing issue where the trailing Enter was consumed as part
+    # of the input buffer rather than registered as a submit; the affected
+    # Codex pane showed "[Pasted Content N chars]" sitting in its input until
+    # a user manually pressed Enter. The session_mux.py pattern works.
     if [[ "${line_count}" -gt 1 ]]; then
-        local buffer_name="aragora-prompt-launch-${NAME}-$$-$(date +%s%N)"
-        tmux set-buffer -b "${buffer_name}" "${prompt}"
-        tmux paste-buffer -b "${buffer_name}" -t "${target}"
-        tmux send-keys -t "${target}" "" Enter
-        tmux delete-buffer -b "${buffer_name}" 2>/dev/null || true
+        printf '%s' "${prompt}" | tmux load-buffer -
+        tmux paste-buffer -d -t "${target}"
+        tmux send-keys -t "${target}" Enter
         method="paste-buffer"
     else
         tmux send-keys -t "${target}" "${prompt}" Enter
