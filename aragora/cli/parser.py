@@ -2394,8 +2394,9 @@ def _add_swarm_parser(subparsers) -> None:
         "swarm_action_or_goal",
         nargs="?",
         help=(
-            "Action (run/preflight/status/reconcile/campaign/initiative/integrator/tranche/coord/"
-            "assign/claim-pr/report/findings/merge-arbiter/dispatch) or your goal in plain language"
+            "Action (run/preflight/status/shift-status/reconcile/campaign/initiative/integrator/"
+            "tranche/coord/assign/claim-pr/report/findings/merge-arbiter/dispatch) or your goal "
+            "in plain language"
         ),
     )
     swarm_parser.add_argument(
@@ -2622,6 +2623,20 @@ def _add_swarm_parser(subparsers) -> None:
         type=int,
         default=20,
         help="Maximum runs to show in 'status' (default: 20)",
+    )
+    swarm_parser.add_argument(
+        "--shift-ledger",
+        default=None,
+        help=(
+            "Ledger path for 'swarm shift-status' "
+            "(default: .aragora/proof_first_shift/shift_ledger.jsonl)"
+        ),
+    )
+    swarm_parser.add_argument(
+        "--max-age-hours",
+        type=float,
+        default=24.0,
+        help="Ledger lookback window for 'swarm shift-status' (default: 24)",
     )
     swarm_parser.add_argument(
         "--findings-limit",
