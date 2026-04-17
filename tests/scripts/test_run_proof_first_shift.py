@@ -22,15 +22,17 @@ def _run_shift_cycle(
     trigger_benchmark_side_effect: Exception | None = None,
     ledger: ShiftLedger | None = None,
 ) -> dict[str, object]:
-    restart_patch = (
+    boss_restart_patch = (
         patch(
-            "scripts.run_proof_first_shift.restart_service_via_launchd",
-            side_effect=restart_service_side_effect,
+            "scripts.run_proof_first_shift.restart_boss_service",
+            side_effect=[
+                (ok, detail, "restart_boss_loop") for ok, detail in restart_service_side_effect
+            ],
         )
         if restart_service_side_effect is not None
         else patch(
-            "scripts.run_proof_first_shift.restart_service_via_launchd",
-            return_value=(True, ""),
+            "scripts.run_proof_first_shift.restart_boss_service",
+            return_value=(True, "", "restart_boss_loop"),
         )
     )
     with (
@@ -46,7 +48,8 @@ def _run_shift_cycle(
             "scripts.run_proof_first_shift.process_running",
             side_effect=process_running_side_effect,
         ),
-        restart_patch,
+        boss_restart_patch,
+        patch("scripts.run_proof_first_shift.restart_service_via_launchd", return_value=(True, "")),
         patch("scripts.run_proof_first_shift.run_merge_arbiter_apply", return_value={"merged": []}),
         patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=latest_run),
         patch(
@@ -473,6 +476,72 @@ def test_restart_service_waits_for_successful_kickstart_process_start() -> None:
     assert detail == ""
 
 
+def test_restart_boss_service_uses_direct_bootstrap_when_launchd_service_is_missing() -> None:
+    missing = mod.LaunchdServiceStatus(
+        detail='Could not find service "com.aragora.swarm-boss-loop" in domain for user gui: 501'
+    )
+    with (
+        patch("scripts.run_proof_first_shift.inspect_launchd_service", return_value=missing),
+        patch(
+            "scripts.run_proof_first_shift.start_detached_boss_loop",
+            return_value=(True, "bootstrapped direct boss loop"),
+        ) as bootstrap_mock,
+        patch(
+            "scripts.run_proof_first_shift.restart_service_via_launchd",
+            side_effect=AssertionError(
+                "launchd restart should not run when the service is missing"
+            ),
+        ),
+    ):
+        ok, detail, action = mod.restart_boss_service(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            process_pattern="boss-loop",
+        )
+
+    assert ok is True
+    assert detail == "bootstrapped direct boss loop"
+    assert action == "bootstrap_boss_loop_direct"
+    assert bootstrap_mock.called
+
+
+def test_build_direct_boss_loop_command_uses_env_configuration() -> None:
+    with patch.dict(
+        "os.environ",
+        {
+            "BOSS_REPO": "synaptent/aragora",
+            "TARGET_BRANCH": "release",
+            "WORKER_MODEL": "claude",
+            "REVIEW_MODEL": "codex",
+            "BOSS_LABELS": "boss-ready,autonomous",
+            "BOSS_MAX_TICKS": "17",
+            "BOSS_INTERVAL_SECONDS": "45",
+            "BOSS_MAX_CONSECUTIVE_FAILURES": "9",
+            "BOSS_AUTONOMY_MODE": "guided",
+            "BOSS_MAX_HOURS": "6",
+            "BOSS_MAX_PARALLEL_DISPATCHES": "2",
+        },
+        clear=False,
+    ):
+        command = mod.build_direct_boss_loop_command(repo="ignored/repo")
+
+    assert command[:6] == [command[0], "-u", "-m", "aragora.cli.main", "swarm", "boss-loop"]
+    assert (
+        "--boss-repo" in command
+        and command[command.index("--boss-repo") + 1] == "synaptent/aragora"
+    )
+    assert (
+        "--target-branch" in command and command[command.index("--target-branch") + 1] == "release"
+    )
+    assert command.count("--label") == 2
+    assert command[command.index("--max-ticks") + 1] == "17"
+    assert command[command.index("--interval") + 1] == "45"
+    assert command[command.index("--max-consecutive-failures") + 1] == "9"
+    assert command[command.index("--autonomy") + 1] == "guided"
+    assert command[command.index("--max-hours") + 1] == "6"
+    assert command[command.index("--boss-max-parallel-dispatches") + 1] == "2"
+
+
 def test_launchd_start_timeout_uses_default_for_non_throttled_state() -> None:
     assert (
         mod.launchd_start_timeout_seconds(mod.LaunchdServiceStatus(state="running"))
@@ -685,6 +754,45 @@ def test_run_shift_cycle_reports_restart_failure_instead_of_crashing() -> None:
     assert report["actions"] == ["restart_boss_loop_failed"]
     assert report["stop_reason"] == "BossRestartFailed: launchctl kickstart timed out for boss loop"
     assert report["failure_policy"]["service_failure"]["will_stop"] is True
+
+
+def test_run_shift_cycle_records_direct_bootstrap_when_launchd_service_is_missing() -> None:
+    state = mod.ProofFirstRuntimeState()
+    with (
+        patch(
+            "scripts.run_proof_first_shift.restart_boss_service",
+            return_value=(
+                True,
+                "launchd service missing; bootstrapped direct boss loop pid=123",
+                "bootstrap_boss_loop_direct",
+            ),
+        ),
+        patch(
+            "scripts.run_proof_first_shift.reconcile_proof_first_queue",
+            return_value={"kept": [{"id": 1}], "removed": []},
+        ),
+        patch(
+            "scripts.run_proof_first_shift.collect_boss_lane_snapshot", return_value={"ok": True}
+        ),
+        patch("scripts.run_proof_first_shift.list_open_prs", return_value=[]),
+        patch("scripts.run_proof_first_shift.process_running", side_effect=[False, True]),
+        patch("scripts.run_proof_first_shift.restart_service_via_launchd", return_value=(True, "")),
+        patch("scripts.run_proof_first_shift.run_merge_arbiter_apply", return_value={"merged": []}),
+        patch("scripts.run_proof_first_shift.latest_benchmark_run", return_value=None),
+        patch("scripts.run_proof_first_shift.fetch_benchmark_failure_log", return_value=""),
+        patch("scripts.run_proof_first_shift.trigger_benchmark_workflow", return_value=None),
+    ):
+        report = mod.run_shift_cycle(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            benchmark_mode="disabled",
+            automation_backlog_limit=12,
+            runtime_state=state,
+            ledger=None,
+        )
+
+    assert report["actions"] == ["bootstrap_boss_loop_direct"]
+    assert report["stop_reason"] == ""
 
 
 def test_run_shift_cycle_stops_cleanly_when_github_is_unavailable(tmp_path: Path) -> None:
