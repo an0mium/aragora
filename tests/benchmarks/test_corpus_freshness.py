@@ -25,6 +25,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from aragora.utils import git_paths
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CORPUS_PATH = REPO_ROOT / "docs/benchmarks/corpus.json"
 LATEST_TRUTH_PATH = (
@@ -96,6 +98,12 @@ def load_metrics_rows(path: Path) -> list[dict[str, Any]]:
             if isinstance(payload, dict):
                 rows.append(payload)
     return rows
+
+
+def resolve_boss_metrics_path(path: Path = BOSS_METRICS_PATH) -> Path:
+    """Resolve boss metrics through the shared git-common-dir repo root."""
+
+    return git_paths.resolve_repo_fallback_path(path, repo_root=REPO_ROOT)
 
 
 def validate_corpus_freshness(
@@ -233,7 +241,7 @@ def validate_corpus_freshness(
 def test_current_benchmark_corpus_has_fresh_verifiable_truth() -> None:
     corpus = _read_json(CORPUS_PATH)
     truth = _read_json(LATEST_TRUTH_PATH)
-    dispatch_outcomes = load_dispatch_outcomes(load_metrics_rows(BOSS_METRICS_PATH))
+    dispatch_outcomes = load_dispatch_outcomes(load_metrics_rows(resolve_boss_metrics_path()))
 
     failures = validate_corpus_freshness(
         corpus=corpus,
@@ -467,3 +475,22 @@ def test_dispatch_outcomes_ignores_rows_without_worker_outcome() -> None:
     outcomes = load_dispatch_outcomes(rows)
 
     assert outcomes == {5903: ["blocked", "pr_adopted"]}
+
+
+def test_resolve_boss_metrics_path_falls_back_to_git_common_root(
+    tmp_path: Path, monkeypatch
+) -> None:
+    worktree_root = tmp_path / "worktree-root"
+    shared_root = tmp_path / "shared-root"
+    metrics_file = shared_root / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    metrics_file.parent.mkdir(parents=True)
+    metrics_file.write_text("", encoding="utf-8")
+
+    monkeypatch.setattr("tests.benchmarks.test_corpus_freshness.REPO_ROOT", worktree_root)
+    monkeypatch.setattr(git_paths, "git_common_repo_root", lambda _repo_root: shared_root)
+
+    resolved = resolve_boss_metrics_path(
+        worktree_root / ".aragora" / "overnight" / "boss_metrics.jsonl"
+    )
+
+    assert resolved == metrics_file.resolve()

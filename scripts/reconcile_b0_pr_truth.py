@@ -38,6 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from aragora.swarm.terminal_truth import TerminalClass, classify_from_metrics  # noqa: E402
+from aragora.utils.git_paths import git_common_repo_root, resolve_repo_fallback_path  # noqa: E402
 
 DEFAULT_METRICS_PATH = REPO_ROOT / ".aragora" / "overnight" / "boss_metrics.jsonl"
 B0_TAG = "b0-cohort"
@@ -57,38 +58,15 @@ GH_NETWORK_RETRY_ATTEMPTS = 3
 
 
 def _git_common_repo_root() -> Path | None:
-    proc = subprocess.run(
-        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
-        capture_output=True,
-        text=True,
-        check=False,
-        cwd=REPO_ROOT,
-    )
-    if proc.returncode != 0:
-        return None
-    common_dir = Path(proc.stdout.strip())
-    if common_dir.name != ".git":
-        return None
-    return common_dir.parent.resolve()
+    return git_common_repo_root(REPO_ROOT)
 
 
 def resolve_metrics_path(candidate: Path) -> Path:
-    if candidate.exists():
-        return candidate.resolve()
-    if candidate.is_absolute():
-        return candidate
-
-    repo_relative = (REPO_ROOT / candidate).resolve()
-    if repo_relative.exists():
-        return repo_relative
-
-    common_root = _git_common_repo_root()
-    if common_root is not None:
-        common_relative = (common_root / candidate).resolve()
-        if common_relative.exists():
-            return common_relative
-
-    return candidate.resolve()
+    return resolve_repo_fallback_path(
+        candidate,
+        repo_root=REPO_ROOT,
+        common_root=_git_common_repo_root(),
+    )
 
 
 @dataclass(frozen=True)
