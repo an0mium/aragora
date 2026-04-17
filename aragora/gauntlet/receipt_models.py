@@ -1205,14 +1205,21 @@ class DecisionReceipt:
         raw_cost_summary = getattr(result, "cost_summary", None)
         cost_summary = raw_cost_summary if isinstance(raw_cost_summary, dict) else None
 
+        resolved_input_hash = (
+            input_hash
+            or getattr(result, "input_hash", None)
+            or getattr(result, "checksum", None)
+            or ""
+        )
+        if not isinstance(resolved_input_hash, str):
+            resolved_input_hash = str(resolved_input_hash)
+
         return cls(
             receipt_id=receipt_id,
             gauntlet_id=result.gauntlet_id,
             timestamp=getattr(result, "created_at", ""),
             input_summary=result.input_summary,
-            input_hash=input_hash
-            or getattr(result, "input_hash", "")
-            or getattr(result, "checksum", ""),
+            input_hash=resolved_input_hash,
             risk_summary={
                 "critical": critical,
                 "high": high,
