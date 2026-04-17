@@ -204,7 +204,109 @@ Examples:
     _add_build_parser(subparsers)
     _add_essay_parser(subparsers)
 
+    # AGT-* operator surfaces (read-only)
+    _add_metrics_parser(subparsers)
+    _add_markets_parser(subparsers)
+    _add_cruxset_parser(subparsers)
+
     return parser
+
+
+# ---------------------------------------------------------------------------
+# AGT-* operator subparsers — added as part of AGT-06 / AGT-04 / AGT-01 follow-up
+# ---------------------------------------------------------------------------
+
+
+def _add_metrics_parser(subparsers) -> None:
+    """Add the 'metrics' subcommand group with a 'viah' verb."""
+    metrics_parser = subparsers.add_parser(
+        "metrics",
+        help="AGT-06: read VIAH and other operator metrics",
+        description="Operator-readable metrics derived from the ShiftLedger.",
+    )
+    metrics_sub = metrics_parser.add_subparsers(dest="metrics_cmd")
+    viah = metrics_sub.add_parser(
+        "viah",
+        help="Print verifiable improvements per agent-hour from the ShiftLedger",
+    )
+    viah.add_argument(
+        "--ledger-path",
+        default=None,
+        help="Path to the ShiftLedger JSONL (default: aragora.swarm.shift_ledger.DEFAULT_LEDGER_PATH)",
+    )
+    viah.add_argument(
+        "--window-hours",
+        type=float,
+        default=168.0,
+        help="Rolling window over which to compute VIAH (default: 168 = 7 days)",
+    )
+    viah.add_argument(
+        "--cruxes-correctly-detected",
+        type=int,
+        default=0,
+        help="Sidecar count of cruxes correctly detected pre-resolution (AGT-05)",
+    )
+    viah.add_argument(
+        "--predictions-above-brier-threshold",
+        type=int,
+        default=0,
+        help="Sidecar count of predictions with Brier below the calibration threshold (AGT-05)",
+    )
+    viah.add_argument(
+        "--failed-claims-promoted-without-repair",
+        type=int,
+        default=0,
+        help="Sidecar count of failed claims promoted without bounded repair (AGT-05)",
+    )
+    viah.add_argument("--json", action="store_true", help="Emit the report as JSON")
+    viah.set_defaults(func=_lazy("aragora.cli.commands.agt_metrics", "cmd_metrics_viah"))
+
+
+def _add_markets_parser(subparsers) -> None:
+    """Add the 'markets' subcommand group with a 'list' verb."""
+    markets_parser = subparsers.add_parser(
+        "markets",
+        help="AGT-04: inspect synthetic GitHub prediction markets",
+        description="Read-only operator surface for the synthetic-market store.",
+    )
+    markets_sub = markets_parser.add_subparsers(dest="markets_cmd")
+    lst = markets_sub.add_parser(
+        "list",
+        help="List markets in the given store directory",
+    )
+    lst.add_argument(
+        "--store-dir",
+        default=".aragora_markets",
+        help="Path to the synthetic-market JSONL store directory (default: .aragora_markets)",
+    )
+    lst.add_argument("--json", action="store_true", help="Emit the listing as JSON")
+    lst.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_list"))
+
+
+def _add_cruxset_parser(subparsers) -> None:
+    """Add the 'cruxset' subcommand group with a 'show' verb."""
+    cruxset_parser = subparsers.add_parser(
+        "cruxset",
+        help="AGT-01: inspect CruxSet payloads emitted by the debate path",
+        description="Read-only operator surface for CruxSet artifacts.",
+    )
+    cruxset_sub = cruxset_parser.add_subparsers(dest="cruxset_cmd")
+    show = cruxset_sub.add_parser(
+        "show",
+        help="Pretty-print a CruxSet from a JSON file or stdin (use '-' for stdin)",
+    )
+    show.add_argument(
+        "source",
+        nargs="?",
+        default="-",
+        help="Path to a CruxSet JSON file, or '-' to read from stdin (default: stdin)",
+    )
+    show.add_argument(
+        "--json",
+        action="store_true",
+        help="Re-emit the (verified) CruxSet as JSON instead of pretty-printing",
+    )
+    show.set_defaults(func=_lazy("aragora.cli.commands.agt_cruxset", "cmd_cruxset_show"))
 
 
 def _add_ask_parser(subparsers) -> None:
