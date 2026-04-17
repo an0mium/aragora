@@ -48,6 +48,15 @@ export interface MarketplaceListParams {
   offset?: number;
 }
 
+export interface MarketplaceCatalogListParams {
+  type?: string;
+  tag?: string;
+  category?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
 /**
  * Marketplace purchase record.
  */
@@ -226,6 +235,48 @@ export class MarketplaceAPI {
    */
   async getNewReleases(limit?: number): Promise<{ templates: MarketplaceTemplate[] }> {
     return this.client.getNewMarketplaceReleases({ limit });
+  }
+
+  /**
+   * List marketplace catalog listings from the v1 pilot surface.
+   */
+  async listListings(params?: MarketplaceCatalogListParams): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/marketplace/listings', {
+      params: {
+        type: params?.type,
+        tag: params?.tag,
+        category: params?.category,
+        search: params?.search,
+        limit: params?.limit,
+        offset: params?.offset,
+      },
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * List featured marketplace catalog listings.
+   */
+  async listFeaturedListings(params?: { limit?: number }): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/marketplace/listings/featured', {
+      params: { limit: params?.limit },
+    }) as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get marketplace catalog listing stats.
+   */
+  async getListingStats(): Promise<Record<string, unknown>> {
+    return this.client.request('GET', '/api/v1/marketplace/listings/stats') as Promise<Record<string, unknown>>;
+  }
+
+  /**
+   * Get marketplace catalog listing details.
+   */
+  async getListing(listingId: string): Promise<Record<string, unknown>> {
+    return this.client.request(
+      'GET',
+      `/api/v1/marketplace/listings/${encodeURIComponent(listingId)}`
+    ) as Promise<Record<string, unknown>>;
   }
 
   /**

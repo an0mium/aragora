@@ -163,6 +163,41 @@ class MarketplaceAPI:
         """
         return self._client.request("GET", "/api/v2/marketplace/categories")
 
+    def list_listings(
+        self,
+        item_type: str | None = None,
+        tag: str | None = None,
+        category: str | None = None,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List marketplace catalog listings via the v1 pilot surface."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if item_type:
+            params["type"] = item_type
+        if tag:
+            params["tag"] = tag
+        if category:
+            params["category"] = category
+        if search:
+            params["search"] = search
+        return self._client.request("GET", "/api/v1/marketplace/listings", params=params)
+
+    def list_featured_listings(self, limit: int = 10) -> dict[str, Any]:
+        """List featured marketplace catalog listings."""
+        return self._client.request(
+            "GET", "/api/v1/marketplace/listings/featured", params={"limit": limit}
+        )
+
+    def get_listing_stats(self) -> dict[str, Any]:
+        """Get marketplace catalog listing stats."""
+        return self._client.request("GET", "/api/v1/marketplace/listings/stats")
+
+    def get_listing(self, listing_id: str) -> dict[str, Any]:
+        """Get marketplace catalog listing details."""
+        return self._client.request("GET", f"/api/v1/marketplace/listings/{listing_id}")
+
     def get_featured(self) -> dict[str, Any]:
         """
         Get featured templates.
@@ -346,6 +381,41 @@ class AsyncMarketplaceAPI:
     async def list_categories(self) -> dict[str, Any]:
         """List available template categories."""
         return await self._client.request("GET", "/api/v2/marketplace/categories")
+
+    async def list_listings(
+        self,
+        item_type: str | None = None,
+        tag: str | None = None,
+        category: str | None = None,
+        search: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """List marketplace catalog listings via the v1 pilot surface."""
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if item_type:
+            params["type"] = item_type
+        if tag:
+            params["tag"] = tag
+        if category:
+            params["category"] = category
+        if search:
+            params["search"] = search
+        return await self._client.request("GET", "/api/v1/marketplace/listings", params=params)
+
+    async def list_featured_listings(self, limit: int = 10) -> dict[str, Any]:
+        """List featured marketplace catalog listings."""
+        return await self._client.request(
+            "GET", "/api/v1/marketplace/listings/featured", params={"limit": limit}
+        )
+
+    async def get_listing_stats(self) -> dict[str, Any]:
+        """Get marketplace catalog listing stats."""
+        return await self._client.request("GET", "/api/v1/marketplace/listings/stats")
+
+    async def get_listing(self, listing_id: str) -> dict[str, Any]:
+        """Get marketplace catalog listing details."""
+        return await self._client.request("GET", f"/api/v1/marketplace/listings/{listing_id}")
 
     async def get_featured(self) -> dict[str, Any]:
         """Get featured templates."""
