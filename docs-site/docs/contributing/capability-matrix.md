@@ -8,7 +8,7 @@
 | Surface | Inventory | Capability Coverage |
 |---------|-----------|---------------------|
 | **HTTP API** | 1772 paths / 2100 operations | 81.1% |
-| **CLI** | 93 commands | 43.2% |
+| **CLI** | 94 commands | 43.2% |
 | **SDK (Python)** | 187 namespaces | 70.3% |
 | **SDK (TypeScript)** | 186 namespaces | 70.3% |
 | **UI** | tracked in capability surfaces | 86.5% |
