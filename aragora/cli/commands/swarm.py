@@ -47,6 +47,7 @@ def _resolve_swarm_action_goal(args: argparse.Namespace) -> tuple[str, str | Non
         "audit-issues",
         "runner",
         "status",
+        "shift-status",
         "reconcile",
         "initiative",
         "campaign",
@@ -3220,6 +3221,12 @@ def cmd_swarm(args: argparse.Namespace) -> None:
             _render_coordination_view(payload["coordination_view"])
             print("---")
             print(render_operator_status(payload["operator_status"]))
+        return
+
+    if action == "shift-status":
+        from aragora.cli.commands.shift_status import cmd_shift_status
+
+        cmd_shift_status(args)
         return
 
     if action == "reconcile":

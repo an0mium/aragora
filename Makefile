@@ -1,7 +1,7 @@
 # Aragora Makefile
 # Common development tasks for the Aragora multi-agent debate platform
 
-.PHONY: help install dev test test-e2e lint format typecheck check check-all ci ci-required guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs serve docker demo demo-docker demo-stop quickstart quickstart-live worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status worktree-inspect worktree-safe-remove codex-session branch-start pr-open
+.PHONY: help install dev test test-e2e lint format typecheck check check-all ci ci-required guard guard-strict clean clean-all clean-runtime clean-runtime-dry docs docs-check serve docker demo demo-docker demo-stop quickstart quickstart-live worktree-ensure worktree-reconcile worktree-cleanup worktree-maintain worktree-maintainer-install worktree-maintainer-uninstall worktree-maintainer-status worktree-inspect worktree-safe-remove codex-session branch-start pr-open
 
 # Default target
 help:
@@ -65,6 +65,7 @@ help:
 	@echo ""
 	@echo "Documentation:"
 	@echo "  make docs         Generate documentation"
+	@echo "  make docs-check   Run docs consistency lint"
 	@echo "  make docs-serve   Serve documentation locally"
 	@echo "  make openapi      Export OpenAPI schema to docs/api"
 	@echo ""
@@ -253,6 +254,9 @@ pr-open:
 # Documentation
 docs:
 	cd docs && mkdocs build
+
+docs-check:
+	python3 scripts/check_docs_consistency.py
 
 docs-serve:
 	cd docs && mkdocs serve

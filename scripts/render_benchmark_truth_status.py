@@ -134,6 +134,15 @@ def _render_mapping(mapping: dict[str, Any]) -> list[str]:
     return [f"- `{key}`: {_format_value(value)}" for key, value in mapping.items()]
 
 
+def _format_issue_numbers(values: Any) -> str:
+    issue_numbers = [
+        int(value) for value in list(values or []) if isinstance(value, int) and int(value) > 0
+    ]
+    if not issue_numbers:
+        return "none"
+    return ", ".join(f"`#{value}`" for value in sorted(issue_numbers))
+
+
 def _render_stale_closed_issues(issues: list[dict[str, Any]]) -> list[str]:
     lines: list[str] = []
     for issue in issues:
@@ -239,10 +248,15 @@ def render_status_markdown(
     scorecard_payload: dict[str, Any],
     latest_paths: dict[str, Path],
 ) -> str:
-    corpus = dict(scorecard_payload.get("corpus") or truth_payload.get("corpus") or {})
+    truth_corpus = dict(truth_payload.get("corpus") or {})
+    scorecard_corpus = dict(scorecard_payload.get("corpus") or {})
+    corpus = {**truth_corpus, **scorecard_corpus}
     coverage = dict(scorecard_payload.get("coverage") or truth_payload.get("coverage") or {})
     truth_metrics = dict(
         scorecard_payload.get("truth_metrics") or truth_payload.get("primary_metrics") or {}
+    )
+    in_flight_metrics = dict(
+        truth_payload.get("in_flight_metrics") or scorecard_payload.get("in_flight_metrics") or {}
     )
     proxy_metrics = _normalize_proxy_metrics(dict(scorecard_payload.get("proxy_metrics") or {}))
     previous_artifact = dict(scorecard_payload.get("previous_artifact") or {})
@@ -293,6 +307,8 @@ def render_status_markdown(
         f"- Revision: `{_format_value(corpus.get('revision'))}`",
         f"- Recorded on: `{_format_value(corpus.get('recorded_on'))}`",
         f"- Success contract: `{_format_value(corpus.get('success_contract'))}`",
+        f"- Verified expected issues: `{_format_value(corpus.get('verified_expected_count'))}`",
+        f"- In-progress expected issues: `{_format_value(corpus.get('in_progress_expected_count'))}`",
         f"- Coverage status: `{_format_value(coverage.get('status'))}`",
         (
             f"- Coverage: `{_format_value(coverage.get('attempted_issue_count'))}`/"
@@ -318,9 +334,50 @@ def render_status_markdown(
             "",
             "| Metric | Value |",
             "| --- | --- |",
-            f"| Truth success rate | {_format_percent(truth_metrics.get('truth_success_rate'))} |",
+            (
+                "| Verified truth success rate (primary) | "
+                f"{_format_percent(truth_metrics.get('truth_success_rate_verified'))} |"
+            ),
+            (
+                "| Full-corpus truth success rate (legacy/context) | "
+                f"{_format_percent(truth_metrics.get('truth_success_rate'))} |"
+            ),
             f"| No-rescue truth success rate | {_format_percent(truth_metrics.get('no_rescue_truth_success_rate'))} |",
             f"| Merged-only rate | {_format_percent(truth_metrics.get('merged_only_rate'))} |",
+        ]
+    )
+    if in_flight_metrics:
+        lines.extend(
+            [
+                "",
+                "## In-Flight Graduation Metrics",
+                "",
+                "| Metric | Value |",
+                "| --- | --- |",
+                (
+                    "| In-progress expected issues | "
+                    f"{_format_value(in_flight_metrics.get('in_progress_expected_count'))} |"
+                ),
+                (
+                    "| In-progress attempted issues | "
+                    f"{_format_value(in_flight_metrics.get('in_progress_attempted_count'))} |"
+                ),
+                (
+                    "| In-progress successful issues | "
+                    f"{_format_value(in_flight_metrics.get('in_progress_success_count'))} |"
+                ),
+                (
+                    "| In-progress graduation rate | "
+                    f"{_format_percent(in_flight_metrics.get('in_progress_graduation_rate'))} |"
+                ),
+                (
+                    "| In-progress issue numbers | "
+                    f"{_format_issue_numbers(in_flight_metrics.get('in_progress_issue_numbers'))} |"
+                ),
+            ]
+        )
+    lines.extend(
+        [
             "",
             "## Proxy Metrics",
             "",

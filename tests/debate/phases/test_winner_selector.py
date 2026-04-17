@@ -789,3 +789,117 @@ class TestAnalyzeBeliefNetwork:
         with patch.dict("sys.modules", {"aragora.reasoning.crux_detector": mock_crux_module}):
             # Should not raise
             selector.analyze_belief_network(ctx)
+
+
+# ===========================================================================
+# AGT-01: CruxSet emission alongside legacy cruxes
+# ===========================================================================
+
+
+def _patch_crux_module_for_cruxset(monkeypatch, crux_score: float = 0.85):
+    """Install a mocked CruxDetector that returns a JSON-able analysis payload."""
+    payload = {
+        "cruxes": [
+            {
+                "claim_id": "msg_0_agent_a",
+                "statement": "key disagreement",
+                "author": "agent_a",
+                "crux_score": crux_score,
+                "contesting_agents": ["agent_b"],
+                "resolution_impact": 0.4,
+            }
+        ],
+        "average_uncertainty": 0.5,
+        "convergence_barrier": 0.3,
+        "recommended_focus": ["msg_0_agent_a"],
+    }
+
+    real_crux = MagicMock()
+    real_crux.statement = "key disagreement"
+    real_crux.crux_score = crux_score
+    real_crux.contesting_agents = ["agent_b"]
+
+    real_analysis = MagicMock()
+    real_analysis.cruxes = [real_crux]
+    real_analysis.to_dict.return_value = payload
+
+    detector = MagicMock()
+    detector.detect_cruxes.return_value = real_analysis
+
+    crux_module = MagicMock(CruxDetector=MagicMock(return_value=detector))
+    monkeypatch.setitem(__import__("sys").modules, "aragora.reasoning.crux_detector", crux_module)
+    return crux_module, payload
+
+
+class TestCruxSetEmission:
+    """Tests for the AGT-01 CruxSet emission seam wired in winner_selector."""
+
+    def test_no_cruxset_attribute_when_flag_off(self, monkeypatch):
+        monkeypatch.delenv("ARAGORA_CRUXSET_EMISSION_ENABLED", raising=False)
+        _patch_crux_module_for_cruxset(monkeypatch)
+
+        mock_bn_cls = MagicMock(return_value=MagicMock())
+        selector = _make_selector(
+            get_belief_analyzer=MagicMock(return_value=(mock_bn_cls, MagicMock()))
+        )
+        ctx = _make_ctx(messages=[FakeMessage("proposer", "agent_a", "claim")])
+        selector.analyze_belief_network(ctx)
+
+        # Legacy `cruxes` is still set
+        assert hasattr(ctx.result, "cruxes")
+        # CruxSet is NOT emitted when the flag is off
+        assert not hasattr(ctx.result, "cruxset")
+
+    def test_cruxset_emitted_when_flag_on(self, monkeypatch):
+        monkeypatch.setenv("ARAGORA_CRUXSET_EMISSION_ENABLED", "1")
+        _patch_crux_module_for_cruxset(monkeypatch)
+
+        mock_bn_cls = MagicMock(return_value=MagicMock())
+        selector = _make_selector(
+            get_belief_analyzer=MagicMock(return_value=(mock_bn_cls, MagicMock()))
+        )
+        result = FakeResult(winner="agent_a")
+        result.messages = [FakeMessage("proposer", "agent_a", "claim")]
+        ctx = FakeCtx(result=result)
+        selector.analyze_belief_network(ctx)
+
+        # Both legacy cruxes and the new CruxSet are present
+        assert hasattr(ctx.result, "cruxes")
+        assert hasattr(ctx.result, "cruxset")
+        cruxset_payload = ctx.result.cruxset
+        assert isinstance(cruxset_payload, dict)
+        assert cruxset_payload["question"] == "Design a rate limiter"
+        assert cruxset_payload["decision"] == "agent_a"
+        assert cruxset_payload["schema_version"] == "1.0"
+        assert len(cruxset_payload["cruxes"]) == 1
+        # Checksum must be present and verifiable round-trip
+        assert cruxset_payload["checksum"]
+        from aragora.reasoning.cruxset import CruxSet
+
+        assert CruxSet.from_json(cruxset_payload).verify_checksum()
+
+    def test_cruxset_emission_failure_swallowed(self, monkeypatch):
+        """If the emitter raises, the debate path must not crash and cruxes stays set."""
+        monkeypatch.setenv("ARAGORA_CRUXSET_EMISSION_ENABLED", "1")
+        _patch_crux_module_for_cruxset(monkeypatch)
+
+        # Patch maybe_emit_cruxset itself to raise
+        from aragora.reasoning import cruxset_emission
+
+        def _boom(**kwargs):
+            raise RuntimeError("emitter exploded")
+
+        monkeypatch.setattr(cruxset_emission, "maybe_emit_cruxset", _boom)
+
+        mock_bn_cls = MagicMock(return_value=MagicMock())
+        selector = _make_selector(
+            get_belief_analyzer=MagicMock(return_value=(mock_bn_cls, MagicMock()))
+        )
+        result = FakeResult()
+        result.messages = [FakeMessage("proposer", "agent_a", "claim")]
+        ctx = FakeCtx(result=result)
+        # Must not raise
+        selector.analyze_belief_network(ctx)
+        # Legacy cruxes still set; cruxset attribute absent
+        assert hasattr(ctx.result, "cruxes")
+        assert not hasattr(ctx.result, "cruxset")

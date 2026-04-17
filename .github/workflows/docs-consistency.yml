@@ -1,0 +1,42 @@
+name: Docs Consistency
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "Makefile"
+      - "scripts/check_docs_consistency.py"
+      - "tests/scripts/test_check_docs_consistency.py"
+      - ".github/workflows/docs-consistency.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "Makefile"
+      - "scripts/check_docs_consistency.py"
+      - "tests/scripts/test_check_docs_consistency.py"
+      - ".github/workflows/docs-consistency.yml"
+
+concurrency:
+  group: docs-consistency-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs-consistency:
+    name: Docs Consistency
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run docs consistency lint
+        run: python3 scripts/check_docs_consistency.py
