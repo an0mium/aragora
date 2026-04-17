@@ -1,0 +1,121 @@
+manifest_version: 1
+queue_id: inbox-trust-wedge-activation-2026-04-17
+
+sources:
+  - id: tw04-receipt-truth
+    kind: issue
+    code: TW-04
+    url: https://github.com/synaptent/aragora/issues/6159
+    mode: execute
+    priority: 10
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Preserve receipt-before-action guarantees for inbox workflows and fail
+      closed truthfully whenever that guarantee cannot be preserved.
+    allowed_write_scope:
+      - aragora/inbox/**
+      - aragora/cli/commands/triage.py
+      - aragora/cli/commands/inbox_wedge.py
+      - aragora/server/fastapi/routes/inbox.py
+      - tests/inbox/**
+      - tests/cli/test_triage_command.py
+      - tests/cli/test_inbox_wedge_command.py
+      - docs/plans/**
+
+  - id: tw05-non-code-policy-reuse
+    kind: issue
+    code: TW-05
+    url: https://github.com/synaptent/aragora/issues/6160
+    mode: execute
+    priority: 20
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Reuse contracts, memory, and approval policies across non-code inbox
+      actions without widening into generic autonomy substrate work.
+    allowed_write_scope:
+      - aragora/inbox/**
+      - aragora/swarm/**
+      - aragora/cli/commands/triage.py
+      - tests/inbox/**
+      - tests/cli/test_triage_command.py
+      - docs/plans/**
+
+  - id: tw06-feedback-calibration
+    kind: issue
+    code: TW-06
+    url: https://github.com/synaptent/aragora/issues/6161
+    mode: execute
+    priority: 30
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Capture operator feedback tied to receipts and expose the signal through
+      queue, digest, audit, and calibration surfaces.
+    allowed_write_scope:
+      - aragora/inbox/**
+      - aragora/cli/commands/triage.py
+      - tests/inbox/**
+      - tests/cli/test_triage_command.py
+      - docs/templates/**
+      - docs/plans/**
+
+  - id: tw10-internal-cadence
+    kind: issue
+    code: TW-10
+    url: https://github.com/synaptent/aragora/issues/6162
+    mode: execute
+    priority: 40
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Establish the weekly internal operating cadence for repeated inbox trust
+      wedge runs on real workloads with two non-builder operators.
+    allowed_write_scope:
+      - docs/plans/**
+      - docs/status/**
+      - docs/templates/**
+      - docs/examples/**
+
+  - id: tw11-proof-pack
+    kind: issue
+    code: TW-11
+    url: https://github.com/synaptent/aragora/issues/6163
+    mode: execute
+    priority: 50
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Publish truthful proof packs and before-after evidence assets for the
+      inbox trust wedge without widening the claim beyond measured proof.
+    allowed_write_scope:
+      - docs/plans/**
+      - docs/status/**
+      - docs/templates/**
+      - docs/examples/**
+      - scripts/**
+      - tests/scripts/**
+
+  - id: tw12-graduation-decision
+    kind: issue
+    code: TW-12
+    url: https://github.com/synaptent/aragora/issues/6164
+    mode: execute
+    priority: 60
+    merge_class: manual
+    max_lanes: 1
+    autonomy_mode: checkpoint
+    objective: >-
+      Decide whether the inbox trust wedge stays internal, enters design-partner
+      dry-run mode, or graduates to a packaged offering based on proof.
+    allowed_write_scope:
+      - docs/plans/**
+      - docs/status/**
+      - docs/outreach/**
+      - docs/COMMERCIAL_OVERVIEW.md
