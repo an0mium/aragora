@@ -41,6 +41,19 @@ class SettlementHandler(BaseHandler):
 
     ROUTES = [
         "/api/settlements",
+        "/api/settlements/history",
+        "/api/settlements/summary",
+        "/api/settlements/{id}",
+        "/api/settlements/{id}/settle",
+        "/api/settlements/batch",
+        "/api/settlements/agent/{agent}/accuracy",
+        "/api/v1/settlements",
+        "/api/v1/settlements/history",
+        "/api/v1/settlements/summary",
+        "/api/v1/settlements/{id}",
+        "/api/v1/settlements/{id}/settle",
+        "/api/v1/settlements/batch",
+        "/api/v1/settlements/agent/{agent}/accuracy",
     ]
 
     ROUTE_PREFIXES = [
@@ -49,6 +62,24 @@ class SettlementHandler(BaseHandler):
         "/api/v1/settlements",
         "/api/v1/settlements/",
     ]
+
+    # Export the live settlement surface with the correct HTTP methods.
+    _ROUTE_MAP = {
+        "GET /api/settlements": "handle",
+        "GET /api/settlements/history": "_get_history",
+        "GET /api/settlements/summary": "_get_summary",
+        "GET /api/settlements/{id}": "_get_settlement",
+        "GET /api/settlements/agent/{agent}/accuracy": "_get_agent_accuracy",
+        "POST /api/settlements/{id}/settle": "_settle_single",
+        "POST /api/settlements/batch": "_settle_batch",
+        "GET /api/v1/settlements": "handle",
+        "GET /api/v1/settlements/history": "_get_history",
+        "GET /api/v1/settlements/summary": "_get_summary",
+        "GET /api/v1/settlements/{id}": "_get_settlement",
+        "GET /api/v1/settlements/agent/{agent}/accuracy": "_get_agent_accuracy",
+        "POST /api/v1/settlements/{id}/settle": "_settle_single",
+        "POST /api/v1/settlements/batch": "_settle_batch",
+    }
 
     def __init__(self, ctx: dict[str, Any] | None = None) -> None:
         """Initialize handler with server context."""
