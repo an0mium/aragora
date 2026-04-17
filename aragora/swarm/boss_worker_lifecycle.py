@@ -491,7 +491,7 @@ def finalize_worker_result(
         needs_human_reasons=[],
         next_actions=[
             f"Issue #{issue.number} failed (attempt "
-            f"{loop._issue_attempt_counts[issue.number]}/{loop.config.max_retries_per_issue}). "
+            f"{loop._issue_attempt_counts.get(issue_number, 0)}/{loop.config.max_retries_per_issue}). "
             "Will retry with next iteration.",
         ],
         elapsed_seconds=elapsed_seconds,
