@@ -6,6 +6,11 @@ Convert Aragora's boss-loop dispatch pipeline from a gate (rejects weak specs) t
 
 v1 addresses the narrow production blocker. The mechanism generalises to other integration points (CLI, pipeline stages) in follow-ups.
 
+### Status
+
+- **v1 (PR #6125, commit `efaeea6ef`)** — Seam A live via `dispatch_followups.upgrade_unbounded_spec()`. Seam B helper (`dispatch_followups.upgrade_on_contract_drift`) landed but runtime wiring deferred pending clarity on the concrete `dispatch_contract_gate()` return shape.
+- **v1.1 (this branch)** — Seam B runtime wiring shipped via `dispatch_followups.maybe_upgrade_on_contract_drift`, which extracts drift signals from `dispatch_contract_gate()`'s nested `preflight_receipts[].failed_checks` structure (see `aragora/swarm/spec_upgrader.py:extract_drift_diagnostic`) and seeds `expected.files` from the spec scope so the drift-to-acceptance-criterion translator can emit a concrete scoping constraint. `boss_worker_lifecycle.dispatch_issue()` now re-enters the contract gate once per drift, subject to the shared `max_attempts=2` budget.
+
 ## Context
 
 Current behaviour on dispatch:
