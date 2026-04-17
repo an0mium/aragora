@@ -23,14 +23,20 @@ behavior change" rule from ``docs/status/NEXT_STEPS_CANONICAL.md``.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Callable
 
 AGENT_RECEIPT_SCHEMA_VERSION = "1.0"
 DEFAULT_FRESHNESS_SLA_SECONDS = 24 * 3600  # 1 day
 DEFAULT_SETTLEMENT_WINDOW_SECONDS = 7 * 24 * 3600  # 7 days
+DEFAULT_SIGNATURE_ALGORITHM = "hmac-sha256"
+DEFAULT_SIGNATURE_KEY_ID = "default"
+
+SignatureKey = str | bytes
+SignatureKeyResolver = Callable[[str, str], SignatureKey | None]
 
 
 def _utc_now_iso() -> str:
@@ -43,6 +49,20 @@ def _canonical(payload: dict[str, Any]) -> str:
 
 def _sha256_hex(material: str) -> str:
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _key_bytes(signing_key: SignatureKey) -> bytes:
+    if isinstance(signing_key, bytes):
+        key = signing_key
+    else:
+        key = str(signing_key).encode("utf-8")
+    if not key:
+        raise ValueError("signing_key must be non-empty")
+    return key
+
+
+def _hmac_sha256_hex(material: str, signing_key: SignatureKey) -> str:
+    return hmac.new(_key_bytes(signing_key), material.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -113,11 +133,13 @@ class ReputationDelta:
 class AgentReceipt:
     """Agent-readable decision-receipt envelope.
 
-    All fields are JSON-serializable. ``signature`` is a SHA-256 hex
-    digest computed over the canonical payload (everything except
-    ``signature`` and ``receipt_id``). ``receipt_id`` is content-
-    addressed from the canonical payload so identical decisions
-    deduplicate.
+    All fields are JSON-serializable. ``receipt_id`` is a content
+    address computed from the canonical receipt payload so identical
+    decisions deduplicate. ``signature`` is an HMAC-SHA256 over the
+    canonical payload plus signature metadata, using the issuer's
+    configured signing key. Verification therefore requires the issuer
+    key (or a resolver for it); the public payload alone is not enough to
+    mint a valid signature for changed content.
 
     Forward compatibility: the schema is versioned; readers should
     accept any schema_version with the same major number and tolerate
@@ -136,6 +158,8 @@ class AgentReceipt:
     freshness_sla_seconds: int
     settlement_window_seconds: int
     provenance: dict[str, Any]
+    signature_key_id: str
+    signature_algorithm: str
     signature: str
 
     @classmethod
@@ -152,6 +176,8 @@ class AgentReceipt:
         settlement_window_seconds: int = DEFAULT_SETTLEMENT_WINDOW_SECONDS,
         provenance: dict[str, Any] | None = None,
         issued_at: str | None = None,
+        signing_key: SignatureKey | None = None,
+        signature_key_id: str = DEFAULT_SIGNATURE_KEY_ID,
     ) -> "AgentReceipt":
         if not str(issuer).strip():
             raise ValueError("issuer must be non-empty")
@@ -161,9 +187,14 @@ class AgentReceipt:
             raise ValueError("freshness_sla_seconds must be >= 1")
         if settlement_window_seconds < 0:
             raise ValueError("settlement_window_seconds must be >= 0")
+        if signing_key is None:
+            raise ValueError("signing_key must be provided")
+        if not str(signature_key_id).strip():
+            raise ValueError("signature_key_id must be non-empty")
 
         timestamp = issued_at or _utc_now_iso()
         provenance_dict = dict(provenance or {})
+        key_id = str(signature_key_id).strip()
 
         # Build the canonical payload in a deterministic order. receipt_id
         # is omitted because it is content-addressed from this payload.
@@ -182,7 +213,12 @@ class AgentReceipt:
         }
         canonical = _canonical(canonical_payload)
         receipt_id = "rcpt_a_" + _sha256_hex(canonical)[:16]
-        signature = _sha256_hex(canonical)
+        signed_payload = {
+            **canonical_payload,
+            "signature_key_id": key_id,
+            "signature_algorithm": DEFAULT_SIGNATURE_ALGORITHM,
+        }
+        signature = _hmac_sha256_hex(_canonical(signed_payload), signing_key)
 
         return cls(
             receipt_id=receipt_id,
@@ -197,6 +233,8 @@ class AgentReceipt:
             freshness_sla_seconds=int(freshness_sla_seconds),
             settlement_window_seconds=int(settlement_window_seconds),
             provenance=provenance_dict,
+            signature_key_id=key_id,
+            signature_algorithm=DEFAULT_SIGNATURE_ALGORITHM,
             signature=signature,
         )
 
@@ -215,9 +253,32 @@ class AgentReceipt:
             "provenance": self.provenance,
         }
 
-    def verify_signature(self) -> bool:
-        """Recompute the signature and compare to the stored value."""
-        return _sha256_hex(_canonical(self._canonical_payload())) == self.signature
+    def _signed_payload(self) -> dict[str, Any]:
+        return {
+            **self._canonical_payload(),
+            "signature_key_id": self.signature_key_id,
+            "signature_algorithm": self.signature_algorithm,
+        }
+
+    def verify_signature(
+        self,
+        *,
+        signing_key: SignatureKey | None = None,
+        key_resolver: SignatureKeyResolver | None = None,
+    ) -> bool:
+        """Verify this receipt with the issuer key or a key resolver."""
+        if self.signature_algorithm != DEFAULT_SIGNATURE_ALGORITHM:
+            return False
+        key = signing_key
+        if key is None and key_resolver is not None:
+            key = key_resolver(self.issuer, self.signature_key_id)
+        if key is None:
+            return False
+        try:
+            expected = _hmac_sha256_hex(_canonical(self._signed_payload()), key)
+        except ValueError:
+            return False
+        return hmac.compare_digest(expected, self.signature)
 
     def is_fresh(self, *, now: datetime | None = None) -> bool:
         """Return True if the receipt is within its freshness SLA."""
@@ -244,7 +305,7 @@ class AgentReceipt:
         return age_seconds >= self.settlement_window_seconds
 
     def to_json(self) -> dict[str, Any]:
-        payload = self._canonical_payload()
+        payload = self._signed_payload()
         payload["receipt_id"] = self.receipt_id
         payload["signature"] = self.signature
         return payload
@@ -270,6 +331,8 @@ class AgentReceipt:
                 data.get("settlement_window_seconds") or DEFAULT_SETTLEMENT_WINDOW_SECONDS
             ),
             provenance=dict(data.get("provenance") or {}),
+            signature_key_id=str(data.get("signature_key_id") or ""),
+            signature_algorithm=str(data.get("signature_algorithm") or DEFAULT_SIGNATURE_ALGORITHM),
             signature=str(data.get("signature") or ""),
         )
 
@@ -278,7 +341,11 @@ __all__ = [
     "AGENT_RECEIPT_SCHEMA_VERSION",
     "DEFAULT_FRESHNESS_SLA_SECONDS",
     "DEFAULT_SETTLEMENT_WINDOW_SECONDS",
+    "DEFAULT_SIGNATURE_ALGORITHM",
+    "DEFAULT_SIGNATURE_KEY_ID",
     "AgentReceipt",
     "DissentEntry",
     "ReputationDelta",
+    "SignatureKey",
+    "SignatureKeyResolver",
 ]
