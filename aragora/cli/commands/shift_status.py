@@ -18,6 +18,8 @@ def _resolve_ledger_path(repo_root: Path, value: object | None) -> Path:
 def _float_arg(value: object, *, default: float) -> float:
     if value is None or value == "":
         return default
+    if not isinstance(value, (str, int, float)):
+        return default
     try:
         return float(value)
     except (TypeError, ValueError):
