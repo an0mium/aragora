@@ -357,11 +357,13 @@ class CostHandler:
         if not content_type:
             content_type = "application/json"
         headers = dict(getattr(response, "headers", {}) or {})
-        status_code = getattr(response, "status_code", None)
-        if status_code is None:
-            status_code = getattr(response, "status", 200)
+        raw_status_code: Any = getattr(response, "status_code", None)
+        if raw_status_code is None:
+            raw_status_code = getattr(response, "status", 200)
+        if raw_status_code is None:
+            raw_status_code = 200
         return HandlerResult(
-            status_code=int(status_code),
+            status_code=int(raw_status_code),
             content_type=str(content_type),
             body=body if isinstance(body, bytes) else bytes(body),
             headers=headers,
