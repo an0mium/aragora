@@ -123,8 +123,7 @@ class TestSerialization:
 class TestYamlLoading:
     def test_load_proof_first_shift_example(self) -> None:
         path = PROOF_UNITS_DIR / "proof_first_shift.yaml"
-        if not path.exists():
-            pytest.skip("proof_first_shift.yaml not found")
+        assert path.exists(), f"example fixture missing: {path}"
         unit = load_proof_unit_from_yaml(path)
         assert unit.code_unit_id == "proof_first.shift.green_criteria"
         assert "b0.benchmark_truth.complete_current_corpus" in unit.claims
