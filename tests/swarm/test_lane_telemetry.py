@@ -25,6 +25,29 @@ UTC = timezone.utc
 
 
 class TestLaneTelemetryCollector:
+    def test_default_db_path_survives_later_cwd_changes(self, tmp_path, monkeypatch) -> None:
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("ARAGORA_DATA_DIR", "runtime")
+
+        collector = LaneTelemetryCollector()
+        assert Path(collector.db_path).is_absolute()
+
+        other_dir = tmp_path / "other"
+        other_dir.mkdir()
+        monkeypatch.chdir(other_dir)
+
+        collector.record_lane(
+            LaneTelemetryRecord(
+                lane_kind="boss_dispatch",
+                lane_id="boss-1",
+                terminal_outcome="deliverable_created",
+                deliverable_type="branch",
+                timestamp=datetime.now(UTC).timestamp(),
+            )
+        )
+
+        assert collector.get_throughput(window_days=7) == 1
+
     def test_queries_cover_success_false_success_and_merge_metrics(self) -> None:
         collector = LaneTelemetryCollector(db_path=":memory:")
         now = datetime.now(UTC).timestamp()

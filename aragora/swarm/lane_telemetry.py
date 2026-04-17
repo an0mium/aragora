@@ -94,7 +94,7 @@ class LaneTelemetryCollector:
         if db_path is None:
             data_dir = get_default_data_dir()
             data_dir.mkdir(parents=True, exist_ok=True)
-            db_path = str(data_dir / "swarm_lane_telemetry.db")
+            db_path = str((data_dir / "swarm_lane_telemetry.db").resolve())
 
         self.db_path = db_path
         self._persistent_conn: sqlite3.Connection | None = None
