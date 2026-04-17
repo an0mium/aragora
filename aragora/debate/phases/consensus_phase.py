@@ -1291,6 +1291,7 @@ class ConsensusPhase:
 
         question = ctx.env.task if ctx.env else ""
         agent_names = [getattr(a, "name", "unknown") for a in ctx.agents]
+        raw_claims = self._seed_crux_finder_current_claims(ctx, belief_network, question)
 
         try:
             crux_result = build_crux_finder_result(
@@ -1300,6 +1301,11 @@ class ConsensusPhase:
                 question=question,
                 agents=agent_names,
                 rounds=getattr(result, "rounds_used", 0) or self.protocol.rounds,
+                raw_claims=raw_claims,
+                extra_metadata={
+                    "current_debate_claim_count": len(raw_claims),
+                    "belief_network_claim_count": len(getattr(belief_network, "nodes", {}) or {}),
+                },
             )
             proof = build_proof_from_crux_finder(crux_result)
         except (RuntimeError, ValueError, TypeError, AttributeError) as exc:
@@ -1338,6 +1344,172 @@ class ConsensusPhase:
                 ),
                 metric=float(crux_result.analysis.convergence_barrier),
             )
+
+    def _seed_crux_finder_current_claims(
+        self,
+        ctx: "DebateContext",
+        belief_network: Any,
+        question: str,
+    ) -> list[dict[str, Any]]:
+        """Add current-debate claims to the crux-finder belief network.
+
+        KM seeding can leave the network empty for a live debate. Crux-finder
+        must still analyze the debate that just happened instead of signing an
+        empty crux map, so we project the current message/proposal stream into
+        a small question-rooted belief graph.
+        """
+        if not hasattr(belief_network, "add_claim"):
+            return []
+
+        from aragora.reasoning.claims import RelationType, fast_extract_claims
+
+        raw_claims: list[dict[str, Any]] = []
+        claim_to_node = getattr(belief_network, "claim_to_node", {}) or {}
+        root_claim_id = "current-debate-task"
+
+        if question and root_claim_id not in claim_to_node:
+            belief_network.add_claim(
+                claim_id=root_claim_id,
+                statement=question[:500],
+                author="debate-task",
+                initial_confidence=0.5,
+            )
+
+        seeded_claims: list[tuple[str, str, RelationType]] = []
+        for source in self._iter_crux_finder_claim_sources(ctx):
+            content = source["content"]
+            extracted_claims = fast_extract_claims(content, source["agent"])
+            if not extracted_claims:
+                extracted_claims = [
+                    {
+                        "text": content[:500],
+                        "author": source["agent"],
+                        "confidence": 0.5,
+                        "type": "assertion",
+                    }
+                ]
+
+            for extracted in extracted_claims[:3]:
+                if len(raw_claims) >= 20:
+                    break
+
+                statement = str(extracted.get("text") or "").strip()
+                if not statement:
+                    continue
+
+                claim_id = f"current-debate-c{len(raw_claims) + 1:04d}"
+                if claim_id in claim_to_node:
+                    continue
+
+                confidence = self._clamp_crux_claim_confidence(extracted.get("confidence", 0.5))
+                relation = self._infer_crux_claim_relation(source["role"], statement)
+
+                belief_network.add_claim(
+                    claim_id=claim_id,
+                    statement=statement[:500],
+                    author=source["agent"],
+                    initial_confidence=confidence,
+                )
+
+                if question and hasattr(belief_network, "add_factor"):
+                    belief_network.add_factor(claim_id, root_claim_id, relation)
+                    for previous_claim_id, previous_agent, previous_relation in seeded_claims:
+                        if previous_agent != source["agent"] and previous_relation != relation:
+                            belief_network.add_factor(
+                                claim_id,
+                                previous_claim_id,
+                                RelationType.CONTRADICTS,
+                            )
+
+                seeded_claims.append((claim_id, source["agent"], relation))
+                raw_claims.append(
+                    {
+                        "claim_id": claim_id,
+                        "statement": statement[:500],
+                        "author": source["agent"],
+                        "role": source["role"],
+                        "relation_to_question": relation.value,
+                    }
+                )
+
+        return raw_claims
+
+    def _iter_crux_finder_claim_sources(self, ctx: "DebateContext") -> list[dict[str, str]]:
+        """Collect unique current-debate text sources for crux analysis."""
+        sources: list[dict[str, str]] = []
+        seen: set[tuple[str, str]] = set()
+
+        def add_source(agent: Any, role: Any, content: Any) -> None:
+            normalized_content = str(content or "").strip()
+            if len(normalized_content) < 10:
+                return
+            normalized_role = str(role or "proposer")
+            if normalized_role not in {"proposer", "critic", "assistant", "synthesizer"}:
+                return
+            normalized_agent = str(agent or "unknown")
+            key = (normalized_agent, normalized_content)
+            if key in seen:
+                return
+            seen.add(key)
+            sources.append(
+                {
+                    "agent": normalized_agent,
+                    "role": normalized_role,
+                    "content": normalized_content,
+                }
+            )
+
+        result = getattr(ctx, "result", None)
+        for message in list(getattr(result, "messages", []) or []):
+            add_source(
+                getattr(message, "agent", "unknown"),
+                getattr(message, "role", "proposer"),
+                getattr(message, "content", ""),
+            )
+
+        for message in list(getattr(ctx, "context_messages", []) or []):
+            add_source(
+                getattr(message, "agent", "unknown"),
+                getattr(message, "role", "proposer"),
+                getattr(message, "content", ""),
+            )
+
+        proposals = getattr(ctx, "proposals", {}) or {}
+        for agent, proposal in proposals.items():
+            add_source(agent, "proposer", proposal)
+
+        return sources[:20]
+
+    @staticmethod
+    def _infer_crux_claim_relation(role: str, statement: str) -> Any:
+        from aragora.reasoning.claims import RelationType
+
+        lower = statement.lower()
+        negative_markers = (
+            " reject ",
+            " oppose ",
+            " against ",
+            " should not ",
+            " shouldn't ",
+            " not approve ",
+            " disagree ",
+            " concern ",
+            " risk ",
+            " however ",
+            " but ",
+        )
+        padded = f" {lower} "
+        if role == "critic" or any(marker in padded for marker in negative_markers):
+            return RelationType.CONTRADICTS
+        return RelationType.SUPPORTS
+
+    @staticmethod
+    def _clamp_crux_claim_confidence(value: Any) -> float:
+        try:
+            confidence = float(value)
+        except (TypeError, ValueError):
+            return 0.5
+        return max(0.05, min(0.95, confidence))
 
     async def _collect_votes(self, ctx: "DebateContext") -> list["Vote"]:
         """Collect votes from all agents with outer timeout protection."""
