@@ -45,17 +45,17 @@
   "failure_class_distribution": {
     "blocked_not_dispatch_bounded": 3
   },
-  "generated_at": "2026-04-17T12:41:28Z",
+  "generated_at": "2026-04-17T12:57:13Z",
   "in_flight_metrics": {
     "in_progress_attempted_count": 3,
     "in_progress_expected_count": 3,
-    "in_progress_graduation_rate": 1.0,
+    "in_progress_graduation_rate": 0.0,
     "in_progress_issue_numbers": [
       5814,
       5818,
       5820
     ],
-    "in_progress_success_count": 3,
+    "in_progress_success_count": 0,
     "note": "In-flight corpus issues are bounded open tasks autonomy is on the hook to resolve. Graduation occurs when a merged PR closes them; they then move to verified via a corpus revision."
   },
   "issues": [
@@ -343,12 +343,12 @@
           "url": "https://github.com/synaptent/aragora/pull/6079"
         }
       ],
-      "no_rescue_truth_success": true,
+      "no_rescue_truth_success": false,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "merged_pr",
-      "truth_success": true
+      "truth_state": "in_progress_open",
+      "truth_success": false
     },
     {
       "expected_status": "in_progress",
@@ -375,12 +375,12 @@
           "url": "https://github.com/synaptent/aragora/pull/6079"
         }
       ],
-      "no_rescue_truth_success": true,
+      "no_rescue_truth_success": false,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "merged_pr",
-      "truth_success": true
+      "truth_state": "in_progress_open",
+      "truth_success": false
     },
     {
       "expected_status": "in_progress",
@@ -407,19 +407,19 @@
           "url": "https://github.com/synaptent/aragora/pull/6079"
         }
       ],
-      "no_rescue_truth_success": true,
+      "no_rescue_truth_success": false,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "merged_pr",
-      "truth_success": true
+      "truth_state": "in_progress_open",
+      "truth_success": false
     }
   ],
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "primary_metrics": {
-    "merged_only_rate": 1.0,
-    "no_rescue_truth_success_rate": 1.0,
-    "truth_success_rate": 1.0,
+    "merged_only_rate": 0.625,
+    "no_rescue_truth_success_rate": 0.625,
+    "truth_success_rate": 0.625,
     "truth_success_rate_verified": 1.0
   },
   "proxy_metrics": {

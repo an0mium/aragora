@@ -27,20 +27,20 @@
     "status": "complete"
   },
   "deltas": {
-    "merged_only_rate": 0.375,
-    "no_rescue_truth_success_rate": 0.375,
+    "merged_only_rate": -0.375,
+    "no_rescue_truth_success_rate": -0.375,
     "proxy_no_rescue_success_rate": 0.0,
-    "truth_success_rate": 0.375,
-    "unique_issues_attempted": 2.0
+    "truth_success_rate": -0.375,
+    "unique_issues_attempted": 0.0
   },
   "failure_class_distribution": {
     "blocked_not_dispatch_bounded": 3
   },
-  "generated_at": "2026-04-17T12:41:41Z",
+  "generated_at": "2026-04-17T12:57:27Z",
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "previous_artifact": {
-    "generated_at": "2026-04-17T06:04:51Z",
-    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/scorecard-20260417T060451Z.json"
+    "generated_at": "2026-04-17T12:41:41Z",
+    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/scorecard-20260417T124141Z.json"
   },
   "proxy_metrics": {
     "corpus": {
@@ -81,12 +81,12 @@
     "unique_issues_succeeded": 0
   },
   "rescue_counts_by_type": {},
-  "truth_artifact_generated_at": "2026-04-17T12:41:28Z",
-  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260417T124128Z.json",
+  "truth_artifact_generated_at": "2026-04-17T12:57:13Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260417T125713Z.json",
   "truth_metrics": {
-    "merged_only_rate": 1.0,
-    "no_rescue_truth_success_rate": 1.0,
-    "truth_success_rate": 1.0,
+    "merged_only_rate": 0.625,
+    "no_rescue_truth_success_rate": 0.625,
+    "truth_success_rate": 0.625,
     "truth_success_rate_verified": 1.0
   }
 }
