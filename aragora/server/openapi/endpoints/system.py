@@ -2,6 +2,56 @@
 
 from aragora.server.openapi.helpers import _ok_response, STANDARD_ERRORS
 
+
+_BUILD_INFO_PARAMETERS = [
+    {
+        "name": "verify",
+        "in": "query",
+        "description": "Optional SHA prefix to compare against the running build.",
+        "schema": {"type": "string"},
+    }
+]
+
+_BUILD_INFO_RESPONSE = _ok_response(
+    "Build information",
+    {
+        "sha": {"type": "string"},
+        "sha_short": {"type": "string"},
+        "build_time": {"type": "string", "format": "date-time"},
+        "version": {"type": "string"},
+        "verification": {
+            "type": ["object", "null"],
+            "properties": {
+                "matches": {"type": "boolean"},
+                "expected": {"type": "string"},
+                "current": {"type": "string"},
+                "current_short": {"type": "string"},
+            },
+        },
+    },
+)
+
+
+def _build_info_operation(operation_id: str, *, deprecated: bool = False) -> dict:
+    operation = {
+        "tags": ["System"],
+        "summary": "Get build information",
+        "description": """Return build SHA, build time, and deploy version.
+
+Use this endpoint to verify the code version currently serving requests.
+
+Pass `?verify=<sha-prefix>` to compare the running build against an expected
+commit SHA or short SHA prefix.""",
+        "operationId": operation_id,
+        "parameters": _BUILD_INFO_PARAMETERS,
+        "responses": {"200": _BUILD_INFO_RESPONSE},
+    }
+    if deprecated:
+        operation["deprecated"] = True
+        operation["x-preserve-legacy-operation-id"] = True
+    return operation
+
+
 SYSTEM_ENDPOINTS = {
     "/api/health": {
         "get": {
@@ -51,6 +101,15 @@ SYSTEM_ENDPOINTS = {
             },
             "security": [{"bearerAuth": []}],
         },
+    },
+    "/health/build": {
+        "get": _build_info_operation("getBuildInfoRoot"),
+    },
+    "/api/health/build": {
+        "get": _build_info_operation("getBuildInfoLegacy", deprecated=True),
+    },
+    "/api/v1/health/build": {
+        "get": _build_info_operation("getBuildInfoV1"),
     },
     "/api/nomic/state": {
         "get": {
