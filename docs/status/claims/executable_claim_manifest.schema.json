@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aragora.ai/schemas/executable-claim-manifest.schema.json",
+  "title": "Aragora Executable Claim Manifest",
+  "type": "object",
+  "required": ["schema_version", "manifest_id", "claims"],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "manifest_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+    },
+    "description": {
+      "type": "string"
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/claim"
+      }
+    }
+  },
+  "$defs": {
+    "claim": {
+      "type": "object",
+      "required": [
+        "claim_id",
+        "statement",
+        "owner",
+        "scope",
+        "confidence",
+        "evidence",
+        "freshness_sla_hours",
+        "verification",
+        "failure",
+        "receipts"
+      ],
+      "properties": {
+        "claim_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "owner": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "freshness_sla_hours": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "verification": {
+          "$ref": "#/$defs/verification"
+        },
+        "failure": {
+          "$ref": "#/$defs/failure"
+        },
+        "receipts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/receipt"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "workflow": {
+          "type": "string"
+        },
+        "issue": {
+          "type": "integer"
+        },
+        "pull_request": {
+          "type": "integer"
+        },
+        "url": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "anyOf": [
+        {"required": ["path"]},
+        {"required": ["workflow"]},
+        {"required": ["issue"]},
+        {"required": ["pull_request"]},
+        {"required": ["url"]},
+        {"required": ["note"]}
+      ],
+      "additionalProperties": false
+    },
+    "verification": {
+      "type": "object",
+      "required": ["kind", "command"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["command", "workflow", "manual"]
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_result": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "failure": {
+      "type": "object",
+      "required": ["severity", "allowed_action"],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": ["info", "warning", "blocking"]
+        },
+        "allowed_action": {
+          "type": "string",
+          "enum": ["report_only", "rerun_workflow", "propose_bounded_issue"]
+        },
+        "repair_note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string"
+        },
+        "workflow": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,74 @@
+schema_version: 1
+manifest_id: proof_first_claims
+description: >
+  Initial manually curated executable claims for the proof-first runtime
+  surfaces. These claims are examples for DIC-13 and are not evaluated or used
+  for queue mutation until later DIC tranches add a runner and governance bridge.
+claims:
+  - claim_id: b0.benchmark_truth.complete_current_corpus
+    statement: "The B0 benchmark truth publication covers every issue in the current fixed corpus."
+    owner: proof-first-runtime
+    scope: repo
+    confidence: high
+    evidence:
+      - path: docs/status/B0_BENCHMARK_TRUTH_STATUS.md
+      - path: docs/benchmarks/corpus.json
+      - path: docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/latest.json
+      - workflow: Benchmark Truth Publication
+    freshness_sla_hours: 24
+    verification:
+      kind: command
+      command: "python3 scripts/render_benchmark_truth_status.py --output /tmp/aragora-b0-benchmark-truth-status.md"
+      expected_result: "Rendered status remains complete for the current corpus revision."
+    failure:
+      severity: blocking
+      allowed_action: report_only
+      repair_note: "Restore the recurring truth publication before widening autonomous scope."
+    receipts:
+      - type: benchmark_truth_publication
+        path: docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/latest.json
+
+  - claim_id: tw03.rescue_productization.no_repeated_unlinked_classes
+    statement: "The TW-03 rescue productization surface has no repeated unlinked rescue classes in the current ledger window."
+    owner: proof-first-runtime
+    scope: repo
+    confidence: high
+    evidence:
+      - path: docs/status/TW03_RESCUE_PRODUCTIZATION_STATUS.md
+      - path: docs/status/generated/rescue_productization/latest.json
+      - workflow: Rescue Productization Publication
+    freshness_sla_hours: 24
+    verification:
+      kind: command
+      command: "python3 scripts/render_rescue_productization_status.py --output /tmp/aragora-tw03-rescue-productization-status.md"
+      expected_result: "Rendered status reports zero repeated unlinked rescue classes."
+    failure:
+      severity: warning
+      allowed_action: report_only
+      repair_note: "Classify the repeated rescue class and convert it into bounded product work under proof-first queue governance."
+    receipts:
+      - type: rescue_productization_publication
+        path: docs/status/generated/rescue_productization/latest.json
+
+  - claim_id: docs.proof_first_queue_policy.current
+    statement: "Canonical status docs require future Decision Integrity issues to stay out of the live boss-ready queue until the Foreman reliability gate permits the tranche."
+    owner: proof-first-runtime
+    scope: repo
+    confidence: high
+    evidence:
+      - path: docs/status/NEXT_STEPS_CANONICAL.md
+      - path: docs/status/ACTIVE_EXECUTION_ISSUES.md
+      - path: docs/plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md
+      - issue: 6023
+    freshness_sla_hours: 168
+    verification:
+      kind: command
+      command: "python3 scripts/reconcile_status_docs.py --json"
+      expected_result: "Status reconciliation reports zero critical and zero warning findings."
+    failure:
+      severity: blocking
+      allowed_action: report_only
+      repair_note: "Fix the status docs or queue labels before allowing Decision Integrity work into autonomous dispatch."
+    receipts:
+      - type: status_doc_reconciliation
+        note: "Backed by scripts/reconcile_status_docs.py output."

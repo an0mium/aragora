@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from urllib.request import Request
 
 from aragora.swarm import github_app_auth as mod
 
@@ -112,3 +113,31 @@ def test_github_cli_env_falls_back_when_unconfigured() -> None:
     env = mod.github_cli_env({"PATH": "/usr/bin", "ARAGORA_AUTOMATION_ENV_FILE": "/missing"})
 
     assert env == {"PATH": "/usr/bin", "ARAGORA_AUTOMATION_ENV_FILE": "/missing"}
+
+
+def test_validate_github_api_request_allows_github_https() -> None:
+    request = Request("https://api.github.com/app/installations/456/access_tokens")
+
+    mod._validate_github_api_request(request)
+
+
+def test_validate_github_api_request_rejects_non_https() -> None:
+    request = Request("http://api.github.com/app/installations/456/access_tokens")
+
+    try:
+        mod._validate_github_api_request(request)
+    except RuntimeError as exc:
+        assert "refusing non-GitHub API token request URL" in str(exc)
+    else:  # pragma: no cover - explicit assertion branch for readability
+        raise AssertionError("expected non-HTTPS GitHub API request to be rejected")
+
+
+def test_validate_github_api_request_rejects_non_github_host() -> None:
+    request = Request("https://example.com/app/installations/456/access_tokens")
+
+    try:
+        mod._validate_github_api_request(request)
+    except RuntimeError as exc:
+        assert "refusing non-GitHub API token request URL" in str(exc)
+    else:  # pragma: no cover - explicit assertion branch for readability
+        raise AssertionError("expected non-GitHub API request to be rejected")

@@ -14,6 +14,10 @@ class PipelineAPI:
     def __init__(self, client: AragoraClient):
         self._client = client
 
+    def list_pipelines(self) -> dict[str, Any]:
+        """List saved canvas pipelines."""
+        return self._client.request("GET", "/api/v1/canvas/pipeline")
+
     def run(
         self,
         input_text: str,
@@ -173,6 +177,30 @@ class PipelineAPI:
         return self._client.request(
             "POST",
             f"/api/v1/canvas/pipeline/{pipeline_id}/approve-transition",
+            json=payload,
+        )
+
+    def approve_pipeline_transition(
+        self,
+        pipeline_id: str,
+        from_stage: str,
+        to_stage: str,
+        *,
+        approved: bool = True,
+        comment: str | None = None,
+    ) -> dict[str, Any]:
+        """Approve or reject a transition through the root compatibility route."""
+        payload: dict[str, Any] = {
+            "pipeline_id": pipeline_id,
+            "from_stage": from_stage,
+            "to_stage": to_stage,
+            "approved": approved,
+        }
+        if comment:
+            payload["comment"] = comment
+        return self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/approve-transition",
             json=payload,
         )
 
@@ -867,6 +895,10 @@ class AsyncPipelineAPI:
     def __init__(self, client: AragoraAsyncClient):
         self._client = client
 
+    async def list_pipelines(self) -> dict[str, Any]:
+        """List saved canvas pipelines."""
+        return await self._client.request("GET", "/api/v1/canvas/pipeline")
+
     async def run(
         self,
         input_text: str,
@@ -1005,6 +1037,30 @@ class AsyncPipelineAPI:
         return await self._client.request(
             "POST",
             f"/api/v1/canvas/pipeline/{pipeline_id}/approve-transition",
+            json=payload,
+        )
+
+    async def approve_pipeline_transition(
+        self,
+        pipeline_id: str,
+        from_stage: str,
+        to_stage: str,
+        *,
+        approved: bool = True,
+        comment: str | None = None,
+    ) -> dict[str, Any]:
+        """Approve or reject a transition through the root compatibility route."""
+        payload: dict[str, Any] = {
+            "pipeline_id": pipeline_id,
+            "from_stage": from_stage,
+            "to_stage": to_stage,
+            "approved": approved,
+        }
+        if comment:
+            payload["comment"] = comment
+        return await self._client.request(
+            "POST",
+            "/api/v1/canvas/pipeline/approve-transition",
             json=payload,
         )
 

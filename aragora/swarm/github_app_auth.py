@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -13,6 +14,7 @@ from typing import Mapping
 
 DEFAULT_AUTOMATION_ENV_FILE = Path.home() / ".aragora" / ".env.automation"
 GITHUB_API_VERSION = "2022-11-28"
+GITHUB_API_HOST = "api.github.com"
 _TOKEN_CACHE: dict[tuple[str, str, str], "GitHubAppToken"] = {}
 
 
@@ -148,6 +150,12 @@ def load_github_app_config(env: Mapping[str, str] | None = None) -> GitHubAppCon
     )
 
 
+def _validate_github_api_request(request: urllib.request.Request) -> None:
+    parsed = urllib.parse.urlparse(request.full_url)
+    if parsed.scheme != "https" or parsed.netloc != GITHUB_API_HOST:
+        raise RuntimeError(f"refusing non-GitHub API token request URL: {request.full_url}")
+
+
 def _mint_installation_token(config: GitHubAppConfig) -> GitHubAppToken:
     import jwt
 
@@ -171,7 +179,8 @@ def _mint_installation_token(config: GitHubAppConfig) -> GitHubAppToken:
             "X-GitHub-Api-Version": GITHUB_API_VERSION,
         },
     )
-    # Bandit cannot infer that the Request target above is fixed to https://api.github.com.
+    _validate_github_api_request(request)
+    # The request URL is constructed internally and validated above.
     with urllib.request.urlopen(request, timeout=20) as response:  # nosec B310
         payload = json.loads(response.read().decode("utf-8") or "{}")
     token = str(payload.get("token") or "").strip()

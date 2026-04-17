@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+from io import BytesIO
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -18,6 +21,27 @@ def _body(result) -> dict:
     if isinstance(result, dict):
         return result
     return json.loads(result.body)
+
+
+class _UnreadableRfile:
+    def read(self, *_args, **_kwargs):
+        raise AssertionError("cached body should avoid rfile reads")
+
+
+class _CompatFakeHandler:
+    """Small stand-in for fastapi.compat._FakeHandler."""
+
+    def __init__(self, body: dict[str, object] | bytes, *, include_cached_body: bool = True):
+        raw = body if isinstance(body, bytes) else json.dumps(body).encode("utf-8")
+        self.headers = {
+            "Content-Length": str(len(raw)),
+            "Content-Type": "application/json",
+        }
+        self.command = "POST"
+        self.path = ""
+        if include_cached_body:
+            self._body = raw
+        self.rfile = BytesIO(raw)
 
 
 @pytest.fixture(autouse=True)
@@ -559,6 +583,44 @@ class TestHandleListOrLatest:
 
 
 # =========================================================================
+# Request body parsing
+# =========================================================================
+
+
+class TestRequestBodyParsing:
+    def test_get_request_body_reads_request_body_first(self, handler):
+        http = _CompatFakeHandler({"ignored": True})
+        http.request = SimpleNamespace(body=b'{"source": "request"}')
+        http._body = b'{"source": "cached"}'
+        http.rfile = _UnreadableRfile()
+
+        assert handler._get_request_body(http) == {"source": "request"}
+
+    def test_get_request_body_ignores_callable_request_body(self, handler):
+        http = _CompatFakeHandler({"source": "cached"})
+        http.request = SimpleNamespace(body=lambda: b'{"source": "callable"}')
+        http.rfile = _UnreadableRfile()
+
+        assert handler._get_request_body(http) == {"source": "cached"}
+
+    def test_get_request_body_reads_fastapi_cached_body(self, handler):
+        http = _CompatFakeHandler({"source": "cached"})
+        http.rfile = _UnreadableRfile()
+
+        assert handler._get_request_body(http) == {"source": "cached"}
+
+    def test_get_request_body_reads_legacy_rfile_with_content_length(self, handler):
+        http = _CompatFakeHandler({"source": "rfile"}, include_cached_body=False)
+
+        assert handler._get_request_body(http) == {"source": "rfile"}
+
+    def test_get_request_body_invalid_json_returns_empty_dict(self, handler):
+        http = _CompatFakeHandler(b"not-json", include_cached_body=False)
+
+        assert handler._get_request_body(http) == {}
+
+
+# =========================================================================
 # handle_approve_transition — root path with pipeline_id in body
 # =========================================================================
 
@@ -581,6 +643,41 @@ class TestHandleApproveTransitionRootPath:
             },
         )
         return pipeline_id
+
+    @pytest.mark.asyncio
+    async def test_root_approve_transition_reads_fastapi_cached_body(self, handler):
+        http = _CompatFakeHandler({"pipeline_id": "pipe-fastapi-body"})
+
+        with patch.object(CanvasPipelineHandler, "_check_permission", return_value=None):
+            result = handler.handle_post(
+                "/api/v1/canvas/pipeline/approve-transition",
+                {},
+                http,
+            )
+            if hasattr(result, "__await__"):
+                result = await result
+
+        assert result.status_code == 404
+        assert _body(result)["error"] == "Pipeline pipe-fastapi-body not found"
+
+    @pytest.mark.asyncio
+    async def test_from_ideas_reads_fastapi_cached_body(self, handler):
+        http = _CompatFakeHandler(
+            {
+                "ideas": ["Turn founder review into a bounded pipeline"],
+                "auto_advance": False,
+            }
+        )
+
+        with patch.object(CanvasPipelineHandler, "_check_permission", return_value=None):
+            result = handler.handle_post("/api/v1/canvas/pipeline/from-ideas", {}, http)
+            if hasattr(result, "__await__"):
+                result = await result
+
+        body = _body(result)
+        assert result.status_code == 201
+        assert body["pipeline_id"].startswith("pipe-")
+        assert body["result"]["stage_status"]["actions"] == "pending"
 
     @pytest.mark.asyncio
     async def test_approve_transition_defaults_to_approved(self, handler, sample_cartographer_data):
