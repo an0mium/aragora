@@ -3,19 +3,25 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import random
+import subprocess
 import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Mapping
+from typing import Callable, Mapping, Sequence
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_AUTOMATION_ENV_FILE = Path.home() / ".aragora" / ".env.automation"
 GITHUB_API_VERSION = "2022-11-28"
 GITHUB_API_HOST = "api.github.com"
 _TOKEN_CACHE: dict[tuple[str, str, str], "GitHubAppToken"] = {}
+_PRIVATE_KEY_ENV_KEYS = ("GITHUB_APP_PRIVATE_KEY", "ARAGORA_GITHUB_APP_KEY")
 
 
 @dataclass(frozen=True)
@@ -36,6 +42,36 @@ def clear_github_app_token_cache() -> None:
     _TOKEN_CACHE.clear()
 
 
+def _strip_matching_quotes(value: str) -> str:
+    stripped = value.strip()
+    if len(stripped) >= 2 and stripped[0] == stripped[-1] and stripped[0] in {"'", '"'}:
+        return stripped[1:-1]
+    return stripped
+
+
+def _parse_env_value(lines: list[str], start_index: int, raw_value: str) -> tuple[str, int]:
+    value = raw_value.strip()
+    if not value:
+        return "", start_index
+
+    quote = value[0]
+    if quote not in {"'", '"'}:
+        return _strip_matching_quotes(value), start_index
+
+    current = value[1:]
+    parts: list[str] = []
+    index = start_index
+    while True:
+        if current.endswith(quote):
+            parts.append(current[:-1])
+            return "\n".join(parts), index
+        parts.append(current)
+        index += 1
+        if index >= len(lines):
+            return "\n".join(parts), index - 1
+        current = lines[index].rstrip()
+
+
 def _read_env_file(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
@@ -50,43 +86,35 @@ def _read_env_file(path: Path) -> dict[str, str]:
             continue
         key, value = line.split("=", 1)
         key = key.strip()
-        value = value.strip()
-        if not key:
-            index += 1
-            continue
-
-        if value.startswith(("'", '"')):
-            quote = value[0]
-            value = value[1:]
-            if value.endswith(quote):
-                values[key] = value[:-1]
-                index += 1
-                continue
-
-            parts = [value]
-            index += 1
-            while index < len(lines):
-                next_line = lines[index]
-                if next_line.endswith(quote):
-                    parts.append(next_line[:-1])
-                    index += 1
-                    break
-                parts.append(next_line)
-                index += 1
-            values[key] = "\n".join(parts)
-            continue
-
-        values[key] = value
+        if key:
+            values[key], index = _parse_env_value(lines, index, value)
         index += 1
     return values
 
 
-def _first_value(values: Mapping[str, str], keys: tuple[str, ...]) -> str:
+def _first_named_value(values: Mapping[str, str], keys: tuple[str, ...]) -> tuple[str, str]:
     for key in keys:
         value = str(values.get(key) or "").strip()
         if value:
-            return value
-    return ""
+            return key, value
+    return "", ""
+
+
+def _first_value(values: Mapping[str, str], keys: tuple[str, ...]) -> str:
+    _, value = _first_named_value(values, keys)
+    return value
+
+
+def _normalize_private_key(value: str) -> str:
+    stripped = _strip_matching_quotes(value)
+    return stripped.replace("\\r\\n", "\n").replace("\\n", "\n").replace("\\r", "\n").strip()
+
+
+def _first_private_key(values: Mapping[str, str]) -> tuple[str, str]:
+    key, value = _first_named_value(values, _PRIVATE_KEY_ENV_KEYS)
+    if not value:
+        return "", ""
+    return key, _normalize_private_key(value)
 
 
 def _automation_env_file(env: Mapping[str, str]) -> Path:
@@ -99,12 +127,6 @@ def _automation_env_file(env: Mapping[str, str]) -> Path:
         ),
     )
     return Path(configured).expanduser() if configured else DEFAULT_AUTOMATION_ENV_FILE
-
-
-def _normalize_private_key(value: str) -> str:
-    if "\\n" in value:
-        return value.replace("\\n", "\n")
-    return value
 
 
 def load_github_app_config(env: Mapping[str, str] | None = None) -> GitHubAppConfig | None:
@@ -121,10 +143,8 @@ def load_github_app_config(env: Mapping[str, str] | None = None) -> GitHubAppCon
             "ARAGORA_GITHUB_INSTALLATION_ID",
         ),
     )
-    private_key = _first_value(values, ("GITHUB_APP_PRIVATE_KEY", "ARAGORA_GITHUB_APP_KEY"))
-    private_key_source = "env:GITHUB_APP_PRIVATE_KEY" if private_key else ""
-    if private_key:
-        private_key = _normalize_private_key(private_key)
+    private_key_name, private_key = _first_private_key(values)
+    private_key_source = f"env:{private_key_name}" if private_key else ""
     if not private_key:
         key_path = _first_value(
             values,
@@ -239,3 +259,208 @@ def github_cli_env(
     env["GITHUB_TOKEN"] = token
     env["ARAGORA_GITHUB_AUTH_SOURCE"] = "github_app_installation"
     return env
+
+
+# ---------------------------------------------------------------------------
+# Rate-limit-aware gh CLI runner
+# ---------------------------------------------------------------------------
+
+_RATE_LIMIT_TOKENS = (
+    "api rate limit already exceeded",
+    "graphql: api rate limit",
+    "secondary rate limit",
+    "you have exceeded a secondary rate limit",
+)
+
+
+def is_rate_limit_error(stderr: str) -> bool:
+    """True if `stderr` from `gh` indicates a primary or secondary rate-limit hit."""
+    lowered = str(stderr or "").lower()
+    return any(token in lowered for token in _RATE_LIMIT_TOKENS)
+
+
+def _drop_app_token(env: dict[str, str]) -> dict[str, str]:
+    if env.get("ARAGORA_GITHUB_AUTH_SOURCE") != "github_app_installation":
+        return env
+    env.pop("GH_TOKEN", None)
+    env.pop("GITHUB_TOKEN", None)
+    env.pop("ARAGORA_GITHUB_AUTH_SOURCE", None)
+    return env
+
+
+def _probe_quota(env: Mapping[str, str]) -> dict[str, int] | None:
+    """Return a snapshot of `gh api rate_limit` resources, or None on failure.
+
+    Output keys: ``{bucket}_remaining`` and ``{bucket}_reset`` for each bucket
+    in ``core``, ``graphql``, ``search``.
+    """
+    try:
+        result = subprocess.run(  # noqa: S603 - controlled gh invocation
+            ["gh", "api", "rate_limit"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=dict(env),
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode != 0:
+        return None
+    try:
+        payload = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError:
+        return None
+    resources = dict(payload.get("resources") or {})
+    snapshot: dict[str, int] = {}
+    for bucket in ("core", "graphql", "search"):
+        info = dict(resources.get(bucket) or {})
+        remaining = info.get("remaining")
+        reset = info.get("reset")
+        if remaining is not None:
+            snapshot[f"{bucket}_remaining"] = int(remaining)
+        if reset is not None:
+            snapshot[f"{bucket}_reset"] = int(reset)
+    return snapshot or None
+
+
+def _seconds_until_reset(
+    env: Mapping[str, str],
+    *,
+    bucket: str = "core",
+) -> float | None:
+    """Best-effort estimate of seconds until the named bucket resets.
+
+    Returns None when the quota cannot be probed; callers should fall back
+    to exponential backoff in that case.
+    """
+    snapshot = _probe_quota(env)
+    if snapshot is None:
+        return None
+    reset = snapshot.get(f"{bucket}_reset")
+    if reset is None:
+        return None
+    delay = float(reset) - time.time()
+    return max(delay, 0.0)
+
+
+def _bucket_for_args(args: Sequence[str], stderr: str) -> str:
+    if "graphql" in str(stderr or "").lower():
+        return "graphql"
+    if any(arg == "graphql" for arg in args):
+        return "graphql"
+    if any(arg == "search" for arg in args):
+        return "search"
+    return "core"
+
+
+def gh_subprocess_run(
+    args: Sequence[str],
+    *,
+    timeout: float = 30.0,
+    prefer_app: bool = True,
+    write_op: bool = False,
+    env: Mapping[str, str] | None = None,
+    max_retries: int = 3,
+    base_backoff: float = 5.0,
+    max_backoff: float = 600.0,
+    sleep: Callable[[float], None] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run ``gh <args>`` with App-token preference and rate-limit-aware retry.
+
+    - When ``prefer_app`` is True (the default) and ``write_op`` is False,
+      the call is made with the GitHub App installation token via
+      :func:`github_cli_env`, isolating it from the user PAT quota.
+    - When ``write_op`` is True, the App token is dropped because the
+      installation has narrow write scopes; the user PAT is preferred.
+    - On rate-limit errors detected via ``is_rate_limit_error(stderr)``,
+      sleeps until the relevant bucket resets (capped at ``max_backoff``)
+      or by exponential backoff with jitter if the quota cannot be probed.
+    - Retries up to ``max_retries`` times; returns the final
+      :class:`subprocess.CompletedProcess` regardless of outcome.
+
+    The sleep callable is injected for test isolation.
+    """
+    use_app = prefer_app and not write_op
+    if env is None:
+        run_env = github_cli_env(prefer_app=use_app)
+    else:
+        run_env = dict(env)
+        if use_app:
+            token = get_github_app_installation_token(run_env)
+            if token:
+                run_env["GH_TOKEN"] = token
+                run_env["GITHUB_TOKEN"] = token
+                run_env["ARAGORA_GITHUB_AUTH_SOURCE"] = "github_app_installation"
+        else:
+            run_env = _drop_app_token(run_env)
+
+    sleep_fn = sleep if sleep is not None else time.sleep
+    last_result: subprocess.CompletedProcess[str] | None = None
+    attempt = 0
+    while attempt <= max_retries:
+        result = subprocess.run(  # noqa: S603 - controlled gh invocation
+            ["gh", *list(args)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=run_env,
+            check=False,
+        )
+        last_result = result
+        if result.returncode == 0:
+            return result
+        if not is_rate_limit_error(result.stderr or ""):
+            return result
+        if attempt >= max_retries:
+            break
+
+        bucket = _bucket_for_args(args, result.stderr or "")
+        reset_delay = _seconds_until_reset(run_env, bucket=bucket)
+        if reset_delay is not None and reset_delay <= max_backoff:
+            sleep_seconds = reset_delay + random.uniform(1.0, 5.0)
+        else:
+            sleep_seconds = min(
+                base_backoff * (2**attempt) + random.uniform(0, base_backoff),
+                max_backoff,
+            )
+        logger.warning(
+            "gh rate-limit hit (attempt %d/%d, bucket=%s); sleeping %.1fs",
+            attempt + 1,
+            max_retries + 1,
+            bucket,
+            sleep_seconds,
+        )
+        sleep_fn(sleep_seconds)
+        attempt += 1
+
+    if last_result is None:  # pragma: no cover - retry loop always assigns
+        raise RuntimeError("gh_subprocess_run produced no result")
+    return last_result
+
+
+def gh_subprocess_iter_buckets(
+    env: Mapping[str, str] | None = None,
+) -> dict[str, dict[str, int]]:
+    """Convenience wrapper for callers that want to inspect quota state.
+
+    Returns a mapping ``{bucket: {"remaining": n, "reset": epoch}}`` for the
+    core, graphql, and search buckets, or ``{}`` if the probe fails.
+    """
+    base = github_cli_env() if env is None else dict(env)
+    snapshot = _probe_quota(base)
+    if snapshot is None:
+        return {}
+    out: dict[str, dict[str, int]] = {}
+    for bucket in ("core", "graphql", "search"):
+        remaining = snapshot.get(f"{bucket}_remaining")
+        reset = snapshot.get(f"{bucket}_reset")
+        if remaining is None and reset is None:
+            continue
+        bucket_state: dict[str, int] = {}
+        if remaining is not None:
+            bucket_state["remaining"] = int(remaining)
+        if reset is not None:
+            bucket_state["reset"] = int(reset)
+        out[bucket] = bucket_state
+    return out

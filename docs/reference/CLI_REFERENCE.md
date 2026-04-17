@@ -6,8 +6,8 @@
 
 This reference documents the command surface as implemented in code. It includes all top-level commands and known aliases.
 
-- Canonical top-level commands: **89**
-- Total top-level invocations (including aliases): **90**
+- Canonical top-level commands: **93**
+- Total top-level invocations (including aliases): **94**
 
 ## Installation
 
@@ -60,6 +60,8 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `coordinate` | - | Multi-agent worktree coordination | `events`, `merge`, `plan`, `register`, `scope`, `status`, `sync` |
 | `costs` | - | Cost tracking and billing management commands | `agents`, `budget`, `dashboard`, `forecast`, `report`, `usage` |
 | `cross-pollination` | `xpoll` | Cross-pollination event system diagnostics | - |
+| `crux` | - | Find load-bearing disagreements on a question (crux-finder debate) | - |
+| `cruxset` | - | AGT-01: inspect CruxSet payloads emitted by the debate path | `show` |
 | `decide` | - | Run full decision pipeline: debate → plan → execute | - |
 | `demo` | - | Run a self-contained adversarial debate demo (no API keys needed) | - |
 | `deploy` | - | Deployment validation and configuration | `secrets`, `start`, `status`, `stop`, `validate` |
@@ -81,8 +83,10 @@ For full runtime configuration, see [ENVIRONMENT](ENVIRONMENT.md).
 | `km` | - | Knowledge Mound management commands | `query`, `stats`, `store` |
 | `knowledge` | - | Knowledge base operations | `facts`, `jobs`, `process`, `query`, `search`, `stats` |
 | `marketplace` | - | Manage agent template marketplace | - |
+| `markets` | - | AGT-04: inspect synthetic GitHub prediction markets | `list` |
 | `mcp-server` | - | Run the MCP (Model Context Protocol) server | - |
 | `memory` | - | Memory management commands | `promote`, `query`, `stats`, `store` |
+| `metrics` | - | AGT-06: read VIAH and other operator metrics | `viah` |
 | `modes` | - | List available operational modes | - |
 | `nomic` | - | Nomic loop self-improvement commands | `history`, `resume`, `run`, `status` |
 | `openclaw` | - | OpenClaw Enterprise Gateway management | `audit`, `init`, `next-steps`, `policy`, `review`, `serve`, `status`, `watch` |

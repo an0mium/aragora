@@ -57,7 +57,13 @@ def _parse_data(result: Any) -> dict:
 
 
 class TestMFAComplianceEndpoint:
-    """Tests for GET /api/v1/admin/mfa-compliance."""
+    """Tests for the compatibility MFA compliance handler."""
+
+    def test_routes_keep_legacy_hyphen_path(self):
+        handler = MFAComplianceHandler(ctx={})
+
+        assert handler.can_handle("/api/v1/admin/mfa-compliance")
+        assert not handler.can_handle("/api/v1/admin/mfa/compliance")
 
     def test_returns_correct_counts(self):
         users = [

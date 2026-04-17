@@ -66,8 +66,15 @@ class TestExports:
     def test_all_contains_get_all_handler_stability(self):
         assert "get_all_handler_stability" in __all__
 
-    def test_all_has_exactly_four_entries(self):
-        assert len(__all__) == 4
+    def test_all_exports_registry_contract(self):
+        assert set(__all__) == {
+            "ALL_HANDLERS",
+            "HANDLER_STABILITY",
+            "get_all_handler_stability",
+            "get_handler_stability",
+            "register_handler",
+            "reset_registry",
+        }
 
 
 # ---------------------------------------------------------------------------

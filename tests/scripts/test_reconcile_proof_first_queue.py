@@ -200,23 +200,19 @@ def test_reconcile_proof_first_queue_treats_graphql_quota_as_github_unavailable(
 def test_queue_reads_prefer_app_env_and_label_removal_uses_user_env(monkeypatch) -> None:
     calls: list[dict[str, Any]] = []
 
-    def fake_github_cli_env(*, prefer_app: bool = True) -> dict[str, str]:
-        return {"AUTH_SOURCE": "app" if prefer_app else "user"}
+    def fake_run(args: list[str], **kwargs: Any):
+        calls.append({"args": list(args), "write_op": kwargs.get("write_op", False)})
+        if args[:2] == ["issue", "list"]:
+            return mod.subprocess.CompletedProcess(["gh", *args], 0, "[]", "")
+        return mod.subprocess.CompletedProcess(["gh", *args], 0, "", "")
 
-    def fake_run(cmd: list[str], **kwargs: Any):
-        calls.append({"cmd": cmd, "env": kwargs.get("env")})
-        if cmd[:3] == ["gh", "issue", "list"]:
-            return mod.subprocess.CompletedProcess(cmd, 0, "[]", "")
-        return mod.subprocess.CompletedProcess(cmd, 0, "", "")
-
-    monkeypatch.setattr(mod, "github_cli_env", fake_github_cli_env)
-    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "gh_subprocess_run", fake_run)
 
     mod.list_open_queue_issues(repo="org/repo", label="boss-ready")
     mod.remove_queue_label(repo="org/repo", issue_number=1, label="boss-ready")
 
-    assert calls[0]["env"] == {"AUTH_SOURCE": "app"}
-    assert calls[1]["env"] == {"AUTH_SOURCE": "user"}
+    assert calls[0]["write_op"] is False
+    assert calls[1]["write_op"] is True
 
 
 def test_github_write_env_strips_inherited_app_token_env(monkeypatch) -> None:
@@ -234,44 +230,37 @@ def test_github_write_env_strips_inherited_app_token_env(monkeypatch) -> None:
 
 
 def test_write_subprocesses_strip_inherited_app_token_env(monkeypatch) -> None:
-    monkeypatch.setenv("GH_TOKEN", "app-token")
-    monkeypatch.setenv("GITHUB_TOKEN", "app-token")
-    monkeypatch.setenv("ARAGORA_GITHUB_AUTH_SOURCE", "github_app_installation")
-    monkeypatch.setenv("KEEP_ME", "value")
+    """Write helpers must request user-PAT auth via write_op=True."""
     calls: list[dict[str, Any]] = []
 
-    def fake_run(cmd: list[str], **kwargs: Any):
-        calls.append({"cmd": cmd, "env": kwargs.get("env")})
-        return mod.subprocess.CompletedProcess(cmd, 0, "https://github.com/org/repo/issues/1\n", "")
+    def fake_run(args: list[str], **kwargs: Any):
+        calls.append({"args": list(args), "write_op": kwargs.get("write_op", False)})
+        return mod.subprocess.CompletedProcess(
+            ["gh", *args], 0, "https://github.com/org/repo/issues/1\n", ""
+        )
 
-    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "gh_subprocess_run", fake_run)
 
     mod.remove_queue_label(repo="org/repo", issue_number=1, label="boss-ready")
     mod.create_issue(repo="org/repo", title="Title", body="Body", labels=["boss-ready"])
 
     assert len(calls) == 2
     for call in calls:
-        env = call["env"]
-        assert "GH_TOKEN" not in env
-        assert "GITHUB_TOKEN" not in env
-        assert "ARAGORA_GITHUB_AUTH_SOURCE" not in env
-        assert env["KEEP_ME"] == "value"
+        assert call["write_op"] is True
 
 
 def test_create_issue_uses_user_env(monkeypatch) -> None:
     calls: list[dict[str, Any]] = []
 
-    def fake_github_cli_env(*, prefer_app: bool = True) -> dict[str, str]:
-        return {"AUTH_SOURCE": "app" if prefer_app else "user"}
+    def fake_run(args: list[str], **kwargs: Any):
+        calls.append({"args": list(args), "write_op": kwargs.get("write_op", False)})
+        return mod.subprocess.CompletedProcess(
+            ["gh", *args], 0, "https://github.com/org/repo/issues/1\n", ""
+        )
 
-    def fake_run(cmd: list[str], **kwargs: Any):
-        calls.append({"cmd": cmd, "env": kwargs.get("env")})
-        return mod.subprocess.CompletedProcess(cmd, 0, "https://github.com/org/repo/issues/1\n", "")
-
-    monkeypatch.setattr(mod, "github_cli_env", fake_github_cli_env)
-    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "gh_subprocess_run", fake_run)
 
     issue = mod.create_issue(repo="org/repo", title="Title", body="Body", labels=["boss-ready"])
 
     assert issue["url"] == "https://github.com/org/repo/issues/1"
-    assert calls[0]["env"] == {"AUTH_SOURCE": "user"}
+    assert calls[0]["write_op"] is True

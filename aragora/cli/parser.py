@@ -200,11 +200,114 @@ Examples:
     _add_ralph_parser(subparsers)
     _add_assess_parser(subparsers)
     _add_spec_parser(subparsers)
+    _add_crux_parser(subparsers)
     _add_idea_parser(subparsers)
     _add_build_parser(subparsers)
     _add_essay_parser(subparsers)
 
+    # AGT-* operator surfaces (read-only)
+    _add_metrics_parser(subparsers)
+    _add_markets_parser(subparsers)
+    _add_cruxset_parser(subparsers)
+
     return parser
+
+
+# ---------------------------------------------------------------------------
+# AGT-* operator subparsers — added as part of AGT-06 / AGT-04 / AGT-01 follow-up
+# ---------------------------------------------------------------------------
+
+
+def _add_metrics_parser(subparsers) -> None:
+    """Add the 'metrics' subcommand group with a 'viah' verb."""
+    metrics_parser = subparsers.add_parser(
+        "metrics",
+        help="AGT-06: read VIAH and other operator metrics",
+        description="Operator-readable metrics derived from the ShiftLedger.",
+    )
+    metrics_sub = metrics_parser.add_subparsers(dest="metrics_cmd")
+    viah = metrics_sub.add_parser(
+        "viah",
+        help="Print verifiable improvements per agent-hour from the ShiftLedger",
+    )
+    viah.add_argument(
+        "--ledger-path",
+        default=None,
+        help="Path to the ShiftLedger JSONL (default: aragora.swarm.shift_ledger.DEFAULT_LEDGER_PATH)",
+    )
+    viah.add_argument(
+        "--window-hours",
+        type=float,
+        default=168.0,
+        help="Rolling window over which to compute VIAH (default: 168 = 7 days)",
+    )
+    viah.add_argument(
+        "--cruxes-correctly-detected",
+        type=int,
+        default=0,
+        help="Sidecar count of cruxes correctly detected pre-resolution (AGT-05)",
+    )
+    viah.add_argument(
+        "--predictions-above-brier-threshold",
+        type=int,
+        default=0,
+        help="Sidecar count of predictions with Brier below the calibration threshold (AGT-05)",
+    )
+    viah.add_argument(
+        "--failed-claims-promoted-without-repair",
+        type=int,
+        default=0,
+        help="Sidecar count of failed claims promoted without bounded repair (AGT-05)",
+    )
+    viah.add_argument("--json", action="store_true", help="Emit the report as JSON")
+    viah.set_defaults(func=_lazy("aragora.cli.commands.agt_metrics", "cmd_metrics_viah"))
+
+
+def _add_markets_parser(subparsers) -> None:
+    """Add the 'markets' subcommand group with a 'list' verb."""
+    markets_parser = subparsers.add_parser(
+        "markets",
+        help="AGT-04: inspect synthetic GitHub prediction markets",
+        description="Read-only operator surface for the synthetic-market store.",
+    )
+    markets_sub = markets_parser.add_subparsers(dest="markets_cmd")
+    lst = markets_sub.add_parser(
+        "list",
+        help="List markets in the given store directory",
+    )
+    lst.add_argument(
+        "--store-dir",
+        default=".aragora_markets",
+        help="Path to the synthetic-market JSONL store directory (default: .aragora_markets)",
+    )
+    lst.add_argument("--json", action="store_true", help="Emit the listing as JSON")
+    lst.set_defaults(func=_lazy("aragora.cli.commands.agt_markets", "cmd_markets_list"))
+
+
+def _add_cruxset_parser(subparsers) -> None:
+    """Add the 'cruxset' subcommand group with a 'show' verb."""
+    cruxset_parser = subparsers.add_parser(
+        "cruxset",
+        help="AGT-01: inspect CruxSet payloads emitted by the debate path",
+        description="Read-only operator surface for CruxSet artifacts.",
+    )
+    cruxset_sub = cruxset_parser.add_subparsers(dest="cruxset_cmd")
+    show = cruxset_sub.add_parser(
+        "show",
+        help="Pretty-print a CruxSet from a JSON file or stdin (use '-' for stdin)",
+    )
+    show.add_argument(
+        "source",
+        nargs="?",
+        default="-",
+        help="Path to a CruxSet JSON file, or '-' to read from stdin (default: stdin)",
+    )
+    show.add_argument(
+        "--json",
+        action="store_true",
+        help="Re-emit the (verified) CruxSet as JSON instead of pretty-printing",
+    )
+    show.set_defaults(func=_lazy("aragora.cli.commands.agt_cruxset", "cmd_cruxset_show"))
 
 
 def _add_ask_parser(subparsers) -> None:
@@ -2292,8 +2395,9 @@ def _add_swarm_parser(subparsers) -> None:
         "swarm_action_or_goal",
         nargs="?",
         help=(
-            "Action (run/preflight/status/reconcile/campaign/initiative/integrator/tranche/coord/"
-            "assign/claim-pr/report/findings/merge-arbiter/dispatch) or your goal in plain language"
+            "Action (run/preflight/status/shift-status/reconcile/campaign/initiative/integrator/"
+            "tranche/coord/assign/claim-pr/report/findings/merge-arbiter/dispatch) or your goal "
+            "in plain language"
         ),
     )
     swarm_parser.add_argument(
@@ -2520,6 +2624,20 @@ def _add_swarm_parser(subparsers) -> None:
         type=int,
         default=20,
         help="Maximum runs to show in 'status' (default: 20)",
+    )
+    swarm_parser.add_argument(
+        "--shift-ledger",
+        default=None,
+        help=(
+            "Ledger path for 'swarm shift-status' "
+            "(default: .aragora/proof_first_shift/shift_ledger.jsonl)"
+        ),
+    )
+    swarm_parser.add_argument(
+        "--max-age-hours",
+        type=float,
+        default=24.0,
+        help="Ledger lookback window for 'swarm shift-status' (default: 24)",
     )
     swarm_parser.add_argument(
         "--findings-limit",
@@ -3046,6 +3164,79 @@ Examples:
         help="Route through UnifiedOrchestrator for full backbone tracking",
     )
     spec_parser.set_defaults(func=_lazy("aragora.cli.commands.spec", "cmd_spec"))
+
+
+def _add_crux_parser(subparsers) -> None:
+    """Add the 'crux' subcommand for crux-finder debate mode."""
+    crux_parser = subparsers.add_parser(
+        "crux",
+        help="Find load-bearing disagreements on a question (crux-finder debate)",
+        description="""
+Run a debate in crux-finder mode. Instead of producing a verdict, aragora
+emits a signed map of the 3–5 disagreements that, if resolved, would most
+change the answer. Backed by the same belief-network machinery as `ask`,
+but the deliverable is a CruxReceipt, not a DecisionReceipt.
+
+Examples:
+  aragora crux "Should we adopt feature X?"
+  aragora crux "Is this migration safe?" --top-k 3 --min-score 0.4
+  aragora crux "Do we need rate limiting?" --format json --receipt crux.json
+  aragora crux "Should we ship?" --dry-run
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    crux_parser.add_argument("question", help="The contested question to map")
+    crux_parser.add_argument(
+        "--agents",
+        "-a",
+        default=None,
+        help="Comma-separated agent list (default: claude,codex)",
+    )
+    crux_parser.add_argument(
+        "--rounds",
+        "-r",
+        type=int,
+        default=3,
+        help="Number of debate rounds (default: 3)",
+    )
+    crux_parser.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        help="Maximum cruxes to return (default: 5)",
+    )
+    crux_parser.add_argument(
+        "--min-score",
+        type=float,
+        default=0.3,
+        help="Minimum crux score threshold (default: 0.3)",
+    )
+    crux_parser.add_argument(
+        "--no-counterfactuals",
+        action="store_true",
+        help="Skip counterfactual validation of each crux",
+    )
+    crux_parser.add_argument(
+        "--format",
+        choices=["markdown", "json"],
+        default="markdown",
+        help="Output format for stdout (default: markdown)",
+    )
+    crux_parser.add_argument(
+        "--receipt",
+        help="Write the signed CruxReceipt JSON to the given path",
+    )
+    crux_parser.add_argument(
+        "--output",
+        "-o",
+        help="Write the rendered output (markdown or json) to the given path",
+    )
+    crux_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview parameters without running the debate",
+    )
+    crux_parser.set_defaults(func=_lazy("aragora.cli.commands.crux", "cmd_crux"))
 
 
 def _add_build_parser(subparsers) -> None:
