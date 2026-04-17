@@ -1,0 +1,90 @@
+"""Unit tests for SpecUpgrader."""
+
+from __future__ import annotations
+
+import pytest
+
+from aragora.swarm.spec_upgrader import (
+    SpecUpgraderUnavailable,
+    UpgradeFailureContext,
+    UpgradeResult,
+)
+
+
+def test_upgrade_failure_context_construction():
+    ctx = UpgradeFailureContext(
+        missing_bounds=["acceptance criterion", "file-scope hint"],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="Do the thing.",
+        issue_title="[TW-02] Improve X",
+        track_tag="TW-02",
+    )
+    assert ctx.missing_bounds == ["acceptance criterion", "file-scope hint"]
+    assert ctx.prior_attempts == 0
+    assert ctx.track_tag == "TW-02"
+
+
+def test_upgrade_failure_context_frozen():
+    ctx = UpgradeFailureContext(
+        missing_bounds=[],
+        preflight_diff=None,
+        prior_attempts=0,
+        original_issue_body="",
+        issue_title="",
+        track_tag=None,
+    )
+    with pytest.raises(Exception):  # dataclass(frozen=True) raises FrozenInstanceError
+        ctx.prior_attempts = 1  # type: ignore[misc]
+
+
+def test_upgrade_result_upgraded_shape():
+    from aragora.swarm.spec import SwarmSpec
+
+    spec = SwarmSpec()
+    res = UpgradeResult(
+        status="upgraded",
+        upgraded_spec=spec,
+        audit_markdown="stub",
+        attempt_count=1,
+        upgrade_path="deterministic",
+        failure_context=UpgradeFailureContext(
+            missing_bounds=[],
+            preflight_diff=None,
+            prior_attempts=0,
+            original_issue_body="",
+            issue_title="",
+            track_tag=None,
+        ),
+        unresolved_questions=[],
+    )
+    assert res.status == "upgraded"
+    assert res.upgraded_spec is spec
+    assert res.unresolved_questions == []
+
+
+def test_upgrade_result_escalated_shape():
+    res = UpgradeResult(
+        status="escalated",
+        upgraded_spec=None,
+        audit_markdown="stub",
+        attempt_count=2,
+        upgrade_path="deterministic+llm",
+        failure_context=UpgradeFailureContext(
+            missing_bounds=["acceptance criterion"],
+            preflight_diff=None,
+            prior_attempts=2,
+            original_issue_body="",
+            issue_title="",
+            track_tag=None,
+        ),
+        unresolved_questions=["What is the acceptance criterion?"],
+    )
+    assert res.status == "escalated"
+    assert res.upgraded_spec is None
+    assert len(res.unresolved_questions) == 1
+
+
+def test_spec_upgrader_unavailable_is_exception():
+    with pytest.raises(SpecUpgraderUnavailable):
+        raise SpecUpgraderUnavailable("LLM client timed out")
