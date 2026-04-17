@@ -320,6 +320,7 @@ if TYPE_CHECKING:
     from .laboratory import LaboratoryHandler
     from .marketplace_browse import MarketplaceBrowseHandler
     from .marketplace_pilot import MarketplacePilotHandler
+    from .mcp_tools_handler import MCPToolsHandler
     from .memory import (
         CoordinatorHandler,
         InsightsHandler,
@@ -871,6 +872,7 @@ __all__ = [
     "GDPRDeletionHandler",
     "MarketplaceBrowseHandler",
     "MarketplacePilotHandler",
+    "MCPToolsHandler",
     "ModerationHandler",
     "ModerationAnalyticsHandler",
     "PartnerHandler",
