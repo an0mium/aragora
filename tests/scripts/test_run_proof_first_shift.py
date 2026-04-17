@@ -250,6 +250,29 @@ def test_kickstart_launchd_returns_timeout_detail_instead_of_raising() -> None:
     assert detail == "launchctl timed out"
 
 
+def test_inspect_launchd_service_returns_unavailable_detail_instead_of_raising() -> None:
+    with patch(
+        "scripts.run_proof_first_shift.subprocess.run",
+        side_effect=FileNotFoundError("launchctl not found"),
+    ):
+        status = mod.inspect_launchd_service("com.aragora.swarm-boss-loop")
+
+    assert status == mod.LaunchdServiceStatus(
+        detail="launchctl unavailable for com.aragora.swarm-boss-loop: launchctl not found"
+    )
+
+
+def test_kickstart_launchd_returns_unavailable_detail_instead_of_raising() -> None:
+    with patch(
+        "scripts.run_proof_first_shift.subprocess.run",
+        side_effect=FileNotFoundError("launchctl not found"),
+    ):
+        ok, detail = mod.kickstart_launchd("com.aragora.swarm-boss-loop")
+
+    assert ok is False
+    assert detail == "launchctl unavailable for com.aragora.swarm-boss-loop: launchctl not found"
+
+
 def test_bind_runtime_state_to_shift_resets_recovery_budgets_for_new_shift() -> None:
     state = mod.ProofFirstRuntimeState(
         recovery_shift_id="old-shift",
@@ -476,6 +499,26 @@ def test_restart_service_waits_for_successful_kickstart_process_start() -> None:
     assert detail == ""
 
 
+def test_restart_service_returns_unavailable_detail_when_launchctl_is_missing() -> None:
+    with (
+        patch(
+            "scripts.run_proof_first_shift.subprocess.run",
+            side_effect=FileNotFoundError("launchctl not found"),
+        ),
+        patch("scripts.run_proof_first_shift.wait_for_process", return_value=False),
+        patch("scripts.run_proof_first_shift._read_launchd_failure_detail", return_value=""),
+    ):
+        ok, detail = mod.restart_service_via_launchd(
+            label="com.aragora.swarm-merge-arbiter",
+            process_pattern="merge-arbiter",
+        )
+
+    assert ok is False
+    assert (
+        detail == "launchctl unavailable for com.aragora.swarm-merge-arbiter: launchctl not found"
+    )
+
+
 def test_restart_boss_service_uses_direct_bootstrap_when_launchd_service_is_missing() -> None:
     missing = mod.LaunchdServiceStatus(
         detail='Could not find service "com.aragora.swarm-boss-loop" in domain for user gui: 501'
@@ -503,6 +546,32 @@ def test_restart_boss_service_uses_direct_bootstrap_when_launchd_service_is_miss
     assert detail == "bootstrapped direct boss loop"
     assert action == "bootstrap_boss_loop_direct"
     assert bootstrap_mock.called
+
+
+def test_restart_boss_service_fails_closed_when_launchctl_is_unavailable() -> None:
+    with (
+        patch(
+            "scripts.run_proof_first_shift.subprocess.run",
+            side_effect=FileNotFoundError("launchctl not found"),
+        ),
+        patch("scripts.run_proof_first_shift.wait_for_process", return_value=False),
+        patch("scripts.run_proof_first_shift._read_launchd_failure_detail", return_value=""),
+        patch(
+            "scripts.run_proof_first_shift.start_detached_boss_loop",
+            side_effect=AssertionError(
+                "direct bootstrap should not run when launchctl inspection is merely unavailable"
+            ),
+        ),
+    ):
+        ok, detail, action = mod.restart_boss_service(
+            repo_root=Path(".").resolve(),
+            repo="synaptent/aragora",
+            process_pattern="boss-loop",
+        )
+
+    assert ok is False
+    assert detail == "launchctl unavailable for com.aragora.swarm-boss-loop: launchctl not found"
+    assert action == "restart_boss_loop"
 
 
 def test_build_direct_boss_loop_command_uses_env_configuration() -> None:

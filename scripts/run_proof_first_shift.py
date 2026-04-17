@@ -566,6 +566,8 @@ def inspect_launchd_service(label: str) -> LaunchdServiceStatus:
             timeout=5,
             check=False,
         )
+    except OSError as exc:
+        return LaunchdServiceStatus(detail=f"launchctl unavailable for {label}: {exc}")
     except subprocess.TimeoutExpired:
         return LaunchdServiceStatus(detail=f"launchctl print timed out for {label}")
     detail = "\n".join(part.strip() for part in (proc.stdout, proc.stderr) if part.strip())
@@ -734,6 +736,8 @@ def kickstart_launchd(label: str) -> tuple[bool, str]:
             timeout=30,
             check=False,
         )
+    except OSError as exc:
+        return False, f"launchctl unavailable for {label}: {exc}"
     except subprocess.TimeoutExpired as exc:
         stdout = exc.stdout.strip() if isinstance(exc.stdout, str) else ""
         stderr = exc.stderr.strip() if isinstance(exc.stderr, str) else ""
