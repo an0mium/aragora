@@ -19,6 +19,7 @@ from rotate_boss_metrics import DEFAULT_METRICS_PATH, rotate_metrics_file
 
 DEFAULT_REPO = "synaptent/aragora"
 DEFAULT_OUTCOME_LEARNER_WINDOW = 500
+DEFAULT_TICKS_PER_OPEN_ISSUE = 3
 
 
 def corpus_issue_numbers(corpus: dict[str, Any]) -> list[int]:
@@ -128,7 +129,14 @@ def build_boss_loop_command(
 ) -> list[str]:
     if not issue_numbers:
         raise ValueError("issue_numbers must not be empty")
-    effective_ticks = max_ticks if max_ticks is not None else max(len(issue_numbers) * 2, 1)
+    # BossLoop can consume one initial attempt plus two repair attempts before
+    # recording a terminal class for one issue. Budget for that full envelope so
+    # later corpus issues are not omitted from the publication window.
+    effective_ticks = (
+        max_ticks
+        if max_ticks is not None
+        else max(len(issue_numbers) * DEFAULT_TICKS_PER_OPEN_ISSUE, 1)
+    )
     return [
         sys.executable,
         "-m",

@@ -59,7 +59,7 @@ def test_build_boss_loop_command_uses_explicit_issue_list_contract() -> None:
     assert command[:4] == [sys.executable, "-m", "aragora.cli.main", "swarm"]
     assert "--boss-issue-list" in command
     assert command[command.index("--boss-issue-list") + 1] == "1064,2712"
-    assert command[command.index("--max-ticks") + 1] == "4"
+    assert command[command.index("--max-ticks") + 1] == "6"
     assert command[command.index("--max-consecutive-failures") + 1] == "5"
     assert command[command.index("--autonomy") + 1] == "fire_and_forget"
 
