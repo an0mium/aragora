@@ -20,17 +20,28 @@
     "success_contract": "mergeable_pr_or_merged_pr"
   },
   "coverage": {
-    "attempted_issue_count": 6,
+    "attempted_issue_count": 8,
     "is_complete": true,
     "missing_issue_count": 0,
     "missing_issue_numbers": [],
     "status": "complete"
   },
+  "deltas": {
+    "merged_only_rate": 0.375,
+    "no_rescue_truth_success_rate": 0.375,
+    "proxy_no_rescue_success_rate": 0.0,
+    "truth_success_rate": 0.375,
+    "unique_issues_attempted": 2.0
+  },
   "failure_class_distribution": {
     "blocked_not_dispatch_bounded": 3
   },
-  "generated_at": "2026-04-17T06:04:51Z",
+  "generated_at": "2026-04-17T12:41:41Z",
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
+  "previous_artifact": {
+    "generated_at": "2026-04-17T06:04:51Z",
+    "path": "docs/status/generated/benchmark_scorecards/tw-01-bounded-execution-v1/rev-3/scorecard-20260417T060451Z.json"
+  },
   "proxy_metrics": {
     "corpus": {
       "corpus_id": "tw-01-bounded-execution-v1",
@@ -41,20 +52,17 @@
       "success_contract": "mergeable_pr_or_merged_pr"
     },
     "coverage": {
-      "attempted_issue_count": 6,
-      "is_complete": false,
-      "missing_issue_count": 2,
-      "missing_issue_numbers": [
-        5814,
-        5820
-      ],
-      "status": "incomplete"
+      "attempted_issue_count": 8,
+      "is_complete": true,
+      "missing_issue_count": 0,
+      "missing_issue_numbers": [],
+      "status": "complete"
     },
     "failure_classes": {
       "blocked_not_dispatch_bounded": 3
     },
-    "mean_elapsed_seconds": 204.7,
-    "median_elapsed_seconds": 178.7,
+    "mean_elapsed_seconds": 0.0,
+    "median_elapsed_seconds": 0.0,
     "neutral_classes": {
       "issue_already_resolved": 5
     },
@@ -67,18 +75,18 @@
     },
     "tick_success_rate": 0.0,
     "total_ticks": 8,
-    "unique_issues_attempted": 6,
-    "unique_issues_failed": 1,
+    "unique_issues_attempted": 8,
+    "unique_issues_failed": 3,
     "unique_issues_neutral": 5,
     "unique_issues_succeeded": 0
   },
   "rescue_counts_by_type": {},
-  "truth_artifact_generated_at": "2026-04-17T06:04:39Z",
-  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260417T060439Z.json",
+  "truth_artifact_generated_at": "2026-04-17T12:41:28Z",
+  "truth_artifact_path": "docs/status/generated/benchmark_truth_artifacts/tw-01-bounded-execution-v1/rev-3/truth-20260417T124128Z.json",
   "truth_metrics": {
-    "merged_only_rate": 0.625,
-    "no_rescue_truth_success_rate": 0.625,
-    "truth_success_rate": 0.625,
+    "merged_only_rate": 1.0,
+    "no_rescue_truth_success_rate": 1.0,
+    "truth_success_rate": 1.0,
     "truth_success_rate_verified": 1.0
   }
 }

@@ -36,7 +36,7 @@
     "unlinked_issue_count": 0
   },
   "coverage": {
-    "attempted_issue_count": 6,
+    "attempted_issue_count": 8,
     "is_complete": true,
     "missing_issue_count": 0,
     "missing_issue_numbers": [],
@@ -45,17 +45,17 @@
   "failure_class_distribution": {
     "blocked_not_dispatch_bounded": 3
   },
-  "generated_at": "2026-04-17T06:04:39Z",
+  "generated_at": "2026-04-17T12:41:28Z",
   "in_flight_metrics": {
-    "in_progress_attempted_count": 1,
+    "in_progress_attempted_count": 3,
     "in_progress_expected_count": 3,
-    "in_progress_graduation_rate": 0.0,
+    "in_progress_graduation_rate": 1.0,
     "in_progress_issue_numbers": [
       5814,
       5818,
       5820
     ],
-    "in_progress_success_count": 0,
+    "in_progress_success_count": 3,
     "note": "In-flight corpus issues are bounded open tasks autonomy is on the hook to resolve. Graduation occurs when a merged PR closes them; they then move to verified via a corpus revision."
   },
   "issues": [
@@ -323,20 +323,32 @@
       "had_rescue": false,
       "issue_closed_at": null,
       "issue_number": 5814,
-      "issue_state": "",
+      "issue_state": "OPEN",
       "issue_state_reason": "",
       "issue_title": "Add unit tests for server/handlers/admin/health/liveness.py",
-      "issue_url": "",
+      "issue_url": "https://github.com/synaptent/aragora/issues/5814",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [],
-      "no_rescue_truth_success": false,
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-04-17T12:07:40Z",
+          "number": 6079,
+          "state": "MERGED",
+          "title": "feat(benchmarks): corpus v3 with verified/in_progress bucketing",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/6079"
+        }
+      ],
+      "no_rescue_truth_success": true,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "not_attempted",
-      "truth_success": false
+      "truth_state": "merged_pr",
+      "truth_success": true
     },
     {
       "expected_status": "in_progress",
@@ -350,44 +362,68 @@
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [],
-      "no_rescue_truth_success": false,
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-04-17T12:07:40Z",
+          "number": 6079,
+          "state": "MERGED",
+          "title": "feat(benchmarks): corpus v3 with verified/in_progress bucketing",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/6079"
+        }
+      ],
+      "no_rescue_truth_success": true,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "no_linked_pr",
-      "truth_success": false
+      "truth_state": "merged_pr",
+      "truth_success": true
     },
     {
       "expected_status": "in_progress",
       "had_rescue": false,
       "issue_closed_at": null,
       "issue_number": 5820,
-      "issue_state": "",
+      "issue_state": "OPEN",
       "issue_state_reason": "",
       "issue_title": "Add unit tests for billing/jwt_auth.py",
-      "issue_url": "",
+      "issue_url": "https://github.com/synaptent/aragora/issues/5820",
       "linkage_error": "",
       "linkage_status": "verified",
       "linkage_verification_incomplete": false,
-      "linked_prs": [],
-      "no_rescue_truth_success": false,
+      "linked_prs": [
+        {
+          "is_draft": false,
+          "merge_state_status": "UNKNOWN",
+          "mergeable": "UNKNOWN",
+          "merged_at": "2026-04-17T12:07:40Z",
+          "number": 6079,
+          "state": "MERGED",
+          "title": "feat(benchmarks): corpus v3 with verified/in_progress bucketing",
+          "truth_state": "merged_pr",
+          "url": "https://github.com/synaptent/aragora/pull/6079"
+        }
+      ],
+      "no_rescue_truth_success": true,
       "proxy_pr_signal": false,
       "stale_corpus_issue": false,
       "stale_corpus_reason": null,
-      "truth_state": "not_attempted",
-      "truth_success": false
+      "truth_state": "merged_pr",
+      "truth_success": true
     }
   ],
   "metrics_file": ".aragora/overnight/boss_metrics.jsonl",
   "primary_metrics": {
-    "merged_only_rate": 0.625,
-    "no_rescue_truth_success_rate": 0.625,
-    "truth_success_rate": 0.625,
+    "merged_only_rate": 1.0,
+    "no_rescue_truth_success_rate": 1.0,
+    "truth_success_rate": 1.0,
     "truth_success_rate_verified": 1.0
   },
   "proxy_metrics": {
-    "attempted_issue_count": 6,
+    "attempted_issue_count": 8,
     "note": "Proxy metrics are secondary. Truth metrics remain mergeable_pr OR merged_pr.",
     "proxy_pr_signal_issue_count": 0,
     "proxy_pr_signal_issue_rate": 0.0
