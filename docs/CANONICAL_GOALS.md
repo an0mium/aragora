@@ -89,6 +89,14 @@ Aragora must be useful to founders, operators, and small teams with limited time
 
 Nomic, swarm, and user-facing execution should converge on the same contract, ledger, memory, and control-plane surfaces. We do not want multiple autonomy stacks drifting apart. Repeated rescue classes should become benchmark fixtures and product work, not tribal knowledge.
 
+### 8. Agents and Humans as Co-Equal Consumers
+
+Software agents are about to become first-rate consumers of decisionmaking, memory, capability marketplaces, and reputation surfaces — alongside humans, not replacing them. Every consumer surface (registration, capability discovery, billing, decision receipts, reputation reads) ships in two forms, agent-readable and human-readable, backed by the same runtime truth.
+
+This pillar pulls the existing identity, reputation, staking, validation, A2A, marketplace, and receipt primitives into a unified consumer surface so the substrate Aragora is building can serve the emerging agent population without forking into a separate stack. The design constraint is parity: nothing humans can do through the platform should be unavailable to agents, and nothing agents can do should be unavailable to humans.
+
+The vision-layer planning for this pillar lives in [plans/AGENT_CIVILIZATION_SUBSTRATE.md](plans/AGENT_CIVILIZATION_SUBSTRATE.md) with sibling specs [plans/AGENT_CONSUMER_SURFACE.md](plans/AGENT_CONSUMER_SURFACE.md), [plans/SKIN_IN_THE_GAME_REPUTATION.md](plans/SKIN_IN_THE_GAME_REPUTATION.md), and [plans/2026-04-17-prediction-market-validation.md](plans/2026-04-17-prediction-market-validation.md). Live queue scope continues to follow the substrate-first gate in [status/NEXT_STEPS_CANONICAL.md](status/NEXT_STEPS_CANONICAL.md); these plans are planning truth, not active dispatch scope.
+
 ## Architectural Doctrine
 
 ### Aragora Is the Terrarium, Not the Organism
@@ -162,3 +170,4 @@ Aragora's trust story is structural:
 4. Shared memory improves future work without collapsing trust boundaries.
 5. Important claims and cruxes remain linked to evidence, receipts, freshness, and later settlement.
 6. Aragora evolves from tool -> teammate -> foreman -> chief of staff -> organization substrate on one coherent runtime.
+7. Agents and humans participate in the same substrate as co-equal consumers, with portable reputation tied to objectively verifiable outcomes through external truth oracles (prediction markets, public verifiable streams, synthetic in-repo markets) rather than to internal agreement.
