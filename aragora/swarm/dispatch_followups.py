@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any
@@ -12,8 +13,11 @@ from aragora.swarm.spec import SwarmSpec
 from aragora.swarm.spec_upgrader import (
     SpecUpgraderUnavailable,
     UpgradeFailureContext,
+    extract_drift_diagnostic,
     upgrade_spec,
 )
+
+logger = logging.getLogger(__name__)
 
 _MARKDOWN_BULLET_RE = re.compile(r"^[-*]\s+(?:\[[ xX]\]\s+)?(?P<text>.+)$")
 
@@ -187,10 +191,62 @@ def upgrade_on_contract_drift(
     return None
 
 
+def maybe_upgrade_on_contract_drift(
+    *,
+    gate_result: Any,
+    spec: SwarmSpec,
+    issue_number: int,
+    issue_title: str,
+    issue_body: str,
+    repo_root: Path,
+    metrics_path: Path,
+    llm_client: Any = None,
+) -> SwarmSpec | None:
+    """Seam B wiring helper -- extract drift from a failed contract-gate result.
+
+    Given the dict returned by
+    :func:`aragora.swarm.dispatch_contract_gate.dispatch_contract_gate` when
+    admission fails, pull out a drift diagnostic (if any), seed
+    ``expected.files`` from the spec's scope hints so the drift translator can
+    emit a concrete scoping criterion, and invoke
+    :func:`upgrade_on_contract_drift`.
+
+    Returns the upgraded :class:`SwarmSpec` when the upgrade produced a
+    dispatch-bounded spec; ``None`` when there was no drift to act on, the
+    upgrader escalated, or the LLM infrastructure was transiently unavailable.
+    """
+    drift = extract_drift_diagnostic(gate_result)
+    if drift is None:
+        return None
+    scope = [str(path).strip() for path in (spec.file_scope_hints or []) if str(path).strip()]
+    if scope:
+        expected = drift.setdefault("expected", {})
+        if not expected.get("files"):
+            expected["files"] = scope
+    try:
+        return upgrade_on_contract_drift(
+            spec,
+            issue_number=issue_number,
+            issue_title=issue_title,
+            issue_body=issue_body,
+            preflight_diff=drift,
+            repo_root=repo_root,
+            metrics_path=metrics_path,
+            llm_client=llm_client,
+        )
+    except SpecUpgraderUnavailable:
+        logger.warning(
+            "spec_upgrader_unavailable_on_contract_drift issue=#%s",
+            issue_number,
+        )
+        return None
+
+
 __all__ = [
     "SpecUpgraderUnavailable",
     "annotate_result_with_conductor",
     "maybe_upgrade_dispatch_spec",
+    "maybe_upgrade_on_contract_drift",
     "upgrade_on_contract_drift",
     "upgrade_unbounded_spec",
 ]

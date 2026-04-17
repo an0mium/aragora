@@ -900,7 +900,47 @@ async def dispatch_issue(
         claimed_runner_id,
     )
     if gate_result is not None:
-        return with_sanitizer_metadata(gate_result)
+        # Seam B: attempt one drift-feedback upgrade and re-enter the gate once
+        # before terminating with ``blocked_not_dispatch_bounded``.
+        # ``dispatch_contract_gate`` released ``claimed_runner_id`` on failure;
+        # clear our handle so we don't double-release.
+        claimed_runner_id = None
+        upgraded_spec_on_drift = dispatch_followups_mod.maybe_upgrade_on_contract_drift(
+            gate_result=gate_result,
+            spec=spec,
+            issue_number=int(issue.number),
+            issue_title=str(issue.title or ""),
+            issue_body=sanitized_issue_body,
+            repo_root=Path.cwd(),
+            metrics_path=Path(
+                loop.config.metrics_jsonl_path or ".aragora/overnight/boss_metrics.jsonl"
+            ),
+            llm_client=None,
+        )
+        if upgraded_spec_on_drift is not None:
+            spec = upgraded_spec_on_drift
+            selected_runner, claimed_runner_id = loop._claim_runner_for_dispatch(
+                freshness,
+                requested_target_agent=requested_target_agent,
+            )
+            if selected_runner is None:
+                selected_runner = loop._selected_runner_for_dispatch(
+                    freshness,
+                    requested_target_agent=requested_target_agent,
+                )
+            gate_result = dispatch_contract_gate(
+                loop,
+                issue,
+                spec,
+                selected_runner,
+                requested_target_agent,
+                refinement_worker_env,
+                claimed_runner_id,
+            )
+            if gate_result is not None:
+                claimed_runner_id = None
+        if gate_result is not None:
+            return with_sanitizer_metadata(gate_result)
 
     try:
         result = await dispatch_bounded_spec(
