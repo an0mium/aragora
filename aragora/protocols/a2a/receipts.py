@@ -22,8 +22,9 @@ behavior change" rule from ``docs/status/NEXT_STEPS_CANONICAL.md``.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
-import hmac
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -32,11 +33,12 @@ from typing import Any, Callable
 AGENT_RECEIPT_SCHEMA_VERSION = "1.0"
 DEFAULT_FRESHNESS_SLA_SECONDS = 24 * 3600  # 1 day
 DEFAULT_SETTLEMENT_WINDOW_SECONDS = 7 * 24 * 3600  # 7 days
-DEFAULT_SIGNATURE_ALGORITHM = "hmac-sha256"
+DEFAULT_SIGNATURE_ALGORITHM = "ed25519"
 DEFAULT_SIGNATURE_KEY_ID = "default"
 
-SignatureKey = str | bytes
-SignatureKeyResolver = Callable[[str, str], SignatureKey | None]
+SignaturePrivateKey = Any | str | bytes
+SignaturePublicKey = Any | str | bytes
+SignatureKeyResolver = Callable[[str, str], SignaturePublicKey | None]
 
 
 def _utc_now_iso() -> str:
@@ -51,18 +53,113 @@ def _sha256_hex(material: str) -> str:
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
-def _key_bytes(signing_key: SignatureKey) -> bytes:
-    if isinstance(signing_key, bytes):
-        key = signing_key
+def _decode_key_material(key: str | bytes, *, field_name: str) -> bytes:
+    if isinstance(key, bytes):
+        raw = key
     else:
-        key = str(signing_key).encode("utf-8")
-    if not key:
-        raise ValueError("signing_key must be non-empty")
-    return key
+        text = str(key).strip()
+        if not text:
+            raise ValueError(f"{field_name} must be non-empty")
+        if "BEGIN" in text:
+            return text.encode("utf-8")
+        try:
+            raw = base64.b64decode(text, validate=True)
+        except (binascii.Error, ValueError):
+            try:
+                raw = bytes.fromhex(text)
+            except ValueError:
+                raw = text.encode("utf-8")
+    if not raw:
+        raise ValueError(f"{field_name} must be non-empty")
+    return raw
 
 
-def _hmac_sha256_hex(material: str, signing_key: SignatureKey) -> str:
-    return hmac.new(_key_bytes(signing_key), material.encode("utf-8"), hashlib.sha256).hexdigest()
+def _load_ed25519_private_key(signing_key: SignaturePrivateKey) -> Any:
+    if hasattr(signing_key, "sign") and hasattr(signing_key, "public_key"):
+        return signing_key
+    if hasattr(signing_key, "verify") and not hasattr(signing_key, "sign"):
+        raise ValueError("signing_key must be an Ed25519 private key, not a public key")
+
+    try:
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    except ImportError as exc:
+        raise ImportError("cryptography package required for Ed25519 receipt signing") from exc
+
+    key_bytes = _decode_key_material(signing_key, field_name="signing_key")
+    if key_bytes.startswith(b"-----BEGIN"):
+        private_key = serialization.load_pem_private_key(key_bytes, password=None)
+        if not hasattr(private_key, "sign") or not hasattr(private_key, "public_key"):
+            raise ValueError("signing_key PEM must contain an Ed25519 private key")
+        return private_key
+    if len(key_bytes) != 32:
+        raise ValueError("signing_key must be 32 raw Ed25519 private-key bytes or PEM")
+    return Ed25519PrivateKey.from_private_bytes(key_bytes)
+
+
+def _load_ed25519_public_key(verification_key: SignaturePublicKey) -> Any:
+    if hasattr(verification_key, "verify"):
+        return verification_key
+
+    try:
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    except ImportError as exc:
+        raise ImportError("cryptography package required for Ed25519 receipt verification") from exc
+
+    key_bytes = _decode_key_material(verification_key, field_name="verification_key")
+    if key_bytes.startswith(b"-----BEGIN"):
+        public_key = serialization.load_pem_public_key(key_bytes)
+        if not hasattr(public_key, "verify"):
+            raise ValueError("verification_key PEM must contain an Ed25519 public key")
+        return public_key
+    if len(key_bytes) != 32:
+        raise ValueError("verification_key must be 32 raw Ed25519 public-key bytes or PEM")
+    return Ed25519PublicKey.from_public_bytes(key_bytes)
+
+
+def _public_key_bytes(public_key: Any) -> bytes:
+    try:
+        from cryptography.hazmat.primitives import serialization
+    except ImportError as exc:
+        raise ImportError("cryptography package required for Ed25519 receipt verification") from exc
+
+    return public_key.public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+
+
+def _public_key_sha256(public_key: Any) -> str:
+    return hashlib.sha256(_public_key_bytes(public_key)).hexdigest()
+
+
+def _ed25519_signature_b64(material: str, signing_key: Any) -> str:
+    signature = signing_key.sign(material.encode("utf-8"))
+    return base64.b64encode(signature).decode("ascii")
+
+
+def _verify_ed25519_signature(
+    material: str,
+    signature: str,
+    verification_key: SignaturePublicKey,
+) -> bool:
+    try:
+        public_key = _load_ed25519_public_key(verification_key)
+        signature_bytes = base64.b64decode(signature, validate=True)
+    except (ImportError, ValueError, binascii.Error):
+        return False
+
+    try:
+        from cryptography.exceptions import InvalidSignature
+    except ImportError:
+        return False
+
+    try:
+        public_key.verify(signature_bytes, material.encode("utf-8"))
+    except InvalidSignature:
+        return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -135,11 +232,10 @@ class AgentReceipt:
 
     All fields are JSON-serializable. ``receipt_id`` is a content
     address computed from the canonical receipt payload so identical
-    decisions deduplicate. ``signature`` is an HMAC-SHA256 over the
-    canonical payload plus signature metadata, using the issuer's
-    configured signing key. Verification therefore requires the issuer
-    key (or a resolver for it); the public payload alone is not enough to
-    mint a valid signature for changed content.
+    decisions deduplicate. ``signature`` is an Ed25519 signature over the
+    canonical payload plus public verification-key metadata, using the
+    issuer's private signing key. Verifiers need only the issuer's public
+    verification key, resolved by ``issuer`` and ``signature_key_id``.
 
     Forward compatibility: the schema is versioned; readers should
     accept any schema_version with the same major number and tolerate
@@ -160,6 +256,7 @@ class AgentReceipt:
     provenance: dict[str, Any]
     signature_key_id: str
     signature_algorithm: str
+    verification_key_sha256: str
     signature: str
 
     @classmethod
@@ -176,7 +273,7 @@ class AgentReceipt:
         settlement_window_seconds: int = DEFAULT_SETTLEMENT_WINDOW_SECONDS,
         provenance: dict[str, Any] | None = None,
         issued_at: str | None = None,
-        signing_key: SignatureKey | None = None,
+        signing_key: SignaturePrivateKey | None = None,
         signature_key_id: str = DEFAULT_SIGNATURE_KEY_ID,
     ) -> "AgentReceipt":
         if not str(issuer).strip():
@@ -195,6 +292,8 @@ class AgentReceipt:
         timestamp = issued_at or _utc_now_iso()
         provenance_dict = dict(provenance or {})
         key_id = str(signature_key_id).strip()
+        private_key = _load_ed25519_private_key(signing_key)
+        verification_key_sha256 = _public_key_sha256(private_key.public_key())
 
         # Build the canonical payload in a deterministic order. receipt_id
         # is omitted because it is content-addressed from this payload.
@@ -217,8 +316,9 @@ class AgentReceipt:
             **canonical_payload,
             "signature_key_id": key_id,
             "signature_algorithm": DEFAULT_SIGNATURE_ALGORITHM,
+            "verification_key_sha256": verification_key_sha256,
         }
-        signature = _hmac_sha256_hex(_canonical(signed_payload), signing_key)
+        signature = _ed25519_signature_b64(_canonical(signed_payload), private_key)
 
         return cls(
             receipt_id=receipt_id,
@@ -235,6 +335,7 @@ class AgentReceipt:
             provenance=provenance_dict,
             signature_key_id=key_id,
             signature_algorithm=DEFAULT_SIGNATURE_ALGORITHM,
+            verification_key_sha256=verification_key_sha256,
             signature=signature,
         )
 
@@ -258,27 +359,24 @@ class AgentReceipt:
             **self._canonical_payload(),
             "signature_key_id": self.signature_key_id,
             "signature_algorithm": self.signature_algorithm,
+            "verification_key_sha256": self.verification_key_sha256,
         }
 
     def verify_signature(
         self,
         *,
-        signing_key: SignatureKey | None = None,
+        verification_key: SignaturePublicKey | None = None,
         key_resolver: SignatureKeyResolver | None = None,
     ) -> bool:
-        """Verify this receipt with the issuer key or a key resolver."""
+        """Verify this receipt with an issuer public key or key resolver."""
         if self.signature_algorithm != DEFAULT_SIGNATURE_ALGORITHM:
             return False
-        key = signing_key
+        key = verification_key
         if key is None and key_resolver is not None:
             key = key_resolver(self.issuer, self.signature_key_id)
         if key is None:
             return False
-        try:
-            expected = _hmac_sha256_hex(_canonical(self._signed_payload()), key)
-        except ValueError:
-            return False
-        return hmac.compare_digest(expected, self.signature)
+        return _verify_ed25519_signature(_canonical(self._signed_payload()), self.signature, key)
 
     def is_fresh(self, *, now: datetime | None = None) -> bool:
         """Return True if the receipt is within its freshness SLA."""
@@ -333,6 +431,7 @@ class AgentReceipt:
             provenance=dict(data.get("provenance") or {}),
             signature_key_id=str(data.get("signature_key_id") or ""),
             signature_algorithm=str(data.get("signature_algorithm") or DEFAULT_SIGNATURE_ALGORITHM),
+            verification_key_sha256=str(data.get("verification_key_sha256") or ""),
             signature=str(data.get("signature") or ""),
         )
 
@@ -346,6 +445,7 @@ __all__ = [
     "AgentReceipt",
     "DissentEntry",
     "ReputationDelta",
-    "SignatureKey",
+    "SignaturePrivateKey",
+    "SignaturePublicKey",
     "SignatureKeyResolver",
 ]
