@@ -418,7 +418,7 @@ class AdminAPI:
 
     def get_mfa_compliance(self) -> dict[str, Any]:
         """Get MFA compliance status."""
-        return self._client.request("GET", "/api/v1/admin/mfa-compliance")
+        return self._client.request("GET", "/api/v1/admin/mfa/compliance")
 
 
 class AsyncAdminAPI:
@@ -708,4 +708,4 @@ class AsyncAdminAPI:
 
     async def get_mfa_compliance(self) -> dict[str, Any]:
         """Get MFA compliance status."""
-        return await self._client.request("GET", "/api/v1/admin/mfa-compliance")
+        return await self._client.request("GET", "/api/v1/admin/mfa/compliance")

@@ -160,6 +160,7 @@ class TestPromoteDraft:
         mock_gh.assert_called_once_with(
             ["pr", "ready", "5", "--repo", "owner/repo"],
             timeout=30.0,
+            write_op=True,
         )
 
 
@@ -196,7 +197,8 @@ class TestMergePr:
                 "--delete-branch",
                 "--match-head-commit",
                 "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-            ]
+            ],
+            write_op=True,
         )
 
 

@@ -38,7 +38,70 @@ def _user_admin_schema() -> dict[str, Any]:
     }
 
 
+def _mfa_compliance_response_schema() -> dict[str, Any]:
+    """Admin MFA compliance report schema."""
+    return {
+        "type": "object",
+        "properties": {
+            "total_admins": {"type": "integer"},
+            "mfa_enabled_count": {"type": "integer"},
+            "mfa_disabled_count": {"type": "integer"},
+            "in_grace_period": {"type": "integer"},
+            "compliance_pct": {"type": "number"},
+            "non_compliant_users": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "user_id": {"type": "string"},
+                        "role": {"type": "string"},
+                        "in_grace_period": {"type": "boolean"},
+                    },
+                },
+            },
+        },
+    }
+
+
+def _mfa_compliance_operation(*, operation_id: str) -> dict[str, Any]:
+    """OpenAPI operation for the admin MFA compliance report."""
+    return {
+        "tags": ["Admin", "MFA", "Compliance"],
+        "summary": "Get admin MFA compliance report",
+        "operationId": operation_id,
+        "description": "Returns a compliance report showing how many admin users have MFA enabled.",
+        "responses": {
+            "200": {
+                "description": "MFA compliance report",
+                "content": {
+                    "application/json": {
+                        "schema": _mfa_compliance_response_schema(),
+                    }
+                },
+            },
+            "401": {"description": "Authentication required"},
+            "403": {"description": "Admin privileges required"},
+            "501": {"description": "User store does not support listing users"},
+            "503": {"description": "User service unavailable"},
+        },
+        "security": [{"bearerAuth": []}],
+    }
+
+
 ADMIN_ENDPOINTS = {
+    # =========================================================================
+    # Admin MFA Compliance
+    # =========================================================================
+    "/api/v1/admin/mfa/compliance": {
+        "get": _mfa_compliance_operation(operation_id="adminGetMfaCompliance")
+    },
+    "/api/admin/mfa/compliance": {
+        "get": {
+            **_mfa_compliance_operation(operation_id="adminGetMfaComplianceLegacy"),
+            "deprecated": True,
+            "x-preserve-legacy-operation-id": True,
+        }
+    },
     # =========================================================================
     # Organization Management
     # =========================================================================

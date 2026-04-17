@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from datetime import UTC, datetime, timedelta
 from urllib.request import Request
 
@@ -141,3 +142,157 @@ def test_validate_github_api_request_rejects_non_github_host() -> None:
         assert "refusing non-GitHub API token request URL" in str(exc)
     else:  # pragma: no cover - explicit assertion branch for readability
         raise AssertionError("expected non-GitHub API request to be rejected")
+
+
+# ---------------------------------------------------------------------------
+# Rate-limit-aware gh subprocess wrapper
+# ---------------------------------------------------------------------------
+
+
+def test_is_rate_limit_error_recognizes_known_signatures() -> None:
+    assert mod.is_rate_limit_error("GraphQL: API rate limit already exceeded for user 1")
+    assert mod.is_rate_limit_error("error: API rate limit already exceeded")
+    assert mod.is_rate_limit_error("You have exceeded a secondary rate limit")
+    assert not mod.is_rate_limit_error("error: not found")
+    assert not mod.is_rate_limit_error("")
+
+
+def test_gh_subprocess_run_returns_success_immediately(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, '{"ok": true}', "")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "github_cli_env", lambda *, prefer_app=True: {"GH_TOKEN": "x"})
+
+    result = mod.gh_subprocess_run(["pr", "list"])
+    assert result.returncode == 0
+    assert calls == [["gh", "pr", "list"]]
+
+
+def test_gh_subprocess_run_does_not_retry_non_rate_limit_failures(monkeypatch) -> None:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 1, "", "error: not found")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "github_cli_env", lambda *, prefer_app=True: {})
+
+    result = mod.gh_subprocess_run(["pr", "view", "999"])
+    assert result.returncode == 1
+    assert calls == [["gh", "pr", "view", "999"]]  # only one attempt
+
+
+def test_gh_subprocess_run_retries_on_rate_limit_then_succeeds(monkeypatch) -> None:
+    attempts: list[int] = []
+    sleeps: list[float] = []
+
+    def fake_run(cmd, **kwargs):
+        attempts.append(len(attempts) + 1)
+        if len(attempts) < 3:
+            return subprocess.CompletedProcess(
+                cmd, 1, "", "GraphQL: API rate limit already exceeded for user 1"
+            )
+        return subprocess.CompletedProcess(cmd, 0, "[]", "")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "github_cli_env", lambda *, prefer_app=True: {})
+    # Force the reset-time probe to fail so we exercise the exponential-backoff fallback
+    monkeypatch.setattr(mod, "_seconds_until_reset", lambda env, *, bucket="core": None)
+
+    result = mod.gh_subprocess_run(
+        ["api", "graphql", "-f", "query=foo"],
+        max_retries=4,
+        base_backoff=1.0,
+        sleep=lambda delay: sleeps.append(delay),
+    )
+
+    assert result.returncode == 0
+    assert len(attempts) == 3
+    assert len(sleeps) == 2
+    assert all(delay > 0 for delay in sleeps)
+
+
+def test_gh_subprocess_run_respects_reset_delay_when_known(monkeypatch) -> None:
+    sleeps: list[float] = []
+
+    def fake_run(cmd, **kwargs):
+        if not sleeps:
+            return subprocess.CompletedProcess(
+                cmd, 1, "", "GraphQL: API rate limit already exceeded"
+            )
+        return subprocess.CompletedProcess(cmd, 0, "{}", "")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "github_cli_env", lambda *, prefer_app=True: {})
+    monkeypatch.setattr(mod, "_seconds_until_reset", lambda env, *, bucket="core": 30.0)
+
+    result = mod.gh_subprocess_run(
+        ["api", "graphql", "-f", "query=q"],
+        max_retries=2,
+        sleep=lambda delay: sleeps.append(delay),
+    )
+
+    assert result.returncode == 0
+    assert len(sleeps) == 1
+    assert 30.0 <= sleeps[0] <= 36.0  # reset_delay + jitter (1..5)
+
+
+def test_gh_subprocess_run_returns_last_failure_after_max_retries(monkeypatch) -> None:
+    sleeps: list[float] = []
+
+    def fake_run(cmd, **kwargs):
+        return subprocess.CompletedProcess(cmd, 1, "", "GraphQL: API rate limit already exceeded")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "github_cli_env", lambda *, prefer_app=True: {})
+    monkeypatch.setattr(mod, "_seconds_until_reset", lambda env, *, bucket="core": None)
+
+    result = mod.gh_subprocess_run(
+        ["api", "graphql"],
+        max_retries=2,
+        base_backoff=0.5,
+        sleep=lambda delay: sleeps.append(delay),
+    )
+
+    assert result.returncode == 1
+    assert "rate limit" in result.stderr.lower()
+    assert len(sleeps) == 2  # max_retries sleeps before giving up
+
+
+def test_gh_subprocess_run_write_op_drops_app_token(monkeypatch) -> None:
+    captured_envs: list[dict[str, str]] = []
+
+    def fake_run(cmd, **kwargs):
+        captured_envs.append(dict(kwargs.get("env") or {}))
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    def fake_env(*, prefer_app: bool = True):
+        if prefer_app:
+            return {
+                "GH_TOKEN": "app",
+                "GITHUB_TOKEN": "app",
+                "ARAGORA_GITHUB_AUTH_SOURCE": "github_app_installation",
+            }
+        return {"GH_TOKEN": "user", "GITHUB_TOKEN": "user"}
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(mod, "github_cli_env", fake_env)
+
+    mod.gh_subprocess_run(["issue", "edit", "1"], write_op=True)
+
+    assert len(captured_envs) == 1
+    env = captured_envs[0]
+    assert env.get("GH_TOKEN") == "user"
+    assert env.get("ARAGORA_GITHUB_AUTH_SOURCE") != "github_app_installation"
+
+
+def test_bucket_for_args_detects_graphql_via_args() -> None:
+    assert mod._bucket_for_args(["api", "graphql"], "") == "graphql"
+    assert mod._bucket_for_args(["api", "search/issues"], "") == "core"
+    assert mod._bucket_for_args(["pr", "list"], "") == "core"
+    assert mod._bucket_for_args(["pr", "list"], "graphql: api rate limit") == "graphql"
