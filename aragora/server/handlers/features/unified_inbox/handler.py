@@ -102,6 +102,20 @@ class UnifiedInboxHandler(BaseHandler):
         "/api/v1/inbox/stats",
         "/api/v1/inbox/trends",
     ]
+    _ROUTE_MAP = {
+        "GET /api/v1/inbox/oauth/gmail": "handle_request",
+        "GET /api/v1/inbox/oauth/outlook": "handle_request",
+        "POST /api/v1/inbox/connect": "handle_request",
+        "GET /api/v1/inbox/accounts": "handle_request",
+        "DELETE /api/v1/inbox/accounts/{account_id}": "handle_request",
+        "GET /api/v1/inbox/messages": "handle_request",
+        "GET /api/v1/inbox/messages/{message_id}": "handle_request",
+        "POST /api/v1/inbox/messages/{message_id}/debate": "handle_request",
+        "POST /api/v1/inbox/triage": "handle_request",
+        "POST /api/v1/inbox/bulk-action": "handle_request",
+        "GET /api/v1/inbox/stats": "handle_request",
+        "GET /api/v1/inbox/trends": "handle_request",
+    }
 
     def __init__(self, server_context: dict[str, Any] | None = None):
         """Initialize handler with optional server context."""
