@@ -139,6 +139,7 @@ This is the executable backlog for the next 30 days. Keep it to one bounded lane
 - `BC-07..09` until the repair loop is truthful, resumable, and consolidated into one operator model
 - `RS-11..12` until recovery-budget coverage extends to the remaining failure classes and the remaining status/reporter surfaces are ledger-backed
 - `DIC-13..22` until BC-12/Foreman reliability is proven; Epistemic CI, Crux Engine, and Epistemic Runtime issues may stay open for planning but must not enter the live boss-ready queue
+- `AGT-01..06` until the proof-first Foreman gate permits the upper-layer tranche; agent-civilization substrate, A2A consumer surface, prediction-market validation, skin-in-the-game reputation flow, and the productivity metric (VIAH) replacing empty-queue idle soaks may stay open for planning but must not enter the live boss-ready queue
 - `TW-07..09` until the bounded execution wedge is boringly reliable
 - `UDW-01..06` except for thin read-only queue, receipt, lineage, replay, retry, pause, resume, and override views backed by live runtime truth
 - `MCF-01..03` until the wedge needs permissioned memory to improve bounded execution instead of broad retrieval ambition
@@ -234,8 +235,28 @@ This tranche is complete when:
 4. at least one guarded admission path is real for the safest task class
 5. repeated rescue classes are captured as explicit product work instead of hidden labor
 
+## Vision-Layer Planning Track (`AGT-01..06`)
+
+The agent-civilization substrate work is now tracked as a parallel planning lane, mirroring the pattern used for `DIC-13..22`. Issues may be open and design work may proceed; **no `AGT-*` issue may carry `boss-ready` until the proof-first Foreman gate explicitly permits this tranche**, and the proof-first reconciler MUST strip `boss-ready` from any AGT-* issue restocked outside the permitted lane.
+
+| Code | Title | Detailed plan | Activation gate |
+|------|-------|---------------|-----------------|
+| `AGT-01` | Activate CruxDetector in live Arena debates | [crux-mode design](../plans/2026-04-16-crux-mode-design.md), Issue [#6035](https://github.com/synaptent/aragora/issues/6035), [agent-civilization substrate](../plans/AGENT_CIVILIZATION_SUBSTRATE.md) | DIC-15 CruxSet contract landed; substrate gate permits debate-path flag flip |
+| `AGT-02` | A2A consumer surface (registration, capability discovery, billing, agent receipts) | [agent consumer surface](../plans/AGENT_CONSUMER_SURFACE.md) | substrate gate permits upper-layer tranche; existing A2A and marketplace primitives stable |
+| `AGT-03` | Manifold integration with rolling Brier scoring | [prediction-market validation](../plans/2026-04-17-prediction-market-validation.md) | AGT-02 stable; rate-limit / GitHub-app token strategy in place for non-Manifold dependencies |
+| `AGT-04` | Synthetic GitHub prediction markets | [prediction-market validation](../plans/2026-04-17-prediction-market-validation.md) | none (internal); proof-first reconciler stable enough not to be disrupted by added market objects |
+| `AGT-05` | Skin-in-the-game reputation flow wiring | [skin-in-the-game reputation](../plans/SKIN_IN_THE_GAME_REPUTATION.md) | AGT-03 and AGT-04 producing resolved outcomes; DIC-16 receipt/KM provenance landed |
+| `AGT-06` | Verifiable improvements per agent-hour (VIAH) metric | [agent-civilization substrate](../plans/AGENT_CIVILIZATION_SUBSTRATE.md) §4 | RS-10 ShiftLedger stable on `main` (already true); BC-12 substrate gate decision to retire empty-queue soaks in favour of VIAH |
+
+Capability checkpoints for the booster-rocket thesis (CP-1..CP-5) live in [agent-civilization substrate §5](../plans/AGENT_CIVILIZATION_SUBSTRATE.md). Failing a checkpoint downscales the next investment rather than pausing the whole vision.
+
 ## References
 
 - [Evolution roadmap](./aragora-evolution-roadmap)
 - [Active execution issues](./active-execution-issues)
 - [Commercial overview](../enterprise/commercial-overview)
+- [Agent-civilization substrate](../plans/AGENT_CIVILIZATION_SUBSTRATE.md)
+- [Agent consumer surface](../plans/AGENT_CONSUMER_SURFACE.md)
+- [Skin-in-the-game reputation](../plans/SKIN_IN_THE_GAME_REPUTATION.md)
+- [Prediction-market validation](../plans/2026-04-17-prediction-market-validation.md)
+- [Epistemic CI and Crux Engine](../plans/EPISTEMIC_CI_AND_CRUX_ENGINE.md)
